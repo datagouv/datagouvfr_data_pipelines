@@ -169,8 +169,7 @@ def process_dvf_stats(ti):
         # choix : les terres et/ou dépendances ne rendent pas une mutation
         # multitype
         ventes = df.loc[
-            (df["nature_mutation"].isin(natures_of_interest))
-            & (df["code_type_local"].isin([1, 2, 4]))
+            (df["nature_mutation"].isin(natures_of_interest)) & (df["code_type_local"].isin([1, 2, 4]))
         ]
         del df
         ventes["month"] = (
@@ -188,12 +187,10 @@ def process_dvf_stats(ti):
         multitypes = ventes[["id_mutation", "code_type_local"]].value_counts()
         multitypes_ = multitypes.unstack()
         mutations_drop = multitypes_.loc[
-            sum([multitypes_[c].isna() for c in multitypes_.columns])
-            < len(multitypes_.columns) - 1
+            sum([multitypes_[c].isna() for c in multitypes_.columns]) < len(multitypes_.columns) - 1
         ].index
         ventes_nodup = ventes.loc[
-            ~(ventes["id_mutation"].isin(mutations_drop))
-            & ~(ventes["code_type_local"].isna())
+            ~(ventes["id_mutation"].isin(mutations_drop)) & ~(ventes["code_type_local"].isna())
         ]
         print(len(ventes_nodup))
 
@@ -220,8 +217,7 @@ def process_dvf_stats(ti):
         # on la divise par la surface totale, sachant qu'on n'a gardé
         # que les mutations monotypes
         ventes_nodup["prix_m2"] = (
-            ventes_nodup["valeur_fonciere"] /
-            ventes_nodup["surface_totale_mutation"]
+            ventes_nodup["valeur_fonciere"] / ventes_nodup["surface_totale_mutation"]
         )
         ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
             [np.inf, -np.inf], np.nan
@@ -317,17 +313,14 @@ def process_dvf_stats(ti):
                     )
                 ] = len(
                     ventes.loc[
-                        (ventes["code_type_local"] == t) &
-                        (ventes["month"] == m)
+                        (ventes["code_type_local"] == t) & (ventes["month"] == m)
                     ]
                 )
                 general[
-                    "moy_prix_m2_" +
-                    unidecode(types_bien[t].split(" ")[0].lower())
+                    "moy_prix_m2_" + unidecode(types_bien[t].split(" ")[0].lower())
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t)
-                        & (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t) & (ventes_nodup["month"] == m)
                     ]["prix_m2"].mean()
                 )
                 general[
@@ -336,14 +329,12 @@ def process_dvf_stats(ti):
                     )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t)
-                        & (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t) & (ventes_nodup["month"] == m)
                     ]["prix_m2"].median()
                 )
 
             all_month = pd.concat(
-                list(dfs_dict.values()) +
-                [pd.DataFrame([general])]
+                list(dfs_dict.values()) + [pd.DataFrame([general])]
             )
             all_month["annee_mois"] = f'{year}-{"0"+str(m) if m<10 else m}'
             export = pd.concat([export, all_month])
@@ -393,18 +384,15 @@ def process_dvf_stats(ti):
     ]["code_geo"].str.slice(0, 5)
     export.loc[export["echelle_geo"] == "nation", "code_parent"] = "-"
     export.loc[
-        (export["echelle_geo"] == "commune")
-        & (export["code_geo"].str.startswith("75")),
+        (export["echelle_geo"] == "commune") & (export["code_geo"].str.startswith("75")),
         "code_parent",
     ] = "200054781"
     export.loc[
-        (export["echelle_geo"] == "commune")
-        & (export["code_geo"].str.startswith("13")),
+        (export["echelle_geo"] == "commune") & (export["code_geo"].str.startswith("13")),
         "code_parent",
     ] = "200054807"
     export.loc[
-        (export["echelle_geo"] == "commune")
-        & (export["code_geo"].str.startswith("69")),
+        (export["echelle_geo"] == "commune") & (export["code_geo"].str.startswith("69")),
         "code_parent",
     ] = "200046977"
     export["code_parent"] = export["code_parent"].fillna("NA")

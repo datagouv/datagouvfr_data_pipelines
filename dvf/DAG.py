@@ -18,8 +18,8 @@ DAG_FOLDER = 'dag_datagouv_data_pipelines/'
 DAG_NAME = 'process_dvf_data'
 
 default_args = {
-   'email': ['geoffrey.aldebert@data.gouv.fr'],
-   'email_on_failure': True
+    'email': ['geoffrey.aldebert@data.gouv.fr'],
+    'email_on_failure': True
 }
 
 with DAG(
