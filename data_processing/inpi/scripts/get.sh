@@ -1,16 +1,18 @@
 #! /bin/bash
 USER=`echo $2`
 PASS=`echo $3`
+TMPFOLDER=`echo $TMPFOLDER`
 
 DATETOPROCESS=`echo $1 | sed 's/-/\//g'`
 echo $DATETOPROCESS
 
-mkdir -p /tmp/inpi/flux-tc
-mkdir -p /tmp/inpi/stock
-mkdir -p /tmp/inpi/synthese
+
+mkdir -p $TMPFOLDER"flux-tc"
+mkdir -p $TMPFOLDER"stock"
+mkdir -p $TMPFOLDER"synthese"
 
 REGEX="/public/IMR_Donnees_Saisies/tc/flux/"$DATETOPROCESS"/*/*/*.csv"
-cd /tmp/inpi/flux-tc
+cd $TMPFOLDER"flux-tc"
 mkdir -p $DATETOPROCESS
 cd $DATETOPROCESS
 
@@ -30,7 +32,7 @@ done;
 fi
 
 REGEX="/public/IMR_Donnees_Saisies/tc/stock/"$DATETOPROCESS"/*.zip"
-cd /tmp/inpi/stock
+cd $TMPFOLDER"stock"
 mkdir -p $DATETOPROCESS
 cd $DATETOPROCESS
 

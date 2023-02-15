@@ -9,23 +9,29 @@ import glob
 import unidecode
 import pandas as pd
 import sqlite3
-import requests
 import json
 import time
 
-from datagouv_dataeng_utils.minio import send_files
+from dag_datagouv_data_pipelines.utils.minio import send_files, get_files
+from dag_datagouv_data_pipelines.utils.mattermost import send_message
 
 MINIO_URL = Variable.get("MINIO_URL")
-MINIO_BUCKET = Variable.get("MINIO_BUCKET_OPENDATA")
-MINIO_USER = Variable.get("SECRET_MINIO_USER_OPENDATA")
-MINIO_PASSWORD = Variable.get("SECRET_MINIO_PASSWORD_OPENDATA")
+MINIO_BUCKET = Variable.get("MINIO_BUCKET_DATA_PIPELINE")
+MINIO_USER = Variable.get("SECRET_MINIO_DATA_PIPELINE_USER")
+MINIO_PASSWORD = Variable.get("SECRET_MINIO_DATA_PIPELINE_PASSWORD")
 
 INPI_USER = Variable.get("SECRET_INPI_USER")
 INPI_PWD = Variable.get("SECRET_INPI_PASSWORD")
 
-TMP_FOLDER = "/tmp/inpi/"
+AIRFLOW_ENV = Variable.get("AIRFLOW_ENV")
+
+AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME")
+DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
+TMP_FOLDER = f"{Variable.get('AIRFLOW_DAG_TMP')}inpi/"
 PATH_MINIO_INPI_DATA = "inpi/"
-PATH_MINIO_PROCESSED_INPI_DATA = "ae/"
+
+
+MATTERMOST_ENDPOINT = Variable.get("MATTERMOST_DATAGOUV_DATAENG")
 
 client = Minio(
     MINIO_URL,
@@ -102,8 +108,19 @@ def concatFilesRep(
 
 
 def get_latest_db(ti):
-    client.fget_object(
-        "opendata", PATH_MINIO_INPI_DATA + "inpi.db", TMP_FOLDER + "inpi.db"
+    get_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET,
+        MINIO_USER=MINIO_USER,
+        MINIO_PASSWORD=MINIO_PASSWORD,
+        list_files=[
+            {
+                "source_path": PATH_MINIO_INPI_DATA,
+                "source_name": "inpi.db",
+                "dest_path": TMP_FOLDER,
+                "dest_name": "inpi.db",
+            }
+        ],
     )
 
     start_date = ti.xcom_pull(key="start_date", task_ids="get_start_date")
@@ -181,7 +198,6 @@ def uniformizeDf(df):
 
 # Toutes les dates après la date du stock initial
 def update_db(ti):
-
     start_date = ti.xcom_pull(key="start_date", task_ids="get_start_date")
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.today() - timedelta(days=1)
@@ -204,7 +220,9 @@ def update_db(ti):
             # Add new stock
             dfpp.set_index("siren").to_sql("rep_pp", con=connection, if_exists="append")
             dfpm.set_index("siren").to_sql("rep_pm", con=connection, if_exists="append")
-            print(f"Stock processed : {str(dfpp.shape[0] + dfpm.shape[0])} added records")
+            print(
+                f"Stock processed : {str(dfpp.shape[0] + dfpm.shape[0])} added records"
+            )
 
         consofile = TMP_FOLDER + "synthese/" + d + "_flux_rep.csv"
         if os.path.exists(consofile):
@@ -212,7 +230,9 @@ def update_db(ti):
             dfpp, dfpm = uniformizeDf(df)
             dfpp.set_index("siren").to_sql("rep_pp", con=connection, if_exists="append")
             dfpm.set_index("siren").to_sql("rep_pm", con=connection, if_exists="append")
-            print(f"Flux rep processed : {str(dfpp.shape[0] + dfpm.shape[0])} added records")
+            print(
+                f"Flux rep processed : {str(dfpp.shape[0] + dfpm.shape[0])} added records"
+            )
 
         consofile = TMP_FOLDER + "synthese/" + d + "_flux_rep_nouveau_modifie.csv"
         if os.path.exists(consofile):
@@ -220,7 +240,9 @@ def update_db(ti):
             dfpp, dfpm = uniformizeDf(df)
             dfpp.set_index("siren").to_sql("rep_pp", con=connection, if_exists="append")
             dfpm.set_index("siren").to_sql("rep_pm", con=connection, if_exists="append")
-            print(f"Flux rep modified new processed : {str(dfpp.shape[0] + dfpm.shape[0])} added records")
+            print(
+                f"Flux rep modified new processed : {str(dfpp.shape[0] + dfpm.shape[0])} added records"
+            )
 
         consofile = TMP_FOLDER + "synthese/" + d + "_flux_rep_partant.csv"
         if os.path.exists(consofile):
@@ -262,22 +284,28 @@ def update_db(ti):
 
 
 def upload_minio_db():
-    # client.fput_object("opendata", PATH_MINIO_PROCESSED_INPI_DATA+"rep_pm.csv", TMP_FOLDER+"rep_pm.csv",)
-    # client.fput_object("opendata", PATH_MINIO_PROCESSED_INPI_DATA+"rep_pp.csv", TMP_FOLDER+"rep_pp.csv",)
-    client.fput_object(
-        "opendata",
-        PATH_MINIO_INPI_DATA + "inpi.db",
-        TMP_FOLDER + "inpi.db",
+    send_to_minio(
+        [
+            {
+                "source_path": TMP_FOLDER,
+                "source_name": "inpi.db",
+                "dest_path": PATH_MINIO_INPI_DATA,
+                "dest_name": "inpi.db",
+            }
+        ]
     )
 
 
 def upload_minio_clean_db():
-    # client.fput_object("opendata", PATH_MINIO_PROCESSED_INPI_DATA+"rep_pm.csv", TMP_FOLDER+"rep_pm.csv",)
-    # client.fput_object("opendata", PATH_MINIO_PROCESSED_INPI_DATA+"rep_pp.csv", TMP_FOLDER+"rep_pp.csv",)
-    client.fput_object(
-        "opendata",
-        PATH_MINIO_INPI_DATA + "inpi-clean.db",
-        TMP_FOLDER + "inpi-clean.db",
+    send_to_minio(
+        [
+            {
+                "source_path": TMP_FOLDER,
+                "source_name": "inpi-clean.db",
+                "dest_path": PATH_MINIO_INPI_DATA,
+                "dest_name": "inpi-clean.db",
+            }
+        ]
     )
 
 
@@ -292,10 +320,25 @@ def check_emptiness():
 
 
 def get_start_date_minio(ti):
-    r = requests.get(
-        "https://object.files.data.gouv.fr/opendata/ae/latest_inpi_date.json"
+    get_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET,
+        MINIO_USER=MINIO_USER,
+        MINIO_PASSWORD=MINIO_PASSWORD,
+        list_files=[
+            {
+                "source_path": PATH_MINIO_INPI_DATA,
+                "source_name": "latest_inpi_date.json",
+                "dest_path": TMP_FOLDER,
+                "dest_name": "latest_inpi_date.json",
+            }
+        ],
     )
-    start_date = r.json()["latest_date"]
+
+    with open(f"{TMP_FOLDER}/latest_inpi_date.json") as fp:
+        data = json.load(fp)
+
+    start_date = data["latest_date"]
     dt_sd = datetime.strptime(start_date, "%Y-%m-%d")
     start_date = datetime.strftime((dt_sd + timedelta(days=1)), "%Y-%m-%d")
     ti.xcom_push(key="start_date", value=start_date)
@@ -315,26 +358,31 @@ def get_latest_files_from_start_date(ti):
         get_latest_files_bash = BashOperator(
             task_id="get_latest_files_bash",
             bash_command=(
-                f"/opt/airflow/dags/dag_datagouv_data_pipelines/inpi/get.sh "
-                f"{day} {INPI_USER} {INPI_PWD}"
-            )
+                f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}/inpi/scripts/get.sh "
+                f"{day} {INPI_USER} {INPI_PWD} {TMP_FOLDER}"
+            ),
         )
         get_latest_files_bash.execute(dict())
 
 
-def upload_latest_date_inpi_minio():
+def upload_latest_date_inpi_minio(ti):
     latest_date = datetime.strftime((datetime.today() - timedelta(days=1)), "%Y-%m-%d")
     data = {}
     data["latest_date"] = latest_date
     with open(TMP_FOLDER + "latest_inpi_date.json", "w") as write_file:
         json.dump(data, write_file)
 
-    client.fput_object(
-        bucket_name="opendata",
-        object_name=PATH_MINIO_PROCESSED_INPI_DATA + "latest_inpi_date.json",
-        file_path=TMP_FOLDER + "latest_inpi_date.json",
-        content_type="application/json",
+    send_to_minio(
+        [
+            {
+                "source_path": TMP_FOLDER,
+                "source_name": "latest_inpi_date.json",
+                "dest_path": PATH_MINIO_INPI_DATA,
+                "dest_name": "latest_inpi_date.db",
+            }
+        ]
     )
+    ti.xcom_push(key="end_date", value=latest_date)
 
 
 # Connect to database
@@ -369,10 +417,12 @@ def normalize_date(date_string):
 
 
 def normalize_row_pp(row):
-    return normalize_string(row["siren"]) + \
-        normalize_string(row["nom_patronymique"]) + \
-        normalize_string(row["nom_usage"]) + \
+    return (
+        normalize_string(row["siren"]) +
+        normalize_string(row["nom_patronymique"]) +
+        normalize_string(row["nom_usage"]) +
         normalize_string(row["prenoms"])
+    )
 
 
 def remove_useless_spaces(serie):
@@ -648,3 +698,11 @@ def clean_db_dirigeant_pm():
             index=False,
         )
     del dir_pm_clean
+
+
+def notification_mattermost(ti):
+    start_date = ti.xcom_pull(key="start_date", task_ids="get_start_date")
+    end_date = ti.xcom_pull(key="end_date", task_ids="upload_latest_date_inpi")
+    send_message(
+        f"Données INPI mise à jour de {start_date} à {end_date} sur Minio - Bucket {MINIO_BUCKET}",
+    )

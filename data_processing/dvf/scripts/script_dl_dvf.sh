@@ -2,11 +2,9 @@
 curr_year=2022
 five_ago=$((curr_year-5))
 echo $PWD
-DATADIR="/tmp/data"
+DATADIR="$1"
 rm -rf $DATADIR
 mkdir -p $DATADIR
-
-echo temp > $DATADIR/query.txt
 
 URL_departements='https://www.insee.fr/fr/statistiques/fichier/6051727/departement_2022.csv'
 URL_communes='https://www.insee.fr/fr/statistiques/fichier/6051727/commune_2022.csv'

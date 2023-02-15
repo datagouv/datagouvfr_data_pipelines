@@ -1,21 +1,27 @@
 from airflow.models import DAG, Variable
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+from operators.clean_folder import CleanFolderOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from dag_datagouv_data_pipelines.dvf.task_functions import (
+from dag_datagouv_data_pipelines.data_processing.dvf.task_functions import (
     create_dvf_table,
     create_stats_dvf_table,
     get_epci,
     populate_dvf_table,
     populate_stats_dvf_table,
     process_dvf_stats,
+    publish_stats_dvf,
+    notification_mattermost,
 )
 
 AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME")
-TMP_FOLDER = '/tmp/'
-DAG_FOLDER = 'dag_datagouv_data_pipelines/'
-DAG_NAME = 'process_dvf_data'
+TMP_FOLDER = f"{Variable.get('AIRFLOW_DAG_TMP')}dvf/"
+DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
+DAG_NAME = 'data_processing_dvf'
+DATADIR = f"{Variable.get('AIRFLOW_DAG_TMP')}dvf/data"
+
+MATTERMOST_ENDPOINT = Variable.get("MATTERMOST_DATAGOUV_DATAENG")
 
 default_args = {
     'email': ['geoffrey.aldebert@data.gouv.fr'],
@@ -27,14 +33,21 @@ with DAG(
     schedule_interval='15 7 1 * *',
     start_date=days_ago(1),
     dagrun_timeout=timedelta(minutes=60),
-    tags=[],
+    tags=["dvf", "stats"],
     default_args=default_args,
 ) as dag:
 
+    clean_previous_outputs = CleanFolderOperator(
+        task_id="clean_previous_outputs",
+        folder_path=TMP_FOLDER
+    )
+
     download_dvf_data = BashOperator(
         task_id='download_dvf_data',
-        bash_command=f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-        "dvf/scripts/script_dl_dvf.sh "
+        bash_command=(
+            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"dvf/scripts/script_dl_dvf.sh {DATADIR}"
+        )
     )
 
     create_dvf_table = PythonOperator(
@@ -67,9 +80,22 @@ with DAG(
         python_callable=populate_stats_dvf_table,
     )
 
+    publish_stats_dvf = PythonOperator(
+        task_id='publish_stats_dvf',
+        python_callable=publish_stats_dvf,
+    )
+
+    notification_mattermost = PythonOperator(
+        task_id="notification_mattermost",
+        python_callable=notification_mattermost,
+    )
+
+    download_dvf_data.set_upstream(clean_previous_outputs)
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
     get_epci.set_upstream(populate_dvf_table)
     process_dvf_stats.set_upstream(get_epci)
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
+    publish_stats_dvf.set_upstream(populate_stats_dvf_table)
+    notification_mattermost.set_upstream(publish_stats_dvf)

@@ -1,9 +1,9 @@
-from airflow import DAG
+from airflow.models import DAG, Variable
 from datetime import timedelta
+from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from operators.clean_folder import CleanFolderOperator
 from airflow.utils.dates import days_ago
-from dag_datagouv_data_pipelines.inpi.task_functions import (
+from dag_datagouv_data_pipelines.data_processing.inpi.task_functions import (
     get_start_date_minio,
     get_latest_files_from_start_date,
     check_emptiness,
@@ -18,12 +18,13 @@ from dag_datagouv_data_pipelines.inpi.task_functions import (
     create_index_clean_db,
     upload_minio_clean_db,
     create_clean_db,
+    notification_mattermost,
 )
 
-TMP_FOLDER = '/tmp/inpi/'
+TMP_FOLDER = f"{Variable.get('AIRFLOW_DAG_TMP')}inpi/"
 
 with DAG(
-    dag_id='inpi-dirigeants',
+    dag_id='data_processing_inpi_dirigeants',
     schedule_interval='0 14 * * *',
     start_date=days_ago(1),
     dagrun_timeout=timedelta(minutes=180),
@@ -31,9 +32,9 @@ with DAG(
     params={},
 ) as dag:
 
-    clean_previous_outputs = CleanFolderOperator(
-        task_id="clean_previous_outputs",
-        folder_path=TMP_FOLDER
+    clean_previous_outputs = BashOperator(
+        task_id='clean_previous_outputs',
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}"
     )
 
     get_start_date = PythonOperator(
@@ -106,6 +107,11 @@ with DAG(
         python_callable=upload_latest_date_inpi_minio
     )
 
+    notification_mattermost = PythonOperator(
+        task_id="notification_mattermost",
+        python_callable=notification_mattermost,
+    )
+
     get_start_date.set_upstream(clean_previous_outputs)
     get_latest_files.set_upstream(get_start_date)
     is_empty_folders.set_upstream(get_latest_files)
@@ -124,3 +130,5 @@ with DAG(
 
     upload_latest_date_inpi.set_upstream(upload_minio_clean_db)
     upload_latest_date_inpi.set_upstream(upload_inpi_files_to_minio)
+
+    notification_mattermost.set_upstream(upload_latest_date_inpi)
