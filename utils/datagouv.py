@@ -1,12 +1,11 @@
-from airflow.models import Variable
 from typing import List, Optional, TypedDict
 import requests
 import os
+from dag_datagouv_data_pipelines.config import AIRFLOW_ENV
 
-ENV = Variable.get("AIRFLOW_ENV")
-if ENV == "dev":
+if AIRFLOW_ENV == "dev":
     DATAGOUV_URL = "https://demo.data.gouv.fr"
-if ENV == "prod":
+if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
 
 
@@ -201,6 +200,7 @@ def update_dataset_or_resource_metadata(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
 
     r = requests.put(url, json=payload, headers=headers)
+    assert r.status_code == 200
     return r.json()
 
 
@@ -266,3 +266,43 @@ def delete_dataset_or_resource_extras(
         return {"message": "ok"}
     else:
         return r.json()
+
+
+def create_post(
+    api_key: str,
+    name: str,
+    headline: str,
+    content: str,
+    body_type: str,
+    tags: Optional[List] = [],
+):
+    """Create a post in data.gouv.fr
+
+    Args:
+        api_key (str): API key from data.gouv.fr
+        name (str): name of post.
+        headline (str): headline of post
+        content (str) : content of post
+        body_type (str) : body type of post (html or markdown)
+        tags: Option list of tags for post
+
+    Returns:
+       json: return API result in a dictionnary containing metadatas
+    """
+    headers = {
+        "X-API-KEY": api_key,
+    }
+
+    r = requests.post(
+        f"{DATAGOUV_URL}/api/1/posts/",
+        json={
+            'name': name,
+            'headline': headline,
+            'content': content,
+            'body_type': body_type,
+            'tags': tags
+        },
+        headers=headers
+    )
+    assert r.status_code == 200
+    return r.json()

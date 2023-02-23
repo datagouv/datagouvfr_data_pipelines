@@ -1,9 +1,13 @@
-from airflow.models import DAG, Variable
+from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from operators.clean_folder import CleanFolderOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
+from dag_datagouv_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
+)
 from dag_datagouv_data_pipelines.data_processing.dvf.task_functions import (
     create_dvf_table,
     create_stats_dvf_table,
@@ -15,13 +19,10 @@ from dag_datagouv_data_pipelines.data_processing.dvf.task_functions import (
     notification_mattermost,
 )
 
-AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME")
-TMP_FOLDER = f"{Variable.get('AIRFLOW_DAG_TMP')}dvf/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_dvf'
-DATADIR = f"{Variable.get('AIRFLOW_DAG_TMP')}dvf/data"
-
-MATTERMOST_ENDPOINT = Variable.get("MATTERMOST_DATAGOUV_DATAENG")
+DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 
 default_args = {
     'email': ['geoffrey.aldebert@data.gouv.fr'],
@@ -33,7 +34,7 @@ with DAG(
     schedule_interval='15 7 1 * *',
     start_date=days_ago(1),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["dvf", "stats"],
+    tags=["data_processing", "dvf", "stats"],
     default_args=default_args,
 ) as dag:
 

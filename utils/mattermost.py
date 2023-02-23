@@ -1,8 +1,10 @@
-from airflow.models import Variable
 import requests
 from typing import Optional
-
-ENV = Variable.get("AIRFLOW_ENV")
+from dag_datagouv_data_pipelines.config import (
+    AIRFLOW_ENV,
+    MATTERMOST_DATAGOUV_DATAENG,
+    MATTERMOST_DATAGOUV_DATAENG_TEST,
+)
 
 
 def send_message(
@@ -19,10 +21,10 @@ def send_message(
         with your text. Defaults to None.
     """
     if not endpoint_url:
-        if ENV == "dev":
-            endpoint_url = Variable.get("MATTERMOST_DATAGOUV_DATAENG_TEST")
-        if ENV == "prod":
-            endpoint_url = Variable.get("MATTERMOST_DATAGOUV_DATAENG")
+        if AIRFLOW_ENV == "dev":
+            endpoint_url = MATTERMOST_DATAGOUV_DATAENG_TEST
+        if AIRFLOW_ENV == "prod":
+            endpoint_url = MATTERMOST_DATAGOUV_DATAENG
     data = {}
     data["text"] = text
     if image_url:

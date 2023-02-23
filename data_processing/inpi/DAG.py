@@ -1,8 +1,11 @@
-from airflow.models import DAG, Variable
+from airflow.models import DAG
 from datetime import timedelta
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
+from dag_datagouv_data_pipelines.config import (
+    AIRFLOW_DAG_TMP,
+)
 from dag_datagouv_data_pipelines.data_processing.inpi.task_functions import (
     get_start_date_minio,
     get_latest_files_from_start_date,
@@ -21,14 +24,14 @@ from dag_datagouv_data_pipelines.data_processing.inpi.task_functions import (
     notification_mattermost,
 )
 
-TMP_FOLDER = f"{Variable.get('AIRFLOW_DAG_TMP')}inpi/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}inpi/"
 
 with DAG(
     dag_id='data_processing_inpi_dirigeants',
     schedule_interval='0 14 * * *',
     start_date=days_ago(1),
     dagrun_timeout=timedelta(minutes=180),
-    tags=['inpi', 'dirigeants'],
+    tags=["data_processing", "inpi", "dirigeants"],
     params={},
 ) as dag:
 

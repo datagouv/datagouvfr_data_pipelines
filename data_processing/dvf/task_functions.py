@@ -1,5 +1,10 @@
-from airflow.models import Variable
 from airflow.hooks.base import BaseHook
+from dag_datagouv_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
+    DATAGOUV_SECRET_API_KEY,
+    AIRFLOW_ENV,
+)
 from dag_datagouv_data_pipelines.utils.postgres import execute_sql_file, copy_file
 from dag_datagouv_data_pipelines.utils.datagouv import post_resource
 from dag_datagouv_data_pipelines.utils.mattermost import send_message
@@ -12,10 +17,8 @@ import pandas as pd
 import requests
 import json
 
-AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME")
 DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
-DATADIR = f"{Variable.get('AIRFLOW_DAG_TMP')}dvf/data"
-ENV = Variable.get("AIRFLOW_ENV")
+DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 
 conn = BaseHook.get_connection("postgres_localhost")
 
@@ -412,22 +415,22 @@ def publish_stats_dvf(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
     post_resource(
-        api_key=Variable.get("DATAGOUV_SECRET_API_KEY"),
+        api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload={
             "dest_path": f"{DATADIR}/",
             "dest_name": data["file"]
         },
-        dataset_id=data[ENV]["dataset_id"],
-        resource_id=data[ENV]["resource_id"],
+        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
+        resource_id=data[AIRFLOW_ENV]["resource_id"],
     )
-    ti.xcom_push(key="dataset_id", value=data[ENV]["dataset_id"])
+    ti.xcom_push(key="dataset_id", value=data[AIRFLOW_ENV]["dataset_id"])
 
 
 def notification_mattermost(ti):
     dataset_id = ti.xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
-    if ENV == "dev":
+    if AIRFLOW_ENV == "dev":
         url = "https://demo.data.gouv.fr/fr/datasets/"
-    if ENV == "prod":
+    if AIRFLOW_ENV == "prod":
         url = "https://www.data.gouv.fr/fr/datasets/"
     send_message(
         f"Stats DVF générées :"

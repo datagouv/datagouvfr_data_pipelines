@@ -1,4 +1,3 @@
-from airflow.models import Variable
 from airflow.operators.bash import BashOperator
 
 from datetime import datetime, timedelta
@@ -11,32 +10,27 @@ import pandas as pd
 import sqlite3
 import json
 import time
-
+from dag_datagouv_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    SECRET_INPI_USER,
+    SECRET_INPI_PASSWORD,
+)
 from dag_datagouv_data_pipelines.utils.minio import send_files, get_files
 from dag_datagouv_data_pipelines.utils.mattermost import send_message
 
-MINIO_URL = Variable.get("MINIO_URL")
-MINIO_BUCKET = Variable.get("MINIO_BUCKET_DATA_PIPELINE")
-MINIO_USER = Variable.get("SECRET_MINIO_DATA_PIPELINE_USER")
-MINIO_PASSWORD = Variable.get("SECRET_MINIO_DATA_PIPELINE_PASSWORD")
-
-INPI_USER = Variable.get("SECRET_INPI_USER")
-INPI_PWD = Variable.get("SECRET_INPI_PASSWORD")
-
-AIRFLOW_ENV = Variable.get("AIRFLOW_ENV")
-
-AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME")
 DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
-TMP_FOLDER = f"{Variable.get('AIRFLOW_DAG_TMP')}inpi/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}inpi/"
 PATH_MINIO_INPI_DATA = "inpi/"
-
-
-MATTERMOST_ENDPOINT = Variable.get("MATTERMOST_DATAGOUV_DATAENG")
 
 client = Minio(
     MINIO_URL,
-    access_key=MINIO_USER,
-    secret_key=MINIO_PASSWORD,
+    access_key=SECRET_MINIO_DATA_PIPELINE_USER,
+    secret_key=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     secure=True,
 )
 
@@ -46,9 +40,9 @@ yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 def send_to_minio(list_files):
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET,
-        MINIO_USER=MINIO_USER,
-        MINIO_PASSWORD=MINIO_PASSWORD,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=list_files,
     )
 
@@ -110,9 +104,9 @@ def concatFilesRep(
 def get_latest_db(ti):
     get_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET,
-        MINIO_USER=MINIO_USER,
-        MINIO_PASSWORD=MINIO_PASSWORD,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
             {
                 "source_path": PATH_MINIO_INPI_DATA,
@@ -322,9 +316,9 @@ def check_emptiness():
 def get_start_date_minio(ti):
     get_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET,
-        MINIO_USER=MINIO_USER,
-        MINIO_PASSWORD=MINIO_PASSWORD,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
             {
                 "source_path": PATH_MINIO_INPI_DATA,
@@ -359,7 +353,7 @@ def get_latest_files_from_start_date(ti):
             task_id="get_latest_files_bash",
             bash_command=(
                 f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}/inpi/scripts/get.sh "
-                f"{day} {INPI_USER} {INPI_PWD} {TMP_FOLDER}"
+                f"{day} {SECRET_INPI_USER} {SECRET_INPI_PASSWORD} {TMP_FOLDER}"
             ),
         )
         get_latest_files_bash.execute(dict())
@@ -704,5 +698,6 @@ def notification_mattermost(ti):
     start_date = ti.xcom_pull(key="start_date", task_ids="get_start_date")
     end_date = ti.xcom_pull(key="end_date", task_ids="upload_latest_date_inpi")
     send_message(
-        f"Données INPI mise à jour de {start_date} à {end_date} sur Minio - Bucket {MINIO_BUCKET}",
+        f"Données INPI mise à jour de {start_date} à {end_date} sur Minio "
+        f"- Bucket {MINIO_BUCKET_DATA_PIPELINE}",
     )
