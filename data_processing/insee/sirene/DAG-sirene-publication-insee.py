@@ -1,5 +1,6 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.bash import BashOperator
 
 from airflow.utils.dates import days_ago
 from datetime import timedelta
@@ -29,6 +30,11 @@ with DAG(
     params={},
     catchup=False
 ) as dag:
+
+    clean_previous_outputs = BashOperator(
+        task_id='clean_previous_outputs',
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}"
+    )
 
     get_files = PythonOperator(
         task_id="get_files",
@@ -93,6 +99,7 @@ with DAG(
         python_callable=publish_mattermost
     )
 
+    get_files.set_upstream(clean_previous_outputs)
     upload_new_files_minio.set_upstream(get_files)
     compare_minio_files.set_upstream(upload_new_files_minio)
     upload_latest_files_minio.set_upstream(compare_minio_files)
