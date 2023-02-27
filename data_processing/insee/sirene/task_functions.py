@@ -57,7 +57,7 @@ def upload_files_minio(**kwargs):
     minio_path = templates_dict.get("minio_path")
     resource_file = templates_dict.get("resource_file")
 
-    with open(f"{os.path.dirname(__file__)}/{resource_file}") as json_file:
+    with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     list_files = [
         {
@@ -83,7 +83,7 @@ def compare_minio_files(**kwargs):
     minio_path_latest = templates_dict.get("minio_path_latest")
     resource_file = templates_dict.get("resource_file")
 
-    with open(os.path.dirname(__file__) + "/" + resource_file) as json_file:
+    with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     print(data)
 
@@ -112,7 +112,7 @@ def publish_file_files_data_gouv(**kwargs):
     tmp_dir = templates_dict.get("tmp_dir")
     resource_file = templates_dict.get("resource_file")
     files_path = templates_dict.get("files_path")
-    with open(f"{os.path.dirname(__file__)}/{resource_file}") as json_file:
+    with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     print(data)
 
@@ -160,7 +160,7 @@ def update_dataset_data_gouv(ti, **kwargs):
     ]
     dat = datetime.now()
     mois = dat.date().month
-    with open(os.path.dirname(__file__) + "/" + resource_file) as json_file:
+    with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     print(data)
     for d in data:
