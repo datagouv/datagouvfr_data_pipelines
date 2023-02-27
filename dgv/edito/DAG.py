@@ -14,6 +14,8 @@ from dag_datagouv_data_pipelines.config import (
     TWITTER_ACCESS_TOKEN,
     TWITTER_SECRET_TOKEN,
     MATTERMOST_DATAGOUV_EDITO,
+    DATAGOUV_SECRET_API_KEY,
+    DATAGOUV_URL
 )
 from dag_datagouv_data_pipelines.utils.datagouv import create_post
 
@@ -39,11 +41,6 @@ LAST_MONTH_DATE_STR_SHORT = f"{MONTHS[LAST_MONTH_DATE.month - 1]}"
 LAST_MONTH_DATE_STR = (
     f'{MONTHS[LAST_MONTH_DATE.month - 1]} {LAST_MONTH_DATE.strftime("%Y")}'
 )
-
-
-DATAGOUV_URL = Variable.get("DEV_DATAGOUV_URL")
-DATAGOUV_API_KEY = Variable.get("DEV_DATAGOUV_SECRET_API_KEY")
-
 
 def tweet_featured_from_catalog(url, obj_type, phrase_intro):
     authenticator = tweepy.OAuthHandler(
@@ -265,7 +262,7 @@ def create_edito_post(**kwargs):
     name = f"Suivi des sorties - {LAST_MONTH_DATE_STR}"
 
     data = create_post(
-        api_key=DATAGOUV_API_KEY,
+        api_key=DATAGOUV_SECRET_API_KEY,
         name=name,
         headline=headline,
         content=content,

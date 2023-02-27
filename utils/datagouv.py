@@ -305,7 +305,7 @@ def create_post(
         },
         headers=headers
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     return r.json()
 
 

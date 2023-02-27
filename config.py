@@ -6,6 +6,9 @@ AIRFLOW_DAG_TMP = Variable.get('AIRFLOW_DAG_TMP')
 AIRFLOW_ENV = Variable.get("AIRFLOW_ENV")
 
 # Datagouv
+DATAGOUV_URL = "https://www.data.gouv.fr"
+if AIRFLOW_ENV == "dev":
+    DATAGOUV_URL = "https://demo.data.gouv.fr"
 DATAGOUV_SECRET_API_KEY = Variable.get("DATAGOUV_SECRET_API_KEY")
 FILES_BASE_URL = Variable.get('FILES_BASE_URL')
 
