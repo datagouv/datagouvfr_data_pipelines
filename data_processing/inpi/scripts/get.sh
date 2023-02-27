@@ -1,7 +1,7 @@
 #! /bin/bash
 USER=`echo $2`
 PASS=`echo $3`
-TMPFOLDER=`echo $TMPFOLDER`
+TMPFOLDER=`echo $4`
 
 DATETOPROCESS=`echo $1 | sed 's/-/\//g'`
 echo $DATETOPROCESS
