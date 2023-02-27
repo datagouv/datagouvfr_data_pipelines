@@ -63,8 +63,8 @@ def upload_files_minio(**kwargs):
         {
             "source_path": tmp_dir,
             "source_name": item["nameFTP"],
-            "dest_name": minio_path,
-            "dest_path": item['nameFTP'],
+            "dest_path": minio_path,
+            "dest_name": item['nameFTP'],
         } for item in data
     ]
 
