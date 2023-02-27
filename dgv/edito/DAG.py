@@ -296,9 +296,7 @@ def publish_mattermost(ti):
         + "\n - ".join(published_threads)
     }
 
-    r = requests.post(MATTERMOST_DATAGOUV_EDITO, json=data)
-    print(data)
-    print(r.json())
+    requests.post(MATTERMOST_DATAGOUV_EDITO, json=data)
 
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
