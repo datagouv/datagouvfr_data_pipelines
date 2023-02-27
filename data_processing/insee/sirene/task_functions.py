@@ -25,7 +25,7 @@ def get_files(**kwargs):
     tmp_dir = templates_dict.get("tmp_dir")
     resource_file = templates_dict.get("resource_file")
 
-    with open(f"{os.path.dirname(__file__)}/{resource_file}") as json_file:
+    with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
 
     hashfiles = {}
