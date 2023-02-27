@@ -14,7 +14,7 @@ from dag_datagouv_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     SECRET_INPI_USER,
@@ -40,7 +40,7 @@ yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 def send_to_minio(list_files):
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=list_files,
@@ -104,7 +104,7 @@ def concatFilesRep(
 def get_latest_db(ti):
     get_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -316,7 +316,7 @@ def check_emptiness():
 def get_start_date_minio(ti):
     get_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -699,5 +699,5 @@ def notification_mattermost(ti):
     end_date = ti.xcom_pull(key="end_date", task_ids="upload_latest_date_inpi")
     send_message(
         f"Données INPI mise à jour de {start_date} à {end_date} sur Minio "
-        f"- Bucket {MINIO_BUCKET_DATA_PIPELINE}",
+        f"- Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}",
     )
