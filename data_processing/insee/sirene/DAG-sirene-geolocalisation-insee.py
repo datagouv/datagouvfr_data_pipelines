@@ -16,7 +16,7 @@ from dag_datagouv_data_pipelines.data_processing.insee.sirene.task_functions imp
     publish_mattermost_geoloc,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene-geolocalisation-insee/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene_geolocalisation_insee/"
 MINIO_LATEST = "insee/sirene/sirene_geolocalisation_insee/latest/"
 MINIO_NEW = "insee/sirene/sirene_geolocalisation_insee/new/"
 

@@ -353,7 +353,7 @@ def get_latest_files_from_start_date(ti):
             task_id="get_latest_files_bash",
             bash_command=(
                 f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}inpi/scripts/get.sh "
-                f"{day} {SECRET_INPI_USER} {SECRET_INPI_PASSWORD} {TMP_FOLDER}"
+                f"{day} {SECRET_INPI_USER} {SECRET_INPI_PASSWORD} {TMP_FOLDER} "
             ),
         )
         get_latest_files_bash.execute(dict())
