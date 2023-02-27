@@ -313,6 +313,7 @@ with DAG(
     dagrun_timeout=timedelta(minutes=60),
     tags=["edito", "mattermost", "post", "twitter"],
     default_args=default_args,
+    catchup=False,
 ) as dag:
     edito = PythonOperator(
         task_id="create_edito_post",

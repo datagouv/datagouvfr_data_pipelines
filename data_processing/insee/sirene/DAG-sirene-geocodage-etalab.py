@@ -6,6 +6,7 @@ with DAG(
     dag_id='data_processing_sirene_geocodage',
     schedule_interval='48 7 1 * *',
     start_date=days_ago(31),
+    catchup=False,
     tags=["data_processing", "sirene", "geocodage", "etalab" 'geocodage'],
     params={},
 ) as dag:
