@@ -119,14 +119,14 @@ def publish_file_files_data_gouv(**kwargs):
     for d in data:
         put_file = SFTPOperator(
             task_id="put-file",
-            ssh_conn_id="FILES",
+            ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
             local_filepath=f"{tmp_dir}{d['nameFTP']}",
             remote_filepath=f"{FILES_BASE_URL}{files_path}{d['nameFTP']}",
             operation="put",
         )
         put_file_with_date = SFTPOperator(
             task_id="put-file",
-            ssh_conn_id="FILES",
+            ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
             local_filepath=tmp_dir + d["nameFTP"],
             remote_filepath=(
                 f"{FILES_BASE_URL}{files_path}"
