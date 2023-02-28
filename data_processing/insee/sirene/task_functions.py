@@ -94,10 +94,10 @@ def compare_minio_files(**kwargs):
             MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
             MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
             MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            file_name_1=item["nameFTP"],
-            file_name_2=item["nameFTP"],
             file_path_1=minio_path_latest,
             file_path_2=minio_path_new,
+            file_name_1=item["nameFTP"],
+            file_name_2=item["nameFTP"],
         )
         if isSame:
             nb_same = nb_same + 1
