@@ -17,6 +17,7 @@ mkdir -p $DATETOPROCESS
 cd $DATETOPROCESS
 
 lftp ftp://opendata-rncs.inpi.fr << DOWNLOAD
+  set xfer:clobber on
   user $USER "$PASS"
   mget -E $REGEX
 DOWNLOAD
