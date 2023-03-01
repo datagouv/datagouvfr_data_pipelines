@@ -5,7 +5,7 @@ from io import StringIO
 import requests
 import tweepy
 
-from airflow.models import DAG, Variable
+from airflow.models import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
 from dag_datagouv_data_pipelines.config import (
@@ -15,7 +15,7 @@ from dag_datagouv_data_pipelines.config import (
     TWITTER_SECRET_TOKEN,
     MATTERMOST_DATAGOUV_EDITO,
     DATAGOUV_SECRET_API_KEY,
-    DATAGOUV_URL
+    DATAGOUV_URL,
 )
 from dag_datagouv_data_pipelines.utils.datagouv import create_post
 
@@ -41,6 +41,7 @@ LAST_MONTH_DATE_STR_SHORT = f"{MONTHS[LAST_MONTH_DATE.month - 1]}"
 LAST_MONTH_DATE_STR = (
     f'{MONTHS[LAST_MONTH_DATE.month - 1]} {LAST_MONTH_DATE.strftime("%Y")}'
 )
+
 
 def tweet_featured_from_catalog(url, obj_type, phrase_intro):
     authenticator = tweepy.OAuthHandler(
