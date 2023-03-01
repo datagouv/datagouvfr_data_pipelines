@@ -310,7 +310,9 @@ def create_post(
 
 
 def get_data(endpoint, page, sort):
-    r = requests.get('https://%s/api/1/%s?page_size=%s&sort=%s&page=%s' % ('www.data.gouv.fr', endpoint, '100', sort, page))
+    r = requests.get(
+        f"https://www.data.gouv.fr/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
+    )
     return r.json().get('data', [])
 
 
@@ -337,9 +339,8 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
     if end_date:
         for d in intermediary_result:
             created = dateutil.parser.parse(d[date_key])
-            if(created < end_date):
+            if created < end_date:
                 results.append(d)
     else:
         results = intermediary_result
     return results
-

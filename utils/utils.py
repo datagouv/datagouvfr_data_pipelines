@@ -7,6 +7,7 @@ def check_if_monday():
     else:
         return False
 
+
 def check_if_first_day_of_month():
     if date.today().day == 1:
         return True
