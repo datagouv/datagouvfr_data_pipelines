@@ -1,4 +1,4 @@
-from airflow.models import DAG, Variable
+from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from operators.mattermost import MattermostOperator
@@ -8,7 +8,6 @@ from datetime import timedelta, datetime
 
 import os
 import requests
-from minio import Minio
 import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
@@ -37,9 +36,9 @@ DAG_NAME = "schema_consolidation"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
-GIT_REPO = "git@github.com:etalab/dag_schema_data_gouv_fr.git"
+GIT_REPO = "git@github.com:etalab/datagouvfr_data_pipelines.git"
 TMP_CONFIG_FILE = (
-    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/config_tableschema.yml"
+    f"{AIRFLOW_DAG_TMP}datagouvfr_data_pipelines/schema/scripts/config_tableschema.yml"
 )
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
@@ -212,13 +211,12 @@ with DAG(
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
-            f"cd {TMP_FOLDER}dag_schema_data_gouv_fr/ "
+            f"cd {TMP_FOLDER}/datagouvfr_data_pipelines/ " # && git add schema "
             # To change when multiple ssh keys is deployed
-            " && git add schema "
-            ' && git commit -m "Update config file - '
-            f'{ datetime.today().strftime("%Y-%m-%d")}'
-            '" || echo "No changes to commit"'
-            " && git push origin master"
+            # ' && git commit -m "Update config file - '
+            # f'{ datetime.today().strftime("%Y-%m-%d")}'
+            # '" || echo "No changes to commit"'
+            # " && git push origin master"
         )
     )
 
