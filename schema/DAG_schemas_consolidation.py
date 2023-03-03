@@ -212,12 +212,13 @@ with DAG(
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
-            f"cd {TMP_FOLDER}/datagouvfr_data_pipelines/ && git add schema "
+            f"cd {TMP_FOLDER}/dag_schema_data_gouv_fr/ "
             # To change when multiple ssh keys is deployed
-            # ' && git commit -m "Update config file - '
-            # f'{ datetime.today().strftime("%Y-%m-%d")}'
-            # '" || echo "No changes to commit"'
-            # " && git push origin master"
+            " && git add schema "
+            ' && git commit -m "Update config file - '
+            f'{ datetime.today().strftime("%Y-%m-%d")}'
+            '" || echo "No changes to commit"'
+            " && git push origin master"
         )
     )
 
