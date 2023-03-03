@@ -13,7 +13,7 @@ from dag_datagouv_data_pipelines.config import (
 )
 
 DAG_NAME = "schema_website_publication_preprod"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}

@@ -34,7 +34,7 @@ from dag_datagouv_data_pipelines.schema.scripts.schemas_consolidation.consolidat
 )
 
 DAG_NAME = "schema_consolidation"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/dag_schema_data_gouv_fr.git"
