@@ -95,7 +95,7 @@ def notification_synthese(**kwargs):
                     MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
                     list_files=[
                         {
-                            "source_path": f"{TMP_FOLDER}{DAG_NAME}",
+                            "source_path": f"{TMP_FOLDER}",
                             "source_name": f"liste_erreurs-{s['name'].replace('/', '_')}.csv",
                             "dest_path": "schema/schemas_consolidation/liste_erreurs/",
                             "dest_name": f"liste_erreurs-{s['name'].replace('/', '_')}.csv",
