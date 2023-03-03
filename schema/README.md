@@ -1,6 +1,6 @@
-# Backend schema.data.gouv.fr
+# DAGs afférent à schema.data.gouv.fr
 
-Ce repo héberge l'ensemble des scripts d'automatisation liés au schéma de données sur schema.data.gouv.fr.
+Ce sous-dossier héberge l'ensemble des scripts d'automatisation liés au schéma de données sur schema.data.gouv.fr.
 
 Les scripts d'automatisation sont développés en tant que DAG Airflow. Le code source permettant de générer la stack airflow que nous utilisons est hébergé [sur ce repo](https://github.com/etalab/data-engineering-stack).
 
