@@ -6,10 +6,10 @@ import pandas as pd
 import requests
 from shapely.geometry import Point, shape
 from shapely.geometry.polygon import Polygon
-from dag_datagouv_data_pipelines.config import AIRFLOW_DAG_HOME
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 
 with open(
-    f"{AIRFLOW_DAG_HOME}/dag_datagouv_data_pipelines/schema/utils/france_bbox.geojson"
+    f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/schema/utils/france_bbox.geojson"
 ) as f:
     FRANCE_BBOXES = geojson.load(f)
 

@@ -3,14 +3,14 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from operators.mail_datagouv import MailDatagouvOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta, datetime
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
 )
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.datagouv import get_last_items
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.datagouv import get_last_items
 
 DAG_NAME = "dgv_moderation_utilisateurs"
 

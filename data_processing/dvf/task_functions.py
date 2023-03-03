@@ -1,13 +1,13 @@
 from airflow.hooks.base import BaseHook
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
 )
-from dag_datagouv_data_pipelines.utils.postgres import execute_sql_file, copy_file
-from dag_datagouv_data_pipelines.utils.datagouv import post_resource
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.postgres import execute_sql_file, copy_file
+from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 import gc
 import glob
 from unidecode import unidecode
@@ -17,7 +17,7 @@ import pandas as pd
 import requests
 import json
 
-DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
+DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 
 conn = BaseHook.get_connection("postgres_localhost")

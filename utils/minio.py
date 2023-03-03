@@ -2,7 +2,7 @@ import boto3
 from minio import Minio
 from typing import List, TypedDict
 import os
-from dag_datagouv_data_pipelines.config import AIRFLOW_ENV
+from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 
 class File(TypedDict):

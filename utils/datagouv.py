@@ -2,7 +2,7 @@ import dateutil
 from typing import List, Optional, TypedDict
 import requests
 import os
-from dag_datagouv_data_pipelines.config import AIRFLOW_ENV
+from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 if AIRFLOW_ENV == "dev":
     DATAGOUV_URL = "https://demo.data.gouv.fr"

@@ -11,7 +11,7 @@ import requests
 from minio import Minio
 import pandas as pd
 
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     MINIO_URL,
@@ -22,14 +22,14 @@ from dag_datagouv_data_pipelines.config import (
     DATAGOUV_SECRET_API_KEY,
     DATAGOUV_URL
 )
-from dag_datagouv_data_pipelines.utils.minio import send_files
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-from dag_datagouv_data_pipelines.schema.utils.geo import improve_geo_data_quality
-from dag_datagouv_data_pipelines.schema.scripts.schemas_consolidation.schemas_consolidation import (
+from datagouvfr_data_pipelines.schema.utils.geo import improve_geo_data_quality
+from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schemas_consolidation import (
     run_schemas_consolidation,
 )
-from dag_datagouv_data_pipelines.schema.scripts.schemas_consolidation.consolidation_upload import (
+from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.consolidation_upload import (
     run_consolidation_upload,
 )
 
@@ -39,7 +39,7 @@ SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/dag_schema_data_gouv_fr.git"
 TMP_CONFIG_FILE = (
-    f"{AIRFLOW_DAG_HOME}dag_datagouv_data_pipelines/schema/scripts/config_tableschema.yml"
+    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/config_tableschema.yml"
 )
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
@@ -139,7 +139,7 @@ with DAG(
 
     shared_params = {
         "msgs": "Ran from Airflow {{ ds }} !",
-        "WORKING_DIR": f"{AIRFLOW_DAG_HOME}dag_datagouv_data_pipelines/schema/scripts/",
+        "WORKING_DIR": f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/",
         "TMP_FOLDER": TMP_FOLDER,
         "API_KEY": DATAGOUV_SECRET_API_KEY,
         "API_URL": API_URL,
@@ -147,7 +147,7 @@ with DAG(
         "SCHEMA_CATALOG": SCHEMA_CATALOG,
     }
 
-    working_dir = f"{AIRFLOW_DAG_HOME}dag_datagouv_data_pipelines/schema/scripts/"
+    working_dir = f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/"
     date_airflow = "{{ ds }}"
 
     run_consolidation = PythonOperator(
@@ -212,7 +212,7 @@ with DAG(
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
-            f"cd {TMP_FOLDER}/dag_datagouv_data_pipelines/ && git add schema "
+            f"cd {TMP_FOLDER}/datagouvfr_data_pipelines/ && git add schema "
             ' && git commit -m "Update config file - '
             f'{ datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'
