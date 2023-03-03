@@ -1,0 +1,102 @@
+dep,reg,libelle_region
+01,84,Auvergne-Rhône-Alpes
+02,32,Hauts-de-France
+03,84,Auvergne-Rhône-Alpes
+04,93,Provence-Alpes-Côte d'Azur
+05,93,Provence-Alpes-Côte d'Azur
+06,93,Provence-Alpes-Côte d'Azur
+07,84,Auvergne-Rhône-Alpes
+08,44,Grand Est
+09,76,Occitanie
+10,44,Grand Est
+11,76,Occitanie
+12,76,Occitanie
+13,93,Provence-Alpes-Côte d'Azur
+14,28,Normandie
+15,84,Auvergne-Rhône-Alpes
+16,75,Nouvelle-Aquitaine
+17,75,Nouvelle-Aquitaine
+18,24,Centre-Val de Loire
+19,75,Nouvelle-Aquitaine
+21,27,Bourgogne-Franche-Comté
+22,53,Bretagne
+23,75,Nouvelle-Aquitaine
+24,75,Nouvelle-Aquitaine
+25,27,Bourgogne-Franche-Comté
+26,84,Auvergne-Rhône-Alpes
+27,28,Normandie
+28,24,Centre-Val de Loire
+29,53,Bretagne
+2A,94,Corse
+2B,94,Corse
+30,76,Occitanie
+31,76,Occitanie
+32,76,Occitanie
+33,75,Nouvelle-Aquitaine
+34,76,Occitanie
+35,53,Bretagne
+36,24,Centre-Val de Loire
+37,24,Centre-Val de Loire
+38,84,Auvergne-Rhône-Alpes
+39,27,Bourgogne-Franche-Comté
+40,75,Nouvelle-Aquitaine
+41,24,Centre-Val de Loire
+42,84,Auvergne-Rhône-Alpes
+43,84,Auvergne-Rhône-Alpes
+44,52,Pays de la Loire
+45,24,Centre-Val de Loire
+46,76,Occitanie
+47,75,Nouvelle-Aquitaine
+48,76,Occitanie
+49,52,Pays de la Loire
+50,28,Normandie
+51,44,Grand Est
+52,44,Grand Est
+53,52,Pays de la Loire
+54,44,Grand Est
+55,44,Grand Est
+56,53,Bretagne
+57,44,Grand Est
+58,27,Bourgogne-Franche-Comté
+59,32,Hauts-de-France
+60,32,Hauts-de-France
+61,28,Normandie
+62,32,Hauts-de-France
+63,84,Auvergne-Rhône-Alpes
+64,75,Nouvelle-Aquitaine
+65,76,Occitanie
+66,76,Occitanie
+67,44,Grand Est
+68,44,Grand Est
+69,84,Auvergne-Rhône-Alpes
+70,27,Bourgogne-Franche-Comté
+71,27,Bourgogne-Franche-Comté
+72,52,Pays de la Loire
+73,84,Auvergne-Rhône-Alpes
+74,84,Auvergne-Rhône-Alpes
+75,11,Île-de-France
+76,28,Normandie
+77,11,Île-de-France
+78,11,Île-de-France
+79,75,Nouvelle-Aquitaine
+80,32,Hauts-de-France
+81,76,Occitanie
+82,76,Occitanie
+83,93,Provence-Alpes-Côte d'Azur
+84,93,Provence-Alpes-Côte d'Azur
+85,52,Pays de la Loire
+86,75,Nouvelle-Aquitaine
+87,75,Nouvelle-Aquitaine
+88,44,Grand Est
+89,27,Bourgogne-Franche-Comté
+90,27,Bourgogne-Franche-Comté
+91,11,Île-de-France
+92,11,Île-de-France
+93,11,Île-de-France
+94,11,Île-de-France
+95,11,Île-de-France
+971,01,Guadeloupe
+972,02,Martinique
+973,03,Guyane
+974,04,La Réunion
+976,06,Mayotte
