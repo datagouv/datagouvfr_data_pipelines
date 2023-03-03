@@ -72,7 +72,7 @@ with DAG(
         task_id="commit_changes",
         bash_command=(
             f"cd {TMP_FOLDER}schema.data.gouv.fr"
-            " && git add site/site/.vuepress/public/api"
+            " && git add site/.vuepress/public/api"
             ' && git commit -m "Update Recommendations '
             f'{datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'
