@@ -8,7 +8,7 @@ import tweepy
 from airflow.models import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     TWITTER_CONSUMER_KEY,
     TWITTER_CONSUMER_KEY_SECRET,
     TWITTER_ACCESS_TOKEN,
@@ -17,7 +17,7 @@ from dag_datagouv_data_pipelines.config import (
     DATAGOUV_SECRET_API_KEY,
     DATAGOUV_URL,
 )
-from dag_datagouv_data_pipelines.utils.datagouv import create_post
+from datagouvfr_data_pipelines.utils.datagouv import create_post
 
 DAG_NAME = "dgv_edito_post_and_tweet"
 NOW = date.today()

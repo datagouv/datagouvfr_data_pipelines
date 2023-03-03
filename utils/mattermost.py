@@ -1,6 +1,6 @@
 import requests
 from typing import Optional
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_DATAENG,
     MATTERMOST_DATAGOUV_DATAENG_TEST,

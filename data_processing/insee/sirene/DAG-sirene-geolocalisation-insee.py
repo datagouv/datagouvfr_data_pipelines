@@ -4,10 +4,10 @@ from airflow.operators.bash import BashOperator
 
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from dag_datagouv_data_pipelines.data_processing.insee.sirene.task_functions import (
+from datagouvfr_data_pipelines.data_processing.insee.sirene.task_functions import (
     get_files,
     upload_files_minio,
     compare_minio_files,

@@ -3,12 +3,12 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta, datetime
 from difflib import SequenceMatcher
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.datagouv import get_last_items
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.datagouv import get_last_items
 import requests
 
 DAG_NAME = "dgv_notification_activite"

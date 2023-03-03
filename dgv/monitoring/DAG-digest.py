@@ -6,7 +6,7 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 import json
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     MATTERMOST_DATAGOUV_ACTIVITES,
@@ -18,13 +18,13 @@ from dag_datagouv_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.utils import (
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
     check_if_first_day_of_month,
 )
 
-DAG_FOLDER = "dag_datagouv_data_pipelines/dgv/monitoring/"
+DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/"
 DAG_NAME = "dgv_digests"
 MINIO_PATH = "dgv/"
 

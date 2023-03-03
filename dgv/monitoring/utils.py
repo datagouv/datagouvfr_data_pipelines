@@ -1,6 +1,6 @@
 import dateutil
 from IPython.core.display import display, HTML
-from dag_datagouv_data_pipelines.utils.datagouv import get_data, get_last_items
+from datagouvfr_data_pipelines.utils.datagouv import get_data, get_last_items
 
 
 def show_html(html):

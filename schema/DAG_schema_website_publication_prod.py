@@ -3,7 +3,7 @@ from operators.papermill_minio import PapermillMinioOperator
 from airflow.operators.bash import BashOperator
 from datetime import timedelta, datetime
 from airflow.utils.dates import days_ago
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     MINIO_URL,
@@ -39,7 +39,7 @@ with DAG(
 
     run_nb = PapermillMinioOperator(
         task_id="run_notebook_schemas_backend",
-        input_nb=f"{AIRFLOW_DAG_HOME}dag_datagouv_data_pipelines/schema/notebooks/schemas_backend.ipynb",
+        input_nb=f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/notebooks/schemas_backend.ipynb",
         output_nb="{{ ds }}" + ".ipynb",
         tmp_path=f"{TMP_FOLDER}",
         minio_url=MINIO_URL,

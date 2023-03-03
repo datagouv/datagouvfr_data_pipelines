@@ -10,7 +10,7 @@ import pandas as pd
 import sqlite3
 import json
 import time
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     MINIO_URL,
@@ -20,10 +20,10 @@ from dag_datagouv_data_pipelines.config import (
     SECRET_INPI_USER,
     SECRET_INPI_PASSWORD,
 )
-from dag_datagouv_data_pipelines.utils.minio import send_files, get_files
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import send_files, get_files
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
+DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}inpi/"
 PATH_MINIO_INPI_DATA = "inpi/"
 

@@ -4,11 +4,11 @@ from airflow.operators.python import PythonOperator
 from operators.clean_folder import CleanFolderOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
 )
-from dag_datagouv_data_pipelines.data_processing.dvf.task_functions import (
+from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     create_dvf_table,
     create_stats_dvf_table,
     get_epci,
@@ -20,7 +20,7 @@ from dag_datagouv_data_pipelines.data_processing.dvf.task_functions import (
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
-DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
+DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_dvf'
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 

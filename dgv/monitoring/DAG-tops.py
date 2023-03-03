@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from datetime import timedelta, datetime, date
 import requests
 import pandas as pd
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_REPORTING,
     MINIO_URL,
@@ -16,8 +16,8 @@ from dag_datagouv_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.utils import (
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.utils import (
     check_if_first_day_of_month,
     check_if_monday,
 )
