@@ -29,19 +29,19 @@ with DAG(
 ) as dag:
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER}{DAG_NAME}/ && mkdir -p {TMP_FOLDER}{DAG_NAME}/ ",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER} ",
     )
 
     clone_schema_repo = BashOperator(
         task_id="clone_schema_repo",
-        bash_command=f"cd {TMP_FOLDER}{DAG_NAME}/ && git clone --depth 1 {GIT_REPO} ",
+        bash_command=f"cd {TMP_FOLDER} && git clone --depth 1 {GIT_REPO} ",
     )
 
     run_nb = PapermillMinioOperator(
         task_id="run_notebook_schemas_backend",
         input_nb=f"{AIRFLOW_DAG_HOME}dag_datagouv_data_pipelines/schema/notebooks/schemas_backend.ipynb",
         output_nb="{{ ds }}" + ".ipynb",
-        tmp_path=f"{TMP_FOLDER}{DAG_NAME}/",
+        tmp_path=f"{TMP_FOLDER}",
         minio_url=MINIO_URL,
         minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
@@ -49,9 +49,8 @@ with DAG(
         minio_output_filepath="schema/schema_website_publication/{{ ds }}/",
         parameters={
             "msgs": "Ran from Airflow {{ ds }} !",
-            "WORKING_DIR": f"{AIRFLOW_DAG_HOME}{DAG_NAME}",
-            "TMP_FOLDER": f"{TMP_FOLDER}{DAG_NAME}/",
-            "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}{DAG_NAME}/output/",
+            "TMP_FOLDER": f"{TMP_FOLDER}",
+            "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}output/",
             "DATE_AIRFLOW": "{{ ds }}",
             "LIST_SCHEMAS_YAML": "https://raw.githubusercontent.com/etalab/schema.data.gouv.fr/main/repertoires.yml",
         },
@@ -60,7 +59,7 @@ with DAG(
     copy_files = BashOperator(
         task_id="copy_files",
         bash_command=(
-            f"cd {TMP_FOLDER}{DAG_NAME}/"
+            f"cd {TMP_FOLDER}"
             " && mkdir site"
             " && cp -r schema.data.gouv.fr/site/*.md ./site/"
             " && cp -r schema.data.gouv.fr/site/.vuepress/ ./site/"
@@ -77,7 +76,7 @@ with DAG(
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
-            f"cd {TMP_FOLDER}{DAG_NAME}/schema.data.gouv.fr"
+            f"cd {TMP_FOLDER}schema.data.gouv.fr"
             " && git add site/"
             ' && git commit -m "Update Website '
             f'{datetime.today().strftime("%Y-%m-%d")}'

@@ -38,10 +38,8 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/dag_schema_data_gouv_fr.git"
-
-TMP_CLONE_REPO_PATH = f"{TMP_FOLDER}{DAG_NAME}/"
 TMP_CONFIG_FILE = (
-    f"{TMP_CLONE_REPO_PATH}dag_datagouv_data_pipelines/schema/scripts/config_tableschema.yml"
+    f"{TMP_FOLDER}dag_datagouv_data_pipelines/schema/scripts/config_tableschema.yml"
 )
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
@@ -87,7 +85,7 @@ def notification_synthese(**kwargs):
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
                 df.to_csv(
-                    f"{TMP_FOLDER}{DAG_NAME}/liste_erreurs-{s['name'].replace('/', '_')}.csv"
+                    f"{TMP_FOLDER}liste_erreurs-{s['name'].replace('/', '_')}.csv"
                 )
 
                 send_files(
@@ -131,12 +129,12 @@ with DAG(
 ) as dag:
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER}{DAG_NAME}/ && mkdir -p {TMP_FOLDER}{DAG_NAME}/",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
-        bash_command=f"cd {TMP_CLONE_REPO_PATH} && git clone {GIT_REPO} ",
+        bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} ",
     )
 
     shared_params = {
@@ -189,7 +187,7 @@ with DAG(
         op_args=[schema_irve_path],
     )
 
-    output_data_folder = f"{TMP_FOLDER}{DAG_NAME}/output/"
+    output_data_folder = f"{TMP_FOLDER}output/"
     upload_consolidation = PythonMinioOperator(
         task_id="upload_consolidated_datasets",
         tmp_path=TMP_FOLDER,
@@ -214,7 +212,7 @@ with DAG(
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
-            f"cd {TMP_CLONE_REPO_PATH}/dag_datagouv_data_pipelines/ && git add schema "
+            f"cd {TMP_FOLDER}/dag_datagouv_data_pipelines/ && git add schema "
             ' && git commit -m "Update config file - '
             f'{ datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'

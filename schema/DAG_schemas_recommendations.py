@@ -28,12 +28,12 @@ with DAG(
 ) as dag:
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER}{DAG_NAME}/ && mkdir -p {TMP_FOLDER}{DAG_NAME}/",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     clone_schema_repo = BashOperator(
         task_id="clone_schema_repo",
-        bash_command=f"cd {TMP_FOLDER}{DAG_NAME}/ && git clone {GIT_REPO} ",
+        bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} ",
     )
 
     run_nb = PapermillMinioOperator(
@@ -43,7 +43,7 @@ with DAG(
             "notebooks/schemas_recommendations.ipynb"
         ),
         output_nb="{{ ds }}.ipynb",
-        tmp_path=f"{TMP_FOLDER}{DAG_NAME}/",
+        tmp_path=f"{TMP_FOLDER}",
         minio_url=MINIO_URL,
         minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
@@ -52,8 +52,8 @@ with DAG(
         parameters={
             "msgs": "Ran from Airflow {{ ds }} !",
             "WORKING_DIR": f"{AIRFLOW_DAG_HOME}{DAG_NAME}",
-            "TMP_FOLDER": f"{TMP_FOLDER}{DAG_NAME}/",
-            "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}{DAG_NAME}/output/",
+            "TMP_FOLDER": f"{TMP_FOLDER}",
+            "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}output/",
             "DATE_AIRFLOW": "{{ ds }}",
         },
     )
@@ -61,7 +61,7 @@ with DAG(
     copy_recommendations = BashOperator(
         task_id="copy_recommendations",
         bash_command=(
-            f"cd {TMP_FOLDER}{DAG_NAME}/ "
+            f"cd {TMP_FOLDER} "
             " && rm -rf schema.data.gouv.fr/site/site/.vuepress/public/api"
             " && mkdir schema.data.gouv.fr/site/site/.vuepress/public/api"
             " && mv recommendations.json ./schema.data.gouv.fr/site/site/.vuepress/public/api/"
@@ -71,7 +71,7 @@ with DAG(
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
-            f"cd {TMP_FOLDER}{DAG_NAME}/schema.data.gouv.fr"
+            f"cd {TMP_FOLDER}schema.data.gouv.fr"
             " && git add site/site/.vuepress/public/api"
             ' && git commit -m "Update Recommendations '
             f'{datetime.today().strftime("%Y-%m-%d")}'
