@@ -81,7 +81,7 @@ with DAG(
             ' && git commit -m "Update Website '
             f'{datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'
-            " && git push origin master"
+            " && git push origin main"
         ),
     )
 
