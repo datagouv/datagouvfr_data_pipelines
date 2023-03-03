@@ -62,9 +62,9 @@ with DAG(
         task_id="copy_recommendations",
         bash_command=(
             f"cd {TMP_FOLDER} "
-            " && rm -rf schema.data.gouv.fr/site/site/.vuepress/public/api"
-            " && mkdir schema.data.gouv.fr/site/site/.vuepress/public/api"
-            " && mv recommendations.json ./schema.data.gouv.fr/site/site/.vuepress/public/api/"
+            " && rm -rf schema.data.gouv.fr/site/.vuepress/public/api"
+            " && mkdir schema.data.gouv.fr/site/.vuepress/public/api"
+            " && mv recommendations.json ./schema.data.gouv.fr/site/.vuepress/public/api/"
         ),
     )
 
