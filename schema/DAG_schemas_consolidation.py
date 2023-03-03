@@ -149,7 +149,7 @@ with DAG(
         "SCHEMA_CATALOG": SCHEMA_CATALOG,
     }
 
-    working_dir = f"{AIRFLOW_DAG_HOME}}dag_datagouv_data_pipelines/schema/scripts/"
+    working_dir = f"{AIRFLOW_DAG_HOME}dag_datagouv_data_pipelines/schema/scripts/"
     date_airflow = "{{ ds }}"
 
     run_consolidation = PythonOperator(
