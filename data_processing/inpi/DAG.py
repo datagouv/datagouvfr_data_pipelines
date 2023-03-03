@@ -31,7 +31,7 @@ with DAG(
     schedule_interval='0 14 * * *',
     start_date=days_ago(1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=180),
+    dagrun_timeout=timedelta(minutes=(60 * 8)),
     tags=["data_processing", "inpi", "dirigeants"],
     params={},
 ) as dag:
