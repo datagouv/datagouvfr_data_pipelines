@@ -1,0 +1,21 @@
+irve:
+  url: https://github.com/geoffreyaldebert/schema-irve.git
+  type: datapackage
+  email: contact@transport.beta.gouv.fr
+  external_doc: https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve
+  labels:
+    - Socle Commun des Données Locales
+    - transport.data.gouv.fr
+  consolidation: 5448d3e0c751df01f85d0572
+covoiturage:
+  url: https://github.com/etalab/schema-lieux-covoiturage.git
+  type: tableschema
+  email: contact@transport.beta.gouv.fr
+  external_tool: https://contribuer.transport.data.gouv.fr
+  labels:
+    - transport.data.gouv.fr
+  consolidation: 5d6eaffc8b4c417cdc452ac3
+lieux-mediation-numerique:
+  url: https://github.com/LaMednum/standard-mediation-num.git
+  type: tableschema
+  email: contact@lamednum.coop
