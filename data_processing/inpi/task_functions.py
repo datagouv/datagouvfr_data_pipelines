@@ -372,7 +372,7 @@ def upload_latest_date_inpi_minio(ti):
                 "source_path": TMP_FOLDER,
                 "source_name": "latest_inpi_date.json",
                 "dest_path": PATH_MINIO_INPI_DATA,
-                "dest_name": "latest_inpi_date.db",
+                "dest_name": "latest_inpi_date.json",
             }
         ]
     )
