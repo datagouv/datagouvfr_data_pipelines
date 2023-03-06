@@ -11,8 +11,8 @@ if AIRFLOW_ENV == "prod":
 
 
 class File(TypedDict):
-    dest_name: str
     dest_path: str
+    dest_name: str
 
 
 def create_dataset(
