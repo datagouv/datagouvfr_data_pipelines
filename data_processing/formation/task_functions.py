@@ -173,8 +173,8 @@ def compare_files_minio(ti):
 
 
 def send_notification(ti):
-    nb_of = ti.xcom_pull(key="nb_of", task_ids="process_formation")
-    nb_siret = ti.xcom_pull(key="nb_siret", task_ids="process_formation")
+    nb_of = ti.xcom_pull(key="nb_of", task_ids="process_organismes_formation")
+    nb_siret = ti.xcom_pull(key="nb_siret", task_ids="process_organismes_formation")
     send_message(
         text=(
             ":mega: Données organismes formations mise à jour.\n"
