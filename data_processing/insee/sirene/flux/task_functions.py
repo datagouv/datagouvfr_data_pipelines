@@ -217,8 +217,8 @@ def send_notification(ti):
             "Données Flux Sirene mise à jour - Disponible sur le Minio - Bucket "
             f"{MINIO_BUCKET_DATA_PIPELINE}\n"
             f"- {nb_stock_non_diffusible} unités légales non diffusibles\n"
-            f"- {nb_flux_non_diffusible} unités légales non diffusible modifiées ce mois-ci"
-            f"- {nb_flux_unite_legale}  unités légales modifiés ce mois-ci"
+            f"- {nb_flux_non_diffusible} unités légales non diffusible modifiées ce mois-ci\n"
+            f"- {nb_flux_unite_legale}  unités légales modifiés ce mois-ci\n"
             f"- {nb_flux_etablissement} établissements modifiés ce mois-ci"
         )
     )
