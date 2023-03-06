@@ -1,2 +1,0 @@
-SCHEMA STATIQUE TEST
-!!!!
