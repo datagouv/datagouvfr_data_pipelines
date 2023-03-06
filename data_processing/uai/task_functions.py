@@ -184,8 +184,8 @@ def send_notification(ti):
     nb_siret = ti.xcom_pull(key="nb_siret", task_ids="process_uai")
     send_message(
         text=(
-            ":mega: Données organismes formations mises à jour.\n"
-            f"- {nb_uai} organismes d'établissements scolaires référencés\n"
+            ":mega: Données UAI (établissements scolaires) mises à jour.\n"
+            f"- {nb_uai} établissements scolaires référencés\n"
             f"- {nb_siret} établissements (siret) représentés\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
         )
