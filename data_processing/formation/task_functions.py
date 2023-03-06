@@ -114,8 +114,8 @@ def process_organismes_formation(ti):
 
     df.to_csv(f"{AIRFLOW_DAG_TMP}formation/{res['name']}_clean.csv", index=False)
 
-    ti.xcom_push(key="nb_of", value=df["id_nda"].nunique())
-    ti.xcom_push(key="nb_siret", value=df["siret"].nunique())
+    ti.xcom_push(key="nb_of", value=str(df["id_nda"].nunique()))
+    ti.xcom_push(key="nb_siret", value=str(df["siret"].nunique()))
 
 
 def send_file_to_minio(ti):
