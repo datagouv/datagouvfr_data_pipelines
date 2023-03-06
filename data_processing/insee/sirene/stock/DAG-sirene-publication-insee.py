@@ -5,7 +5,7 @@ from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 
-from datagouvfr_data_pipelines.data_processing.insee.sirene.task_functions import (
+from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions import (
     get_files,
     upload_files_minio,
     compare_minio_files,
@@ -28,21 +28,20 @@ with DAG(
     dagrun_timeout=timedelta(minutes=60),
     tags=["data_processing", "sirene", "publication"],
     params={},
-    catchup=False
+    catchup=False,
 ) as dag:
-
     clean_previous_outputs = BashOperator(
-        task_id='clean_previous_outputs',
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}"
+        task_id="clean_previous_outputs",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     get_files = PythonOperator(
         task_id="get_files",
         templates_dict={
             "tmp_dir": TMP_FOLDER,
-            "resource_file": 'resources_to_download.json'
+            "resource_file": "resources_to_download.json",
         },
-        python_callable=get_files
+        python_callable=get_files,
     )
 
     upload_new_files_minio = PythonOperator(
@@ -50,9 +49,9 @@ with DAG(
         templates_dict={
             "tmp_dir": TMP_FOLDER,
             "minio_path": MINIO_NEW,
-            "resource_file": 'resources_to_download.json'
+            "resource_file": "resources_to_download.json",
         },
-        python_callable=upload_files_minio
+        python_callable=upload_files_minio,
     )
 
     compare_minio_files = ShortCircuitOperator(
@@ -60,9 +59,9 @@ with DAG(
         templates_dict={
             "minio_path_new": MINIO_NEW,
             "minio_path_latest": MINIO_LATEST,
-            "resource_file": 'resources_to_download.json'
+            "resource_file": "resources_to_download.json",
         },
-        python_callable=compare_minio_files
+        python_callable=compare_minio_files,
     )
 
     upload_latest_files_minio = PythonOperator(
@@ -70,33 +69,32 @@ with DAG(
         templates_dict={
             "tmp_dir": TMP_FOLDER,
             "minio_path": MINIO_LATEST,
-            "resource_file": 'resources_to_download.json'
+            "resource_file": "resources_to_download.json",
         },
-        python_callable=upload_files_minio
+        python_callable=upload_files_minio,
     )
 
     publish_file_files_data_gouv = PythonOperator(
         task_id="publish_file_files_data_gouv",
         templates_dict={
             "tmp_dir": TMP_FOLDER,
-            "resource_file": 'resources_to_download.json',
-            "files_path": "insee-sirene/"
+            "resource_file": "resources_to_download.json",
+            "files_path": "insee-sirene/",
         },
-        python_callable=publish_file_files_data_gouv
+        python_callable=publish_file_files_data_gouv,
     )
 
     update_dataset_data_gouv = PythonOperator(
         task_id="update_dataset_data_gouv",
         templates_dict={
-            "resource_file": 'resources_to_download.json',
-            "day_file": "01"
+            "resource_file": "resources_to_download.json",
+            "day_file": "01",
         },
-        python_callable=update_dataset_data_gouv
+        python_callable=update_dataset_data_gouv,
     )
 
     publish_mattermost = PythonOperator(
-        task_id='publish_mattermost',
-        python_callable=publish_mattermost
+        task_id="publish_mattermost", python_callable=publish_mattermost
     )
 
     get_files.set_upstream(clean_previous_outputs)

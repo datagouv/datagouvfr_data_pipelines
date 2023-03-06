@@ -34,7 +34,8 @@ def get_files(**kwargs):
             "url": f"{INSEE_BASE_URL}{item['nameFTP']}",
             "dest_path": tmp_dir,
             "dest_name": item["nameFTP"],
-        } for item in data
+        }
+        for item in data
     ]
     download_files(
         list_urls=list_urls,
@@ -64,8 +65,9 @@ def upload_files_minio(**kwargs):
             "source_path": tmp_dir,
             "source_name": item["nameFTP"],
             "dest_path": minio_path,
-            "dest_name": item['nameFTP'],
-        } for item in data
+            "dest_name": item["nameFTP"],
+        }
+        for item in data
     ]
 
     send_files(
@@ -73,7 +75,7 @@ def upload_files_minio(**kwargs):
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        list_files=list_files
+        list_files=list_files,
     )
 
 
@@ -190,7 +192,7 @@ def publish_mattermost():
             "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/fr/datasets/base-sirene-des-"
             "entreprises-et-de-leurs-etablissements-siren-siret/) "
         ),
-        image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg"
+        image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg",
     )
 
 
@@ -202,5 +204,5 @@ def publish_mattermost_geoloc():
             "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/fr/datasets/geolocalisation-"
             "des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques/) "
         ),
-        image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg"
+        image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg",
     )

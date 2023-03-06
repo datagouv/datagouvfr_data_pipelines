@@ -1,15 +1,17 @@
 import boto3
+import botocore
 from minio import Minio
-from typing import List, TypedDict
+from typing import List, TypedDict, Optional
 import os
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 
 class File(TypedDict):
-    source_name: str
     source_path: str
-    dest_name: str
+    source_name: str
     dest_path: str
+    dest_name: str
+    content_type: Optional[str]
 
 
 def send_files(
@@ -51,6 +53,7 @@ def send_files(
                     MINIO_BUCKET,
                     f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}",
                     os.path.join(file["source_path"], file["source_name"]),
+                    content_type=file['content_type'] if 'content_type' in file else None
                 )
             else:
                 raise Exception(
@@ -127,12 +130,17 @@ def compare_files(
         aws_secret_access_key=MINIO_PASSWORD,
     )
 
-    file_1 = s3.head_object(
-        Bucket=MINIO_BUCKET, Key=f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}"
-    )
-    file_2 = s3.head_object(
-        Bucket=MINIO_BUCKET, Key=f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}"
-    )
+    try:
+        file_1 = s3.head_object(
+            Bucket=MINIO_BUCKET, Key=f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}"
+        )
+        file_2 = s3.head_object(
+            Bucket=MINIO_BUCKET, Key=f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}"
+        )
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == "404":
+            print("errorrrrrr")
+            return
 
     print(f"Hash file 1 : {file_1['ETag']}")
     print(f"Hash file 2 : {file_2['ETag']}")
