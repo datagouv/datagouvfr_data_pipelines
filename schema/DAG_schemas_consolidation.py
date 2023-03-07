@@ -38,7 +38,7 @@ SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/datagouvfr_data_pipelines.git"
 TMP_CONFIG_FILE = (
-    f"{AIRFLOW_DAG_TMP}datagouvfr_data_pipelines/schema/scripts/config_tableschema.yml"
+    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/config_tableschema.yml"
 )
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
