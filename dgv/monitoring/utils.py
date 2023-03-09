@@ -30,13 +30,13 @@ def get_last_discussions(start_date, end_date=None):
         for _id, subject, title, comments in data:
             createds = [dateutil.parser.parse(c["posted_on"]) for c in comments]
             created = max(createds)
-            got_everything = (created < start_date)
+            got_everything = (created.timestamp() < start_date.timestamp())
             if not got_everything:
                 for comment in comments:
                     if end_date:
                         if (
-                            (dateutil.parser.parse(comment["posted_on"]) >= start_date) &
-                            (dateutil.parser.parse(comment["posted_on"]) < end_date)
+                            (dateutil.parser.parse(comment["posted_on"]).timestamp() >= start_date.timestamp()) &
+                            (dateutil.parser.parse(comment["posted_on"]).timestamp() < end_date.timestamp())
                         ):
                             results.append((_id, subject, title, comment))
                     else:

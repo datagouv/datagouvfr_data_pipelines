@@ -327,7 +327,7 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
         data = get_data(endpoint, page, sort_key)
         for d in data:
             created = dateutil.parser.parse(d[date_key])
-            got_everything = (created < start_date)
+            got_everything = (created.timestamp() < start_date.timestamp())
             if not got_everything:
                 intermediary_result.append(d)
             else:
@@ -339,7 +339,7 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
     if end_date:
         for d in intermediary_result:
             created = dateutil.parser.parse(d[date_key])
-            if created < end_date:
+            if created.timestamp() < end_date.timestamp():
                 results.append(d)
     else:
         results = intermediary_result
