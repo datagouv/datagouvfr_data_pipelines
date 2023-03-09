@@ -208,17 +208,17 @@ with DAG(
         ),
     )
 
-    commit_changes = BashOperator(
-        task_id="commit_changes",
-        bash_command=(
-            f"cd {TMP_FOLDER}datagouvfr_data_pipelines/ && git add schema "
-            # To change when multiple ssh keys is deployed
-            ' && git commit -m "Update config file - '
-            f'{ datetime.today().strftime("%Y-%m-%d")}'
-            '" || echo "No changes to commit"'
-            " && git push origin master"
-        )
-    )
+    # commit_changes = BashOperator(
+    #     task_id="commit_changes",
+    #     bash_command=(
+    #         f"cd {TMP_FOLDER}datagouvfr_data_pipelines/ && git add schema "
+    #         # To change when multiple ssh keys is deployed
+    #         ' && git commit -m "Update config file - '
+    #         f'{ datetime.today().strftime("%Y-%m-%d")}'
+    #         '" || echo "No changes to commit"'
+    #         " && git push origin master"
+    #     )
+    # )
 
     notification_synthese = PythonOperator(
         task_id="notification_synthese",
@@ -230,5 +230,6 @@ with DAG(
     run_consolidation.set_upstream(clone_dag_schema_repo)
     geodata_quality_improvement.set_upstream(run_consolidation)
     upload_consolidation.set_upstream(geodata_quality_improvement)
-    commit_changes.set_upstream(upload_consolidation)
-    notification_synthese.set_upstream(commit_changes)
+    # commit_changes.set_upstream(upload_consolidation)
+    # notification_synthese.set_upstream(commit_changes)
+    notification_synthese.set_upstream(upload_consolidation)
