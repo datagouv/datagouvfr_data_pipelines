@@ -128,7 +128,7 @@ def get_current_flux_etablissement(ti):
         "activitePrincipaleEtablissement,indiceRepetitionEtablissement,libelleCommuneEtrangerEtablissement,"
         "codePaysEtrangerEtablissement,libellePaysEtrangerEtablissement,"
         "libelleCommuneEtranger2Etablissement,codePaysEtranger2Etablissement,"
-        "libellePaysEtranger2Etablissement&nombre=1000&curseur="
+        "libellePaysEtranger2Etablissement,statutDiffusionUniteLegale&nombre=1000&curseur="
     )
     data = call_insee_api(endpoint, "etablissements")
     flux = []
