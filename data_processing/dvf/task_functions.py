@@ -4,10 +4,24 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
+from dag_datagouv_data_pipelines.utils.postgres import (
+    execute_sql_file,
+    copy_file
+)
+<<<<<<< HEAD
 from datagouvfr_data_pipelines.utils.postgres import execute_sql_file, copy_file
 from datagouvfr_data_pipelines.utils.datagouv import post_resource
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+=======
+from dag_datagouv_data_pipelines.utils.datagouv import post_resource
+from dag_datagouv_data_pipelines.utils.mattermost import send_message
+from dag_datagouv_data_pipelines.utils.minio import send_files
+>>>>>>> 5b979ba (feat: return all occurrences of geo and time, upload to minio, reshape DAG)
 import gc
 import glob
 from unidecode import unidecode
@@ -78,7 +92,7 @@ def populate_dvf_table():
 
 
 def populate_stats_dvf_table():
-    populate_utils([f"{DATADIR}/stats_dvf.csv"], "public.stats_dvf")
+    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "public.stats_dvf")
 
 
 def get_epci():
@@ -119,6 +133,8 @@ def process_dvf_stats(ti):
         encoding="utf8",
         dtype=str
     )
+    sections_from_dvf = set()
+    communes_from_dvf = set()
     to_keep = [
         "id_mutation",
         "date_mutation",
@@ -147,6 +163,8 @@ def process_dvf_stats(ti):
         # certaines communes ne sont pas dans des EPCI
         df = pd.merge(df, epci, on="code_commune", how="left")
         df["code_section"] = df["id_parcelle"].str[:10]
+        sections_from_dvf = sections_from_dvf | set(df['code_section'].unique())
+        communes_from_dvf = communes_from_dvf | set(df['code_commune'].unique())
         df = df.drop("id_parcelle", axis=1)
 
         natures_of_interest = [
@@ -175,7 +193,8 @@ def process_dvf_stats(ti):
         # choix : les terres et/ou dépendances ne rendent pas une mutation
         # multitype
         ventes = df.loc[
-            (df["nature_mutation"].isin(natures_of_interest)) & (df["code_type_local"].isin([1, 2, 4]))
+            (df["nature_mutation"].isin(natures_of_interest)) &
+            (df["code_type_local"].isin([1, 2, 4]))
         ]
         del df
         ventes["month"] = (
@@ -192,10 +211,13 @@ def process_dvf_stats(ti):
         multitypes = ventes[["id_mutation", "code_type_local"]].value_counts()
         multitypes_ = multitypes.unstack()
         mutations_drop = multitypes_.loc[
-            sum([multitypes_[c].isna() for c in multitypes_.columns]) < len(multitypes_.columns) - 1
+            sum(
+                [multitypes_[c].isna() for c in multitypes_.columns]
+            ) < len(multitypes_.columns) - 1
         ].index
         ventes_nodup = ventes.loc[
-            ~(ventes["id_mutation"].isin(mutations_drop)) & ~(ventes["code_type_local"].isna())
+            ~(ventes["id_mutation"].isin(mutations_drop)) &
+            ~(ventes["code_type_local"].isna())
         ]
         print(len(ventes_nodup))
 
@@ -222,7 +244,8 @@ def process_dvf_stats(ti):
         # on la divise par la surface totale, sachant qu'on n'a gardé
         # que les mutations monotypes
         ventes_nodup["prix_m2"] = (
-            ventes_nodup["valeur_fonciere"] / ventes_nodup["surface_totale_mutation"]
+            ventes_nodup["valeur_fonciere"] /
+            ventes_nodup["surface_totale_mutation"]
         )
         ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
             [np.inf, -np.inf], np.nan
@@ -237,7 +260,7 @@ def process_dvf_stats(ti):
         for m in range(1, 13):
             dfs_dict = {}
             for echelle in echelles_of_interest:
-                # ici on utilise bien le df ventes, qui contient l'eneemble
+                # ici on utilise bien le df ventes, qui contient l'ensemble
                 # des ventes sans filtres autres que les types de mutations
                 # d'intérêt
                 nb = (
@@ -307,10 +330,9 @@ def process_dvf_stats(ti):
                     columns={f"code_{echelle}": "code_geo"},
                     inplace=True
                 )
-                merged["echelle_geo"] = echelle
                 dfs_dict[echelle] = merged
 
-            general = {"code_geo": "all", "echelle_geo": "nation"}
+            general = {"code_geo": "nation"}
             for t in types_of_interest:
                 general[
                     "nb_ventes_" + unidecode(
@@ -318,14 +340,18 @@ def process_dvf_stats(ti):
                     )
                 ] = len(
                     ventes.loc[
-                        (ventes["code_type_local"] == t) & (ventes["month"] == m)
+                        (ventes["code_type_local"] == t) &
+                        (ventes["month"] == m)
                     ]
                 )
                 general[
-                    "moy_prix_m2_" + unidecode(types_bien[t].split(" ")[0].lower())
+                    "moy_prix_m2_" + unidecode(
+                        types_bien[t].split(" ")[0].lower()
+                    )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t) & (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t) &
+                        (ventes_nodup["month"] == m)
                     ]["prix_m2"].mean()
                 )
                 general[
@@ -334,7 +360,8 @@ def process_dvf_stats(ti):
                     )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t) & (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t) &
+                        (ventes_nodup["month"] == m)
                     ]["prix_m2"].median()
                 )
 
@@ -343,19 +370,34 @@ def process_dvf_stats(ti):
             )
             all_month["annee_mois"] = f'{year}-{"0"+str(m) if m<10 else m}'
             export = pd.concat([export, all_month])
+            del all_month
+            del dfs_dict
+            del general
         del ventes
         del ventes_nodup
         gc.collect()
         print("Done with", year)
 
     # on ajoute les colonnes libelle_geo et code_parent
+    with open(DATADIR + "/sections.txt", 'r') as f:
+        sections = [s.replace('\n', '') for s in f.readlines()]
+    sections = pd.DataFrame(
+        set(sections) | sections_from_dvf,
+        columns=['code_geo']
+    )
+    sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
+    sections = sections.drop_duplicates()
+    sections['code_parent'] = sections['code_geo'].str.slice(0, 5)
+    sections['libelle_geo'] = sections['code_geo']
+    sections['echelle_geo'] = 'section'
     departements = pd.read_csv(
         DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
     )
     departements = departements.rename(
         {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
     )
-    departements["code_parent"] = "all"
+    departements['code_parent'] = 'nation'
+    departements['echelle_geo'] = 'departement'
     epci_communes = epci[["code_commune", "code_epci"]]
     epci["code_parent"] = epci["code_commune"].apply(
         lambda code: code[:2] if code[:2] != "97" else code[:3]
@@ -364,6 +406,7 @@ def process_dvf_stats(ti):
     epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
         {"code_epci": "code_geo"}, axis=1
     )
+    epci['echelle_geo'] = 'epci'
 
     communes = pd.read_csv(
         DATADIR + "/communes.csv",
@@ -375,39 +418,111 @@ def process_dvf_stats(ti):
         .rename({"COM": "code_geo", "LIBELLE": "libelle_geo"}, axis=1)
         .drop("TYPECOM", axis=1)
     )
+    communes = pd.merge(
+        communes,
+        pd.DataFrame(communes_from_dvf, columns=['code_geo']),
+        on='code_geo',
+        how='outer'
+    )
     epci_communes = epci_communes.rename(
         {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
     )
     communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
-    libelles_parents = pd.concat([departements, epci, communes])
-    libelles_parents["libelle_geo"] = libelles_parents["libelle_geo"] \
+    communes.loc[
+        communes['code_geo'].str.startswith('75'),
+        'code_parent'
+    ] = '200054781'
+    communes.loc[
+        communes['code_geo'].str.startswith('13'),
+        'code_parent'
+    ] = '200054807'
+    communes.loc[
+        communes['code_geo'].str.startswith('69'),
+        'code_parent'
+    ] = '200046977'
+    communes['code_parent'].fillna(
+        communes['code_geo'].str.slice(0, 2),
+        inplace=True
+    )
+    communes['libelle_geo'].fillna('NA', inplace=True)
+    communes['echelle_geo'] = 'commune'
+    print("Done with géo")
+    libelles_parents = pd.concat([departements, epci, communes, sections])
+    del sections
+    del communes
+    del epci
+    del departements
+    libelles_parents["libelle_geo"] = (
+        libelles_parents["libelle_geo"]
+        .fillna("NA")
         .apply(unidecode)
-
-    export = pd.merge(export, libelles_parents, on="code_geo", how="left")
-    export.loc[export["echelle_geo"] == "section", "code_parent"] = export.loc[
-        export["echelle_geo"] == "section"
-    ]["code_geo"].str.slice(0, 5)
-    export.loc[export["echelle_geo"] == "nation", "code_parent"] = "-"
-    export.loc[
-        (export["echelle_geo"] == "commune") & (export["code_geo"].str.startswith("75")),
-        "code_parent",
-    ] = "200054781"
-    export.loc[
-        (export["echelle_geo"] == "commune") & (export["code_geo"].str.startswith("13")),
-        "code_parent",
-    ] = "200054807"
-    export.loc[
-        (export["echelle_geo"] == "commune") & (export["code_geo"].str.startswith("69")),
-        "code_parent",
-    ] = "200046977"
-    export["code_parent"] = export["code_parent"].fillna("NA")
+    )
+    # on crée l'ensemble des occurrences échelles X mois pour le merge
+    dup_libelle = libelles_parents.append(
+        [libelles_parents]*(12*(max(years)-min(years)+1)-1),
+        ignore_index=True
+    ).sort_values(['code_geo', 'code_parent'])
+    dup_libelle['annee_mois'] = [
+        f'{y}-{"0"+str(m) if m<10 else m}'
+        for y in range(min(years), max(years)+1) for m in range(1, 13)
+    ]*len(libelles_parents)
+    del libelles_parents
+    print("Done with libellés")
+    # right merge pour avoir toutes les occurrences de toutes les échelles
+    # (cf API)
+    dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
+    export = export.join(
+        dup_libelle, on=['code_geo', 'annee_mois'],
+        how='outer'
+    )
+    del dup_libelle
+    print("Done with merge")
+    if len(years) > 5:
+        export = export.loc[
+            export['annee_mois'].between(
+                f'{min(years)}-07',
+                f'{max(years)}-06'
+            )
+        ]
+    mask = export['code_geo'] == 'nation'
+    export.loc[mask, ['code_parent', 'libelle_geo', 'echelle_geo']] = [
+        ['-', 'nation', 'nation'] for k in range(sum(mask))
+    ]
+    del mask
+    gc.collect()
 
     export.to_csv(
+        DATADIR + "/stats_dvf_api.csv",
+        sep=",",
+        encoding="utf8",
+        index=False,
+        float_format="%.0f",
+    )
+
+    light_export = export.dropna()
+    light_export.to_csv(
         DATADIR + "/stats_dvf.csv",
         sep=",",
         encoding="utf8",
         index=False,
         float_format="%.0f",
+    )
+
+
+def send_stats_to_minio():
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "stats_dvf.csv",
+                "dest_path": "dvf/",
+                "dest_name": "stats_dvf.csv",
+            }
+        ],
     )
 
 
@@ -435,5 +550,6 @@ def notification_mattermost(ti):
     send_message(
         f"Stats DVF générées :"
         f"\n- intégré en base de données"
-        f"\n- publié [sur data.gouv.fr]({url}{dataset_id})",
+        f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
+        f"({url}{dataset_id})",
     )

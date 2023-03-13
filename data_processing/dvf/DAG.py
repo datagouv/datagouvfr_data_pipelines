@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     populate_stats_dvf_table,
     process_dvf_stats,
     publish_stats_dvf,
+    send_stats_to_minio,
     notification_mattermost,
 )
 
@@ -25,7 +26,10 @@ DAG_NAME = 'data_processing_dvf'
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 
 default_args = {
-    'email': ['geoffrey.aldebert@data.gouv.fr'],
+    'email': [
+        'pierlou.ramade@data.gouv.fr',
+        'geoffrey.aldebert@data.gouv.fr'
+    ],
     'email_on_failure': True
 }
 
@@ -82,6 +86,11 @@ with DAG(
         python_callable=populate_stats_dvf_table,
     )
 
+    send_stats_to_minio = PythonOperator(
+        task_id='send_stats_to_minio',
+        python_callable=send_stats_to_minio,
+    )
+
     publish_stats_dvf = PythonOperator(
         task_id='publish_stats_dvf',
         python_callable=publish_stats_dvf,
@@ -95,9 +104,12 @@ with DAG(
     download_dvf_data.set_upstream(clean_previous_outputs)
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
-    get_epci.set_upstream(populate_dvf_table)
+    get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
-    publish_stats_dvf.set_upstream(populate_stats_dvf_table)
+    send_stats_to_minio.set_upstream(process_dvf_stats)
+    publish_stats_dvf.set_upstream(send_stats_to_minio)
     notification_mattermost.set_upstream(publish_stats_dvf)
+    notification_mattermost.set_upstream(populate_stats_dvf_table)
+    notification_mattermost.set_upstream(populate_dvf_table)
