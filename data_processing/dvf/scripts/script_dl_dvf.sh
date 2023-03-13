@@ -12,6 +12,9 @@ URL_communes='https://www.insee.fr/fr/statistiques/fichier/6051727/commune_2022.
 curl $URL_departements > $DATADIR/departements.csv
 curl $URL_communes > $DATADIR/communes.csv
 
+wget --header="Accept-Encoding: gzip" https://cadastre.data.gouv.fr/data/dgfip-pci-vecteur-latest.json -O - | gunzip -d > $DATADIR/dgfip-pci-vecteur-latest.json
+jq -r '.[].contents[] | select(.name | endswith("edigeo")) | .contents[] | select(.name | endswith("feuilles"))| .contents[].contents[].contents[].name' $DATADIR/dgfip-pci-vecteur-latest.json | cut -d '/' -f 11 | sed 's/edigeo-\|\.tar\.bz2//g' >| $DATADIR/sections.txt
+
 for YEAR in `seq $five_ago $curr_year`
 do
   echo $YEAR && [ ! -f $DATADIR/full_$YEAR.csv.gz ] && wget -r -np -nH -N --cut-dirs 5  https://files.data.gouv.fr/geo-dvf/latest/csv/$YEAR/full.csv.gz -O $DATADIR/full_$YEAR.csv.gz
