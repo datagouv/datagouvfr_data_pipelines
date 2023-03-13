@@ -67,12 +67,12 @@ def get_stock_non_diffusible(ti):
 
 def get_current_flux_non_diffusible(ti):
     endpoint = (
-        "https://api.insee.fr/entreprises/sirene/V3/siret"
+        "https://api.insee.fr/entreprises/sirene/V3/siren"
         "?q=statutDiffusionUniteLegale%3AN"
-        f"%20AND%20dateDernierTraitementEtablissement:{CURRENT_MONTH}"
+        f"%20AND%dateDernierTraitementUniteLegale:{CURRENT_MONTH}"
         "&champs=siren&nombre=1000&curseur="
     )
-    data = call_insee_api(endpoint, "etablissements")
+    data = call_insee_api(endpoint, "unitesLegales")
     df = pd.DataFrame(data)
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_non_diffusible_{CURRENT_MONTH}.csv.gz",
