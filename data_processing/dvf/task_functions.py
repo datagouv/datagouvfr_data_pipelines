@@ -498,6 +498,12 @@ def process_dvf_stats(ti):
         index=False,
         float_format="%.0f",
     )
+    print("Done with first export (API table)")
+
+    mask = export[[c for c in export.columns if any([s in c for s in ['nb_', 'moy_', 'med_']])]]
+    mask = mask.isna().all(axis=1)
+    light_export = export.loc[~(mask)]
+    del mask
 
     light_export = export.dropna()
     light_export.to_csv(
