@@ -41,7 +41,7 @@ def process_signaux_faibles(ti):
         index=False
     )
 
-    ti.xcom_push(key="nb_siren", value=str(df_bilans["siren"].shape[0]))
+    ti.xcom_push(key="nb_siren", value=str(df_bilans.shape[0]))
 
 
 def send_file_to_minio():
