@@ -36,7 +36,11 @@ def process_signaux_faibles(ti):
     df_bilans = df_bilans.sort_values(by=["date_cloture_exercice"])
     df_bilans = df_bilans.drop_duplicates(subset=["siren"], keep="last")
     df_bilans = df_bilans[["siren", "chiffre_d_affaires", "resultat_net"]]
-    df_bilans.to_csv("synthese_bilans.csv")
+    df_bilans.to_csv(
+        f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/"
+        "synthese_bilans.csv",
+        index=False
+    )
 
     ti.xcom_push(key="nb_siren", value=str(df_bilans["siren"].shape[0]))
 
