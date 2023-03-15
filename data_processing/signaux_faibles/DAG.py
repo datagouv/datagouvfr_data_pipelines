@@ -8,6 +8,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.signaux_faibles.task_functions import (
+    download_signaux_faibles,
     process_signaux_faibles,
     send_file_to_minio,
     compare_files_minio,
@@ -30,6 +31,10 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
+    download_signaux_faibles = PythonOperator(
+        task_id="download_signaux_faibles", python_callable=download_signaux_faibles
+    )
+
     process_signaux_faibles = PythonOperator(
         task_id="process_signaux_faibles", python_callable=process_signaux_faibles
     )
@@ -45,8 +50,8 @@ with DAG(
     send_notification = PythonOperator(
         task_id="send_notification", python_callable=send_notification
     )
-
-    process_signaux_faibles.set_upstream(clean_previous_outputs)
+    download_signaux_faibles.set_upstream(clean_previous_outputs)
+    process_signaux_faibles.set_upstream(download_signaux_faibles)
     send_file_to_minio.set_upstream(process_signaux_faibles)
     compare_files_minio.set_upstream(send_file_to_minio)
     send_notification.set_upstream(compare_files_minio)

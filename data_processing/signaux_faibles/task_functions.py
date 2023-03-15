@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.utils.minio import send_files, compare_files
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 
-def process_signaux_faibles(ti):
+def download_signaux_faibles():
     get_resource(
         resource_id="9d213815-1649-4527-9eb4-427146ef2e5b",
         file_to_store={
@@ -21,10 +21,15 @@ def process_signaux_faibles(ti):
         },
     )
     print("download done!")
+
+
+def process_signaux_faibles(ti):
+    fields = ["siren", "chiffre_d_affaires", "resultat_net", "date_cloture_exercice"]
     df_bilans = pd.read_csv(
         f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/bilans_entreprises.csv",
         dtype=str,
         sep=";",
+        usecols=fields
     )
     df_bilans["chiffre_d_affaires"] = df_bilans["chiffre_d_affaires"].astype(float)
     df_bilans["resultat_net"] = df_bilans["resultat_net"].astype(float)
