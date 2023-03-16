@@ -9,7 +9,10 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.minio import send_files, compare_files
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_resource
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_dataset_or_resource_metadata,
+    get_resource,
+)
 
 
 def download_latest_data(ti):
@@ -27,13 +30,22 @@ def download_latest_data(ti):
             "dest_name": "mesr.csv"
         }
     )
-    get_resource(
-        resource_id="8b9c80b4-1645-4bec-a14e-31418a7527e2",
-        file_to_store={
-            "dest_path": f"{AIRFLOW_DAG_TMP}uai/",
-            "dest_name": "onisep.csv"
-        }
+
+    # Les ressources du JDD ONISEP https://www.data.gouv.fr/fr/
+    # datasets/5fa5e386afdaa6152360f323/ sont régulièrements écrasés
+    # pour de nouvelles ressources. On récupère donc le csv du JDD :
+    data = get_dataset_or_resource_metadata(
+        dataset_id="5fa5e386afdaa6152360f323",
     )
+    for res in data["resources"]:
+        if res["format"] == "csv":
+            get_resource(
+                resource_id=res["id"],
+                file_to_store={
+                    "dest_path": f"{AIRFLOW_DAG_TMP}uai/",
+                    "dest_name": "onisep.csv"
+                }
+            )
 
 
 def process_uai(ti):
