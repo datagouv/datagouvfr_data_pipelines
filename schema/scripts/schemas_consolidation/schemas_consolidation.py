@@ -157,33 +157,37 @@ def parse_api(url: str) -> pd.DataFrame:
         if "data" in data:
             for dataset in data["data"]:
                 for res in dataset["resources"]:
-                    if "format=csv" in res["url"]:
-                        filename = res["url"].split("/")[-3] + ".csv"
-                    else:
-                        filename = res["url"].split("/")[-1]
-                    ext = filename.split(".")[-1]
-                    obj = {}
-                    obj["dataset_id"] = dataset["id"]
-                    obj["dataset_title"] = dataset["title"]
-                    obj["dataset_slug"] = dataset["slug"]
-                    obj["dataset_page"] = dataset["page"]
-                    obj["resource_id"] = res["id"]
-                    obj["resource_title"] = res["title"]
-                    obj["resource_url"] = res["url"]
-                    obj["resource_last_modified"] = res["last_modified"]
-                    if ext not in ["csv", "xls", "xlsx"]:
-                        obj["error_type"] = "wrong-file-format"
-                    else:
-                        if not dataset["organization"] and not dataset["owner"]:
-                            obj["error_type"] = "orphan-dataset"
+                    should_add_resource = True
+                    if "name" in res["schema"] and res["schema"]["name"] != schema_name:
+                        should_add_resource = False
+                    if should_add_resource:
+                        if "format=csv" in res["url"]:
+                            filename = res["url"].split("/")[-3] + ".csv"
                         else:
-                            obj["organization_or_owner"] = (
-                                dataset["organization"]["slug"]
-                                if dataset["organization"]
-                                else dataset["owner"]["slug"]
-                            )
-                            obj["error_type"] = None
-                    arr.append(obj)
+                            filename = res["url"].split("/")[-1]
+                        ext = filename.split(".")[-1]
+                        obj = {}
+                        obj["dataset_id"] = dataset["id"]
+                        obj["dataset_title"] = dataset["title"]
+                        obj["dataset_slug"] = dataset["slug"]
+                        obj["dataset_page"] = dataset["page"]
+                        obj["resource_id"] = res["id"]
+                        obj["resource_title"] = res["title"]
+                        obj["resource_url"] = res["url"]
+                        obj["resource_last_modified"] = res["last_modified"]
+                        if ext not in ["csv", "xls", "xlsx"]:
+                            obj["error_type"] = "wrong-file-format"
+                        else:
+                            if not dataset["organization"] and not dataset["owner"]:
+                                obj["error_type"] = "orphan-dataset"
+                            else:
+                                obj["organization_or_owner"] = (
+                                    dataset["organization"]["slug"]
+                                    if dataset["organization"]
+                                    else dataset["owner"]["slug"]
+                                )
+                                obj["error_type"] = None
+                        arr.append(obj)
     df = pd.DataFrame(arr)
     return df
 
@@ -259,6 +263,8 @@ def save_validata_report(
     with open(
         str(validata_reports_path)
         + "/"
+        + schema_name.replace("/", "_")
+        + "_"
         + dataset_id
         + "_"
         + resource_id

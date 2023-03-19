@@ -441,7 +441,7 @@ def post_comment_on_dataset(dataset_id, title, comment, api_url):
 
 
 def add_validation_extras(
-    dataset_id, resource_id, validata_report_path, api_url, headers
+    dataset_id, resource_id, validata_report_path, api_url, headers, schema_name
 ):
     if os.path.isfile(validata_report_path):
         with open(validata_report_path) as out:
@@ -451,7 +451,11 @@ def add_validation_extras(
             url = api_url + "datasets/{}/resources/{}/".format(dataset_id, resource_id)
             r = requests.get(url, headers=headers)
             extras = r.json()["extras"]
+            schema = r.json()["schema"]
+            if schema and "name" in schema and schema["name"] != schema_name:
+                return
         except:
+            print("abnormal exception")
             extras = {}
 
         extras = {**extras, **validation_report}
@@ -1020,6 +1024,8 @@ def run_consolidation_upload(
                 validata_report_path = (
                     str(validata_reports_path)
                     + "/"
+                    + schema_name.replace("/", "_")
+                    + "_"
                     + row["dataset_id"]
                     + "_"
                     + row["resource_id"]
@@ -1053,6 +1059,7 @@ def run_consolidation_upload(
                     validata_report_path,
                     api_url,
                     headers,
+                    schema_name,
                 )
 
     # ## Updating consolidation documentation resource
