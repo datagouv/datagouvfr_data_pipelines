@@ -146,7 +146,7 @@ def parse_api_search(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
 
 
 # API parsing to get resources infos based on schema metadata, tags and search keywords
-def parse_api(url: str) -> pd.DataFrame:
+def parse_api(url: str, schema_name: str) -> pd.DataFrame:
     r = requests.get(url)
     data = r.json()
     nb_pages = int(data["total"] / data["page_size"]) + 1
@@ -455,7 +455,7 @@ def run_schemas_consolidation(
             df_list = []
 
             # Listing resources by schema request
-            df_schema = parse_api(schema_url_base.format(schema_name=schema_name))
+            df_schema = parse_api(schema_url_base.format(schema_name=schema_name), schema_name)
             schemas_report_dict[schema_name]["nb_resources_found_by_schema"] = len(
                 df_schema
             )
@@ -470,7 +470,7 @@ def run_schemas_consolidation(
             # Listing resources by tag requests
             schemas_report_dict[schema_name]["nb_resources_found_by_tags"] = 0
             for tag in tags_list:
-                df_tag = parse_api(tag_url_base.format(tag=tag))
+                df_tag = parse_api(tag_url_base.format(tag=tag), schema_name)
                 schemas_report_dict[schema_name]["nb_resources_found_by_tags"] += len(
                     df_tag
                 )
