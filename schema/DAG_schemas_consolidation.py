@@ -59,7 +59,7 @@ def notification_synthese(**kwargs):
             try:
                 filename = (
                     f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
-                    f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/','_').csv}"
+                    f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/','_')}.csv"
                 )
                 df = pd.read_csv(filename)
                 nb_declares = df[df["resource_found_by"] == "1 - schema request"].shape[0]
