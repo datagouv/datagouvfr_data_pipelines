@@ -36,9 +36,9 @@ DAG_NAME = "schema_consolidation"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
-GIT_REPO = "git@github.com:etalab/datagouvfr_data_pipelines.git"
+GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 TMP_CONFIG_FILE = (
-    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/config_tableschema.yml"
+    f"{TMP_FOLDER}schema.data.gouv.fr/config_consolidation.yml"
 )
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
@@ -133,7 +133,7 @@ with DAG(
 
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
-        bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} ",
+        bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
     )
 
     shared_params = {
@@ -208,17 +208,16 @@ with DAG(
         ),
     )
 
-    # commit_changes = BashOperator(
-    #     task_id="commit_changes",
-    #     bash_command=(
-    #         f"cd {TMP_FOLDER}datagouvfr_data_pipelines/ && git add schema "
-    #         # To change when multiple ssh keys is deployed
-    #         ' && git commit -m "Update config file - '
-    #         f'{ datetime.today().strftime("%Y-%m-%d")}'
-    #         '" || echo "No changes to commit"'
-    #         " && git push origin master"
-    #     )
-    # )
+    commit_changes = BashOperator(
+        task_id="commit_changes",
+        bash_command=(
+            f"cd {TMP_FOLDER}schema.data.gouv.fr/ && git add config_consolidation.yml "
+            ' && git commit -m "Update config consolidation file - '
+            f'{ datetime.today().strftime("%Y-%m-%d")}'
+            '" || echo "No changes to commit"'
+            " && git push origin main"
+        )
+    )
 
     notification_synthese = PythonOperator(
         task_id="notification_synthese",
@@ -230,6 +229,5 @@ with DAG(
     run_consolidation.set_upstream(clone_dag_schema_repo)
     geodata_quality_improvement.set_upstream(run_consolidation)
     upload_consolidation.set_upstream(geodata_quality_improvement)
-    # commit_changes.set_upstream(upload_consolidation)
-    # notification_synthese.set_upstream(commit_changes)
-    notification_synthese.set_upstream(upload_consolidation)
+    commit_changes.set_upstream(upload_consolidation)
+    notification_synthese.set_upstream(commit_changes)
