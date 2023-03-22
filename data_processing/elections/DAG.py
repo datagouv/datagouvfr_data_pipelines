@@ -8,8 +8,9 @@ from dag_datagouv_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
 )
-from dag_datagouv_data_pipelines.data_processing.dvf.task_functions import (
-    
+from dag_datagouv_data_pipelines.data_processing.elections.task_functions import (
+    format_election_files_func,
+    process_election_data_func
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
@@ -31,7 +32,7 @@ with DAG(
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=60),
-    tags=["data_processing", "election", "presidentielle"],
+    tags=["data_processing", "election", "presidentielle", "legislative"],
     default_args=default_args,
 ) as dag:
 
@@ -48,4 +49,16 @@ with DAG(
         )
     )
 
+    format_election_files = PythonOperator(
+        task_id='format_election_files',
+        python_callable=format_election_files_func,
+    )
+
+    process_election_data = PythonOperator(
+        task_id='process_election_data',
+        python_callable=process_election_data_func,
+    )
+
     download_elections_data.set_upstream(clean_previous_outputs)
+    format_election_files.set_upstream(download_elections_data)
+    process_election_data.set_upstream(format_election_files)
