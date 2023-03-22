@@ -161,7 +161,12 @@ def process_dvf_stats(ti):
         # les fichiers d'entrée contiennent entre 4 et 8% de doublons purs
         df = df_.drop_duplicates()
         # certaines communes ne sont pas dans des EPCI
-        df = pd.merge(df, epci, on="code_commune", how="left")
+        df = pd.merge(
+            df,
+            epci[['code_commune', 'code_epci']],
+            on="code_commune",
+            how="left"
+        )
         df["code_section"] = df["id_parcelle"].str[:10]
         sections_from_dvf = sections_from_dvf | set(df['code_section'].unique())
         communes_from_dvf = communes_from_dvf | set(df['code_commune'].unique())
@@ -513,6 +518,170 @@ def process_dvf_stats(ti):
         index=False,
         float_format="%.0f",
     )
+
+
+def create_deciles():
+    # on récupère toutes les échelles
+    echelles = pd.read_csv(
+        DATADIR + "/stats_dvf_api.csv",
+        sep=",",
+        encoding="utf8",
+        usecols=['echelle_geo', 'code_geo']
+    )
+    echelles = echelles.drop_duplicates()
+    print(echelles.sample(20))
+    # on récupère les données DVF qui vont servir
+    years = sorted(
+        [
+            int(f.replace("full_", "").replace(".csv", ""))
+            for f in os.listdir(DATADIR)
+            if "full_" in f
+        ]
+    )
+    dvf = pd.DataFrame(None)
+    epci = pd.read_csv(
+        DATADIR + "/epci.csv",
+        sep=",",
+        encoding="utf8",
+        dtype=str
+    )
+    print(epci.columns)
+    to_keep = [
+        "id_mutation",
+        "code_departement",
+        "code_commune",
+        "id_parcelle",
+        "nature_mutation",
+        "code_type_local",
+        "type_local",
+        "valeur_fonciere",
+        "surface_reelle_bati",
+    ]
+    for year in years:
+        print("Loading ", year)
+        df_ = pd.read_csv(
+            DATADIR + f"/full_{year}.csv",
+            sep=",",
+            encoding="utf8",
+            dtype={
+                "code_commune": str,
+                "code_departement": str,
+            },
+            usecols=to_keep,
+        )
+        df = df_.drop_duplicates()
+        df["code_section"] = df["id_parcelle"].str[:10]
+        df = df.drop("id_parcelle", axis=1)
+
+        natures_of_interest = [
+            "Vente",
+            "Vente en l'état futur d'achèvement",
+            "Adjudication",
+        ]
+        types_bien = {
+            k: v
+            for k, v in df_[["code_type_local", "type_local"]]
+            .value_counts()
+            .to_dict()
+            .keys()
+        }
+        del df_
+
+        # types_bien = {
+        #     1: "Maison",
+        #     2: "Appartement",
+        #     3: "Dépendance",
+        #     4: "Local industriel. commercial ou assimilé",
+        #     NaN: terres (cf nature_culture)
+        # }
+
+        # filtres sur les ventes et les types de biens à considérer
+        # choix : les terres et/ou dépendances ne rendent pas une mutation
+        # multitype
+        ventes = df.loc[
+            (df["nature_mutation"].isin(natures_of_interest)) &
+            (df["code_type_local"].isin([1, 2, 4]))
+        ]
+        del df
+        # drop mutations multitypes pour les prix au m², impossible de
+        # classer une mutation qui contient X maisons et Y appartements
+        # par exemple
+        # à voir pour la suite : quid des mutations avec dépendances, dont
+        # le le prix est un prix de lot ? prix_m2 = prix_lot/surface_bien ?
+        multitypes = ventes[["id_mutation", "code_type_local"]].value_counts()
+        multitypes_ = multitypes.unstack()
+        mutations_drop = multitypes_.loc[
+            sum(
+                [multitypes_[c].isna() for c in multitypes_.columns]
+            ) < len(multitypes_.columns) - 1
+        ].index
+        ventes_nodup = ventes.loc[
+            ~(ventes["id_mutation"].isin(mutations_drop)) &
+            ~(ventes["code_type_local"].isna())
+        ]
+        print(len(ventes_nodup))
+
+        # group par mutation, on va chercher la surface totale de la mutation
+        # pour le prix au m²
+        surfaces = (
+            ventes_nodup.groupby(["id_mutation"])["surface_reelle_bati"]
+            .sum()
+            .reset_index()
+        )
+        surfaces.columns = ["id_mutation", "surface_totale_mutation"]
+        # avec le inner merge sur surfaces on se garantit aucune ambiguïté sur
+        # les type_local
+        ventes_nodup = ventes.drop_duplicates(subset="id_mutation")
+        ventes_nodup = pd.merge(
+            ventes_nodup,
+            surfaces,
+            on="id_mutation",
+            how="inner"
+        )
+        print(len(ventes_nodup))
+
+        # pour une mutation donnée la valeur foncière est globale,
+        # on la divise par la surface totale, sachant qu'on n'a gardé
+        # que les mutations monotypes
+        ventes_nodup["prix_m2"] = (
+            ventes_nodup["valeur_fonciere"] /
+            ventes_nodup["surface_totale_mutation"]
+        )
+        ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
+            [np.inf, -np.inf], np.nan
+        )
+
+        # pas de prix ou pas de surface
+        ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
+        dvf = pd.concat([dvf, ventes_nodup])
+        del ventes_nodup
+
+    dvf = pd.merge(
+        dvf,
+        epci[['code_commune', 'code_epci']],
+        on="code_commune",
+        how="left"
+    )
+    tranches = []
+    echelles_of_interest = ["departement", "epci", "commune", "section"]
+    nb_tranches = 10
+    delimiters = [0] + \
+        [pd.qcut(dvf['prix_m2'], nb_tranches-1).unique()[k].right for k in range(nb_tranches)] + \
+        [np.inf]
+    print(delimiters)
+    for e in echelles_of_interest:
+        print(e)
+        codes_geo = echelles.loc[echelles['echelle_geo'] == e, 'code_geo']
+        for code in codes_geo:
+            prix = dvf.loc[dvf[f'code_{e}'] == code, 'prix_m2']
+            tranches.append({
+                code: {
+                    delimiters[k - 1]: len(prix.between(delimiters[k - 1], delimiters[k]))
+                    for k in range(1, len(delimiters))
+                }
+            })
+    print(len(tranches), len(echelles))
+    print(tranches[:20])
 
 
 def send_stats_to_minio():
