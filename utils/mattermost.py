@@ -31,4 +31,7 @@ def send_message(
         data["attachments"] = [{"image_url": image_url}]
 
     r = requests.post(endpoint_url, json=data)
+    print(endpoint_url)
+    print(data)
+    print(r.status_code)
     assert r.status_code == 200
