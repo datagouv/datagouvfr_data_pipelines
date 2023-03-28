@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
-DAG_NAME = 'dgv_metrics'
+DAG_NAME = 'dgv_metrics_test'
 
 default_args = {
     'email': ['geoffrey.aldebert@data.gouv.fr'],
