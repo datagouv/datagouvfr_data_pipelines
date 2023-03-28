@@ -18,7 +18,9 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     publish_stats_dvf,
     send_stats_to_minio,
     notification_mattermost,
-    create_deciles
+    create_deciles,
+    create_repartition_table,
+    populate_repartition_table
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
@@ -39,7 +41,7 @@ with DAG(
     schedule_interval='15 7 1 * *',
     start_date=days_ago(1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=60),
+    dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "dvf", "stats"],
     default_args=default_args,
 ) as dag:
@@ -82,30 +84,40 @@ with DAG(
         python_callable=create_deciles,
     )
 
-    # create_stats_dvf_table = PythonOperator(
-    #     task_id='create_stats_dvf_table',
-    #     python_callable=create_stats_dvf_table,
-    # )
+    create_repartition_table = PythonOperator(
+        task_id='create_repartition_table',
+        python_callable=create_repartition_table,
+    )
 
-    # populate_stats_dvf_table = PythonOperator(
-    #     task_id='populate_stats_dvf_table',
-    #     python_callable=populate_stats_dvf_table,
-    # )
+    populate_repartition_table = PythonOperator(
+        task_id='populate_repartition_table',
+        python_callable=populate_repartition_table,
+    )
 
-    # send_stats_to_minio = PythonOperator(
-    #     task_id='send_stats_to_minio',
-    #     python_callable=send_stats_to_minio,
-    # )
+    create_stats_dvf_table = PythonOperator(
+        task_id='create_stats_dvf_table',
+        python_callable=create_stats_dvf_table,
+    )
 
-    # publish_stats_dvf = PythonOperator(
-    #     task_id='publish_stats_dvf',
-    #     python_callable=publish_stats_dvf,
-    # )
+    populate_stats_dvf_table = PythonOperator(
+        task_id='populate_stats_dvf_table',
+        python_callable=populate_stats_dvf_table,
+    )
 
-    # notification_mattermost = PythonOperator(
-    #     task_id="notification_mattermost",
-    #     python_callable=notification_mattermost,
-    # )
+    send_stats_to_minio = PythonOperator(
+        task_id='send_stats_to_minio',
+        python_callable=send_stats_to_minio,
+    )
+
+    publish_stats_dvf = PythonOperator(
+        task_id='publish_stats_dvf',
+        python_callable=publish_stats_dvf,
+    )
+
+    notification_mattermost = PythonOperator(
+        task_id="notification_mattermost",
+        python_callable=notification_mattermost,
+    )
 
     download_dvf_data.set_upstream(clean_previous_outputs)
     create_dvf_table.set_upstream(download_dvf_data)
@@ -113,10 +125,13 @@ with DAG(
     get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)
     create_deciles.set_upstream(process_dvf_stats)
-    # create_stats_dvf_table.set_upstream(process_dvf_stats)
-    # populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
-    # send_stats_to_minio.set_upstream(process_dvf_stats)
-    # publish_stats_dvf.set_upstream(send_stats_to_minio)
-    # notification_mattermost.set_upstream(publish_stats_dvf)
-    # notification_mattermost.set_upstream(populate_stats_dvf_table)
-    # notification_mattermost.set_upstream(populate_dvf_table)
+    create_repartition_table.set_upstream(create_deciles)
+    populate_repartition_table.set_upstream(create_repartition_table)
+    create_stats_dvf_table.set_upstream(process_dvf_stats)
+    populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
+    send_stats_to_minio.set_upstream(process_dvf_stats)
+    publish_stats_dvf.set_upstream(send_stats_to_minio)
+    notification_mattermost.set_upstream(publish_stats_dvf)
+    notification_mattermost.set_upstream(populate_stats_dvf_table)
+    notification_mattermost.set_upstream(populate_dvf_table)
+    notification_mattermost.set_upstream(populate_repartition_table)

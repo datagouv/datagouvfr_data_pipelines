@@ -69,6 +69,22 @@ def create_stats_dvf_table():
     )
 
 
+def create_repartition_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_repartition_table.sql",
+            }
+        ],
+    )
+
+
 def populate_utils(files, table):
     format_files = []
     for file in files:
@@ -84,6 +100,10 @@ def populate_utils(files, table):
         PG_PASSWORD=conn.password,
         list_files=format_files,
     )
+
+
+def populate_repartition_table():
+    populate_utils([f"{DATADIR}/repartition_prix.csv"], "public.repartition_prix")
 
 
 def populate_dvf_table():
@@ -464,13 +484,13 @@ def process_dvf_stats(ti):
     )
     # on crée l'ensemble des occurrences échelles X mois pour le merge
     dup_libelle = libelles_parents.append(
-        [libelles_parents]*(12*(max(years)-min(years)+1)-1),
+        [libelles_parents] * (12 * (max(years) - min(years) + 1) - 1),
         ignore_index=True
     ).sort_values(['code_geo', 'code_parent'])
     dup_libelle['annee_mois'] = [
         f'{y}-{"0"+str(m) if m<10 else m}'
-        for y in range(min(years), max(years)+1) for m in range(1, 13)
-    ]*len(libelles_parents)
+        for y in range(min(years), max(years) + 1) for m in range(1, 13)
+    ] * len(libelles_parents)
     del libelles_parents
     print("Done with libellés")
     # right merge pour avoir toutes les occurrences de toutes les échelles
@@ -529,8 +549,7 @@ def create_deciles():
         usecols=['echelle_geo', 'code_geo']
     )
     echelles = echelles.drop_duplicates()
-    print(echelles.sample(20))
-    # on récupère les données DVF qui vont servir
+    # on récupère les données DVF
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
@@ -545,7 +564,6 @@ def create_deciles():
         encoding="utf8",
         dtype=str
     )
-    print(epci.columns)
     to_keep = [
         "id_mutation",
         "code_departement",
@@ -578,13 +596,6 @@ def create_deciles():
             "Vente en l'état futur d'achèvement",
             "Adjudication",
         ]
-        types_bien = {
-            k: v
-            for k, v in df_[["code_type_local", "type_local"]]
-            .value_counts()
-            .to_dict()
-            .keys()
-        }
         del df_
 
         # types_bien = {
@@ -662,26 +673,46 @@ def create_deciles():
         on="code_commune",
         how="left"
     )
+    echelles_of_interest = ["departement", "epci", "commune", ]
+    # "section"]
+    dvf = dvf[['code_' + e for e in echelles_of_interest] + ['prix_m2']]
     tranches = []
-    echelles_of_interest = ["departement", "epci", "commune", "section"]
     nb_tranches = 10
     delimiters = [0] + \
-        [pd.qcut(dvf['prix_m2'], nb_tranches-1).unique()[k].right for k in range(nb_tranches)] + \
-        [np.inf]
+        [pd.qcut(dvf['prix_m2'], nb_tranches).unique()[k].right for k in range(nb_tranches)]
+    delimiters = list(sorted(list(map(round, delimiters))))
     print(delimiters)
     for e in echelles_of_interest:
-        print(e)
-        codes_geo = echelles.loc[echelles['echelle_geo'] == e, 'code_geo']
-        for code in codes_geo:
-            prix = dvf.loc[dvf[f'code_{e}'] == code, 'prix_m2']
-            tranches.append({
-                code: {
-                    delimiters[k - 1]: len(prix.between(delimiters[k - 1], delimiters[k]))
-                    for k in range(1, len(delimiters))
-                }
-            })
-    print(len(tranches), len(echelles))
-    print(tranches[:20])
+        codes_geo = set(echelles.loc[echelles['echelle_geo'] == e, 'code_geo'])
+        restr_dvf = dvf[[f'code_{e}', 'prix_m2']].set_index(f'code_{e}')['prix_m2']
+        idx = set(restr_dvf.index)
+        operations = len(codes_geo)
+        print(e, operations)
+        for i, code in enumerate(codes_geo):
+            if i % (operations // 10) == 0 and i > 0:
+                print(round(i / operations * 100), '%')
+            if code in idx:
+                prix = restr_dvf.loc[code]
+                if not isinstance(prix, pd.core.series.Series):
+                    prix = pd.Series(prix)
+                q = pd.cut(prix, bins=delimiters).value_counts().to_dict().items()
+                t = {str(k.right): v for k, v in q}
+                tranches.append({
+                    'code_geo': code,
+                    'repartition': t
+                })
+            else:
+                tranches.append({
+                    'code_geo': code,
+                    'repartition': {str(d): 0 for d in delimiters}
+                })
+    output_tranches = pd.DataFrame(tranches)
+    output_tranches.to_csv(
+        DATADIR + "/repartition_prix.csv",
+        sep=",",
+        encoding="utf8",
+        index=False,
+    )
 
 
 def send_stats_to_minio():
