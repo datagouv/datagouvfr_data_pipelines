@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS public.metrics_datasets
+CREATE TABLE IF NOT EXISTS airflow.metrics_datasets
 (
     id SERIAL PRIMARY KEY,
     date_metric DATE,
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.metrics_datasets
     organization_id CHARACTER VARYING,
     nb_visit INTEGER
 );
-CREATE TABLE IF NOT EXISTS public.metrics_reuses
+CREATE TABLE IF NOT EXISTS airflow.metrics_reuses
 (
     id SERIAL PRIMARY KEY,
     date_metric DATE,
@@ -14,14 +14,14 @@ CREATE TABLE IF NOT EXISTS public.metrics_reuses
     organization_id CHARACTER VARYING,
     nb_visit INTEGER
 );
-CREATE TABLE IF NOT EXISTS public.metrics_organizations
+CREATE TABLE IF NOT EXISTS airflow.metrics_organizations
 (
     id SERIAL PRIMARY KEY,
     date_metric DATE,
     organization_id CHARACTER VARYING,
     nb_visit INTEGER
 );
-CREATE TABLE IF NOT EXISTS public.metrics_resources
+CREATE TABLE IF NOT EXISTS airflow.metrics_resources
 (
     id SERIAL PRIMARY KEY,
     date_metric DATE,
