@@ -18,9 +18,9 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     publish_stats_dvf,
     send_stats_to_minio,
     notification_mattermost,
-    create_deciles,
-    create_repartition_table,
-    populate_repartition_table
+    create_distribution,
+    create_distribution_table,
+    populate_distribution_table
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
@@ -79,19 +79,19 @@ with DAG(
         python_callable=process_dvf_stats,
     )
 
-    create_deciles = PythonOperator(
-        task_id='create_deciles',
-        python_callable=create_deciles,
+    create_distribution = PythonOperator(
+        task_id='create_distribution',
+        python_callable=create_distribution,
     )
 
-    create_repartition_table = PythonOperator(
-        task_id='create_repartition_table',
-        python_callable=create_repartition_table,
+    create_distribution_table = PythonOperator(
+        task_id='create_distribution_table',
+        python_callable=create_distribution_table,
     )
 
-    populate_repartition_table = PythonOperator(
-        task_id='populate_repartition_table',
-        python_callable=populate_repartition_table,
+    populate_distribution_table = PythonOperator(
+        task_id='populate_distribution_table',
+        python_callable=populate_distribution_table,
     )
 
     create_stats_dvf_table = PythonOperator(
@@ -124,9 +124,9 @@ with DAG(
     populate_dvf_table.set_upstream(create_dvf_table)
     get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)
-    create_deciles.set_upstream(process_dvf_stats)
-    create_repartition_table.set_upstream(create_deciles)
-    populate_repartition_table.set_upstream(create_repartition_table)
+    create_distribution.set_upstream(process_dvf_stats)
+    create_distribution_table.set_upstream(create_distribution)
+    populate_distribution_table.set_upstream(create_distribution_table)
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
     send_stats_to_minio.set_upstream(process_dvf_stats)
@@ -134,4 +134,4 @@ with DAG(
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_stats_dvf_table)
     notification_mattermost.set_upstream(populate_dvf_table)
-    notification_mattermost.set_upstream(populate_repartition_table)
+    notification_mattermost.set_upstream(populate_distribution_table)

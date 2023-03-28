@@ -15,3 +15,6 @@ libelle_geo VARCHAR(100),
 code_parent VARCHAR(10),
 echelle_geo VARCHAR(15),
 PRIMARY KEY (echelle_geo, code_geo, annee_mois, code_parent));
+CREATE INDEX echelle_geo_idx ON stats_dvf USING btree (echelle_geo);
+CREATE INDEX code_geo_idx ON stats_dvf USING btree (code_geo);
+CREATE INDEX code_parent_idx ON stats_dvf USING btree (code_parent);
