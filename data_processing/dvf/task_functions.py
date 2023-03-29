@@ -696,7 +696,7 @@ def create_distribution():
                     # 1er et dernier quantiles gardés
                     # on coupe le reste des données en tranches égales de prix (!= volumes)
                     # .unique() pour éviter des bornes identique => ValueError
-                    _, bins = pd.qcut(prix.unique(), nb_tranches, retbins=True)
+                    bins = np.quantile(prix.unique(), [k / nb_tranches for k in range(nb_tranches + 1)])
                     q = [[int(bins[k]), int(bins[k + 1])] for k in range(nb_tranches)]
                     size = (q[-1][0] - q[0][1]) / (nb_tranches - 2)
                     intervalles = [q[0]] +\
