@@ -435,7 +435,7 @@ def process_log(ti):
             resources = pd.merge(resources, catalog_resources[["id", "dataset.id", "dataset.organization_id"]].rename(columns={"id": "resource_id"}), on="resource_id", how="left")
             resources = resources.rename(columns={"dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
             resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
-            resources.to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
+            resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]].to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
         except FileNotFoundError:
             print("no data resources file")
         except pd.errors.EmptyDataError:
