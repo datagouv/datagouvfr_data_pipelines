@@ -420,26 +420,26 @@ def process_log(ti):
         except pd.errors.EmptyDataError:
             print("empty data reuses")
 
-        try:
-            print("--- resources ----")
-            res1 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-id.csv", dtype=str, header=None, sep=";")
-            res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv", dtype=str, header=None, sep=";")
-            res2 = res2.rename(columns={0: "date_metric", 1: "url"})
-            res2 = pd.merge(res2, catalog_resources[["id", "url"]], on="url")
-            res2 = res2[res2["id"].notna()][["date_metric", "id"]]
-            res2 = res2.rename(columns={"date_metric": 0, "id": 1})
-            resources = pd.concat([res1, res2])
-            resources[3] = 1
-            resources = resources.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
-            resources = resources.rename(columns={0: "resource_id", 1: "date_metric", 3: "nb_visit"})
-            resources = pd.merge(resources, catalog_resources[["id", "dataset.id", "dataset.organization_id"]].rename(columns={"id": "resource_id"}), on="resource_id", how="left")
-            resources = resources.rename(columns={"dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
-            resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
-            resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]].to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
-        except FileNotFoundError:
-            print("no data resources file")
-        except pd.errors.EmptyDataError:
-            print("empty data resources id or static")
+        # try:
+        #     print("--- resources ----")
+        #     res1 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-id.csv", dtype=str, header=None, sep=";")
+        #     res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv", dtype=str, header=None, sep=";")
+        #     res2 = res2.rename(columns={0: "date_metric", 1: "url"})
+        #     res2 = pd.merge(res2, catalog_resources[["id", "url"]], on="url")
+        #     res2 = res2[res2["id"].notna()][["date_metric", "id"]]
+        #     res2 = res2.rename(columns={"date_metric": 0, "id": 1})
+        #     resources = pd.concat([res1, res2])
+        #     resources[3] = 1
+        #     resources = resources.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
+        #     resources = resources.rename(columns={0: "resource_id", 1: "date_metric", 3: "nb_visit"})
+        #     resources = pd.merge(resources, catalog_resources[["id", "dataset.id", "dataset.organization_id"]].rename(columns={"id": "resource_id"}), on="resource_id", how="left")
+        #     resources = resources.rename(columns={"dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
+        #     resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
+        #     resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]].to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
+        # except FileNotFoundError:
+        #     print("no data resources file")
+        # except pd.errors.EmptyDataError:
+        #     print("empty data resources id or static")
 
 
 
