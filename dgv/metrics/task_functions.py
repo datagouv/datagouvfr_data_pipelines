@@ -118,14 +118,13 @@ def download_catalog():
     )
 
 
-def remove_files_if_exists(log):
-    isExist = os.path.exists(f"{TMP_FOLDER}outputs")
+def remove_files_if_exists(log, folder):
+    isExist = os.path.exists(f"{TMP_FOLDER}{folder}")
     if not isExist:
-        os.makedirs(f"{TMP_FOLDER}outputs")
-    for obj in ["datasets", "reuses", "organizations", "resources-id", "resources-static", "resources"]:
-        if os.path.isfile(f"{TMP_FOLDER}outputs/{obj}-{log}.csv"):
-            os.remove(f"{TMP_FOLDER}outputs/{obj}-{log}.csv")
-
+        os.makedirs(f"{TMP_FOLDER}{folder}")
+    files = glob.glob(f"{TMP_FOLDER}{folder}/*")
+    for f in files:
+        os.remove(f)
 
 def get_dict(df, obj_property):
     arr = {}
@@ -142,8 +141,105 @@ def get_dict(df, obj_property):
 
 
 def get_date(a_date):
-    return datetime.strptime(a_date, "%d/%b/%Y:%H:%M:%S.%f").strftime("%Y-%m-%d")
+    return datetime.strptime(a_date, "[%d/%b/%Y:%H:%M:%S.%f]").strftime("%Y-%m-%d")
 
+
+def search_pattern(patterns, value, type_object):
+    for pattern in patterns:
+        if pattern in value:                
+            slug = value.replace(pattern, "").split("/")[0].replace(";", "")
+            return slug, True, type_object
+    return None, False, None
+
+
+def search_pattern_resource_static(pattern, value, type_object):
+    if pattern in value:       
+        slug = f"https://static.data.gouv.fr{value}".replace(";", "")
+        return slug, True, type_object
+    return None, False, None
+
+
+def get_info(parsed_line, catalog_resources):
+    languages = ["fr", "en", "es"]
+    patterns_datasets = [f"/{lang}/datasets/" for lang in languages]
+    patterns_reuses = [f"/{lang}/reuses/" for lang in languages]
+    patterns_organizations = [f"/{lang}/organizations/" for lang in languages]
+    patterns_resources_id = [f"/{lang}/datasets/r/" for lang in languages]
+    pattern_resources_static = "/resources/"
+    date_line = None
+    slug_line = None
+    found = False
+
+    if "DATAGOUVFR_RGS~" in parsed_line:
+        for item in parsed_line:
+            found_date = search_date(item)
+            if found_date: date_line = found_date
+            slug, found, detect = search_pattern(patterns_resources_id, item, "resources-id")
+            # if (
+            #     catalog_resources[catalog_resources["id"] == found].shape[0] > 0
+            #     and "static.data.gouv.fr" in catalog_resources[catalog_resources["id"] == found]["url"].iloc[0]["url"]
+            # ):
+            #     slug = None
+            if not found:
+                slug, found, detect = search_pattern(patterns_datasets, item, "datasets")
+            if not found:
+                slug, found, detect = search_pattern(patterns_reuses, item, "reuses")
+            if not found:
+                slug, found, detect = search_pattern(patterns_organizations, item, "organizations")
+            if not found:
+                slug, found, detect = search_pattern_resource_static(pattern_resources_static, item, "resources-static")
+                # if (
+                #     catalog_resources[catalog_resources["url"] == found].shape[0] > 0
+                # ):
+                #     slug = catalog_resources[catalog_resources["url"] == found].iloc[0]["id"]
+            if slug:
+                slug_line = slug
+                type_detect = detect
+    if slug_line:
+        return date_line, slug_line, type_detect
+    else:
+        return None, None, None
+
+
+def save_list_obj_type(list_obj, obj_type):
+    file_object = open(f"{TMP_FOLDER}found/found_{obj_type}.csv", "a")
+    for item in list_obj:
+        file_object.write(f"{item['date']};{item['id']}\n")        
+
+
+def save_list_obj(list_obj):
+    list_resources_id = []
+    list_resources_static = []
+    list_datasets = []
+    list_organizations = []
+    list_reuses = []
+    for obj in list_obj:
+        if obj["type"] == "resources-id":
+            list_resources_id.append(obj)
+        if obj["type"] == "resources-static":
+            list_resources_static.append(obj)
+        if obj["type"] == "datasets":
+            list_datasets.append(obj)
+        if obj["type"] == "organizations":
+            list_organizations.append(obj)
+        if obj["type"] == "reuses":
+            list_reuses.append(obj)
+    save_list_obj_type(list_resources_id, "resources-id")
+    save_list_obj_type(list_resources_static, "resources-static")
+    save_list_obj_type(list_datasets, "datasets")
+    save_list_obj_type(list_organizations, "organizations")
+    save_list_obj_type(list_reuses, "reuses")
+
+
+def search_date(item):
+    if (
+        item[0] == "["
+        and item[-1] == "]"
+        and len(item.split("/")) == 3
+        and len(item.split(":")) == 4
+    ):
+        return get_date(item)
+    return
 
 def get_id(arr, list_obj):
     new_list = []
@@ -161,122 +257,35 @@ def append_chunk(cpt, obj_type, arr, list_obj, log):
             fp.write(f"{d['id']},{d['date']}\n")
 
 
-def parse(lines, config, log, haproxy_re):
-    cpt = {}
-    for object_config in config:
-        cpt[object_config["object"]] = 0
+def parse(lines, catalog_resources):
     list_obj = []
     for b_line in lines:
         try:
-            re_str = re.search(haproxy_re, b_line.decode("utf-8"))
-            if re_str:
-                parsed_line = re_str.groupdict()
-                if "DATAGOUVFR_RGS" in parsed_line["frontend_name"]:
-                    url = parsed_line["http_request"].split(" ")[1]
-                    for object_config in config:
-                        for item in object_config["patterns"]:
-                            if url.startswith(item):
-                                if object_config["object"] != "resources-static":
-                                    slug = url.replace(item, "").split("/")[0]
-                                else:
-                                    slug = f"https://static.data.gouv.fr{url}"
-                                cpt[object_config["object"]] += 1
-                                list_obj.append({"id": slug, "date": get_date(parsed_line["accept_date"])})
-                                if cpt[object_config["object"]] % 10000 == 0:
-                                    append_chunk(
-                                        cpt[object_config["object"]],
-                                        object_config["object"],
-                                        object_config["dict"],
-                                        list_obj,
-                                        log,
-                                    )
-                                    list_obj = []
+            slug_line = None
+            parsed_line = b_line.decode("utf-8").split(" ")
+            date_line, slug_line, type_detect = get_info(parsed_line, catalog_resources)
+            if slug_line:
+                list_obj.append({"type": type_detect, "id": slug_line, "date": date_line})
+                if len(list_obj) == 10000:
+                    save_list_obj(list_obj)
+                    list_obj = []
         except:
             raise Exception("Sorry, pb with line")
-
-    for object_config in config:
-        append_chunk(
-            cpt[object_config["object"]],
-            object_config["object"],
-            object_config["dict"],
-            list_obj,
-            log,
-        )
+                                 
+    save_list_obj(list_obj)
     
+
 
 
 def process_log(ti):
     new_logs = ti.xcom_pull(key="new_logs", task_ids="get_new_logs")
     newlogs = [nl.replace("/new/", "/ongoing/") for nl in new_logs]
-    print("------ LOADING CATALOGS ------")
-    catalog_datasets = pd.read_csv(
-        f"{TMP_FOLDER}catalog_datasets.csv",
-        dtype=str,
-        sep=";",
-        usecols=["id", "slug", "organization_id"],
-    )
-    catalog_reuses = pd.read_csv(
-        f"{TMP_FOLDER}catalog_reuses.csv",
-        dtype=str,
-        sep=";",
-        usecols=["id", "slug", "organization_id"],
-    )
-    catalog_organizations = pd.read_csv(
-        f"{TMP_FOLDER}catalog_organizations.csv",
-        dtype=str,
-        sep=";",
-        usecols=["id", "slug"],
-    )
     catalog_resources = pd.read_csv(
         f"{TMP_FOLDER}catalog_resources.csv",
         dtype=str,
         sep=";",
-        usecols=["id", "url", "dataset.id", "dataset.organization_id"],
+        usecols=["id", "url", "dataset.id", "dataset.organization_id"]
     )
-    print("------ CATALOGS LOADED ------")
-
-    languages = ["fr", "en", "es"]
-    config = [
-        {
-            "object": "datasets",
-            "patterns": [f"/{lang}/datasets/" for lang in languages],
-            "dict": get_dict(catalog_datasets, "slug"),
-        },
-        {
-            "object": "reuses",
-            "patterns": [f"/{lang}/reuses/" for lang in languages],
-            "dict": get_dict(catalog_reuses, "slug"),
-        },
-        {
-            "object": "organizations",
-            "patterns": [f"/{lang}/organizations/" for lang in languages],
-            "dict": get_dict(catalog_organizations, "slug"),
-        },
-        {
-            "object": "resources-static",
-            "patterns": ["/resources/"],
-            "dict": get_dict(catalog_resources, "url"),
-        },
-        {
-            "object": "resources-id",
-            "patterns": [f"/{lang}/datasets/r/" for lang in languages],
-            "dict": get_dict(catalog_resources, "url"),
-        },
-    ]
-
-    re_str = (
-        r'(?P<client_ip>[a-fA-F\d+\.:]+):(?P<client_port>\d+)'
-        r'\s+\[(?P<accept_date>.+)\]\s+(?P<frontend_name>.*)\s+'
-        r'(?P<backend_name>.*)/(?P<server_name>.*)\s+(?P<tq>-?\d+)'
-        r'/(?P<tw>-?\d+)/(?P<tc>-?\d+)/(?P<tr>-?\d+)/(?P<tt>\+?\d+)'
-        r'\s+(?P<status_code>-?\d+)\s+(?P<bytes_read>\+?\d+)\s+.*\s+'
-        r'(?P<act>\d+)/(?P<fe>\d+)/(?P<be>\d+)/(?P<srv>\d+)/'
-        r'(?P<retries>\+?\d+)\s+(?P<queue_server>\d+)/'
-        r'(?P<queue_backend>\d+)\s+"(?P<http_request>.*)"$'
-    )
-    haproxy_re = re.compile(re_str)
-
-    print("------ PREPARE TO PROCESS LOGS ------")
     ACTIVE_LOG = 0
     for nl in newlogs:
         get_files(
@@ -294,61 +303,132 @@ def process_log(ti):
             ]
         )
         ACTIVE_LOG = ACTIVE_LOG + 1
-        remove_files_if_exists(ACTIVE_LOG)
+        remove_files_if_exists(ACTIVE_LOG, "outputs")
+        remove_files_if_exists(ACTIVE_LOG, "found")
         print("---------------")
         print(ACTIVE_LOG)
         file = gzip.open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "rb")
         lines = file.readlines()
         print("haproxy loaded")
-        parse(lines, config, ACTIVE_LOG, haproxy_re)
+        parse(lines, catalog_resources)
         
         try:
-            res1 = pd.read_csv(f"{TMP_FOLDER}outputs/resources-id-{ACTIVE_LOG}.csv", dtype=str, header=None)
-            res2 = pd.read_csv(f"{TMP_FOLDER}outputs/resources-static-{ACTIVE_LOG}.csv", dtype=str, header=None)
-            res = pd.concat([res1, res2])
-            res.to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
-        except pd.errors.EmptyDataError:
-            print("empty data resources id or static")
-        
-        try:
-            print("--- datasets ----")
-            datasets = pd.read_csv(f"{TMP_FOLDER}outputs/datasets-{ACTIVE_LOG}.csv", dtype=str, header=None)
-            datasets[3] = 1
-            datasets = datasets.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
-            datasets = datasets.rename(columns={0: "dataset_id", 1: "date_metric", 3: "nb_visit"})
-            datasets = pd.merge(datasets, catalog_datasets[["id", "organization_id"]].rename(columns={"id": "dataset_id"}), on="dataset_id", how="left")
-            datasets = datasets[["date_metric", "dataset_id", "organization_id", "nb_visit"]]
-            datasets.to_csv(f"{TMP_FOLDER}outputs/datasets-{ACTIVE_LOG}.csv", index=False, header=False)
+            print("---- datasets -----")
+            df_catalog = pd.read_csv(
+                f"{TMP_FOLDER}catalog_datasets.csv",
+                dtype=str,
+                sep=";",
+                usecols=["id", "slug", "organization_id"]
+            )
+            catalog_dict = get_dict(df_catalog, "slug")
+            df = pd.read_csv(
+                f"{TMP_FOLDER}found/found_datasets.csv",
+                sep=";",
+                dtype=str,
+                header=None
+            )
+            df["id"] = df[1].apply(
+                lambda x: catalog_dict[x] if x in catalog_dict else None
+            )
+            df = df.rename(columns={0: "date_metric"})
+            df = df.drop(columns=[1])
+            df["nb_visit"] = 1
+            df = df.groupby(
+                ["date_metric", "id"],
+                as_index=False
+            ).count().sort_values(
+                by=["nb_visit"],
+                ascending=False
+            )
+            df = pd.merge(df, df_catalog[["id", "organization_id"]], on="id", how="left")
+            df = df.rename(columns={"id": "dataset_id"})
+            df[["date_metric", "dataset_id", "organization_id", "nb_visit"]].to_csv(
+                f"{TMP_FOLDER}outputs/datasets-{ACTIVE_LOG}.csv", index=False, header=False
+            )
         except pd.errors.EmptyDataError:
             print("empty data datasets")
 
         try:
-            print("--- reuses ----")
-            reuses = pd.read_csv(f"{TMP_FOLDER}outputs/reuses-{ACTIVE_LOG}.csv", dtype=str, header=None)
-            reuses[3] = 1
-            reuses = reuses.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
-            reuses = reuses.rename(columns={0: "reuse_id", 1: "date_metric", 3: "nb_visit"})
-            reuses = pd.merge(reuses, catalog_reuses[["id", "organization_id"]].rename(columns={"id": "reuse_id"}), on="reuse_id", how="left")
-            reuses = reuses[["date_metric", "reuse_id", "organization_id", "nb_visit"]]
+            print("---- organizations -----")
+            df_catalog = pd.read_csv(
+                f"{TMP_FOLDER}catalog_organizations.csv",
+                dtype=str,
+                sep=";",
+                usecols=["id", "slug"]
+            )
+            catalog_dict = get_dict(df_catalog, "slug")
+            df = pd.read_csv(
+                f"{TMP_FOLDER}found/found_organizations.csv",
+                sep=";",
+                dtype=str,
+                header=None
+            )
+            df["id"] = df[1].apply(
+                lambda x: catalog_dict[x] if x in catalog_dict else None
+            )
+            df = df.rename(columns={0: "date_metric"})
+            df = df.drop(columns=[1])
+            df["nb_visit"] = 1
+            df = df.groupby(
+                ["date_metric", "id"],
+                as_index=False
+            ).count().sort_values(
+                by=["nb_visit"],
+                ascending=False
+            )
+            df = pd.merge(df, df_catalog[["id"]], on="id", how="left")
+            df = df.rename(columns={"id": "organization_id"})
+            df[["date_metric", "organization_id", "nb_visit"]].to_csv(
+                f"{TMP_FOLDER}outputs/organizations-{ACTIVE_LOG}.csv", index=False, header=False
+            )
+        except pd.errors.EmptyDataError:
+            print("empty data organizations")
 
-            reuses.to_csv(f"{TMP_FOLDER}outputs/reuses-{ACTIVE_LOG}.csv", index=False, header=False)
+        try:
+            print("---- reuses -----")
+            df_catalog = pd.read_csv(
+                f"{TMP_FOLDER}catalog_reuses.csv",
+                dtype=str,
+                sep=";",
+                usecols=["id", "slug", "organization_id"]
+            )
+            catalog_dict = get_dict(df_catalog, "slug")
+            df = pd.read_csv(
+                f"{TMP_FOLDER}found/found_reuses.csv",
+                sep=";",
+                dtype=str,
+                header=None
+            )
+            df["id"] = df[1].apply(
+                lambda x: catalog_dict[x] if x in catalog_dict else None
+            )
+            df = df.rename(columns={0: "date_metric"})
+            df = df.drop(columns=[1])
+            df["nb_visit"] = 1
+            df = df.groupby(
+                ["date_metric", "id"],
+                as_index=False
+            ).count().sort_values(
+                by=["nb_visit"],
+                ascending=False
+            )
+            df = pd.merge(df, df_catalog[["id", "organization_id"]], on="id", how="left")
+            df = df.rename(columns={"id": "reuse_id"})
+            df[["date_metric", "reuse_id", "organization_id", "nb_visit"]].to_csv(
+                f"{TMP_FOLDER}outputs/reuses-{ACTIVE_LOG}.csv", index=False, header=False
+            )
         except pd.errors.EmptyDataError:
             print("empty data reuses")
 
         try:
-            print("--- organizations ----")
-            organizations = pd.read_csv(f"{TMP_FOLDER}outputs/organizations-{ACTIVE_LOG}.csv", dtype=str, header=None)
-            organizations[3] = 1
-            organizations = organizations.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
-            organizations = organizations.rename(columns={0: "organization_id", 1: "date_metric", 3: "nb_visit"})
-            organizations = organizations[["date_metric", "organization_id", "nb_visit"]]
-            organizations.to_csv(f"{TMP_FOLDER}outputs/organizations-{ACTIVE_LOG}.csv", index=False, header=False)
-        except pd.errors.EmptyDataError:
-            print("empty data organizations")
-        
-        try:
             print("--- resources ----")
-            resources = pd.read_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", dtype=str, header=None)
+            res1 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-id.csv", dtype=str, header=None, sep=";")
+            res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv", dtype=str, header=None, sep=";")
+            res2 = res2.rename(columns={0: "date_metric", 1: "url"})
+            res2 = pd.merge(res2, catalog_resources[["id", "url"]], on="url")
+            res2 = res2[res2["id"].notna()][["date_metric", "id"]]
+            res2 = res2.rename(columns={"date_metric": 0, "id": 1})
+            resources = pd.concat([res1, res2])
             resources[3] = 1
             resources = resources.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
             resources = resources.rename(columns={0: "resource_id", 1: "date_metric", 3: "nb_visit"})
@@ -358,6 +438,9 @@ def process_log(ti):
             resources.to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
         except FileNotFoundError:
             print("no data resources file")
+        except pd.errors.EmptyDataError:
+            print("empty data resources id or static")
+
 
 
 def save_to_postgres():
