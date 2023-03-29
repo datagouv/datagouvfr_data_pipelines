@@ -116,7 +116,7 @@ def process_election_data_func():
             sep=';',
             dtype=str,
         )
-        df['election'] = file.replace('.csv', '')
+        df['id_election'] = file.replace('.csv', '')
         elections = pd.concat([elections, df])
     nb_candidats_max = sum(['Panneau' in c for c in elections.columns])
     elections['code_dep'] = elections['Code du département'].apply(lambda x: map_outremer.get(x, x))
@@ -134,5 +134,11 @@ def process_election_data_func():
             elections[c] = elections[c].apply(
                 lambda s: float(s.replace(',', '.')) if isinstance(s, str) else s
             )
-    print(elections['election'].value_counts())
-    print(elections.sample(20))
+    abstention = elections[['id_election', 'id_bv', 'Inscrits', 'Abstentions']]
+    abstention.to_csv(
+        DATADIR + "/abstention.csv",
+        sep=",",
+        encoding="utf8",
+        index=False,
+    )
+    print(round(os.path.getsize(DATADIR + "/abstention.csv") / 10**6, 2), 'Mo')
