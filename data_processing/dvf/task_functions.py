@@ -676,9 +676,24 @@ def create_distribution():
     echelles_of_interest = ["departement", "epci", "commune", ]
     # "section"]
     dvf = dvf[['code_' + e for e in echelles_of_interest] + ['prix_m2']]
-    tranches = []
     nb_tranches = 10
     threshold = 100
+    # échelle nationale
+    bins = np.quantile(dvf['prix_m2'].unique(), [k / nb_tranches for k in range(nb_tranches + 1)])
+    q = [[int(bins[k]), int(bins[k + 1])] for k in range(nb_tranches)]
+    size = (q[-1][0] - q[0][1]) / (nb_tranches - 2)
+    intervalles = [q[0]] +\
+        [[q[0][1] + size * k, q[0][1] + size * (k + 1)]
+            for k in range(nb_tranches - 2)] +\
+        [q[-1]]
+    volumes = pd.cut(dvf['prix_m2'],
+                     bins=[i[0] for i in intervalles] + [intervalles[-1][1]]
+                     ).value_counts().sort_index().to_list()
+    tranches = [{
+        'code_geo': 'nation',
+        'xaxis': intervalles,
+        'yaxis': volumes
+    }]
     for e in echelles_of_interest:
         codes_geo = set(echelles.loc[echelles['echelle_geo'] == e, 'code_geo'])
         restr_dvf = dvf[[f'code_{e}', 'prix_m2']].set_index(f'code_{e}')['prix_m2']
@@ -749,6 +764,23 @@ def send_stats_to_minio():
     )
 
 
+def send_distribution_to_minio():
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "distribution_prix.csv",
+                "dest_path": "dvf/",
+                "dest_name": "distribution_prix.csv",
+            }
+        ],
+    )
+
+
 def publish_stats_dvf(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
@@ -774,5 +806,6 @@ def notification_mattermost(ti):
         f"Stats DVF générées :"
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({url}{dataset_id})",
+        f"({url}{dataset_id})"
+        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
     )
