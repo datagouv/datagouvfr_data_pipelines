@@ -20,7 +20,8 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     notification_mattermost,
     create_distribution,
     create_distribution_table,
-    populate_distribution_table
+    populate_distribution_table,
+    send_distribution_to_minio
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
@@ -94,6 +95,11 @@ with DAG(
         python_callable=populate_distribution_table,
     )
 
+    send_distribution_to_minio = PythonOperator(
+        task_id='send_distribution_to_minio',
+        python_callable=send_distribution_to_minio,
+    )
+
     create_stats_dvf_table = PythonOperator(
         task_id='create_stats_dvf_table',
         python_callable=create_stats_dvf_table,
@@ -127,6 +133,7 @@ with DAG(
     create_distribution.set_upstream(process_dvf_stats)
     create_distribution_table.set_upstream(create_distribution)
     populate_distribution_table.set_upstream(create_distribution_table)
+    send_distribution_to_minio.set_upstream(create_distribution)
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
     send_stats_to_minio.set_upstream(process_dvf_stats)
@@ -134,4 +141,5 @@ with DAG(
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_stats_dvf_table)
     notification_mattermost.set_upstream(populate_dvf_table)
+    notification_mattermost.set_upstream(send_distribution_to_minio)
     notification_mattermost.set_upstream(populate_distribution_table)
