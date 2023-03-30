@@ -20,7 +20,9 @@ import gc
 import glob
 from unidecode import unidecode
 import numpy as np
+import gzip
 import os
+import io
 import pandas as pd
 import requests
 import json
@@ -79,20 +81,6 @@ def process_election_data_func():
             k += 1
         return s[k:]
 
-    def process_id_bv(id_bv):
-        try:
-            if id_bv.count('_') == 1:
-                insee, suffix = id_bv.split('_')
-                suffix = suffix.replace(' ', '')
-                suffix = suffix.split('-')[0]
-                suffix = ''.join([c for c in suffix if c.isnumeric()])
-                suffix = strip_zeros(suffix)
-                return '_'.join([insee, suffix])
-            else:
-                return id_bv
-        except:
-            return id_bv
-
     map_outremer = {
         'ZD': '974',
         'ZA': '971',
@@ -135,10 +123,7 @@ def process_election_data_func():
                 lambda s: float(s.replace(',', '.')) if isinstance(s, str) else s
             )
     abstention = elections[['id_election', 'id_bv', 'Inscrits', 'Abstentions']]
-    abstention.to_csv(
-        DATADIR + "/abstention.csv",
-        sep=",",
-        encoding="utf8",
-        index=False,
-    )
-    print(round(os.path.getsize(DATADIR + "/abstention.csv") / 10**6, 2), 'Mo')
+    with gzip.open(DATADIR + "/abstention.json.gz", 'wb') as output:
+        with io.TextIOWrapper(output, encoding='utf-8') as encode:
+            encode.write(abstention.to_json(orient='records'))
+    print(round(os.path.getsize(DATADIR + "/abstention.json.gz") / 10**6, 2), 'Mo')
