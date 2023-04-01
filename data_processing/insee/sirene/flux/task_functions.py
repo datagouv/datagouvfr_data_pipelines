@@ -1,4 +1,5 @@
 from datetime import datetime
+import gzip
 import pandas as pd
 import requests
 from datagouvfr_data_pipelines.utils.minio import send_files
@@ -139,6 +140,44 @@ def get_current_flux_etablissement(ti):
                 row[item] = row["periodesEtablissement"][0][item]
             del row["periodesEtablissement"]
         flux.append(flatten_dict(row))
+
+    data.clear()
+    
+    # We save csv.gz by batch of 100 000 for memory
+    df = pd.DataFrame(columns=[c for c in flux[0]])
+    df.to_csv(
+        f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
+        index=False
+    )
+    first = 0
+    for i in range(len(flux)):
+        if i != 0 and i % 100000 == 0:
+            fluxinter = flux[first:i]
+            df = pd.DataFrame(fluxinter)
+            df.to_csv(
+                f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
+                mode="a",
+                index=False,
+                header=False
+            )
+            first = i
+    fluxinter = flux[first:len(flux)]
+    df.to_csv(
+        f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
+        mode="a",
+        index=False,
+        header=False
+    )
+
+    with open(
+        f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
+        "rb"
+    ) as orig_file:
+        with gzip.open(
+            f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv.gz",
+            "wb"
+        ) as zipped_file:
+            zipped_file.writelines(orig_file)
 
     df = pd.DataFrame(flux)
     for column in df.columns:
