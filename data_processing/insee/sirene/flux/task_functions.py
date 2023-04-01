@@ -179,16 +179,6 @@ def get_current_flux_etablissement(ti):
         ) as zipped_file:
             zipped_file.writelines(orig_file)
 
-    df = pd.DataFrame(flux)
-    for column in df.columns:
-        for prefix in ["adresseEtablissement_", "adresse2Etablissement_"]:
-            if prefix in column:
-                df = df.rename(columns={column: column.replace(prefix, "")})
-    df.to_csv(
-        f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv.gz",
-        index=False,
-        compression="gzip",
-    )
     ti.xcom_push(key="nb_flux_etablissement", value=str(df.shape[0]))
 
 
