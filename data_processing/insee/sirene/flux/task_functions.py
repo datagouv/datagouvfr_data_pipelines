@@ -69,7 +69,7 @@ def get_stock_non_diffusible(ti):
 def get_current_flux_non_diffusible(ti):
     endpoint = (
         "https://api.insee.fr/entreprises/sirene/V3/siren"
-        "?q=statutDiffusionUniteLegale%3AN"
+        "?q=statutDiffusionUniteLegale%3AP"
         "%20AND%20dateDernierTraitementUniteLegale%3A"
         f"{CURRENT_MONTH}&champs=siren&nombre=1000&curseur="
     )
