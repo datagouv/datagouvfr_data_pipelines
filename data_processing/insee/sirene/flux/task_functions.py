@@ -55,7 +55,7 @@ def call_insee_api(endpoint, property):
 def get_stock_non_diffusible(ti):
     endpoint = (
         "https://api.insee.fr/entreprises/sirene/V3/siret"
-        "?q=statutDiffusionUniteLegale%3AN"
+        "?q=statutDiffusionUniteLegale%3AP"
         "&champs=siren&nombre=1000&curseur="
     )
     data = call_insee_api(endpoint, "etablissements")
