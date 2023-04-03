@@ -166,7 +166,14 @@ def get_current_flux_etablissement(ti):
                 header=False
             )
             first = i
+    
     fluxinter = flux[first:len(flux)]
+    df = pd.DataFrame(fluxinter)
+    for column in df.columns:
+        for prefix in ["adresseEtablissement_", "adresse2Etablissement_"]:
+            if prefix in column:
+                df = df.rename(columns={column: column.replace(prefix, "")})
+
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
         mode="a",
