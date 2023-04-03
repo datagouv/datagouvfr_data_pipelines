@@ -145,6 +145,10 @@ def get_current_flux_etablissement(ti):
     
     # We save csv.gz by batch of 100 000 for memory
     df = pd.DataFrame(columns=[c for c in flux[0]])
+    for column in df.columns:
+        for prefix in ["adresseEtablissement_", "adresse2Etablissement_"]:
+            if prefix in column:
+                df = df.rename(columns={column: column.replace(prefix, "")})
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
         index=False
@@ -154,11 +158,6 @@ def get_current_flux_etablissement(ti):
         if i != 0 and i % 100000 == 0:
             fluxinter = flux[first:i]
             df = pd.DataFrame(fluxinter)
-            for column in df.columns:
-                for prefix in ["adresseEtablissement_", "adresse2Etablissement_"]:
-                    if prefix in column:
-                        df = df.rename(columns={column: column.replace(prefix, "")})
-
             df.to_csv(
                 f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
                 mode="a",
@@ -169,11 +168,6 @@ def get_current_flux_etablissement(ti):
     
     fluxinter = flux[first:len(flux)]
     df = pd.DataFrame(fluxinter)
-    for column in df.columns:
-        for prefix in ["adresseEtablissement_", "adresse2Etablissement_"]:
-            if prefix in column:
-                df = df.rename(columns={column: column.replace(prefix, "")})
-
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
         mode="a",
