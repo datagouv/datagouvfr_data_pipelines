@@ -19,9 +19,11 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
 DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_rna'
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
+SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
 year = date.today().year
-month = '0' + str(date.today().month) if date.today().month <= 9 else str(date.today().month)
-url_rna = f'https://media.interieur.gouv.fr/rna/rna_import_{year}{month}01.zip'
+# month = '0' + str(date.today().month) if date.today().month <= 9 else str(date.today().month)
+# url_rna = f'https://media.interieur.gouv.fr/rna/rna_import_{year}{month}01.zip'
+url_rna = 'https://media.interieur.gouv.fr/rna/rna_import_20230301.zip'
 
 default_args = {
     'email': [
@@ -50,12 +52,12 @@ with DAG(
         task_id='download_rna_data',
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"rna/scripts/script_dl_rna.sh {DATADIR} {url_rna}"
+            f"rna/scripts/script_dl_rna.sh {DATADIR} {url_rna} {SQLDIR}"
         )
     )
 
     process_rna = PythonOperator(
-        task_id='process_rna_table',
+        task_id='process_rna',
         python_callable=process_rna,
     )
 

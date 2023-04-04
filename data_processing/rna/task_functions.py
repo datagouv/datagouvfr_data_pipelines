@@ -16,7 +16,6 @@ from dag_datagouv_data_pipelines.utils.postgres import (
 from dag_datagouv_data_pipelines.utils.datagouv import post_resource
 from dag_datagouv_data_pipelines.utils.mattermost import send_message
 from dag_datagouv_data_pipelines.utils.minio import send_files
-import zipfile
 import pandas as pd
 import os
 from datetime import date
@@ -24,6 +23,7 @@ from csv_detective.explore_csv import routine
 
 DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
+SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
 
 conn = BaseHook.get_connection("postgres_localhost")
 
@@ -31,22 +31,32 @@ conn = BaseHook.get_connection("postgres_localhost")
 def process_rna():
     # concatenate all files
     df_rna = pd.DataFrame(None)
-    for idx, f in enumerate(os.listdir(os.path.join(DATADIR, 'rna'))):
-        print(idx)
-        _ = pd.read_csv(os.path.join(DATADIR, 'rna', f),
-                        sep=';',
-                        # encoding='cp1252',
-                        dtype=str)
+    for f in sorted(os.listdir(os.path.join(DATADIR, 'rna'))):
+        print(f)
+        for encoding in ['cp1252', 'cp437', 'cp856']:
+            try:
+                _ = pd.read_csv(os.path.join(DATADIR, 'rna', f),
+                                sep=';',
+                                encoding=encoding,
+                                dtype=str)
+                print(encoding)
+                break
+            except:
+                pass
         df_rna = pd.concat([df_rna, _])
+    for c in df_rna.columns:
+        df_rna[c] = df_rna[c].str.replace(',', '|').apply(
+            lambda s: s.encode('unicode-escape').decode().replace('\\', '') if isinstance(s, str) else s
+        )
     # export to csv
     df_rna.to_csv(
-        os.path.join(DATADIR, "rna.csv"),
+        os.path.join(DATADIR, "base_rna.csv"),
         index=False,
         encoding='utf8'
     )
     # analyse csv file just created
     infos = routine(
-        csv_file_path=os.path.join(DATADIR, "rna.csv"),
+        csv_file_path=os.path.join(DATADIR, "base_rna.csv"),
         num_rows=-1,
         verbose=True
     )
@@ -60,11 +70,11 @@ def process_rna():
         [f"{k} {map_types.get(v['python_type'], 'CHARACTER VARYING')}" for k, v in infos['columns'].items()]
     )
     query = f"""DROP TABLE IF EXISTS base_rna CASCADE;
-    CREATE UNLOGGED TABLE base_rna (
-    {sql_columns},
-    PRIMARY KEY (id));
-    """
-    sql_file = os.path.join(AIRFLOW_DAG_HOME, DAG_FOLDER, 'rna', 'sql', 'create_rna_table.sql')
+CREATE UNLOGGED TABLE base_rna (
+{sql_columns},
+PRIMARY KEY (id));
+"""
+    sql_file = os.path.join(SQLDIR, 'create_rna_table.sql')
     with open(sql_file, 'w') as f:
         f.write(query)
         f.close()
@@ -79,7 +89,7 @@ def create_rna_table():
         conn.password,
         [
             {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/sql/",
+                "source_path": SQLDIR,
                 "source_name": "create_rna_table.sql",
             }
         ],

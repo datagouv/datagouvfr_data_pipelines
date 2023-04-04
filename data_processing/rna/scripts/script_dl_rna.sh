@@ -8,4 +8,8 @@ curl $URL_rna > $DATADIR/rna.zip
 
 unzip -d $DATADIR/rna $DATADIR/rna.zip
 
+SQLDIR="$3"
+rm -rf $SQLDIR
+mkdir -p $SQLDIR
+
 cd $DATADIR && ls
