@@ -279,6 +279,9 @@ def process_dvf_stats(ti):
         # pas de prix ou pas de surface
         ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
 
+        # garde fou pour les valeurs aberrantes
+        ventes_nodup = ventes_nodup.loc[ventes_nodup['prix_m2'] < 100000]
+
         types_of_interest = [1, 2, 4]
         echelles_of_interest = ["departement", "epci", "commune", "section"]
 
