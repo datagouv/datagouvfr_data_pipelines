@@ -18,8 +18,7 @@ from dag_datagouv_data_pipelines.utils.mattermost import send_message
 from dag_datagouv_data_pipelines.utils.minio import send_files
 import pandas as pd
 import os
-from unicode import unidecode
-from datetime import date
+from unidecode import unidecode
 from csv_detective.explore_csv import routine
 
 DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
@@ -77,6 +76,8 @@ PRIMARY KEY (id));
     with open(sql_file, 'w') as f:
         f.write(query)
         f.close()
+
+    # create query to index table
     index_query = '\n'.join(
         [f"CREATE INDEX {k}_idx ON base_rna USING btree ({k});" for k in infos['columns'].keys()]
     )
