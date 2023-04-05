@@ -533,7 +533,6 @@ def process_dvf_stats(ti):
     light_export = export.loc[~(mask)]
     del mask
 
-    light_export = export.dropna()
     light_export.to_csv(
         DATADIR + "/stats_dvf.csv",
         sep=",",
