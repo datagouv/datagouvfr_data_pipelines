@@ -18,6 +18,7 @@ from dag_datagouv_data_pipelines.utils.mattermost import send_message
 from dag_datagouv_data_pipelines.utils.minio import send_files
 import pandas as pd
 import os
+from unicode import unidecode
 from datetime import date
 from csv_detective.explore_csv import routine
 
@@ -33,20 +34,17 @@ def process_rna():
     df_rna = pd.DataFrame(None)
     for f in sorted(os.listdir(os.path.join(DATADIR, 'rna'))):
         print(f)
-        for encoding in ['cp1252', 'cp437', 'cp856']:
-            try:
-                _ = pd.read_csv(os.path.join(DATADIR, 'rna', f),
-                                sep=';',
-                                encoding=encoding,
-                                dtype=str)
-                print(encoding)
-                break
-            except:
-                pass
+        _ = pd.read_csv(os.path.join(DATADIR, 'rna', f),
+                        sep=';',
+                        encoding='ISO-8859-1',
+                        dtype=str)
         df_rna = pd.concat([df_rna, _])
+    punc_to_remove = '!"#$%&\'()*+/;?@[]^_`{|}~'
     for c in df_rna.columns:
-        df_rna[c] = df_rna[c].str.replace(',', '|').apply(
-            lambda s: s.encode('unicode-escape').decode().replace('\\', '') if isinstance(s, str) else s
+        df_rna[c] = df_rna[c].apply(
+            lambda s: unidecode(s).translate(str.maketrans('', '', punc_to_remove))
+            .encode('unicode-escape').decode().replace('\\', '')
+            if isinstance(s, str) else s
         )
     # export to csv
     df_rna.to_csv(
@@ -58,6 +56,7 @@ def process_rna():
     infos = routine(
         csv_file_path=os.path.join(DATADIR, "base_rna.csv"),
         num_rows=-1,
+        encoding='utf8',
         verbose=True
     )
     # use analysis results to create the query that creates the table
@@ -77,6 +76,13 @@ PRIMARY KEY (id));
     sql_file = os.path.join(SQLDIR, 'create_rna_table.sql')
     with open(sql_file, 'w') as f:
         f.write(query)
+        f.close()
+    index_query = '\n'.join(
+        [f"CREATE INDEX {k}_idx ON base_rna USING btree ({k});" for k in infos['columns'].keys()]
+    )
+    index_file = os.path.join(SQLDIR, 'index_rna_table.sql')
+    with open(index_file, 'w') as f:
+        f.write(index_query)
         f.close()
 
 
@@ -115,6 +121,22 @@ def populate_utils(files, table):
 
 def populate_rna_table():
     populate_utils([f"{DATADIR}/base_rna.csv"], "public.base_rna")
+
+
+def index_rna_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": SQLDIR,
+                "source_name": "index_rna_table.sql",
+            }
+        ],
+    )
 
 
 # def send_distribution_to_minio():

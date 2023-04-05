@@ -11,7 +11,8 @@ from dag_datagouv_data_pipelines.config import (
 from dag_datagouv_data_pipelines.data_processing.rna.task_functions import (
     process_rna,
     create_rna_table,
-    populate_rna_table
+    populate_rna_table,
+    index_rna_table
 )
 from datetime import date
 
@@ -71,7 +72,13 @@ with DAG(
         python_callable=populate_rna_table,
     )
 
+    index_rna_table = PythonOperator(
+        task_id='index_rna_table',
+        python_callable=index_rna_table,
+    )
+
     download_rna_data.set_upstream(clean_previous_outputs)
     process_rna.set_upstream(download_rna_data)
     create_rna_table.set_upstream(process_rna)
     populate_rna_table.set_upstream(create_rna_table)
+    index_rna_table.set_upstream(populate_rna_table)
