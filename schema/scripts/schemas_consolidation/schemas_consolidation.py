@@ -5,7 +5,6 @@ import requests
 import json
 from json import JSONDecodeError
 import chardet
-import datetime
 from pathlib import Path
 import pickle
 import os
@@ -324,7 +323,6 @@ def run_schemas_consolidation(
     schema_catalog: str,
     tmp_config_file: str,
 ) -> None:
-    current_path = Path(working_dir)
     tmp_path = Path(tmp_folder)
     config_path = Path(tmp_config_file)
     schemas_list_url = schema_catalog
@@ -420,7 +418,7 @@ def run_schemas_consolidation(
         # Schema description and consolidation configuration
         schema_config = config_dict[schema_name]
 
-        if schema_config["consolidate"] == True:
+        if schema_config["consolidate"]:
             # Schema official specification (in catalogue)
             schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
 
@@ -577,7 +575,7 @@ def run_schemas_consolidation(
 
             else:
                 print(
-                    "{} -- ⚠️ No resource found for this schema.".format(
+                    "{} -- ⚠️ No resource found for {}.".format(
                         datetime.now(), schema_name
                     )
                 )
@@ -604,12 +602,12 @@ def run_schemas_consolidation(
             df_ref = pd.read_csv(ref_table_path)
             df_ref["is_downloaded"] = False
 
-            if len(df_ref[df_ref["is_valid_one_version"] == True]) > 0:
+            if len(df_ref[df_ref["is_valid_one_version"]]) > 0:
                 schema_data_path = Path(data_path) / schema_name.replace("/", "_")
                 schema_data_path.mkdir(exist_ok=True)
 
                 for index, row in df_ref[
-                    df_ref["is_valid_one_version"] == True
+                    df_ref["is_valid_one_version"]
                 ].iterrows():
                     rurl = row["resource_url"]
                     r = requests.get(rurl, allow_redirects=True)
@@ -676,7 +674,7 @@ def run_schemas_consolidation(
 
             # We will test if downloaded files are empty or not (so we set default values)
             df_ref["is_empty"] = np.nan
-            df_ref.loc[(df_ref["is_downloaded"] == True), "is_empty"] = False
+            df_ref.loc[(df_ref["is_downloaded"]), "is_empty"] = False
 
             schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
 
@@ -690,15 +688,23 @@ def run_schemas_consolidation(
                 version_name = version["version_name"]
                 if version_name in version_names_list:
                     df_ref_v = df_ref[
-                        (df_ref["is_valid_v_" + version_name] == True)
-                        & (df_ref["is_downloaded"] == True)
+                        (df_ref["is_valid_v_" + version_name])
+                        & (df_ref["is_downloaded"])
                     ]
 
                     if len(df_ref_v) > 0:
                         # Get schema version parameters for ddup
                         version_dict = requests.get(version["schema_url"]).json()
-                        version_cols_list = [
+                        version_all_cols_list = [
                             field_dict["name"] for field_dict in version_dict["fields"]
+                        ]
+                        version_required_cols_list = [
+                            field_dict["name"] for field_dict in version_dict["fields"]
+                            if (
+                                "constraints" in field_dict.keys()
+                                and "required" in field_dict["constraints"].keys()
+                                and field_dict["constraints"]["required"]
+                            )
                         ]
 
                         if "primaryKey" in version_dict.keys():
@@ -744,28 +750,38 @@ def run_schemas_consolidation(
                                     )
 
                                 if len(df_r) > 0:  # Keeping only non empty files
-                                    # Keep only schema columns (and add empty columns for missing ones)
+                                    # Discard columns that are not in the current schema version
                                     df_r = df_r[
                                         [
                                             col
-                                            for col in version_cols_list
+                                            for col in version_all_cols_list
                                             if col in df_r.columns
                                         ]
                                     ]
-                                    for col in version_cols_list:
-                                        if col not in df_r.columns:
-                                            df_r[col] = np.nan
-
-                                    df_r["last_modified"] = row[
-                                        "resource_last_modified"
-                                    ]
-                                    df_r["datagouv_dataset_id"] = row["dataset_id"]
-                                    df_r["datagouv_resource_id"] = row["resource_id"]
-                                    df_r["datagouv_organization_or_owner"] = row[
-                                        "organization_or_owner"
-                                    ]
-                                    df_r_list += [df_r]
-
+                                    # Assert all required columns are in the file
+                                    # Add optional columns to fit the schema
+                                    # /!\ THIS REQUIRES THAT COLUMNS CONSTRAINTS ARE PROPERLY SET UPSTREAM
+                                    if all(
+                                        [rq_col in df_r.columns for rq_col in version_required_cols_list]
+                                    ):
+                                        for col in version_all_cols_list:
+                                            if col not in df_r.columns:
+                                                df_r[col] = np.nan
+                                        df_r["last_modified"] = row[
+                                            "resource_last_modified"
+                                        ]
+                                        df_r["datagouv_dataset_id"] = row["dataset_id"]
+                                        df_r["datagouv_resource_id"] = row["resource_id"]
+                                        df_r["datagouv_organization_or_owner"] = row[
+                                            "organization_or_owner"
+                                        ]
+                                        df_r_list += [df_r]
+                                    else:
+                                        print('This file is missing required columns: ', file_path)
+                                        df_ref.loc[
+                                            (df_ref["resource_id"] == row["resource_id"]),
+                                            "columns_issue",
+                                        ] = True
                                 else:
                                     df_ref.loc[
                                         (df_ref["resource_id"] == row["resource_id"]),
@@ -786,7 +802,7 @@ def run_schemas_consolidation(
                             if primary_key is not None:
                                 ddup_cols = primary_key
                             else:
-                                ddup_cols = version_cols_list
+                                ddup_cols = version_all_cols_list
 
                             df_conso = df_conso.drop_duplicates(
                                 ddup_cols, keep="first"
@@ -812,8 +828,10 @@ def run_schemas_consolidation(
 
                         else:
                             print(
-                                "{} -- ⚠️ Less than 5 (non-empty) valid resources for version {} : consolidation file is not built".format(
-                                    datetime.today(), version_name
+                                "{} -- ⚠️ Less than {} (non-empty) valid resources for version {} : consolidation file is not built".format(
+                                    datetime.today(),
+                                    MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE,
+                                    version_name
                                 )
                             )
 

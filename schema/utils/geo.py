@@ -4,6 +4,7 @@ import json
 import os
 import pandas as pd
 import requests
+from unidecode import unidecode
 from shapely.geometry import Point, shape
 from shapely.geometry.polygon import Polygon
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
@@ -197,7 +198,7 @@ def fix_code_insee( # noqa
     )
     print(
         "Coords OK. INSEE code field contained postcode. Fixed and enriched: "
-        f"{enrich_row_address.code_fixed}/{len(df)}"
+        f"{enrich_row_address.code_fixed}/{total_rows}"
     )
     print(
         "Coords not matching code INSEE field as code INSEE or postcode: "
@@ -226,7 +227,9 @@ def improve_geo_data_quality(file_cols_mapping: Dict[str, Dict[str, str]]) -> No
         df = pd.read_csv(filepath, dtype="str", na_filter=False, keep_default_na=False)
         schema_cols = list(df.columns)
         df = fix_coordinates_order(df, coordinates_column=cols_dict["xy_coords"])
+        print("Done fixing coordinates")
         df = create_lon_lat_cols(df, coordinates_column=cols_dict["xy_coords"])
+        print("Done creating long lat")
         df = fix_code_insee(
             df,
             code_insee_col=cols_dict["code_insee"],
@@ -234,6 +237,7 @@ def improve_geo_data_quality(file_cols_mapping: Dict[str, Dict[str, str]]) -> No
             lon_col=cols_dict["longitude"],
             lat_col=cols_dict["latitude"],
         )
+        print("Done fixing code INSEE")
         new_cols = [
             "consolidated_longitude",
             "consolidated_latitude",

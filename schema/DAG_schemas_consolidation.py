@@ -32,6 +32,10 @@ from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.consolidatio
     run_consolidation_upload,
 )
 
+# for local dev in order not to mess up with production
+# DATAGOUV_URL = 'https://data.gouv.fr'
+# DATAGOUV_SECRET_API_KEY = 'non'
+
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
@@ -122,7 +126,7 @@ with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 5 * * *",
     start_date=days_ago(1),
-    dagrun_timeout=timedelta(minutes=240),
+    dagrun_timeout=timedelta(minutes=1000),
     tags=["schemas", "irve", "consolidation", "datagouv"],
     default_args=default_args,
 ) as dag:
@@ -134,8 +138,11 @@ with DAG(
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
         bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
+        # for local dev without SSH enabled
+        # bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
     )
 
+    # not used ?
     shared_params = {
         "msgs": "Ran from Airflow {{ ds }} !",
         "WORKING_DIR": f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/",

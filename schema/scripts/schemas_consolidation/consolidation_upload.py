@@ -614,17 +614,12 @@ def run_consolidation_upload(
 
     # ## Upload
     for schema_name in config_dict.keys():
-        with open(config_path, "r") as f:
-            config_dict = yaml.safe_load(f)
-
-        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list)
 
         print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
 
         schema_consolidated_data_path = Path(
             consolidated_data_path
         ) / schema_name.replace("/", "_")
-
         if os.path.exists(schema_consolidated_data_path):
             # Check if dataset_id is in config. If not, create a dataset on datagouv
             schema_config = config_dict[schema_name]
