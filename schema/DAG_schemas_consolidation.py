@@ -126,7 +126,7 @@ with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 5 * * *",
     start_date=days_ago(1),
-    dagrun_timeout=timedelta(minutes=1000),
+    dagrun_timeout=timedelta(minutes=240),
     tags=["schemas", "irve", "consolidation", "datagouv"],
     default_args=default_args,
 ) as dag:
