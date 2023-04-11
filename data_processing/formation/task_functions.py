@@ -33,7 +33,7 @@ def download_latest_data(ti):
         res = json.load(fp)
 
     with requests.get(
-        f"{DATAGOUV_URL}/fr/datasets/r/{res['resource_id']}",
+        res["resource_id"],
         verify=False,  # Check if SSL is restored
         stream=True,
     ) as r:
@@ -61,23 +61,23 @@ def process_organismes_formation(ti):
     )
     df = df.rename(
         columns={
-            "numeroDeclarationActivite": "id_nda",
-            "denomination": "denomination",
-            "siren": "siren",
-            "siretEtablissementDeclarant": "siret",
-            "certifications.actionsDeFormation": "cert_adf",
-            "certifications.bilansDeCompetences": "cert_bdc",
-            "certifications.VAE": "cert_vae",
-            "certifications.actionsDeFormationParApprentissage": "cert_app",
-            "informationsDeclarees.dateDerniereDeclaration": "date_derniere_declaration",
-            "informationsDeclarees.debutExercice": "date_debut_exercice",
-            "informationsDeclarees.finExercice": "date_fin_exercice",
-            "informationsDeclarees.specialitesDeFormation.codeSpecialite1": "spe1",
-            "informationsDeclarees.specialitesDeFormation.codeSpecialite2": "spe2",
-            "informationsDeclarees.specialitesDeFormation.codeSpecialite3": "spe3",
-            "informationsDeclarees.nbStagiaires": "nb_stagiaires",
-            "informationsDeclarees.nbStagiairesConfiesParUnAutreOF": "nb_stagiaires_autres_of",
-            "informationsDeclarees.effectifFormateurs": "nb_formateurs",
+            "Numéro Déclaration Activité": "id_nda",
+            "Code SIREN": "siren",
+            "Siret Etablissement Déclarant": "siret",
+            "Actions de formations": "cert_adf",
+            "Bilans de compétences": "cert_bdc",
+            "VAE": "cert_vae",
+            "Actions de formations par apprentissage": "cert_app",
+            "Date dernière déclaration": "date_derniere_declaration",
+            "Début d'exercice": "date_debut_exercice",
+            "Fin d'exercice": "date_fin_exercice",
+            "Code Spécialité 1": "spe1",
+            "Code Spécialité 2": "spe2",
+            "Code Spécialité 3": "spe3",
+            "Nombre de stagiaires": "nb_stagiaires",
+            "Nombre de stagiaires confiés par un autre Organisme de formation": "nb_stagiaires_autres_of",
+            "Effectifs de formateurs": "nb_formateurs",
+            "Certifications": "certifications",
         }
     )
     df = df[
