@@ -99,6 +99,7 @@ def process_organismes_formation(ti):
             "nb_stagiaires",
             "nb_stagiaires_autres_of",
             "nb_formateurs",
+            "certifications",
         ]
     ]
     df["spe"] = df.apply(lambda row: concat_spe(row), axis=1)
