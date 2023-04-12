@@ -11,6 +11,7 @@ import os
 import yaml
 from datetime import datetime
 import time
+pd.set_option('display.max_columns', None)
 
 
 VALIDATA_BASE_URL = (
@@ -147,6 +148,8 @@ def parse_api_search(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
 # API parsing to get resources infos based on schema metadata, tags and search keywords
 def parse_api(url: str, schema_name: str) -> pd.DataFrame:
     r = requests.get(url)
+    # better error catch in case schema is not responding
+    r.raise_for_status()
     data = r.json()
     nb_pages = int(data["total"] / data["page_size"]) + 1
     arr = []
@@ -700,11 +703,7 @@ def run_schemas_consolidation(
                         ]
                         version_required_cols_list = [
                             field_dict["name"] for field_dict in version_dict["fields"]
-                            if (
-                                "constraints" in field_dict.keys()
-                                and "required" in field_dict["constraints"].keys()
-                                and field_dict["constraints"]["required"]
-                            )
+                            if field_dict.get("constraints", {}).get("required")
                         ]
 
                         if "primaryKey" in version_dict.keys():
@@ -749,6 +748,14 @@ def run_schemas_consolidation(
                                         engine="openpyxl",
                                     )
 
+                                # Remove potential blanks in column names
+                                df_r.columns = [c.replace(' ', '') for c in df_r.columns]
+                                # Remove potential unwanted characters (eg https://www.data.gouv.fr/fr/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
+                                for c in df_r.columns:
+                                    df_r[c] = df_r[c].apply(
+                                        lambda s: s.replace('\n', '').replace('\r', '')
+                                        if isinstance(s, str) else s
+                                    )
                                 if len(df_r) > 0:  # Keeping only non empty files
                                     # Discard columns that are not in the current schema version
                                     df_r = df_r[
@@ -774,6 +781,11 @@ def run_schemas_consolidation(
                                         df_r["datagouv_resource_id"] = row["resource_id"]
                                         df_r["datagouv_organization_or_owner"] = row[
                                             "organization_or_owner"
+                                        ]
+                                        # Discard rows where any of the required columns is empty (NaN or empty string)
+                                        df_r = df_r.loc[
+                                            (~(df_r[version_required_cols_list].isna().any(axis=1)))
+                                            & (~((df_r[version_required_cols_list] == '').any(axis=1)))
                                         ]
                                         df_r_list += [df_r]
                                     else:
