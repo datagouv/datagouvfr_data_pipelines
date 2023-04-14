@@ -543,6 +543,62 @@ def process_dvf_stats(ti):
 
 
 def create_distribution():
+    def process_borne(borne, borne_inf, borne_sup):
+        # handle rounding of bounds
+        if round(borne, -2) <= borne_inf or round(borne, -2) >= borne_sup:
+            return round(borne)
+        else:
+            return round(borne, -2)
+
+    def distrib_from_prix(
+        prix,
+        nb_tranches=10,
+        arrondi=True
+    ):
+        # 1er et dernier quantiles gardés
+        # on coupe le reste des données en tranches égales de prix (!= volumes)
+        # .unique() pour éviter des bornes identique => ValueError
+        bins = np.quantile(prix.unique(), [k / nb_tranches for k in range(nb_tranches + 1)])
+        q = [[int(bins[k]), int(bins[k + 1])] for k in range(nb_tranches)]
+        size = (q[-1][0] - q[0][1]) / (nb_tranches - 2)
+        # to include the minimum price if it is equal to the lower bound, lower bound-1
+        inf = q[0][0] - 1 if min(prix) == int(min(prix)) else q[0][0]
+        # due to int, the upper bound is rounded down so +1 to include it
+        sup = q[-1][1] + 1
+        intervalles = [[inf, q[0][1]]] +\
+            [[q[0][1] + size * k, q[0][1] + size * (k + 1)]
+                for k in range(nb_tranches - 2)] +\
+            [[q[-1][0], sup]]
+        if arrondi:
+            # keep min and max values unchanged
+            borne_inf = intervalles[0][0]
+            borne_sup = intervalles[-1][1]
+            intervalles = [[borne_inf, process_borne(intervalles[0][1], borne_inf, borne_sup)]] + [
+                [process_borne(i[0], borne_inf, borne_sup), process_borne(i[1], borne_inf, borne_sup)]
+                for i in intervalles[1:-1]
+            ] + [[process_borne(intervalles[-1][0], borne_inf, borne_sup), borne_sup]]
+        bins = [i[0] for i in intervalles] + [intervalles[-1][1]]
+        # handle case where rounding creates indentical bins
+        if len(bins) != len(set(bins)):
+            # check how many times bounds appear
+            count_bins = pd.Series(bins).value_counts().sort_index()
+            # get ranges between redundant bounds and next ones
+            ranges = [
+                (count_bins.index[k + 1] - count_bins.index[k]) / count_bins.values[k]
+                for k in range(len(count_bins) - 1)
+            ]
+            # create new bins from bounds and intervals
+            new_bins = [bins[0]]
+            for idx, b in enumerate(count_bins.values[:-1]):
+                for k in range(b):
+                    new_bins.append(new_bins[-1] + ranges[idx])
+            bins = list(map(round, new_bins))
+        volumes = pd.cut(
+            prix,
+            bins=bins
+        ).value_counts().sort_index().to_list()
+        return intervalles, volumes
+
     # on récupère toutes les échelles
     echelles = pd.read_csv(
         DATADIR + "/stats_dvf_api.csv",
@@ -677,69 +733,64 @@ def create_distribution():
     )
     echelles_of_interest = ["departement", "epci", "commune", ]
     # "section"]
-    dvf = dvf[['code_' + e for e in echelles_of_interest] + ['prix_m2']]
-    nb_tranches = 10
+    types_of_interest = {
+        'appartement': [2],
+        'maison': [1],
+        'apt+maison': [1, 2],
+        'local': [4],
+    }
+    dvf = dvf[['code_' + e for e in echelles_of_interest] + ['code_type_local'] + ['prix_m2']]
     threshold = 100
-    # échelle nationale
-    bins = np.quantile(dvf['prix_m2'].unique(), [k / nb_tranches for k in range(nb_tranches + 1)])
-    q = [[int(bins[k]), int(bins[k + 1])] for k in range(nb_tranches)]
-    size = (q[-1][0] - q[0][1]) / (nb_tranches - 2)
-    intervalles = [q[0]] +\
-        [[q[0][1] + size * k, q[0][1] + size * (k + 1)]
-            for k in range(nb_tranches - 2)] +\
-        [q[-1]]
-    volumes = pd.cut(dvf['prix_m2'],
-                     bins=[i[0] for i in intervalles] + [intervalles[-1][1]]
-                     ).value_counts().sort_index().to_list()
-    tranches = [{
-        'code_geo': 'nation',
-        'xaxis': intervalles,
-        'yaxis': volumes
-    }]
-    for e in echelles_of_interest:
-        codes_geo = set(echelles.loc[echelles['echelle_geo'] == e, 'code_geo'])
-        restr_dvf = dvf[[f'code_{e}', 'prix_m2']].set_index(f'code_{e}')['prix_m2']
-        idx = set(restr_dvf.index)
-        operations = len(codes_geo)
-        print(e, operations)
-        for i, code in enumerate(codes_geo):
-            if i % (operations // 10) == 0 and i > 0:
-                print(round(i / operations * 100), '%')
-            if code in idx:
-                prix = restr_dvf.loc[code]
-                if not isinstance(prix, pd.core.series.Series):
-                    prix = pd.Series(prix)
-                if len(prix) >= threshold:
-                    # 1er et dernier quantiles gardés
-                    # on coupe le reste des données en tranches égales de prix (!= volumes)
-                    # .unique() pour éviter des bornes identique => ValueError
-                    bins = np.quantile(prix.unique(), [k / nb_tranches for k in range(nb_tranches + 1)])
-                    q = [[int(bins[k]), int(bins[k + 1])] for k in range(nb_tranches)]
-                    size = (q[-1][0] - q[0][1]) / (nb_tranches - 2)
-                    intervalles = [q[0]] +\
-                        [[q[0][1] + size * k, q[0][1] + size * (k + 1)]
-                            for k in range(nb_tranches - 2)] +\
-                        [q[-1]]
-                    volumes = pd.cut(prix,
-                                     bins=[i[0] for i in intervalles] + [intervalles[-1][1]]
-                                     ).value_counts().sort_index().to_list()
-                    tranches.append({
-                        'code_geo': code,
-                        'xaxis': intervalles,
-                        'yaxis': volumes
-                    })
+    tranches = []
+    for t in types_of_interest:
+        restr_type_dvf = dvf.loc[
+            dvf['code_type_local'].isin(types_of_interest[t])
+        ].drop('code_type_local', axis=1)
+        # échelle nationale
+        intervalles, volumes = distrib_from_prix(restr_type_dvf['prix_m2'])
+        echelle_dict = {
+            'code_geo': 'nation',
+            'type_local': t,
+            'xaxis': intervalles,
+            'yaxis': volumes
+        }
+        tranches.append(echelle_dict)
+        # autres échelles
+        for e in echelles_of_interest:
+            codes_geo = set(echelles.loc[echelles['echelle_geo'] == e, 'code_geo'])
+            restr_dvf = restr_type_dvf[[f'code_{e}', 'prix_m2']].set_index(f'code_{e}')['prix_m2']
+            idx = set(restr_dvf.index)
+            operations = len(codes_geo)
+            print(e, t)
+            for i, code in enumerate(codes_geo):
+                if i % (operations // 10) == 0 and i > 0:
+                    print(round(i / operations * 100), '%')
+                if code in idx:
+                    prix = restr_dvf.loc[code]
+                    if not isinstance(prix, pd.core.series.Series):
+                        prix = pd.Series(prix)
+                    if len(prix) >= threshold:
+                        intervalles, volumes = distrib_from_prix(prix)
+                        tranches.append({
+                            'code_geo': code,
+                            'type_local': t,
+                            'xaxis': intervalles,
+                            'yaxis': volumes
+                        })
+                    else:
+                        tranches.append({
+                            'code_geo': code,
+                            'type_local': t,
+                            'xaxis': None,
+                            'yaxis': None
+                        })
                 else:
                     tranches.append({
                         'code_geo': code,
+                        'type_local': t,
                         'xaxis': None,
                         'yaxis': None
                     })
-            else:
-                tranches.append({
-                    'code_geo': code,
-                    'xaxis': None,
-                    'yaxis': None
-                })
     output_tranches = pd.DataFrame(tranches)
     output_tranches.to_csv(
         DATADIR + "/distribution_prix.csv",
