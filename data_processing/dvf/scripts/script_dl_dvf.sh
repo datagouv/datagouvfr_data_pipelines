@@ -1,5 +1,4 @@
-# curr_year=`date +'%Y'`
-curr_year=2022
+curr_year=`date +'%Y'`
 five_ago=$((curr_year-5))
 echo $PWD
 DATADIR="$1"
