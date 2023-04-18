@@ -143,7 +143,7 @@ def process_dvf_stats(ti):
         [
             int(f.replace("full_", "").replace(".csv", ""))
             for f in os.listdir(DATADIR)
-            if "full_" in f
+            if "full_" in f and ".gz" not in f
         ]
     )
     export = pd.DataFrame(None)
@@ -612,7 +612,7 @@ def create_distribution():
         [
             int(f.replace("full_", "").replace(".csv", ""))
             for f in os.listdir(DATADIR)
-            if "full_" in f
+            if "full_" in f and ".gz" not in f
         ]
     )
     dvf = pd.DataFrame(None)
