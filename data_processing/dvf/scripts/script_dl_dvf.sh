@@ -21,4 +21,4 @@ done
 
 find $DATADIR -name '*.gz' -exec gunzip -f '{}' \;
 
-cd $DATADIR && ls
+cd $DATADIR && rm *.gz && ls -lh
