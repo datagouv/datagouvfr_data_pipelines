@@ -519,6 +519,12 @@ def process_dvf_stats(ti):
     del mask
     gc.collect()
 
+    libelles_biens = [unidecode(types_bien.get(t).split(" ")[0].lower()) for t in types_of_interest]
+    prefixes = ['nb_ventes_', 'moy_prix_m2_', 'med_prix_m2_']
+    reordered_columns = ['code_geo'] +\
+        [pref + lib for lib in libelles_biens for pref in prefixes] +\
+        ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
+    export = export[reordered_columns]
     export.to_csv(
         DATADIR + "/stats_dvf_api.csv",
         sep=",",
