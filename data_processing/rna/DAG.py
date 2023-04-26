@@ -4,11 +4,11 @@ from airflow.operators.python import PythonOperator
 from operators.clean_folder import CleanFolderOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
 )
-from dag_datagouv_data_pipelines.data_processing.rna.task_functions import (
+from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     process_rna,
     create_rna_table,
     populate_rna_table,
@@ -17,7 +17,7 @@ from dag_datagouv_data_pipelines.data_processing.rna.task_functions import (
 from datetime import date
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
-DAG_FOLDER = 'dag_datagouv_data_pipelines/data_processing/'
+DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_rna'
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
 SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"

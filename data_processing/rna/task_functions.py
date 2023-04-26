@@ -1,5 +1,5 @@
 from airflow.hooks.base import BaseHook
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
@@ -9,13 +9,13 @@ from dag_datagouv_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from dag_datagouv_data_pipelines.utils.postgres import (
+from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     copy_file
 )
-from dag_datagouv_data_pipelines.utils.datagouv import post_resource
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import send_files
 import pandas as pd
 import os
 from unidecode import unidecode
