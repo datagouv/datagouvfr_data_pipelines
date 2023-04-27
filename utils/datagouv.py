@@ -2,6 +2,7 @@ import dateutil
 from typing import List, Optional, TypedDict
 import requests
 import os
+import numpy as np
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 if AIRFLOW_ENV == "dev":
@@ -344,3 +345,78 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
     else:
         results = intermediary_result
     return results
+
+
+def post_remote_communautary_resource(
+    api_key: str,
+    dataset_id: str,
+    title: str,
+    format: str,
+    remote_url: str,
+    organisation_publication_id: str = "63e3ae4082ddaa6c806b8417", # DataTeam
+    type: str = "main",
+    schema: dict = {},
+    description: str = ""
+):
+    """Create a post in data.gouv.fr
+
+    Args:
+        api_key (str): API key from data.gouv.fr
+        name (str): name of post.
+        headline (str): headline of post
+        content (str) : content of post
+        body_type (str) : body type of post (html or markdown)
+        tags: Option list of tags for post
+
+    Returns:
+       json: return API result in a dictionnary containing metadatas
+    """
+    headers = {
+        "X-API-KEY": api_key,
+    }
+    community_resource_url = "https://demo.data.gouv.fr/api/1/datasets/community_resources"
+
+    # Check if resource already exists
+    data = requests.get(
+        community_resource_url,
+        {"dataset": dataset_id}
+    ).json()["data"]
+    resource_exists = remote_url in [d.get('url', '') for d in data]
+    payload = {
+        "dataset": {
+            "id": dataset_id
+        },
+        "description": description,
+        "filetype": "remote",
+        "format": format,
+        "organization": {
+            "id": organisation_publication_id
+        },
+        "schema": schema,
+        "title": title,
+        "type": type,
+        "url": remote_url
+    }
+    if resource_exists:
+        # Update resource
+        idx = np.argwhere(
+            np.array([d.get('url', '') for d in data]) == remote_url
+        )[0][0]
+        resource_id = data[idx]['id']
+        refined_url = community_resource_url + f"/{resource_id}"
+
+        r = requests.put(
+            refined_url,
+            json=payload,
+            headers=headers
+        )
+
+    else:
+        # Create resource
+        r = requests.post(
+            community_resource_url,
+            json=payload,
+            headers=headers
+        )
+    assert r.ok
+    return r.json()
