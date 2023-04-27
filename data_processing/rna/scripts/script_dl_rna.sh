@@ -3,6 +3,7 @@ rm -rf $DATADIR
 mkdir -p $DATADIR
 
 URL_rna="$2"
+echo $URL_rna
 
 curl $URL_rna > $DATADIR/rna.zip
 

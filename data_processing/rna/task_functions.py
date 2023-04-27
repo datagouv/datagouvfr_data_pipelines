@@ -13,11 +13,12 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     copy_file
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.datagouv import post_remote_communautary_resource
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 import pandas as pd
 import os
+from datetime import datetime
 from unidecode import unidecode
 from csv_detective.explore_csv import routine
 
@@ -140,48 +141,29 @@ def index_rna_table():
     )
 
 
-# def send_distribution_to_minio():
-#     send_files(
-#         MINIO_URL=MINIO_URL,
-#         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-#         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-#         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-#         list_files=[
-#             {
-#                 "source_path": f"{DATADIR}/",
-#                 "source_name": "distribution_prix.csv",
-#                 "dest_path": "dvf/",
-#                 "dest_name": "distribution_prix.csv",
-#             }
-#         ],
-#     )
+def send_rna_to_minio():
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET="data-pipeline-open",
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "base_rna.csv",
+                "dest_path": "rna/",
+                "dest_name": "base_rna.csv",
+            }
+        ],
+    )
 
 
-# def publish_stats_dvf(ti):
-#     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
-#         data = json.load(fp)
-#     post_resource(
-#         api_key=DATAGOUV_SECRET_API_KEY,
-#         file_to_upload={
-#             "dest_path": f"{DATADIR}/",
-#             "dest_name": data["file"]
-#         },
-#         dataset_id=data[AIRFLOW_ENV]["dataset_id"],
-#         resource_id=data[AIRFLOW_ENV]["resource_id"],
-#     )
-#     ti.xcom_push(key="dataset_id", value=data[AIRFLOW_ENV]["dataset_id"])
-
-
-# def notification_mattermost(ti):
-#     dataset_id = ti.xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
-#     if AIRFLOW_ENV == "dev":
-#         url = "https://demo.data.gouv.fr/fr/datasets/"
-#     if AIRFLOW_ENV == "prod":
-#         url = "https://www.data.gouv.fr/fr/datasets/"
-#     send_message(
-#         f"Stats DVF générées :"
-#         f"\n- intégré en base de données"
-#         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-#         f"({url}{dataset_id})"
-#         f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
-#     )
+def publish_rna_communautaire():
+    post_remote_communautary_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        dataset_id="58e53811c751df03df38f42d",
+        title="RNA agrégé",
+        format="csv",
+        remote_url=f"https://object.files.data.gouv.fr/data-pipeline-open/{AIRFLOW_ENV}/rna/base_rna.csv",
+        description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})"
+    )

@@ -12,19 +12,23 @@ from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     process_rna,
     create_rna_table,
     populate_rna_table,
-    index_rna_table
+    index_rna_table,
+    send_rna_to_minio,
+    publish_rna_communautaire
 )
-from datetime import date
+import requests
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
 DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_rna'
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
 SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
-year = date.today().year
-# month = '0' + str(date.today().month) if date.today().month <= 9 else str(date.today().month)
-# url_rna = f'https://media.interieur.gouv.fr/rna/rna_import_{year}{month}01.zip'
-url_rna = 'https://media.interieur.gouv.fr/rna/rna_import_20230301.zip'
+
+resources = requests.get(
+    "https://www.data.gouv.fr/api/1/datasets/repertoire-national-des-associations"
+).json()['resources']
+resources = [r for r in resources if 'import' in r['title'].lower()]
+url_rna = sorted(resources, key=lambda r: r['created_at'])[-1]['url']
 
 default_args = {
     'email': [
@@ -77,8 +81,20 @@ with DAG(
         python_callable=index_rna_table,
     )
 
+    send_rna_to_minio = PythonOperator(
+        task_id='send_rna_to_minio',
+        python_callable=send_rna_to_minio,
+    )
+
+    publish_rna_communautaire = PythonOperator(
+        task_id='publish_rna_communautaire',
+        python_callable=publish_rna_communautaire,
+    )
+
     download_rna_data.set_upstream(clean_previous_outputs)
     process_rna.set_upstream(download_rna_data)
     create_rna_table.set_upstream(process_rna)
     populate_rna_table.set_upstream(create_rna_table)
     index_rna_table.set_upstream(populate_rna_table)
+    send_rna_to_minio.set_upstream(process_rna)
+    publish_rna_communautaire.set_upstream(send_rna_to_minio)
