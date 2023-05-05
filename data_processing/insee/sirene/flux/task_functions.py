@@ -2,6 +2,8 @@ from datetime import datetime
 import gzip
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter, Retry
+import time
 from datagouvfr_data_pipelines.utils.minio import send_files
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.config import (
@@ -14,6 +16,12 @@ from datagouvfr_data_pipelines.config import (
 )
 
 CURRENT_MONTH = datetime.today().strftime("%Y-%m")
+
+session = requests.Session()
+retry = Retry(connect=3, backoff_factor=3)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 
 def flatten_dict(dd, separator="_", prefix=""):
@@ -39,7 +47,9 @@ def call_insee_api(endpoint, property):
         if cpt % 10000 == 0:
             print(cpt)
 
-        res = requests.get(endpoint + cursor, headers=headers).json()
+        r = session.get(endpoint + cursor, headers=headers)
+        time.sleep(0.5)
+        res = r.json()
         if (
             "curseurSuivant" in res["header"]
             and "curseur" in res["header"]
@@ -61,7 +71,9 @@ def get_stock_non_diffusible(ti):
     data = call_insee_api(endpoint, "etablissements")
     df = pd.DataFrame(data)
     df.to_csv(
-        f"{AIRFLOW_DAG_TMP}sirene_flux/stock_non_diffusible.csv.gz", index=False, compression="gzip"
+        f"{AIRFLOW_DAG_TMP}sirene_flux/stock_non_diffusible.csv.gz",
+        index=False,
+        compression="gzip",
     )
     ti.xcom_push(key="nb_stock_non_diffusible", value=str(df.shape[0]))
 
@@ -78,7 +90,7 @@ def get_current_flux_non_diffusible(ti):
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_non_diffusible_{CURRENT_MONTH}.csv.gz",
         index=False,
-        compression="gzip"
+        compression="gzip",
     )
     ti.xcom_push(key="nb_flux_non_diffusible", value=str(df.shape[0]))
 
@@ -143,7 +155,7 @@ def get_current_flux_etablissement(ti):
         flux.append(flatten_dict(row))
 
     data.clear()
-    
+
     # We save csv.gz by batch of 100 000 for memory
     df = pd.DataFrame(columns=[c for c in flux[0]])
     for column in df.columns:
@@ -152,7 +164,7 @@ def get_current_flux_etablissement(ti):
                 df = df.rename(columns={column: column.replace(prefix, "")})
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
-        index=False
+        index=False,
     )
     first = 0
     for i in range(len(flux)):
@@ -163,26 +175,25 @@ def get_current_flux_etablissement(ti):
                 f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
                 mode="a",
                 index=False,
-                header=False
+                header=False,
             )
             first = i
-    
-    fluxinter = flux[first:len(flux)]
+
+    fluxinter = flux[first : len(flux)]
     df = pd.DataFrame(fluxinter)
     df.to_csv(
         f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
         mode="a",
         index=False,
-        header=False
+        header=False,
     )
 
     with open(
-        f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv",
-        "rb"
+        f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv", "rb"
     ) as orig_file:
         with gzip.open(
             f"{AIRFLOW_DAG_TMP}sirene_flux/flux_etablissement_{CURRENT_MONTH}.csv.gz",
-            "wb"
+            "wb",
         ) as zipped_file:
             zipped_file.writelines(orig_file)
 
@@ -213,7 +224,7 @@ def send_flux_minio():
                 "source_name": f"flux_non_diffusible_{CURRENT_MONTH}.csv.gz",
                 "dest_path": "insee/sirene/sirene_flux/",
                 "dest_name": f"flux_non_diffusible_{CURRENT_MONTH}.csv.gz",
-            }
+            },
         ],
     )
 
