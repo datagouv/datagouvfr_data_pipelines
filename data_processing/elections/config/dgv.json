@@ -1,0 +1,26 @@
+{
+    "general": {
+        "name": "elections_stats_generales",
+        "file": "general_stats.csv",
+        "dev": {
+            "dataset_id": "63ebd4b775d47ab8a75db39a",
+            "resource_id": "d04e44a5-c6f8-4d14-8f97-c8038ba397bb"
+        },
+        "prod": {
+            "dataset_id": "63ebd4b775d47ab8a75db39a",
+            "resource_id": "d04e44a5-c6f8-4d14-8f97-c8038ba397bb"
+        }
+    },
+    "candidats": {
+        "name": "elections_stats_candidats",
+        "file": "candidats_stats.csv",
+        "dev": {
+            "dataset_id": "63ebd4b775d47ab8a75db39a",
+            "resource_id": "d04e44a5-c6f8-4d14-8f97-c8038ba397bb"
+        },
+        "prod": {
+            "dataset_id": "63ebd4b775d47ab8a75db39a",
+            "resource_id": "d04e44a5-c6f8-4d14-8f97-c8038ba397bb"
+        }
+    }
+}

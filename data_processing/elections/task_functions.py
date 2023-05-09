@@ -1,5 +1,5 @@
 from airflow.hooks.base import BaseHook
-from dag_datagouv_data_pipelines.config import (
+from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
@@ -9,26 +9,16 @@ from dag_datagouv_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from dag_datagouv_data_pipelines.utils.postgres import (
-    execute_sql_file,
-    copy_file
-)
-from dag_datagouv_data_pipelines.utils.datagouv import post_resource
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.minio import send_files
-import gc
-import glob
-from unidecode import unidecode
+from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import send_files
 import numpy as np
-import gzip
 import os
-import io
 import pandas as pd
-import requests
 import json
 from itertools import chain
 
-DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
+DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
 
 
@@ -55,7 +45,7 @@ def format_election_files_func():
             continue
         nb_candidats = (max_nb_columns - len(first_columns)) // len(candidat_columns)
         columns = first_columns + list(chain.from_iterable(
-            [[c + '_' + str(k) for c in candidat_columns] for k in range(nb_candidats)]
+            [[c + '_' + str(k) for c in candidat_columns] for k in range(1, nb_candidats + 1)]
         ))
         output = ';'.join(columns) + '\n'
         for idx, row in enumerate(content[1:]):
@@ -97,33 +87,92 @@ def process_election_data_func():
 
     files = [f for f in os.listdir(DATADIR) if '.csv' if f]
     print(files)
-    elections = pd.DataFrame(None)
+    general_stats = []
+    candidats_stats = []
     for file in files:
+        print('Starting', file)
         df = pd.read_csv(
             DATADIR + '/' + file,
             sep=';',
             dtype=str,
         )
         df['id_election'] = file.replace('.csv', '')
-        elections = pd.concat([elections, df])
-    nb_candidats_max = sum(['Panneau' in c for c in elections.columns])
-    elections['code_dep'] = elections['Code du département'].apply(lambda x: map_outremer.get(x, x))
-    elections['code_insee'] = elections['code_dep'].str.slice(0, 2) + \
-        elections['Code de la commune']
-    elections['id_bv'] = elections['code_insee'] + '_' + \
-        elections['Code du b.vote'].apply(strip_zeros)
-    to_cast = [
-        'Inscrits', 'Abstentions', 'Blancs', 'Nuls', 'Exprimés'
-    ] + [f'Voix_{k}' for k in range(nb_candidats_max)]
-    for c in to_cast:
-        elections[c] = elections[c].astype(float)
-    for c in elections.columns:
-        if c.startswith('%'):
-            elections[c] = elections[c].apply(
-                lambda s: float(s.replace(',', '.')) if isinstance(s, str) else s
-            )
-    abstention = elections[['id_election', 'id_bv', 'Inscrits', 'Abstentions']]
-    with gzip.open(DATADIR + "/abstention.json.gz", 'wb') as output:
-        with io.TextIOWrapper(output, encoding='utf-8') as encode:
-            encode.write(abstention.to_json(orient='records'))
-    print(round(os.path.getsize(DATADIR + "/abstention.json.gz") / 10**6, 2), 'Mo')
+        df['code_dep'] = df['Code du département'].apply(lambda x: map_outremer.get(x, x))
+        df['code_insee'] = df['code_dep'].str.slice(0, 2) + df['Code de la commune']
+        df['id_bv'] = df['code_insee'] + '_' + df['Code du b.vote'].apply(strip_zeros)
+        threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
+        general_stats.append(df[['id_election', 'id_bv'] + list(df.columns[:threshold])])
+        print('- Done with general data')
+
+        tmp_candidats = df[
+            ['id_election', 'id_bv', 'Code du département', 'Code de la commune', 'Code du b.vote'] +
+            list(df.columns[threshold:-5])
+        ]
+        geo_cols = list(tmp_candidats.columns[:5])
+        nb_candidats = sum(['Panneau' in i for i in tmp_candidats.columns])
+        tmp_cols = tmp_candidats.columns[5:]
+        candidat_columns = [c.split('_')[0] for c in tmp_cols[:len(tmp_cols) // nb_candidats]]
+        operations = len(tmp_candidats)
+        for idx, (_, row) in enumerate(tmp_candidats.iterrows()):
+            if idx % (operations // 10) == 0 and idx > 0:
+                print(round(idx / operations * 100), '%')
+            for k in range(1, nb_candidats + 1):
+                cols = geo_cols + [c + '_' + str(k) for c in candidat_columns]
+                tmp_stats = row[cols]
+                if not tmp_stats.isna().any():
+                    tmp_stats = pd.DataFrame(tmp_stats).T
+                    tmp_stats.columns = geo_cols + candidat_columns
+                    candidats_stats.append(tmp_stats)
+        print('- Done with candidates data')
+
+    general_stats = pd.concat(general_stats, ignore_index=True)
+    candidats_stats = pd.concat(candidats_stats, ignore_index=True)
+    general_stats.to_csv(DATADIR + '/general_stats.csv', index=False)
+    candidats_stats.to_csv(DATADIR + '/candidats_stats.csv', index=False)
+
+
+def send_stats_to_minio_func():
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "general_stats.csv",
+                "dest_path": "elections/",
+                "dest_name": "general_stats.csv",
+            },
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "candidats_stats.csv",
+                "dest_path": "elections/",
+                "dest_name": "candidats_stats.csv",
+            },
+        ],
+    )
+
+
+def publish_stats_elections_func():
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
+        data = json.load(fp)
+    post_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        file_to_upload={
+            "dest_path": f"{DATADIR}/",
+            "dest_name": data["general"]["file"]
+        },
+        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
+        resource_id=data[AIRFLOW_ENV]["resource_id"],
+    )
+    print('Done with general stats')
+    post_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        file_to_upload={
+            "dest_path": f"{DATADIR}/",
+            "dest_name": data["candidats"]["file"]
+        },
+        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
+        resource_id=data[AIRFLOW_ENV]["resource_id"],
+    )
