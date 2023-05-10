@@ -183,7 +183,7 @@ def get_files_from_prefix(
         for obj in objects:
             print(obj.object_name)
             list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
-        return list_objects    
+        return list_objects
     else:
         raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
 

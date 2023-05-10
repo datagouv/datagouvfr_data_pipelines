@@ -13,6 +13,8 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     download_catalog,
     get_new_logs,
     process_log,
+    process_matomo,
+    prepare_csv_tables,
     save_to_postgres,
 )
 
@@ -21,7 +23,7 @@ DAG_NAME = 'dgv_metrics'
 
 default_args = {
     'email': ['geoffrey.aldebert@data.gouv.fr'],
-    'email_on_failure': True
+    'email_on_failure': False
 }
 
 with DAG(
@@ -59,6 +61,16 @@ with DAG(
         python_callable=process_log,
     )
 
+    process_matomo = PythonOperator(
+        task_id='process_matomo',
+        python_callable=process_matomo,
+    )
+
+    prepare_csv_tables = PythonOperator(
+        task_id='prepare_csv_tables',
+        python_callable=prepare_csv_tables,
+    )
+
     create_metrics_tables = PythonOperator(
         task_id='create_metrics_tables',
         python_callable=create_metrics_tables,
@@ -73,7 +85,6 @@ with DAG(
         task_id='copy_log_to_processed_folder',
         python_callable=copy_log_to_processed_folder,
     )
-    
 
     get_new_logs.set_upstream(clean_previous_outputs)
     download_catalog.set_upstream(clean_previous_outputs)
@@ -81,6 +92,9 @@ with DAG(
     copy_log_to_ongoing_folder.set_upstream(get_new_logs)
     process_log.set_upstream(copy_log_to_ongoing_folder)
     process_log.set_upstream(download_catalog)
-    save_to_postgres.set_upstream(create_metrics_tables)
-    save_to_postgres.set_upstream(process_log)
+    process_matomo.set_upstream(download_catalog)
+    prepare_csv_tables.set_upstream(create_metrics_tables)
+    prepare_csv_tables.set_upstream(process_log)
+    prepare_csv_tables.set_upstream(process_matomo)
+    save_to_postgres.set_upstream(prepare_csv_tables)
     copy_log_to_processed_folder.set_upstream(save_to_postgres)
