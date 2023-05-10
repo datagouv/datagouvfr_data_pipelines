@@ -34,6 +34,7 @@ def create_dataset(
     r = requests.post(
         f"{DATAGOUV_URL}/api/1/datasets/", json=payload, headers=headers
     )
+    r.raise_for_status()
     return r.json()
 
 
@@ -95,6 +96,7 @@ def post_resource(
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
     r = requests.post(url, files=files, headers=headers)
+    r.raise_for_status()
     return r.json()
 
 
@@ -233,6 +235,7 @@ def update_dataset_or_resource_extras(
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/extras/"
 
     r = requests.put(url, json=payload, headers=headers)
+    r.raise_for_status()
     return r.json()
 
 
@@ -313,6 +316,7 @@ def get_data(endpoint, page, sort):
     r = requests.get(
         f"https://www.data.gouv.fr/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
     )
+    r.raise_for_status()
     return r.json().get('data', [])
 
 
