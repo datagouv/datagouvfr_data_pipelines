@@ -5,7 +5,7 @@ from datagouvfr_data_pipelines.config import (
     DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
     MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    MINIO_BUCKET_DATA_PIPELINE,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
@@ -35,6 +35,93 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 
 conn = BaseHook.get_connection("postgres_localhost")
+
+
+def create_copro_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_copro_table.sql",
+            }
+        ],
+    )
+
+
+def populate_copro_table():
+    new_cols = [
+        "epci",
+        "commune",
+        "numero_immatriculation",
+        "type_syndic",
+        "identification_representant_legal",
+        "siret_representant_legal",
+        "code_ape",
+        "commune_representant_legal",
+        "mandat_en_cours_copropriete",
+        "nom_usage_copropriete",
+        "adresse_reference",
+        "numero_et_voie_adresse_reference",
+        "code_postal_adresse_reference",
+        "commune_adresse_reference",
+        "adresse_complementaire_1",
+        "adresse_complementaire_2",
+        "adresse_complementaire_3",
+        "nombre_adresses_complementaires",
+        "long",
+        "lat",
+        "date_reglement_copropriete",
+        "residence_service",
+        "syndicat_cooperatif",
+        "syndicat_principal_ou_secondaire",
+        "si_secondaire_numero_immatriculation_principal",
+        "nombre_asl_rattache_syndicat_coproprietaires",
+        "nombre_aful_rattache_syndicat_coproprietaires",
+        "nombre_unions_syndicats_rattache_syndicat_coproprietaires",
+        "nombre_total_lots",
+        "nombre_total_lots_usage_habitation_bureaux_ou_commerces",
+        "nombre_lots_usage_habitation",
+        "nombre_lots_stationnement",
+        "nombre_arretes_code_sante_publique_en_cours",
+        "nombre_arretes_peril_parties_communes_en_cours",
+        "nombre_arretes_equipements_communs_en_cours",
+        "periode_construction",
+        "reference_cadastrale_1",
+        "code_insee_commune_1",
+        "prefixe_1",
+        "section_1",
+        "numero_parcelle_1",
+        "reference_cadastrale_2",
+        "code_insee_commune_2",
+        "prefixe_2",
+        "section_2",
+        "numero_parcelle_2",
+        "reference_cadastrale_3",
+        "code_insee_commune_3",
+        "prefixe_3",
+        "section_3",
+        "numero_parcelle_3",
+        "nombre_parcelles_cadastrales",
+        "nom_qp",
+        "code_qp",
+        "copro_dans_acv",
+        "copro_dans_pvd",
+    ]
+    copro = pd.read_csv(f"{DATADIR}/copro.csv", dtype=str)
+    assert len(new_cols) == len(copro.columns)
+    mapping = {old: new for (old, new) in zip(copro.columns, new_cols)}
+    copro = copro.rename(mapping, axis=1)
+    # remove abnormalities
+    for c in copro.columns:
+        if 'insee' in c:
+            copro = copro.loc[copro[c].str.len() == 5]
+    copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
+    populate_utils([f"{DATADIR}/copro_clean.csv"], "public.copro")
 
 
 def create_dvf_table():
@@ -231,8 +318,6 @@ def process_dvf_stats(ti):
         # drop mutations multitypes pour les prix au m², impossible de
         # classer une mutation qui contient X maisons et Y appartements
         # par exemple
-        # à voir pour la suite : quid des mutations avec dépendances, dont
-        # le le prix est un prix de lot ? prix_m2 = prix_lot/surface_bien ?
         multitypes = ventes[["id_mutation", "code_type_local"]].value_counts()
         multitypes_ = multitypes.unstack()
         mutations_drop = multitypes_.loc[
@@ -525,6 +610,12 @@ def process_dvf_stats(ti):
         [pref + lib for lib in libelles_biens for pref in prefixes] +\
         ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
     export = export[reordered_columns]
+    # suppression des stats pour les échelles auxquelles pas assez de mutations (< threshold)
+    # par type de bien
+    threshold = 3
+    for t in types_of_interest:
+        t = types_bien[t].split(" ")[0].lower()
+        export.loc[export[f'nb_ventes_{t}'] < threshold, [f'moy_prix_m2_{t}', f'med_prix_m2_{t}']] = None
     export.to_csv(
         DATADIR + "/stats_dvf_api.csv",
         sep=",",
@@ -807,9 +898,12 @@ def create_distribution():
 
 
 def send_stats_to_minio():
+    print(MINIO_URL)
+    print('il est là :', MINIO_BUCKET_DATA_PIPELINE, '<=')
+    print(SECRET_MINIO_DATA_PIPELINE_USER)
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -826,7 +920,7 @@ def send_stats_to_minio():
 def send_distribution_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -866,5 +960,5 @@ def notification_mattermost(ti):
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({url}{dataset_id})"
-        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
+        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE}/browse)"
     )
