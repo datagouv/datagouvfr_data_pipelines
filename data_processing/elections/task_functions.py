@@ -163,8 +163,8 @@ def publish_stats_elections_func():
             "dest_path": f"{DATADIR}/",
             "dest_name": data["general"]["file"]
         },
-        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
-        resource_id=data[AIRFLOW_ENV]["resource_id"],
+        dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
     )
     print('Done with general stats')
     post_resource(
@@ -173,6 +173,6 @@ def publish_stats_elections_func():
             "dest_path": f"{DATADIR}/",
             "dest_name": data["candidats"]["file"]
         },
-        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
-        resource_id=data[AIRFLOW_ENV]["resource_id"],
+        dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
     )

@@ -66,13 +66,13 @@ with DAG(
         python_callable=send_stats_to_minio_func,
     )
 
-    # publish_stats_elections = PythonOperator(
-    #     task_id='publish_stats_elections',
-    #     python_callable=publish_stats_elections_func,
-    # )
+    publish_stats_elections = PythonOperator(
+        task_id='publish_stats_elections',
+        python_callable=publish_stats_elections_func,
+    )
 
     download_elections_data.set_upstream(clean_previous_outputs)
     format_election_files.set_upstream(download_elections_data)
     process_election_data.set_upstream(format_election_files)
     send_stats_to_minio.set_upstream(process_election_data)
-    # publish_stats_elections.set_upstream(process_election_data)
+    publish_stats_elections.set_upstream(process_election_data)

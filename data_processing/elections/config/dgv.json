@@ -3,8 +3,8 @@
         "name": "elections_stats_generales",
         "file": "general_stats.csv",
         "dev": {
-            "dataset_id": "TBD",
-            "resource_id": "TBD"
+            "dataset_id": "645cfef7d766788fc6310dc7",
+            "resource_id": "8e17974b-88da-4e03-9393-5241df995d7c"
         },
         "prod": {
             "dataset_id": "TBD",
@@ -15,8 +15,8 @@
         "name": "elections_stats_candidats",
         "file": "candidats_stats.csv",
         "dev": {
-            "dataset_id": "TBD",
-            "resource_id": "TBD"
+            "dataset_id": "645cfef7d766788fc6310dc7",
+            "resource_id": "f142cbee-6078-428d-a83c-20335e7d9587"
         },
         "prod": {
             "dataset_id": "TBD",
