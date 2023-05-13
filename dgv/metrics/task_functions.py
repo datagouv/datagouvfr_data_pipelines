@@ -305,7 +305,6 @@ def process_log(ti):
 
         remove_files_if_exists(ACTIVE_LOG, "outputs")
         remove_files_if_exists(ACTIVE_LOG, "found")
-        remove_files_if_exists(ACTIVE_LOG, "to_postgres")
         print("---------------")
         print(ACTIVE_LOG)
         file = gzip.open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "rb")
@@ -344,7 +343,7 @@ def process_log(ti):
             df = pd.merge(df, df_catalog[["id", "organization_id"]], on="id", how="left")
             df = df.rename(columns={"id": "dataset_id"})
             df[["date_metric", "dataset_id", "organization_id", "nb_visit"]].to_csv(
-                f"{TMP_FOLDER}to_postgres/datasets-{ACTIVE_LOG}.csv", index=False, header=False
+                f"{TMP_FOLDER}outputs/datasets-{ACTIVE_LOG}.csv", index=False, header=False
             )
         except pd.errors.EmptyDataError:
             print("empty data datasets")
@@ -380,7 +379,7 @@ def process_log(ti):
             df = pd.merge(df, df_catalog[["id"]], on="id", how="left")
             df = df.rename(columns={"id": "organization_id"})
             df[["date_metric", "organization_id", "nb_visit"]].to_csv(
-                f"{TMP_FOLDER}to_postgres/organizations-{ACTIVE_LOG}.csv", index=False, header=False
+                f"{TMP_FOLDER}outputs/organizations-{ACTIVE_LOG}.csv", index=False, header=False
             )
         except pd.errors.EmptyDataError:
             print("empty data organizations")
@@ -416,7 +415,7 @@ def process_log(ti):
             df = pd.merge(df, df_catalog[["id", "organization_id"]], on="id", how="left")
             df = df.rename(columns={"id": "reuse_id"})
             df[["date_metric", "reuse_id", "organization_id", "nb_visit"]].to_csv(
-                f"{TMP_FOLDER}to_postgres/reuses-{ACTIVE_LOG}.csv", index=False, header=False
+                f"{TMP_FOLDER}outputs/reuses-{ACTIVE_LOG}.csv", index=False, header=False
             )
         except pd.errors.EmptyDataError:
             print("empty data reuses")
@@ -443,22 +442,22 @@ def process_log(ti):
         #     print("empty data resources id or static")
 
 
-def get_matomo_outlinks(model, slug, metric_date):
-    transistion_url = 'https://stats.data.gouv.fr/index.php'
+def get_matomo_outlinks(model, slug, target, metric_date):
+    matomo_url = 'https://stats.data.gouv.fr/index.php'
     params = {
         "module": "API",
-        "method": "Transitions.getTransitionsForAction",
+        "method": "Actions.getOutlinks",
         "actionType": "url",
+        "segment": f"actionUrl==https://www.data.gouv.fr/fr/{model}/{slug}/",
         "format": "JSON",
         "token_auth": "anonymous",
         "idSite": 109,
-        "actionName": f"https://www.data.gouv.fr/fr/{model}/{slug}/",
         "period": "day",
         "date": metric_date.isoformat()
     }
-    matomo_res = requests.get(transistion_url, params=params)
+    matomo_res = requests.get(matomo_url, params=params)
     matomo_res.raise_for_status()
-    return sum(outlink['referrals'] for outlink in matomo_res.json().get('outlinks', []))
+    return sum(outlink['nb_hits'] for outlink in matomo_res.json() if outlink["label"] in target)
 
 
 def sum_outlinks_by_orga(df_orga, df_outlinks, model):
@@ -473,8 +472,8 @@ def process_matomo():
     '''
     Fetch matomo metrics for external links for datasets, reuses and sum these by orga
     '''
-    if not os.path.exists(f'{TMP_FOLDER}outputs/'):
-        os.makedirs(f'{TMP_FOLDER}outputs/')
+    if not os.path.exists(f'{TMP_FOLDER}matomo-outputs/'):
+        os.makedirs(f'{TMP_FOLDER}matomo-outputs/')
 
     df_orga = pd.read_csv(
         f"{TMP_FOLDER}catalog_organizations.csv",
@@ -486,88 +485,57 @@ def process_matomo():
 
     # Which timespan to target?
     yesterday = date.today() - timedelta(days=1)
-    for model in ['datasets', 'reuses']:
+    for model in ['reuses']:  # datasets?
         print(f"get matamo outlinks for {model}")
         df_catalog = pd.read_csv(
             f"{TMP_FOLDER}catalog_{model}.csv",
             dtype=str,
             sep=";",
-            usecols=["id", "slug", "organization_id"]
+            usecols=["id", "slug", "remote_url", "organization_id"]
         )
-        # df_catalog = df_catalog.iloc[:10]  # Used for debugging
         df_catalog['outlinks'] = df_catalog.apply(
-            lambda x: get_matomo_outlinks(model, x.slug, yesterday), axis=1)
-        # Should we?
-        # df_catalog['date_metric'] = yesterday.isoformat()
-        df_catalog.to_csv(f'{TMP_FOLDER}outputs/{model}-outlinks.csv',
-                          columns=['id', 'outlinks'], index=False, header=False)
+            lambda x: get_matomo_outlinks(model, x.slug, x.remote_url, yesterday), axis=1)
+        df_catalog['date_metric'] = yesterday.isoformat()
+        df_catalog.to_csv(f'{TMP_FOLDER}matomo-outputs/{model}-outlinks.csv',
+                          columns=['date_metric', 'id', 'organization_id', 'outlinks'], index=False, header=False)
 
         df_orga = sum_outlinks_by_orga(df_orga, df_catalog, model)
 
-    print("sum datasets and reuse outlinks for organizations")
-    df_orga['outlinks'] = df_orga['datasets_outlinks'] + df_orga['reuses_outlinks']
-    # Should we?
-    # df_orga['date_metric'] = yesterday.isoformat()
+    df_orga['date_metric'] = yesterday.isoformat()
+    df_orga = df_orga.rename(columns={"reuses_outlinks": "outlinks"})
     df_orga = df_orga.rename(columns={"organization_id": "id"})
-    df_orga.to_csv(f'{TMP_FOLDER}outputs/organizations-outlinks.csv',
-                   columns=['id', 'outlinks'], index=False, header=False)
+    df_orga.to_csv(f'{TMP_FOLDER}matomo-outputs/organizations-outlinks.csv',
+                   columns=['date_metric', 'id', 'outlinks'], index=False, header=False)
     print("Done")
 
 
-def prepare_csv_tables():
-    '''
-    Prepare csv tables to copy to Postgres.
-    Merge tables from process_log and process_matomo.
-    '''
-    # Assuming only one ACTIVE_LOG
-    ACTIVE_LOG = 1
-    for model in ["datasets", "reuses", "organizations"]:
-        df_outlinks = pd.read_csv(
-            f"{TMP_FOLDER}outputs/{model}-outlinks.csv",
-            names=["id", "outlinks"]
-        )
-        df_visits = pd.read_csv(
-            f"{TMP_FOLDER}to_postgres/{model}-{ACTIVE_LOG}.csv",
-            names=["date_metric", "id", "nb_visit"] if model == "organizations"
-            else ["date_metric", "id", "organization_id", "nb_visit"]
-        )
-        df_res = pd.merge(df_visits, df_outlinks, on="id", how="left")
-        df_res["outlinks"] = df_res["outlinks"].fillna(0).astype(int)
-        df_res.to_csv(
-            f"{TMP_FOLDER}to_postgres/{model}-{ACTIVE_LOG}-complete.csv", index=False, header=False
-        )
-        shutil.move(f"{TMP_FOLDER}to_postgres/{model}-{ACTIVE_LOG}.csv",
-                    f"{TMP_FOLDER}outputs/{model}-{ACTIVE_LOG}.csv")
-
-
-def save_to_postgres():
+def save_metrics_to_postgres():
     config = [
         {
             "name": "datasets",
-            "columns": "(date_metric, dataset_id, organization_id, nb_visit, outlinks)",
+            "columns": "(date_metric, dataset_id, organization_id, nb_visit)",
         },
         {
             "name": "reuses",
-            "columns": "(date_metric, reuse_id, organization_id, nb_visit, outlinks)",
+            "columns": "(date_metric, reuse_id, organization_id, nb_visit)",
         },
         {
             "name": "organizations",
-            "columns": "(date_metric, organization_id, nb_visit, outlinks)",
+            "columns": "(date_metric, organization_id, nb_visit)",
         },
         {
             "name": "resources",
-            "columns": "(date_metric, resource_id, dataset_id, organization_id, nb_visit, outlinks)",
+            "columns": "(date_metric, resource_id, dataset_id, organization_id, nb_visit)",
         },
     ]
     for obj in config:
-        list_files = glob.glob(f"{TMP_FOLDER}to_postgres/{obj['name']}-*")
-        for lf in list_files:
+        for lf in glob.glob(f"{TMP_FOLDER}outputs/{obj['name']}-*"):
             if "-id-" not in lf and "-static-" not in lf:
                 copy_file(
                     PG_HOST=conn.host,
                     PG_PORT=conn.port,
                     PG_DB=conn.schema,
-                    PG_TABLE=f"{conn.schema}.metrics_{obj['name']}",
+                    PG_TABLE=f"{conn.schema}.visits_{obj['name']}",
                     PG_USER=conn.login,
                     PG_PASSWORD=conn.password,
                     list_files=[
@@ -579,3 +547,34 @@ def save_to_postgres():
                         }
                     ],
                 )
+
+
+def save_matomo_to_postgres():
+    config = [
+        {
+            "name": "reuses",
+            "columns": "(date_metric, reuse_id, organization_id, nb_outlink)",
+        },
+        {
+            "name": "organizations",
+            "columns": "(date_metric, organization_id, nb_outlink)",
+        },
+    ]
+    for obj in config:
+        for lf in glob.glob(f"{TMP_FOLDER}matomo-outputs/{obj['name']}-*"):
+            copy_file(
+                PG_HOST=conn.host,
+                PG_PORT=conn.port,
+                PG_DB=conn.schema,
+                PG_TABLE=f"{conn.schema}.matomo_{obj['name']}",
+                PG_USER=conn.login,
+                PG_PASSWORD=conn.password,
+                list_files=[
+                    {
+                        "source_path": "/".join(lf.split("/")[:-1])+"/",
+                        "source_name": lf.split("/")[-1],
+                        "column_order": obj["columns"],
+                        "header": False
+                    }
+                ],
+            )

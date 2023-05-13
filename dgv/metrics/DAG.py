@@ -14,8 +14,8 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     get_new_logs,
     process_log,
     process_matomo,
-    prepare_csv_tables,
-    save_to_postgres,
+    save_metrics_to_postgres,
+    save_matomo_to_postgres
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
@@ -66,19 +66,19 @@ with DAG(
         python_callable=process_matomo,
     )
 
-    prepare_csv_tables = PythonOperator(
-        task_id='prepare_csv_tables',
-        python_callable=prepare_csv_tables,
-    )
-
     create_metrics_tables = PythonOperator(
         task_id='create_metrics_tables',
         python_callable=create_metrics_tables,
     )
 
-    save_to_postgres = PythonOperator(
-        task_id='save_to_postgres',
-        python_callable=save_to_postgres,
+    save_metrics_to_postgres = PythonOperator(
+        task_id='save_metrics_to_postgres',
+        python_callable=save_metrics_to_postgres,
+    )
+
+    save_matomo_to_postgres = PythonOperator(
+        task_id='save_matomo_to_postgres',
+        python_callable=save_matomo_to_postgres,
     )
 
     copy_log_to_processed_folder = PythonOperator(
@@ -92,9 +92,9 @@ with DAG(
     copy_log_to_ongoing_folder.set_upstream(get_new_logs)
     process_log.set_upstream(copy_log_to_ongoing_folder)
     process_log.set_upstream(download_catalog)
+    save_metrics_to_postgres.set_upstream(process_log)
+    save_metrics_to_postgres.set_upstream(create_metrics_tables)
+    copy_log_to_processed_folder.set_upstream(save_metrics_to_postgres)
     process_matomo.set_upstream(download_catalog)
-    prepare_csv_tables.set_upstream(create_metrics_tables)
-    prepare_csv_tables.set_upstream(process_log)
-    prepare_csv_tables.set_upstream(process_matomo)
-    save_to_postgres.set_upstream(prepare_csv_tables)
-    copy_log_to_processed_folder.set_upstream(save_to_postgres)
+    save_matomo_to_postgres.set_upstream(process_matomo)
+    save_matomo_to_postgres.set_upstream(create_metrics_tables)
