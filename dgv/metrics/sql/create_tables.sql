@@ -63,8 +63,7 @@ CREATE TABLE IF NOT EXISTS airflow.matomo_organizations
 
 -- Aggregated metrics tables
 CREATE OR REPLACE VIEW airflow.metrics_datasets AS
-    SELECT COALESCE(visits.id, matomo.id) as id,
-           COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
+    SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.dataset_id, matomo.dataset_id) as dataset_id,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            visits.nb_visit,
@@ -75,8 +74,7 @@ CREATE OR REPLACE VIEW airflow.metrics_datasets AS
        visits.date_metric = matomo.date_metric
 ;
 CREATE OR REPLACE VIEW airflow.metrics_reuses AS
-    SELECT COALESCE(visits.id, matomo.id) as id,
-           COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
+    SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.reuse_id, matomo.reuse_id) as reuse_id,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            visits.nb_visit,
@@ -87,15 +85,27 @@ CREATE OR REPLACE VIEW airflow.metrics_reuses AS
        visits.date_metric = matomo.date_metric
 ;
 CREATE OR REPLACE VIEW airflow.metrics_organizations AS
-    SELECT COALESCE(visits.id, matomo.id) as id,
-           COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
+    SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
-           visits.nb_visit,
+           datasets.nb_visit as dataset_nb_visit,
+           reuses.nb_visit as reuse_nb_visit,
            matomo.nb_outlink
     FROM airflow.visits_organizations visits
     FULL OUTER JOIN airflow.matomo_organizations matomo
     ON visits.organization_id = matomo.organization_id AND
        visits.date_metric = matomo.date_metric
+    LEFT OUTER JOIN (
+        SELECT organization_id, date_metric, sum(nb_visit) as nb_visit FROM airflow.metrics_datasets
+        GROUP BY organization_id, date_metric
+    ) datasets
+    ON COALESCE(visits.organization_id, matomo.organization_id) = datasets.organization_id AND
+       COALESCE(visits.date_metric, matomo.date_metric) = datasets.date_metric
+    LEFT OUTER JOIN (
+        SELECT organization_id, date_metric, sum(nb_visit) as nb_visit FROM airflow.metrics_reuses
+        GROUP BY organization_id, date_metric
+    ) reuses
+    ON COALESCE(visits.organization_id, matomo.organization_id) = reuses.organization_id AND
+       COALESCE(visits.date_metric, matomo.date_metric) = reuses.date_metric
 ;
 
 -- Monthly aggregated metrics tables
@@ -123,7 +133,8 @@ CREATE OR REPLACE VIEW airflow.organizations AS
     SELECT
         organization_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
-        sum(nb_visit) as monthly_visit,
+        sum(dataset_nb_visit) as monthly_visit_dataset,
+        sum(reuse_nb_visit) as monthly_visit_reuse,
         sum(nb_outlink) as monthly_outlink
     FROM airflow.metrics_organizations
     GROUP BY metric_month, organization_id
