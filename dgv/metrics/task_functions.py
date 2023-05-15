@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import requests
 import shutil
+from tqdm import tqdm
 
 from datagouvfr_data_pipelines.utils.datagouv import get_resource
 from datagouvfr_data_pipelines.utils.minio import (
@@ -31,6 +32,7 @@ from datagouvfr_data_pipelines.config import (
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/metrics/"
 conn = BaseHook.get_connection("POSTGRES_DEV")
+tqdm.pandas(desc='pandas progress bar', mininterval=5)
 
 
 def create_metrics_tables():
@@ -263,7 +265,7 @@ def parse(lines, catalog_resources):
     for b_line in lines:
         try:
             slug_line = None
-            parsed_line = b_line.decode("utf-8").split(" ")
+            parsed_line = b_line.decode("utf-8").split()
             date_line, slug_line, type_detect = get_info(parsed_line, catalog_resources)
             if slug_line:
                 list_obj.append({"type": type_detect, "id": slug_line, "date": date_line})
@@ -271,7 +273,7 @@ def parse(lines, catalog_resources):
                     save_list_obj(list_obj)
                     list_obj = []
         except:
-            raise Exception("Sorry, pb with line")
+            raise Exception(f"Sorry, pb with line: {b_line}")
 
     save_list_obj(list_obj)
 
@@ -310,8 +312,9 @@ def process_log(ti):
         file = gzip.open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "rb")
         lines = file.readlines()
         print("haproxy loaded")
+        print("parse lines")
         parse(lines, catalog_resources)
-        
+
         try:
             print("---- datasets -----")
             df_catalog = pd.read_csv(
@@ -493,7 +496,7 @@ def process_matomo():
             sep=";",
             usecols=["id", "slug", "remote_url", "organization_id"]
         )
-        df_catalog['outlinks'] = df_catalog.apply(
+        df_catalog['outlinks'] = df_catalog.progress_apply(
             lambda x: get_matomo_outlinks(model, x.slug, x.remote_url, yesterday), axis=1)
         df_catalog['date_metric'] = yesterday.isoformat()
         df_catalog.to_csv(f'{TMP_FOLDER}matomo-outputs/{model}-outlinks.csv',
