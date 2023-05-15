@@ -9,19 +9,13 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from dag_datagouv_data_pipelines.utils.postgres import (
+from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     copy_file
 )
-<<<<<<< HEAD
-from datagouvfr_data_pipelines.utils.postgres import execute_sql_file, copy_file
 from datagouvfr_data_pipelines.utils.datagouv import post_resource
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-=======
-from dag_datagouv_data_pipelines.utils.datagouv import post_resource
-from dag_datagouv_data_pipelines.utils.mattermost import send_message
-from dag_datagouv_data_pipelines.utils.minio import send_files
->>>>>>> 5b979ba (feat: return all occurrences of geo and time, upload to minio, reshape DAG)
+from datagouvfr_data_pipelines.utils.minio import send_files
 import gc
 import glob
 from unidecode import unidecode
@@ -610,12 +604,6 @@ def process_dvf_stats(ti):
         [pref + lib for lib in libelles_biens for pref in prefixes] +\
         ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
     export = export[reordered_columns]
-    # suppression des stats pour les échelles auxquelles pas assez de mutations (< threshold)
-    # par type de bien
-    threshold = 3
-    for t in types_of_interest:
-        t = types_bien[t].split(" ")[0].lower()
-        export.loc[export[f'nb_ventes_{t}'] < threshold, [f'moy_prix_m2_{t}', f'med_prix_m2_{t}']] = None
     export.to_csv(
         DATADIR + "/stats_dvf_api.csv",
         sep=",",
