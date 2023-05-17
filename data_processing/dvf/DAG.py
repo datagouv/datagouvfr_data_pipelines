@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     create_stats_dvf_table,
     get_epci,
     populate_dvf_table,
+    update_dvf_table,
     populate_stats_dvf_table,
     process_dvf_stats,
     publish_stats_dvf,
@@ -62,6 +63,14 @@ with DAG(
         )
     )
 
+    download_copro_data = BashOperator(
+        task_id='download_copro_data',
+        bash_command=(
+            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"dvf/scripts/script_dl_copro.sh {DATADIR}"
+        )
+    )
+
     create_copro_table = PythonOperator(
         task_id='create_copro_table',
         python_callable=create_copro_table,
@@ -72,6 +81,14 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
+    # download_dpe_data = BashOperator(
+    #     task_id='download_dpe_data',
+    #     bash_command=(
+    #         f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+    #         f"dvf/scripts/script_dl_dpe.sh {DATADIR}"
+    #     )
+    # )
+
     create_dvf_table = PythonOperator(
         task_id='create_dvf_table',
         python_callable=create_dvf_table,
@@ -80,6 +97,11 @@ with DAG(
     populate_dvf_table = PythonOperator(
         task_id='populate_dvf_table',
         python_callable=populate_dvf_table,
+    )
+
+    update_dvf_table = PythonOperator(
+        task_id='update_dvf_table',
+        python_callable=update_dvf_table,
     )
 
     get_epci = PythonOperator(
@@ -138,23 +160,35 @@ with DAG(
     )
 
     download_dvf_data.set_upstream(clean_previous_outputs)
-    create_copro_table.set_upstream(download_dvf_data)
+
+    download_copro_data.set_upstream(download_dvf_data)
+    create_copro_table.set_upstream(download_copro_data)
     populate_copro_table.set_upstream(create_copro_table)
+
+    # download_dpe_data.set_upstream(download_dvf_data)
+
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
+    update_dvf_table.set_upstream(populate_dvf_table)
+
     get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)
+
     create_distribution.set_upstream(process_dvf_stats)
     create_distribution_table.set_upstream(create_distribution)
     populate_distribution_table.set_upstream(create_distribution_table)
     send_distribution_to_minio.set_upstream(create_distribution)
+
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
+
     send_stats_to_minio.set_upstream(process_dvf_stats)
     publish_stats_dvf.set_upstream(send_stats_to_minio)
+
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_copro_table)
+    # notification_mattermost.set_upstream(download_dpe_data)
     notification_mattermost.set_upstream(populate_stats_dvf_table)
-    notification_mattermost.set_upstream(populate_dvf_table)
+    notification_mattermost.set_upstream(update_dvf_table)
     notification_mattermost.set_upstream(send_distribution_to_minio)
     notification_mattermost.set_upstream(populate_distribution_table)

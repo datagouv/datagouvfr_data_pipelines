@@ -134,6 +134,22 @@ def create_dvf_table():
     )
 
 
+def update_dvf_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "update_dvf_table.sql",
+            }
+        ],
+    )
+
+
 def create_stats_dvf_table():
     execute_sql_file(
         conn.host,
