@@ -139,3 +139,21 @@ CREATE OR REPLACE VIEW airflow.organizations AS
     FROM airflow.metrics_organizations
     GROUP BY metric_month, organization_id
 ;
+
+-- Global site table
+CREATE OR REPLACE VIEW airflow.site AS
+    SELECT COALESCE(datasets.metric_month, reuses.metric_month) as metric_month,
+           datasets.monthly_visit as monthly_visit_dataset,
+           reuses.monthly_visit as monthly_visit_reuse,
+           reuses.monthly_outlink as monthly_outlink
+    FROM (
+        SELECT metric_month,
+               sum(monthly_visit) as monthly_visit
+        FROM airflow.datasets GROUP BY metric_month ) datasets
+    FULL OUTER JOIN (
+        SELECT metric_month,
+        sum(monthly_visit) as monthly_visit,
+        sum(monthly_outlink) as monthly_outlink
+        FROM airflow.reuses GROUP BY metric_month ) reuses
+    ON datasets.metric_month = reuses.metric_month
+;
