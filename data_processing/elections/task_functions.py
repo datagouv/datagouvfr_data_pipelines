@@ -176,3 +176,15 @@ def publish_stats_elections_func():
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
     )
+
+def send_notification():
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
+        data = json.load(fp)
+    send_message(
+        text=(
+            ":mega: Données élections mises à jour.\n"
+            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            "- Données référencées [sur data.gouv.fr](https://data.gouv.fr/fr/datasets/"
+            f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
+        )
+    )

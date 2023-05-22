@@ -12,7 +12,8 @@ from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
     format_election_files_func,
     process_election_data_func,
     send_stats_to_minio_func,
-    publish_stats_elections_func
+    publish_stats_elections_func,
+    send_notification,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
@@ -47,7 +48,7 @@ with DAG(
         task_id='download_elections_data',
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"elections/scripts/script_dl_elections.sh {DATADIR}"
+            f"elections/scripts/script_dl_elections.sh {DATADIR} "
         )
     )
 
@@ -71,8 +72,14 @@ with DAG(
         python_callable=publish_stats_elections_func,
     )
 
+    send_notification = PythonOperator(
+        task_id='send_notification',
+        python_callable=send_notification,
+    )
+
     download_elections_data.set_upstream(clean_previous_outputs)
     format_election_files.set_upstream(download_elections_data)
     process_election_data.set_upstream(format_election_files)
     send_stats_to_minio.set_upstream(process_election_data)
     publish_stats_elections.set_upstream(process_election_data)
+    send_notification.set_upstream(publish_stats_elections)
