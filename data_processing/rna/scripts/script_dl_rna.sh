@@ -9,7 +9,7 @@ curl $URL_rna > $DATADIR/rna.zip
 
 #unzip -d $DATADIR/rna $DATADIR/rna.zip
 # airflow has only 7zip instlaled
-7z e rna.zip -orna
+7z e $DATADIR/rna.zip -o$DATADIR/rna
 
 SQLDIR="$3"
 rm -rf $SQLDIR
