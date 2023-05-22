@@ -125,7 +125,7 @@ def populate_utils(files, table):
 
 
 def populate_rna_table():
-    populate_utils([f"{DATADIR}/base_rna.csv"], "public.base_rna")
+    populate_utils([f"{DATADIR}/base_rna.csv"], "airflow.base_rna")
 
 
 def index_rna_table():
