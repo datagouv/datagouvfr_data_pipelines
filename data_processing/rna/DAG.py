@@ -21,8 +21,8 @@ import requests
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
 DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_rna'
-DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
-SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
+DATADIR = f"{TMP_FOLDER}data"
+SQLDIR = f"{TMP_FOLDER}sql"
 
 resources = requests.get(
     "https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d"
