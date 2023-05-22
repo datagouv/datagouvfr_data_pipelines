@@ -14,7 +14,8 @@ from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     populate_rna_table,
     index_rna_table,
     send_rna_to_minio,
-    publish_rna_communautaire
+    publish_rna_communautaire,
+    send_notification_mattermost,
 )
 import requests
 
@@ -25,7 +26,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
 SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
 
 resources = requests.get(
-    "https://www.data.gouv.fr/api/1/datasets/repertoire-national-des-associations"
+    "https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d"
 ).json()['resources']
 resources = [r for r in resources if 'import' in r['title'].lower()]
 url_rna = sorted(resources, key=lambda r: r['created_at'])[-1]['url']
@@ -44,7 +45,7 @@ with DAG(
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
-    tags=["data_processing", "rna"],
+    tags=["data_processing", "rna", "association"],
     default_args=default_args,
 ) as dag:
 
@@ -57,7 +58,7 @@ with DAG(
         task_id='download_rna_data',
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"rna/scripts/script_dl_rna.sh {DATADIR} {url_rna} {SQLDIR}"
+            f"rna/scripts/script_dl_rna.sh {DATADIR} {url_rna} {SQLDIR} "
         )
     )
 
@@ -91,6 +92,11 @@ with DAG(
         python_callable=publish_rna_communautaire,
     )
 
+    send_notification_mattermost = PythonOperator(
+        task_id='send_notification_mattermost',
+        python_callable=send_notification_mattermost,
+    )
+
     download_rna_data.set_upstream(clean_previous_outputs)
     process_rna.set_upstream(download_rna_data)
     create_rna_table.set_upstream(process_rna)
@@ -98,3 +104,4 @@ with DAG(
     index_rna_table.set_upstream(populate_rna_table)
     send_rna_to_minio.set_upstream(process_rna)
     publish_rna_communautaire.set_upstream(send_rna_to_minio)
+    send_notification_mattermost.set_upstream(publish_rna_communautaire)

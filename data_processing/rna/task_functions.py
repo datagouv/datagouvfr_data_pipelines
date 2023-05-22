@@ -9,10 +9,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.postgres import (
-    execute_sql_file,
-    copy_file
-)
+from datagouvfr_data_pipelines.utils.postgres import execute_sql_file, copy_file
 from datagouvfr_data_pipelines.utils.datagouv import post_remote_communautary_resource
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
@@ -26,64 +23,70 @@ DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
 SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
 
-conn = BaseHook.get_connection("postgres_localhost")
+conn = BaseHook.get_connection("POSTGRES_DEV")
+
+if AIRFLOW_ENV == "dev":
+    DATAGOUV_URL = "https://demo.data.gouv.fr"
+if AIRFLOW_ENV == "prod":
+    DATAGOUV_URL = "https://www.data.gouv.fr"
 
 
 def process_rna():
     # concatenate all files
     df_rna = pd.DataFrame(None)
-    for f in sorted(os.listdir(os.path.join(DATADIR, 'rna'))):
+    for f in sorted(os.listdir(os.path.join(DATADIR, "rna"))):
         print(f)
-        _ = pd.read_csv(os.path.join(DATADIR, 'rna', f),
-                        sep=';',
-                        encoding='ISO-8859-1',
-                        dtype=str)
+        _ = pd.read_csv(
+            os.path.join(DATADIR, "rna", f), sep=";", encoding="ISO-8859-1", dtype=str
+        )
         df_rna = pd.concat([df_rna, _])
-    punc_to_remove = '!"#$%&\'()*+/;?@[]^_`{|}~'
+    punc_to_remove = "!\"#$%&'()*+/;?@[]^_`{|}~"
     for c in df_rna.columns:
         df_rna[c] = df_rna[c].apply(
-            lambda s: unidecode(s).translate(str.maketrans('', '', punc_to_remove))
-            .encode('unicode-escape').decode().replace('\\', '')
-            if isinstance(s, str) else s
+            lambda s: unidecode(s)
+            .translate(str.maketrans("", "", punc_to_remove))
+            .encode("unicode-escape")
+            .decode()
+            .replace("\\", "")
+            if isinstance(s, str)
+            else s
         )
     # export to csv
-    df_rna.to_csv(
-        os.path.join(DATADIR, "base_rna.csv"),
-        index=False,
-        encoding='utf8'
-    )
+    df_rna.to_csv(os.path.join(DATADIR, "base_rna.csv"), index=False, encoding="utf8")
     # analyse csv file just created
     infos = routine(
         csv_file_path=os.path.join(DATADIR, "base_rna.csv"),
         num_rows=-1,
-        encoding='utf8',
-        verbose=True
+        encoding="utf8",
+        verbose=True,
     )
     # use analysis results to create the query that creates the table
-    map_types = {
-        'string': 'CHARACTER VARYING',
-        'date': 'DATE',
-        'int': 'INTEGER'
-    }
-    sql_columns = ',\n'.join(
-        [f"{k} {map_types.get(v['python_type'], 'CHARACTER VARYING')}" for k, v in infos['columns'].items()]
+    map_types = {"string": "CHARACTER VARYING", "date": "DATE", "int": "INTEGER"}
+    sql_columns = ",\n".join(
+        [
+            f"{k} {map_types.get(v['python_type'], 'CHARACTER VARYING')}"
+            for k, v in infos["columns"].items()
+        ]
     )
     query = f"""DROP TABLE IF EXISTS base_rna CASCADE;
 CREATE UNLOGGED TABLE base_rna (
 {sql_columns},
 PRIMARY KEY (id));
 """
-    sql_file = os.path.join(SQLDIR, 'create_rna_table.sql')
-    with open(sql_file, 'w') as f:
+    sql_file = os.path.join(SQLDIR, "create_rna_table.sql")
+    with open(sql_file, "w") as f:
         f.write(query)
         f.close()
 
     # create query to index table
-    index_query = '\n'.join(
-        [f"CREATE INDEX {k}_idx ON base_rna USING btree ({k});" for k in infos['columns'].keys()]
+    index_query = "\n".join(
+        [
+            f"CREATE INDEX {k}_idx ON base_rna USING btree ({k});"
+            for k in infos["columns"].keys()
+        ]
     )
-    index_file = os.path.join(SQLDIR, 'index_rna_table.sql')
-    with open(index_file, 'w') as f:
+    index_file = os.path.join(SQLDIR, "index_rna_table.sql")
+    with open(index_file, "w") as f:
         f.write(index_query)
         f.close()
 
@@ -165,5 +168,15 @@ def publish_rna_communautaire():
         title="RNA agrégé",
         format="csv",
         remote_url=f"https://object.files.data.gouv.fr/data-pipeline-open/{AIRFLOW_ENV}/rna/base_rna.csv",
-        description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})"
+        description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})",
+    )
+
+
+def send_notification_mattermost(ti):
+    send_message(
+        text=(
+            ":mega: Données des associations mises à jour.\n"
+            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/58e53811c751df03df38f42d)"
+        )
     )
