@@ -312,7 +312,7 @@ def create_post(
 
 def get_data(endpoint, page, sort):
     r = requests.get(
-        f"https://www.data.gouv.fr/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
+        f"{DATAGOUV_URL}/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
     )
     return r.json().get('data', [])
 
@@ -374,7 +374,7 @@ def post_remote_communautary_resource(
     headers = {
         "X-API-KEY": api_key,
     }
-    community_resource_url = "https://demo.data.gouv.fr/api/1/datasets/community_resources"
+    community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
 
     # Check if resource already exists
     data = requests.get(
