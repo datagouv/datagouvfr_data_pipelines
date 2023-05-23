@@ -168,6 +168,7 @@ def publish_rna_communautaire():
         title="RNA agrégé",
         format="csv",
         remote_url=f"https://object.files.data.gouv.fr/data-pipeline-open/{AIRFLOW_ENV}/rna/base_rna.csv",
+        organisation_publication_id="646b7187b50b2a93b1ae3d45", # data.gouv.fr
         description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})",
     )
 

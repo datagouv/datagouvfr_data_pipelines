@@ -357,7 +357,7 @@ def post_remote_communautary_resource(
     title: str,
     format: str,
     remote_url: str,
-    organisation_publication_id: str = "63e3ae4082ddaa6c806b8417", # DataTeam
+    organisation_publication_id: str,
     type: str = "main",
     schema: dict = {},
     description: str = ""
@@ -401,6 +401,7 @@ def post_remote_communautary_resource(
         "type": type,
         "url": remote_url
     }
+    print(community_resource_url, resource_exists, payload, data)
     if resource_exists:
         # Update resource
         idx = np.argwhere(
