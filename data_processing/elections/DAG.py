@@ -1,7 +1,6 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from operators.clean_folder import CleanFolderOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -39,9 +38,9 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
-    clean_previous_outputs = CleanFolderOperator(
+    clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        folder_path=TMP_FOLDER
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     download_elections_data = BashOperator(
