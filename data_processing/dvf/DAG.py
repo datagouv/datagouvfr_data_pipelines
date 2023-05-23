@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     create_copro_table,
     populate_copro_table,
+    create_dpe_tables,
     create_dvf_table,
     create_stats_dvf_table,
     get_epci,
@@ -59,7 +60,7 @@ with DAG(
         task_id='download_dvf_data',
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_dvf.sh {DATADIR}"
+            f"dvf/scripts/script_dl_dvf.sh {DATADIR} "
         )
     )
 
@@ -67,7 +68,7 @@ with DAG(
         task_id='download_copro_data',
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_copro.sh {DATADIR}"
+            f"dvf/scripts/script_dl_copro.sh {DATADIR} "
         )
     )
 
@@ -81,13 +82,18 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
-    # download_dpe_data = BashOperator(
-    #     task_id='download_dpe_data',
-    #     bash_command=(
-    #         f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-    #         f"dvf/scripts/script_dl_dpe.sh {DATADIR}"
-    #     )
-    # )
+    download_dpe_data = BashOperator(
+        task_id='download_dpe_data',
+        bash_command=(
+            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
+        )
+    )
+
+    create_dpe_tables = PythonOperator(
+        task_id='create_dpe_tables',
+        python_callable=create_dpe_tables,
+    )
 
     create_dvf_table = PythonOperator(
         task_id='create_dvf_table',
@@ -165,7 +171,8 @@ with DAG(
     create_copro_table.set_upstream(download_copro_data)
     populate_copro_table.set_upstream(create_copro_table)
 
-    # download_dpe_data.set_upstream(download_dvf_data)
+    download_dpe_data.set_upstream(download_dvf_data)
+    create_dpe_tables.set_upstream(download_dpe_data)
 
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
@@ -187,7 +194,7 @@ with DAG(
 
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_copro_table)
-    # notification_mattermost.set_upstream(download_dpe_data)
+    notification_mattermost.set_upstream(create_dpe_tables)
     notification_mattermost.set_upstream(populate_stats_dvf_table)
     notification_mattermost.set_upstream(update_dvf_table)
     notification_mattermost.set_upstream(send_distribution_to_minio)

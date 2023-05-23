@@ -118,6 +118,22 @@ def populate_copro_table():
     populate_utils([f"{DATADIR}/copro_clean.csv"], "public.copro")
 
 
+def create_dpe_tables():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "dpe.sql",
+            }
+        ],
+    )
+
+
 def create_dvf_table():
     execute_sql_file(
         conn.host,

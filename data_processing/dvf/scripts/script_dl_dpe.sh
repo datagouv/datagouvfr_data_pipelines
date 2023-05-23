@@ -5,4 +5,4 @@ wget $URL_dpe -O $DATADIR/dpe.sql.gz
 
 find $DATADIR -name '*.gz' -exec gunzip -f '{}' \;
 
-cd $DATADIR && rm *.gz && ls -lh
+cd $DATADIR && ls -lh
