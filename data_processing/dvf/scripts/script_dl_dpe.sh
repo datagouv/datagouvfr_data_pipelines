@@ -1,15 +1,11 @@
-#!/bin/bash
-
-# Common parameters
-format="csv"
-header="true"
 size="10000"
 DATADIR="$1"
+content_size_threshold="100"  # Specify the threshold in bytes
 
 # Define the datasets and their corresponding URLs
 datasets=(
-  "dpe-v2-logements-existants|https://data.ademe.fr/data-fair/api/v1/datasets/dpe-v2-logements-existants/lines"
-  "dpe-france|https://data.ademe.fr/data-fair/api/v1/datasets/dpe-france"
+  "old_dpe|https://data.ademe.fr/data-fair/api/v1/datasets/dpe-france/lines"
+  "new_dpe|https://data.ademe.fr/data-fair/api/v1/datasets/dpe-v2-logements-existants/lines"
 )
 
 # Loop through the datasets
@@ -23,26 +19,30 @@ for dataset in "${datasets[@]}"; do
   page_number=0
   while true; do
     # Construct the URL with pagination parameters
-    url="${dataset_url}?size=${size}&format=${format}&after=$((page_number * size))&header=${header}"
+    if ((page_number == 0))
+    then
+      url="${dataset_url}?size=${size}&format=csv&after=$((page_number * size))&header=true"
+    else
+      url="${dataset_url}?size=${size}&format=csv&after=$((page_number * size))&header=false"
+    fi
+
+    # Download the page and store the content in a variable
+    content=$(curl -s "$url")
     
-    # Download the page and append it to the dataset file
-    temp_file="$(mktemp)"
-    curl -o "$temp_file" "$url"
-    
-    # Check if the page is empty (indicating the end of the dataset)
-    if [ ! -s "$temp_file" ]; then
+    # Check the size of the downloaded content
+    content_size=$(echo -n "$content" | wc -c)
+    if ((content_size < content_size_threshold)); then
       echo "Download of $dataset_name complete."
       break
     fi
     
-    # Append the page to the dataset file
-    cat "$temp_file" >> "$dataset_file"
+    # Print the download progress message
+    echo "Downloading page $((page_number + 1)) for $dataset_name..."
     
-    # Cleanup the temporary file
-    rm "$temp_file"
+    echo "$content" >> "$dataset_file"
     
     # Increment the page number for the next iteration
-    page_number=$((page_number + 1))
+    ((page_number++))
   done
 done
 

@@ -11,7 +11,9 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     create_copro_table,
     populate_copro_table,
-    create_dpe_tables,
+    process_dpe,
+    create_dpe_table,
+    populate_dpe_table,
     create_dvf_table,
     create_stats_dvf_table,
     get_epci,
@@ -85,14 +87,24 @@ with DAG(
     download_dpe_data = BashOperator(
         task_id='download_dpe_data',
         bash_command=(
-            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"bash {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
             f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
         )
     )
 
-    create_dpe_tables = PythonOperator(
-        task_id='create_dpe_tables',
-        python_callable=create_dpe_tables,
+    process_dpe = PythonOperator(
+        task_id='process_dpe',
+        python_callable=process_dpe,
+    )
+
+    create_dpe_table = PythonOperator(
+        task_id='create_dpe_table',
+        python_callable=create_dpe_table,
+    )
+
+    populate_dpe_table = PythonOperator(
+        task_id='populate_dpe_table',
+        python_callable=populate_dpe_table,
     )
 
     create_dvf_table = PythonOperator(
@@ -172,7 +184,9 @@ with DAG(
     populate_copro_table.set_upstream(create_copro_table)
 
     download_dpe_data.set_upstream(download_dvf_data)
-    create_dpe_tables.set_upstream(download_dpe_data)
+    process_dpe.set_upstream(download_dpe_data)
+    create_dpe_table.set_upstream(process_dpe)
+    populate_dpe_table.set_upstream(create_dpe_table)
 
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
@@ -194,7 +208,7 @@ with DAG(
 
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_copro_table)
-    notification_mattermost.set_upstream(create_dpe_tables)
+    notification_mattermost.set_upstream(populate_dpe_table)
     notification_mattermost.set_upstream(populate_stats_dvf_table)
     notification_mattermost.set_upstream(update_dvf_table)
     notification_mattermost.set_upstream(send_distribution_to_minio)

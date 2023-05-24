@@ -24,6 +24,7 @@ import os
 import pandas as pd
 import requests
 import json
+from datetime import datetime
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
@@ -118,7 +119,7 @@ def populate_copro_table():
     populate_utils([f"{DATADIR}/copro_clean.csv"], "public.copro")
 
 
-def create_dpe_tables():
+def create_dpe_table():
     execute_sql_file(
         conn.host,
         conn.port,
@@ -127,8 +128,8 @@ def create_dpe_tables():
         conn.password,
         [
             {
-                "source_path": f"{DATADIR}/",
-                "source_name": "dpe.sql",
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_dpe_table.sql",
             }
         ],
     )
@@ -228,6 +229,10 @@ def populate_stats_dvf_table():
     populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "public.stats_dvf")
 
 
+def populate_dpe_table():
+    populate_utils([f"{DATADIR}/all_dpe.csv"], "public.dpe")
+
+
 def get_epci():
     page = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
@@ -249,6 +254,77 @@ def get_epci():
     pd.DataFrame(
         epci_list, columns=["code_commune", "code_epci", "libelle_geo"]
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
+
+
+def process_dpe():
+    to_keep_old = [
+        "date_etablissement_dpe",
+        "classe_consommation_energie",
+        "classe_estimation_ges",
+        "annee_construction",
+        "tr002_type_batiment_description",
+        "geo_adresse",
+    ]
+    old_dpe = pd.read_csv(
+        DATADIR + "/old_dpe.csv",
+        dtype=str,
+        usecols=to_keep_old,
+    )
+    mapping_columns = {
+        # "date_etablissement_dpe": "date_etablissement_dpe",
+        "classe_consommation_energie": "etiquette_dpe",
+        "classe_estimation_ges": "etiquette_ges",
+        # "annee_construction": "annee_construction",
+        "tr002_type_batiment_description": "type_batiment",
+        "geo_adresse": "adresse_(ban)",
+    }
+    old_dpe = old_dpe.rename(mapping_columns, axis=1)
+
+    mapping_logements = {
+        "Logement": "appartement",
+        "Maison Individuelle": "maison",
+        "Bâtiment collectif à usage principal d'habitation": "immeuble"
+    }
+    old_dpe['type_batiment'] = old_dpe['type_batiment'].apply(lambda s: mapping_logements.get(s, s))
+
+    to_keep_new = [
+        "Date_établissement_DPE",
+        "Etiquette_GES",
+        "Etiquette_DPE",
+        "Année_construction",
+        "Type_bâtiment",
+        "Adresse_(BAN)",
+    ]
+    new_dpe = pd.read_csv(
+        DATADIR + "/new_dpe.csv",
+        dtype=str,
+        usecols=to_keep_new,
+    )
+    new_dpe.columns = [
+        ''.join([k for k in unidecode(c.lower()) if k not in ['(', ')']]) for c in new_dpe.columns
+    ]
+
+    all_dpe = pd.concat([old_dpe, new_dpe])
+    all_dpe['annee_construction'] = all_dpe['annee_construction'].fillna('NC')
+    all_dpe.loc[all_dpe['annee_construction'] < '1600', 'annee_construction'] = 'NC'
+    all_dpe.loc[
+        (all_dpe['annee_construction'].str.isnumeric())
+        & (all_dpe['annee_construction'] > str(datetime.today().year)),
+        'annee_construction'
+    ] = 'NC'
+    all_dpe.loc[
+        ~(all_dpe['etiquette_dpe'].isin(['A', 'B', 'C', 'D', 'E', 'F', 'G'])), 'etiquette_dpe'
+    ] = 'Vierge'
+    all_dpe.loc[
+        ~(all_dpe['etiquette_ges'].isin(['A', 'B', 'C', 'D', 'E', 'F', 'G'])), 'etiquette_ges'
+    ] = 'Vierge'
+    all_dpe = all_dpe.dropna(subset='date_etablissement_dpe')
+    all_dpe.to_csv(
+        DATADIR + "/all_dpe.csv",
+        sep=",",
+        encoding="utf8",
+        index=False,
+    )
 
 
 def process_dvf_stats(ti):
