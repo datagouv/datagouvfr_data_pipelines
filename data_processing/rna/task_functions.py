@@ -113,7 +113,7 @@ def index_rna_table():
 def send_rna_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET="data-pipeline-open",
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -128,13 +128,21 @@ def send_rna_to_minio():
 
 
 def publish_rna_communautaire():
+    file_size = os.path.getsize(os.path.join(DATADIR, "base_rna.csv"))
+    if AIRFLOW_ENV == "prod":
+        # data.gouv.fr
+        orga_id = "646b7187b50b2a93b1ae3d45"
+    else:
+        # DataTeam
+        orga_id = "63e3ae4082ddaa6c806b8417"
     post_remote_communautary_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
         dataset_id="58e53811c751df03df38f42d",
         title="RNA agrégé",
         format="csv",
-        remote_url=f"https://object.files.data.gouv.fr/data-pipeline-open/{AIRFLOW_ENV}/rna/base_rna.csv",
-        organisation_publication_id="646b7187b50b2a93b1ae3d45",  # data.gouv.fr
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/rna/base_rna.csv",
+        organisation_publication_id=orga_id,
+        filesize=file_size,
         description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})",
     )
 
@@ -143,7 +151,7 @@ def send_notification_mattermost(ti):
     send_message(
         text=(
             ":mega: Données des associations mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/58e53811c751df03df38f42d)"
         )
     )
