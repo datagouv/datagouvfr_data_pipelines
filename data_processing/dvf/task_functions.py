@@ -151,22 +151,6 @@ def create_dvf_table():
     )
 
 
-def update_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "update_dvf_table.sql",
-            }
-        ],
-    )
-
-
 def create_stats_dvf_table():
     execute_sql_file(
         conn.host,
@@ -222,6 +206,12 @@ def populate_distribution_table():
 
 def populate_dvf_table():
     files = glob.glob(f"{DATADIR}/full_*.csv")
+    # adding section_prefixe column for API
+    for file in files:
+        df = pd.read_csv(file, dtype=str)
+        df['section_prefixe'] = df['id_parcelle'].str.slice(5, 10)
+        df.to_csv(file.replace("full_", "enriched_"), index=False)
+    files = glob.glob(f"{DATADIR}/enriched_*.csv")
     populate_utils(files, "public.dvf")
 
 
@@ -257,6 +247,19 @@ def get_epci():
 
 
 def process_dpe():
+    def process_annee_construction(annee):
+        if not isinstance(annee, str):
+            return 'NC'
+        else:
+            try:
+                tmp_annee = int(annee)
+                if tmp_annee < 1600 or tmp_annee > datetime.today().year:
+                    return 'NC'
+                else:
+                    return annee
+            except:
+                return 'NC'
+
     to_keep_old = [
         "date_etablissement_dpe",
         "classe_consommation_energie",
@@ -265,6 +268,7 @@ def process_dpe():
         "tr002_type_batiment_description",
         "geo_adresse",
     ]
+    print("Importing old DPE")
     old_dpe = pd.read_csv(
         DATADIR + "/old_dpe.csv",
         dtype=str,
@@ -276,7 +280,7 @@ def process_dpe():
         "classe_estimation_ges": "etiquette_ges",
         # "annee_construction": "annee_construction",
         "tr002_type_batiment_description": "type_batiment",
-        "geo_adresse": "adresse_(ban)",
+        "geo_adresse": "adresse_ban",
     }
     old_dpe = old_dpe.rename(mapping_columns, axis=1)
 
@@ -295,6 +299,7 @@ def process_dpe():
         "Type_bâtiment",
         "Adresse_(BAN)",
     ]
+    print("Importing new DPE")
     new_dpe = pd.read_csv(
         DATADIR + "/new_dpe.csv",
         dtype=str,
@@ -304,21 +309,17 @@ def process_dpe():
         ''.join([k for k in unidecode(c.lower()) if k not in ['(', ')']]) for c in new_dpe.columns
     ]
 
-    all_dpe = pd.concat([old_dpe, new_dpe])
-    all_dpe['annee_construction'] = all_dpe['annee_construction'].fillna('NC')
-    all_dpe.loc[all_dpe['annee_construction'] < '1600', 'annee_construction'] = 'NC'
-    all_dpe.loc[
-        (all_dpe['annee_construction'].str.isnumeric())
-        & (all_dpe['annee_construction'] > str(datetime.today().year)),
-        'annee_construction'
-    ] = 'NC'
+    print("Processing DPE data")
+    all_dpe = pd.concat([old_dpe, new_dpe], ignore_index=True)
+    all_dpe['annee_construction'] = all_dpe['annee_construction'].apply(process_annee_construction)
     all_dpe.loc[
         ~(all_dpe['etiquette_dpe'].isin(['A', 'B', 'C', 'D', 'E', 'F', 'G'])), 'etiquette_dpe'
     ] = 'Vierge'
     all_dpe.loc[
         ~(all_dpe['etiquette_ges'].isin(['A', 'B', 'C', 'D', 'E', 'F', 'G'])), 'etiquette_ges'
     ] = 'Vierge'
-    all_dpe = all_dpe.dropna(subset='date_etablissement_dpe')
+    all_dpe = all_dpe.drop_duplicates()
+    print("Exporting DPE data")
     all_dpe.to_csv(
         DATADIR + "/all_dpe.csv",
         sep=",",

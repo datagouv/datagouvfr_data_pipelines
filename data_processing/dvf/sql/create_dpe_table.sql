@@ -5,5 +5,5 @@ etiquette_dpe VARCHAR(6),
 etiquette_ges VARCHAR(6),
 annee_construction VARCHAR(4),
 type_batiment VARCHAR(11),
-adresse_ban VARCHAR(300),
+adresse_ban CHARACTER VARYING
 );

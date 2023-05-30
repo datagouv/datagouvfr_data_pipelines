@@ -40,7 +40,8 @@ CREATE TABLE public.dvf
     nature_culture_speciale CHARACTER VARYING,
     surface_terrain DECIMAL(12,2),
     longitude DECIMAL(9, 7),
-    latitude DECIMAL(9, 7)
+    latitude DECIMAL(9, 7),
+    section_prefixe VARCHAR(5)
 )
 WITH (
     OIDS = FALSE
