@@ -290,6 +290,8 @@ def process_dpe():
         "Bâtiment collectif à usage principal d'habitation": "immeuble"
     }
     old_dpe['type_batiment'] = old_dpe['type_batiment'].apply(lambda s: mapping_logements.get(s, s))
+    for etiquette in ["etiquette_dpe", "etiquette_ges"]:
+        old_dpe[etiquette] = old_dpe[etiquette] + " (ancienne méthode)"
 
     to_keep_new = [
         "Date_établissement_DPE",
@@ -313,10 +315,10 @@ def process_dpe():
     all_dpe = pd.concat([old_dpe, new_dpe], ignore_index=True)
     all_dpe['annee_construction'] = all_dpe['annee_construction'].apply(process_annee_construction)
     all_dpe.loc[
-        ~(all_dpe['etiquette_dpe'].isin(['A', 'B', 'C', 'D', 'E', 'F', 'G'])), 'etiquette_dpe'
+        ~(all_dpe['etiquette_dpe'].str.startswith(('A', 'B', 'C', 'D', 'E', 'F', 'G'))), 'etiquette_dpe'
     ] = 'Vierge'
     all_dpe.loc[
-        ~(all_dpe['etiquette_ges'].isin(['A', 'B', 'C', 'D', 'E', 'F', 'G'])), 'etiquette_ges'
+        ~(all_dpe['etiquette_ges'].str.startswith(('A', 'B', 'C', 'D', 'E', 'F', 'G'))), 'etiquette_ges'
     ] = 'Vierge'
     all_dpe = all_dpe.drop_duplicates()
     print("Exporting DPE data")
