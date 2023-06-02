@@ -23,7 +23,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
 
 
 def format_election_files_func():
-    files = [f for f in os.listdir(DATADIR) if '.txt' if f]
+    files = [f for f in os.listdir(DATADIR) if '.txt' in f]
     for f in files:
         this_file = DATADIR + '/' + f
         print('Processing ' + this_file)
