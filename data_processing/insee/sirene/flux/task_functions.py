@@ -145,8 +145,6 @@ def get_current_flux_etablissement(ti):
         "libelleCommuneEtranger2Etablissement,codePaysEtranger2Etablissement,"
         "libellePaysEtranger2Etablissement&nombre=1000&curseur="
     )
-    "anneeCategorieEntreprise": "annee_categorie_entreprise",
-    "anneeEffectifsUniteLegale": "annee_tranche_effectif_salarie",
     data = call_insee_api(endpoint, "etablissements")
     flux = []
     for d in data:
