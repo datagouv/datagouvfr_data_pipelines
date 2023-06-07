@@ -21,13 +21,15 @@ import glob
 from unidecode import unidecode
 import numpy as np
 import os
+import shutil
+import zipfile
 import pandas as pd
 import requests
 import json
-from datetime import datetime
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
+DPEDIR = f"{DATADIR}/dpe/"
 
 conn = BaseHook.get_connection("postgres_localhost")
 
@@ -246,81 +248,75 @@ def get_epci():
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
+def download_dpe():
+    r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
+    urls = [
+        k['url'] for k in r.json()['resources']
+        if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
+    ]
+    if os.path.exists(DPEDIR):
+        shutil.rmtree(DPEDIR)
+    os.makedirs(DPEDIR)
+    for url in urls:
+        tmp = url.split('/')[-1].split('dep')[-1]
+        print(tmp)
+        with requests.get(url) as r:
+            with open(DPEDIR + tmp, 'wb') as f:
+                f.write(r.content)
+                f.close()
+        with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
+            zip_ref.extractall(DPEDIR + tmp.replace('.zip', ''))
+        os.remove(DPEDIR + tmp)
+
+
 def process_dpe():
-    def process_annee_construction(annee):
-        if not isinstance(annee, str):
-            return 'NC'
-        else:
-            try:
-                tmp_annee = int(annee)
-                if tmp_annee < 1600 or tmp_annee > datetime.today().year:
-                    return 'NC'
-                else:
-                    return annee
-            except:
-                return 'NC'
-
-    to_keep_old = [
-        "date_etablissement_dpe",
-        "classe_consommation_energie",
-        "classe_estimation_ges",
-        "annee_construction",
-        "tr002_type_batiment_description",
-        "geo_adresse",
+    cols_dpe = [
+        'batiment_groupe_id',
+        'identifiant_dpe',
+        'type_batiment_dpe',
+        'periode_construction_dpe',
+        'annee_construction_dpe',
+        'date_etablissement_dpe',
+        'nombre_niveau_logement',
+        'nombre_niveau_immeuble',
+        'surface_habitable_immeuble',
+        'surface_habitable_logement',
+        'classe_bilan_dpe',
+        'classe_emission_ges',
     ]
-    print("Importing old DPE")
-    old_dpe = pd.read_csv(
-        DATADIR + "/old_dpe.csv",
-        dtype=str,
-        usecols=to_keep_old,
-    )
-    mapping_columns = {
-        # "date_etablissement_dpe": "date_etablissement_dpe",
-        "classe_consommation_energie": "etiquette_dpe",
-        "classe_estimation_ges": "etiquette_ges",
-        # "annee_construction": "annee_construction",
-        "tr002_type_batiment_description": "type_batiment",
-        "geo_adresse": "adresse_ban",
-    }
-    old_dpe = old_dpe.rename(mapping_columns, axis=1)
-
-    mapping_logements = {
-        "Logement": "appartement",
-        "Maison Individuelle": "maison",
-        "Bâtiment collectif à usage principal d'habitation": "immeuble"
-    }
-    old_dpe['type_batiment'] = old_dpe['type_batiment'].apply(lambda s: mapping_logements.get(s, s))
-    for etiquette in ["etiquette_dpe", "etiquette_ges"]:
-        old_dpe[etiquette] = old_dpe[etiquette] + " (ancienne méthode)"
-
-    to_keep_new = [
-        "Date_établissement_DPE",
-        "Etiquette_GES",
-        "Etiquette_DPE",
-        "Année_construction",
-        "Type_bâtiment",
-        "Adresse_(BAN)",
+    cols_parcelles = [
+        "batiment_groupe_id",
+        "parcelle_id"
     ]
-    print("Importing new DPE")
-    new_dpe = pd.read_csv(
-        DATADIR + "/new_dpe.csv",
-        dtype=str,
-        usecols=to_keep_new,
-    )
-    new_dpe.columns = [
-        ''.join([k for k in unidecode(c.lower()) if k not in ['(', ')']]) for c in new_dpe.columns
-    ]
-
-    print("Processing DPE data")
-    all_dpe = pd.concat([old_dpe, new_dpe], ignore_index=True)
-    all_dpe['annee_construction'] = all_dpe['annee_construction'].apply(process_annee_construction)
-    all_dpe.loc[
-        ~(all_dpe['etiquette_dpe'].str.startswith(('A', 'B', 'C', 'D', 'E', 'F', 'G'))), 'etiquette_dpe'
-    ] = 'Vierge'
-    all_dpe.loc[
-        ~(all_dpe['etiquette_ges'].str.startswith(('A', 'B', 'C', 'D', 'E', 'F', 'G'))), 'etiquette_ges'
-    ] = 'Vierge'
-    all_dpe = all_dpe.drop_duplicates()
+    dfs = []
+    dep_folders = os.listdir(DPEDIR)
+    for dep in dep_folders:
+        print(dep)
+        dpe = pd.read_csv(
+            f'{DPEDIR}{dep}/csv/batiment_groupe_dpe_representatif_logement.csv',
+            dtype=str,
+            usecols=cols_dpe
+        )
+        dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+        dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+            lambda x: round(float(x), 2)
+        )
+        parcelles = pd.read_csv(
+            f'{DPEDIR}{dep}/csv/rel_batiment_groupe_parcelle.csv',
+            dtype=str,
+            usecols=cols_parcelles
+        )
+        dpe_parcelled = pd.merge(
+            dpe,
+            parcelles,
+            on='batiment_groupe_id',
+            how='left'
+        )
+        dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+        dfs.append(dpe_parcelled)
+    all_dpe = pd.concat(dfs)
+    print(len(all_dpe))
+    print(all_dpe.head())
     print("Exporting DPE data")
     all_dpe.to_csv(
         DATADIR + "/all_dpe.csv",

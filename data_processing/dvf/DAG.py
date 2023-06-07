@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     create_copro_table,
     populate_copro_table,
+    download_dpe,
     process_dpe,
     create_dpe_table,
     populate_dpe_table,
@@ -83,12 +84,9 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
-    download_dpe_data = BashOperator(
-        task_id='download_dpe_data',
-        bash_command=(
-            f"bash {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
-        )
+    download_dpe = PythonOperator(
+        task_id='download_dpe',
+        python_callable=download_dpe,
     )
 
     process_dpe = PythonOperator(
@@ -177,8 +175,8 @@ with DAG(
     create_copro_table.set_upstream(download_copro_data)
     populate_copro_table.set_upstream(create_copro_table)
 
-    download_dpe_data.set_upstream(download_dvf_data)
-    process_dpe.set_upstream(download_dpe_data)
+    download_dpe.set_upstream(download_dvf_data)
+    process_dpe.set_upstream(download_dpe)
     create_dpe_table.set_upstream(process_dpe)
     populate_dpe_table.set_upstream(create_dpe_table)
 
