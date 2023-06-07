@@ -326,6 +326,22 @@ def process_dpe():
     )
 
 
+def index_dpe_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "index_dpe_table.sql",
+            }
+        ],
+    )
+
+
 def process_dvf_stats(ti):
     years = sorted(
         [

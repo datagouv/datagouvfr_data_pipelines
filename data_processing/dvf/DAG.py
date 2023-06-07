@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     process_dpe,
     create_dpe_table,
     populate_dpe_table,
+    index_dpe_table,
     create_dvf_table,
     create_stats_dvf_table,
     get_epci,
@@ -104,6 +105,11 @@ with DAG(
         python_callable=populate_dpe_table,
     )
 
+    index_dpe_table = PythonOperator(
+        task_id='index_dpe_table',
+        python_callable=index_dpe_table,
+    )
+
     create_dvf_table = PythonOperator(
         task_id='create_dvf_table',
         python_callable=create_dvf_table,
@@ -179,6 +185,7 @@ with DAG(
     process_dpe.set_upstream(download_dpe)
     create_dpe_table.set_upstream(process_dpe)
     populate_dpe_table.set_upstream(create_dpe_table)
+    index_dpe_table.set_upstream(populate_dpe_table)
 
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
@@ -199,7 +206,7 @@ with DAG(
 
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_copro_table)
-    notification_mattermost.set_upstream(populate_dpe_table)
+    notification_mattermost.set_upstream(index_dpe_table)
     notification_mattermost.set_upstream(populate_stats_dvf_table)
     notification_mattermost.set_upstream(populate_dvf_table)
     notification_mattermost.set_upstream(send_distribution_to_minio)
