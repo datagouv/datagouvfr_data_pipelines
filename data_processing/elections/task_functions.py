@@ -22,7 +22,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
 
 
-def format_election_files_func():
+def format_election_files():
     files = [f for f in os.listdir(DATADIR) if '.txt' if f]
     for f in files:
         this_file = DATADIR + '/' + f
@@ -64,7 +64,7 @@ def format_election_files_func():
             os.remove(this_file.replace('.txt', '.csv'))
 
 
-def process_election_data_func():
+def process_election_data():
     def strip_zeros(s):
         k = 0
         while s[k] == '0':
@@ -100,38 +100,35 @@ def process_election_data_func():
         df['code_dep'] = df['Code du département'].apply(lambda x: map_outremer.get(x, x))
         df['code_insee'] = df['code_dep'].str.slice(0, 2) + df['Code de la commune']
         df['id_bv'] = df['code_insee'] + '_' + df['Code du b.vote'].apply(strip_zeros)
+        # grapping where the candidates results start
         threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
         general_stats.append(df[['id_election', 'id_bv'] + list(df.columns[:threshold])])
         print('- Done with general data')
 
+        cols_ref = ['id_election', 'id_bv', 'Code du département', 'Code de la commune', 'Code du b.vote']
         tmp_candidats = df[
-            ['id_election', 'id_bv', 'Code du département', 'Code de la commune', 'Code du b.vote'] +
-            list(df.columns[threshold:-5])
+            # -5 because we are adding 4 columns above
+            cols_ref + list(df.columns[threshold:-5])
         ]
-        geo_cols = list(tmp_candidats.columns[:5])
         nb_candidats = sum(['Panneau' in i for i in tmp_candidats.columns])
-        tmp_cols = tmp_candidats.columns[5:]
+        tmp_cols = tmp_candidats.columns[len(cols_ref):]
         candidat_columns = [c.split('_')[0] for c in tmp_cols[:len(tmp_cols) // nb_candidats]]
-        operations = len(tmp_candidats)
-        for idx, (_, row) in enumerate(tmp_candidats.iterrows()):
-            if idx % (operations // 10) == 0 and idx > 0:
-                print(round(idx / operations * 100), '%')
-            for k in range(1, nb_candidats + 1):
-                cols = geo_cols + [c + '_' + str(k) for c in candidat_columns]
-                tmp_stats = row[cols]
-                if not tmp_stats.isna().any():
-                    tmp_stats = pd.DataFrame(tmp_stats).T
-                    tmp_stats.columns = geo_cols + candidat_columns
-                    candidats_stats.append(tmp_stats)
+        for cand in range(1, nb_candidats + 1):
+            candidats_group = tmp_candidats[cols_ref + [c + f'_{cand}' for c in candidat_columns]]
+            candidats_group.columns = cols_ref + candidat_columns
+            candidats_stats.append(candidats_group)
         print('- Done with candidates data')
 
     general_stats = pd.concat(general_stats, ignore_index=True)
     candidats_stats = pd.concat(candidats_stats, ignore_index=True)
+    # removing rows created from empty columns due to uneven canditates number
+    candidats_stats = candidats_stats.dropna(subset=['Voix'])
+    candidats_stats = candidats_stats.sort_values(by=['id_election', 'id_bv'])
     general_stats.to_csv(DATADIR + '/general_stats.csv', index=False)
     candidats_stats.to_csv(DATADIR + '/candidats_stats.csv', index=False)
 
 
-def send_stats_to_minio_func():
+def send_stats_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -154,7 +151,7 @@ def send_stats_to_minio_func():
     )
 
 
-def publish_stats_elections_func():
+def publish_stats_elections():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
         data = json.load(fp)
     post_resource(
