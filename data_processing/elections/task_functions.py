@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 import numpy as np
@@ -174,6 +174,7 @@ def publish_stats_elections():
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
     )
 
+
 def send_notification():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
         data = json.load(fp)
@@ -181,7 +182,7 @@ def send_notification():
         text=(
             ":mega: Données élections mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            "- Données référencées [sur data.gouv.fr](https://data.gouv.fr/fr/datasets/"
+            f"- Données référencées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/"
             f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
         )
     )

@@ -8,18 +8,11 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
-<<<<<<< HEAD
-    format_election_files_func,
-    process_election_data_func,
-    send_stats_to_minio_func,
-    publish_stats_elections_func,
-    send_notification,
-=======
     format_election_files,
     process_election_data,
     send_stats_to_minio,
-    publish_stats_elections
->>>>>>> 136c958 (feat: faster processing)
+    publish_stats_elections,
+    send_notification
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
@@ -88,4 +81,5 @@ with DAG(
     process_election_data.set_upstream(format_election_files)
     send_stats_to_minio.set_upstream(process_election_data)
     publish_stats_elections.set_upstream(process_election_data)
+    send_notification.set_upstream(send_stats_to_minio)
     send_notification.set_upstream(publish_stats_elections)
