@@ -119,7 +119,7 @@ def populate_copro_table():
         if 'insee' in c:
             copro = copro.loc[copro[c].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
-    populate_utils([f"{DATADIR}/copro_clean.csv"], "public.copro")
+    populate_utils([f"{DATADIR}/copro_clean.csv"], "dvf.copro")
 
 
 def create_dpe_table():
@@ -226,7 +226,7 @@ def populate_utils(files, table):
 
 
 def populate_distribution_table():
-    populate_utils([f"{DATADIR}/distribution_prix.csv"], "public.distribution_prix")
+    populate_utils([f"{DATADIR}/distribution_prix.csv"], "dvf.distribution_prix")
 
 
 def populate_dvf_table():
@@ -237,15 +237,15 @@ def populate_dvf_table():
         df['section_prefixe'] = df['id_parcelle'].str.slice(5, 10)
         df.to_csv(file.replace("full_", "enriched_"), index=False)
     files = glob.glob(f"{DATADIR}/enriched_*.csv")
-    populate_utils(files, "public.dvf")
+    populate_utils(files, "dvf.dvf")
 
 
 def populate_stats_dvf_table():
-    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "public.stats_dvf")
+    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "dvf.stats_dvf")
 
 
 def populate_dpe_table():
-    populate_utils([f"{DATADIR}/all_dpe.csv"], "public.dpe")
+    populate_utils([f"{DATADIR}/all_dpe.csv"], "dvf.dpe")
 
 
 def get_epci():

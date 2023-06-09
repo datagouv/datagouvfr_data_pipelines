@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS public.dvf;
-CREATE TABLE public.dvf
+DROP TABLE IF EXISTS dvf.dvf;
+CREATE TABLE dvf.dvf
 (
     id_mutation CHARACTER VARYING,
     date_mutation DATE,
