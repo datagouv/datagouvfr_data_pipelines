@@ -107,9 +107,9 @@ with DAG(
         python_callable=populate_dpe_table,
     )
 
-    alter_dpe_table = PythonOperator(
-        task_id='alter_dpe_table',
-        python_callable=alter_dpe_table,
+    alter_dvf_table = PythonOperator(
+        task_id='alter_dvf_table',
+        python_callable=alter_dvf_table,
     )
 
     index_dpe_table = PythonOperator(
@@ -201,8 +201,8 @@ with DAG(
 
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
-    alter_dpe_table.set_upstream(populate_dvf_table)
-    index_dvf_table.set_upstream(alter_dpe_table)
+    alter_dvf_table.set_upstream(populate_dvf_table)
+    index_dvf_table.set_upstream(alter_dvf_table)
 
     get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)
