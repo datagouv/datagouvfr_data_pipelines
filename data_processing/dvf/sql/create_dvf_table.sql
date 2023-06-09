@@ -5,7 +5,7 @@ CREATE TABLE public.dvf
     date_mutation DATE,
     numero_disposition INTEGER,
     nature_mutation CHARACTER VARYING,
-    valeur_fonciere DECIMAL(12,2),
+    valeur_fonciere DECIMAL(18,2),
     adresse_numero INTEGER,
     adresse_suffixe CHARACTER VARYING,
     adresse_nom_voie CHARACTER VARYING,
@@ -40,7 +40,8 @@ CREATE TABLE public.dvf
     nature_culture_speciale CHARACTER VARYING,
     surface_terrain DECIMAL(12,2),
     longitude DECIMAL(9, 7),
-    latitude DECIMAL(9, 7)
+    latitude DECIMAL(9, 7),
+    section_prefixe VARCHAR(5)
 )
 WITH (
     OIDS = FALSE
