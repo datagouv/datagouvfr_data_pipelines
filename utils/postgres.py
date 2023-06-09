@@ -1,5 +1,5 @@
 import psycopg2
-from typing import List, TypedDict
+from typing import List, TypedDict, Optional
 import os
 
 
@@ -14,6 +14,7 @@ def get_conn(
     PG_DB: str,
     PG_USER: str,
     PG_PASSWORD: str,
+    PG_SCHEMA: str,
 ):
     """Get connection to postgres instance
 
@@ -27,8 +28,16 @@ def get_conn(
     Returns:
         conn: Connection to postgres instance
     """
+    if not PG_SCHEMA:
+        PG_SCHEMA = "public"
+
     conn = psycopg2.connect(
-        host=PG_HOST, database=PG_DB, user=PG_USER, password=PG_PASSWORD, port=PG_PORT
+        host=PG_HOST,
+        database=PG_DB,
+        user=PG_USER,
+        password=PG_PASSWORD,
+        port=PG_PORT,
+        options=f"-c search_path={PG_SCHEMA}"
     )
     return conn
 
@@ -55,7 +64,13 @@ def return_sql_results(cur):
 
 
 def execute_query(
-    PG_HOST: str, PG_PORT: str, PG_DB: str, PG_USER: str, PG_PASSWORD: str, sql: str
+    PG_HOST: str,
+    PG_PORT: str,
+    PG_DB: str,
+    PG_USER: str,
+    PG_PASSWORD: str,
+    sql: str,
+    PG_SCHEMA: Optional[str] = None,
 ):
     """Run a sql query to postgres instance
 
@@ -71,7 +86,7 @@ def execute_query(
         dict, bool: result of sql query or True if no result but
         correct execution
     """
-    conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD)
+    conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD, PG_SCHEMA)
     with conn.cursor() as cur:
         cur.execute(sql)
         data = return_sql_results(cur)
@@ -87,6 +102,7 @@ def execute_sql_file(
     PG_USER: str,
     PG_PASSWORD: str,
     list_files: List[File],
+    PG_SCHEMA: Optional[str] = None,
 ):
     """Run sql queries in local files to postgres instance
 
@@ -110,7 +126,7 @@ def execute_sql_file(
     for file in list_files:
         is_file = os.path.isfile(os.path.join(file["source_path"], file["source_name"]))
         if is_file:
-            conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD)
+            conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD, PG_SCHEMA)
             with conn.cursor() as cur:
                 cur.execute(
                     open(
@@ -135,6 +151,7 @@ def copy_file(
     PG_USER: str,
     PG_PASSWORD: str,
     list_files: List[File],
+    PG_SCHEMA: Optional[str] = None,
 ):
     """Copy raw data from local files to postgres instance
 
@@ -159,7 +176,7 @@ def copy_file(
         print(file)
         is_file = os.path.isfile(os.path.join(file["source_path"], file["source_name"]))
         if is_file:
-            conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD)
+            conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD, PG_SCHEMA)
             sql = "COPY %s FROM STDIN WITH CSV HEADER DELIMITER AS ','"
             file = open(os.path.join(file["source_path"], file["source_name"]), "r")
             with conn.cursor() as cur:

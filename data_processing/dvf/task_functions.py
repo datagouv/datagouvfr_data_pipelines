@@ -47,6 +47,7 @@ def create_copro_table():
                 "source_name": "create_copro_table.sql",
             }
         ],
+        'dvf',
     )
 
 
@@ -134,6 +135,7 @@ def create_dpe_table():
                 "source_name": "create_dpe_table.sql",
             }
         ],
+        'dvf',
     )
 
 
@@ -150,6 +152,7 @@ def create_dvf_table():
                 "source_name": "create_dvf_table.sql",
             }
         ],
+        'dvf',
     )
 
 
@@ -166,6 +169,7 @@ def index_dvf_table():
                 "source_name": "index_dvf_table.sql",
             }
         ],
+        'dvf',
     )
 
 
@@ -182,6 +186,7 @@ def create_stats_dvf_table():
                 "source_name": "create_stats_dvf_table.sql",
             }
         ],
+        'dvf',
     )
 
 
@@ -198,6 +203,7 @@ def create_distribution_table():
                 "source_name": "create_distribution_table.sql",
             }
         ],
+        'dvf',
     )
 
 
@@ -215,6 +221,7 @@ def populate_utils(files, table):
         PG_USER=conn.login,
         PG_PASSWORD=conn.password,
         list_files=format_files,
+        PG_SCHEMA='dvf',
     )
 
 
@@ -355,6 +362,7 @@ def index_dpe_table():
                 "source_name": "index_dpe_table.sql",
             }
         ],
+        'dvf',
     )
 
 
