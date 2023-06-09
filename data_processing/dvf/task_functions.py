@@ -622,6 +622,8 @@ def process_dvf_stats(ti):
         types_of_interest = [1, 2, 4]
         echelles_of_interest = ["departement", "epci", "commune", "section"]
 
+        export_intermediary = pd.DataFrame(None)
+
         for m in range(1, 13):
             dfs_dict = {}
             for echelle in echelles_of_interest:
@@ -735,15 +737,20 @@ def process_dvf_stats(ti):
             )
             all_month["annee_mois"] = f'{year}-{"0"+str(m) if m<10 else m}'
 
-            all_month = pd.concat([all_month, dup_libelle])
-            all_month = all_month.drop_duplicates(subset=['code_geo', 'annee_mois'], keep="first")
-
-            export = pd.concat([export, all_month])
+            export_intermediary = pd.concat([export_intermediary, all_month])
+            
+            #export = pd.concat([export, all_month])
             del all_month
             del dfs_dict
             del general
+        
         del ventes
         del ventes_nodup
+        export_intermediary = export_intermediary.join(
+            dup_libelle, on=['code_geo', 'annee_mois'],
+            how='outer'
+        )
+        export = pd.concat([export, export_intermediary])
         gc.collect()
         print("Done with", year)
 
