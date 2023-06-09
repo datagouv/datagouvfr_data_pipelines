@@ -25,6 +25,7 @@ import shutil
 import zipfile
 import pandas as pd
 import requests
+import time
 import json
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -306,6 +307,7 @@ def download_dpe():
                 f.close()
         with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
             zip_ref.extractall(DPEDIR + tmp.replace('.zip', ''))
+        time.sleep(5)
         os.remove(DPEDIR + tmp)
 
 
@@ -742,10 +744,12 @@ def process_dvf_stats(ti):
     # right merge pour avoir toutes les occurrences de toutes les échelles
     # (cf API)
     dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
-    export = export.join(
-        dup_libelle, on=['code_geo', 'annee_mois'],
-        how='outer'
-    )
+    # export = export.join(
+    #     dup_libelle, on=['code_geo', 'annee_mois'],
+    #     how='outer'
+    # )
+    export = pd.concat([export, dup_libelle])
+    export = export.drop_duplicates(subset=['code_geo', 'annee_mois'], keep="first")
     del dup_libelle
     print("Done with merge")
     if len(years) > 5:
