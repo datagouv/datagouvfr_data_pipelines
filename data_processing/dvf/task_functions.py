@@ -486,10 +486,7 @@ def process_dvf_stats(ti):
     communes['echelle_geo'] = 'commune'
     print("Done with géo")
     libelles_parents = pd.concat([departements, epci, communes, sections])
-    del sections
-    del communes
-    del epci
-    del departements
+
     libelles_parents["libelle_geo"] = (
         libelles_parents["libelle_geo"]
         .fillna("NA")
@@ -749,7 +746,11 @@ def process_dvf_stats(ti):
         del ventes_nodup
         gc.collect()
         print("Done with", year)
-
+        
+    del sections
+    del communes
+    del epci
+    del departements
     # right merge pour avoir toutes les occurrences de toutes les échelles
     # (cf API)
     # export = export.join(
