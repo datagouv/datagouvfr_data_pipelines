@@ -6,10 +6,12 @@ URL_2022_pres_t1='https://www.data.gouv.fr/fr/datasets/r/79b5cac4-4957-486b-bbda
 URL_2022_pres_t2='https://www.data.gouv.fr/fr/datasets/r/4dfd05a9-094e-4043-8a19-43b6b6bbe086'
 URL_2022_legi_t1='https://www.data.gouv.fr/fr/datasets/r/a1f73b85-8194-44f4-a2b7-c343edb47d32'
 URL_2022_legi_t2='https://www.data.gouv.fr/fr/datasets/r/96ffddda-59b4-41b8-a6a3-dfe1adb7fa36'
+URL_2017_pres_t1='https://www.data.gouv.fr/fr/datasets/r/8fdb0926-ea9d-4fb4-a136-7767cd97e30b'
 
-wget -O $DATADIR/2022_pres_t1.txt $URL_2022_pres_t1
-wget -O $DATADIR/2022_pres_t2.txt $URL_2022_pres_t2
-# wget -O $DATADIR/2022_legi_t1.txt $URL_2022_legi_t1
-wget -O $DATADIR/2022_legi_t2.txt $URL_2022_legi_t2
+curl -o $DATADIR/2022_pres_t1.txt $URL_2022_pres_t1 -L
+curl -o $DATADIR/2022_pres_t2.txt $URL_2022_pres_t2 -L
+curl -o $DATADIR/2022_legi_t1.txt $URL_2022_legi_t1 -L
+curl -o $DATADIR/2022_legi_t2.txt $URL_2022_legi_t2 -L
+curl -o $DATADIR/2017_pres_t1.txt $URL_2017_pres_t1 -L
 
 cd $DATADIR && ls
