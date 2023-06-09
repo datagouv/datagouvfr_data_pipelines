@@ -522,7 +522,7 @@ def process_dvf_stats(ti):
         # certaines communes ne sont pas dans des EPCI
         df = pd.merge(
             df,
-            epci[['code_commune', 'code_geo']],
+            epci.rename(columns={"code_geo":"code_epci"})[['code_commune', 'code_epci']],
             on="code_commune",
             how="left"
         )
