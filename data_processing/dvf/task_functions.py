@@ -414,6 +414,101 @@ def process_dvf_stats(ti):
         "valeur_fonciere",
         "surface_reelle_bati",
     ]
+
+
+    # on ajoute les colonnes libelle_geo et code_parent
+    with open(DATADIR + "/sections.txt", 'r') as f:
+        sections = [s.replace('\n', '') for s in f.readlines()]
+    sections = pd.DataFrame(
+        set(sections) | sections_from_dvf,
+        columns=['code_geo']
+    )
+    sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
+    sections = sections.drop_duplicates()
+    sections['code_parent'] = sections['code_geo'].str.slice(0, 5)
+    sections['libelle_geo'] = sections['code_geo']
+    sections['echelle_geo'] = 'section'
+    departements = pd.read_csv(
+        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
+    )
+    departements = departements.rename(
+        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
+    )
+    departements['code_parent'] = 'nation'
+    departements['echelle_geo'] = 'departement'
+    epci_communes = epci[["code_commune", "code_epci"]]
+    epci["code_parent"] = epci["code_commune"].apply(
+        lambda code: code[:2] if code[:2] != "97" else code[:3]
+    )
+    epci = epci.drop("code_commune", axis=1)
+    epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
+        {"code_epci": "code_geo"}, axis=1
+    )
+    epci['echelle_geo'] = 'epci'
+
+    communes = pd.read_csv(
+        DATADIR + "/communes.csv",
+        dtype=str,
+        usecols=["TYPECOM", "COM", "LIBELLE"]
+    )
+    communes = (
+        communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
+        .rename({"COM": "code_geo", "LIBELLE": "libelle_geo"}, axis=1)
+        .drop("TYPECOM", axis=1)
+    )
+    communes = pd.merge(
+        communes,
+        pd.DataFrame(communes_from_dvf, columns=['code_geo']),
+        on='code_geo',
+        how='outer'
+    )
+    epci_communes = epci_communes.rename(
+        {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
+    )
+    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
+    communes.loc[
+        communes['code_geo'].str.startswith('75'),
+        'code_parent'
+    ] = '200054781'
+    communes.loc[
+        communes['code_geo'].str.startswith('13'),
+        'code_parent'
+    ] = '200054807'
+    communes.loc[
+        communes['code_geo'].str.startswith('69'),
+        'code_parent'
+    ] = '200046977'
+    communes['code_parent'].fillna(
+        communes['code_geo'].str.slice(0, 2),
+        inplace=True
+    )
+    communes['libelle_geo'].fillna('NA', inplace=True)
+    communes['echelle_geo'] = 'commune'
+    print("Done with géo")
+    libelles_parents = pd.concat([departements, epci, communes, sections])
+    del sections
+    del communes
+    del epci
+    del departements
+    libelles_parents["libelle_geo"] = (
+        libelles_parents["libelle_geo"]
+        .fillna("NA")
+        .apply(unidecode)
+    )
+    # on crée l'ensemble des occurrences échelles X mois pour le merge
+    dup_libelle = libelles_parents.append(
+        [libelles_parents] * (12 * (max(years) - min(years) + 1) - 1),
+        ignore_index=True
+    ).sort_values(['code_geo', 'code_parent'])
+    dup_libelle['annee_mois'] = [
+        f'{y}-{"0"+str(m) if m<10 else m}'
+        for y in range(min(years), max(years) + 1) for m in range(1, 13)
+    ] * len(libelles_parents)
+    del libelles_parents
+    print("Done with libellés")
+
+    dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
+
     for year in years:
         df_ = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
@@ -642,6 +737,10 @@ def process_dvf_stats(ti):
                 list(dfs_dict.values()) + [pd.DataFrame([general])]
             )
             all_month["annee_mois"] = f'{year}-{"0"+str(m) if m<10 else m}'
+
+            all_month = pd.concat([all_month, dup_libelle])
+            all_month = all_month.drop_duplicates(subset=['code_geo', 'annee_mois'], keep="first")
+
             export = pd.concat([export, all_month])
             del all_month
             del dfs_dict
@@ -651,105 +750,14 @@ def process_dvf_stats(ti):
         gc.collect()
         print("Done with", year)
 
-    # on ajoute les colonnes libelle_geo et code_parent
-    with open(DATADIR + "/sections.txt", 'r') as f:
-        sections = [s.replace('\n', '') for s in f.readlines()]
-    sections = pd.DataFrame(
-        set(sections) | sections_from_dvf,
-        columns=['code_geo']
-    )
-    sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
-    sections = sections.drop_duplicates()
-    sections['code_parent'] = sections['code_geo'].str.slice(0, 5)
-    sections['libelle_geo'] = sections['code_geo']
-    sections['echelle_geo'] = 'section'
-    departements = pd.read_csv(
-        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
-    )
-    departements = departements.rename(
-        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
-    )
-    departements['code_parent'] = 'nation'
-    departements['echelle_geo'] = 'departement'
-    epci_communes = epci[["code_commune", "code_epci"]]
-    epci["code_parent"] = epci["code_commune"].apply(
-        lambda code: code[:2] if code[:2] != "97" else code[:3]
-    )
-    epci = epci.drop("code_commune", axis=1)
-    epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
-        {"code_epci": "code_geo"}, axis=1
-    )
-    epci['echelle_geo'] = 'epci'
-
-    communes = pd.read_csv(
-        DATADIR + "/communes.csv",
-        dtype=str,
-        usecols=["TYPECOM", "COM", "LIBELLE"]
-    )
-    communes = (
-        communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
-        .rename({"COM": "code_geo", "LIBELLE": "libelle_geo"}, axis=1)
-        .drop("TYPECOM", axis=1)
-    )
-    communes = pd.merge(
-        communes,
-        pd.DataFrame(communes_from_dvf, columns=['code_geo']),
-        on='code_geo',
-        how='outer'
-    )
-    epci_communes = epci_communes.rename(
-        {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
-    )
-    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
-    communes.loc[
-        communes['code_geo'].str.startswith('75'),
-        'code_parent'
-    ] = '200054781'
-    communes.loc[
-        communes['code_geo'].str.startswith('13'),
-        'code_parent'
-    ] = '200054807'
-    communes.loc[
-        communes['code_geo'].str.startswith('69'),
-        'code_parent'
-    ] = '200046977'
-    communes['code_parent'].fillna(
-        communes['code_geo'].str.slice(0, 2),
-        inplace=True
-    )
-    communes['libelle_geo'].fillna('NA', inplace=True)
-    communes['echelle_geo'] = 'commune'
-    print("Done with géo")
-    libelles_parents = pd.concat([departements, epci, communes, sections])
-    del sections
-    del communes
-    del epci
-    del departements
-    libelles_parents["libelle_geo"] = (
-        libelles_parents["libelle_geo"]
-        .fillna("NA")
-        .apply(unidecode)
-    )
-    # on crée l'ensemble des occurrences échelles X mois pour le merge
-    dup_libelle = libelles_parents.append(
-        [libelles_parents] * (12 * (max(years) - min(years) + 1) - 1),
-        ignore_index=True
-    ).sort_values(['code_geo', 'code_parent'])
-    dup_libelle['annee_mois'] = [
-        f'{y}-{"0"+str(m) if m<10 else m}'
-        for y in range(min(years), max(years) + 1) for m in range(1, 13)
-    ] * len(libelles_parents)
-    del libelles_parents
-    print("Done with libellés")
     # right merge pour avoir toutes les occurrences de toutes les échelles
     # (cf API)
-    dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
     # export = export.join(
     #     dup_libelle, on=['code_geo', 'annee_mois'],
     #     how='outer'
     # )
-    export = pd.concat([export, dup_libelle])
-    export = export.drop_duplicates(subset=['code_geo', 'annee_mois'], keep="first")
+    # export = pd.concat([export, dup_libelle])
+    # export = export.drop_duplicates(subset=['code_geo', 'annee_mois'], keep="first")
     del dup_libelle
     print("Done with merge")
     if len(years) > 5:
