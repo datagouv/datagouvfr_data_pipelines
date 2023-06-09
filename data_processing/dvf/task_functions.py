@@ -440,7 +440,7 @@ def process_dvf_stats(ti):
     epci["code_parent"] = epci["code_commune"].apply(
         lambda code: code[:2] if code[:2] != "97" else code[:3]
     )
-   #epci = epci.drop("code_commune", axis=1)
+    #epci = epci.drop("code_commune", axis=1)
     epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
         {"code_epci": "code_geo"}, axis=1
     )
@@ -485,7 +485,7 @@ def process_dvf_stats(ti):
     communes['libelle_geo'].fillna('NA', inplace=True)
     communes['echelle_geo'] = 'commune'
     print("Done with géo")
-    libelles_parents = pd.concat([departements, epci.drop("code_commune", axis=1), communes, sections])
+    libelles_parents = pd.concat([departements, epci, communes, sections])
 
     libelles_parents["libelle_geo"] = (
         libelles_parents["libelle_geo"]
@@ -522,7 +522,7 @@ def process_dvf_stats(ti):
         # certaines communes ne sont pas dans des EPCI
         df = pd.merge(
             df,
-            epci[['code_commune', 'code_epci']],
+            epci[['code_geo', 'code_epci']],
             on="code_commune",
             how="left"
         )
