@@ -31,7 +31,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 DPEDIR = f"{DATADIR}/dpe/"
 
-conn = BaseHook.get_connection("postgres_localhost")
+conn = BaseHook.get_connection("POSTGRES_DEV_DVF")
 
 
 def create_copro_table():
