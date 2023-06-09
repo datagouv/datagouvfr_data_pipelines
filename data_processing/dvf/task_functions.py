@@ -230,14 +230,31 @@ def populate_distribution_table():
 
 
 def populate_dvf_table():
-    files = glob.glob(f"{DATADIR}/full_*.csv")
-    # adding section_prefixe column for API
-    for file in files:
-        df = pd.read_csv(file, dtype=str)
-        df['section_prefixe'] = df['id_parcelle'].str.slice(5, 10)
-        df.to_csv(file.replace("full_", "enriched_"), index=False)
-    files = glob.glob(f"{DATADIR}/enriched_*.csv")
+    # files = glob.glob(f"{DATADIR}/full_*.csv")
+    # # adding section_prefixe column for API
+    # for file in files:
+    #     df = pd.read_csv(file, dtype=str)
+    #     df['section_prefixe'] = df['id_parcelle'].str.slice(5, 10)
+    #     df.to_csv(file.replace("full_", "enriched_"), index=False)
+    files = glob.glob(f"{DATADIR}/full*.csv")
     populate_utils(files, "dvf.dvf")
+
+
+def alter_dvf_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "alter_dvf_table.sql",
+            }
+        ],
+        'dvf',
+    )
 
 
 def populate_stats_dvf_table():
