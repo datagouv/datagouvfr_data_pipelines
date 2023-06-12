@@ -87,9 +87,12 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
-    download_dpe = PythonOperator(
+    download_dpe = BashOperator(
         task_id='download_dpe',
-        python_callable=download_dpe,
+        bash_command=(
+            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
+        )
     )
 
     process_dpe = PythonOperator(

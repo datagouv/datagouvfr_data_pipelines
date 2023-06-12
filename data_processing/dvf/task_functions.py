@@ -289,26 +289,26 @@ def get_epci():
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
-def download_dpe():
-    r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
-    urls = [
-        k['url'] for k in r.json()['resources']
-        if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
-    ]
-    if os.path.exists(DPEDIR):
-        shutil.rmtree(DPEDIR)
-    os.makedirs(DPEDIR)
-    for url in urls:
-        tmp = url.split('/')[-1].split('dep')[-1]
-        print(tmp)
-        with requests.get(url) as r:
-            with open(DPEDIR + tmp, 'wb') as f:
-                f.write(r.content)
-                f.close()
-        with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
-            zip_ref.extractall(DPEDIR + tmp.replace('.zip', ''))
-        time.sleep(5)
-        os.remove(DPEDIR + tmp)
+# def download_dpe():
+#     r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
+#     urls = [
+#         k['url'] for k in r.json()['resources']
+#         if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
+#     ]
+#     if os.path.exists(DPEDIR):
+#         shutil.rmtree(DPEDIR)
+#     os.makedirs(DPEDIR)
+#     for url in urls:
+#         tmp = url.split('/')[-1].split('dep')[-1]
+#         print(tmp)
+#         with requests.get(url) as r:
+#             with open(DPEDIR + tmp, 'wb') as f:
+#                 f.write(r.content)
+#                 f.close()
+#         with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
+#             zip_ref.extractall(DPEDIR + tmp.replace('.zip', ''))
+#         time.sleep(5)
+#         os.remove(DPEDIR + tmp)
 
 
 def process_dpe():
