@@ -479,7 +479,7 @@ def process_dvf_stats(ti):
             f'{year}-{"0"+str(m) if m<10 else m}'
             for m in range(1, 13)
         ] * len(libelles_parents)
-        del libelles_parents
+        
         print("Done with libellés")
 
         dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
