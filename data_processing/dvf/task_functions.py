@@ -476,8 +476,8 @@ def process_dvf_stats(ti):
             ignore_index=True
         ).sort_values(['code_geo', 'code_parent'])
         dup_libelle['annee_mois'] = [
-            f'{y}-{"0"+str(m) if m<10 else m}'
-            for y in range(min(years), max(years) + 1) for m in range(1, 13)
+            f'{year}-{"0"+str(m) if m<10 else m}'
+            for m in range(1, 13)
         ] * len(libelles_parents)
         del libelles_parents
         print("Done with libellés")
