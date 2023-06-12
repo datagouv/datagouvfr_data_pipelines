@@ -466,7 +466,8 @@ def process_dvf_stats(ti):
         libelles_parents["libelle_geo"]
         .fillna("NA")
         .apply(unidecode)
-
+    )
+    
     for year in years:
     
         # on crée l'ensemble des occurrences échelles X mois pour le merge
