@@ -120,7 +120,7 @@ def populate_copro_table():
         if 'insee' in c:
             copro = copro.loc[copro[c].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
-    populate_utils([f"{DATADIR}/copro_clean.csv"], "dvf.copro")
+    populate_utils([f"{DATADIR}/copro_clean.csv"], "dvf.copro", True)
 
 
 def create_dpe_table():
@@ -208,7 +208,7 @@ def create_distribution_table():
     )
 
 
-def populate_utils(files, table):
+def populate_utils(files, table, header):
     format_files = []
     for file in files:
         format_files.append(
@@ -223,11 +223,12 @@ def populate_utils(files, table):
         PG_PASSWORD=conn.password,
         list_files=format_files,
         PG_SCHEMA='dvf',
+        header=header,
     )
 
 
 def populate_distribution_table():
-    populate_utils([f"{DATADIR}/distribution_prix.csv"], "dvf.distribution_prix")
+    populate_utils([f"{DATADIR}/distribution_prix.csv"], "dvf.distribution_prix", True)
 
 
 def populate_dvf_table():
@@ -238,7 +239,7 @@ def populate_dvf_table():
     #     df['section_prefixe'] = df['id_parcelle'].str.slice(5, 10)
     #     df.to_csv(file.replace("full_", "enriched_"), index=False)
     files = glob.glob(f"{DATADIR}/full*.csv")
-    populate_utils(files, "dvf.dvf")
+    populate_utils(files, "dvf.dvf", True)
 
 
 def alter_dvf_table():
@@ -259,11 +260,11 @@ def alter_dvf_table():
 
 
 def populate_stats_dvf_table():
-    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "dvf.stats_dvf")
+    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "dvf.stats_dvf", True)
 
 
 def populate_dpe_table():
-    populate_utils([f"{DATADIR}/all_dpe.csv"], "dvf.dpe")
+    populate_utils([f"{DATADIR}/all_dpe.csv"], "dvf.dpe", False)
 
 
 def get_epci():
@@ -289,28 +290,6 @@ def get_epci():
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
-# def download_dpe():
-#     r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
-#     urls = [
-#         k['url'] for k in r.json()['resources']
-#         if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
-#     ]
-#     if os.path.exists(DPEDIR):
-#         shutil.rmtree(DPEDIR)
-#     os.makedirs(DPEDIR)
-#     for url in urls:
-#         tmp = url.split('/')[-1].split('dep')[-1]
-#         print(tmp)
-#         with requests.get(url) as r:
-#             with open(DPEDIR + tmp, 'wb') as f:
-#                 f.write(r.content)
-#                 f.close()
-#         with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
-#             zip_ref.extractall(DPEDIR + tmp.replace('.zip', ''))
-#         time.sleep(5)
-#         os.remove(DPEDIR + tmp)
-
-
 def process_dpe():
     cols_dpe = [
         'batiment_groupe_id',
@@ -330,12 +309,11 @@ def process_dpe():
         "batiment_groupe_id",
         "parcelle_id"
     ]
-    dfs = []
     dep_folders = os.listdir(DPEDIR)
     for dep in dep_folders:
         print(dep)
         dpe = pd.read_csv(
-            f'{DPEDIR}{dep}/csv/batiment_groupe_dpe_representatif_logement.csv',
+            f'{DPEDIR}{dep}/batiment_groupe_dpe_representatif_logement.csv',
             dtype=str,
             usecols=cols_dpe
         )
@@ -344,7 +322,7 @@ def process_dpe():
             lambda x: round(float(x), 2)
         )
         parcelles = pd.read_csv(
-            f'{DPEDIR}{dep}/csv/rel_batiment_groupe_parcelle.csv',
+            f'{DPEDIR}{dep}/rel_batiment_groupe_parcelle.csv',
             dtype=str,
             usecols=cols_parcelles
         )
@@ -355,17 +333,14 @@ def process_dpe():
             how='left'
         )
         dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
-        dfs.append(dpe_parcelled)
-    all_dpe = pd.concat(dfs)
-    print(len(all_dpe))
-    print(all_dpe.head())
-    print("Exporting DPE data")
-    all_dpe.to_csv(
-        DATADIR + "/all_dpe.csv",
-        sep=",",
-        encoding="utf8",
-        index=False,
-    )
+        dpe_parcelled.to_csv(
+            DATADIR + "/all_dpe.csv",
+            mode='a',
+            sep=",",
+            index=False,
+            encoding="utf8",
+            header=False
+        )
 
 
 def index_dpe_table():
