@@ -471,17 +471,12 @@ def process_dvf_stats(ti):
     for year in years:
 
         # on crée l'ensemble des occurrences échelles X mois pour le merge
-        dup_libelle = libelles_parents.append(
-            [libelles_parents] * (12 * (max(years) - min(years) + 1) - 1),
-            ignore_index=True
-        ).sort_values(['code_geo', 'code_parent'])
+        dup_libelle = libelles_parents.sort_values(['code_geo', 'code_parent'])
         dup_libelle['annee_mois'] = [
             f'{year}-{"0"+str(m) if m<10 else m}'
             for m in range(1, 13)
         ] * len(libelles_parents)
-        
         print("Done with libellés")
-
         dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
 
 
