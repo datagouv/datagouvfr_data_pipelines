@@ -12,7 +12,6 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     alter_dvf_table,
     create_copro_table,
     populate_copro_table,
-    download_dpe,
     process_dpe,
     create_dpe_table,
     populate_dpe_table,
