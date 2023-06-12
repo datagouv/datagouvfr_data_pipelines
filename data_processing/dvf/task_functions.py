@@ -288,7 +288,7 @@ def get_epci():
     pd.DataFrame(
         epci_list, columns=["code_commune", "code_epci", "libelle_geo"]
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
-
+    
 
 def process_dpe():
     cols_dpe = [
@@ -467,21 +467,24 @@ def process_dvf_stats(ti):
         .fillna("NA")
         .apply(unidecode)
     )
-    # on crée l'ensemble des occurrences échelles X mois pour le merge
-    dup_libelle = libelles_parents.append(
-        [libelles_parents] * (12 * (max(years) - min(years) + 1) - 1),
-        ignore_index=True
-    ).sort_values(['code_geo', 'code_parent'])
-    dup_libelle['annee_mois'] = [
-        f'{y}-{"0"+str(m) if m<10 else m}'
-        for y in range(min(years), max(years) + 1) for m in range(1, 13)
-    ] * len(libelles_parents)
-    del libelles_parents
-    print("Done with libellés")
-
-    dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
 
     for year in years:
+
+        # on crée l'ensemble des occurrences échelles X mois pour le merge
+        dup_libelle = libelles_parents.append(
+            [libelles_parents] * (12 * (max(years) - min(years) + 1) - 1),
+            ignore_index=True
+        ).sort_values(['code_geo', 'code_parent'])
+        dup_libelle['annee_mois'] = [
+            f'{y}-{"0"+str(m) if m<10 else m}'
+            for y in range(min(years), max(years) + 1) for m in range(1, 13)
+        ] * len(libelles_parents)
+        del libelles_parents
+        print("Done with libellés")
+
+        dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
+
+
         df_ = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
             sep=",",
