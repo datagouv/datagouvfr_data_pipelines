@@ -467,12 +467,12 @@ def process_dvf_stats(ti):
         .fillna("NA")
         .apply(unidecode)
     )
-    
+
     for year in years:
     
         # on crée l'ensemble des occurrences échelles X mois pour le merge
         dup_libelle = libelles_parents.append(
-            [libelles_parents] * 12,
+            [libelles_parents] * 11,
             ignore_index=True
         ).sort_values(['code_geo', 'code_parent'])
 
