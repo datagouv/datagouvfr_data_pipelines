@@ -415,7 +415,7 @@ def process_dvf_stats(ti):
     epci["code_parent"] = epci["code_commune"].apply(
         lambda code: code[:2] if code[:2] != "97" else code[:3]
     )
-    epci = epci.drop("code_commune", axis=1)
+    #epci = epci.drop("code_commune", axis=1)
     epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
         {"code_epci": "code_geo"}, axis=1
     )
