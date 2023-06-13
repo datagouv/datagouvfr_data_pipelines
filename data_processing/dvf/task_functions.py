@@ -359,7 +359,6 @@ def index_dpe_table():
         'dvf',
     )
 
-
 def process_dvf_stats(ti):
     years = sorted(
         [
@@ -368,7 +367,7 @@ def process_dvf_stats(ti):
             if "full_" in f and ".gz" not in f
         ]
     )
-    export = pd.DataFrame(None)
+    export = {}
     epci = pd.read_csv(
         DATADIR + "/epci.csv",
         sep=",",
@@ -389,101 +388,7 @@ def process_dvf_stats(ti):
         "valeur_fonciere",
         "surface_reelle_bati",
     ]
-
-
-    # on ajoute les colonnes libelle_geo et code_parent
-    with open(DATADIR + "/sections.txt", 'r') as f:
-        sections = [s.replace('\n', '') for s in f.readlines()]
-    sections = pd.DataFrame(
-        set(sections) | sections_from_dvf,
-        columns=['code_geo']
-    )
-    sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
-    sections = sections.drop_duplicates()
-    sections['code_parent'] = sections['code_geo'].str.slice(0, 5)
-    sections['libelle_geo'] = sections['code_geo']
-    sections['echelle_geo'] = 'section'
-    departements = pd.read_csv(
-        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
-    )
-    departements = departements.rename(
-        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
-    )
-    departements['code_parent'] = 'nation'
-    departements['echelle_geo'] = 'departement'
-    epci_communes = epci[["code_commune", "code_epci"]]
-    epci["code_parent"] = epci["code_commune"].apply(
-        lambda code: code[:2] if code[:2] != "97" else code[:3]
-    )
-    #epci = epci.drop("code_commune", axis=1)
-    epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
-        {"code_epci": "code_geo"}, axis=1
-    )
-    epci['echelle_geo'] = 'epci'
-
-    communes = pd.read_csv(
-        DATADIR + "/communes.csv",
-        dtype=str,
-        usecols=["TYPECOM", "COM", "LIBELLE"]
-    )
-    communes = (
-        communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
-        .rename({"COM": "code_geo", "LIBELLE": "libelle_geo"}, axis=1)
-        .drop("TYPECOM", axis=1)
-    )
-    communes = pd.merge(
-        communes,
-        pd.DataFrame(communes_from_dvf, columns=['code_geo']),
-        on='code_geo',
-        how='outer'
-    )
-    epci_communes = epci_communes.rename(
-        {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
-    )
-    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
-    communes.loc[
-        communes['code_geo'].str.startswith('75'),
-        'code_parent'
-    ] = '200054781'
-    communes.loc[
-        communes['code_geo'].str.startswith('13'),
-        'code_parent'
-    ] = '200054807'
-    communes.loc[
-        communes['code_geo'].str.startswith('69'),
-        'code_parent'
-    ] = '200046977'
-    communes['code_parent'].fillna(
-        communes['code_geo'].str.slice(0, 2),
-        inplace=True
-    )
-    communes['libelle_geo'].fillna('NA', inplace=True)
-    communes['echelle_geo'] = 'commune'
-    print("Done with géo")
-    libelles_parents = pd.concat([departements, epci, communes, sections])
-
-    libelles_parents["libelle_geo"] = (
-        libelles_parents["libelle_geo"]
-        .fillna("NA")
-        .apply(unidecode)
-    )
-
     for year in years:
-    
-        # on crée l'ensemble des occurrences échelles X mois pour le merge
-        dup_libelle = libelles_parents.append(
-            [libelles_parents] * 11,
-            ignore_index=True
-        ).sort_values(['code_geo', 'code_parent'])
-
-        dup_libelle['annee_mois'] = [
-            f'{year}-{"0"+str(m) if m<10 else m}'
-            for m in range(1, 13)
-        ] * len(libelles_parents)
-        print("Done with libellés")
-        dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
-
-
         df_ = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
             sep=",",
@@ -499,7 +404,7 @@ def process_dvf_stats(ti):
         # certaines communes ne sont pas dans des EPCI
         df = pd.merge(
             df,
-            epci.rename(columns={"code_geo":"code_epci"})[['code_commune', 'code_epci']],
+            epci[['code_commune', 'code_epci']],
             on="code_commune",
             how="left"
         )
@@ -598,10 +503,9 @@ def process_dvf_stats(ti):
 
         types_of_interest = [1, 2, 4]
         echelles_of_interest = ["departement", "epci", "commune", "section"]
+        export_intermediary = []
 
-        export_intermediary = pd.DataFrame(None)
-
-        for m in range(1, 13):
+        for m in range(1, 13): 
             dfs_dict = {}
             for echelle in echelles_of_interest:
                 # ici on utilise bien le df ventes, qui contient l'ensemble
@@ -713,79 +617,158 @@ def process_dvf_stats(ti):
                 list(dfs_dict.values()) + [pd.DataFrame([general])]
             )
             all_month["annee_mois"] = f'{year}-{"0"+str(m) if m<10 else m}'
-
-            export_intermediary = pd.concat([export_intermediary, all_month])
-            
-            #export = pd.concat([export, all_month])
+            export_intermediary.append(all_month)
             del all_month
             del dfs_dict
             del general
-        
+        export[year] = pd.concat(export_intermediary)
+        del export_intermediary
         del ventes
         del ventes_nodup
-        export_intermediary = export_intermediary.join(
-            dup_libelle, on=['code_geo', 'annee_mois'],
-            how='outer'
-        )
-        export = pd.concat([export, export_intermediary])
         gc.collect()
         print("Done with", year)
 
+    # on ajoute les colonnes libelle_geo et code_parent
+    with open(DATADIR + "/sections.txt", 'r') as f:
+        sections = [s.replace('\n', '') for s in f.readlines()]
+    sections = pd.DataFrame(
+        set(sections) | sections_from_dvf,
+        columns=['code_geo']
+    )
+    sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
+    sections = sections.drop_duplicates()
+    sections['code_parent'] = sections['code_geo'].str.slice(0, 5)
+    sections['libelle_geo'] = sections['code_geo']
+    sections['echelle_geo'] = 'section'
+    departements = pd.read_csv(
+        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
+    )
+    departements = departements.rename(
+        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
+    )
+    departements['code_parent'] = 'nation'
+    departements['echelle_geo'] = 'departement'
+    epci_communes = epci[["code_commune", "code_epci"]]
+    epci["code_parent"] = epci["code_commune"].apply(
+        lambda code: code[:2] if code[:2] != "97" else code[:3]
+    )
+    epci = epci.drop("code_commune", axis=1)
+    epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
+        {"code_epci": "code_geo"}, axis=1
+    )
+    epci['echelle_geo'] = 'epci'
+
+    communes = pd.read_csv(
+        DATADIR + "/communes.csv",
+        dtype=str,
+        usecols=["TYPECOM", "COM", "LIBELLE"]
+    )
+    communes = (
+        communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
+        .rename({"COM": "code_geo", "LIBELLE": "libelle_geo"}, axis=1)
+        .drop("TYPECOM", axis=1)
+    )
+    communes = pd.merge(
+        communes,
+        pd.DataFrame(communes_from_dvf, columns=['code_geo']),
+        on='code_geo',
+        how='outer'
+    )
+    epci_communes = epci_communes.rename(
+        {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
+    )
+    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
+    communes.loc[
+        communes['code_geo'].str.startswith('75'),
+        'code_parent'
+    ] = '200054781'
+    communes.loc[
+        communes['code_geo'].str.startswith('13'),
+        'code_parent'
+    ] = '200054807'
+    communes.loc[
+        communes['code_geo'].str.startswith('69'),
+        'code_parent'
+    ] = '200046977'
+    communes['code_parent'].fillna(
+        communes['code_geo'].str.slice(0, 2),
+        inplace=True
+    )
+    communes['libelle_geo'].fillna('NA', inplace=True)
+    communes['echelle_geo'] = 'commune'
+    print("Done with géo")
+    libelles_parents = pd.concat([departements, epci, communes, sections])
     del sections
     del communes
     del epci
     del departements
-    # right merge pour avoir toutes les occurrences de toutes les échelles
-    # (cf API)
-    # export = export.join(
-    #     dup_libelle, on=['code_geo', 'annee_mois'],
-    #     how='outer'
-    # )
-    # export = pd.concat([export, dup_libelle])
-    # export = export.drop_duplicates(subset=['code_geo', 'annee_mois'], keep="first")
-    del dup_libelle
-    print("Done with merge")
-    if len(years) > 5:
-        export = export.loc[
-            export['annee_mois'].between(
-                f'{min(years)}-07',
-                f'{max(years)}-06'
-            )
+    libelles_parents["libelle_geo"] = (
+        libelles_parents["libelle_geo"]
+        .fillna("NA")
+        .apply(unidecode)
+    )
+    for year in years:
+        print("Final process for " + str(year))
+        dup_libelle = libelles_parents.append(
+            [libelles_parents] * 11,
+            ignore_index=True
+        ).sort_values(['code_geo', 'code_parent'])
+        dup_libelle['annee_mois'] = [
+            f'{year}-{"0"+str(m) if m < 10 else m}'
+            for m in range(1, 13)
+        ] * len(libelles_parents)
+        dup_libelle.set_index(['code_geo', 'annee_mois'], inplace=True)
+        export[year] = export[year].join(
+            dup_libelle, on=['code_geo', 'annee_mois'],
+            how='outer'
+        )
+        if len(years) > 5 and year in [min(years), max(years)]:
+            export[year] = export[year].loc[
+                export[year]['annee_mois'].between(
+                    f'{min(years)}-07',
+                    f'{max(years)}-06'
+                )
+            ]
+        mask = export[year]['code_geo'] == 'nation'
+        export[year].loc[mask, ['code_parent', 'libelle_geo', 'echelle_geo']] = [
+            ['-', 'nation', 'nation'] for k in range(sum(mask))
         ]
-    mask = export['code_geo'] == 'nation'
-    export.loc[mask, ['code_parent', 'libelle_geo', 'echelle_geo']] = [
-        ['-', 'nation', 'nation'] for k in range(sum(mask))
-    ]
-    del mask
-    gc.collect()
+        del mask
+        libelles_biens = [unidecode(types_bien.get(t).split(" ")[0].lower()) for t in types_of_interest]
+        prefixes = ['nb_ventes_', 'moy_prix_m2_', 'med_prix_m2_']
+        reordered_columns = ['code_geo'] +\
+            [pref + lib for lib in libelles_biens for pref in prefixes] +\
+            ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
+        export[year] = export[year][reordered_columns]
+        export[year].to_csv(
+            DATADIR + "/stats_dvf_api.csv",
+            sep=",",
+            encoding="utf8",
+            index=False,
+            float_format="%.0f",
+            mode='w' if year == min(years) else 'a',
+            header=True if year == min(years) else False
+        )
+        print("Done with first export (API table)")
 
-    libelles_biens = [unidecode(types_bien.get(t).split(" ")[0].lower()) for t in types_of_interest]
-    prefixes = ['nb_ventes_', 'moy_prix_m2_', 'med_prix_m2_']
-    reordered_columns = ['code_geo'] +\
-        [pref + lib for lib in libelles_biens for pref in prefixes] +\
-        ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
-    export = export[reordered_columns]
-    export.to_csv(
-        DATADIR + "/stats_dvf_api.csv",
-        sep=",",
-        encoding="utf8",
-        index=False,
-        float_format="%.0f",
-    )
-    print("Done with first export (API table)")
+        mask = export[year][[
+            c for c in export[year].columns if any([s in c for s in ['nb_', 'moy_', 'med_']])
+        ]]
+        mask = mask.isna().all(axis=1)
+        light_export = export[year].loc[~(mask)]
+        del mask
 
-    mask = export[[c for c in export.columns if any([s in c for s in ['nb_', 'moy_', 'med_']])]]
-    mask = mask.isna().all(axis=1)
-    light_export = export.loc[~(mask)]
-    del mask
-
-    light_export.to_csv(
-        DATADIR + "/stats_dvf.csv",
-        sep=",",
-        encoding="utf8",
-        index=False,
-        float_format="%.0f",
-    )
+        light_export.to_csv(
+            DATADIR + "/stats_dvf.csv",
+            sep=",",
+            encoding="utf8",
+            index=False,
+            float_format="%.0f",
+            mode='w' if year == min(years) else 'a',
+            header=True if year == min(years) else False
+        )
+        del export[year]
+        print("Done with year " + str(year))
 
 
 def create_distribution():
