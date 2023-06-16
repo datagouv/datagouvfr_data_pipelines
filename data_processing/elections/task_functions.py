@@ -104,7 +104,7 @@ def process_election_data():
         df['code_dep'] = df['Code du département'].apply(lambda x: map_outremer.get(x, x))
         df['code_insee'] = df['code_dep'].str.slice(0, 2) + df['Code de la commune']
         df['id_bv'] = df['code_insee'] + '_' + df['Code du b.vote'].apply(strip_zeros)
-        # grapping where the candidates results start
+        # getting where the candidates results start
         threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
         results['general'].append(df[['id_election', 'id_bv'] + list(df.columns[:threshold])])
         print('- Done with general data')
