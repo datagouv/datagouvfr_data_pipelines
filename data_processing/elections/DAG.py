@@ -10,8 +10,8 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
     format_election_files,
     process_election_data,
-    send_stats_to_minio,
-    publish_stats_elections,
+    send_results_to_minio,
+    publish_results_elections,
     send_notification
 )
 
@@ -61,14 +61,14 @@ with DAG(
         python_callable=process_election_data,
     )
 
-    send_stats_to_minio = PythonOperator(
-        task_id='send_stats_to_minio',
-        python_callable=send_stats_to_minio,
+    send_results_to_minio = PythonOperator(
+        task_id='send_results_to_minio',
+        python_callable=send_results_to_minio,
     )
 
-    publish_stats_elections = PythonOperator(
-        task_id='publish_stats_elections',
-        python_callable=publish_stats_elections,
+    publish_results_elections = PythonOperator(
+        task_id='publish_results_elections',
+        python_callable=publish_results_elections,
     )
 
     send_notification = PythonOperator(
@@ -79,7 +79,9 @@ with DAG(
     download_elections_data.set_upstream(clean_previous_outputs)
     format_election_files.set_upstream(download_elections_data)
     process_election_data.set_upstream(format_election_files)
-    send_stats_to_minio.set_upstream(process_election_data)
-    publish_stats_elections.set_upstream(process_election_data)
-    send_notification.set_upstream(send_stats_to_minio)
-    send_notification.set_upstream(publish_stats_elections)
+
+    send_results_to_minio.set_upstream(process_election_data)
+    publish_results_elections.set_upstream(process_election_data)
+
+    send_notification.set_upstream(send_results_to_minio)
+    send_notification.set_upstream(publish_results_elections)

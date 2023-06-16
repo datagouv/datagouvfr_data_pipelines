@@ -8,7 +8,12 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import (
+    post_resource,
+    get_all_from_api_query,
+    DATAGOUV_URL,
+    ORGA_REFERENCE
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 import numpy as np
@@ -16,6 +21,7 @@ import os
 import pandas as pd
 import json
 from itertools import chain
+from datetime import datetime
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
@@ -84,12 +90,11 @@ def process_election_data():
         'ZW': '986',
     }
 
-    files = [f for f in os.listdir(DATADIR) if '.csv' if f]
+    files = [f for f in os.listdir(DATADIR) if '.csv' in f]
     print(files)
-    general_stats = []
-    candidats_stats = []
+    results = {'general': [], 'candidats': []}
     for file in files:
-        print('Starting', file)
+        print('Starting', file.split('.')[0])
         df = pd.read_csv(
             DATADIR + '/' + file,
             sep=';',
@@ -101,7 +106,7 @@ def process_election_data():
         df['id_bv'] = df['code_insee'] + '_' + df['Code du b.vote'].apply(strip_zeros)
         # grapping where the candidates results start
         threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
-        general_stats.append(df[['id_election', 'id_bv'] + list(df.columns[:threshold])])
+        results['general'].append(df[['id_election', 'id_bv'] + list(df.columns[:threshold])])
         print('- Done with general data')
 
         cols_ref = ['id_election', 'id_bv', 'Code du département', 'Code de la commune', 'Code du b.vote']
@@ -115,19 +120,33 @@ def process_election_data():
         for cand in range(1, nb_candidats + 1):
             candidats_group = tmp_candidats[cols_ref + [c + f'_{cand}' for c in candidat_columns]]
             candidats_group.columns = cols_ref + candidat_columns
-            candidats_stats.append(candidats_group)
-        print('- Done with candidates data')
+            results['candidats'].append(candidats_group)
+        print('- Done with candidats data')
 
-    general_stats = pd.concat(general_stats, ignore_index=True)
-    candidats_stats = pd.concat(candidats_stats, ignore_index=True)
+    results['general'] = [pd.concat(results['general'], ignore_index=True)]
     # removing rows created from empty columns due to uneven canditates number
-    candidats_stats = candidats_stats.dropna(subset=['Voix'])
-    candidats_stats = candidats_stats.sort_values(by=['id_election', 'id_bv'])
-    general_stats.to_csv(DATADIR + '/general_stats.csv', index=False)
-    candidats_stats.to_csv(DATADIR + '/candidats_stats.csv', index=False)
+    results['candidats'] = [pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])]
+
+    # getting preprocessed resources
+    resources = get_all_from_api_query(
+        f'{DATAGOUV_URL}/api/1/datasets/community_resources/?organization={ORGA_REFERENCE}'
+    )
+    resources_url = {
+        'general': [r['url'] for r in resources if 'general-results.csv' in r['url']],
+        'candidats': [r['url'] for r in resources if 'candidats-results.csv' in r['url']]
+    }
+
+    for t in ['general', 'candidats']:
+        print(t + ' preprocessed resources')
+        for url in resources_url[t]:
+            print(('- ' + url))
+            df = pd.read_csv(url, sep=';', dtype=str)
+            results[t].append(df)
+        results[t] = pd.concat(results[t]).sort_values(by=['id_election', 'id_bv'])
+        results[t].to_csv(DATADIR + f'/{t}_results.csv', index=False)
 
 
-def send_stats_to_minio():
+def send_results_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -136,21 +155,15 @@ def send_stats_to_minio():
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
-                "source_name": "general_stats.csv",
+                "source_name": f"{t}_results.csv",
                 "dest_path": "elections/",
-                "dest_name": "general_stats.csv",
-            },
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "candidats_stats.csv",
-                "dest_path": "elections/",
-                "dest_name": "candidats_stats.csv",
-            },
+                "dest_name": f"{t}_results.csv",
+            } for t in ['general', 'candidats']
         ],
     )
 
 
-def publish_stats_elections():
+def publish_results_elections():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
         data = json.load(fp)
     post_resource(
@@ -161,8 +174,12 @@ def publish_stats_elections():
         },
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
+        resource_payload={
+            'title': 'Résultats généraux',
+            'description': f"Résultats généraux des élections agrégés au niveau des bureaux de votes, créés à partir des données du Ministère de l'Intérieur (dernière modification : {datetime.today()})",
+        }
     )
-    print('Done with general stats')
+    print('Done with general results')
     post_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload={
@@ -171,6 +188,10 @@ def publish_stats_elections():
         },
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
+        resource_payload={
+            'title': 'Résultats par candidat',
+            'description': f"Résultats des élections par candidat agrégés au niveau des bureaux de votes, créés à partir des données du Ministère de l'Intérieur (dernière modification : {datetime.today()})",
+        }
     )
 
 
