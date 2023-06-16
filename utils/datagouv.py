@@ -7,8 +7,10 @@ from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 if AIRFLOW_ENV == "dev":
     DATAGOUV_URL = "https://demo.data.gouv.fr"
+    ORGA_REFERENCE = "63e3ae4082ddaa6c806b8417"
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
+    ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
 
 
 class File(TypedDict):
@@ -68,6 +70,7 @@ def post_resource(
     file_to_upload: File,
     dataset_id: str,
     resource_id: Optional[str] = None,
+    resource_payload: Optional[dict] = None,
 ):
     """Upload a resource in data.gouv.fr
 
@@ -78,6 +81,9 @@ def post_resource(
         dataset_id (str): ID of the dataset where to store resource
         resource_id (Optional[str], optional): ID of the resource where
         to upload file. If it is a new resource, let it to None.
+        Defaults to None.
+        resource_payload (Optional[dict], optional): payload to update the
+        resource's metadata, only if resource_id is given
         Defaults to None.
 
     Returns:
@@ -98,6 +104,9 @@ def post_resource(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
     r = requests.post(url, files=files, headers=headers)
     r.raise_for_status()
+    if resource_id and resource_payload:
+        r_put = requests.put(url.replace('upload/', ''), json=resource_payload, headers=headers)
+        r_put.raise_for_status()
     return r.json()
 
 
@@ -425,3 +434,14 @@ def post_remote_communautary_resource(
         )
     assert r.ok
     return r.json()
+
+
+def get_all_from_api_query(base_query):
+    # /!\ only for paginated endpoints
+    all_you_want = []
+    data = requests.get(base_query).json()
+    all_you_want += data["data"]
+    while data["next_page"]:
+        data = requests.get(data["next_page"]).json()
+        all_you_want += data["data"]
+    return all_you_want
