@@ -21,11 +21,9 @@ import glob
 from unidecode import unidecode
 import numpy as np
 import os
-import shutil
-import zipfile
 import pandas as pd
 import requests
-import time
+from datetime import datetime
 import json
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -1078,6 +1076,10 @@ def publish_stats_dvf(ti):
         },
         dataset_id=data[AIRFLOW_ENV]["dataset_id"],
         resource_id=data[AIRFLOW_ENV]["resource_id"],
+        resource_payload={
+            'title': 'Statistiques DVF',
+            'description': f"Statistiques sur les données DVF (dernière modification : {datetime.today()})",
+        }
     )
     ti.xcom_push(key="dataset_id", value=data[AIRFLOW_ENV]["dataset_id"])
 
