@@ -9,9 +9,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
+    alter_dvf_table,
     create_copro_table,
     populate_copro_table,
-    download_dpe,
     process_dpe,
     create_dpe_table,
     populate_dpe_table,
@@ -86,9 +86,12 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
-    download_dpe = PythonOperator(
+    download_dpe = BashOperator(
         task_id='download_dpe',
-        python_callable=download_dpe,
+        bash_command=(
+            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
+        )
     )
 
     process_dpe = PythonOperator(
@@ -104,6 +107,11 @@ with DAG(
     populate_dpe_table = PythonOperator(
         task_id='populate_dpe_table',
         python_callable=populate_dpe_table,
+    )
+
+    alter_dvf_table = PythonOperator(
+        task_id='alter_dvf_table',
+        python_callable=alter_dvf_table,
     )
 
     index_dpe_table = PythonOperator(
@@ -195,7 +203,8 @@ with DAG(
 
     create_dvf_table.set_upstream(download_dvf_data)
     populate_dvf_table.set_upstream(create_dvf_table)
-    index_dvf_table.set_upstream(populate_dvf_table)
+    alter_dvf_table.set_upstream(populate_dvf_table)
+    index_dvf_table.set_upstream(alter_dvf_table)
 
     get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)

@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS public.dvf;
-CREATE TABLE public.dvf
+DROP TABLE IF EXISTS dvf.dvf;
+CREATE TABLE dvf.dvf
 (
     id_mutation CHARACTER VARYING,
     date_mutation DATE,
@@ -40,8 +40,7 @@ CREATE TABLE public.dvf
     nature_culture_speciale CHARACTER VARYING,
     surface_terrain DECIMAL(12,2),
     longitude DECIMAL(9, 7),
-    latitude DECIMAL(9, 7),
-    section_prefixe VARCHAR(5)
+    latitude DECIMAL(9, 7)
 )
 WITH (
     OIDS = FALSE
