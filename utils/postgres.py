@@ -152,7 +152,7 @@ def copy_file(
     PG_PASSWORD: str,
     list_files: List[File],
     PG_SCHEMA: Optional[str] = None,
-    header: Optional[bool] = True,
+    has_header: Optional[bool] = True,
 ):
     """Copy raw data from local files to postgres instance
 
@@ -178,7 +178,7 @@ def copy_file(
         is_file = os.path.isfile(os.path.join(file["source_path"], file["source_name"]))
         if is_file:
             conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD, PG_SCHEMA)
-            if header:
+            if has_header:
                 sql = "COPY %s FROM STDIN WITH CSV HEADER DELIMITER AS ','"
             else:
                 sql = "COPY %s FROM STDIN WITH CSV DELIMITER AS ','"
