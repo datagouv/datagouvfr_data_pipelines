@@ -367,6 +367,7 @@ def post_remote_communautary_resource(
     format: str,
     remote_url: str,
     organisation_publication_id: str,
+    filesize: int,
     type: str = "main",
     schema: dict = {},
     description: str = ""
@@ -375,11 +376,15 @@ def post_remote_communautary_resource(
 
     Args:
         api_key (str): API key from data.gouv.fr
-        name (str): name of post.
-        headline (str): headline of post
-        content (str) : content of post
-        body_type (str) : body type of post (html or markdown)
-        tags: Option list of tags for post
+        dataset_id (str): id of the dataset
+        title (str): resource title
+        format (str): resource format
+        remote_url (str): resource distant URL
+        organisation_publication_id (str): organization with which to publish
+        filesize (int): resource size (bytes)
+        type (str): type of resource
+        schema (str): schema of the resource (if relevant) 
+        description (str): resource description
 
     Returns:
        json: return API result in a dictionnary containing metadatas
@@ -388,6 +393,7 @@ def post_remote_communautary_resource(
         "X-API-KEY": api_key,
     }
     community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
+    dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
 
     # Check if resource already exists
     data = requests.get(
@@ -401,6 +407,7 @@ def post_remote_communautary_resource(
         },
         "description": description,
         "filetype": "remote",
+        "filesize": filesize,
         "format": format,
         "organization": {
             "id": organisation_publication_id
@@ -410,8 +417,9 @@ def post_remote_communautary_resource(
         "type": type,
         "url": remote_url
     }
-    print(community_resource_url, resource_exists, payload, data)
+    print("Payload content:\n", payload)
     if resource_exists:
+        print(f"Updating resource at {dataset_link} from {remote_url}")
         # Update resource
         idx = np.argwhere(
             np.array([d.get('url', '') for d in data]) == remote_url
@@ -426,6 +434,7 @@ def post_remote_communautary_resource(
         )
 
     else:
+        print(f"Creating resource at {dataset_link} from {remote_url}")
         # Create resource
         r = requests.post(
             community_resource_url,

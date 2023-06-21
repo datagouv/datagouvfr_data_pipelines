@@ -17,18 +17,17 @@ import pandas as pd
 import os
 from datetime import datetime
 from unidecode import unidecode
-from csv_detective.explore_csv import routine
 
-DAG_FOLDER = "dag_datagouv_data_pipelines/data_processing/"
+DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
 SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
 
-conn = BaseHook.get_connection("POSTGRES_DEV")
-
-if AIRFLOW_ENV == "dev":
-    DATAGOUV_URL = "https://demo.data.gouv.fr"
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
+    conn = BaseHook.get_connection("POSTGRES_DEV")
+else:
+    DATAGOUV_URL = "https://demo.data.gouv.fr"
+    conn = BaseHook.get_connection("postgres_localhost")
 
 
 def process_rna():
@@ -53,42 +52,6 @@ def process_rna():
         )
     # export to csv
     df_rna.to_csv(os.path.join(DATADIR, "base_rna.csv"), index=False, encoding="utf8")
-    # analyse csv file just created
-    infos = routine(
-        csv_file_path=os.path.join(DATADIR, "base_rna.csv"),
-        num_rows=-1,
-        encoding="utf8",
-        verbose=True,
-    )
-    # use analysis results to create the query that creates the table
-    map_types = {"string": "CHARACTER VARYING", "date": "DATE", "int": "INTEGER"}
-    sql_columns = ",\n".join(
-        [
-            f"{k} {map_types.get(v['python_type'], 'CHARACTER VARYING')}"
-            for k, v in infos["columns"].items()
-        ]
-    )
-    query = f"""DROP TABLE IF EXISTS base_rna CASCADE;
-CREATE UNLOGGED TABLE base_rna (
-{sql_columns},
-PRIMARY KEY (id));
-"""
-    sql_file = os.path.join(SQLDIR, "create_rna_table.sql")
-    with open(sql_file, "w") as f:
-        f.write(query)
-        f.close()
-
-    # create query to index table
-    index_query = "\n".join(
-        [
-            f"CREATE INDEX {k}_idx ON base_rna USING btree ({k});"
-            for k in infos["columns"].keys()
-        ]
-    )
-    index_file = os.path.join(SQLDIR, "index_rna_table.sql")
-    with open(index_file, "w") as f:
-        f.write(index_query)
-        f.close()
 
 
 def create_rna_table():
@@ -100,7 +63,7 @@ def create_rna_table():
         conn.password,
         [
             {
-                "source_path": SQLDIR,
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/sql/",
                 "source_name": "create_rna_table.sql",
             }
         ],
@@ -125,7 +88,10 @@ def populate_utils(files, table):
 
 
 def populate_rna_table():
-    populate_utils([f"{DATADIR}/base_rna.csv"], "airflow.base_rna")
+    if AIRFLOW_ENV == "prod":
+        populate_utils([f"{DATADIR}/base_rna.csv"], "airflow.base_rna")
+    else:
+        populate_utils([f"{DATADIR}/base_rna.csv"], "base_rna")
 
 
 def index_rna_table():
@@ -137,7 +103,7 @@ def index_rna_table():
         conn.password,
         [
             {
-                "source_path": SQLDIR,
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/sql/",
                 "source_name": "index_rna_table.sql",
             }
         ],
@@ -147,7 +113,7 @@ def index_rna_table():
 def send_rna_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET="data-pipeline-open",
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -162,13 +128,21 @@ def send_rna_to_minio():
 
 
 def publish_rna_communautaire():
+    file_size = os.path.getsize(os.path.join(DATADIR, "base_rna.csv"))
+    if AIRFLOW_ENV == "prod":
+        # data.gouv.fr
+        orga_id = "646b7187b50b2a93b1ae3d45"
+    else:
+        # DataTeam
+        orga_id = "63e3ae4082ddaa6c806b8417"
     post_remote_communautary_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
         dataset_id="58e53811c751df03df38f42d",
         title="RNA agrégé",
         format="csv",
-        remote_url=f"https://object.files.data.gouv.fr/data-pipeline-open/{AIRFLOW_ENV}/rna/base_rna.csv",
-        organisation_publication_id="646b7187b50b2a93b1ae3d45", # data.gouv.fr
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/rna/base_rna.csv",
+        organisation_publication_id=orga_id,
+        filesize=file_size,
         description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})",
     )
 
@@ -177,7 +151,7 @@ def send_notification_mattermost(ti):
     send_message(
         text=(
             ":mega: Données des associations mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/58e53811c751df03df38f42d)"
         )
     )
