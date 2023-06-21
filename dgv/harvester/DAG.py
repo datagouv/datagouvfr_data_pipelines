@@ -20,7 +20,7 @@ def get_pending_harvester_from_api(ti):
     r = requests.get(
         "https://www.data.gouv.fr/api/1/harvest/sources/?page=" + str(page)
     )
-    maxpage = int(r.json()["total"] / r.json()["page_size"] + 1)
+    maxpage = int(r.json()["total"] / r.json()["page_size"]) + 1
     arr = []
     cpt = 0
     page = 0
@@ -29,6 +29,7 @@ def get_pending_harvester_from_api(ti):
             "https://www.data.gouv.fr/api/1/harvest/sources/?page=" + str(page + 1)
         )
         print("https://www.data.gouv.fr/api/1/harvest/sources/?page=" + str(page + 1))
+        r.raise_for_status()
         for d in r.json()["data"]:
             cpt = cpt + 1
             if d["validation"]["state"] == "pending":
