@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     copy_file
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 import gc
@@ -25,12 +25,18 @@ import pandas as pd
 import requests
 from datetime import datetime
 import json
+import shutil
+import zipfile
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 DPEDIR = f"{DATADIR}/dpe/"
+schema = 'dvf'
 
-conn = BaseHook.get_connection("POSTGRES_DEV_DVF")
+if AIRFLOW_ENV == 'prod':
+    conn = BaseHook.get_connection("POSTGRES_DEV_DVF")
+else:
+    conn = BaseHook.get_connection("postgres_localhost")
 
 
 def create_copro_table():
@@ -46,7 +52,128 @@ def create_copro_table():
                 "source_name": "create_copro_table.sql",
             }
         ],
-        'dvf',
+        schema,
+    )
+
+
+def create_dpe_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_dpe_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
+def create_dvf_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_dvf_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
+def index_dvf_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "index_dvf_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
+def create_stats_dvf_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_stats_dvf_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
+def create_distribution_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_distribution_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
+def create_whole_period_table():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "create_whole_period_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
+def populate_utils(files, table, has_header):
+    format_files = []
+    for file in files:
+        format_files.append(
+            {"source_path": f"{DATADIR}/", "source_name": file.split("/")[-1]}
+        )
+    copy_file(
+        PG_HOST=conn.host,
+        PG_PORT=conn.port,
+        PG_DB=conn.schema,
+        PG_TABLE=table,
+        PG_USER=conn.login,
+        PG_PASSWORD=conn.password,
+        list_files=format_files,
+        PG_SCHEMA=schema,
+        has_header=has_header,
     )
 
 
@@ -118,126 +245,19 @@ def populate_copro_table():
         if 'insee' in c:
             copro = copro.loc[copro[c].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
-    populate_utils([f"{DATADIR}/copro_clean.csv"], "dvf.copro", True)
-
-
-def create_dpe_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_dpe_table.sql",
-            }
-        ],
-        'dvf',
-    )
-
-
-def create_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_dvf_table.sql",
-            }
-        ],
-        'dvf',
-    )
-
-
-def index_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "index_dvf_table.sql",
-            }
-        ],
-        'dvf',
-    )
-
-
-def create_stats_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_stats_dvf_table.sql",
-            }
-        ],
-        'dvf',
-    )
-
-
-def create_distribution_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_distribution_table.sql",
-            }
-        ],
-        'dvf',
-    )
-
-
-def populate_utils(files, table, header):
-    format_files = []
-    for file in files:
-        format_files.append(
-            {"source_path": f"{DATADIR}/", "source_name": file.split("/")[-1]}
-        )
-    copy_file(
-        PG_HOST=conn.host,
-        PG_PORT=conn.port,
-        PG_DB=conn.schema,
-        PG_TABLE=table,
-        PG_USER=conn.login,
-        PG_PASSWORD=conn.password,
-        list_files=format_files,
-        PG_SCHEMA='dvf',
-        header=header,
-    )
+    table = f'{schema}.copro' if schema else "copro"
+    populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
 
 
 def populate_distribution_table():
-    populate_utils([f"{DATADIR}/distribution_prix.csv"], "dvf.distribution_prix", True)
+    table = f'{schema}.distribution_prix' if schema else "distribution_prix"
+    populate_utils([f"{DATADIR}/distribution_prix.csv"], table, True)
 
 
 def populate_dvf_table():
-    # files = glob.glob(f"{DATADIR}/full_*.csv")
-    # # adding section_prefixe column for API
-    # for file in files:
-    #     df = pd.read_csv(file, dtype=str)
-    #     df['section_prefixe'] = df['id_parcelle'].str.slice(5, 10)
-    #     df.to_csv(file.replace("full_", "enriched_"), index=False)
     files = glob.glob(f"{DATADIR}/full*.csv")
-    populate_utils(files, "dvf.dvf", True)
+    table = f'{schema}.dvf' if schema else "dvf"
+    populate_utils(files, table, True)
 
 
 def alter_dvf_table():
@@ -253,16 +273,23 @@ def alter_dvf_table():
                 "source_name": "alter_dvf_table.sql",
             }
         ],
-        'dvf',
+        schema,
     )
 
 
 def populate_stats_dvf_table():
-    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], "dvf.stats_dvf", True)
+    table = f'{schema}.stats_dvf' if schema else "stats_dvf"
+    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], table, True)
 
 
 def populate_dpe_table():
-    populate_utils([f"{DATADIR}/all_dpe.csv"], "dvf.dpe", False)
+    table = f'{schema}.dpe' if schema else "dpe"
+    populate_utils([f"{DATADIR}/all_dpe.csv"], table, False)
+
+
+def populate_whole_period_table():
+    table = f'{schema}.stats_whole_period' if schema else "stats_whole_period"
+    populate_utils([f"{DATADIR}/stats_whole_period.csv"], table, True)
 
 
 def get_epci():
@@ -286,7 +313,39 @@ def get_epci():
     pd.DataFrame(
         epci_list, columns=["code_commune", "code_epci", "libelle_geo"]
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
-    
+
+
+def download_dpe():
+    r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
+    urls = [
+        k['url'] for k in r.json()['resources']
+        if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
+    ]
+    if os.path.exists(DPEDIR):
+        shutil.rmtree(DPEDIR)
+    os.makedirs(DPEDIR)
+    for url in urls:
+        tmp = url.split('/')[-1].split('dep')[-1]
+        folder = tmp.replace('.zip', '')
+        print(tmp)
+        with requests.get(url) as r:
+            with open(DPEDIR + tmp, 'wb') as f:
+                f.write(r.content)
+                f.close()
+        with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
+            zip_ref.extractall(DPEDIR + folder)
+        os.remove(DPEDIR + tmp)
+        os.rename(
+            DPEDIR + folder + "/csv/batiment_groupe_dpe_representatif_logement.csv",
+            DPEDIR + folder + "/batiment_groupe_dpe_representatif_logement.csv"
+        )
+        os.rename(
+            DPEDIR + folder + "/csv/rel_batiment_groupe_parcelle.csv",
+            DPEDIR + folder + "/rel_batiment_groupe_parcelle.csv"
+        )
+        shutil.rmtree(DPEDIR + folder + "/csv")
+        shutil.rmtree(DPEDIR + folder + "/doc")
+
 
 def process_dpe():
     cols_dpe = [
@@ -354,8 +413,9 @@ def index_dpe_table():
                 "source_name": "index_dpe_table.sql",
             }
         ],
-        'dvf',
+        schema,
     )
+
 
 def process_dvf_stats(ti):
     years = sorted(
@@ -504,7 +564,7 @@ def process_dvf_stats(ti):
         echelles_of_interest = ["departement", "epci", "commune", "section"]
         export_intermediary = []
 
-        for m in range(1, 13): 
+        for m in range(1, 13):
             dfs_dict = {}
             for echelle in echelles_of_interest:
                 # ici on utilise bien le df ventes, qui contient l'ensemble
@@ -770,7 +830,7 @@ def process_dvf_stats(ti):
         print("Done with year " + str(year))
 
 
-def create_distribution():
+def create_distribution_and_stats_whole_period():
     def process_borne(borne, borne_inf, borne_sup):
         # handle rounding of bounds
         if round(borne, -2) <= borne_inf or round(borne, -2) >= borne_sup:
@@ -832,7 +892,7 @@ def create_distribution():
         DATADIR + "/stats_dvf_api.csv",
         sep=",",
         encoding="utf8",
-        usecols=['echelle_geo', 'code_geo']
+        usecols=['echelle_geo', 'code_geo', 'code_parent']
     )
     echelles = echelles.drop_duplicates()
     # on récupère les données DVF
@@ -843,7 +903,7 @@ def create_distribution():
             if "full_" in f and ".gz" not in f
         ]
     )
-    dvf = pd.DataFrame(None)
+    dvf = []
     epci = pd.read_csv(
         DATADIR + "/epci.csv",
         sep=",",
@@ -950,24 +1010,29 @@ def create_distribution():
 
         # pas de prix ou pas de surface
         ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
-        dvf = pd.concat([dvf, ventes_nodup])
+        dvf.append(ventes_nodup)
         del ventes_nodup
 
+    dvf = pd.concat(dvf, ignore_index=True)
     dvf = pd.merge(
         dvf,
         epci[['code_commune', 'code_epci']],
         on="code_commune",
         how="left"
     )
-    echelles_of_interest = ["departement", "epci", "commune", ]
+    echelles_of_interest = ["departement", "epci", ]
+    # "commune", ]
     # "section"]
     types_of_interest = {
         'appartement': [2],
         'maison': [1],
-        'apt+maison': [1, 2],
+        'apt_maison': [1, 2],
         'local': [4],
     }
     dvf = dvf[['code_' + e for e in echelles_of_interest] + ['code_type_local'] + ['prix_m2']]
+    stats_period = {
+        c: {'code_geo': c, 'code_parent': p} for c, p in zip(echelles['code_geo'], echelles['code_parent'])
+    }
     threshold = 100
     tranches = []
     for t in types_of_interest:
@@ -975,7 +1040,11 @@ def create_distribution():
             dvf['code_type_local'].isin(types_of_interest[t])
         ].drop('code_type_local', axis=1)
         # échelle nationale
-        intervalles, volumes = distrib_from_prix(restr_type_dvf['prix_m2'])
+        prix = restr_type_dvf['prix_m2']
+        intervalles, volumes = distrib_from_prix(prix)
+        stats_period['nation'].update({f'nb_ventes_whole_{t}': len(prix)})
+        stats_period['nation'].update({f'moy_prix_m2_whole_{t}': round(prix.mean())})
+        stats_period['nation'].update({f'med_prix_m2_whole_{t}': round(prix.median())})
         echelle_dict = {
             'code_geo': 'nation',
             'type_local': t,
@@ -997,6 +1066,9 @@ def create_distribution():
                     prix = restr_dvf.loc[code]
                     if not isinstance(prix, pd.core.series.Series):
                         prix = pd.Series(prix)
+                    stats_period[code].update({f'nb_ventes_whole_{t}': len(prix)})
+                    stats_period[code].update({f'moy_prix_m2_whole_{t}': round(prix.mean())})
+                    stats_period[code].update({f'med_prix_m2_whole_{t}': round(prix.median())})
                     if len(prix) >= threshold:
                         intervalles, volumes = distrib_from_prix(prix)
                         tranches.append({
@@ -1026,12 +1098,21 @@ def create_distribution():
         encoding="utf8",
         index=False,
     )
+    print("Done exporting distribution")
+    output_stats = pd.DataFrame(stats_period.values())
+    output_stats.to_csv(
+        DATADIR + "/stats_whole_period.csv",
+        sep=",",
+        encoding="utf8",
+        index=False,
+        float_format='%.0f'
+    )
 
 
 def send_stats_to_minio():
-    print(MINIO_URL)
-    print('il est là :', MINIO_BUCKET_DATA_PIPELINE, '<=')
-    print(SECRET_MINIO_DATA_PIPELINE_USER)
+    # print(MINIO_URL)
+    # print('il est là :', MINIO_BUCKET_DATA_PIPELINE, '<=')
+    # print(SECRET_MINIO_DATA_PIPELINE_USER)
     send_files(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
@@ -1086,14 +1167,10 @@ def publish_stats_dvf(ti):
 
 def notification_mattermost(ti):
     dataset_id = ti.xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
-    if AIRFLOW_ENV == "dev":
-        url = "https://demo.data.gouv.fr/fr/datasets/"
-    if AIRFLOW_ENV == "prod":
-        url = "https://www.data.gouv.fr/fr/datasets/"
     send_message(
         f"Stats DVF générées :"
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({url}{dataset_id})"
+        f"({DATAGOUV_URL}/fr/datasets/{dataset_id})"
         f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE}/browse)"
     )
