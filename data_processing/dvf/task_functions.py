@@ -508,47 +508,16 @@ def process_dvf_stats(ti):
         )
         print(len(ventes))
 
-        # drop mutations multitypes pour les prix au m², impossible de
-        # classer une mutation qui contient X maisons et Y appartements
-        # par exemple
-        multitypes = ventes[["id_mutation", "code_type_local"]].value_counts()
-        multitypes_ = multitypes.unstack()
-        mutations_drop = multitypes_.loc[
-            sum(
-                [multitypes_[c].isna() for c in multitypes_.columns]
-            ) < len(multitypes_.columns) - 1
-        ].index
-        ventes_nodup = ventes.loc[
-            ~(ventes["id_mutation"].isin(mutations_drop)) &
-            ~(ventes["code_type_local"].isna())
-        ]
+        # on ne garde que les ventes d'un seul bien
+        # cf historique pour les ventes multi-types
+        count_ventes = ventes['id_mutation'].value_counts().reset_index()
+        liste_ventes_monobien = count_ventes.loc[count_ventes['id_mutation'] == 1, 'index']
+        ventes_nodup = ventes.loc[ventes['id_mutation'].isin(liste_ventes_monobien)]
         print(len(ventes_nodup))
 
-        # group par mutation, on va chercher la surface totale de la mutation
-        # pour le prix au m²
-        surfaces = (
-            ventes_nodup.groupby(["id_mutation"])["surface_reelle_bati"]
-            .sum()
-            .reset_index()
-        )
-        surfaces.columns = ["id_mutation", "surface_totale_mutation"]
-        # avec le inner merge sur surfaces on se garantit aucune ambiguïté sur
-        # les type_local
-        ventes_nodup = ventes.drop_duplicates(subset="id_mutation")
-        ventes_nodup = pd.merge(
-            ventes_nodup,
-            surfaces,
-            on="id_mutation",
-            how="inner"
-        )
-        print(len(ventes_nodup))
-
-        # pour une mutation donnée la valeur foncière est globale,
-        # on la divise par la surface totale, sachant qu'on n'a gardé
-        # que les mutations monotypes
         ventes_nodup["prix_m2"] = (
             ventes_nodup["valeur_fonciere"] /
-            ventes_nodup["surface_totale_mutation"]
+            ventes_nodup["surface_reelle_bati"]
         )
         ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
             [np.inf, -np.inf], np.nan
@@ -559,6 +528,7 @@ def process_dvf_stats(ti):
 
         # garde fou pour les valeurs aberrantes
         ventes_nodup = ventes_nodup.loc[ventes_nodup['prix_m2'] < 100000]
+        print(len(ventes_nodup))
 
         types_of_interest = [1, 2, 4]
         echelles_of_interest = ["departement", "epci", "commune", "section"]
@@ -960,49 +930,16 @@ def create_distribution_and_stats_whole_period():
             (df["code_type_local"].isin([1, 2, 4]))
         ]
         del df
-        # drop mutations multitypes pour les prix au m², impossible de
-        # classer une mutation qui contient X maisons et Y appartements
-        # par exemple
-        # à voir pour la suite : quid des mutations avec dépendances, dont
-        # le le prix est un prix de lot ? prix_m2 = prix_lot/surface_bien ?
-        multitypes = ventes[["id_mutation", "code_type_local"]].value_counts()
-        multitypes_ = multitypes.unstack()
-        mutations_drop = multitypes_.loc[
-            sum(
-                [multitypes_[c].isna() for c in multitypes_.columns]
-            ) < len(multitypes_.columns) - 1
-        ].index
-        ventes_nodup = ventes.loc[
-            ~(ventes["id_mutation"].isin(mutations_drop)) &
-            ~(ventes["code_type_local"].isna())
-        ]
-        print(len(ventes_nodup))
 
-        # group par mutation, on va chercher la surface totale de la mutation
-        # pour le prix au m²
-        surfaces = (
-            ventes_nodup.groupby(["id_mutation"])["surface_reelle_bati"]
-            .sum()
-            .reset_index()
-        )
-        surfaces.columns = ["id_mutation", "surface_totale_mutation"]
-        # avec le inner merge sur surfaces on se garantit aucune ambiguïté sur
-        # les type_local
-        ventes_nodup = ventes.drop_duplicates(subset="id_mutation")
-        ventes_nodup = pd.merge(
-            ventes_nodup,
-            surfaces,
-            on="id_mutation",
-            how="inner"
-        )
-        print(len(ventes_nodup))
+        # on ne garde que les ventes d'un seul bien
+        # cf historique pour les ventes multi-types
+        count_ventes = ventes['id_mutation'].value_counts().reset_index()
+        liste_ventes_monobien = count_ventes.loc[count_ventes['id_mutation'] == 1, 'index']
+        ventes_nodup = ventes.loc[ventes['id_mutation'].isin(liste_ventes_monobien)]
 
-        # pour une mutation donnée la valeur foncière est globale,
-        # on la divise par la surface totale, sachant qu'on n'a gardé
-        # que les mutations monotypes
         ventes_nodup["prix_m2"] = (
             ventes_nodup["valeur_fonciere"] /
-            ventes_nodup["surface_totale_mutation"]
+            ventes_nodup["surface_reelle_bati"]
         )
         ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
             [np.inf, -np.inf], np.nan
@@ -1020,7 +957,8 @@ def create_distribution_and_stats_whole_period():
         on="code_commune",
         how="left"
     )
-    echelles_of_interest = ["departement", "epci", "commune", ]
+    echelles_of_interest = ["departement", "epci", ]
+    # "commune", ]
     # "section"]
     types_of_interest = {
         'appartement': [2],
