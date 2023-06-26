@@ -537,18 +537,13 @@ def process_dvf_stats(ti):
         for m in range(1, 13):
             dfs_dict = {}
             for echelle in echelles_of_interest:
-                # ici on utilise bien le df ventes, qui contient l'ensemble
-                # des ventes sans filtres autres que les types de mutations
-                # d'intérêt
-                nb = (
-                    ventes.loc[ventes["code_type_local"].isin(
-                        types_of_interest
-                    )]
-                    .groupby([f"code_{echelle}", "month", "type_local"])[
-                        "valeur_fonciere"
-                    ]
-                    .count()
-                )
+                grouped = ventes_nodup.loc[
+                    ventes_nodup["code_type_local"].isin(types_of_interest)
+                ].groupby(
+                    [f"code_{echelle}", "month", "type_local"]
+                )["prix_m2"]
+
+                nb = grouped.count()
                 nb_ = (
                     nb.loc[nb.index.get_level_values(1) == m]
                     .unstack()
@@ -562,13 +557,6 @@ def process_dvf_stats(ti):
                     for c in nb_.columns
                 ]
 
-                # pour mean et median on utlise le df nodup, dans lequel on a
-                # drop_dup sur les mutations
-                grouped = ventes_nodup.loc[
-                    ventes_nodup["code_type_local"].isin(types_of_interest)
-                ].groupby(
-                    [f"code_{echelle}", "month", "type_local"]
-                )["prix_m2"]
                 mean = grouped.mean()
                 mean_ = (
                     mean.loc[mean.index.get_level_values(1) == m]
