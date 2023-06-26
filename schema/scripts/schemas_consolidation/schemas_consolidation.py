@@ -115,6 +115,7 @@ def parse_api_search(url: str, api_url: str) -> pd.DataFrame:
                     else:
                         filename = res["url"].split("/")[-1]
                     ext = filename.split(".")[-1]
+                    detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";").trim()
                     obj = {}
                     obj["dataset_id"] = dataset["id"]
                     obj["dataset_title"] = dataset["title"]
@@ -124,7 +125,9 @@ def parse_api_search(url: str, api_url: str) -> pd.DataFrame:
                     obj["resource_title"] = res["title"]
                     obj["resource_url"] = res["url"]
                     obj["resource_last_modified"] = res["last_modified"]
-                    if ext not in ["csv", "xls", "xlsx"]:
+                    appropriate_extension = ext in ["csv", "xls", "xlsx"]
+                    appropriate_mime = detected_mime in ["text/csv", "application/vnd.ms-excel"]
+                    if not (appropriate_extension or appropriate_mime):
                         obj["error_type"] = "wrong-file-format"
                     else:
                         if not dataset["organization"] and not dataset["owner"]:
