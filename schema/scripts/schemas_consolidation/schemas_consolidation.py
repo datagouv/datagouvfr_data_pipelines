@@ -115,7 +115,7 @@ def parse_api_search(url: str, api_url: str) -> pd.DataFrame:
                     else:
                         filename = res["url"].split("/")[-1]
                     ext = filename.split(".")[-1]
-                    detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";").trim()
+                    detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
                     obj = {}
                     obj["dataset_id"] = dataset["id"]
                     obj["dataset_title"] = dataset["title"]
