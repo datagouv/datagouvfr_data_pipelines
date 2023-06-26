@@ -945,8 +945,7 @@ def create_distribution_and_stats_whole_period():
         on="code_commune",
         how="left"
     )
-    echelles_of_interest = ["departement", "epci", ]
-    # "commune", ]
+    echelles_of_interest = ["departement", "epci", "commune", ]
     # "section"]
     types_of_interest = {
         'appartement': [2],
