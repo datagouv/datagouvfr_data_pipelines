@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS distribution_prix CASCADE;
-CREATE UNLOGGED TABLE distribution_prix (
+DROP TABLE IF EXISTS dvf.distribution_prix CASCADE;
+CREATE UNLOGGED TABLE dvf.distribution_prix (
 code_geo VARCHAR(20),
 type_local VARCHAR(11),
 xaxis TEXT,

@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS dpe CASCADE;
-CREATE UNLOGGED TABLE dpe (
+DROP TABLE IF EXISTS dvf.dpe CASCADE;
+CREATE UNLOGGED TABLE dvf.dpe (
 batiment_groupe_id VARCHAR(30),
 identifiant_dpe VARCHAR(13),
 type_batiment_dpe VARCHAR(11),

@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     alter_dvf_table,
     create_copro_table,
     populate_copro_table,
+    download_dpe,
     process_dpe,
     create_dpe_table,
     populate_dpe_table,
@@ -26,9 +27,11 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     publish_stats_dvf,
     send_stats_to_minio,
     notification_mattermost,
-    create_distribution,
+    create_distribution_and_stats_whole_period,
     create_distribution_table,
     populate_distribution_table,
+    create_whole_period_table,
+    populate_whole_period_table,
     send_distribution_to_minio
 )
 
@@ -86,12 +89,9 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
-    download_dpe = BashOperator(
+    download_dpe = PythonOperator(
         task_id='download_dpe',
-        bash_command=(
-            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
-        )
+        python_callable=download_dpe,
     )
 
     process_dpe = PythonOperator(
@@ -144,9 +144,9 @@ with DAG(
         python_callable=process_dvf_stats,
     )
 
-    create_distribution = PythonOperator(
-        task_id='create_distribution',
-        python_callable=create_distribution,
+    create_distribution_and_stats_whole_period = PythonOperator(
+        task_id='create_distribution_and_stats_whole_period',
+        python_callable=create_distribution_and_stats_whole_period,
     )
 
     create_distribution_table = PythonOperator(
@@ -172,6 +172,16 @@ with DAG(
     populate_stats_dvf_table = PythonOperator(
         task_id='populate_stats_dvf_table',
         python_callable=populate_stats_dvf_table,
+    )
+
+    create_whole_period_table = PythonOperator(
+        task_id='create_whole_period_table',
+        python_callable=create_whole_period_table,
+    )
+
+    populate_whole_period_table = PythonOperator(
+        task_id='populate_whole_period_table',
+        python_callable=populate_whole_period_table,
     )
 
     send_stats_to_minio = PythonOperator(
@@ -209,10 +219,12 @@ with DAG(
     get_epci.set_upstream(download_dvf_data)
     process_dvf_stats.set_upstream(get_epci)
 
-    create_distribution.set_upstream(process_dvf_stats)
-    create_distribution_table.set_upstream(create_distribution)
+    create_distribution_and_stats_whole_period.set_upstream(process_dvf_stats)
+    create_distribution_table.set_upstream(create_distribution_and_stats_whole_period)
     populate_distribution_table.set_upstream(create_distribution_table)
-    send_distribution_to_minio.set_upstream(create_distribution)
+    create_whole_period_table.set_upstream(create_distribution_and_stats_whole_period)
+    populate_whole_period_table.set_upstream(create_whole_period_table)
+    send_distribution_to_minio.set_upstream(create_distribution_and_stats_whole_period)
 
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
@@ -227,3 +239,4 @@ with DAG(
     notification_mattermost.set_upstream(index_dvf_table)
     notification_mattermost.set_upstream(send_distribution_to_minio)
     notification_mattermost.set_upstream(populate_distribution_table)
+    notification_mattermost.set_upstream(populate_whole_period_table)

@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS stats_dvf CASCADE;
-CREATE UNLOGGED TABLE stats_dvf (
+DROP TABLE IF EXISTS dvf.stats_dvf CASCADE;
+CREATE UNLOGGED TABLE dvf.stats_dvf (
     code_geo VARCHAR(20),
     nb_ventes_maison INT,
     moy_prix_m2_maison INT,

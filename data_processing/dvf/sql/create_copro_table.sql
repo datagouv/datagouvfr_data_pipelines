@@ -1,5 +1,5 @@
-DROP TABLE IF EXISTS copro CASCADE;
-CREATE UNLOGGED TABLE copro (
+DROP TABLE IF EXISTS dvf.copro CASCADE;
+CREATE UNLOGGED TABLE dvf.copro (
 epci VARCHAR(9),
 commune VARCHAR(50),
 numero_immatriculation VARCHAR(10),
