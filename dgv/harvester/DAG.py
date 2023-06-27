@@ -29,7 +29,7 @@ def get_pending_harvester_from_api(ti):
                          else f"https://www.data.gouv.fr/fr/users/{harvest['owner']['id']}"),
             "id": harvest["id"]
         }
-        for harvest in harvesterss
+        for harvest in harvesters
         if harvest["validation"]["state"] == "pending"
     ]
     ti.xcom_push(key="list_pendings", value=harvesters)
