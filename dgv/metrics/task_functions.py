@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.utils.minio import (
 from datagouvfr_data_pipelines.utils.postgres import (
     copy_file,
     execute_sql_file,
+    execute_query,
 )
 
 from datagouvfr_data_pipelines.config import (
@@ -89,7 +90,6 @@ def copy_log_to_processed_folder(ti):
     copy_log(new_logs, "/ongoing/", "/processed/")
 
 
-
 def download_catalog():
     get_resource(
         resource_id="f868cca6-8da1-4369-a78d-47463f19a9a3",
@@ -121,7 +121,7 @@ def download_catalog():
     )
 
 
-def remove_files_if_exists(log, folder):
+def remove_files_if_exists(folder):
     isExist = os.path.exists(f"{TMP_FOLDER}{folder}")
     if not isExist:
         os.makedirs(f"{TMP_FOLDER}{folder}")
@@ -162,7 +162,7 @@ def search_pattern_resource_static(pattern, value, type_object):
     return None, False, None
 
 
-def get_info(parsed_line, catalog_resources):
+def get_info(parsed_line):
     languages = ["fr", "en", "es"]
     patterns_datasets = [f"/{lang}/datasets/" for lang in languages]
     patterns_reuses = [f"/{lang}/reuses/" for lang in languages]
@@ -176,13 +176,9 @@ def get_info(parsed_line, catalog_resources):
     if "DATAGOUVFR_RGS~" in parsed_line:
         for item in parsed_line:
             found_date = search_date(item)
-            if found_date: date_line = found_date
+            if found_date:
+                date_line = found_date
             slug, found, detect = search_pattern(patterns_resources_id, item, "resources-id")
-            # if (
-            #     catalog_resources[catalog_resources["id"] == found].shape[0] > 0
-            #     and "static.data.gouv.fr" in catalog_resources[catalog_resources["id"] == found]["url"].iloc[0]["url"]
-            # ):
-            #     slug = None
             if not found:
                 slug, found, detect = search_pattern(patterns_datasets, item, "datasets")
             if not found:
@@ -191,10 +187,6 @@ def get_info(parsed_line, catalog_resources):
                 slug, found, detect = search_pattern(patterns_organizations, item, "organizations")
             if not found:
                 slug, found, detect = search_pattern_resource_static(pattern_resources_static, item, "resources-static")
-                # if (
-                #     catalog_resources[catalog_resources["url"] == found].shape[0] > 0
-                # ):
-                #     slug = catalog_resources[catalog_resources["url"] == found].iloc[0]["id"]
             if slug:
                 slug_line = slug
                 type_detect = detect
@@ -260,13 +252,13 @@ def append_chunk(cpt, obj_type, arr, list_obj, log):
             fp.write(f"{d['id']},{d['date']}\n")
 
 
-def parse(lines, catalog_resources):
+def parse(lines):
     list_obj = []
     for b_line in lines:
         try:
             slug_line = None
             parsed_line = b_line.decode("utf-8").split()
-            date_line, slug_line, type_detect = get_info(parsed_line, catalog_resources)
+            date_line, slug_line, type_detect = get_info(parsed_line)
             if slug_line:
                 list_obj.append({"type": type_detect, "id": slug_line, "date": date_line})
                 if len(list_obj) == 10000:
@@ -278,15 +270,18 @@ def parse(lines, catalog_resources):
     save_list_obj(list_obj)
 
 
+def get_unique_dates(first_list, second_list):
+    in_first = set(first_list)
+    in_second = set(second_list)
+    in_second_but_not_in_first = in_second - in_first
+    result = first_list + list(in_second_but_not_in_first)
+    return result
+
+
 def process_log(ti):
     new_logs = ti.xcom_pull(key="new_logs", task_ids="get_new_logs")
     newlogs = [nl.replace("/new/", "/ongoing/") for nl in new_logs]
-    catalog_resources = pd.read_csv(
-        f"{TMP_FOLDER}catalog_resources.csv",
-        dtype=str,
-        sep=";",
-        usecols=["id", "url", "dataset.id", "dataset.organization_id"]
-    )
+    all_dates_processed = []
     ACTIVE_LOG = 0
     for nl in newlogs:
         get_files(
@@ -305,15 +300,18 @@ def process_log(ti):
         )
         ACTIVE_LOG = ACTIVE_LOG + 1
 
-        remove_files_if_exists(ACTIVE_LOG, "outputs")
-        remove_files_if_exists(ACTIVE_LOG, "found")
+        remove_files_if_exists("outputs")
+        remove_files_if_exists("found")
         print("---------------")
         print(ACTIVE_LOG)
-        file = gzip.open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "rb")
+        if nl[-3:] == ".gz":
+            file = gzip.open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "rb")
+        else:
+            file = open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "r")
         lines = file.readlines()
         print("haproxy loaded")
         print("parse lines")
-        parse(lines, catalog_resources)
+        parse(lines)
 
         try:
             print("---- datasets -----")
@@ -348,6 +346,7 @@ def process_log(ti):
             df[["date_metric", "dataset_id", "organization_id", "nb_visit"]].to_csv(
                 f"{TMP_FOLDER}outputs/datasets-{ACTIVE_LOG}.csv", index=False, header=False
             )
+            all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
             print("empty data datasets")
 
@@ -384,6 +383,7 @@ def process_log(ti):
             df[["date_metric", "organization_id", "nb_visit"]].to_csv(
                 f"{TMP_FOLDER}outputs/organizations-{ACTIVE_LOG}.csv", index=False, header=False
             )
+            all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
             print("empty data organizations")
 
@@ -420,29 +420,46 @@ def process_log(ti):
             df[["date_metric", "reuse_id", "organization_id", "nb_visit"]].to_csv(
                 f"{TMP_FOLDER}outputs/reuses-{ACTIVE_LOG}.csv", index=False, header=False
             )
+            all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
             print("empty data reuses")
+    
+        try:
+            print("--- resources ----")
+            df_catalog = pd.read_csv(
+                f"{TMP_FOLDER}catalog_resources.csv",
+                dtype=str,
+                sep=";",
+                usecols=["id", "url", "dataset.id", "dataset.organization_id"]
+            )
+            res1 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-id.csv", dtype=str, header=None, sep=";")
+            # remove resource when static
+            res1 = res1.rename(columns={0: "date_metric", 1: "id"})
+            res1 = pd.merge(res1, df_catalog[["id", "url"]], on="id", how="left")
+            res1["is_static"] = res1["url"].apply(lambda x: True if "static.data.gouv.fr" in str(x) else False)
+            print("shape", res1.shape[0])
+            res1 = res1[res1["is_static"] == False]
+            res1 = res1[["date_metric", "id"]]
+            print("shape", res1.shape[0])
 
-        # try:
-        #     print("--- resources ----")
-        #     res1 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-id.csv", dtype=str, header=None, sep=";")
-        #     res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv", dtype=str, header=None, sep=";")
-        #     res2 = res2.rename(columns={0: "date_metric", 1: "url"})
-        #     res2 = pd.merge(res2, catalog_resources[["id", "url"]], on="url")
-        #     res2 = res2[res2["id"].notna()][["date_metric", "id"]]
-        #     res2 = res2.rename(columns={"date_metric": 0, "id": 1})
-        #     resources = pd.concat([res1, res2])
-        #     resources[3] = 1
-        #     resources = resources.groupby([0, 1], as_index=False).count().sort_values(by=[3], ascending=False)
-        #     resources = resources.rename(columns={0: "resource_id", 1: "date_metric", 3: "nb_visit"})
-        #     resources = pd.merge(resources, catalog_resources[["id", "dataset.id", "dataset.organization_id"]].rename(columns={"id": "resource_id"}), on="resource_id", how="left")
-        #     resources = resources.rename(columns={"dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
-        #     resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
-        #     resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]].to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
-        # except FileNotFoundError:
-        #     print("no data resources file")
-        # except pd.errors.EmptyDataError:
-        #     print("empty data resources id or static")
+            res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv", dtype=str, header=None, sep=";")
+            res2 = res2.rename(columns={0: "date_metric", 1: "url"})
+            res2 = pd.merge(res2, df_catalog[["id", "url"]], on="url", how="left")
+            res2 = res2[res2["id"].notna()][["date_metric", "id"]]
+
+            resources = pd.concat([res1, res2])
+            resources["nb_visit"] = 1
+            resources = resources.groupby(["date_metric", "id"], as_index=False).count().sort_values(by=["nb_visit"], ascending=False)
+            resources = pd.merge(resources, df_catalog[["id", "dataset.id", "dataset.organization_id"]], on="id", how="left")
+            resources = resources.rename(columns={"id": "resource_id", "dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
+            resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
+            resources.to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
+            all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
+        except FileNotFoundError:
+            print("no data resources file")
+        except pd.errors.EmptyDataError:
+            print("empty data resources id or static")
+    ti.xcom_push(key="all_dates_processed", value=all_dates_processed)
 
 
 def get_matomo_outlinks(model, slug, target, metric_date):
@@ -512,7 +529,8 @@ def process_matomo():
     print("Done")
 
 
-def save_metrics_to_postgres():
+def save_metrics_to_postgres(ti):
+    all_dates_processed = ti.xcom_pull(key="all_dates_processed", task_ids="process_log")
     config = [
         {
             "name": "datasets",
@@ -538,7 +556,7 @@ def save_metrics_to_postgres():
                     PG_HOST=conn.host,
                     PG_PORT=conn.port,
                     PG_DB=conn.schema,
-                    PG_TABLE=f"{conn.schema}.visits_{obj['name']}",
+                    PG_TABLE=f"airflow.visits_{obj['name']}",
                     PG_USER=conn.login,
                     PG_PASSWORD=conn.password,
                     list_files=[
@@ -550,7 +568,64 @@ def save_metrics_to_postgres():
                         }
                     ],
                 )
-
+    for date_processed in all_dates_processed:
+        for item in ["dataset", "resource", "reuse", "organization"]:
+            # First we sum rows with same id and date
+            # it has for consequence to duplicates rows but with true nb_visit values
+            execute_query(
+                PG_HOST=conn.host,
+                PG_PORT=conn.port,
+                PG_DB=conn.schema,
+                PG_USER=conn.login,
+                PG_PASSWORD=conn.password,
+                sql=f"""
+                        UPDATE airflow.visits_{item}s
+                        SET nb_visit = t.sum
+                        FROM (
+                            SELECT 
+                                date_metric, 
+                                {item}_id,
+                                SUM(nb_visit)
+                            FROM 
+                                airflow.visits_{item}s
+                            GROUP BY 
+                                date_metric,
+                                {item}_id
+                        ) t 
+                        WHERE 
+                            airflow.visits_{item}s.date_metric = t.date_metric 
+                        AND
+                            airflow.visits_{item}s.{item}_id = t.{item}_id
+                        AND
+                            airflow.visits_{item}s.date_metric = '{date_processed}'
+                    """
+            )
+            # Second we delete max id row to do not keep duplicates
+            execute_query(
+                PG_HOST=conn.host,
+                PG_PORT=conn.port,
+                PG_DB=conn.schema,
+                PG_USER=conn.login,
+                PG_PASSWORD=conn.password,
+                sql=f"""
+                        DELETE FROM 
+                            airflow.visits_{item}s
+                        WHERE
+                            id NOT IN (
+                                SELECT 
+                                    MIN(id)
+                                FROM
+                                    airflow.visits_{item}s
+                                WHERE
+                                    airflow.visits_{item}s.date_metric = '{date_processed}' 
+                                GROUP BY
+                                    date_metric,
+                                    {item}_id
+                            )
+                        AND
+                            airflow.visits_{item}s.date_metric = '{date_processed}'
+                    """
+            )
 
 def save_matomo_to_postgres():
     config = [
