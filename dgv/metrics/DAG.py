@@ -41,6 +41,11 @@ with DAG(
         folder_path=TMP_FOLDER
     )
 
+    create_metrics_tables = PythonOperator(
+        task_id='create_metrics_tables',
+        python_callable=create_metrics_tables,
+    )
+
     get_new_logs = ShortCircuitOperator(
         task_id='get_new_logs',
         python_callable=get_new_logs,
@@ -66,11 +71,6 @@ with DAG(
         python_callable=process_matomo,
     )
 
-    create_metrics_tables = PythonOperator(
-        task_id='create_metrics_tables',
-        python_callable=create_metrics_tables,
-    )
-
     save_metrics_to_postgres = PythonOperator(
         task_id='save_metrics_to_postgres',
         python_callable=save_metrics_to_postgres,
@@ -86,15 +86,13 @@ with DAG(
         python_callable=copy_log_to_processed_folder,
     )
 
-    get_new_logs.set_upstream(clean_previous_outputs)
-    download_catalog.set_upstream(clean_previous_outputs)
     create_metrics_tables.set_upstream(clean_previous_outputs)
+    get_new_logs.set_upstream(create_metrics_tables)
+    download_catalog.set_upstream(create_metrics_tables)
     copy_log_to_ongoing_folder.set_upstream(get_new_logs)
     process_log.set_upstream(copy_log_to_ongoing_folder)
     process_log.set_upstream(download_catalog)
     save_metrics_to_postgres.set_upstream(process_log)
-    save_metrics_to_postgres.set_upstream(create_metrics_tables)
     copy_log_to_processed_folder.set_upstream(save_metrics_to_postgres)
     process_matomo.set_upstream(download_catalog)
     save_matomo_to_postgres.set_upstream(process_matomo)
-    save_matomo_to_postgres.set_upstream(create_metrics_tables)
