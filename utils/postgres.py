@@ -137,6 +137,8 @@ def copy_file(
     PG_USER: str,
     PG_PASSWORD: str,
     list_files: List[File],
+    PG_SCHEMA: Optional[str] = None,
+    has_header: Optional[bool] = True,
 ):
     """Copy raw data from local files to postgres instance
 
@@ -158,20 +160,17 @@ def copy_file(
         _type_: _description_
     """
     for file_conf in list_files:
-        print(file_conf)
-        is_file = os.path.isfile(
-            os.path.join(file_conf["source_path"], file_conf["source_name"])
-        )
+        is_file = os.path.isfile(os.path.join(file_conf["source_path"], file_conf["source_name"]))
         if is_file:
-            conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD)
+            conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD, PG_SCHEMA)
             if "column_order" in file_conf and file_conf["column_order"] is not None:
                 COLUMNS = file_conf["column_order"]
             else:
                 COLUMNS = ""
-            if "header" in file_conf and file_conf["header"] is False:
-                HEADER = ""
-            else:
+            if has_header:
                 HEADER = "HEADER"
+            else:
+                HEADER = ""
             file = open(
                 os.path.join(file_conf["source_path"], file_conf["source_name"]), "r"
             )
@@ -188,6 +187,6 @@ def copy_file(
                 conn.close()
         else:
             raise Exception(
-                f"file {file['source_path']}{file['source_name']} does not exists"
+                f"file {file_conf['source_path']}{file_conf['source_name']} does not exists"
             )
     return data

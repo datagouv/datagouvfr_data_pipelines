@@ -19,7 +19,6 @@ from datagouvfr_data_pipelines.utils.minio import (
 from datagouvfr_data_pipelines.utils.postgres import (
     copy_file,
     execute_sql_file,
-    execute_query,
 )
 
 from datagouvfr_data_pipelines.config import (
@@ -554,9 +553,9 @@ def save_metrics_to_postgres(ti):
                             "source_path": "/".join(lf.split("/")[:-1])+"/",
                             "source_name": lf.split("/")[-1],
                             "column_order": obj["columns"],
-                            "header": False
                         }
                     ],
+                    has_header=False
                 )
 
 
@@ -585,7 +584,7 @@ def save_matomo_to_postgres():
                         "source_path": "/".join(lf.split("/")[:-1])+"/",
                         "source_name": lf.split("/")[-1],
                         "column_order": obj["columns"],
-                        "header": False
                     }
                 ],
+                has_header=False
             )
