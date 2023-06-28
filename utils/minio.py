@@ -1,6 +1,8 @@
 import boto3
 import botocore
+import io
 from minio import Minio
+from minio.commonconfig import CopySource
 from typing import List, TypedDict, Optional
 import os
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
@@ -147,3 +149,89 @@ def compare_files(
     print(bool(file_1["ETag"] == file_2["ETag"]))
 
     return bool(file_1["ETag"] == file_2["ETag"])
+
+
+def get_files_from_prefix(
+    MINIO_URL: str,
+    MINIO_BUCKET: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    prefix: str,
+):
+    """Retrieve only the list of files in a Minio pattern
+
+    Args:
+        MINIO_URL (str): Minio endpoint
+        MINIO_BUCKET (str): bucket
+        MINIO_USER (str): user
+        MINIO_PASSWORD (str): password
+        prefix: (str): prefix to search files
+
+    Raises:
+        Exception: _description_
+    """
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    found = client.bucket_exists(MINIO_BUCKET)
+    if found:
+        list_objects = []
+        objects = client.list_objects(MINIO_BUCKET, prefix=f"{AIRFLOW_ENV}/{prefix}")
+        for obj in objects:
+            print(obj.object_name)
+            list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
+        return list_objects
+    else:
+        raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
+
+
+def copy_object(
+    MINIO_URL: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    MINIO_BUCKET_SOURCE: str,
+    MINIO_BUCKET_TARGET: str,
+    path_source: str,
+    path_target: str,
+    remove_source_file: bool,
+):
+    """Copy and paste file to another folder.
+
+    Args:
+        MINIO_URL (str): Minio endpoint
+        MINIO_USER (str): user
+        MINIO_PASSWORD (str): password
+        MINIO_BUCKET_SOURCE (str): bucket source
+        MINIO_BUCKET_TARGET (str): bucket target
+        path_source: path of source file
+        path_target: path of target file
+        remove_source_file: (bool): remove or not source file
+
+    Raises:
+        Exception: _description_
+    """
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    if (
+        client.bucket_exists(MINIO_BUCKET_SOURCE)
+        and client.bucket_exists(MINIO_BUCKET_TARGET)
+    ):
+        # copy an object from a bucket to another.
+        print(MINIO_BUCKET_SOURCE)
+        print(f"{AIRFLOW_ENV}/{path_source}")
+        client.copy_object(
+            MINIO_BUCKET_SOURCE,
+            f"{AIRFLOW_ENV}/{path_target}",
+            CopySource(MINIO_BUCKET_TARGET, f"{AIRFLOW_ENV}/{path_source}"),
+        )
+        if remove_source_file:
+            client.remove_object(MINIO_BUCKET_SOURCE, f"{AIRFLOW_ENV}/{path_source}")
+    else:
+        raise Exception(f"One Bucket does not exists")

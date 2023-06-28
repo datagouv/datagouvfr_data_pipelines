@@ -6,6 +6,8 @@ import os
 class File(TypedDict):
     source_name: str
     source_path: str
+    column_order: Optional[str]
+    header: Optional[bool]
 
 
 def get_conn(
@@ -24,6 +26,7 @@ def get_conn(
         PG_DB (str): db / schema
         PG_USER (str): user
         PG_PASSWORD (str): password
+        PG_SCHEMA (str): schema
 
     Returns:
         conn: Connection to postgres instance
@@ -173,23 +176,34 @@ def copy_file(
     Returns:
         _type_: _description_
     """
-    for file in list_files:
-        print(file)
-        is_file = os.path.isfile(os.path.join(file["source_path"], file["source_name"]))
+    for file_conf in list_files:
+        is_file = os.path.isfile(os.path.join(file_conf["source_path"], file_conf["source_name"]))
         if is_file:
             conn = get_conn(PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD, PG_SCHEMA)
-            if has_header:
-                sql = "COPY %s FROM STDIN WITH CSV HEADER DELIMITER AS ','"
+            if "column_order" in file_conf and file_conf["column_order"] is not None:
+                COLUMNS = file_conf["column_order"]
             else:
-                sql = "COPY %s FROM STDIN WITH CSV DELIMITER AS ','"
-            file = open(os.path.join(file["source_path"], file["source_name"]), "r")
+                COLUMNS = ""
+            if has_header:
+                HEADER = "HEADER"
+            else:
+                HEADER = ""
+            file = open(
+                os.path.join(file_conf["source_path"], file_conf["source_name"]), "r"
+            )
             with conn.cursor() as cur:
-                cur.copy_expert(sql=sql % PG_TABLE, file=file)
+                cur.copy_expert(
+                    sql=(
+                        f"COPY {PG_TABLE} {COLUMNS} FROM STDIN "
+                        f"WITH CSV {HEADER} DELIMITER AS ','"
+                    ),
+                    file=file,
+                )
                 data = return_sql_results(cur)
                 conn.commit()
                 conn.close()
         else:
             raise Exception(
-                f"file {file['source_path']}{file['source_name']} does not exists"
+                f"file {file_conf['source_path']}{file_conf['source_name']} does not exists"
             )
     return data
