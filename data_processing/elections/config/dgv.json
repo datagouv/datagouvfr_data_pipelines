@@ -1,0 +1,26 @@
+{
+    "general": {
+        "name": "elections_resultats_generaux",
+        "file": "general_results.csv",
+        "dev": {
+            "dataset_id": "645cfef7d766788fc6310dc7",
+            "resource_id": "8e17974b-88da-4e03-9393-5241df995d7c"
+        },
+        "prod": {
+            "dataset_id": "6481e741d4cf002ec0efec9d",
+            "resource_id": "3fc6ec5e-eef1-41f4-9b2c-e976eeec2579"
+        }
+    },
+    "candidats": {
+        "name": "elections_resultats_candidats",
+        "file": "candidats_results.csv",
+        "dev": {
+            "dataset_id": "645cfef7d766788fc6310dc7",
+            "resource_id": "f142cbee-6078-428d-a83c-20335e7d9587"
+        },
+        "prod": {
+            "dataset_id": "6481e741d4cf002ec0efec9d",
+            "resource_id": "54f56b26-9292-4ff0-86e2-2dd416f4d772"
+        }
+    }
+}

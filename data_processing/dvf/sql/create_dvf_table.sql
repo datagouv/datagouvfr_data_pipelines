@@ -1,11 +1,11 @@
-DROP TABLE IF EXISTS public.dvf;
-CREATE TABLE public.dvf
+DROP TABLE IF EXISTS dvf.dvf;
+CREATE TABLE dvf.dvf
 (
     id_mutation CHARACTER VARYING,
     date_mutation DATE,
     numero_disposition INTEGER,
     nature_mutation CHARACTER VARYING,
-    valeur_fonciere DECIMAL(12,2),
+    valeur_fonciere DECIMAL(18,2),
     adresse_numero INTEGER,
     adresse_suffixe CHARACTER VARYING,
     adresse_nom_voie CHARACTER VARYING,

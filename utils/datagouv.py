@@ -2,12 +2,15 @@ import dateutil
 from typing import List, Optional, TypedDict
 import requests
 import os
+import numpy as np
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 if AIRFLOW_ENV == "dev":
     DATAGOUV_URL = "https://demo.data.gouv.fr"
+    ORGA_REFERENCE = "63e3ae4082ddaa6c806b8417"
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
+    ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
 
 
 class File(TypedDict):
@@ -34,6 +37,7 @@ def create_dataset(
     r = requests.post(
         f"{DATAGOUV_URL}/api/1/datasets/", json=payload, headers=headers
     )
+    r.raise_for_status()
     return r.json()
 
 
@@ -66,6 +70,7 @@ def post_resource(
     file_to_upload: File,
     dataset_id: str,
     resource_id: Optional[str] = None,
+    resource_payload: Optional[dict] = None,
 ):
     """Upload a resource in data.gouv.fr
 
@@ -76,6 +81,9 @@ def post_resource(
         dataset_id (str): ID of the dataset where to store resource
         resource_id (Optional[str], optional): ID of the resource where
         to upload file. If it is a new resource, let it to None.
+        Defaults to None.
+        resource_payload (Optional[dict], optional): payload to update the
+        resource's metadata, only if resource_id is given
         Defaults to None.
 
     Returns:
@@ -95,6 +103,10 @@ def post_resource(
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
     r = requests.post(url, files=files, headers=headers)
+    r.raise_for_status()
+    if resource_id and resource_payload:
+        r_put = requests.put(url.replace('upload/', ''), json=resource_payload, headers=headers)
+        r_put.raise_for_status()
     return r.json()
 
 
@@ -233,6 +245,7 @@ def update_dataset_or_resource_extras(
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/extras/"
 
     r = requests.put(url, json=payload, headers=headers)
+    r.raise_for_status()
     return r.json()
 
 
@@ -311,8 +324,9 @@ def create_post(
 
 def get_data(endpoint, page, sort):
     r = requests.get(
-        f"https://www.data.gouv.fr/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
+        f"{DATAGOUV_URL}/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
     )
+    r.raise_for_status()
     return r.json().get('data', [])
 
 
@@ -344,3 +358,103 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
     else:
         results = intermediary_result
     return results
+
+
+def post_remote_communautary_resource(
+    api_key: str,
+    dataset_id: str,
+    title: str,
+    format: str,
+    remote_url: str,
+    organisation_publication_id: str,
+    filesize: int,
+    type: str = "main",
+    schema: dict = {},
+    description: str = ""
+):
+    """Create a post in data.gouv.fr
+
+    Args:
+        api_key (str): API key from data.gouv.fr
+        dataset_id (str): id of the dataset
+        title (str): resource title
+        format (str): resource format
+        remote_url (str): resource distant URL
+        organisation_publication_id (str): organization with which to publish
+        filesize (int): resource size (bytes)
+        type (str): type of resource
+        schema (str): schema of the resource (if relevant) 
+        description (str): resource description
+
+    Returns:
+       json: return API result in a dictionnary containing metadatas
+    """
+    headers = {
+        "X-API-KEY": api_key,
+    }
+    community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
+    dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
+
+    # Check if resource already exists
+    data = requests.get(
+        community_resource_url,
+        {"dataset": dataset_id}
+    ).json()["data"]
+    resource_exists = remote_url in [d.get('url', '') for d in data]
+    payload = {
+        "dataset": {
+            "id": dataset_id
+        },
+        "description": description,
+        "filetype": "remote",
+        "filesize": filesize,
+        "format": format,
+        "organization": {
+            "id": organisation_publication_id
+        },
+        "schema": schema,
+        "title": title,
+        "type": type,
+        "url": remote_url
+    }
+    print("Payload content:\n", payload)
+    if resource_exists:
+        print(f"Updating resource at {dataset_link} from {remote_url}")
+        # Update resource
+        idx = np.argwhere(
+            np.array([d.get('url', '') for d in data]) == remote_url
+        )[0][0]
+        resource_id = data[idx]['id']
+        refined_url = community_resource_url + f"/{resource_id}"
+
+        r = requests.put(
+            refined_url,
+            json=payload,
+            headers=headers
+        )
+
+    else:
+        print(f"Creating resource at {dataset_link} from {remote_url}")
+        # Create resource
+        r = requests.post(
+            community_resource_url,
+            json=payload,
+            headers=headers
+        )
+    assert r.ok
+    return r.json()
+
+
+def get_all_from_api_query(base_query):
+    # /!\ only for paginated endpoints
+    all_you_want = []
+    r = requests.get(base_query)
+    r.raise_for_status()
+    data = r.json()
+    all_you_want += data["data"]
+    while data["next_page"]:
+        r = requests.get(data["next_page"])
+        r.raise_for_status()
+        data = r.json()
+        all_you_want += data["data"]
+    return all_you_want
