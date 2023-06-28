@@ -1,5 +1,6 @@
 
 from airflow.hooks.base import BaseHook
+from airflow.models import Variable
 from datetime import datetime, date, timedelta
 import gzip
 import glob
@@ -33,6 +34,7 @@ from datagouvfr_data_pipelines.config import (
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/metrics/"
 conn = BaseHook.get_connection("POSTGRES_DEV")
+DB_METRICS_SCHEMA = Variable.get("DB_METRICS_SCHEMA", "airflow")
 tqdm.pandas(desc='pandas progress bar', mininterval=5)
 
 
@@ -169,15 +171,11 @@ def get_info(parsed_line):
     patterns_organizations = [f"/{lang}/organizations/" for lang in languages]
     patterns_resources_id = [f"/{lang}/datasets/r/" for lang in languages]
     pattern_resources_static = "/resources/"
-    date_line = None
     slug_line = None
     found = False
 
     if "DATAGOUVFR_RGS~" in parsed_line:
         for item in parsed_line:
-            found_date = search_date(item)
-            if found_date:
-                date_line = found_date
             slug, found, detect = search_pattern(patterns_resources_id, item, "resources-id")
             if not found:
                 slug, found, detect = search_pattern(patterns_datasets, item, "datasets")
@@ -191,9 +189,9 @@ def get_info(parsed_line):
                 slug_line = slug
                 type_detect = detect
     if slug_line:
-        return date_line, slug_line, type_detect
+        return slug_line, type_detect
     else:
-        return None, None, None
+        return None, None
 
 
 def save_list_obj_type(list_obj, obj_type):
@@ -226,16 +224,6 @@ def save_list_obj(list_obj):
     save_list_obj_type(list_reuses, "reuses")
 
 
-def search_date(item):
-    if (
-        item[0] == "["
-        and item[-1] == "]"
-        and len(item.split("/")) == 3
-        and len(item.split(":")) == 4
-    ):
-        return get_date(item)
-    return
-
 def get_id(arr, list_obj):
     new_list = []
     for lo in list_obj:
@@ -252,15 +240,15 @@ def append_chunk(cpt, obj_type, arr, list_obj, log):
             fp.write(f"{d['id']},{d['date']}\n")
 
 
-def parse(lines):
+def parse(lines, date):
     list_obj = []
     for b_line in lines:
         try:
             slug_line = None
             parsed_line = b_line.decode("utf-8").split()
-            date_line, slug_line, type_detect = get_info(parsed_line)
+            slug_line, type_detect = get_info(parsed_line)
             if slug_line:
-                list_obj.append({"type": type_detect, "id": slug_line, "date": date_line})
+                list_obj.append({"type": type_detect, "id": slug_line, "date": date})
                 if len(list_obj) == 10000:
                     save_list_obj(list_obj)
                     list_obj = []
@@ -282,7 +270,7 @@ def process_log(ti):
     new_logs = ti.xcom_pull(key="new_logs", task_ids="get_new_logs")
     newlogs = [nl.replace("/new/", "/ongoing/") for nl in new_logs]
     all_dates_processed = []
-    ACTIVE_LOG = 0
+    print("downloading files...")
     for nl in newlogs:
         get_files(
             MINIO_URL=MINIO_URL,
@@ -298,20 +286,22 @@ def process_log(ti):
                 }
             ]
         )
-        ACTIVE_LOG = ACTIVE_LOG + 1
-
-        remove_files_if_exists("outputs")
-        remove_files_if_exists("found")
+        
+    remove_files_if_exists("outputs")
+    remove_files_if_exists("found")
+    # analyser toutes les dates différentes
+    alldates = set(d.split(".")[0][-10:] for d in newlogs)
+    for log_date in alldates:
         print("---------------")
-        print(ACTIVE_LOG)
-        if nl[-3:] == ".gz":
-            file = gzip.open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "rb")
-        else:
-            file = open(f"{TMP_FOLDER}{nl.split('/')[-1]}", "r")
-        lines = file.readlines()
+        print(log_date)
+        lines = []
+        for file_name in glob.glob(f"{TMP_FOLDER}/*{log_date}.txt.gz"):
+            with gzip.open(file_name, "rb") as log_data:
+                lines += log_data.readlines()
+        
         print("haproxy loaded")
         print("parse lines")
-        parse(lines)
+        parse(lines, log_date)
 
         try:
             print("---- datasets -----")
@@ -344,7 +334,7 @@ def process_log(ti):
             df = pd.merge(df, df_catalog[["id", "organization_id"]], on="id", how="left")
             df = df.rename(columns={"id": "dataset_id"})
             df[["date_metric", "dataset_id", "organization_id", "nb_visit"]].to_csv(
-                f"{TMP_FOLDER}outputs/datasets-{ACTIVE_LOG}.csv", index=False, header=False
+                f"{TMP_FOLDER}outputs/datasets-{log_date}.csv", index=False, header=False
             )
             all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
@@ -381,7 +371,7 @@ def process_log(ti):
             df = pd.merge(df, df_catalog[["id"]], on="id", how="left")
             df = df.rename(columns={"id": "organization_id"})
             df[["date_metric", "organization_id", "nb_visit"]].to_csv(
-                f"{TMP_FOLDER}outputs/organizations-{ACTIVE_LOG}.csv", index=False, header=False
+                f"{TMP_FOLDER}outputs/organizations-{log_date}.csv", index=False, header=False
             )
             all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
@@ -418,7 +408,7 @@ def process_log(ti):
             df = pd.merge(df, df_catalog[["id", "organization_id"]], on="id", how="left")
             df = df.rename(columns={"id": "reuse_id"})
             df[["date_metric", "reuse_id", "organization_id", "nb_visit"]].to_csv(
-                f"{TMP_FOLDER}outputs/reuses-{ACTIVE_LOG}.csv", index=False, header=False
+                f"{TMP_FOLDER}outputs/reuses-{log_date}.csv", index=False, header=False
             )
             all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
@@ -453,7 +443,7 @@ def process_log(ti):
             resources = pd.merge(resources, df_catalog[["id", "dataset.id", "dataset.organization_id"]], on="id", how="left")
             resources = resources.rename(columns={"id": "resource_id", "dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
             resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
-            resources.to_csv(f"{TMP_FOLDER}outputs/resources-{ACTIVE_LOG}.csv", index=False, header=False)
+            resources.to_csv(f"{TMP_FOLDER}outputs/resources-{log_date}.csv", index=False, header=False)
             all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except FileNotFoundError:
             print("no data resources file")
@@ -556,7 +546,7 @@ def save_metrics_to_postgres(ti):
                     PG_HOST=conn.host,
                     PG_PORT=conn.port,
                     PG_DB=conn.schema,
-                    PG_TABLE=f"airflow.visits_{obj['name']}",
+                    PG_TABLE=f"{DB_METRICS_SCHEMA}.visits_{obj['name']}",
                     PG_USER=conn.login,
                     PG_PASSWORD=conn.password,
                     list_files=[
@@ -568,64 +558,7 @@ def save_metrics_to_postgres(ti):
                         }
                     ],
                 )
-    for date_processed in all_dates_processed:
-        for item in ["dataset", "resource", "reuse", "organization"]:
-            # First we sum rows with same id and date
-            # it has for consequence to duplicates rows but with true nb_visit values
-            execute_query(
-                PG_HOST=conn.host,
-                PG_PORT=conn.port,
-                PG_DB=conn.schema,
-                PG_USER=conn.login,
-                PG_PASSWORD=conn.password,
-                sql=f"""
-                        UPDATE airflow.visits_{item}s
-                        SET nb_visit = t.sum
-                        FROM (
-                            SELECT 
-                                date_metric, 
-                                {item}_id,
-                                SUM(nb_visit)
-                            FROM 
-                                airflow.visits_{item}s
-                            GROUP BY 
-                                date_metric,
-                                {item}_id
-                        ) t 
-                        WHERE 
-                            airflow.visits_{item}s.date_metric = t.date_metric 
-                        AND
-                            airflow.visits_{item}s.{item}_id = t.{item}_id
-                        AND
-                            airflow.visits_{item}s.date_metric = '{date_processed}'
-                    """
-            )
-            # Second we delete max id row to do not keep duplicates
-            execute_query(
-                PG_HOST=conn.host,
-                PG_PORT=conn.port,
-                PG_DB=conn.schema,
-                PG_USER=conn.login,
-                PG_PASSWORD=conn.password,
-                sql=f"""
-                        DELETE FROM 
-                            airflow.visits_{item}s
-                        WHERE
-                            id NOT IN (
-                                SELECT 
-                                    MIN(id)
-                                FROM
-                                    airflow.visits_{item}s
-                                WHERE
-                                    airflow.visits_{item}s.date_metric = '{date_processed}' 
-                                GROUP BY
-                                    date_metric,
-                                    {item}_id
-                            )
-                        AND
-                            airflow.visits_{item}s.date_metric = '{date_processed}'
-                    """
-            )
+
 
 def save_matomo_to_postgres():
     config = [
@@ -644,7 +577,7 @@ def save_matomo_to_postgres():
                 PG_HOST=conn.host,
                 PG_PORT=conn.port,
                 PG_DB=conn.schema,
-                PG_TABLE=f"{conn.schema}.matomo_{obj['name']}",
+                PG_TABLE=f"{DB_METRICS_SCHEMA}.matomo_{obj['name']}",
                 PG_USER=conn.login,
                 PG_PASSWORD=conn.password,
                 list_files=[

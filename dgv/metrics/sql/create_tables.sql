@@ -140,6 +140,16 @@ CREATE OR REPLACE VIEW airflow.organizations AS
     GROUP BY metric_month, organization_id
 ;
 
+CREATE OR REPLACE VIEW airflow.resources AS
+    SELECT
+        resource_id,
+        dataset_id,
+        to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
+        sum(nb_visit) as monthly_visit_resource
+    FROM airflow.visits_resources
+    GROUP BY metric_month, resource_id, dataset_id
+;
+
 -- Global site table
 CREATE OR REPLACE VIEW airflow.site AS
     SELECT COALESCE(datasets.metric_month, reuses.metric_month) as metric_month,
