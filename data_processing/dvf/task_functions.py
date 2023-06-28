@@ -945,15 +945,19 @@ def create_distribution_and_stats_whole_period():
         on="code_commune",
         how="left"
     )
-    echelles_of_interest = ["departement", "epci", "commune", ]
-    # "section"]
+    echelles_of_interest = [
+        "departement",
+        "epci",
+        "commune",
+        "section"
+    ]
     types_of_interest = {
         'appartement': [2],
         'maison': [1],
         'apt_maison': [1, 2],
         'local': [4],
     }
-    dvf = dvf[['code_' + e for e in echelles_of_interest] + ['code_type_local'] + ['prix_m2']]
+    dvf = dvf[['code_' + e for e in echelles_of_interest] + ['code_type_local', 'prix_m2']]
     stats_period = {
         c: {'code_geo': c, 'code_parent': p} for c, p in zip(echelles['code_geo'], echelles['code_parent'])
     }
@@ -1034,9 +1038,6 @@ def create_distribution_and_stats_whole_period():
 
 
 def send_stats_to_minio():
-    # print(MINIO_URL)
-    # print('il est là :', MINIO_BUCKET_DATA_PIPELINE, '<=')
-    # print(SECRET_MINIO_DATA_PIPELINE_USER)
     send_files(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
@@ -1048,6 +1049,20 @@ def send_stats_to_minio():
                 "source_name": "stats_dvf.csv",
                 "dest_path": "dvf/",
                 "dest_name": "stats_dvf.csv",
+            }
+        ],
+    )
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "stats_whole_period.csv",
+                "dest_path": "dvf/",
+                "dest_name": "stats_whole_period.csv",
             }
         ],
     )
@@ -1077,16 +1092,33 @@ def publish_stats_dvf(ti):
         api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload={
             "dest_path": f"{DATADIR}/",
-            "dest_name": data["file"]
+            "dest_name": data['mensuelles']["file"]
         },
-        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
-        resource_id=data[AIRFLOW_ENV]["resource_id"],
+        dataset_id=data['mensuelles'][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data['mensuelles'][AIRFLOW_ENV]["resource_id"],
         resource_payload={
-            'title': 'Statistiques DVF',
-            'description': f"Statistiques sur les données DVF (dernière modification : {datetime.today()})",
+            'title': 'Statistiques mensuelles DVF',
+            'description': f"""Statistiques mensuelles sur les données DVF (dernière modification : {
+                datetime.today()
+            })""",
         }
     )
-    ti.xcom_push(key="dataset_id", value=data[AIRFLOW_ENV]["dataset_id"])
+    post_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        file_to_upload={
+            "dest_path": f"{DATADIR}/",
+            "dest_name": data['totales']["file"]
+        },
+        dataset_id=data['totales'][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data['totales'][AIRFLOW_ENV]["resource_id"],
+        resource_payload={
+            'title': 'Statistiques totales DVF',
+            'description': f"""Statistiques sur 5 ans des données DVF (dernière modification : {
+                datetime.today()
+            })""",
+        }
+    )
+    ti.xcom_push(key="dataset_id", value=data['mensuelles'][AIRFLOW_ENV]["dataset_id"])
 
 
 def notification_mattermost(ti):
