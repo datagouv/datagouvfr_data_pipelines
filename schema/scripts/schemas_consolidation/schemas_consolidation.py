@@ -11,6 +11,7 @@ import os
 import yaml
 from datetime import datetime
 import time
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
 pd.set_option('display.max_columns', None)
 
 
@@ -97,99 +98,91 @@ def add_schema_default_config(
 
 # API parsing to get resources infos based on schema metadata, tags and search keywords
 def parse_api_search(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
-    r = requests.get(url)
-    data = r.json()
-    nb_pages = int(data["total"] / data["page_size"]) + 1
+    all_results = get_all_from_api_query(url)
     arr = []
-    for i in range(1, nb_pages + 1):
-        r = requests.get(url + "&page=" + str(i))
-        data = r.json()
-        if "data" in data:
-            for dataset_result in data["data"]:
-                r2 = requests.get(api_url + "datasets/" + dataset_result["id"])
-                dataset = r2.json()
-
-                for res in dataset["resources"]:
-                    should_add_resource = True
-                    if "name" in res["schema"] and res["schema"]["name"] != schema_name:
-                        should_add_resource = False
-                    if should_add_resource:
-                        if "format=csv" in res["url"]:
-                            filename = res["url"].split("/")[-3] + ".csv"
-                        else:
-                            filename = res["url"].split("/")[-1]
-                        ext = filename.split(".")[-1]
-                        obj = {}
-                        obj["dataset_id"] = dataset["id"]
-                        obj["dataset_title"] = dataset["title"]
-                        obj["dataset_slug"] = dataset["slug"]
-                        obj["dataset_page"] = dataset["page"]
-                        obj["resource_id"] = res["id"]
-                        obj["resource_title"] = res["title"]
-                        obj["resource_url"] = res["url"]
-                        obj["resource_last_modified"] = res["last_modified"]
-                        if ext not in ["csv", "xls", "xlsx"]:
-                            obj["error_type"] = "wrong-file-format"
-                        else:
-                            if not dataset["organization"] and not dataset["owner"]:
-                                obj["error_type"] = "orphan-dataset"
-                            else:
-                                obj["organization_or_owner"] = (
-                                    dataset["organization"]["slug"]
-                                    if dataset["organization"]
-                                    else dataset["owner"]["slug"]
-                                )
-                                obj["error_type"] = None
-                        arr.append(obj)
+    for dataset_result in all_results:
+        r = requests.get(api_url + "datasets/" + dataset_result["id"])
+        r.raise_for_status()
+        dataset = r.json()
+        for res in dataset["resources"]:
+            should_add_resource = True
+            if "name" in res["schema"] and res["schema"]["name"] != schema_name:
+                should_add_resource = False
+            if should_add_resource:
+                if "format=csv" in res["url"]:
+                    filename = res["url"].split("/")[-3] + ".csv"
+                else:
+                    filename = res["url"].split("/")[-1]
+                ext = filename.split(".")[-1]
+                detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
+                obj = {}
+                obj["dataset_id"] = dataset["id"]
+                obj["dataset_title"] = dataset["title"]
+                obj["dataset_slug"] = dataset["slug"]
+                obj["dataset_page"] = dataset["page"]
+                obj["resource_id"] = res["id"]
+                obj["resource_title"] = res["title"]
+                obj["resource_url"] = res["url"]
+                obj["resource_last_modified"] = res["last_modified"]
+                appropriate_extension = ext in ["csv", "xls", "xlsx"]
+                appropriate_mime = detected_mime in ["text/csv", "application/vnd.ms-excel"]
+                if not (appropriate_extension or appropriate_mime):
+                    obj["error_type"] = "wrong-file-format"
+                else:
+                    if not dataset["organization"] and not dataset["owner"]:
+                        obj["error_type"] = "orphan-dataset"
+                    else:
+                        obj["organization_or_owner"] = (
+                            dataset["organization"]["slug"]
+                            if dataset["organization"]
+                            else dataset["owner"]["slug"]
+                        )
+                        obj["error_type"] = None
+                arr.append(obj)
     df = pd.DataFrame(arr)
     return df
 
 
 # API parsing to get resources infos based on schema metadata, tags and search keywords
 def parse_api(url: str, schema_name: str) -> pd.DataFrame:
-    r = requests.get(url)
-    # better error catch in case schema is not responding
-    r.raise_for_status()
-    data = r.json()
-    nb_pages = int(data["total"] / data["page_size"]) + 1
+    all_datasets = get_all_from_api_query(url)
     arr = []
-    for i in range(1, nb_pages + 1):
-        r = requests.get(url + "&page=" + str(i))
-        data = r.json()
-        if "data" in data:
-            for dataset in data["data"]:
-                for res in dataset["resources"]:
-                    should_add_resource = True
-                    if "name" in res["schema"] and res["schema"]["name"] != schema_name:
-                        should_add_resource = False
-                    if should_add_resource:
-                        if "format=csv" in res["url"]:
-                            filename = res["url"].split("/")[-3] + ".csv"
-                        else:
-                            filename = res["url"].split("/")[-1]
-                        ext = filename.split(".")[-1]
-                        obj = {}
-                        obj["dataset_id"] = dataset["id"]
-                        obj["dataset_title"] = dataset["title"]
-                        obj["dataset_slug"] = dataset["slug"]
-                        obj["dataset_page"] = dataset["page"]
-                        obj["resource_id"] = res["id"]
-                        obj["resource_title"] = res["title"]
-                        obj["resource_url"] = res["url"]
-                        obj["resource_last_modified"] = res["last_modified"]
-                        if ext not in ["csv", "xls", "xlsx"]:
-                            obj["error_type"] = "wrong-file-format"
-                        else:
-                            if not dataset["organization"] and not dataset["owner"]:
-                                obj["error_type"] = "orphan-dataset"
-                            else:
-                                obj["organization_or_owner"] = (
-                                    dataset["organization"]["slug"]
-                                    if dataset["organization"]
-                                    else dataset["owner"]["slug"]
-                                )
-                                obj["error_type"] = None
-                        arr.append(obj)
+    for dataset in all_datasets:
+        for res in dataset["resources"]:
+            should_add_resource = True
+            if "name" in res["schema"] and res["schema"]["name"] != schema_name:
+                should_add_resource = False
+            if should_add_resource:
+                if "format=csv" in res["url"]:
+                    filename = res["url"].split("/")[-3] + ".csv"
+                else:
+                    filename = res["url"].split("/")[-1]
+                ext = filename.split(".")[-1]
+                detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
+                obj = {}
+                obj["dataset_id"] = dataset["id"]
+                obj["dataset_title"] = dataset["title"]
+                obj["dataset_slug"] = dataset["slug"]
+                obj["dataset_page"] = dataset["page"]
+                obj["resource_id"] = res["id"]
+                obj["resource_title"] = res["title"]
+                obj["resource_url"] = res["url"]
+                obj["resource_last_modified"] = res["last_modified"]
+                appropriate_extension = ext in ["csv", "xls", "xlsx"]
+                appropriate_mime = detected_mime in ["text/csv", "application/vnd.ms-excel"]
+                if not (appropriate_extension or appropriate_mime):
+                    obj["error_type"] = "wrong-file-format"
+                else:
+                    if not dataset["organization"] and not dataset["owner"]:
+                        obj["error_type"] = "orphan-dataset"
+                    else:
+                        obj["organization_or_owner"] = (
+                            dataset["organization"]["slug"]
+                            if dataset["organization"]
+                            else dataset["owner"]["slug"]
+                        )
+                        obj["error_type"] = None
+                arr.append(obj)
     df = pd.DataFrame(arr)
     return df
 
