@@ -434,7 +434,7 @@ def process_log(ti):
             res1["is_static"] = res1["url"].apply(
                 lambda x: True if "static.data.gouv.fr" in str(x) else False)
             print("shape", res1.shape[0])
-            res1 = res1[res1["is_static"] is False]
+            res1 = res1[res1["is_static"] == False]
             res1 = res1[["date_metric", "id"]]
             print("shape", res1.shape[0])
 
