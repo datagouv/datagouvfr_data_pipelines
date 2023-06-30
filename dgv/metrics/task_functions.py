@@ -305,7 +305,7 @@ def process_log(ti):
 
         print("haproxy loaded")
         print("parse lines")
-        isoformat_log_date = datetime.datetime.strptime(log_date, '%d%m%Y').date().isoformat()
+        isoformat_log_date = datetime.strptime(log_date, '%d%m%Y').date().isoformat()
         parse(lines, isoformat_log_date)
 
         try:
