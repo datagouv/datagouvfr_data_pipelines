@@ -2,6 +2,7 @@ from airflow.models import DAG
 from operators.mattermost import MattermostOperator
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
 from datetime import timedelta
 import requests
 from datagouvfr_data_pipelines.config import (
@@ -16,51 +17,22 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 
 
 def get_pending_harvester_from_api(ti):
-    page = 1
-    r = requests.get(
-        "https://www.data.gouv.fr/api/1/harvest/sources/?page=" + str(page)
-    )
-    maxpage = int(r.json()["total"] / r.json()["page_size"] + 1)
-    arr = []
-    cpt = 0
-    page = 0
-    for i in range(maxpage):
-        r = requests.get(
-            "https://www.data.gouv.fr/api/1/harvest/sources/?page=" + str(page + 1)
-        )
-        print("https://www.data.gouv.fr/api/1/harvest/sources/?page=" + str(page + 1))
-        for d in r.json()["data"]:
-            cpt = cpt + 1
-            if d["validation"]["state"] == "pending":
-                mydict = {}
-                mydict["admin_url"] = (
-                    "https://www.data.gouv.fr/fr/admin/harvester/" + d["id"]
-                )
-                mydict["name"] = d["name"]
-                mydict["url"] = d["url"]
-                if d["organization"]:
-                    mydict["orga"] = "Organisation " + d["organization"]["name"]
-                    mydict["orga_url"] = (
-                        "https://www.data.gouv.fr/fr/organizations/"
-                        + d["organization"]["id"]
-                    )
-                if d["owner"]:
-                    mydict["orga"] = (
-                        "Utilisateur "
-                        + d["owner"]["first_name"]
-                        + " "
-                        + d["owner"]["last_name"]
-                    )
-                    mydict["orga_url"] = (
-                        "https://www.data.gouv.fr/fr/users/" + d["owner"]["id"]
-                    )
-                if "orga" not in mydict:
-                    mydict["orga"] = "Utilisateur inconnu"
-                    mydict["orga_url"] = ""
-                mydict["id"] = d["id"]
-                arr.append(mydict)
-        page = page + 1
-    ti.xcom_push(key="list_pendings", value=arr)
+    harvesters =  get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
+    harvesters = [
+        {
+            "admin_url": "https://www.data.gouv.fr/fr/admin/harvester/" + harvest["id"],
+            "name": harvest["name"],
+            "url": harvest["url"],
+            "orga": (f"Organisation {harvest['organization']['name']}"  if harvest["organization"]
+                     else f"Utilisateur {harvest['owner']['first_name']} {harvest['owner']['last_name']}"),
+            "orga_url": (f"https://www.data.gouv.fr/fr/organizations/{harvest['organization']['id']}" if harvest["organization"]
+                         else f"https://www.data.gouv.fr/fr/users/{harvest['owner']['id']}"),
+            "id": harvest["id"]
+        }
+        for harvest in harvesters
+        if harvest["validation"]["state"] == "pending"
+    ]
+    ti.xcom_push(key="list_pendings", value=harvesters)
 
 
 def get_preview_state_from_api(ti):

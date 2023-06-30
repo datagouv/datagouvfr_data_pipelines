@@ -220,17 +220,20 @@ with DAG(
     process_dvf_stats.set_upstream(get_epci)
 
     create_distribution_and_stats_whole_period.set_upstream(process_dvf_stats)
+
     create_distribution_table.set_upstream(create_distribution_and_stats_whole_period)
     populate_distribution_table.set_upstream(create_distribution_table)
+
     create_whole_period_table.set_upstream(create_distribution_and_stats_whole_period)
     populate_whole_period_table.set_upstream(create_whole_period_table)
+
     send_distribution_to_minio.set_upstream(create_distribution_and_stats_whole_period)
+
+    send_stats_to_minio.set_upstream(create_distribution_and_stats_whole_period)
+    publish_stats_dvf.set_upstream(send_stats_to_minio)
 
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
-
-    send_stats_to_minio.set_upstream(process_dvf_stats)
-    publish_stats_dvf.set_upstream(send_stats_to_minio)
 
     notification_mattermost.set_upstream(publish_stats_dvf)
     notification_mattermost.set_upstream(populate_copro_table)

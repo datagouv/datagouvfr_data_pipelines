@@ -448,9 +448,13 @@ def post_remote_communautary_resource(
 def get_all_from_api_query(base_query):
     # /!\ only for paginated endpoints
     all_you_want = []
-    data = requests.get(base_query).json()
+    r = requests.get(base_query)
+    r.raise_for_status()
+    data = r.json()
     all_you_want += data["data"]
     while data["next_page"]:
-        data = requests.get(data["next_page"]).json()
+        r = requests.get(data["next_page"])
+        r.raise_for_status()
+        data = r.json()
         all_you_want += data["data"]
     return all_you_want
