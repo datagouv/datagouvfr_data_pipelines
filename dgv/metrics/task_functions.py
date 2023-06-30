@@ -303,7 +303,8 @@ def process_log(ti):
 
         print("haproxy loaded")
         print("parse lines")
-        parse(lines, datetime.datetime.strptime(log_date, '%d%m%Y').date())
+        isoformat_log_date = datetime.datetime.strptime(log_date, '%d%m%Y').date().isoformat()
+        parse(lines, isoformat_log_date)
 
         try:
             print("---- datasets -----")
