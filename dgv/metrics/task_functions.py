@@ -2,12 +2,11 @@
 from airflow.hooks.base import BaseHook
 from airflow.models import Variable
 from datetime import datetime, date, timedelta
-import gzip
 import glob
 import os
 import pandas as pd
 import requests
-import shutil
+import tarfile
 from tqdm import tqdm
 
 from datagouvfr_data_pipelines.utils.datagouv import get_resource
@@ -67,7 +66,8 @@ def get_new_logs(ti):
     else:
         return False
 
-def copy_log(new_logs, source_folder, target_folder):    
+
+def copy_log(new_logs, source_folder, target_folder):
     for nl in new_logs:
         copy_object(
             MINIO_URL=MINIO_URL,
@@ -79,6 +79,7 @@ def copy_log(new_logs, source_folder, target_folder):
             path_target=nl.replace(source_folder, target_folder),
             remove_source_file=True,
         )
+
 
 def copy_log_to_ongoing_folder(ti):
     new_logs = ti.xcom_pull(key="new_logs", task_ids="get_new_logs")
@@ -130,6 +131,7 @@ def remove_files_if_exists(folder):
     for f in files:
         os.remove(f)
 
+
 def get_dict(df, obj_property):
     arr = {}
     for index, row in df.iterrows():
@@ -150,14 +152,14 @@ def get_date(a_date):
 
 def search_pattern(patterns, value, type_object):
     for pattern in patterns:
-        if pattern in value:                
+        if pattern in value:
             slug = value.replace(pattern, "").split("/")[0].replace(";", "")
             return slug, True, type_object
     return None, False, None
 
 
 def search_pattern_resource_static(pattern, value, type_object):
-    if pattern in value:       
+    if pattern in value:
         slug = f"https://static.data.gouv.fr{value}".replace(";", "")
         return slug, True, type_object
     return None, False, None
@@ -183,7 +185,8 @@ def get_info(parsed_line):
             if not found:
                 slug, found, detect = search_pattern(patterns_organizations, item, "organizations")
             if not found:
-                slug, found, detect = search_pattern_resource_static(pattern_resources_static, item, "resources-static")
+                slug, found, detect = search_pattern_resource_static(pattern_resources_static, item,
+                                                                     "resources-static")
             if slug:
                 slug_line = slug
                 type_detect = detect
@@ -285,22 +288,25 @@ def process_log(ti):
                 }
             ]
         )
-        
+
     remove_files_if_exists("outputs")
     remove_files_if_exists("found")
     # analyser toutes les dates différentes
-    alldates = set(d.split(".")[0][-10:] for d in newlogs)
+    alldates = set(d.split("-")[2] for d in newlogs)
     for log_date in alldates:
         print("---------------")
         print(log_date)
         lines = []
-        for file_name in glob.glob(f"{TMP_FOLDER}/*{log_date}.txt.gz"):
-            with gzip.open(file_name, "rb") as log_data:
-                lines += log_data.readlines()
-        
+        for file_name in glob.glob(f"{TMP_FOLDER}/*{log_date}*.tar.gz"):
+            with tarfile.open(file_name, "r:gz") as tar:
+                for log_file in tar:
+                    log_data = tar.extractfile(log_file)
+                    lines += log_data.readlines()
+
         print("haproxy loaded")
         print("parse lines")
-        parse(lines, log_date)
+        isoformat_log_date = datetime.datetime.strptime(log_date, '%d%m%Y').date().isoformat()
+        parse(lines, isoformat_log_date)
 
         try:
             print("---- datasets -----")
@@ -412,7 +418,7 @@ def process_log(ti):
             all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except pd.errors.EmptyDataError:
             print("empty data reuses")
-    
+
         try:
             print("--- resources ----")
             df_catalog = pd.read_csv(
@@ -425,23 +431,29 @@ def process_log(ti):
             # remove resource when static
             res1 = res1.rename(columns={0: "date_metric", 1: "id"})
             res1 = pd.merge(res1, df_catalog[["id", "url"]], on="id", how="left")
-            res1["is_static"] = res1["url"].apply(lambda x: True if "static.data.gouv.fr" in str(x) else False)
+            res1["is_static"] = res1["url"].apply(
+                lambda x: True if "static.data.gouv.fr" in str(x) else False)
             print("shape", res1.shape[0])
-            res1 = res1[res1["is_static"] == False]
+            res1 = res1[res1["is_static"] is False]
             res1 = res1[["date_metric", "id"]]
             print("shape", res1.shape[0])
 
-            res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv", dtype=str, header=None, sep=";")
+            res2 = pd.read_csv(f"{TMP_FOLDER}found/found_resources-static.csv",
+                               dtype=str, header=None, sep=";")
             res2 = res2.rename(columns={0: "date_metric", 1: "url"})
             res2 = pd.merge(res2, df_catalog[["id", "url"]], on="url", how="left")
             res2 = res2[res2["id"].notna()][["date_metric", "id"]]
 
             resources = pd.concat([res1, res2])
             resources["nb_visit"] = 1
-            resources = resources.groupby(["date_metric", "id"], as_index=False).count().sort_values(by=["nb_visit"], ascending=False)
-            resources = pd.merge(resources, df_catalog[["id", "dataset.id", "dataset.organization_id"]], on="id", how="left")
-            resources = resources.rename(columns={"id": "resource_id", "dataset.id": "dataset_id", "dataset.organization_id": "organization_id"})
-            resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id", "nb_visit"]]
+            resources = resources.groupby(["date_metric", "id"], as_index=False).count().sort_values(
+                by=["nb_visit"], ascending=False)
+            resources = pd.merge(resources, df_catalog[["id", "dataset.id", "dataset.organization_id"]],
+                                 on="id", how="left")
+            resources = resources.rename(columns={"id": "resource_id", "dataset.id": "dataset_id",
+                                                  "dataset.organization_id": "organization_id"})
+            resources = resources[["date_metric", "resource_id", "dataset_id", "organization_id",
+                                   "nb_visit"]]
             resources.to_csv(f"{TMP_FOLDER}outputs/resources-{log_date}.csv", index=False, header=False)
             all_dates_processed = get_unique_dates(all_dates_processed, list(df["date_metric"].unique()))
         except FileNotFoundError:
@@ -506,7 +518,8 @@ def process_matomo():
             lambda x: get_matomo_outlinks(model, x.slug, x.remote_url, yesterday), axis=1)
         df_catalog['date_metric'] = yesterday.isoformat()
         df_catalog.to_csv(f'{TMP_FOLDER}matomo-outputs/{model}-outlinks.csv',
-                          columns=['date_metric', 'id', 'organization_id', 'outlinks'], index=False, header=False)
+                          columns=['date_metric', 'id', 'organization_id', 'outlinks'], index=False,
+                          header=False)
 
         df_orga = sum_outlinks_by_orga(df_orga, df_catalog, model)
 
@@ -519,7 +532,6 @@ def process_matomo():
 
 
 def save_metrics_to_postgres(ti):
-    all_dates_processed = ti.xcom_pull(key="all_dates_processed", task_ids="process_log")
     config = [
         {
             "name": "datasets",
@@ -550,7 +562,7 @@ def save_metrics_to_postgres(ti):
                     PG_PASSWORD=conn.password,
                     list_files=[
                         {
-                            "source_path": "/".join(lf.split("/")[:-1])+"/",
+                            "source_path": "/".join(lf.split("/")[:-1]) + "/",
                             "source_name": lf.split("/")[-1],
                             "column_order": obj["columns"],
                         }
@@ -581,7 +593,7 @@ def save_matomo_to_postgres():
                 PG_PASSWORD=conn.password,
                 list_files=[
                     {
-                        "source_path": "/".join(lf.split("/")[:-1])+"/",
+                        "source_path": "/".join(lf.split("/")[:-1]) + "/",
                         "source_name": lf.split("/")[-1],
                         "column_order": obj["columns"],
                     }
