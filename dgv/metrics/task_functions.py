@@ -292,7 +292,7 @@ def process_log(ti):
     remove_files_if_exists("outputs")
     remove_files_if_exists("found")
     # analyser toutes les dates différentes
-    alldates = set(d.split("-")[2] for d in newlogs)
+    alldates = set(d.split("/")[-1].split("-")[2] for d in newlogs)
     for log_date in alldates:
         print("---------------")
         print(log_date)
