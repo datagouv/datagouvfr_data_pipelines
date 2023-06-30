@@ -70,27 +70,10 @@ def format_election_files():
 
 
 def process_election_data():
-    def strip_zeros(s):
-        k = 0
-        while s[k] == '0':
-            k += 1
-        return s[k:]
-
-    map_outremer = {
-        'ZD': '974',
-        'ZA': '971',
-        'ZB': '972',
-        'ZN': '988',
-        'ZP': '987',
-        'ZZ': 'ZZ',
-        'ZM': '976',
-        'ZC': '973',
-        'ZX': '978/977',
-        'ZS': '975',
-        'ZW': '986',
-    }
-
-    files = [f for f in os.listdir(DATADIR) if '.csv' in f]
+    files = [
+        f for f in os.listdir(DATADIR)
+        if '.csv' in f and f not in ['general_results.csv', 'candidats_results.csv']
+    ]
     print(files)
     results = {'general': [], 'candidats': []}
     for file in files:
@@ -101,18 +84,16 @@ def process_election_data():
             dtype=str,
         )
         df['id_election'] = file.replace('.csv', '')
-        df['code_dep'] = df['Code du département'].apply(lambda x: map_outremer.get(x, x))
-        df['code_insee'] = df['code_dep'].str.slice(0, 2) + df['Code de la commune']
-        df['id_bv'] = df['code_insee'] + '_' + df['Code du b.vote'].apply(strip_zeros)
+        df['id_brut_miom'] = df['Code du département'] + df['Code de la commune'] + '_' + df['Code du b.vote']
         # getting where the candidates results start
         threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
-        results['general'].append(df[['id_election', 'id_bv'] + list(df.columns[:threshold])])
+        results['general'].append(df[['id_election', 'id_brut_miom'] + list(df.columns[:threshold])])
         print('- Done with general data')
 
-        cols_ref = ['id_election', 'id_bv', 'Code du département', 'Code de la commune', 'Code du b.vote']
+        cols_ref = ['id_election', 'id_brut_miom', 'Code du département', 'Code de la commune', 'Code du b.vote']
         tmp_candidats = df[
-            # -5 because we are adding 4 columns above
-            cols_ref + list(df.columns[threshold:-5])
+            # -2 because we are adding 2 columns above
+            cols_ref + list(df.columns[threshold:-2])
         ]
         nb_candidats = sum(['Panneau' in i for i in tmp_candidats.columns])
         tmp_cols = tmp_candidats.columns[len(cols_ref):]
@@ -122,14 +103,25 @@ def process_election_data():
             candidats_group.columns = cols_ref + candidat_columns
             results['candidats'].append(candidats_group)
         print('- Done with candidats data')
+        del df
+        del tmp_candidats
 
-    results['general'] = [pd.concat(results['general'], ignore_index=True)]
+    results['general'] = pd.concat(results['general'], ignore_index=True)
+    results['general'].to_csv(
+        DATADIR + '/general_results.csv',
+        index=False
+    )
     # removing rows created from empty columns due to uneven canditates number
-    results['candidats'] = [pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])]
+    results['candidats'] = pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])
+    results['candidats'].to_csv(
+        DATADIR + '/candidats_results.csv',
+        index=False
+    )
+    del results
 
     # getting preprocessed resources
     resources = get_all_from_api_query(
-        f'{DATAGOUV_URL}/api/1/datasets/community_resources/?organization={ORGA_REFERENCE}'
+        'https://www.data.gouv.fr/api/1/datasets/community_resources/?organization=646b7187b50b2a93b1ae3d45'
     )
     resources_url = {
         'general': [r['url'] for r in resources if 'general-results.csv' in r['url']],
@@ -139,11 +131,16 @@ def process_election_data():
     for t in ['general', 'candidats']:
         print(t + ' preprocessed resources')
         for url in resources_url[t]:
-            print(('- ' + url))
+            print('- ' + url)
             df = pd.read_csv(url, sep=';', dtype=str)
-            results[t].append(df)
-        results[t] = pd.concat(results[t]).sort_values(by=['id_election', 'id_bv'])
-        results[t].to_csv(DATADIR + f'/{t}_results.csv', index=False)
+            # concatenating all preprocessed files to the previous ones
+            df.to_csv(
+                DATADIR + f'/{t}_results.csv',
+                index=False,
+                mode="a",
+                header=False
+            )
+            del df
 
 
 def send_results_to_minio():
