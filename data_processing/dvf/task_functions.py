@@ -949,7 +949,7 @@ def create_distribution_and_stats_whole_period():
         "departement",
         "epci",
         "commune",
-        "section"
+        #"section"
     ]
     types_of_interest = {
         'appartement': [2],
