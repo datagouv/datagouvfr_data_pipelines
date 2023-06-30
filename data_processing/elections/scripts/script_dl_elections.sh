@@ -9,6 +9,8 @@ dictionary=(
   "2022_legi_t2|https://www.data.gouv.fr/fr/datasets/r/96ffddda-59b4-41b8-a6a3-dfe1adb7fa36"
   "2021_dpmt_t1|https://www.data.gouv.fr/fr/datasets/r/57370a9b-7fa1-465c-a051-c984fc21321f"
   "2021_dpmt_t2|https://www.data.gouv.fr/fr/datasets/r/b34b36d9-e416-4144-8384-d101b140afaf"
+  "2021_regi_t1|https://www.data.gouv.fr/fr/datasets/r/52c3e6f1-2faa-4295-9f76-5b0e9cb9f7b0"
+  "2021_regi_t2|https://www.data.gouv.fr/fr/datasets/r/75221ab0-2066-4a11-bc42-b0f76d201dfe"
   "2017_pres_t1|https://www.data.gouv.fr/fr/datasets/r/8fdb0926-ea9d-4fb4-a136-7767cd97e30b"
   "2017_pres_t2|https://www.data.gouv.fr/fr/datasets/r/2e3e44de-e584-4aa2-8148-670daf5617e1"
   "2017_legi_t1|https://www.data.gouv.fr/fr/datasets/r/80cb1309-9147-4bae-b6e2-79877d549b50"
