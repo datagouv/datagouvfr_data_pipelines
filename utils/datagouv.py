@@ -503,7 +503,7 @@ def post_remote_communautary_resource(
             json=payload,
             headers=headers
         )
-    assert r.raise_for_status()
+    r.raise_for_status()
     return r.json()
 
 
