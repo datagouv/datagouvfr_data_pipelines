@@ -2,11 +2,11 @@
 from airflow.hooks.base import BaseHook
 from airflow.models import Variable
 from datetime import datetime, date, timedelta
-import gzip
 import glob
 import os
 import pandas as pd
 import requests
+import tarfile
 from tqdm import tqdm
 
 from datagouvfr_data_pipelines.utils.datagouv import get_resource
@@ -297,9 +297,11 @@ def process_log(ti):
         print("---------------")
         print(log_date)
         lines = []
-        for file_name in glob.glob(f"{TMP_FOLDER}/*{log_date}*.txt.gz"):
-            with gzip.open(file_name, "rb") as log_data:
-                lines += log_data.readlines()
+        for file_name in glob.glob(f"{TMP_FOLDER}/*{log_date}*.tar.gz"):
+            with tarfile.open(file_name, "r:gz") as tar:
+                for log_file in tar:
+                    log_data = tar.extractfile(log_file)
+                    lines += log_data.readlines()
 
         print("haproxy loaded")
         print("parse lines")
