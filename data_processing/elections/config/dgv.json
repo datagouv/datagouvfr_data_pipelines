@@ -4,11 +4,11 @@
         "file": "general_results.csv",
         "dev": {
             "dataset_id": "645cfef7d766788fc6310dc7",
-            "resource_id": "8e17974b-88da-4e03-9393-5241df995d7c"
+            "resource_id": "e03c8787-c4bf-4588-bc45-38fd89ca9f63"
         },
         "prod": {
             "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": "3fc6ec5e-eef1-41f4-9b2c-e976eeec2579"
+            "resource_id": "b8703c69-a18f-46ab-9e7f-3a8368dcb891"
         }
     },
     "candidats": {
@@ -16,11 +16,11 @@
         "file": "candidats_results.csv",
         "dev": {
             "dataset_id": "645cfef7d766788fc6310dc7",
-            "resource_id": "f142cbee-6078-428d-a83c-20335e7d9587"
+            "resource_id": "91dfb40a-b72f-45ca-a91a-d0dc788a0b0e"
         },
         "prod": {
             "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": "54f56b26-9292-4ff0-86e2-2dd416f4d772"
+            "resource_id": "52a11762-45b4-414f-b6a2-eaa290217dc6"
         }
     }
 }
