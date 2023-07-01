@@ -292,6 +292,23 @@ def populate_whole_period_table():
     populate_utils([f"{DATADIR}/stats_whole_period.csv"], table, True)
 
 
+def alter_whole_period_table_add_tables():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+                "source_name": "alter_whole_period_table.sql",
+            }
+        ],
+        schema,
+    )
+
+
 def get_epci():
     page = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"

@@ -2,6 +2,8 @@ DROP TABLE IF EXISTS dvf.stats_whole_period CASCADE;
 CREATE UNLOGGED TABLE dvf.stats_whole_period (
 code_geo VARCHAR(20),
 code_parent VARCHAR(10),
+libelle_geo VARCHAR(100),
+echelle_geo VARCHAR(100),
 nb_ventes_whole_appartement INT,
 moy_prix_m2_whole_appartement INT,
 med_prix_m2_whole_appartement INT,
