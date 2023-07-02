@@ -241,9 +241,9 @@ def populate_copro_table():
     mapping = {old: new for (old, new) in zip(copro.columns, new_cols)}
     copro = copro.rename(mapping, axis=1)
     # remove abnormalities
-    for c in copro.columns:
-        if 'insee' in c:
-            copro = copro.loc[copro[c].str.len() == 5]
+    #for c in copro.columns:
+    #    if 'insee' in c:
+    #        copro = copro.loc[copro[c].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
     table = f'{schema}.copro' if schema else "copro"
     populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
