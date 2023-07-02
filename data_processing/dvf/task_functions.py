@@ -254,6 +254,8 @@ def populate_copro_table():
         "section_3",
         "numero_parcelle_3",
     ])
+    mask = copro['commune'].str.len() == 5
+    copro = copro.loc[mask]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
     table = f'{schema}.copro' if schema else "copro"
     populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
