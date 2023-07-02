@@ -240,10 +240,20 @@ def populate_copro_table():
     assert len(new_cols) == len(copro.columns)
     mapping = {old: new for (old, new) in zip(copro.columns, new_cols)}
     copro = copro.rename(mapping, axis=1)
-    # remove abnormalities
-    #for c in copro.columns:
-    #    if 'insee' in c:
-    #        copro = copro.loc[copro[c].str.len() == 5]
+    copro = copro.drop(columns=[
+        "code_insee_commune_1",
+        "prefixe_1",
+        "section_1",
+        "numero_parcelle_1",
+        "code_insee_commune_2",
+        "prefixe_2",
+        "section_2",
+        "numero_parcelle_2",
+        "code_insee_commune_3",
+        "prefixe_3",
+        "section_3",
+        "numero_parcelle_3",
+    ])
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
     table = f'{schema}.copro' if schema else "copro"
     populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
