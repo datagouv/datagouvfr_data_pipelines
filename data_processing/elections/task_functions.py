@@ -108,12 +108,14 @@ def process_election_data():
     results['general'] = pd.concat(results['general'], ignore_index=True)
     results['general'].to_csv(
         DATADIR + '/general_results.csv',
+        sep=';',
         index=False
     )
     # removing rows created from empty columns due to uneven canditates number
     results['candidats'] = pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])
     results['candidats'].to_csv(
         DATADIR + '/candidats_results.csv',
+        sep=';',
         index=False
     )
     del results
@@ -135,6 +137,7 @@ def process_election_data():
             # concatenating all preprocessed files to the previous ones
             df.to_csv(
                 DATADIR + f'/{t}_results.csv',
+                sep=';',
                 index=False,
                 mode="a",
                 header=False
