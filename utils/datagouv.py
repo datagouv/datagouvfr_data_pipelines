@@ -110,6 +110,68 @@ def post_resource(
     return r.json()
 
 
+def post_remote_resource(
+    api_key: str,
+    dataset_id: str,
+    title: str,
+    format: str,
+    remote_url: str,
+    filesize: int,
+    type: str = "main",
+    schema: dict = {},
+    description: str = "",
+    resource_id: Optional[str] = None,
+):
+    """Create a post in data.gouv.fr
+
+    Args:
+        api_key (str): API key from data.gouv.fr
+        dataset_id (str): id of the dataset
+        title (str): resource title
+        format (str): resource format
+        remote_url (str): resource distant URL
+        filesize (int): resource size (bytes)
+        type (str): type of resource
+        schema (str): schema of the resource (if relevant)
+        description (str): resource description
+        resource_id (str): resource id (if modifying an existing resource)
+
+    Returns:
+       json: return API result in a dictionnary containing metadatas
+    """
+    headers = {
+        "X-API-KEY": api_key,
+    }
+    payload = {
+        'title': title,
+        'description': description,
+        'url': remote_url,
+        'type': type,
+        'filetype': 'remote',
+        'format': format,
+        'schema': schema,
+        'filesize': filesize
+    }
+    if resource_id:
+        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+        print(f"Putting '{title}' at {url}")
+        r = requests.put(
+            url,
+            json=payload,
+            headers=headers
+        )
+    else:
+        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/"
+        print(f"Posting '{title}' at {url}")
+        r = requests.post(
+            url,
+            json=payload,
+            headers=headers
+        )
+    r.raise_for_status()
+    return r.json()
+
+
 def delete_dataset_or_resource(
     api_key: str,
     dataset_id: str,
@@ -372,7 +434,7 @@ def post_remote_communautary_resource(
     schema: dict = {},
     description: str = ""
 ):
-    """Create a post in data.gouv.fr
+    """Post a remote communautary resource on data.gouv.fr
 
     Args:
         api_key (str): API key from data.gouv.fr
@@ -383,7 +445,7 @@ def post_remote_communautary_resource(
         organisation_publication_id (str): organization with which to publish
         filesize (int): resource size (bytes)
         type (str): type of resource
-        schema (str): schema of the resource (if relevant) 
+        schema (str): schema of the resource (if relevant)
         description (str): resource description
 
     Returns:
@@ -441,7 +503,7 @@ def post_remote_communautary_resource(
             json=payload,
             headers=headers
         )
-    assert r.ok
+    r.raise_for_status()
     return r.json()
 
 
