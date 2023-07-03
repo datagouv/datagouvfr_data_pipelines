@@ -43,74 +43,74 @@ LAST_MONTH_DATE_STR = (
 )
 
 
-def tweet_featured_from_catalog(url, obj_type, phrase_intro):
-    authenticator = tweepy.OAuthHandler(
-        TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_KEY_SECRET
-    )
-    authenticator.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_SECRET_TOKEN)
+# def tweet_featured_from_catalog(url, obj_type, phrase_intro):
+#     authenticator = tweepy.OAuthHandler(
+#         TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_KEY_SECRET
+#     )
+#     authenticator.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_SECRET_TOKEN)
 
-    api = tweepy.API(authenticator, wait_on_rate_limit=True)
+#     api = tweepy.API(authenticator, wait_on_rate_limit=True)
 
-    df = pd.read_csv(url, sep=";")
-    nb_items = df[(df["created_at"].str.match(LAST_MONTH_DATE_FMT))].shape[0]
-    df = df[
-        (df["created_at"].str.match(LAST_MONTH_DATE_FMT)) & (df["featured"] is True)
-    ]
-    df["title_bis"] = df["title"].apply(
-        lambda x: x[:215] + "[...]" if len(x) > 215 else x
-    )
-    df["tweet"] = (
-        df["title_bis"] + " https://data.gouv.fr/fr/" + obj_type + "/" + df["id"]
-    )
+#     df = pd.read_csv(url, sep=";")
+#     nb_items = df[(df["created_at"].str.match(LAST_MONTH_DATE_FMT))].shape[0]
+#     df = df[
+#         (df["created_at"].str.match(LAST_MONTH_DATE_FMT)) & (df["featured"] is True)
+#     ]
+#     df["title_bis"] = df["title"].apply(
+#         lambda x: x[:215] + "[...]" if len(x) > 215 else x
+#     )
+#     df["tweet"] = (
+#         df["title_bis"] + " https://data.gouv.fr/fr/" + obj_type + "/" + df["id"]
+#     )
 
-    tweets = list(df["tweet"].unique())
+#     tweets = list(df["tweet"].unique())
 
-    intro = (
-        "En "
-        + LAST_MONTH_DATE_STR_SHORT
-        + ", "
-        + str(nb_items)
-        + " "
-        + phrase_intro
-        + " sur data.gouv.fr. \n Découvrez nos coups de coeur dans ce fil #opendata \n 🔽🔽🔽🔽"
-    )
+#     intro = (
+#         "En "
+#         + LAST_MONTH_DATE_STR_SHORT
+#         + ", "
+#         + str(nb_items)
+#         + " "
+#         + phrase_intro
+#         + " sur data.gouv.fr. \n Découvrez nos coups de coeur dans ce fil #opendata \n 🔽🔽🔽🔽"
+#     )
 
-    # tweets = intro + tweets
-    original_tweet = api.update_status(status=intro)
+#     # tweets = intro + tweets
+#     original_tweet = api.update_status(status=intro)
 
-    reply_tweet = original_tweet
+#     reply_tweet = original_tweet
 
-    for tweet in tweets:
-        reply_tweet = api.update_status(
-            status=tweet,
-            in_reply_to_status_id=reply_tweet.id,
-            auto_populate_reply_metadata=True,
-        )
+#     for tweet in tweets:
+#         reply_tweet = api.update_status(
+#             status=tweet,
+#             in_reply_to_status_id=reply_tweet.id,
+#             auto_populate_reply_metadata=True,
+#         )
 
-    return (
-        ":bird: Thread sur les "
-        + obj_type
-        + " du mois dernier publié [ici](https://twitter.com/DatagouvBot/status/"
-        + str(original_tweet.id)
-        + ")"
-    )
+#     return (
+#         ":bird: Thread sur les "
+#         + obj_type
+#         + " du mois dernier publié [ici](https://twitter.com/DatagouvBot/status/"
+#         + str(original_tweet.id)
+#         + ")"
+#     )
 
 
-def process_tweeting(**kwargs):
-    dataset_thread = tweet_featured_from_catalog(
-        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
-        "datasets",
-        "jeux de données ont été publiés",
-    )
-    reuse_thread = tweet_featured_from_catalog(
-        "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
-        "reuses",
-        "réutilisations ont été publiées",
-    )
+# def process_tweeting(**kwargs):
+#     dataset_thread = tweet_featured_from_catalog(
+#         "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+#         "datasets",
+#         "jeux de données ont été publiés",
+#     )
+#     reuse_thread = tweet_featured_from_catalog(
+#         "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
+#         "reuses",
+#         "réutilisations ont été publiées",
+#     )
 
-    kwargs["ti"].xcom_push(
-        key="published_threads", value=[dataset_thread, reuse_thread]
-    )
+#     kwargs["ti"].xcom_push(
+#         key="published_threads", value=[dataset_thread, reuse_thread]
+#     )
 
 
 def create_edito_post(**kwargs):
@@ -293,8 +293,6 @@ def publish_mattermost(ti):
     data = {
         "text": ":mega: @agarrone @thanh-ha.le \n - "
         + admin_post_url
-        + " \n - "
-        + "\n - ".join(published_threads)
     }
 
     requests.post(MATTERMOST_DATAGOUV_EDITO, json=data)
@@ -316,14 +314,8 @@ with DAG(
         python_callable=create_edito_post,
     )
 
-    tweet = PythonOperator(
-        task_id="tweet_threads",
-        python_callable=process_tweeting,
-    )
-
     mattermost = PythonOperator(
         task_id="publish_mattermost", python_callable=publish_mattermost
     )
 
-    mattermost.set_upstream(tweet)
     mattermost.set_upstream(edito)
