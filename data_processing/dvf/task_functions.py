@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     copy_file
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 import gc
@@ -1147,35 +1147,30 @@ def send_distribution_to_minio():
 def publish_stats_dvf(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
-    post_resource(
+    post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload={
-            "dest_path": f"{DATADIR}/",
-            "dest_name": data['mensuelles']["file"]
-        },
-        dataset_id=data['mensuelles'][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data['mensuelles'][AIRFLOW_ENV]["resource_id"],
-        resource_payload={
-            'title': 'Statistiques mensuelles DVF',
-            'description': f"""Statistiques mensuelles sur les données DVF (dernière modification : {
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dvf/stats_dvf.csv",
+        dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
+        title="Statistiques mensuelles DVF",
+        format="csv",
+        description=f"""Statistiques mensuelles sur les données DVF (dernière modification : {
                 datetime.today()
             })""",
-        }
     )
-    post_resource(
+    print("Done with stats mensuelles")
+    post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload={
-            "dest_path": f"{DATADIR}/",
-            "dest_name": data['totales']["file"]
-        },
-        dataset_id=data['totales'][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data['totales'][AIRFLOW_ENV]["resource_id"],
-        resource_payload={
-            'title': 'Statistiques totales DVF',
-            'description': f"""Statistiques sur 5 ans sur les données DVF (dernière modification : {
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dvf/stats_whole_period.csv",
+        dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "stats_whole_period.csv")),
+        title="Statistiques totales DVF",
+        format="csv",
+        description=f"""Statistiques sur 5 ans sur les données DVF (dernière modification : {
                 datetime.today()
             })""",
-        }
     )
     ti.xcom_push(key="dataset_id", value=data['mensuelles'][AIRFLOW_ENV]["dataset_id"])
 
