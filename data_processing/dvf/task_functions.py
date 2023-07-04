@@ -1108,15 +1108,7 @@ def send_stats_to_minio():
                 "source_name": "stats_dvf.csv",
                 "dest_path": "dvf/",
                 "dest_name": "stats_dvf.csv",
-            }
-        ],
-    )
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        list_files=[
+            },
             {
                 "source_path": f"{DATADIR}/",
                 "source_name": "stats_whole_period.csv",
