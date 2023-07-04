@@ -180,67 +180,69 @@ def populate_utils(files, table, has_header):
 
 
 def populate_copro_table():
-    new_cols = [
-        "epci",
-        "commune",
-        "numero_immatriculation",
-        "type_syndic",
-        "identification_representant_legal",
-        "siret_representant_legal",
-        "code_ape",
-        "commune_representant_legal",
-        "mandat_en_cours_copropriete",
-        "nom_usage_copropriete",
-        "adresse_reference",
-        "numero_et_voie_adresse_reference",
-        "code_postal_adresse_reference",
-        "commune_adresse_reference",
-        "adresse_complementaire_1",
-        "adresse_complementaire_2",
-        "adresse_complementaire_3",
-        "nombre_adresses_complementaires",
-        "long",
-        "lat",
-        "date_reglement_copropriete",
-        "residence_service",
-        "syndicat_cooperatif",
-        "syndicat_principal_ou_secondaire",
-        "si_secondaire_numero_immatriculation_principal",
-        "nombre_asl_rattache_syndicat_coproprietaires",
-        "nombre_aful_rattache_syndicat_coproprietaires",
-        "nombre_unions_syndicats_rattache_syndicat_coproprietaires",
-        "nombre_total_lots",
-        "nombre_total_lots_usage_habitation_bureaux_ou_commerces",
-        "nombre_lots_usage_habitation",
-        "nombre_lots_stationnement",
-        "nombre_arretes_code_sante_publique_en_cours",
-        "nombre_arretes_peril_parties_communes_en_cours",
-        "nombre_arretes_equipements_communs_en_cours",
-        "periode_construction",
-        "reference_cadastrale_1",
-        "code_insee_commune_1",
-        "prefixe_1",
-        "section_1",
-        "numero_parcelle_1",
-        "reference_cadastrale_2",
-        "code_insee_commune_2",
-        "prefixe_2",
-        "section_2",
-        "numero_parcelle_2",
-        "reference_cadastrale_3",
-        "code_insee_commune_3",
-        "prefixe_3",
-        "section_3",
-        "numero_parcelle_3",
-        "nombre_parcelles_cadastrales",
-        "nom_qp",
-        "code_qp",
-        "copro_dans_acv",
-        "copro_dans_pvd",
-    ]
-    copro = pd.read_csv(f"{DATADIR}/copro.csv", dtype=str)
-    assert len(new_cols) == len(copro.columns)
-    mapping = {old: new for (old, new) in zip(copro.columns, new_cols)}
+    mapping = {
+        "EPCI": "epci",
+        "Commune": "commune",
+        "Numéro d'immatriculation": "numero_immatriculation",
+        "Type de syndic : bénévole / professionnel / non connu": "type_syndic",
+        "Identification du représentant légal  (raison sociale et le numéro SIRET du syndic professionnel ou Civilité/prénom/ nom du syndic bénévole ou coopératif)": "identification_representant_legal",
+        "Siret représentant légal (si existe)": "siret_representant_legal",
+        "Code APE": "code_ape",
+        "Commune du représentant légal": "commune_representant_legal",
+        "Mandat en cours dans la copropriété": "mandat_en_cours_copropriete",
+        "Nom d’usage de la copropriété": "nom_usage_copropriete",
+        "Adresse de référence": "adresse_reference",
+        "Numéro et Voie (adresse de référence)": "numero_et_voie_adresse_reference",
+        "Code postal (adresse de référence)": "code_postal_adresse_reference",
+        "Commune (adresse de référence)": "commune_adresse_reference",
+        "Adresse complémentaire 1": "adresse_complementaire_1",
+        "Adresse complémentaire 2": "adresse_complementaire_2",
+        "Adresse complémentaire 3": "adresse_complementaire_3",
+        "Nombre d'adresses complémentaires": "nombre_adresses_complementaires",
+        "long": "long",
+        "lat": "lat",
+        "Date du règlement de copropriété": "date_reglement_copropriete",
+        "Résidence service": "residence_service",
+        "Syndicat coopératif": "syndicat_cooperatif",
+        "Syndicat principal ou syndicat secondaire": "syndicat_principal_ou_secondaire",
+        "Si secondaire, n° d’immatriculation du principal": "si_secondaire_numero_immatriculation_principal",
+        "Nombre d’ASL auxquelles est rattaché le syndicat de copropriétaires": "nombre_asl_rattache_syndicat_coproprietaires",
+        "Nombre d’AFUL auxquelles est rattaché le syndicat de copropriétaires": "nombre_aful_rattache_syndicat_coproprietaires",
+        "Nombre d’Unions de syndicats auxquelles est rattaché le syndicat de copropriétaires": "nombre_unions_syndicats_rattache_syndicat_coproprietaires",
+        "Nombre total de lots": "nombre_total_lots",
+        "Nombre total de lots à usage d’habitation, de bureaux ou de commerces": "nombre_total_lots_usage_habitation_bureaux_ou_commerces",
+        "Nombre de lots à usage d’habitation": "nombre_lots_usage_habitation",
+        "Nombre de lots de stationnement": "nombre_lots_stationnement",
+        "Nombre d'arrêtés relevant du code de la santé publique en cours": "nombre_arretes_code_sante_publique_en_cours",
+        "Nombre d'arrêtés de péril sur les parties communes en cours": "nombre_arretes_peril_parties_communes_en_cours",
+        "Nombre d'arrêtés sur les équipements communs en cours": "nombre_arretes_equipements_communs_en_cours",
+        "Période de construction": "periode_construction",
+        "Référence Cadastrale 1": "reference_cadastrale_1",
+        "Code INSEE commune 1": "code_insee_commune_1",
+        "Préfixe 1": "prefixe_1",
+        "Section 1": "section_1",
+        "Numéro parcelle 1": "numero_parcelle_1",
+        "Référence Cadastrale 2": "reference_cadastrale_2",
+        "Code INSEE commune 2": "code_insee_commune_2",
+        "Préfixe 2": "prefixe_2",
+        "Section 2": "section_2",
+        "Numéro parcelle 2": "numero_parcelle_2",
+        "Référence Cadastrale 3": "reference_cadastrale_3",
+        "Code INSEE commune 3": "code_insee_commune_3",
+        "Préfixe 3": "prefixe_3",
+        "Section 3": "section_3",
+        "Numéro parcelle 3": "numero_parcelle_3",
+        "Nombre de parcelles cadastrales": "nombre_parcelles_cadastrales",
+        "nom_qp": "nom_qp",
+        "code_qp": "code_qp",
+        "Copro dans ACV": "copro_dans_acv",
+        "Copro dans PVD": "copro_dans_pvd",
+    }
+    copro = pd.read_csv(
+        f"{DATADIR}/copro.csv",
+        dtype=str,
+        usecols=mapping.keys()
+    )
     copro = copro.rename(mapping, axis=1)
     copro = copro.drop(columns=[
         "code_insee_commune_1",
@@ -329,38 +331,6 @@ def get_epci():
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
-def download_dpe():
-    r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
-    urls = [
-        k['url'] for k in r.json()['resources']
-        if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
-    ]
-    if os.path.exists(DPEDIR):
-        shutil.rmtree(DPEDIR)
-    os.makedirs(DPEDIR)
-    for url in urls:
-        tmp = url.split('/')[-1].split('dep')[-1]
-        folder = tmp.replace('.zip', '')
-        print(tmp)
-        with requests.get(url) as r:
-            with open(DPEDIR + tmp, 'wb') as f:
-                f.write(r.content)
-                f.close()
-        with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
-            zip_ref.extractall(DPEDIR + folder)
-        os.remove(DPEDIR + tmp)
-        os.rename(
-            DPEDIR + folder + "/csv/batiment_groupe_dpe_representatif_logement.csv",
-            DPEDIR + folder + "/batiment_groupe_dpe_representatif_logement.csv"
-        )
-        os.rename(
-            DPEDIR + folder + "/csv/rel_batiment_groupe_parcelle.csv",
-            DPEDIR + folder + "/rel_batiment_groupe_parcelle.csv"
-        )
-        shutil.rmtree(DPEDIR + folder + "/csv")
-        shutil.rmtree(DPEDIR + folder + "/doc")
-
-
 def process_dpe():
     cols_dpe = [
         'batiment_groupe_id',
@@ -380,38 +350,34 @@ def process_dpe():
         "batiment_groupe_id",
         "parcelle_id"
     ]
-    dep_folders = os.listdir(DPEDIR)
-    for dep in dep_folders:
-        print(dep)
-        dpe = pd.read_csv(
-            f'{DPEDIR}{dep}/batiment_groupe_dpe_representatif_logement.csv',
-            dtype=str,
-            usecols=cols_dpe
-        )
-        dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
-        dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
-            lambda x: round(float(x), 2)
-        )
-        parcelles = pd.read_csv(
-            f'{DPEDIR}{dep}/rel_batiment_groupe_parcelle.csv',
-            dtype=str,
-            usecols=cols_parcelles
-        )
-        dpe_parcelled = pd.merge(
-            dpe,
-            parcelles,
-            on='batiment_groupe_id',
-            how='left'
-        )
-        dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
-        dpe_parcelled.to_csv(
-            DATADIR + "/all_dpe.csv",
-            mode='a',
-            sep=",",
-            index=False,
-            encoding="utf8",
-            header=False
-        )
+    dpe = pd.read_csv(
+        DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
+        dtype=str,
+        usecols=cols_dpe
+    )
+    dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+    dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+        lambda x: round(float(x), 2)
+    )
+    parcelles = pd.read_csv(
+        DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
+        dtype=str,
+        usecols=cols_parcelles
+    )
+    dpe_parcelled = pd.merge(
+        dpe,
+        parcelles,
+        on='batiment_groupe_id',
+        how='left'
+    )
+    dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+    dpe_parcelled.to_csv(
+        DATADIR + "/all_dpe.csv",
+        sep=",",
+        index=False,
+        encoding="utf8",
+        header=False
+    )
 
 
 def index_dpe_table():
@@ -1086,6 +1052,10 @@ def create_distribution_and_stats_whole_period():
     print("Done exporting distribution")
     stats_period = reduce(lambda x, y: pd.merge(x, y, on='code_geo', how='outer'), stats_period)
     stats_period = pd.merge(echelles, stats_period, on='code_geo', how='outer')
+    print("Check répartition échelles")
+    print("Réel")
+    print(echelles['echelle_geo'].value_counts(dropna=False))
+    print("Dans stats")
     print(stats_period['echelle_geo'].value_counts(dropna=False))
     stats_period.to_csv(
         DATADIR + "/stats_whole_period.csv",
