@@ -995,7 +995,7 @@ def create_distribution_and_stats_whole_period():
     echelles_of_interest = {
         "departement": True,
         "epci": True,
-        "commune": False,
+        "commune": True,
         "section": False
     }
     types_of_interest = {
