@@ -10,7 +10,6 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     alter_dvf_table,
-    alter_whole_period_table_add_tables,
     create_copro_table,
     populate_copro_table,
     download_dpe,
@@ -185,11 +184,6 @@ with DAG(
         python_callable=populate_whole_period_table,
     )
 
-    alter_whole_period_table_add_tables = PythonOperator(
-        task_id='alter_whole_period_table_add_tables',
-        python_callable=alter_whole_period_table_add_tables,
-    )
-
     send_stats_to_minio = PythonOperator(
         task_id='send_stats_to_minio',
         python_callable=send_stats_to_minio,
@@ -232,7 +226,6 @@ with DAG(
 
     create_whole_period_table.set_upstream(create_distribution_and_stats_whole_period)
     populate_whole_period_table.set_upstream(create_whole_period_table)
-    alter_whole_period_table_add_tables.set_upstream(populate_whole_period_table)
 
     send_distribution_to_minio.set_upstream(create_distribution_and_stats_whole_period)
 
@@ -249,4 +242,4 @@ with DAG(
     notification_mattermost.set_upstream(index_dvf_table)
     notification_mattermost.set_upstream(send_distribution_to_minio)
     notification_mattermost.set_upstream(populate_distribution_table)
-    notification_mattermost.set_upstream(alter_whole_period_table_add_tables)
+    notification_mattermost.set_upstream(populate_whole_period_table)

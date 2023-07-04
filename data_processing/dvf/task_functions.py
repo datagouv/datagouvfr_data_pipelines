@@ -6,6 +6,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
@@ -13,7 +14,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     copy_file
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 import gc
@@ -27,6 +28,7 @@ from datetime import datetime
 import json
 import shutil
 import zipfile
+from functools import reduce
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
@@ -304,23 +306,6 @@ def populate_whole_period_table():
     populate_utils([f"{DATADIR}/stats_whole_period.csv"], table, True)
 
 
-def alter_whole_period_table_add_tables():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "alter_whole_period_table.sql",
-            }
-        ],
-        schema,
-    )
-
-
 def get_epci():
     page = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
@@ -525,7 +510,7 @@ def process_dvf_stats(ti):
 
         # filtres sur les ventes et les types de biens à considérer
         # choix : les terres et/ou dépendances ne rendent pas une mutation
-        # multitype
+        # multi-type
         ventes = df.loc[
             (df["nature_mutation"].isin(natures_of_interest)) &
             (df["code_type_local"].isin([1, 2, 4]))
@@ -616,6 +601,42 @@ def process_dvf_stats(ti):
 
                 merged = pd.merge(nb_, mean_, on=[f"code_{echelle}"])
                 merged = pd.merge(merged, median_, on=[f"code_{echelle}"])
+
+                # appartement + maison
+                combined = ventes_nodup.loc[
+                    ventes_nodup["code_type_local"].isin([1, 2])
+                ].groupby(
+                    [f"code_{echelle}", "month"]
+                )["prix_m2"]
+
+                nb = combined.count()
+                nb_ = (
+                    nb.loc[nb.index.get_level_values(1) == m]
+                    .unstack()
+                    .reset_index()
+                )
+                nb_.columns = [f'code_{echelle}', 'nb_ventes_apt_maison']
+
+                mean = combined.mean()
+                mean_ = (
+                    mean.loc[mean.index.get_level_values(1) == m]
+                    .unstack()
+                    .reset_index()
+                )
+                mean_.columns = [f'code_{echelle}', 'moy_prix_m2_apt_maison']
+
+                median = combined.median()
+                median_ = (
+                    median.loc[median.index.get_level_values(1) == m]
+                    .unstack()
+                    .reset_index()
+                )
+                median_.columns = [f'code_{echelle}', 'med_prix_m2_apt_maison']
+
+                merged = pd.merge(merged, nb_, on=[f"code_{echelle}"], how="outer")
+                merged = pd.merge(merged, mean_, on=[f"code_{echelle}"])
+                merged = pd.merge(merged, median_, on=[f"code_{echelle}"])
+
                 for c in merged.columns:
                     if any([k in c for k in ["moy_", "med_"]]):
                         merged[c] = merged[c].round()
@@ -753,6 +774,14 @@ def process_dvf_stats(ti):
         .fillna("NA")
         .apply(unidecode)
     )
+    libelles_biens = [
+        unidecode(types_bien.get(t).split(" ")[0].lower()) for t in types_of_interest
+    ] + ['apt_maison']
+    prefixes = ['nb_ventes_', 'moy_prix_m2_', 'med_prix_m2_']
+    reordered_columns = ['code_geo'] +\
+        [pref + lib for lib in libelles_biens for pref in prefixes] +\
+        ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
+    print(reordered_columns)
     for year in years:
         print("Final process for " + str(year))
         dup_libelle = libelles_parents.append(
@@ -780,11 +809,6 @@ def process_dvf_stats(ti):
             ['-', 'nation', 'nation'] for k in range(sum(mask))
         ]
         del mask
-        libelles_biens = [unidecode(types_bien.get(t).split(" ")[0].lower()) for t in types_of_interest]
-        prefixes = ['nb_ventes_', 'moy_prix_m2_', 'med_prix_m2_']
-        reordered_columns = ['code_geo'] +\
-            [pref + lib for lib in libelles_biens for pref in prefixes] +\
-            ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
         export[year] = export[year][reordered_columns]
         export[year].to_csv(
             DATADIR + "/stats_dvf_api.csv",
@@ -879,7 +903,8 @@ def create_distribution_and_stats_whole_period():
         DATADIR + "/stats_dvf_api.csv",
         sep=",",
         encoding="utf8",
-        usecols=['echelle_geo', 'code_geo', 'code_parent']
+        usecols=['code_geo', 'echelle_geo', 'code_parent', 'libelle_geo'],
+        dtype=str
     )
     echelles = echelles.drop_duplicates()
     # on récupère les données DVF
@@ -909,7 +934,7 @@ def create_distribution_and_stats_whole_period():
         "surface_reelle_bati",
     ]
     for year in years:
-        print("Loading ", year)
+        print("Starting with", year)
         df_ = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
             sep=",",
@@ -930,14 +955,6 @@ def create_distribution_and_stats_whole_period():
             "Adjudication",
         ]
         del df_
-
-        # types_bien = {
-        #     1: "Maison",
-        #     2: "Appartement",
-        #     3: "Dépendance",
-        #     4: "Local industriel. commercial ou assimilé",
-        #     NaN: terres (cf nature_culture)
-        # }
 
         # filtres sur les ventes et les types de biens à considérer
         # choix : les terres et/ou dépendances ne rendent pas une mutation
@@ -974,12 +991,13 @@ def create_distribution_and_stats_whole_period():
         on="code_commune",
         how="left"
     )
-    echelles_of_interest = [
-        "departement",
-        "epci",
-        "commune",
-        #"section"
-    ]
+    # bool is for distribution calculation
+    echelles_of_interest = {
+        "departement": True,
+        "epci": True,
+        "commune": True,
+        "section": False
+    }
     types_of_interest = {
         'appartement': [2],
         'maison': [1],
@@ -987,53 +1005,66 @@ def create_distribution_and_stats_whole_period():
         'local': [4],
     }
     dvf = dvf[['code_' + e for e in echelles_of_interest] + ['code_type_local', 'prix_m2']]
-    stats_period = {
-        c: {'code_geo': c, 'code_parent': p} for c, p in zip(echelles['code_geo'], echelles['code_parent'])
-    }
     threshold = 100
     tranches = []
+    stats_period = []
     for t in types_of_interest:
         restr_type_dvf = dvf.loc[
             dvf['code_type_local'].isin(types_of_interest[t])
         ].drop('code_type_local', axis=1)
         # échelle nationale
-        prix = restr_type_dvf['prix_m2']
-        intervalles, volumes = distrib_from_prix(prix)
-        stats_period['nation'].update({f'nb_ventes_whole_{t}': len(prix)})
-        stats_period['nation'].update({f'moy_prix_m2_whole_{t}': round(prix.mean())})
-        stats_period['nation'].update({f'med_prix_m2_whole_{t}': round(prix.median())})
-        echelle_dict = {
+        intervalles, volumes = distrib_from_prix(restr_type_dvf['prix_m2'])
+        tranches.append({
             'code_geo': 'nation',
             'type_local': t,
             'xaxis': intervalles,
             'yaxis': volumes
-        }
-        tranches.append(echelle_dict)
+        })
         # autres échelles
+        type_stats = []
         for e in echelles_of_interest:
-            codes_geo = set(echelles.loc[echelles['echelle_geo'] == e, 'code_geo'])
-            restr_dvf = restr_type_dvf[[f'code_{e}', 'prix_m2']].set_index(f'code_{e}')['prix_m2']
-            idx = set(restr_dvf.index)
-            operations = len(codes_geo)
-            print(e, t)
-            for i, code in enumerate(codes_geo):
-                if i % (operations // 10) == 0 and i > 0:
-                    print(round(i / operations * 100), '%')
-                if code in idx:
-                    prix = restr_dvf.loc[code]
-                    if not isinstance(prix, pd.core.series.Series):
-                        prix = pd.Series(prix)
-                    stats_period[code].update({f'nb_ventes_whole_{t}': len(prix)})
-                    stats_period[code].update({f'moy_prix_m2_whole_{t}': round(prix.mean())})
-                    stats_period[code].update({f'med_prix_m2_whole_{t}': round(prix.median())})
-                    if len(prix) >= threshold:
-                        intervalles, volumes = distrib_from_prix(prix)
-                        tranches.append({
-                            'code_geo': code,
-                            'type_local': t,
-                            'xaxis': intervalles,
-                            'yaxis': volumes
-                        })
+            print("Starting", e, t)
+            # stats
+            grouped = restr_type_dvf[[f'code_{e}', 'prix_m2']].groupby(f'code_{e}')
+            nb = grouped.count().reset_index()
+            nb.columns = ['code_geo', f'nb_ventes_whole_{t}']
+            mean = grouped.mean().reset_index()
+            mean.columns = ['code_geo', f'moy_prix_m2_whole_{t}']
+            median = grouped.median().reset_index()
+            median.columns = ['code_geo', f'med_prix_m2_whole_{t}']
+            merged = pd.merge(nb, mean, on='code_geo')
+            merged = pd.merge(merged, median, on='code_geo')
+            type_stats.append(merged)
+            print("- Done with stats")
+
+            # distribution
+            if echelles_of_interest[e]:
+                codes_geo = set(echelles.loc[echelles['echelle_geo'] == e, 'code_geo'])
+                restr_dvf = restr_type_dvf[[f'code_{e}', 'prix_m2']].set_index(f'code_{e}')['prix_m2']
+                idx = set(restr_dvf.index)
+                operations = len(codes_geo)
+                for i, code in enumerate(codes_geo):
+                    if i % (operations // 10) == 0 and i > 0:
+                        print(round(i / operations * 100), '%')
+                    if code in idx:
+                        prix = restr_dvf.loc[code]
+                        if not isinstance(prix, pd.core.series.Series):
+                            prix = pd.Series(prix)
+                        if len(prix) >= threshold:
+                            intervalles, volumes = distrib_from_prix(prix)
+                            tranches.append({
+                                'code_geo': code,
+                                'type_local': t,
+                                'xaxis': intervalles,
+                                'yaxis': volumes
+                            })
+                        else:
+                            tranches.append({
+                                'code_geo': code,
+                                'type_local': t,
+                                'xaxis': None,
+                                'yaxis': None
+                            })
                     else:
                         tranches.append({
                             'code_geo': code,
@@ -1041,13 +1072,10 @@ def create_distribution_and_stats_whole_period():
                             'xaxis': None,
                             'yaxis': None
                         })
-                else:
-                    tranches.append({
-                        'code_geo': code,
-                        'type_local': t,
-                        'xaxis': None,
-                        'yaxis': None
-                    })
+                print("- Done with distribution")
+            else:
+                print("- No distribution")
+        stats_period.append(pd.concat(type_stats))
     output_tranches = pd.DataFrame(tranches)
     output_tranches.to_csv(
         DATADIR + "/distribution_prix.csv",
@@ -1056,8 +1084,10 @@ def create_distribution_and_stats_whole_period():
         index=False,
     )
     print("Done exporting distribution")
-    output_stats = pd.DataFrame(stats_period.values())
-    output_stats.to_csv(
+    stats_period = reduce(lambda x, y: pd.merge(x, y, on='code_geo', how='outer'), stats_period)
+    stats_period = pd.merge(echelles, stats_period, on='code_geo', how='outer')
+    print(stats_period['echelle_geo'].value_counts(dropna=False))
+    stats_period.to_csv(
         DATADIR + "/stats_whole_period.csv",
         sep=",",
         encoding="utf8",
@@ -1069,7 +1099,7 @@ def create_distribution_and_stats_whole_period():
 def send_stats_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         list_files=[
@@ -1078,15 +1108,7 @@ def send_stats_to_minio():
                 "source_name": "stats_dvf.csv",
                 "dest_path": "dvf/",
                 "dest_name": "stats_dvf.csv",
-            }
-        ],
-    )
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        list_files=[
+            },
             {
                 "source_path": f"{DATADIR}/",
                 "source_name": "stats_whole_period.csv",
@@ -1117,35 +1139,30 @@ def send_distribution_to_minio():
 def publish_stats_dvf(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
-    post_resource(
+    post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload={
-            "dest_path": f"{DATADIR}/",
-            "dest_name": data['mensuelles']["file"]
-        },
-        dataset_id=data['mensuelles'][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data['mensuelles'][AIRFLOW_ENV]["resource_id"],
-        resource_payload={
-            'title': 'Statistiques mensuelles DVF',
-            'description': f"""Statistiques mensuelles sur les données DVF (dernière modification : {
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dvf/stats_dvf.csv",
+        dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
+        title="Statistiques mensuelles DVF",
+        format="csv",
+        description=f"""Statistiques mensuelles sur les données DVF (dernière modification : {
                 datetime.today()
             })""",
-        }
     )
-    post_resource(
+    print("Done with stats mensuelles")
+    post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload={
-            "dest_path": f"{DATADIR}/",
-            "dest_name": data['totales']["file"]
-        },
-        dataset_id=data['totales'][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data['totales'][AIRFLOW_ENV]["resource_id"],
-        resource_payload={
-            'title': 'Statistiques totales DVF',
-            'description': f"""Statistiques sur 5 ans des données DVF (dernière modification : {
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dvf/stats_whole_period.csv",
+        dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "stats_whole_period.csv")),
+        title="Statistiques totales DVF",
+        format="csv",
+        description=f"""Statistiques sur 5 ans sur les données DVF (dernière modification : {
                 datetime.today()
             })""",
-        }
     )
     ti.xcom_push(key="dataset_id", value=data['mensuelles'][AIRFLOW_ENV]["dataset_id"])
 
@@ -1157,5 +1174,5 @@ def notification_mattermost(ti):
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({DATAGOUV_URL}/fr/datasets/{dataset_id})"
-        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE}/browse)"
+        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
     )

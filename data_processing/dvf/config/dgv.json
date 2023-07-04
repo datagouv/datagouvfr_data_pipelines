@@ -4,11 +4,11 @@
         "file": "stats_dvf.csv",
         "dev": {
             "dataset_id": "63ebd4b775d47ab8a75db39a",
-            "resource_id": "d04e44a5-c6f8-4d14-8f97-c8038ba397bb"
+            "resource_id": "e9ebf30b-739b-4fa5-bdae-b9a70ba086e8"
         },
         "prod": {
             "dataset_id": "64998de5926530ebcecc7b15",
-            "resource_id": "8ed5e310-db52-4783-8773-40d9b3e42537"
+            "resource_id": "03fba98d-885b-43c0-8986-d299cabc29da"
         }
     },
     "totales": {
@@ -16,11 +16,11 @@
         "file": "stats_whole_period.csv",
         "dev": {
             "dataset_id": "63ebd4b775d47ab8a75db39a",
-            "resource_id": "5d6dfd16-574d-431c-b28f-6b3434fd5c16"
+            "resource_id": "ad09ae79-a874-472e-8109-703fe4dcaa5f"
         },
         "prod": {
             "dataset_id": "64998de5926530ebcecc7b15",
-            "resource_id": "e697c9b8-3169-407c-8358-7d87e691ed6a"
+            "resource_id": "851d342f-9c96-41c1-924a-11a7a7aae8a6"
         }
     }
 }
