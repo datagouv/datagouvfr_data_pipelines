@@ -331,38 +331,6 @@ def get_epci():
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
-def download_dpe():
-    r = requests.get('https://www.data.gouv.fr/api/1/datasets/61dc7157488f8cdb4283e3c3')
-    urls = [
-        k['url'] for k in r.json()['resources']
-        if all([e in k['title'] for e in ['BDNB - Export dep', 'csv']])
-    ]
-    if os.path.exists(DPEDIR):
-        shutil.rmtree(DPEDIR)
-    os.makedirs(DPEDIR)
-    for url in urls:
-        tmp = url.split('/')[-1].split('dep')[-1]
-        folder = tmp.replace('.zip', '')
-        print(tmp)
-        with requests.get(url) as r:
-            with open(DPEDIR + tmp, 'wb') as f:
-                f.write(r.content)
-                f.close()
-        with zipfile.ZipFile(DPEDIR + tmp, 'r') as zip_ref:
-            zip_ref.extractall(DPEDIR + folder)
-        os.remove(DPEDIR + tmp)
-        os.rename(
-            DPEDIR + folder + "/csv/batiment_groupe_dpe_representatif_logement.csv",
-            DPEDIR + folder + "/batiment_groupe_dpe_representatif_logement.csv"
-        )
-        os.rename(
-            DPEDIR + folder + "/csv/rel_batiment_groupe_parcelle.csv",
-            DPEDIR + folder + "/rel_batiment_groupe_parcelle.csv"
-        )
-        shutil.rmtree(DPEDIR + folder + "/csv")
-        shutil.rmtree(DPEDIR + folder + "/doc")
-
-
 def process_dpe():
     cols_dpe = [
         'batiment_groupe_id',
@@ -382,38 +350,34 @@ def process_dpe():
         "batiment_groupe_id",
         "parcelle_id"
     ]
-    dep_folders = os.listdir(DPEDIR)
-    for dep in dep_folders:
-        print(dep)
-        dpe = pd.read_csv(
-            f'{DPEDIR}{dep}/batiment_groupe_dpe_representatif_logement.csv',
-            dtype=str,
-            usecols=cols_dpe
-        )
-        dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
-        dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
-            lambda x: round(float(x), 2)
-        )
-        parcelles = pd.read_csv(
-            f'{DPEDIR}{dep}/rel_batiment_groupe_parcelle.csv',
-            dtype=str,
-            usecols=cols_parcelles
-        )
-        dpe_parcelled = pd.merge(
-            dpe,
-            parcelles,
-            on='batiment_groupe_id',
-            how='left'
-        )
-        dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
-        dpe_parcelled.to_csv(
-            DATADIR + "/all_dpe.csv",
-            mode='a',
-            sep=",",
-            index=False,
-            encoding="utf8",
-            header=False
-        )
+    dpe = pd.read_csv(
+        DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
+        dtype=str,
+        usecols=cols_dpe
+    )
+    dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+    dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+        lambda x: round(float(x), 2)
+    )
+    parcelles = pd.read_csv(
+        DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
+        dtype=str,
+        usecols=cols_parcelles
+    )
+    dpe_parcelled = pd.merge(
+        dpe,
+        parcelles,
+        on='batiment_groupe_id',
+        how='left'
+    )
+    dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+    dpe_parcelled.to_csv(
+        DATADIR + "/all_dpe.csv",
+        sep=",",
+        index=False,
+        encoding="utf8",
+        header=False
+    )
 
 
 def index_dpe_table():
@@ -1088,6 +1052,10 @@ def create_distribution_and_stats_whole_period():
     print("Done exporting distribution")
     stats_period = reduce(lambda x, y: pd.merge(x, y, on='code_geo', how='outer'), stats_period)
     stats_period = pd.merge(echelles, stats_period, on='code_geo', how='outer')
+    print("Check répartition échelles")
+    print("Réel")
+    print(echelles['echelle_geo'].value_counts(dropna=False))
+    print("Dans stats")
     print(stats_period['echelle_geo'].value_counts(dropna=False))
     stats_period.to_csv(
         DATADIR + "/stats_whole_period.csv",

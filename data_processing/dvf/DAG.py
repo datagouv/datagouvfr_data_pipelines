@@ -12,7 +12,6 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     alter_dvf_table,
     create_copro_table,
     populate_copro_table,
-    download_dpe,
     process_dpe,
     create_dpe_table,
     populate_dpe_table,
@@ -71,8 +70,8 @@ with DAG(
         )
     )
 
-    download_copro_data = BashOperator(
-        task_id='download_copro_data',
+    download_copro = BashOperator(
+        task_id='download_copro',
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
             f"dvf/scripts/script_dl_copro.sh {DATADIR} "
@@ -89,9 +88,12 @@ with DAG(
         python_callable=populate_copro_table,
     )
 
-    download_dpe = PythonOperator(
+    download_dpe = BashOperator(
         task_id='download_dpe',
-        python_callable=download_dpe,
+        bash_command=(
+            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"dvf/scripts/script_dl_dpe.sh {DATADIR} "
+        )
     )
 
     process_dpe = PythonOperator(
@@ -201,8 +203,8 @@ with DAG(
 
     download_dvf_data.set_upstream(clean_previous_outputs)
 
-    download_copro_data.set_upstream(download_dvf_data)
-    create_copro_table.set_upstream(download_copro_data)
+    download_copro.set_upstream(download_dvf_data)
+    create_copro_table.set_upstream(download_copro)
     populate_copro_table.set_upstream(create_copro_table)
 
     download_dpe.set_upstream(download_dvf_data)
