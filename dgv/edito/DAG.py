@@ -234,7 +234,7 @@ def create_edito_post(**kwargs):
             Le suivi des sorties ne constitue que le sommet de l’iceberg de l’activité de data.gouv.fr.
             Pour ne rien manquer de l’actualité de data.gouv.fr et de l’open data,
             <a
-                href="https://infolettres.etalab.gouv.fr/subscribe/rn7y93le1"
+                href="https://f.info.data.gouv.fr/f/lp/infolettre-data-gouv-fr-landing-page/lk3q01y6"
                 target="_blank"
             >
                 &nbsp;abonnez-vous à notre infolettre
@@ -243,7 +243,7 @@ def create_edito_post(**kwargs):
             Et si vous souhaitez nous aider à améliorer la plateforme en testant les nouveautés
              en avant première, n’hésitez pas à
             <a
-                href="https://app.evalandgo.com/s/index.php?id=JTk5biU5OWolOUQlQUI%3D&a=JTk3cCU5M2glOTklQUU%3D"
+                href="https://tally.so/r/mOalMA"
                 target="_blank"
             >
                 devenir beta testeur

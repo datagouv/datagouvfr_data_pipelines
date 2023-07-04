@@ -79,9 +79,6 @@ with DAG(
     download_elections_data.set_upstream(clean_previous_outputs)
     format_election_files.set_upstream(download_elections_data)
     process_election_data.set_upstream(format_election_files)
-
     send_results_to_minio.set_upstream(process_election_data)
-    publish_results_elections.set_upstream(process_election_data)
-
-    send_notification.set_upstream(send_results_to_minio)
+    publish_results_elections.set_upstream(send_results_to_minio)
     send_notification.set_upstream(publish_results_elections)

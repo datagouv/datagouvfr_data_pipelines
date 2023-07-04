@@ -9,10 +9,9 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    post_resource,
+    post_remote_resource,
     get_all_from_api_query,
-    DATAGOUV_URL,
-    ORGA_REFERENCE
+    DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
@@ -109,12 +108,14 @@ def process_election_data():
     results['general'] = pd.concat(results['general'], ignore_index=True)
     results['general'].to_csv(
         DATADIR + '/general_results.csv',
+        sep=';',
         index=False
     )
     # removing rows created from empty columns due to uneven canditates number
     results['candidats'] = pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])
     results['candidats'].to_csv(
         DATADIR + '/candidats_results.csv',
+        sep=';',
         index=False
     )
     del results
@@ -136,6 +137,7 @@ def process_election_data():
             # concatenating all preprocessed files to the previous ones
             df.to_csv(
                 DATADIR + f'/{t}_results.csv',
+                sep=';',
                 index=False,
                 mode="a",
                 header=False
@@ -163,32 +165,26 @@ def send_results_to_minio():
 def publish_results_elections():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
         data = json.load(fp)
-    post_resource(
+    post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload={
-            "dest_path": f"{DATADIR}/",
-            "dest_name": data["general"]["file"]
-        },
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/elections/general_results.csv",
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
-        resource_payload={
-            'title': 'Résultats généraux',
-            'description': f"Résultats généraux des élections agrégés au niveau des bureaux de votes, créés à partir des données du Ministère de l'Intérieur (dernière modification : {datetime.today()})",
-        }
+        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
+        title="Résultats généraux",
+        format="csv",
+        description=f"Résultats généraux des élections agrégés au niveau des bureaux de votes, créés à partir des données du Ministère de l'Intérieur (dernière modification : {datetime.today()})",
     )
     print('Done with general results')
-    post_resource(
+    post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload={
-            "dest_path": f"{DATADIR}/",
-            "dest_name": data["candidats"]["file"]
-        },
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/elections/candidats_results.csv",
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
-        resource_payload={
-            'title': 'Résultats par candidat',
-            'description': f"Résultats des élections par candidat agrégés au niveau des bureaux de votes, créés à partir des données du Ministère de l'Intérieur (dernière modification : {datetime.today()})",
-        }
+        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
+        title="Résultats par candidat",
+        format="csv",
+        description=f"Résultats des élections par candidat agrégés au niveau des bureaux de votes, créés à partir des données du Ministère de l'Intérieur (dernière modification : {datetime.today()})",
     )
 
 
