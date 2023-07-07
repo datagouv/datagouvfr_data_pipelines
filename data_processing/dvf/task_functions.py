@@ -426,6 +426,13 @@ def process_dvf_stats(ti):
         "valeur_fonciere",
         "surface_reelle_bati",
     ]
+    natures_of_interest = [
+        "Vente",
+        "Vente en l'état futur d'achèvement",
+        "Adjudication",
+    ]
+    types_of_interest = [1, 2, 4]
+    echelles_of_interest = ["departement", "epci", "commune", "section"]
     for year in years:
         print("Starting with", year)
         df_ = pd.read_csv(
@@ -452,11 +459,6 @@ def process_dvf_stats(ti):
         communes_from_dvf = communes_from_dvf | set(df['code_commune'].unique())
         df = df.drop("id_parcelle", axis=1)
 
-        natures_of_interest = [
-            "Vente",
-            "Vente en l'état futur d'achèvement",
-            "Adjudication",
-        ]
         types_bien = {
             k: v
             for k, v in df_[["code_type_local", "type_local"]]
@@ -510,8 +512,6 @@ def process_dvf_stats(ti):
         ventes_nodup = ventes_nodup.loc[ventes_nodup['prix_m2'] < 100000]
         print(len(ventes_nodup))
 
-        types_of_interest = [1, 2, 4]
-        echelles_of_interest = ["departement", "epci", "commune", "section"]
         export_intermediary = []
 
         for m in range(1, 13):
@@ -645,6 +645,25 @@ def process_dvf_stats(ti):
                         (ventes_nodup["month"] == m)
                     ]["prix_m2"].median()
                 )
+
+            general["nb_ventes_apt_maison"] = len(
+                ventes.loc[
+                    (ventes["code_type_local"].isin([1, 2])) &
+                    (ventes["month"] == m)
+                ]
+            )
+            general["moy_prix_m2_apt_maison"] = np.round(
+                ventes_nodup.loc[
+                    (ventes_nodup["code_type_local"].isin([1, 2])) &
+                    (ventes_nodup["month"] == m)
+                ]["prix_m2"].mean()
+            )
+            general["med_prix_m2_apt_maison"] = np.round(
+                ventes_nodup.loc[
+                    (ventes_nodup["code_type_local"].isin([1, 2])) &
+                    (ventes_nodup["month"] == m)
+                ]["prix_m2"].median()
+            )
 
             all_month = pd.concat(
                 list(dfs_dict.values()) + [pd.DataFrame([general])]
@@ -987,7 +1006,12 @@ def create_distribution_and_stats_whole_period():
             'yaxis': volumes
         })
         # autres échelles
-        type_stats = []
+        type_stats = [pd.DataFrame([{
+            'code_geo': 'nation',
+            f'nb_ventes_whole_{t}': len(restr_type_dvf),
+            f'moy_prix_m2_whole_{t}': restr_type_dvf['prix_m2'].mean(),
+            f'med_prix_m2_whole_{t}': restr_type_dvf['prix_m2'].median(),
+        }])]
         for e in echelles_of_interest:
             print("Starting", e, t)
             # stats
