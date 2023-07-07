@@ -105,10 +105,7 @@ def parse_api_search(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
         r.raise_for_status()
         dataset = r.json()
         for res in dataset["resources"]:
-            should_add_resource = True
-            if "name" in res["schema"] and res["schema"]["name"] != schema_name:
-                should_add_resource = False
-            if should_add_resource:
+            if res["schema"].get("name", "") == schema_name:
                 if "format=csv" in res["url"]:
                     filename = res["url"].split("/")[-3] + ".csv"
                 else:
@@ -125,7 +122,17 @@ def parse_api_search(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
                 obj["resource_url"] = res["url"]
                 obj["resource_last_modified"] = res["last_modified"]
                 appropriate_extension = ext in ["csv", "xls", "xlsx"]
-                appropriate_mime = detected_mime in ["text/csv", "application/vnd.ms-excel"]
+                mime_dict = {
+                    "text/csv": "csv",
+                    "application/vnd.ms-excel": "xls"
+                }
+                appropriate_mime = detected_mime in mime_dict.keys()
+                if appropriate_extension:
+                    obj["resource_extension"] = ext
+                elif appropriate_mime:
+                    obj["resource_extension"] = mime_dict[detected_mime]
+                else:
+                    obj["resource_extension"] = ext
                 if not (appropriate_extension or appropriate_mime):
                     obj["error_type"] = "wrong-file-format"
                 else:
@@ -149,10 +156,7 @@ def parse_api(url: str, schema_name: str) -> pd.DataFrame:
     arr = []
     for dataset in all_datasets:
         for res in dataset["resources"]:
-            should_add_resource = True
-            if "name" in res["schema"] and res["schema"]["name"] != schema_name:
-                should_add_resource = False
-            if should_add_resource:
+            if res["schema"].get("name", "") == schema_name:
                 if "format=csv" in res["url"]:
                     filename = res["url"].split("/")[-3] + ".csv"
                 else:
@@ -169,7 +173,17 @@ def parse_api(url: str, schema_name: str) -> pd.DataFrame:
                 obj["resource_url"] = res["url"]
                 obj["resource_last_modified"] = res["last_modified"]
                 appropriate_extension = ext in ["csv", "xls", "xlsx"]
-                appropriate_mime = detected_mime in ["text/csv", "application/vnd.ms-excel"]
+                mime_dict = {
+                    "text/csv": "csv",
+                    "application/vnd.ms-excel": "xls"
+                }
+                appropriate_mime = detected_mime in mime_dict.keys()
+                if appropriate_extension:
+                    obj["resource_extension"] = ext
+                elif appropriate_mime:
+                    obj["resource_extension"] = mime_dict[detected_mime]
+                else:
+                    obj["resource_extension"] = ext
                 if not (appropriate_extension or appropriate_mime):
                     obj["error_type"] = "wrong-file-format"
                 else:
@@ -611,8 +625,8 @@ def run_schemas_consolidation(
                     if r.status_code == 200:
                         p = Path(schema_data_path) / row["dataset_slug"]
                         p.mkdir(exist_ok=True)
-                        file_extension = os.path.splitext(row["resource_url"])[1]
-                        written_filename = f"{row['resource_id']}{file_extension}"
+                        file_extension = row["resource_extension"]
+                        written_filename = f"{row['resource_id']}.{file_extension}"
 
                         with open("{}/{}".format(p, written_filename), "wb") as f:
                             f.write(r.content)
@@ -707,11 +721,11 @@ def run_schemas_consolidation(
                         df_r_list = []
 
                         for index, row in df_ref_v.iterrows():
-                            file_extension = os.path.splitext(row["resource_url"])[1]
+                            file_extension = row["resource_extension"]
                             file_path = os.path.join(
                                 schema_data_path,
                                 row["dataset_slug"],
-                                f"{row['resource_id']}{file_extension}",
+                                f"{row['resource_id']}.{file_extension}",
                             )
 
                             try:
