@@ -118,6 +118,10 @@ def process_election_data():
         sep=';',
         index=False
     )
+    columns = {
+        'general': results['general'].columns.to_list(),
+        'candidats': results['candidats'].columns.to_list()
+    }
     del results
 
     # getting preprocessed resources
@@ -130,11 +134,16 @@ def process_election_data():
     }
 
     for t in ['general', 'candidats']:
-        print(t + ' preprocessed resources')
+        print(t + ' resources')
         for url in resources_url[t]:
             print('- ' + url)
             df = pd.read_csv(url, sep=';', dtype=str)
-            # concatenating all preprocessed files to the previous ones
+            # adding blank columns if some are missing from overall template
+            for c in columns[t]:
+                if c not in df.columns:
+                    df[c] = ['' for k in range(len(df))]
+            df = df[columns[t]]
+            # concatenating all files (first one has header)
             df.to_csv(
                 DATADIR + f'/{t}_results.csv',
                 sep=';',
