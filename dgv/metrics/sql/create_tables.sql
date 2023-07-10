@@ -67,11 +67,18 @@ CREATE OR REPLACE VIEW airflow.metrics_datasets AS
            COALESCE(visits.dataset_id, matomo.dataset_id) as dataset_id,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            visits.nb_visit,
-           matomo.nb_outlink
+           matomo.nb_outlink,
+           resources.nb_visit as resources_nb_visit
     FROM airflow.visits_datasets visits
     FULL OUTER JOIN airflow.matomo_datasets matomo
     ON visits.dataset_id = matomo.dataset_id AND
        visits.date_metric = matomo.date_metric
+    LEFT OUTER JOIN (
+        SELECT dataset_id, date_metric, sum(nb_visit) as nb_visit FROM airflow.visits_resources
+        GROUP BY dataset_id, date_metric
+    ) resources
+    ON COALESCE(visits.dataset_id, matomo.dataset_id) = resources.dataset_id AND
+       COALESCE(visits.date_metric, matomo.date_metric) = resources.date_metric
 ;
 CREATE OR REPLACE VIEW airflow.metrics_reuses AS
     SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
@@ -114,7 +121,8 @@ CREATE OR REPLACE VIEW airflow.datasets AS
         dataset_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(nb_visit) as monthly_visit,
-        sum(nb_outlink) as monthly_outlink
+        sum(nb_outlink) as monthly_outlink,
+        sum(resources_nb_visit) as monthly_visit_resource
     FROM airflow.metrics_datasets
     GROUP BY metric_month, dataset_id
 ;
@@ -154,11 +162,13 @@ CREATE OR REPLACE VIEW airflow.resources AS
 CREATE OR REPLACE VIEW airflow.site AS
     SELECT COALESCE(datasets.metric_month, reuses.metric_month) as metric_month,
            datasets.monthly_visit as monthly_visit_dataset,
+           datasets.monthly_visit_resource as monthly_visit_resource,
            reuses.monthly_visit as monthly_visit_reuse,
            reuses.monthly_outlink as monthly_outlink
     FROM (
         SELECT metric_month,
-               sum(monthly_visit) as monthly_visit
+               sum(monthly_visit) as monthly_visit,
+               sum(monthly_visit_resource) as monthly_visit_resource
         FROM airflow.datasets GROUP BY metric_month ) datasets
     FULL OUTER JOIN (
         SELECT metric_month,
