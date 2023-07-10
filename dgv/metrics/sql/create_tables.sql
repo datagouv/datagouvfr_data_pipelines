@@ -68,7 +68,7 @@ CREATE OR REPLACE VIEW airflow.metrics_datasets AS
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            visits.nb_visit,
            matomo.nb_outlink,
-           resources.nb_visit as resources_nb_visit
+           resources.nb_visit as resource_nb_visit
     FROM airflow.visits_datasets visits
     FULL OUTER JOIN airflow.matomo_datasets matomo
     ON visits.dataset_id = matomo.dataset_id AND
@@ -95,6 +95,7 @@ CREATE OR REPLACE VIEW airflow.metrics_organizations AS
     SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            datasets.nb_visit as dataset_nb_visit,
+           datasets.resource_nb_visit as resource_nb_visit,
            reuses.nb_visit as reuse_nb_visit,
            matomo.nb_outlink
     FROM airflow.visits_organizations visits
@@ -102,7 +103,8 @@ CREATE OR REPLACE VIEW airflow.metrics_organizations AS
     ON visits.organization_id = matomo.organization_id AND
        visits.date_metric = matomo.date_metric
     LEFT OUTER JOIN (
-        SELECT organization_id, date_metric, sum(nb_visit) as nb_visit FROM airflow.metrics_datasets
+        SELECT organization_id, date_metric, sum(nb_visit) as nb_visit, sum(resource_nb_visit) as resource_nb_visit
+        FROM airflow.metrics_datasets
         GROUP BY organization_id, date_metric
     ) datasets
     ON COALESCE(visits.organization_id, matomo.organization_id) = datasets.organization_id AND
@@ -122,7 +124,7 @@ CREATE OR REPLACE VIEW airflow.datasets AS
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(nb_visit) as monthly_visit,
         sum(nb_outlink) as monthly_outlink,
-        sum(resources_nb_visit) as monthly_visit_resource
+        sum(resource_nb_visit) as monthly_visit_resource
     FROM airflow.metrics_datasets
     GROUP BY metric_month, dataset_id
 ;
@@ -142,6 +144,7 @@ CREATE OR REPLACE VIEW airflow.organizations AS
         organization_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(dataset_nb_visit) as monthly_visit_dataset,
+        sum(resource_nb_visit) as monthly_visit_resource,
         sum(reuse_nb_visit) as monthly_visit_reuse,
         sum(nb_outlink) as monthly_outlink
     FROM airflow.metrics_organizations
