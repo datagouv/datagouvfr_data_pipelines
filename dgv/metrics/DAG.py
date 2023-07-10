@@ -31,7 +31,7 @@ with DAG(
     schedule_interval='15 3 * * *',
     start_date=days_ago(1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=60),
+    dagrun_timeout=timedelta(minutes=60*4),
     tags=["dgv", "metrics"],
     default_args=default_args,
 ) as dag:
