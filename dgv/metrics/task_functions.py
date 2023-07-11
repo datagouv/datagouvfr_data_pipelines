@@ -290,10 +290,10 @@ def process_log(ti):
         )
 
     remove_files_if_exists("outputs")
-    remove_files_if_exists("found")
     # analyser toutes les dates différentes
     alldates = set(d.split("/")[-1].split("-")[2] for d in newlogs)
     for log_date in alldates:
+        remove_files_if_exists("found")
         print("---------------")
         print(log_date)
         lines = []
@@ -460,6 +460,7 @@ def process_log(ti):
             print("no data resources file")
         except pd.errors.EmptyDataError:
             print("empty data resources id or static")
+        
     ti.xcom_push(key="all_dates_processed", value=all_dates_processed)
 
 
