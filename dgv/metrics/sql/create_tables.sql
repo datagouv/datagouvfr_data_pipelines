@@ -80,6 +80,7 @@ CREATE OR REPLACE VIEW airflow.metrics_datasets AS
     ON COALESCE(visits.dataset_id, matomo.dataset_id) = resources.dataset_id AND
        COALESCE(visits.date_metric, matomo.date_metric) = resources.date_metric
 ;
+
 CREATE OR REPLACE VIEW airflow.metrics_reuses AS
     SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.reuse_id, matomo.reuse_id) as reuse_id,
@@ -180,3 +181,19 @@ CREATE OR REPLACE VIEW airflow.site AS
         FROM airflow.reuses GROUP BY metric_month ) reuses
     ON datasets.metric_month = reuses.metric_month
 ;
+
+
+CREATE INDEX IF NOT EXISTS visits_datasets_dataset_id ON airflow.visits_datasets USING btree (dataset_id);
+CREATE INDEX IF NOT EXISTS visits_datasets_date_metric ON airflow.visits_datasets USING btree (date_metric);
+CREATE INDEX IF NOT EXISTS visits_datasets_organization_id ON airflow.visits_datasets USING btree (organization_id);
+
+CREATE INDEX IF NOT EXISTS visits_organizations_organization_id ON airflow.visits_organizations USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS visits_organizations_date_metric ON airflow.visits_organizations USING btree (date_metric);
+
+CREATE INDEX IF NOT EXISTS visits_reuses_reuse_id ON airflow.visits_reuses USING btree (reuse_id);
+CREATE INDEX IF NOT EXISTS visits_reuses_date_metric ON airflow.visits_reuses USING btree (date_metric);
+CREATE INDEX IF NOT EXISTS visits_reuses_organization_id ON airflow.visits_reuses USING btree (organization_id);
+
+CREATE INDEX IF NOT EXISTS visits_resources_resource_id ON airflow.visits_resources USING btree (resource_id);
+CREATE INDEX IF NOT EXISTS visits_resources_date_metric ON airflow.visits_resources USING btree (date_metric);
+CREATE INDEX IF NOT EXISTS visits_resources_dataset_id ON airflow.visits_resources USING btree (dataset_id);
