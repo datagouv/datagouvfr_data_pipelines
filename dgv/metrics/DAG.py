@@ -15,7 +15,8 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     process_log,
     process_matomo,
     save_metrics_to_postgres,
-    save_matomo_to_postgres
+    save_matomo_to_postgres,
+    refresh_materialized_views,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
@@ -86,6 +87,11 @@ with DAG(
         python_callable=copy_log_to_processed_folder,
     )
 
+    refresh_materialized_views = PythonOperator(
+        task_id='refresh_materialized_views',
+        python_callable=refresh_materialized_views,
+    )
+
     create_metrics_tables.set_upstream(clean_previous_outputs)
     get_new_logs.set_upstream(create_metrics_tables)
     download_catalog.set_upstream(create_metrics_tables)
@@ -94,5 +100,8 @@ with DAG(
     process_log.set_upstream(download_catalog)
     save_metrics_to_postgres.set_upstream(process_log)
     copy_log_to_processed_folder.set_upstream(save_metrics_to_postgres)
+    refresh_materialized_views.set_upstream(copy_log_to_processed_folder)
+
+    # see if we keep matomo in same dag
     process_matomo.set_upstream(download_catalog)
     save_matomo_to_postgres.set_upstream(process_matomo)

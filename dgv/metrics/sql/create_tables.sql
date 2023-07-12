@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS airflow.matomo_organizations
 );
 
 -- Aggregated metrics tables
-CREATE OR REPLACE VIEW airflow.metrics_datasets AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.metrics_datasets AS
     SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.dataset_id, matomo.dataset_id) as dataset_id,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
@@ -81,7 +81,7 @@ CREATE OR REPLACE VIEW airflow.metrics_datasets AS
        COALESCE(visits.date_metric, matomo.date_metric) = resources.date_metric
 ;
 
-CREATE OR REPLACE VIEW airflow.metrics_reuses AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.metrics_reuses AS
     SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.reuse_id, matomo.reuse_id) as reuse_id,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
@@ -92,7 +92,7 @@ CREATE OR REPLACE VIEW airflow.metrics_reuses AS
     ON visits.reuse_id = matomo.reuse_id AND
        visits.date_metric = matomo.date_metric
 ;
-CREATE OR REPLACE VIEW airflow.metrics_organizations AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.metrics_organizations AS
     SELECT COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            datasets.nb_visit as dataset_nb_visit,
@@ -119,7 +119,7 @@ CREATE OR REPLACE VIEW airflow.metrics_organizations AS
 ;
 
 -- Monthly aggregated metrics tables
-CREATE OR REPLACE VIEW airflow.datasets AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.datasets AS
     SELECT
         dataset_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
@@ -130,7 +130,7 @@ CREATE OR REPLACE VIEW airflow.datasets AS
     GROUP BY metric_month, dataset_id
 ;
 
-CREATE OR REPLACE VIEW airflow.reuses AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.reuses AS
     SELECT
         reuse_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
@@ -140,7 +140,7 @@ CREATE OR REPLACE VIEW airflow.reuses AS
     GROUP BY metric_month, reuse_id
 ;
 
-CREATE OR REPLACE VIEW airflow.organizations AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.organizations AS
     SELECT
         organization_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
@@ -152,7 +152,7 @@ CREATE OR REPLACE VIEW airflow.organizations AS
     GROUP BY metric_month, organization_id
 ;
 
-CREATE OR REPLACE VIEW airflow.resources AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.resources AS
     SELECT
         resource_id,
         dataset_id,
@@ -163,7 +163,7 @@ CREATE OR REPLACE VIEW airflow.resources AS
 ;
 
 -- Global site table
-CREATE OR REPLACE VIEW airflow.site AS
+CREATE OR REPLACE MATERIALIZED VIEW airflow.site AS
     SELECT COALESCE(datasets.metric_month, reuses.metric_month) as metric_month,
            datasets.monthly_visit as monthly_visit_dataset,
            datasets.monthly_visit_resource as monthly_visit_resource,
@@ -181,7 +181,6 @@ CREATE OR REPLACE VIEW airflow.site AS
         FROM airflow.reuses GROUP BY metric_month ) reuses
     ON datasets.metric_month = reuses.metric_month
 ;
-
 
 CREATE INDEX IF NOT EXISTS visits_datasets_dataset_id ON airflow.visits_datasets USING btree (dataset_id);
 CREATE INDEX IF NOT EXISTS visits_datasets_date_metric ON airflow.visits_datasets USING btree (date_metric);

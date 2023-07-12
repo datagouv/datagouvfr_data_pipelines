@@ -175,7 +175,7 @@ def get_info(parsed_line):
     slug_line = None
     found = False
 
-    if "DATAGOUVFR_RGS~" in parsed_line:
+    if "DATAGOUVFR_RGS~" in parsed_line and '"GET' in parsed_line and ('302' in parsed_line or '200' in parsed_line):
         for item in parsed_line:
             slug, found, detect = search_pattern(patterns_resources_id, item, "resources-id")
             if not found:
@@ -185,8 +185,7 @@ def get_info(parsed_line):
             if not found:
                 slug, found, detect = search_pattern(patterns_organizations, item, "organizations")
             if not found:
-                slug, found, detect = search_pattern_resource_static(pattern_resources_static, item,
-                                                                     "resources-static")
+                slug, found, detect = search_pattern_resource_static(pattern_resources_static, item, "resources-static")
             if slug:
                 slug_line = slug
                 type_detect = detect
@@ -601,3 +600,19 @@ def save_matomo_to_postgres():
                 ],
                 has_header=False
             )
+
+
+def refresh_materialized_views():
+    execute_sql_file(
+        conn.host,
+        conn.port,
+        conn.schema,
+        conn.login,
+        conn.password,
+        [
+            {
+                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sql/",
+                "source_name": "refresh_materialized_views.sql",
+            }
+        ],
+    )
