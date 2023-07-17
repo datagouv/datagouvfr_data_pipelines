@@ -159,6 +159,7 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
                             if dataset["organization"]
                             else dataset["owner"]["slug"]
                         )
+                        obj["is_orga"] = bool(dataset["organization"])
                         obj["error_type"] = None
                 arr.append(obj)
     df = pd.DataFrame(arr)
@@ -1198,18 +1199,15 @@ def add_validation_extras(
 def upload_geojson(
     api_url: str,
     api_key: str,
-    config_path: str,
     schema_consolidated_data_path: str,
     consolidation_date_str: str,
     schema_name: str,
+    config_dict: dict,
     should_succeed=False
 ) -> bool:
     headers = {
         "X-API-KEY": api_key,
     }
-
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
 
     geojson_version_names_list = sorted(
         [
@@ -1291,7 +1289,6 @@ def upload_consolidated(
     config_path,
     schemas_report_dict,
     consolidation_date_str,
-    single_schema,
     api_key,
     bool_upload_geojson,
     should_succeed=False
@@ -1351,12 +1348,6 @@ def upload_consolidated(
             ]
 
             for version_name in sorted(version_names_list):
-                with open(config_path, "r") as f:
-                    config_dict = yaml.safe_load(f)
-                    config_dict = remove_old_schemas(
-                        config_dict, schemas_catalogue_list, single_schema
-                    )
-
                 schema = {"name": schema_name, "version": version_name}
                 obj = {}
                 obj["schema"] = schema
@@ -1462,10 +1453,10 @@ def upload_consolidated(
                 upload_success = upload_geojson(
                     api_url,
                     api_key,
-                    config_path,
                     schema_consolidated_data_path,
                     consolidation_date_str,
                     schema_name,
+                    config_dict,
                     should_succeed
                 )
         else:
@@ -1776,9 +1767,8 @@ def update_consolidation_documentation_report(
     schema_name,
     ref_tables_path,
     config_path,
-    schemas_catalogue_list,
     consolidation_date_str,
-    single_schema,
+    config_dict,
     api_key,
     should_succeed=False
 ):
@@ -1789,10 +1779,6 @@ def update_consolidation_documentation_report(
         ref_tables_path,
         "ref_table_{}.csv".format(schema_name.replace("/", "_")),
     )
-    print(config_path)
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
-        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema)
 
     print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
 
