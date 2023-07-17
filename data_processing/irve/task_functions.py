@@ -60,6 +60,40 @@ def get_all_irve_resources(
         config_dict = yaml.safe_load(f)
         config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
+    # for demo
+    schemas_catalogue_list = [{
+        'name': 'etalab/schema-irve-statique',
+        'title': 'IRVE statique',
+        'description': "Spécification du fichier d'échange relatif aux données concernant la localisation géographique et les caractéristiques techniques des stations et des points de recharge pour véhicules électriques", 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/latest/schema-statique.json',
+        'schema_type': 'tableschema',
+        'contact': 'contact@transport.beta.gouv.fr',
+        'examples': [{'title': 'Exemple de fichier IRVE valide', 'path': 'https://github.com/etalab/schema-irve/raw/v2.1.0/exemple-valide.csv'}],
+        'labels': ['Socle Commun des Données Locales', 'transport.data.gouv.fr'],
+        'consolidation_dataset_id': '64b521568ecbee60f15aa241',
+        'versions': [{'version_name': '2.2.0', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.2.0/schema-statique.json'}],
+        'external_doc': 'https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve',
+        'external_tool': None,
+        'homepage': 'https://github.com/etalab/schema-irve.git',
+        'datapackage_title': 'Infrastructures de recharges pour véhicules électriques',
+        'datapackage_name': 'etalab/schema-irve',
+        'datapackage_description': 'data package contenant 2 schémas : IRVE statique et IRVE dynamique'
+    }]
+    config_dict = {
+        'etalab/schema-irve-statique': {
+            'consolidate': True,
+            'consolidated_dataset_id': '64b521568ecbee60f15aa241',
+            'documentation_resource_id': '66f90dcf-caa3-43ad-9aeb-0f504f503104',
+            'drop_versions': ['1.0.0', '1.0.1', '1.0.2', '1.0.3', '2.0.0', '2.0.1', '2.0.2', '2.0.3', '2.1.0'],
+            'exclude_dataset_ids': ['54231d4a88ee38334b5b9e1d', '601d660f2be2c8896f86e18d'],
+            'geojson_resource_id': '489c3d81-4312-4506-8242-44a674b0bb55',
+            'latest_resource_ids': {'2.2.0': '18ac7b73-5781-4493-b98a-d624f9f9ab27'},
+            'publication': True,
+            'search_words': ['Infrastructures de recharge pour véhicules électriques', 'IRVE']
+        }
+    }
+    print(schemas_catalogue_list)
+    print(config_dict)
+
     success = build_reference_table(
         config_dict,
         schema_name,
@@ -79,6 +113,7 @@ def get_all_irve_resources(
     ti.xcom_push(key='validata_reports_path', value=validata_reports_path.as_posix())
     ti.xcom_push(key='schemas_report_dict', value=str(schemas_report_dict))
     ti.xcom_push(key='schemas_catalogue_list', value=schemas_catalogue_list)
+    ti.xcom_push(key='config_dict', value=str(config_dict))
     return
 
 
@@ -125,19 +160,17 @@ def consolidate_irve(
 def upload_consolidated_irve(
     ti,
     api_key,
-    config_path,
-    single_schema
+    config_path
 ):
     consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
     consolidated_data_path = ti.xcom_pull(key='consolidated_data_path', task_ids='get_all_irve_resources')
     schemas_report_dict = literal_eval(
         ti.xcom_pull(key='schemas_report_dict', task_ids='get_all_irve_resources')
     )
+    config_dict = literal_eval(
+        ti.xcom_pull(key='config_dict', task_ids='get_all_irve_resources')
+    )
     schemas_catalogue_list = ti.xcom_pull(key='schemas_catalogue_list', task_ids='get_all_irve_resources')
-
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
-    config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema)
 
     success = upload_consolidated(
         schema_name,
@@ -147,7 +180,6 @@ def upload_consolidated_irve(
         config_path,
         schemas_report_dict,
         consolidation_date_str,
-        single_schema,
         api_key,
         bool_upload_geojson=True,
         should_succeed=True
@@ -204,19 +236,19 @@ def add_validata_report_irve(
 def update_consolidation_documentation_report_irve(
     ti,
     api_key,
-    config_path,
-    single_schema
+    config_path
 ):
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    schemas_catalogue_list = ti.xcom_pull(key='schemas_catalogue_list', task_ids='get_all_irve_resources')
     consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
+    config_dict = literal_eval(
+        ti.xcom_pull(key='config_dict', task_ids='get_all_irve_resources')
+    )
     success = update_consolidation_documentation_report(
         schema_name,
         ref_tables_path,
         config_path,
-        schemas_catalogue_list,
         consolidation_date_str,
-        single_schema,
+        config_dict,
         api_key,
         should_succeed=True
     )
@@ -226,19 +258,13 @@ def update_consolidation_documentation_report_irve(
 
 def create_consolidation_reports_irve(
     ti,
-    config_path,
 ):
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    schemas_catalogue_list = ti.xcom_pull(key='schemas_catalogue_list', task_ids='get_all_irve_resources')
     report_tables_path = ti.xcom_pull(key='report_tables_path', task_ids='get_all_irve_resources')
     consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
     schemas_report_dict = literal_eval(
         ti.xcom_pull(key='schemas_report_dict', task_ids='get_all_irve_resources')
     )
-
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
-        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
     reports_list = []
 

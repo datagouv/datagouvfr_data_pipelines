@@ -1,8 +1,6 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from operators.mattermost import MattermostOperator
-from operators.python_minio import PythonMinioOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta, datetime
 from pathlib import Path
@@ -39,8 +37,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 
 # for local dev in order not to mess up with production
-DATAGOUV_URL = 'https://data.gouv.fr'
-DATAGOUV_SECRET_API_KEY = 'non'
+# DATAGOUV_URL = 'https://data.gouv.fr'
+# DATAGOUV_SECRET_API_KEY = 'non'
 
 DAG_NAME = "irve_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
@@ -48,7 +46,7 @@ TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
-output_data_folder = f"{TMP_FOLDER}output/"
+output_data_folder = f"{TMP_FOLDER}/output/"
 date_airflow = "{{ ds }}"
 
 default_args = {
@@ -134,8 +132,7 @@ with DAG(
         python_callable=upload_consolidated_irve,
         op_kwargs={
             "api_key": DATAGOUV_SECRET_API_KEY,
-            "config_path": TMP_CONFIG_FILE,
-            "single_schema": True
+            "config_path": TMP_CONFIG_FILE
         },
     )
 
@@ -165,17 +162,13 @@ with DAG(
         python_callable=update_consolidation_documentation_report_irve,
         op_kwargs={
             "api_key": DATAGOUV_SECRET_API_KEY,
-            "config_path": TMP_CONFIG_FILE,
-            "single_schema": True
+            "config_path": TMP_CONFIG_FILE
         },
     )
 
     create_consolidation_reports_irve = PythonOperator(
         task_id="create_consolidation_reports_irve",
-        python_callable=create_consolidation_reports_irve,
-        op_kwargs={
-            "config_path": TMP_CONFIG_FILE,
-        },
+        python_callable=create_consolidation_reports_irve
     )
 
     create_detailed_report_irve = PythonOperator(
