@@ -136,6 +136,7 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
                 obj["resource_title"] = res["title"]
                 obj["resource_url"] = res["url"]
                 obj["resource_last_modified"] = res["last_modified"]
+                obj["resource_created_at"] = res["created_at"]
                 appropriate_extension = ext in ["csv", "xls", "xlsx"]
                 mime_dict = {
                     "text/csv": "csv",
@@ -792,6 +793,8 @@ def consolidate_data(
                                     df_r["datagouv_organization_or_owner"] = row[
                                         "organization_or_owner"
                                     ]
+                                    df_r["is_orga"] = row["is_orga"]
+                                    df_r["created_at"] = row["resource_created_at"]
                                     # Discard rows where any of the required columns is empty
                                     # (NaN or empty string)
                                     df_r = df_r.loc[
