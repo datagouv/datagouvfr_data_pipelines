@@ -19,6 +19,7 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     get_all_irve_resources,
     download_irve_resources,
     consolidate_irve,
+    custom_filters_irve,
     upload_consolidated_irve,
     update_reference_table_irve,
     update_resource_send_mail_producer_irve,
@@ -104,6 +105,11 @@ with DAG(
             "tmp_path": TMP_FOLDER,
             "schemas_catalogue_url": SCHEMA_CATALOG
         },
+    )
+
+    custom_filters_irve = PythonOperator(
+        task_id="custom_filters_irve",
+        python_callable=custom_filters_irve,
     )
 
     schema_irve_path = TMP_FOLDER / "consolidated_data" / "etalab_schema-irve-statique"
@@ -214,7 +220,8 @@ with DAG(
     get_all_irve_resources.set_upstream(clone_dag_schema_repo)
     download_irve_resources.set_upstream(get_all_irve_resources)
     consolidate_irve.set_upstream(download_irve_resources)
-    geodata_quality_improvement.set_upstream(consolidate_irve)
+    custom_filters_irve.set_upstream(consolidate_irve)
+    geodata_quality_improvement.set_upstream(custom_filters_irve)
     upload_consolidated_irve.set_upstream(geodata_quality_improvement)
     update_reference_table_irve.set_upstream(upload_consolidated_irve)
     update_resource_send_mail_producer_irve.set_upstream(update_reference_table_irve)
