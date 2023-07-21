@@ -37,7 +37,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_URL,
 )
 
-# for local dev in order not to mess up with production
+# DEV : for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
 # DATAGOUV_SECRET_API_KEY = 'non'
 
@@ -75,9 +75,9 @@ with DAG(
 
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
-        # bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
-        # for local dev without SSH enabled
-        bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
+        bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
+        # DEV : for local dev without SSH enabled
+        # bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
     )
 
     date_airflow = "{{ ds }}"
