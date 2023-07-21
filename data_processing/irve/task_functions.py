@@ -177,7 +177,8 @@ def custom_filters_irve(
         os.path.join(
             schema_consolidated_data_path,
             consolidated_file
-        )
+        ),
+        dtype=str
     )
     df_filtered = df_conso.copy()
     # on enlève les lignes publiées par des utilisateurs (aka pas par des organisations)
