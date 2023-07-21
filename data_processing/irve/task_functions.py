@@ -197,6 +197,7 @@ def custom_filters_irve(
         subset=['id_pdc_itinerance', 'datagouv_organization_or_owner'],
         keep='first'
     )
+    print("Consolidated file has", len(df_filtered), "rows")
     df_filtered.to_csv(
         os.path.join(
             schema_consolidated_data_path,

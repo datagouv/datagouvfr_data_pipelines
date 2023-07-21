@@ -20,7 +20,7 @@ import pickle
 import emails
 import shutil
 
-# for local dev in order not to mess up with production
+# DEV : for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
 # DATAGOUV_SECRET_API_KEY = 'non'
 
