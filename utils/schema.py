@@ -2017,14 +2017,15 @@ def notification_synthese(
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+    templates_dict,
     schema_name=False,
-    **kwargs
 ):
     """
     For single schema processing (e.g IRVE): specify schema_name as string
     For general case: specify list_schema_skip as a list of schemas to ignore
     """
-    templates_dict = kwargs.get("templates_dict")
+    print(TMP_FOLDER)
+    print(templates_dict)
     last_conso = templates_dict["TODAY"]
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     schemas = r.json()["schemas"]
@@ -2035,7 +2036,7 @@ def notification_synthese(
 
     if schema_name:
         schemas = [s for s in schemas if s['name'] == schema_name]
-
+    print(schemas)
     for s in schemas:
         if s["schema_type"] == "tableschema":
             try:
@@ -2043,7 +2044,9 @@ def notification_synthese(
                     f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/','_')}.csv"
                 )
+                print(filename)
                 df = pd.read_csv(filename)
+                print(df.columns)
                 nb_declares = df[df["resource_found_by"] == "1 - schema request"].shape[0]
                 nb_suspectes = df[df["resource_found_by"] != "1 - schema request"].shape[0]
                 nb_valides = df[df["is_valid_one_version"]].shape[0]
@@ -2065,6 +2068,7 @@ def notification_synthese(
                     "https://validata.etalab.studio/table-schema?input=url&url="
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
+                print(df)
                 df.to_csv(
                     f"{TMP_FOLDER}liste_erreurs-{s['name'].replace('/', '_')}.csv"
                 )
@@ -2094,6 +2098,7 @@ def notification_synthese(
                     f"(https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
                     f"{last_conso}/liste_erreurs/liste_erreurs-{s['name'].replace('/', '_')}.csv)\n"
                 )
+                print(message)
             except: # noqa
                 print("No report for {}".format(s["name"]))
                 pass
