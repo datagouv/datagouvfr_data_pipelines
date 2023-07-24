@@ -212,7 +212,7 @@ with DAG(
             "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
             "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "templates_dict": {"TODAY": "{{ ds }}"}
+            "date_dict": {"TODAY": "{{ ds }}"}
         },
     )
 

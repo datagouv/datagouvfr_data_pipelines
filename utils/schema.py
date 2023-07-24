@@ -2017,7 +2017,7 @@ def notification_synthese(
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    templates_dict,
+    date_dict,
     schema_name=False,
 ):
     """
@@ -2025,8 +2025,8 @@ def notification_synthese(
     For general case: specify list_schema_skip as a list of schemas to ignore
     """
     print(TMP_FOLDER)
-    print(templates_dict)
-    last_conso = templates_dict["TODAY"]
+    print(date_dict)
+    last_conso = date_dict["TODAY"]
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     schemas = r.json()["schemas"]
 

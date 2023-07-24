@@ -395,7 +395,7 @@ def notification_synthese_irve(
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    templates_dict
+    date_dict
 ):
     notification_synthese(
         MINIO_URL,
@@ -404,6 +404,6 @@ def notification_synthese_irve(
         SECRET_MINIO_DATA_PIPELINE_USER,
         SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-        templates_dict,
+        date_dict,
         schema_name
     )
