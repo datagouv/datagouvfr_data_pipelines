@@ -29,19 +29,78 @@ def process_signaux_faibles(ti):
         f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/bilans_entreprises.csv",
         dtype=str,
         sep=";",
-        usecols=fields
+        usecols=fields,
+        parse_dates=[
+            "date_cloture_exercice"
+        ],  # Convert 'date_cloture_exercice' to datetime
     )
-    df_bilans["chiffre_d_affaires"] = df_bilans["chiffre_d_affaires"].astype(float)
-    df_bilans["resultat_net"] = df_bilans["resultat_net"].astype(float)
-    df_bilans = df_bilans.sort_values(by=["date_cloture_exercice"])
-    df_bilans = df_bilans.drop_duplicates(subset=["siren"], keep="last")
+    # Get the current fiscal year
+    current_fiscal_year = get_fiscal_year(datetime.datetime.now())
+
+    # Filter out rows with fiscal years greater than the current fiscal year
+    df_bilan["annee_cloture_exercice"] = df_bilan["date_cloture_exercice"].apply(
+        get_fiscal_year
+    )
+    df_bilan = df_bilan[df_bilan["annee_cloture_exercice"] <= current_fiscal_year]
+
+    # Rename columns and keep relevant columns
+    df_bilan = df_bilan.rename(
+        columns={"chiffre_d_affaires": "ca", "resultat_net": "resultat_net"}
+    )
+    df_bilan = df_bilan[
+        [
+            "siren",
+            "ca",
+            "date_cloture_exercice",
+            "resultat_net",
+            "type_bilan",
+            "annee_cloture_exercice",
+        ]
+    ]
+
+    # Drop duplicates based on siren, fiscal year, and type_bilan
+    df_bilan = df_bilan.drop_duplicates(
+        subset=["siren", "annee_cloture_exercice", "type_bilan"], keep="last"
+    )
+
+    # Filter out rows with 'type_bilan' value different than 'K' if the corresponding 'siren' exists in at least one row with 'type_bilan' 'K'
+    siren_with_K = df_bilan[df_bilan["type_bilan"] == "K"]["siren"].unique()
+    df_bilan = df_bilan[
+        ~df_bilan["siren"].isin(siren_with_K) | (df_bilan["type_bilan"] == "K")
+    ].reset_index(drop=True)
+
+    # Sort values by siren, fiscal year, and type_bilan, and then keep the first occurrence of each siren (C takes precedant over S alphabetically as well)
+    df_bilan = df_bilan.sort_values(
+        ["siren", "annee_cloture_exercice", "type_bilan"], ascending=[True, False, True]
+    )
+    df_bilan = df_bilan.drop_duplicates(subset=["siren"], keep="first")
+
+    # Convert columns to appropriate data types
+    df_bilan["ca"] = df_bilan["ca"].astype(float)
+    df_bilan["resultat_net"] = df_bilan["resultat_net"].astype(float)
+
+    # Keep only the relevant columns and log the first 3 rows of the resulting DataFrame
+    df_bilan = df_bilan[
+        [
+            "siren",
+            "ca",
+            "date_cloture_exercice",
+            "resultat_net",
+            "annee_cloture_exercice",
+        ]
+    ]
+
     df_bilans.to_csv(
-        f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/"
-        "synthese_bilans.csv",
-        index=False
+        f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/" "synthese_bilans.csv",
+        index=False,
     )
 
     ti.xcom_push(key="nb_siren", value=str(df_bilans.shape[0]))
+
+
+def get_fiscal_year(date):
+    # Get the fiscal year based on the month of the date
+    return date.year if date.month >= 7 else date.year - 1
 
 
 def send_file_to_minio():
