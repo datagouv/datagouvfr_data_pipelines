@@ -1,6 +1,6 @@
-from datetime import datetime
 import pandas as pd
 import logging
+from datetime import datetime
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -48,7 +48,7 @@ def process_signaux_faibles(ti):
 
     # Rename columns and keep relevant columns
     df_bilan = df_bilan.rename(
-        columns={"chiffre_d_affaires": "ca", "resultat_net": "resultat_net"}
+        columns={"chiffre_d_affaires": "ca"}
     )
     df_bilan = df_bilan[
         [
@@ -93,12 +93,12 @@ def process_signaux_faibles(ti):
         ]
     ]
 
-    df_bilans.to_csv(
+    df_bilan.to_csv(
         f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/synthese_bilans.csv",
         index=False,
     )
 
-    ti.xcom_push(key="nb_siren", value=str(df_bilans.shape[0]))
+    ti.xcom_push(key="nb_siren", value=str(df_bilan.shape[0]))
 
 
 def send_file_to_minio():
