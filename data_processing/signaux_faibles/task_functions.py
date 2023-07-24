@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import get_resource
 from datagouvfr_data_pipelines.utils.minio import send_files, compare_files
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.utils import get_fiscal_year
 
 
 def download_signaux_faibles():
@@ -97,11 +98,6 @@ def process_signaux_faibles(ti):
     )
 
     ti.xcom_push(key="nb_siren", value=str(df_bilans.shape[0]))
-
-
-def get_fiscal_year(date):
-    # Get the fiscal year based on the month of the date
-    return date.year if date.month >= 7 else date.year - 1
 
 
 def send_file_to_minio():
