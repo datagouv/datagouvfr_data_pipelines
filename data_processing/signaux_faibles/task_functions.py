@@ -28,7 +28,7 @@ def download_signaux_faibles():
 
 def process_signaux_faibles(ti):
     fields = ["siren", "chiffre_d_affaires", "resultat_net", "date_cloture_exercice"]
-    df_bilans = pd.read_csv(
+    df_bilan = pd.read_csv(
         f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/bilans_entreprises.csv",
         dtype=str,
         sep=";",
