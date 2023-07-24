@@ -6,3 +6,7 @@ REFRESH MATERIALIZED VIEW airflow.reuses;
 REFRESH MATERIALIZED VIEW airflow.organizations;
 REFRESH MATERIALIZED VIEW airflow.resources;
 REFRESH MATERIALIZED VIEW airflow.site;
+REFRESH MATERIALIZED VIEW airflow.datasets_total;
+REFRESH MATERIALIZED VIEW airflow.reuses_total;
+REFRESH MATERIALIZED VIEW airflow.organizations_total;
+REFRESH MATERIALIZED VIEW airflow.resources_total;
