@@ -1,4 +1,5 @@
 import pandas as pd
+import logging
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -20,7 +21,7 @@ def download_signaux_faibles():
             "dest_name": "bilans_entreprises.csv",
         },
     )
-    print("download done!")
+    logging.info("download done!")
 
 
 def process_signaux_faibles(ti):
@@ -135,7 +136,7 @@ def compare_files_minio():
         return False
 
     if is_same is None:
-        print("First time in this Minio env. Creating")
+        logging.info("First time in this Minio env. Creating")
 
     send_files(
         MINIO_URL=MINIO_URL,
