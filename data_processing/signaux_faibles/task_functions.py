@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 import logging
 
@@ -37,7 +38,7 @@ def process_signaux_faibles(ti):
         ],  # Convert 'date_cloture_exercice' to datetime
     )
     # Get the current fiscal year
-    current_fiscal_year = get_fiscal_year(datetime.datetime.now())
+    current_fiscal_year = get_fiscal_year(datetime.now())
 
     # Filter out rows with fiscal years greater than the current fiscal year
     df_bilan["annee_cloture_exercice"] = df_bilan["date_cloture_exercice"].apply(
@@ -93,7 +94,7 @@ def process_signaux_faibles(ti):
     ]
 
     df_bilans.to_csv(
-        f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/" "synthese_bilans.csv",
+        f"{AIRFLOW_DAG_TMP}signaux_faibles_ratio_financiers/synthese_bilans.csv",
         index=False,
     )
 
