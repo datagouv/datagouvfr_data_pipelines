@@ -21,7 +21,7 @@ with DAG(
     dag_id="data_processing_signaux_faibles_ratio_financiers",
     schedule_interval="0 6 * * MON",
     start_date=days_ago(8),
-    dagrun_timeout=timedelta(minutes=15),
+    dagrun_timeout=timedelta(minutes=60),
     tags=["signaux faibles", "bilans", "entreprises"],
     params={},
     catchup=False,
