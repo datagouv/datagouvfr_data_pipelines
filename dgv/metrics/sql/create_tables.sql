@@ -182,6 +182,47 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.site AS
     ON datasets.metric_month = reuses.metric_month
 ;
 
+-- Sum tables
+CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.datasets_total AS
+    SELECT
+        dataset_id,
+        sum(nb_visit) as visit,
+        sum(nb_outlink) as outlink,
+        sum(resource_nb_visit) as visit_resource
+    FROM airflow.metrics_datasets
+    GROUP BY dataset_id
+;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.reuses_total AS
+    SELECT
+        reuse_id,
+        sum(nb_visit) as visit,
+        sum(nb_outlink) as outlink
+    FROM airflow.metrics_reuses
+    GROUP BY reuse_id
+;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.organizations_total AS
+    SELECT
+        organization_id,
+        sum(dataset_nb_visit) as visit_dataset,
+        sum(resource_nb_visit) as visit_resource,
+        sum(reuse_nb_visit) as visit_reuse,
+        sum(nb_outlink) as outlink
+    FROM airflow.metrics_organizations
+    GROUP BY organization_id
+;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.resources_total AS
+    SELECT
+        resource_id,
+        dataset_id,
+        sum(nb_visit) as visit_resource
+    FROM airflow.visits_resources
+    GROUP BY resource_id, dataset_id
+;
+
+
 CREATE INDEX IF NOT EXISTS visits_datasets_dataset_id ON airflow.visits_datasets USING btree (dataset_id);
 CREATE INDEX IF NOT EXISTS visits_datasets_date_metric ON airflow.visits_datasets USING btree (date_metric);
 CREATE INDEX IF NOT EXISTS visits_datasets_organization_id ON airflow.visits_datasets USING btree (organization_id);
