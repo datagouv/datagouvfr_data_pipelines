@@ -1,0 +1,12 @@
+{
+    "geozones": {
+        "name": "geozones",
+        "file": "export_geozones.json",
+        "dev": {
+            "dataset_id": "64bfc429d6e029048e577d3e"
+        },
+        "prod": {
+            "dataset_id": "554210a9c751df2666a7b26c"
+        }
+    }
+}
