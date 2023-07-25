@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.utils.schema import (
     append_stats_list,
     create_detailed_report,
     final_directory_clean_up,
+    upload_minio,
     notification_synthese
 )
 import yaml
@@ -385,6 +386,24 @@ def final_directory_clean_up_irve(
     final_directory_clean_up(
         tmp_folder,
         output_data_folder
+    )
+
+
+def upload_minio_irve(
+    TMP_FOLDER,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_output_filepath
+):
+    upload_minio(
+        TMP_FOLDER.as_posix(),
+        MINIO_URL,
+        MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        SECRET_MINIO_DATA_PIPELINE_USER,
+        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        minio_output_filepath,
     )
 
 
