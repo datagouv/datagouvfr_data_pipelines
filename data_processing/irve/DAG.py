@@ -28,6 +28,7 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     create_consolidation_reports_irve,
     create_detailed_report_irve,
     final_directory_clean_up_irve,
+    upload_minio_irve,
     notification_synthese_irve
 )
 from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
@@ -191,6 +192,19 @@ with DAG(
         },
     )
 
+    upload_minio_irve = PythonOperator(
+        task_id="upload_minio_irve",
+        python_callable=upload_minio_irve,
+        op_kwargs={
+            "TMP_FOLDER": TMP_FOLDER,
+            "MINIO_URL": MINIO_URL,
+            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
+            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            "minio_output_filepath": "/schema/schemas_consolidation/{{ ds }}/",
+        },
+    )
+
     commit_changes = BashOperator(
         task_id="commit_changes",
         bash_command=(
@@ -212,8 +226,8 @@ with DAG(
             "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
             "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+            "date_dict": {"TODAY": "{{ ds }}"}
         },
-        templates_dict={"TODAY": "{{ ds }}"},
     )
 
     clone_dag_schema_repo.set_upstream(clean_previous_outputs)
@@ -230,5 +244,6 @@ with DAG(
     create_consolidation_reports_irve.set_upstream(update_consolidation_documentation_report_irve)
     create_detailed_report_irve.set_upstream(create_consolidation_reports_irve)
     final_directory_clean_up_irve.set_upstream(create_detailed_report_irve)
-    commit_changes.set_upstream(final_directory_clean_up_irve)
+    upload_minio_irve.set_upstream(final_directory_clean_up_irve)
+    commit_changes.set_upstream(upload_minio_irve)
     notification_synthese_irve.set_upstream(commit_changes)

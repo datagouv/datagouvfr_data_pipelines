@@ -2,6 +2,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
     DATAGOUV_URL
 )
+from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.minio import send_files
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from typing import List, Optional, Dict
@@ -19,6 +20,7 @@ import chardet
 import pickle
 import emails
 import shutil
+from minio import Minio
 
 # DEV : for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
@@ -2010,6 +2012,38 @@ def final_directory_clean_up(
     shutil.move(tmp_folder + "report_tables", output_data_folder)
 
 
+def upload_minio(
+    TMP_FOLDER,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_output_filepath,
+):
+    client = Minio(
+        MINIO_URL,
+        access_key=SECRET_MINIO_DATA_PIPELINE_USER,
+        secret_key=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        secure=True,
+    )
+
+    # check if bucket exists.
+    found = client.bucket_exists(MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    if found:
+        for path, subdirs, files in os.walk(TMP_FOLDER + "/output/"):
+            for name in files:
+                this_file = os.path.join(path, name)
+                print(this_file)
+                isFile = os.path.isfile(this_file)
+                if isFile:
+                    client.fput_object(
+                        MINIO_BUCKET_DATA_PIPELINE_OPEN,
+                        minio_output_filepath + this_file.replace(TMP_FOLDER, ""),
+                        this_file,
+                    )
+    return
+
+
 def notification_synthese(
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -2017,15 +2051,14 @@ def notification_synthese(
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+    date_dict,
     schema_name=False,
-    **kwargs
 ):
     """
     For single schema processing (e.g IRVE): specify schema_name as string
     For general case: specify list_schema_skip as a list of schemas to ignore
     """
-    templates_dict = kwargs.get("templates_dict")
-    last_conso = templates_dict["TODAY"]
+    last_conso = date_dict["TODAY"]
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     schemas = r.json()["schemas"]
 
@@ -2035,7 +2068,6 @@ def notification_synthese(
 
     if schema_name:
         schemas = [s for s in schemas if s['name'] == schema_name]
-
     for s in schemas:
         if s["schema_type"] == "tableschema":
             try:
@@ -2065,10 +2097,13 @@ def notification_synthese(
                     "https://validata.etalab.studio/table-schema?input=url&url="
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
+                erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
                 df.to_csv(
-                    f"{TMP_FOLDER}liste_erreurs-{s['name'].replace('/', '_')}.csv"
+                    f"{TMP_FOLDER}/{erreurs_file_name}",
+                    index=False
                 )
 
+                # reminder : send_files puts the files into an intermediary {AIRFLOW_ENV} folder
                 send_files(
                     MINIO_URL=MINIO_URL,
                     MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -2076,10 +2111,10 @@ def notification_synthese(
                     MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
                     list_files=[
                         {
-                            "source_path": f"{TMP_FOLDER}",
-                            "source_name": f"liste_erreurs-{s['name'].replace('/', '_')}.csv",
+                            "source_path": f"{TMP_FOLDER}/",
+                            "source_name": erreurs_file_name,
                             "dest_path": "schema/schemas_consolidation/liste_erreurs/",
-                            "dest_name": f"liste_erreurs-{s['name'].replace('/', '_')}.csv",
+                            "dest_name": erreurs_file_name,
                         }
                     ],
                 )
@@ -2091,8 +2126,9 @@ def notification_synthese(
 
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
-                    f"(https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
-                    f"{last_conso}/liste_erreurs/liste_erreurs-{s['name'].replace('/', '_')}.csv)\n"
+                    f"(https://console.{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
+                    f"schema/schemas_consolidation/{last_conso}/"
+                    f"liste_erreurs/{erreurs_file_name})\n"
                 )
             except: # noqa
                 print("No report for {}".format(s["name"]))

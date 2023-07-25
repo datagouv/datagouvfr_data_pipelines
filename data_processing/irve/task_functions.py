@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.utils.schema import (
     append_stats_list,
     create_detailed_report,
     final_directory_clean_up,
+    upload_minio,
     notification_synthese
 )
 import yaml
@@ -388,6 +389,24 @@ def final_directory_clean_up_irve(
     )
 
 
+def upload_minio_irve(
+    TMP_FOLDER,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_output_filepath
+):
+    upload_minio(
+        TMP_FOLDER.as_posix(),
+        MINIO_URL,
+        MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        SECRET_MINIO_DATA_PIPELINE_USER,
+        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        minio_output_filepath,
+    )
+
+
 def notification_synthese_irve(
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -395,7 +414,7 @@ def notification_synthese_irve(
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    **kwargs
+    date_dict
 ):
     notification_synthese(
         MINIO_URL,
@@ -404,6 +423,6 @@ def notification_synthese_irve(
         SECRET_MINIO_DATA_PIPELINE_USER,
         SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-        schema_name,
-        **kwargs
+        date_dict,
+        schema_name
     )
