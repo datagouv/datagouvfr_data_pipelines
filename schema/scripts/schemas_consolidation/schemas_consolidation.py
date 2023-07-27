@@ -16,6 +16,7 @@ VALIDATA_BASE_URL = (
 
 
 def run_schemas_consolidation(
+    ti,
     tmp_path: str,
     date_airflow: str,
     schema_catalog_url: str,
@@ -46,7 +47,7 @@ def run_schemas_consolidation(
     schemas_report_dict, schemas_catalogue_list = get_schema_report(
         schemas_catalogue_url=schema_catalog_url,
         config_path=config_path,
-        list_schema_skip=['schema-irve-statique']
+        list_schema_skip=['etalab/schema-irve-statique']
     )
 
     with open(config_path, "r") as f:
@@ -85,3 +86,13 @@ def run_schemas_consolidation(
             tmp_path,
             schemas_report_dict,
         )
+
+    ti.xcom_push(key='consolidation_date_str', value=consolidation_date_str)
+    ti.xcom_push(key='data_path', value=data_path.as_posix())
+    ti.xcom_push(key='consolidated_data_path', value=consolidated_data_path.as_posix())
+    ti.xcom_push(key='ref_tables_path', value=ref_tables_path.as_posix())
+    ti.xcom_push(key='report_tables_path', value=report_tables_path.as_posix())
+    ti.xcom_push(key='validata_reports_path', value=validata_reports_path.as_posix())
+    ti.xcom_push(key='schemas_report_dict', value=str(schemas_report_dict))
+    ti.xcom_push(key='schemas_catalogue_list', value=schemas_catalogue_list)
+    ti.xcom_push(key='config_dict', value=str(config_dict))
