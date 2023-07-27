@@ -23,8 +23,8 @@ import shutil
 from minio import Minio
 
 # DEV : for local dev in order not to mess up with production
-DATAGOUV_URL = 'https://data.gouv.fr'
-DATAGOUV_SECRET_API_KEY = 'non'
+# DATAGOUV_URL = 'https://data.gouv.fr'
+# DATAGOUV_SECRET_API_KEY = 'non'
 
 VALIDATA_BASE_URL = (
     "https://validata-api.app.etalab.studio/validate?schema={schema_url}&url={rurl}"

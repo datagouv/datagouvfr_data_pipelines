@@ -58,9 +58,9 @@ with DAG(
 
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
-        # bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
+        bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
         # for local dev without SSH enabled
-        bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
+        # bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
     )
 
     working_dir = f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/"
