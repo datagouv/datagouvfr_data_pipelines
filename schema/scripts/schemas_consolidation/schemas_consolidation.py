@@ -44,17 +44,20 @@ def run_schemas_consolidation(
     validata_reports_path = tmp_path / "validata_reports"
     validata_reports_path.mkdir(parents=True, exist_ok=True)
 
+    print('Building catalogue')
     schemas_report_dict, schemas_catalogue_list = get_schema_report(
         schemas_catalogue_url=schema_catalog_url,
         config_path=config_path,
         list_schema_skip=['etalab/schema-irve-statique']
     )
 
+    print('Loading config dict')
     with open(config_path, "r") as f:
         config_dict = yaml.safe_load(f)
         config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
     # ## Building reference tables (parsing and listing resources + Validata check)
+    print('Building reference tables')
     for schema_name in config_dict.keys():
         build_reference_table(
             config_dict,
@@ -67,6 +70,7 @@ def run_schemas_consolidation(
 
     # ## Downloading valid data
     # We download only data that is valid for at least one version of the schema.
+    print('Downloading valid data')
     for schema_name in config_dict.keys():
         download_schema_files(
             schema_name,
@@ -75,6 +79,7 @@ def run_schemas_consolidation(
         )
 
     # ## Consolidation
+    print('Consolidating data')
     for schema_name in config_dict.keys():
         consolidate_data(
             data_path,

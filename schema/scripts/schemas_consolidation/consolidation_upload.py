@@ -26,6 +26,7 @@ def run_consolidation_upload(
     config_path: str,
 ) -> None:
 
+    print('Loading xcoms')
     consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='run_schemas_consolidation')
     consolidated_data_path = ti.xcom_pull(key='consolidated_data_path', task_ids='run_schemas_consolidation')
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='run_schemas_consolidation')
@@ -53,6 +54,7 @@ def run_consolidation_upload(
     ]
 
     # ## Upload
+    print('Uploading consolidated data')
     for schema_name in config_dict.keys():
         upload_consolidated(
             schema_name,
@@ -68,6 +70,7 @@ def run_consolidation_upload(
 
     # ## Schemas (versions) feedback loop on resources
     # ### Adding needed infos for each resource in reference tables
+    print('Adding infos to resources in reference table')
     for schema_name in config_dict.keys():
         update_reference_table(
             ref_tables_path,
@@ -75,6 +78,7 @@ def run_consolidation_upload(
         )
 
     # ### Updating resources schemas and sending comments/mails to notify producers
+    print('Adding schema to resources and emailing producers')
     for schema_name in config_dict.keys():
         update_resource_send_mail_producer(
             ref_tables_path,
@@ -83,6 +87,7 @@ def run_consolidation_upload(
         )
 
     # ### Add validata report to extras for each resource
+    print('Adding validata report in resources extras')
     for schema_name in config_dict.keys():
         add_validata_report(
             ref_tables_path,
@@ -92,6 +97,7 @@ def run_consolidation_upload(
         )
 
     # ## Updating consolidation documentation resource
+    print('Updating consolidated data documentation')
     for schema_name in config_dict.keys():
         update_consolidation_documentation_report(
             schema_name,
@@ -104,6 +110,7 @@ def run_consolidation_upload(
 
     # ## Consolidation Reports
     # ### Report by schema
+    print('Building consolidation reports')
     reports_list = []
 
     for schema_name in schemas_report_dict.keys():
@@ -149,6 +156,7 @@ def run_consolidation_upload(
     )
 
     # ## Detailed reports (by schema and resource source)
+    print('Creating detailed reports')
     for schema_name in config_dict.keys():
         create_detailed_report(
             ref_tables_path,
@@ -157,6 +165,7 @@ def run_consolidation_upload(
         )
 
     # %%
+    print('Final cleanup')
     tmp_folder = tmp_path.as_posix() + "/"
     final_directory_clean_up(
         tmp_folder,
