@@ -305,7 +305,7 @@ def get_schema_report(
     """
 
     # always specify one of these two, depending on the case
-    assert schema_name or len(list_schema_skip) > 1
+    assert schema_name or len(list_schema_skip) > 0
 
     schemas_report_dict = {}
 
@@ -1177,7 +1177,7 @@ def add_validation_extras(
                 else:
                     return True
         except:
-            print("abnormal exception")
+            print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
             extras = {}
             if should_succeed:
                 return False
@@ -1479,7 +1479,9 @@ def upload_consolidated(
         )
         if should_succeed:
             return False
-    return upload_success
+    if should_succeed:
+        return upload_success
+    return True
 
 
 def update_reference_table(
@@ -1708,7 +1710,7 @@ def add_validata_report(
     validata_reports_path,
     schema_name,
     api_key,
-    should_succeed=True
+    should_succeed=False
 ):
     headers = {
         "X-API-KEY": api_key,
@@ -1765,7 +1767,9 @@ def add_validata_report(
                 schema_name,
                 should_succeed
             )
-    return success
+    if should_succeed:
+        return success
+    return True
 
 
 def update_consolidation_documentation_report(
