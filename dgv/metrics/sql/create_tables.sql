@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS airflow.visits_datasets
     nb_visit INTEGER
 );
 CREATE TABLE IF NOT EXISTS airflow.visits_reuses
+(
     __id SERIAL PRIMARY KEY,
     date_metric DATE,
     reuse_id CHARACTER VARYING,
