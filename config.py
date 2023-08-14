@@ -2,6 +2,7 @@ from airflow.models import Variable
 
 # Global
 AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME", "/opt/airflow/dags/")
+AIRFLOW_DAG_LOGS = Variable.get("AIRFLOW_DAG_LOGS", "/opt/airflow/logs/")
 AIRFLOW_DAG_TMP = Variable.get("AIRFLOW_DAG_TMP", "/tmp/")
 AIRFLOW_ENV = Variable.get("AIRFLOW_ENV", "dev")
 
