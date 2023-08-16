@@ -10,8 +10,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 def monitor_dags(
     ti,
-    # date=datetime.today().strftime("%Y-%m-%d"),
-    date='2023-08-15',
+    date=datetime.today().strftime("%Y-%m-%d"),
 ):
     with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
         config = json.load(f)
@@ -57,54 +56,3 @@ def notification_mattermost(ti):
                 for ft in todays_runs[dag][attempt]['failed_tasks']:
                     message += f"\n   - {ft} ([voir log]({todays_runs[dag][attempt]['failed_tasks'][ft]}))"
     send_message(message)
-
-####################################################################################
-# attempt to use log folders because integrated airflow tools
-# have weird behaviours with dates and manuals runs
-
-# def get_subfolders_last_modified(root_folder):
-#     subfolder_dict = {}
-#     for root, subfolders, files in os.walk(root_folder):
-#         for subfolder in subfolders:
-#             subfolder_path = os.path.join(root, subfolder)
-#             last_modified = os.path.getmtime(subfolder_path)
-#             subfolder_dict[subfolder] = last_modified
-#     return subfolder_dict
-
-
-# # issue: attempts are not consistents from one task to another
-# # e.g: task1 can pass at 3rd try, then task2 1st try, then task3 not pass after 2 tries
-# # how do we know which task was the last one to run if DAG crashes?
-# def monitor_dags_from_folders(date=datetime.today().strftime("%Y-%m-%d")):
-#     with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
-#         config = json.load(f)
-#     dag_ids_to_monitor = config['dag_list']
-
-#     todays_runs = {}
-#     for dag_id in dag_ids_to_monitor:
-#         if f'dag_id={dag_id}' in os.listdir(AIRFLOW_DAG_LOGS):
-#             this_dag_today = [
-#                 run for run in os.listdir(AIRFLOW_DAG_LOGS + f'/dag_id={dag_id}')
-#                 if date in run
-#             ]
-
-#             if len(this_dag_today) > 0:
-#                 todays_runs[dag_id] = {}
-
-#             for run_folder in this_dag_today:
-#                 path = AIRFLOW_DAG_LOGS + f'/dag_id={dag_id}/' + run_folder
-#                 run_id = run_folder.replace('run_id=', '')
-
-#                 task_folders = os.listdir(path)
-#                 nb_attempts = max([
-#                     len(os.listdir(path + '/' + t)) for t in task_folders
-#                 ])
-#                 # for task in task_folders:
-
-
-
-#                 todays_runs[dag_id][run_id] = {
-#                     'type': run_id.split('__')[0],
-#                     'nb_attempts': nb_attempts,
-#                 }
-#     print(todays_runs)
