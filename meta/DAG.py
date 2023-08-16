@@ -2,7 +2,7 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
-from datagouvfr_data_pipelines.meta.task_functions import monitor_dags
+from datagouvfr_data_pipelines.meta.task_functions import monitor_dags, notification_mattermost
 
 DAG_NAME = "meta_dag"
 date_airflow = "{{ ds }}"
@@ -28,5 +28,9 @@ with DAG(
         task_id="monitor_dags",
         python_callable=monitor_dags,
     )
+    notification_mattermost = PythonOperator(
+        task_id="notification_mattermost",
+        python_callable=notification_mattermost,
+    )
 
-    monitor_dags
+    notification_mattermost.set_upstream(monitor_dags)

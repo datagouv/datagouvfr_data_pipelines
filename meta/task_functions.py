@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 def monitor_dags(
     ti,
     # date=datetime.today().strftime("%Y-%m-%d"),
-    date='2023-08-13',
+    date='2023-08-15',
 ):
     with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
         config = json.load(f)
@@ -40,17 +40,23 @@ def monitor_dags(
                 else:
                     todays_runs[dag_id][execution_date] = {'success': True}
     ti.xcom_push(key="todays_runs", value=todays_runs)
+    return todays_runs
 
 
 def notification_mattermost(ti):
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
-    send_message(
-        f"Récap quotidien DAGs :"
-        f"\n- intégré en base de données"
-        f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({DATAGOUV_URL}/fr/datasets/{dataset_id})"
-        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
-    )
+    message = '# Récap quotidien DAGs :'
+    for dag in todays_runs:
+        message += f'\n- **{dag}** :'
+        for attempt in todays_runs[dag]:
+            run_time = attempt.split(' ')[1][:-3]
+            if todays_runs[dag][attempt]['success']:
+                message += f"\n - ✅ Run de {run_time} OK !"
+            else:
+                message += f"\n - ❌ Run de {run_time} a échoué (status : {todays_runs[dag][attempt]['status']}). Les tâches en échec sont :"
+                for ft in todays_runs[dag][attempt]['failed_tasks']:
+                    message += f"\n   - {ft} ([voir log]({todays_runs[dag][attempt]['failed_tasks'][ft]}))"
+    send_message(message)
 
 ####################################################################################
 # attempt to use log folders because integrated airflow tools
