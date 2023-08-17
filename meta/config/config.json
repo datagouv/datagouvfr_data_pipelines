@@ -1,0 +1,9 @@
+{
+    "dag_list": [
+        "schema_consolidation",
+        "irve_consolidation",
+        "data_processing_dvf",
+        "data_processing_rna",
+        "data_processing_elections"
+    ]
+}
