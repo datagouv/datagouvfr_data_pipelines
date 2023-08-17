@@ -2,6 +2,7 @@ from airflow.models import DagRun
 from airflow.utils.state import State
 import json
 from datetime import datetime, timedelta
+import numpy as np
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -27,14 +28,14 @@ def monitor_dags(
 
         for dag_run in dag_runs:
             status = dag_run.get_state()
-            start_date = dag_run.start_date.strftime("%Y-%m-%d %H:%M:%S")
-            if start_date >= date:
+            end_date = dag_run.end_date.strftime("%Y-%m-%d %H:%M:%S") if dag_run.end_date else None
+            if end_date and end_date >= date:
                 if dag_id not in todays_runs.keys():
                     todays_runs[dag_id] = {}
 
                 if status != State.SUCCESS:
                     failed_task_instances = dag_run.get_task_instances(state=State.FAILED)
-                    todays_runs[dag_id][start_date] = {
+                    todays_runs[dag_id][end_date] = {
                         'success': False,
                         'status': status,
                         'failed_tasks': {
@@ -43,7 +44,7 @@ def monitor_dags(
                     }
                 else:
                     duration = dag_run.end_date - dag_run.start_date
-                    todays_runs[dag_id][start_date] = {
+                    todays_runs[dag_id][end_date] = {
                         'success': True,
                         'duration': duration.total_seconds()
                     }
@@ -54,19 +55,25 @@ def monitor_dags(
 def notification_mattermost(ti):
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     message = '# Récap quotidien DAGs :'
-    for dag in todays_runs:
+    for dag, attempts in todays_runs.items():
         message += f'\n- **{dag}** :'
-        for attempt in todays_runs[dag]:
-            run_time = attempt.split(' ')[1][:-3]
-            if todays_runs[dag][attempt]['success']:
-                hours = int(todays_runs[dag][attempt]['duration'] // 3600)
-                minutes = int((todays_runs[dag][attempt]['duration'] % 3600) // 60)
-                if hours > 0:
-                    message += f"\n - ✅ Run de {run_time} OK ! (en {hours}h{minutes}min)"
-                else:
-                    message += f"\n - ✅ Run de {run_time} OK ! (en {minutes}min)"
-            else:
-                message += f"\n - ❌ Run de {run_time} a échoué (status : {todays_runs[dag][attempt]['status']}). Les tâches en échec sont :"
-                for ft in todays_runs[dag][attempt]['failed_tasks']:
-                    message += f"\n   - {ft} ([voir log]({todays_runs[dag][attempt]['failed_tasks'][ft]}))"
+        successes = {
+            atp_id: attempts[atp_id] for atp_id in attempts if attempts[atp_id]['success']
+        }
+        if successes:
+            average_duration = np.mean([i['duration'] for i in successes.values()])
+            hours = int(average_duration // 3600)
+            minutes = int((average_duration % 3600) // 60)
+            start_time = sorted(successes.keys())[-1].split(' ')[1][:-3]
+            message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'} en moyenne). Dernier passage terminé à {start_time}."
+
+        failures = {
+            atp_id: attempts[atp_id] for atp_id in attempts if not(attempts[atp_id]['success'])
+        }
+        if failures:
+            last_failure = failures[sorted(failures.keys())[-1]]
+            start_time = sorted(failures.keys())[-1].split(' ')[1][:-3]
+            message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO. La dernière tentative a échoué à {start_time} (status : {last_failure['status']}), tâches en échec :"
+            for ft in last_failure['failed_tasks']:
+                message += f"\n   - {ft} ([voir log]({last_failure['failed_tasks'][ft]}))"
     send_message(message)
