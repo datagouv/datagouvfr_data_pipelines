@@ -1,6 +1,5 @@
 from airflow.models import DagRun
 from airflow.utils.state import State
-import pytz
 import json
 from datetime import datetime, timedelta
 
