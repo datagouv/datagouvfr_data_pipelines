@@ -2,7 +2,6 @@ from airflow.models import DagRun
 from airflow.utils.state import State
 import json
 from datetime import datetime
-import os
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -37,7 +36,11 @@ def monitor_dags(
                         }
                     }
                 else:
-                    todays_runs[dag_id][execution_date] = {'success': True}
+                    duration = dag_run.end_date - dag_run.start_date
+                    todays_runs[dag_id][execution_date] = {
+                        'success': True,
+                        'duration': duration.total_seconds()
+                    }
     ti.xcom_push(key="todays_runs", value=todays_runs)
     return todays_runs
 
@@ -50,7 +53,12 @@ def notification_mattermost(ti):
         for attempt in todays_runs[dag]:
             run_time = attempt.split(' ')[1][:-3]
             if todays_runs[dag][attempt]['success']:
-                message += f"\n - ✅ Run de {run_time} OK !"
+                hours = int(todays_runs[dag][attempt]['duration'] // 3600)
+                minutes = int((todays_runs[dag][attempt]['duration'] % 3600) // 60)
+                if hours > 0:
+                    message += f"\n - ✅ Run de {run_time} OK ! (en {hours}h{minutes}min)"
+                else:
+                    message += f"\n - ✅ Run de {run_time} OK ! (en {minutes}min)"
             else:
                 message += f"\n - ❌ Run de {run_time} a échoué (status : {todays_runs[dag][attempt]['status']}). Les tâches en échec sont :"
                 for ft in todays_runs[dag][attempt]['failed_tasks']:
