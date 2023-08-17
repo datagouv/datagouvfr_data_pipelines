@@ -27,6 +27,7 @@ with DAG(
         task_id="monitor_dags",
         python_callable=monitor_dags,
     )
+    
     notification_mattermost = PythonOperator(
         task_id="notification_mattermost",
         python_callable=notification_mattermost,
