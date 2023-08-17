@@ -1,9 +1,29 @@
 {
     "dag_list": [
+        "data_processing_agence_bio",
+        "data_processing_prix_carburants",
+        "data_processing_dvf",
+        "data_processing_elections",
+        "data_processing_formation_qualiopi",
+        "data_processing_inpi_dirigeants",
+        "data_processing_rna",
+        "data_processing_signaux_faibles_ratio_financiers",
+        "data_processing_sirene_flux",
+        "data_processing_sirene_geocodage",
+        "data_processing_sirene_geolocalisation",
+        "data_processing_sirene_publication",
+        "data_processing_uai",
+        "dgv_digests",
+        "dgv_edito_post_and_tweet",
+        "dgv_harvester_notification",
+        "dgv_metrics",
+        "dgv_moderation_utilisateurs",
+        "dgv_notification_activite",
+        "dgv_tops",
         "schema_consolidation",
         "irve_consolidation",
-        "data_processing_dvf",
-        "data_processing_rna",
-        "data_processing_elections"
+        "schema_recommendations",
+        "schema_website_publication_preprod",
+        "schema_website_publication_prod"
     ]
 }
