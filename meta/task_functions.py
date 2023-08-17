@@ -1,7 +1,8 @@
 from airflow.models import DagRun
 from airflow.utils.state import State
+from airflow.utils import timezone
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -9,38 +10,40 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 def monitor_dags(
     ti,
-    date=datetime.today().strftime("%Y-%m-%d"),
 ):
     with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
         config = json.load(f)
     dag_ids_to_monitor = config['dag_list']
 
+    start_date = timezone.make_aware(datetime.now() - timedelta(days=1))
     todays_runs = {}
     for dag_id in dag_ids_to_monitor:
-        dag_runs = DagRun.find(dag_id=dag_id)
+        dag_runs = DagRun.find(
+            dag_id=dag_id,
+            execution_start_date=start_date
+        )
 
         for dag_run in dag_runs:
             status = dag_run.get_state()
             execution_date = dag_run.execution_date.strftime("%Y-%m-%d %H:%M:%S")
-            if execution_date >= date:
-                if dag_id not in todays_runs.keys():
-                    todays_runs[dag_id] = {}
+            if dag_id not in todays_runs.keys():
+                todays_runs[dag_id] = {}
 
-                if status != State.SUCCESS:
-                    failed_task_instances = dag_run.get_task_instances(state=State.FAILED)
-                    todays_runs[dag_id][execution_date] = {
-                        'success': False,
-                        'status': status,
-                        'failed_tasks': {
-                            task.task_id: task.log_url for task in failed_task_instances
-                        }
+            if status != State.SUCCESS:
+                failed_task_instances = dag_run.get_task_instances(state=State.FAILED)
+                todays_runs[dag_id][execution_date] = {
+                    'success': False,
+                    'status': status,
+                    'failed_tasks': {
+                        task.task_id: task.log_url for task in failed_task_instances
                     }
-                else:
-                    duration = dag_run.end_date - dag_run.start_date
-                    todays_runs[dag_id][execution_date] = {
-                        'success': True,
-                        'duration': duration.total_seconds()
-                    }
+                }
+            else:
+                duration = dag_run.end_date - dag_run.start_date
+                todays_runs[dag_id][execution_date] = {
+                    'success': True,
+                    'duration': duration.total_seconds()
+                }
     ti.xcom_push(key="todays_runs", value=todays_runs)
     return todays_runs
 

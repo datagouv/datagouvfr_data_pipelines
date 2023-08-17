@@ -5,7 +5,6 @@ from datetime import timedelta
 from datagouvfr_data_pipelines.meta.task_functions import monitor_dags, notification_mattermost
 
 DAG_NAME = "meta_dag"
-date_airflow = "{{ ds }}"
 
 default_args = {
     'email': [
