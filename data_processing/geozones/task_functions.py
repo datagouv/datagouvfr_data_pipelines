@@ -73,6 +73,17 @@ def process_geozones():
     for c in final.columns:
         final[c] = final[c].apply(str)
 
+    map_type = {
+        'commune': 80,
+        'communeDeleguee': 80,
+        'communeAssociee': 80,
+        'arrondissement': 70,
+        'departement': 60,
+        'pays': 20,
+        'region': 40
+    }
+    final['level'] = final['type'].apply(lambda x: map_type[x])
+
     export = {'data': json.loads(final.to_json(orient='records'))}
     with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
