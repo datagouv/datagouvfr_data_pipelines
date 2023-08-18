@@ -5,6 +5,7 @@
         "data_processing_dvf",
         "data_processing_elections",
         "data_processing_formation_qualiopi",
+        "data_processing_geozones",
         "data_processing_inpi_dirigeants",
         "data_processing_rna",
         "data_processing_signaux_faibles_ratio_financiers",
