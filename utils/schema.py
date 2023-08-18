@@ -389,182 +389,177 @@ def build_reference_table(
     ref_tables_path,
     should_succeed=False
 ):
-    print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
+    print("\n{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
 
     schema_config = config_dict[schema_name]
 
     if schema_config["consolidate"]:
-        # Schema official specification (in catalogue)
-        schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
+        print("This schema will be consolidated.")
+    else:
+        print("This schema will NOT be consolidated.")
+        print("Building ref table to fill the resources' extras.")
+    # Schema official specification (in catalogue)
+    schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
 
-        # Datasets to exclude (from config)
-        datasets_to_exclude = []
-        if "consolidated_dataset_id" in schema_config.keys():
-            datasets_to_exclude += [schema_config["consolidated_dataset_id"]]
-        if "exclude_dataset_ids" in schema_config.keys():
-            if type(schema_config["exclude_dataset_ids"]) == list:
-                datasets_to_exclude += schema_config["exclude_dataset_ids"]
+    # Datasets to exclude (from config)
+    datasets_to_exclude = []
+    if "consolidated_dataset_id" in schema_config.keys():
+        datasets_to_exclude += [schema_config["consolidated_dataset_id"]]
+    if "exclude_dataset_ids" in schema_config.keys():
+        if type(schema_config["exclude_dataset_ids"]) == list:
+            datasets_to_exclude += schema_config["exclude_dataset_ids"]
 
-        # Tags and search words to use to get resources that could match schema (from config)
-        tags_list = []
-        if "tags" in schema_config.keys():
-            tags_list += schema_config["tags"]
+    # Tags and search words to use to get resources that could match schema (from config)
+    tags_list = []
+    if "tags" in schema_config.keys():
+        tags_list += schema_config["tags"]
 
-        search_words_list = []
-        if "search_words" in schema_config.keys():
-            search_words_list = schema_config["search_words"]
+    search_words_list = []
+    if "search_words" in schema_config.keys():
+        search_words_list = schema_config["search_words"]
 
-        # Schema versions not to consolidate
-        drop_versions = []
-        if "drop_versions" in schema_config.keys():
-            drop_versions += schema_config["drop_versions"]
+    # Schema versions not to consolidate
+    drop_versions = []
+    if "drop_versions" in schema_config.keys():
+        drop_versions += schema_config["drop_versions"]
 
-        schemas_report_dict[schema_name]["nb_versions_to_drop_in_config"] = len(
-            drop_versions
+    schemas_report_dict[schema_name]["nb_versions_to_drop_in_config"] = len(
+        drop_versions
+    )
+
+    # PARSING API TO GET ALL ELIGIBLE RESOURCES FOR CONSOLIDATION
+
+    df_list = []
+
+    # Listing resources by schema request
+    df_schema = parse_api(
+        schema_url_base.format(schema_name=schema_name),
+        api_url,
+        schema_name
+    )
+    schemas_report_dict[schema_name]["nb_resources_found_by_schema"] = len(
+        df_schema
+    )
+    if len(df_schema) > 0:
+        df_schema["resource_found_by"] = "1 - schema request"
+        df_schema["initial_version_name"] = df_schema.apply(
+            lambda row: get_resource_schema_version(row, api_url),
+            axis=1,
         )
+        df_list += [df_schema]
 
-        # PARSING API TO GET ALL ELIGIBLE RESOURCES FOR CONSOLIDATION
-
-        df_list = []
-
-        # Listing resources by schema request
-        df_schema = parse_api(
-            schema_url_base.format(schema_name=schema_name),
+    # Listing resources by tag requests
+    schemas_report_dict[schema_name]["nb_resources_found_by_tags"] = 0
+    for tag in tags_list:
+        df_tag = parse_api(
+            tag_url_base.format(tag=tag),
             api_url,
             schema_name
         )
-        schemas_report_dict[schema_name]["nb_resources_found_by_schema"] = len(
-            df_schema
+        schemas_report_dict[schema_name]["nb_resources_found_by_tags"] += len(
+            df_tag
         )
-        if len(df_schema) > 0:
-            df_schema["resource_found_by"] = "1 - schema request"
-            df_schema["initial_version_name"] = df_schema.apply(
-                lambda row: get_resource_schema_version(row, api_url),
-                axis=1,
+        if len(df_tag) > 0:
+            df_tag["resource_found_by"] = "2 - tag request"
+            df_list += [df_tag]
+
+    # Listing resources by search (keywords) requests
+    schemas_report_dict[schema_name]["nb_resources_found_by_search_words"] = 0
+    for search_word in search_words_list:
+        df_search_word = parse_api(
+            search_url_base.format(search_word=search_word),
+            api_url,
+            schema_name
+        )
+        schemas_report_dict[schema_name][
+            "nb_resources_found_by_search_words"
+        ] += len(df_search_word)
+        if len(df_search_word) > 0:
+            df_search_word["resource_found_by"] = "3 - search request"
+            df_list += [df_search_word]
+
+    if len(df_list) > 0:
+        df = pd.concat(df_list, ignore_index=True)
+        df = df[~(df["dataset_id"].isin(datasets_to_exclude))]
+        df = df.sort_values("resource_found_by")
+        df = df.drop_duplicates(subset=["resource_id"], keep="first")
+
+        print(
+            "{} -- 🔢 {} resource(s) found for this schema.".format(
+                datetime.now(), len(df)
             )
-            df_list += [df_schema]
+        )
 
-        # Listing resources by tag requests
-        schemas_report_dict[schema_name]["nb_resources_found_by_tags"] = 0
-        for tag in tags_list:
-            df_tag = parse_api(
-                tag_url_base.format(tag=tag),
-                api_url,
-                schema_name
-            )
-            schemas_report_dict[schema_name]["nb_resources_found_by_tags"] += len(
-                df_tag
-            )
-            if len(df_tag) > 0:
-                df_tag["resource_found_by"] = "2 - tag request"
-                df_list += [df_tag]
+        if (
+            "initial_version_name" not in df.columns
+        ):  # in case there is no resource found by schema request
+            df["initial_version_name"] = np.nan
 
-        # Listing resources by search (keywords) requests
-        schemas_report_dict[schema_name]["nb_resources_found_by_search_words"] = 0
-        for search_word in search_words_list:
-            df_search_word = parse_api(
-                search_url_base.format(search_word=search_word),
-                api_url,
-                schema_name
-            )
-            schemas_report_dict[schema_name][
-                "nb_resources_found_by_search_words"
-            ] += len(df_search_word)
-            if len(df_search_word) > 0:
-                df_search_word["resource_found_by"] = "3 - search request"
-                df_list += [df_search_word]
+        # FOR EACH RESOURCE AND SCHEMA VERSION, CHECK IF RESOURCE MATCHES THE SCHEMA VERSION
 
-        if len(df_list) > 0:
-            df = pd.concat(df_list, ignore_index=True)
-            df = df[~(df["dataset_id"].isin(datasets_to_exclude))]
-            df = df.sort_values("resource_found_by")
-            df = df.drop_duplicates(subset=["resource_id"], keep="first")
+        # Apply validata check for each version that is not explicitly dropped in config file
+        version_names_list = []
 
-            print(
-                "{} -- 🔢 {} resource(s) found for this schema.".format(
-                    datetime.now(), len(df)
-                )
-            )
-
-            if (
-                "initial_version_name" not in df.columns
-            ):  # in case there is no resource found by schema request
-                df["initial_version_name"] = np.nan
-
-            # FOR EACH RESOURCE AND SCHEMA VERSION, CHECK IF RESOURCE MATCHES THE SCHEMA VERSION
-
-            # Apply validata check for each version that is not explicitly dropped in config file
-            version_names_list = []
-
-            for version in schema_dict["versions"]:
-                version_name = version["version_name"]
-                if version_name not in drop_versions:
-                    schema_url = version["schema_url"]
-                    df["is_valid_v_{}".format(version_name)] = df.apply(
-                        lambda row: is_validata_valid_row(
-                            row,
-                            schema_url,
-                            version_name,
-                            schema_name,
-                            validata_reports_path,
-                        ),
-                        axis=1,
-                    )
-                    version_names_list += [version_name]
-                    print(
-                        "{} --- ☑️ Validata check done for version {}".format(
-                            datetime.now(), version_name
-                        )
-                    )
-                else:
-                    print(
-                        "{} --- ❌ Version {} to drop according to config file".format(
-                            datetime.now(), version_name
-                        )
-                    )
-
-            if len(version_names_list) > 0:
-                # Check if resources are at least matching one schema version (only those matching will be downloaded in next step)
-                df["is_valid_one_version"] = (
-                    sum(
-                        [
-                            df["is_valid_v_{}".format(version_name)]
-                            for version_name in version_names_list
-                        ]
-                    )
-                    > 0
-                )
-                schemas_report_dict[schema_name]["nb_valid_resources"] = df[
-                    "is_valid_one_version"
-                ].sum()
-                df = add_most_recent_valid_version(df)
-                df.to_csv(
-                    os.path.join(
-                        ref_tables_path,
-                        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+        for version in schema_dict["versions"]:
+            version_name = version["version_name"]
+            if version_name not in drop_versions:
+                schema_url = version["schema_url"]
+                df["is_valid_v_{}".format(version_name)] = df.apply(
+                    lambda row: is_validata_valid_row(
+                        row,
+                        schema_url,
+                        version_name,
+                        schema_name,
+                        validata_reports_path,
                     ),
-                    index=False,
+                    axis=1,
                 )
+                version_names_list += [version_name]
                 print(
-                    "{} -- ✅ Validata check done for {}.".format(
-                        datetime.now(), schema_name
+                    "{} --- ☑️ Validata check done for version {}".format(
+                        datetime.now(), version_name
+                    )
+                )
+            else:
+                print(
+                    "{} --- ❌ Version {} to drop according to config file".format(
+                        datetime.now(), version_name
                     )
                 )
 
-            else:
-                schemas_report_dict[schema_name]["nb_valid_resources"] = 0
-                print(
-                    "{} -- ❌ All possible versions for this schema were dropped by config file.".format(
-                        datetime.now()
-                    )
+        if len(version_names_list) > 0:
+            # Check if resources are at least matching one schema version (only those matching will be downloaded in next step)
+            df["is_valid_one_version"] = (
+                sum(
+                    [
+                        df["is_valid_v_{}".format(version_name)]
+                        for version_name in version_names_list
+                    ]
                 )
-                if should_succeed:
-                    return False
+                > 0
+            )
+            schemas_report_dict[schema_name]["nb_valid_resources"] = df[
+                "is_valid_one_version"
+            ].sum()
+            df = add_most_recent_valid_version(df)
+            df.to_csv(
+                os.path.join(
+                    ref_tables_path,
+                    "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+                ),
+                index=False,
+            )
+            print(
+                "{} -- ✅ Validata check done for {}.".format(
+                    datetime.now(), schema_name
+                )
+            )
 
         else:
+            schemas_report_dict[schema_name]["nb_valid_resources"] = 0
             print(
-                "{} -- ⚠️ No resource found for {}.".format(
-                    datetime.now(), schema_name
+                "{} -- ❌ All possible versions for this schema were dropped by config file.".format(
+                    datetime.now()
                 )
             )
             if should_succeed:
@@ -572,8 +567,8 @@ def build_reference_table(
 
     else:
         print(
-            "{} -- ❌ Schema not to consolidate according to config file.".format(
-                datetime.now()
+            "{} -- ⚠️ No resource found for {}.".format(
+                datetime.now(), schema_name
             )
         )
         if should_succeed:
