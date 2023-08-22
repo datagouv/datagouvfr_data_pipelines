@@ -24,7 +24,7 @@ from minio import Minio
 
 # DEV : for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
-# DATAGOUV_SECRET_API_KEY = 'non'
+# DATAGOUV_SECRET_API_KEY = ''
 
 VALIDATA_BASE_URL = (
     "https://validata-api.app.etalab.studio/validate?schema={schema_url}&url={rurl}"
@@ -139,6 +139,8 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
                 obj["resource_url"] = res["url"]
                 obj["resource_last_modified"] = res["last_modified"]
                 obj["resource_created_at"] = res["created_at"]
+                if not res.get('extras', {}).get('check:available', True):
+                    obj["error_type"] = "hydra-unavailable-resource"
                 appropriate_extension = ext in ["csv", "xls", "xlsx"]
                 mime_dict = {
                     "text/csv": "csv",
@@ -163,23 +165,64 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
                             else dataset["owner"]["slug"]
                         )
                         obj["is_orga"] = bool(dataset["organization"])
-                        obj["error_type"] = None
+                if not obj.get('error_type', False):
+                    obj["error_type"] = None
                 arr.append(obj)
     df = pd.DataFrame(arr)
     return df
 
 
-# Make the validation report based on the resource url, schema url and validation url
-def make_validata_report(rurl, schema_url, validata_base_url=VALIDATA_BASE_URL):
-    r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
-    time.sleep(0.5)
-    return r.json()
+# Make the validation report based on the resource url, the resource API-url schema url and validation url
+def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
+    # saves time by not pinging Validata for unchanged resources
+    extras = requests.get(resource_api_url).json()['extras']
+    # check if hydra says the resources is not available, if no check then proceed
+    if extras.get("check:available", True):
+        # check if resource has never been validated
+        if "validation-report:validation_date" not in extras:
+            # print("no validation yet: validation")
+            r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
+            time.sleep(0.5)
+            report = r.json()
+        # if it has, check whether hydra has detected a change since last validation
+        elif extras.get("check:date", False):
+            if extras["check:date"] > extras["validation-report:validation_date"]:
+                # print("recent hydra check: validation")
+                # resource has been changed since last validation: validate again
+                r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
+                time.sleep(0.5)
+                report = r.json()
+            else:
+                # resource has not changed since last validation, validation report from metadata
+                # NB: only recreating the keys required for downstream processes
+                # print("old hydra check: no validation")
+                report = {
+                    'report': {
+                        'stats': {'errors': extras['validation-report:nb_errors']},
+                        'valid': extras['validation-report:valid_resource'],
+                        'tasks': [{'errors': extras['validation-report:errors']}],
+                        'date': extras['validation-report:validation_date']
+                    }
+                }
+        # most likely won't happen but to be safe
+        else:
+            print("Should not happend (maybe file is too big?), see URL:")
+            r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
+            time.sleep(0.5)
+            report = r.json()
+        # print(resource_api_url)
+        return report
+    else:
+        return {'report': {
+            'hydra:unavailable': 'ressource not available',
+            'valid': False
+        }}
 
 
 # Returns if a resource is valid or not regarding a schema (version)
-def is_validata_valid(rurl, schema_url, validata_base_url=VALIDATA_BASE_URL):
+def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
     try:
-        report = make_validata_report(rurl, schema_url, validata_base_url)
+        report = make_validata_report(rurl, schema_url, resource_api_url, validata_base_url)
         try:
             res = report["report"]["valid"]
         except:
@@ -210,55 +253,62 @@ def save_validata_report(
     resource_id,
     validata_reports_path,
 ):
-    save_report = {}
-    save_report["validation-report:schema_name"] = schema_name
-    save_report["validation-report:schema_version"] = version
-    save_report["validation-report:schema_type"] = "tableschema"
-    save_report["validation-report:validator"] = "validata"
-    save_report["validation-report:valid_resource"] = res
-    try:
-        nb_errors = (
-            report["report"]["stats"]["errors"]
-            if report["report"]["stats"]["errors"] < 100
-            else 100
-        )
-    except:
-        nb_errors = None
-    save_report["validation-report:nb_errors"] = nb_errors
-    try:
-        keys = "cells"
-        errors = [
-            {y: x[y] for y in x if y not in keys}
-            for x in report["report"]["tasks"][0]["errors"][:100]
-        ]
+    if not report.get('report', {}).get('hydra:unavailable', False):
+        save_report = {}
+        save_report["validation-report:schema_name"] = schema_name
+        save_report["validation-report:schema_version"] = version
+        save_report["validation-report:schema_type"] = "tableschema"
+        save_report["validation-report:validator"] = "validata"
+        save_report["validation-report:valid_resource"] = res
+        try:
+            nb_errors = (
+                report["report"]["stats"]["errors"]
+                if report["report"]["stats"]["errors"] < 100
+                else 100
+            )
+        except:
+            nb_errors = None
+        save_report["validation-report:nb_errors"] = nb_errors
+        try:
+            keys = ["cells"]
+            errors = [
+                {y: x[y] for y in x if y not in keys}
+                for x in report["report"]["tasks"][0]["errors"][:100]
+            ]
 
-    except:
-        errors = None
-    save_report["validation-report:errors"] = errors
-    save_report["validation-report:validation_date"] = str(datetime.now())
+        except:
+            errors = None
+        save_report["validation-report:errors"] = errors
+        if 'date' in report.keys():
+            save_report["validation-report:validation_date"] = report['date']
+        else:
+            save_report["validation-report:validation_date"] = str(datetime.now())
 
-    with open(
-        str(validata_reports_path)
-        + "/"
-        + schema_name.replace("/", "_")
-        + "_"
-        + dataset_id
-        + "_"
-        + resource_id
-        + "_"
-        + version
-        + ".json",
-        "w",
-    ) as f:
-        json.dump(save_report, f)
+        with open(
+            str(validata_reports_path)
+            + "/"
+            + schema_name.replace("/", "_")
+            + "_"
+            + dataset_id
+            + "_"
+            + resource_id
+            + "_"
+            + version
+            + ".json",
+            "w",
+        ) as f:
+            json.dump(save_report, f)
+    else:
+        pass
 
 
 # Returns if a resource is valid based on its "ref_table" row
 def is_validata_valid_row(row, schema_url, version, schema_name, validata_reports_path):
     if row["error_type"] is None:  # if no error
         rurl = row["resource_url"]
-        res, report = is_validata_valid(rurl, schema_url)
-        if report:
+        resource_api_url = DATAGOUV_URL + f'/api/1/datasets/{row["dataset_id"]}/resources/{row["resource_id"]}'
+        res, report = is_validata_valid(rurl, schema_url, resource_api_url)
+        if report and not report.get('report', {}).get('hydra:unavailable', False):
             save_validata_report(
                 res,
                 report,
@@ -342,8 +392,10 @@ def get_schema_report(
             and schema["name"] == schema_name
         ]
         print(
-            "- {} ({} versions)".format(schemas_catalogue_list[0]["name"],
-            len(schemas_catalogue_list[0]["versions"]))
+            "- {} ({} versions)".format(
+                schemas_catalogue_list[0]["name"],
+                len(schemas_catalogue_list[0]["versions"])
+            )
         )
         schemas_report_dict[schema_name] = {"nb_versions": len(schemas_catalogue_list[0]["versions"])}
         # Creating/updating config file with missing schemas
@@ -1171,8 +1223,11 @@ def add_validation_extras(
                     return False
                 else:
                     return True
-        except:
+        except Exception as e:
             print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
+            print("Schema:", schema_name)
+            print("URL:", url)
+            print("Error:", e)
             extras = {}
             if should_succeed:
                 return False
@@ -1194,6 +1249,7 @@ def add_validation_extras(
                 return False
 
         return response.status_code == 200
+    return True
 
 
 def upload_geojson(
@@ -1720,6 +1776,7 @@ def add_validata_report(
         df_ref["resource_schema_update_success"] = np.nan
         df_ref["producer_notification_success"] = np.nan
 
+        successes = []
         for idx, row in df_ref.iterrows():
             validata_report_path = (
                 str(validata_reports_path)
@@ -1762,8 +1819,11 @@ def add_validata_report(
                 schema_name,
                 should_succeed
             )
+            if not success:
+                print(row)
+            successes.append(success)
     if should_succeed:
-        return success
+        return all(successes)
     return True
 
 
