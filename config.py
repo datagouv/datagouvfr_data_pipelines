@@ -4,6 +4,7 @@ from airflow.models import Variable
 AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME", "/opt/airflow/dags/")
 AIRFLOW_DAG_TMP = Variable.get("AIRFLOW_DAG_TMP", "/tmp/")
 AIRFLOW_ENV = Variable.get("AIRFLOW_ENV", "dev")
+AIRFLOW_URL = Variable.get("AIRFLOW_URL", "")
 
 # Datagouv
 DATAGOUV_URL = "https://www.data.gouv.fr"

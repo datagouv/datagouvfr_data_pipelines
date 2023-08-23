@@ -4,7 +4,11 @@ import json
 from datetime import datetime, timedelta
 import numpy as np
 
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_ENV,
+    AIRFLOW_URL
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 
@@ -65,7 +69,10 @@ def notification_mattermost(ti):
             hours = int(average_duration // 3600)
             minutes = int((average_duration % 3600) // 60)
             start_time = sorted(successes.keys())[-1].split(' ')[1][:-3]
-            message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'} en moyenne). Dernier passage terminé à {start_time}."
+            message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
+            message += f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
+            message += f"{' en moyenne' if len(successes) > 1 else ''})."
+            message += f" Dernier passage terminé à {start_time}."
 
         failures = {
             atp_id: attempts[atp_id] for atp_id in attempts if not(attempts[atp_id]['success'])
@@ -73,7 +80,11 @@ def notification_mattermost(ti):
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
             start_time = sorted(failures.keys())[-1].split(' ')[1][:-3]
-            message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO. La dernière tentative a échoué à {start_time} (status : {last_failure['status']}), tâches en échec :"
+            message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
+            message += f" La dernière tentative a échoué à {start_time} (status : {last_failure['status']}), tâches en échec :"
             for ft in last_failure['failed_tasks']:
-                message += f"\n   - {ft} ([voir log]({last_failure['failed_tasks'][ft]}))"
+                url_log = last_failure['failed_tasks'][ft]
+                if AIRFLOW_ENV == 'prod':
+                    url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
+                message += f"\n   - {ft} ([voir log]({url_log}))"
     send_message(message)
