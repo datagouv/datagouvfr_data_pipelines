@@ -189,7 +189,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
         print("no validation yet: validation")
         r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
         time.sleep(0.5)
-        report = r.json()
+        return r.json()
     # if it has, check whether hydra has detected a change since last validation
     elif extras.get("analysis:last-modified-at", False):
         last_modification_date = datetime.fromisoformat(extras["analysis:last-modified-at"])
@@ -202,12 +202,12 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             # resource has been changed since last validation: validate again
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
             time.sleep(0.5)
-            report = r.json()
+            return r.json()
         else:
             # resource has not changed since last validation, validation report from metadata
             # NB: only recreating the keys required for downstream processes
             print("old hydra check: no validation")
-            report = {
+            return {
                 'report': {
                     'stats': {'errors': extras['validation-report:nb_errors']},
                     'valid': extras['validation-report:valid_resource'],
@@ -218,7 +218,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     # no analysis: no (detectable) change since the crawler has started
     else:
         print("no hydra check: no validation")
-        report = {
+        return {
             'report': {
                 'stats': {'errors': extras['validation-report:nb_errors']},
                 'valid': extras['validation-report:valid_resource'],
@@ -226,8 +226,6 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 'date': extras['validation-report:validation_date']
             }
         }
-    # print(resource_api_url)
-    return report
 
 
 # Returns if a resource is valid or not regarding a schema (version)
