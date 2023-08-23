@@ -4,87 +4,66 @@ from datagouvfr_data_pipelines.config import (
     DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 import os
-from rdflib import Dataset
 import pandas as pd
-from functools import reduce
 import json
 from datetime import datetime
+import requests
+from io import BytesIO
+from urllib.parse import quote_plus, urlencode
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}geozones/data"
 
 
-def process_geozones():
-    file = [f for f in os.listdir(DATADIR + '/cog') if '.trig' in f][0]
-    graph = Dataset()
-    print(os.path.join(DATADIR, 'cog', file))
-    print("Opening file...")
-    graph.parse(os.path.join(DATADIR, 'cog', file))
-    print("Done!")
+def download_and_process_geozones():
+    endpoint = "https://rdf.insee.fr/sparql?query="
+    query = """PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfschema:<http://www.w3.org/2000/01/rdf-schema#>
+    PREFIX igeo:<http://rdf.insee.fr/def/geo#>
 
-    data = []
-    for subj, pred, obj, context in graph.quads():
-        data.append({
-            'subj': subj,
-            'pred': pred,
-            'obj': obj,
-            'context': context,
-        })
-    df = pd.DataFrame(data)
-
-    df['geo_type'] = df['subj'].apply(lambda s: s.split('geo/')[1].split('/')[0])
-    df['pred_clean'] = df['pred'].apply(lambda s: s.split('#')[1])
-
-    to_process = [
-        "commune",
-        "communeDeleguee",
-        "communeAssociee",
-        "arrondissement",
-        "departement",
-        "pays",
-        "region",
-        # "territoireFrancais",
-    ]
-    to_keep = ['nom', 'nomSansArticle', 'codeINSEE', 'codeArticle']
-    dfs = []
-    for geo_type in to_process:
-        restr = df.loc[df['geo_type'] == geo_type]
-        tmp = {}
-        tmp[to_keep[0]] = restr.loc[restr['pred_clean'] == to_keep[0], ['subj', 'obj']]
-        tmp[to_keep[0]].columns = ['uri', to_keep[0]]
-        for pred_type in to_keep[1:]:
-            if pred_type in restr['pred_clean'].unique():
-                # on s'assure qu'il y a le même nombre de lignes pour le merge
-                if restr['pred_clean'].value_counts().loc[pred_type] == len(tmp[to_keep[0]]):
-                    tmp[pred_type] = restr.loc[(restr['pred_clean'] == pred_type), ['subj', 'obj']]
-                    tmp[pred_type].columns = ['uri', pred_type]
-        tmp = reduce(lambda x, y: pd.merge(x, y, on='uri', how='outer'), list(tmp.values()))
-        if "codeINSEE" in tmp.columns:
-            tmp = tmp.sort_values('codeINSEE')
-        tmp['type'] = geo_type
-        dfs.append(tmp)
-        print("Done with", geo_type, ':', len(tmp))
-
-    final = pd.concat(dfs)
-    # les colonnes sont de type rdflib.term.Literal
-    for c in final.columns:
-        final[c] = final[c].apply(str)
-
-    map_type = {
-        'commune': 80,
-        'communeDeleguee': 80,
-        'communeAssociee': 80,
-        'arrondissement': 70,
-        'departement': 60,
-        'pays': 20,
-        'region': 40
+    SELECT *
+    WHERE {
+        ?zone rdf:type ?territory .
+        ?zone igeo:nom ?nom .
+        ?zone igeo:codeINSEE ?codeINSEE .
+        OPTIONAL {
+            ?zone igeo:nomSansArticle ?nomSansArticle .
+            ?zone igeo:codeArticle ?codeArticle .
+        }
+    }"""
+    params = {
+        'format': 'application/csv;grid=true',
     }
-    final['level'] = final['type'].apply(lambda x: map_type[x])
+    url = endpoint + quote_plus(query, safe='*') + '&' + urlencode(params)
+    print(url)
+    r = requests.get(url)
+    bytes_io = BytesIO(r.content)
+    df = pd.read_csv(bytes_io)
+    df['type'] = df['territory'].apply(lambda x: x.split('#')[1])
+    for c in df.columns:
+        df[c] = df[c].apply(str)
+    map_type = {
+        "Etat": 20,
+        "Region": 40,
+        "Departement": 60,
+        "CollectiviteDOutreMer": 60,
+        "Intercommunalité": 68,
+        "Arrondissement": 70,
+        "ArrondissementMunicipal": 70,
+        "Commune": 80,
+        "CommuneDeleguee": 80,
+        "CommuneAssociee": 80,
+    }
+    df = df.loc[df['type'].isin(map_type)]
+    df['level'] = df['type'].apply(lambda x: map_type.get(x, x))
+    df = df.rename({"zone": "uri"}, axis=1)
+    df = df.drop(['territory'], axis=1)
 
-    export = {'data': json.loads(final.to_json(orient='records'))}
+    export = {'data': json.loads(df.to_json(orient='records'))}
+    os.mkdir(DATADIR)
     with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
     return
@@ -112,3 +91,11 @@ def post_geozones():
         resource_payload=payload
     )
     return
+
+
+def notification_mattermost():
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}geozones/config/dgv.json") as fp:
+        data = json.load(fp)
+    message = "Données Géozones mises à jours [ici]"
+    message += f"({DATAGOUV_URL}/fr/datasets/{data['geozones'][AIRFLOW_ENV]['dataset_id']})"
+    send_message(message)
