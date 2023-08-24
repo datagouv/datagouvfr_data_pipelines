@@ -69,19 +69,28 @@ def notification_mattermost(ti):
             hours = int(average_duration // 3600)
             minutes = int((average_duration % 3600) // 60)
             start_time = sorted(successes.keys())[-1].split(' ')[1][:-3]
+            # setting time to UTC+2
+            start_hour = int(start_time.split(':')[0])
+            start_hour = start_hour + 2 if start_hour < 22 else start_hour + 2 - 24
+            start_time = f"{'0' if start_hour < 10 else ''}{start_hour}:{start_time.split(':')[1]}"
             message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
             message += f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
             message += f"{' en moyenne' if len(successes) > 1 else ''})."
             message += f" Dernier passage terminé à {start_time}."
 
         failures = {
-            atp_id: attempts[atp_id] for atp_id in attempts if not(attempts[atp_id]['success'])
+            atp_id: attempts[atp_id] for atp_id in attempts if not attempts[atp_id]['success']
         }
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
             start_time = sorted(failures.keys())[-1].split(' ')[1][:-3]
+            # setting time to UTC+2
+            start_hour = int(start_time.split(':')[0])
+            start_hour = start_hour + 2 if start_hour < 22 else start_hour + 2 - 24
+            start_time = f"{'0' if start_hour < 10 else ''}{start_hour}:{start_time.split(':')[1]}"
             message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
-            message += f" La dernière tentative a échoué à {start_time} (status : {last_failure['status']}), tâches en échec :"
+            message += f" La dernière tentative a échoué à {start_time} "
+            message += f"(status : {last_failure['status']}), tâches en échec :"
             for ft in last_failure['failed_tasks']:
                 url_log = last_failure['failed_tasks'][ft]
                 if AIRFLOW_ENV == 'prod':
