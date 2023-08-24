@@ -3,6 +3,7 @@ from airflow.utils.state import State
 import json
 from datetime import datetime, timedelta
 import numpy as np
+import pytz
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -10,6 +11,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_URL
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+
+local_timezone = pytz.timezone('Europe/Paris')
 
 
 def monitor_dags(
@@ -69,9 +72,9 @@ def notification_mattermost(ti):
             average_duration = np.mean([i['duration'] for i in successes.values()])
             hours = int(average_duration // 3600)
             minutes = int((average_duration % 3600) // 60)
-            start_time = datetime.fromisoformat(sorted(successes.keys())[-1])
+            start_time = datetime.fromisoformat(sorted(successes.keys())[-1]).replace(tzinfo=pytz.UTC)
             # setting time to UTC+2
-            start_time = start_time + timedelta(hours=2)
+            start_time = start_time.astimezone(local_timezone)
             message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
             message += f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
             message += f"{' en moyenne' if len(successes) > 1 else ''})."
@@ -82,9 +85,9 @@ def notification_mattermost(ti):
         }
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
-            start_time = datetime.fromisoformat(sorted(failures.keys())[-1])
+            start_time = datetime.fromisoformat(sorted(failures.keys())[-1]).replace(tzinfo=pytz.UTC)
             # setting time to UTC+2
-            start_time = start_time + timedelta(hours=2)
+            start_time = start_time.astimezone(local_timezone)
             message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
             message += f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
             message += f"(status : {last_failure['status']}), tâches en échec :"
