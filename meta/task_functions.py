@@ -59,6 +59,7 @@ def monitor_dags(
 def notification_mattermost(ti):
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     message = '# Récap quotidien DAGs :'
+    print(todays_runs)
     for dag, attempts in todays_runs.items():
         message += f'\n- **{dag}** :'
         successes = {
@@ -68,28 +69,24 @@ def notification_mattermost(ti):
             average_duration = np.mean([i['duration'] for i in successes.values()])
             hours = int(average_duration // 3600)
             minutes = int((average_duration % 3600) // 60)
-            start_time = sorted(successes.keys())[-1].split(' ')[1][:-3]
+            start_time = datetime.fromisoformat(sorted(successes.keys())[-1])
             # setting time to UTC+2
-            start_hour = int(start_time.split(':')[0])
-            start_hour = start_hour + 2 if start_hour < 22 else start_hour + 2 - 24
-            start_time = f"{'0' if start_hour < 10 else ''}{start_hour}:{start_time.split(':')[1]}"
+            start_time = start_time + timedelta(hours=2)
             message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
             message += f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
             message += f"{' en moyenne' if len(successes) > 1 else ''})."
-            message += f" Dernier passage terminé à {start_time}."
+            message += f" Dernier passage terminé à {start_time.strftime('%H:%M')}."
 
         failures = {
             atp_id: attempts[atp_id] for atp_id in attempts if not attempts[atp_id]['success']
         }
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
-            start_time = sorted(failures.keys())[-1].split(' ')[1][:-3]
+            start_time = datetime.fromisoformat(sorted(failures.keys())[-1])
             # setting time to UTC+2
-            start_hour = int(start_time.split(':')[0])
-            start_hour = start_hour + 2 if start_hour < 22 else start_hour + 2 - 24
-            start_time = f"{'0' if start_hour < 10 else ''}{start_hour}:{start_time.split(':')[1]}"
+            start_time = start_time + timedelta(hours=2)
             message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
-            message += f" La dernière tentative a échoué à {start_time} "
+            message += f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
             message += f"(status : {last_failure['status']}), tâches en échec :"
             for ft in last_failure['failed_tasks']:
                 url_log = last_failure['failed_tasks'][ft]
