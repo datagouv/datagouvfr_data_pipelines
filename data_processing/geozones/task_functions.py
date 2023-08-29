@@ -32,6 +32,7 @@ def download_and_process_geozones():
         OPTIONAL {
             ?zone igeo:nomSansArticle ?nomSansArticle .
             ?zone igeo:codeArticle ?codeArticle .
+            ?suppression_evt igeo:suppression ?zone .
         }
     }"""
     params = {
@@ -43,8 +44,10 @@ def download_and_process_geozones():
     bytes_io = BytesIO(r.content)
     df = pd.read_csv(bytes_io)
     df['type'] = df['territory'].apply(lambda x: x.split('#')[1])
+    df['is_deleted'] = df['suppression_evt'].apply(lambda s: isinstance(s, str))
     for c in df.columns:
-        df[c] = df[c].apply(str)
+        if c != 'is_deleted':
+            df[c] = df[c].apply(str)
     map_type = {
         "Etat": 20,
         "Region": 40,
@@ -60,7 +63,7 @@ def download_and_process_geozones():
     df = df.loc[df['type'].isin(map_type)]
     df['level'] = df['type'].apply(lambda x: map_type.get(x, x))
     df = df.rename({"zone": "uri"}, axis=1)
-    df = df.drop(['territory'], axis=1)
+    df = df.drop(['territory', 'suppression_evt'], axis=1)
 
     export = {'data': json.loads(df.to_json(orient='records'))}
     os.mkdir(DATADIR)
