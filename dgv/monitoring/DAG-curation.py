@@ -49,7 +49,7 @@ def get_unavailable_reuses(ti):
     print(f"Checking {len(reuses)} reuses")
     unavailable_reuses = asyncio.run(crawl_reuses(reuses))
     ti.xcom_push(key="reuses", value=unavailable_reuses)
-    return True
+    return bool(unavailable_reuses)
 
 
 def publish_mattermost(ti):

@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from airflow.models import DAG
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     DATAGOUV_URL,
@@ -19,7 +19,6 @@ def list_current_admins(ti):
     users = get_all_from_api_query(f"{DATAGOUV_URL}/api/1/users/?page_size=100")
     admins = [user for user in users if "admin" in user["roles"]]
     ti.xcom_push(key="admins", value=admins)
-    return True
 
 
 def publish_mattermost(ti):
@@ -45,7 +44,7 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ) as dag:
-    list_current_admins = ShortCircuitOperator(
+    list_current_admins = PythonOperator(
         task_id="list_current_admins",
         python_callable=list_current_admins
     )
