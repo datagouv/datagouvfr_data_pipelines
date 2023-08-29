@@ -90,7 +90,7 @@ def post_geozones():
         api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload=file_to_upload,
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
-        resource_id=None,
+        resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
         resource_payload=payload
     )
     return
