@@ -68,7 +68,7 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 0 1 * *",
+    schedule_interval=None,
     start_date=days_ago(0, hour=1),
     dagrun_timeout=timedelta(minutes=60),
     tags=["curation", "monthly", "datagouv"],
