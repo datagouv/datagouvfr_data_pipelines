@@ -49,19 +49,20 @@ def download_and_process_geozones():
         if c != 'is_deleted':
             df[c] = df[c].apply(str)
     map_type = {
-        "Etat": 20,
-        "Region": 40,
-        "Departement": 60,
-        "CollectiviteDOutreMer": 60,
-        "Intercommunalité": 68,
-        "Arrondissement": 70,
-        "ArrondissementMunicipal": 70,
-        "Commune": 80,
-        "CommuneDeleguee": 80,
-        "CommuneAssociee": 80,
+        "Etat": "country",
+        "Region": "fr:region",
+        "Departement": "fr:departement",
+        "CollectiviteDOutreMer": "fr:departement",
+        "Intercommunalité": "fr:epci",
+        "Arrondissement": "fr:arrondissement",
+        "ArrondissementMunicipal": "fr:arrondissement",
+        "Commune": "fr:commune",
+        "CommuneDeleguee": "fr:commune",
+        "CommuneAssociee": "fr:commune",
     }
     df = df.loc[df['type'].isin(map_type)]
     df['level'] = df['type'].apply(lambda x: map_type.get(x, x))
+    df['_id'] = df['level'] + ':' + df['codeINSEE']
     df = df.rename({"zone": "uri"}, axis=1)
     df = df.drop(['territory', 'suppression_evt'], axis=1)
 
