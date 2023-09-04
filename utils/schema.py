@@ -179,6 +179,9 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     # saves time by not pinging Validata for unchanged resources
     data = requests.get(resource_api_url).json()
     # if resource is a file on data.gouv.fr (not remote, due to hydra async work)
+    # as of today (2023-09-04), hydra processes a check every week and we want a consolidation every day,
+    # this condition should be removed when hydra and consolidation follow the same schedule (every day).
+    # => not for now
     if data['filetype'] == "file":
         extras = data['extras']
         # check if hydra says the resources is not available, if no check then proceed
