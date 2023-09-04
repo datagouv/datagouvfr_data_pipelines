@@ -392,6 +392,14 @@ def get_data(endpoint, page, sort):
     return r.json().get('data', [])
 
 
+def get_created_date(data, date_key):
+    # Helper to get created date based on a date_key that could be nested, using . as a separator
+    for key in date_key.split('.'):
+        data = data.get(key)
+    created = dateutil.parser.parse(data)
+    return created
+
+
 def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', sort_key='-created'):
 
     got_everything = False
@@ -402,7 +410,7 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
     while not got_everything:
         data = get_data(endpoint, page, sort_key)
         for d in data:
-            created = dateutil.parser.parse(d[date_key])
+            created = get_created_date(d, date_key)
             got_everything = (created.timestamp() < start_date.timestamp())
             if not got_everything:
                 intermediary_result.append(d)
@@ -414,7 +422,7 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
             page += 1
     if end_date:
         for d in intermediary_result:
-            created = dateutil.parser.parse(d[date_key])
+            created = get_created_date(d, date_key)
             if created.timestamp() < end_date.timestamp():
                 results.append(d)
     else:
