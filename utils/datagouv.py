@@ -507,16 +507,19 @@ def post_remote_communautary_resource(
     return r.json()
 
 
-def get_all_from_api_query(base_query):
+def get_all_from_api_query(base_query, next_page='next_page'):
+    def get_link_next_page(elem, separated_keys):
+        result = elem
+        for k in separated_keys.split('.'):
+            result = result[k]
+        return result
     # /!\ only for paginated endpoints
-    all_you_want = []
     r = requests.get(base_query)
     r.raise_for_status()
-    data = r.json()
-    all_you_want += data["data"]
-    while data["next_page"]:
-        r = requests.get(data["next_page"])
+    for elem in r.json()["data"]:
+        yield elem
+    while get_link_next_page(r.json(), next_page):
+        r = requests.get(get_link_next_page(r.json(), next_page))
         r.raise_for_status()
-        data = r.json()
-        all_you_want += data["data"]
-    return all_you_want
+        for data in r.json()['data']:
+            yield data
