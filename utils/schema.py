@@ -34,7 +34,7 @@ MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"
 schema_url_base = api_url + "datasets/?schema={schema_name}"
 tag_url_base = api_url + "datasets/?tag={tag}"
-search_url_base = api_url + "datasets/?q={search_word}"
+search_url_base = api_url.replace('1', '2') + "datasets/search/?q={search_word}"
 local_timezone = pytz.timezone('Europe/Paris')
 
 
@@ -505,11 +505,13 @@ def build_reference_table(
     df_list = []
 
     # Listing resources by schema request
+    print('Listing from schema...')
     df_schema = parse_api(
         schema_url_base.format(schema_name=schema_name),
         api_url,
         schema_name
     )
+    print(len(df_schema), 'resources found.')
     schemas_report_dict[schema_name]["nb_resources_found_by_schema"] = len(
         df_schema
     )
@@ -522,6 +524,7 @@ def build_reference_table(
         df_list += [df_schema]
 
     # Listing resources by tag requests
+    print('Listing from tags...')
     schemas_report_dict[schema_name]["nb_resources_found_by_tags"] = 0
     for tag in tags_list:
         df_tag = parse_api(
@@ -529,6 +532,7 @@ def build_reference_table(
             api_url,
             schema_name
         )
+        print(len(df_schema), f'resources found with tag "{tag}"')
         schemas_report_dict[schema_name]["nb_resources_found_by_tags"] += len(
             df_tag
         )
@@ -537,6 +541,7 @@ def build_reference_table(
             df_list += [df_tag]
 
     # Listing resources by search (keywords) requests
+    print('Listing from keywords...')
     schemas_report_dict[schema_name]["nb_resources_found_by_search_words"] = 0
     for search_word in search_words_list:
         df_search_word = parse_api(
@@ -544,6 +549,7 @@ def build_reference_table(
             api_url,
             schema_name
         )
+        print(len(df_search_word), f'resources found with keyword "{search_word}"')
         schemas_report_dict[schema_name][
             "nb_resources_found_by_search_words"
         ] += len(df_search_word)
