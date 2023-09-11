@@ -28,7 +28,7 @@ import pytz
 # DATAGOUV_SECRET_API_KEY = ''
 
 VALIDATA_BASE_URL = (
-    "https://validata-api.app.etalab.studio/validate?schema={schema_url}&url={rurl}"
+    "https://api.validata.etalab.studio/validate?schema={schema_url}&url={rurl}"
 )
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"

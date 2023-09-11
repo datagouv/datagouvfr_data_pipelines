@@ -3,16 +3,11 @@ from datagouvfr_data_pipelines.utils.schema import (
     get_schema_report,
     build_reference_table,
     download_schema_files,
-    consolidate_data,
+    consolidate_data
 )
 import pandas as pd
 import yaml
 pd.set_option('display.max_columns', None)
-
-
-VALIDATA_BASE_URL = (
-    "https://validata-api.app.etalab.studio/validate?schema={schema_url}&url={rurl}"
-)
 
 
 def run_schemas_consolidation(
