@@ -63,7 +63,8 @@ def show_users(start_date, end_date=None):
 
 
 def show_datasets(start_date, end_date=None):
-    datasets = get_last_items("datasets", start_date, end_date)
+    datasets = get_last_items("datasets", start_date, end_date,
+                              date_key="internal.created_at_internal")
 
     show_html("<h3>%s jeux de données créés</h3>" % len(datasets))
 
