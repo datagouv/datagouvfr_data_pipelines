@@ -25,6 +25,7 @@ def calculate_metrics():
     # quality score
     print("Calculating average quality score")
     df_datasets = pd.read_csv(
+        # this is the catalog
         "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         dtype=str,
         sep=";"
@@ -51,11 +52,16 @@ def calculate_metrics():
             nb_discussions += 1
             if len(item["discussion"]) > 1:
                 nb_discussions_with_answer += 1
-                date_format = "%Y-%m-%dT%H:%M:%S" 
+                date_format = "%Y-%m-%dT%H:%M:%S"
+                # big assumption here: we consider the first response, whoever is responding
+                # and whatever they are saying. For further improvements we could refine this
+                # by only considering the first response by an admin of the dataset
+                # /!\ could be tricky with automated discussions (for archived datasets for instance)
                 first_date = datetime.strptime(item["discussion"][0]["posted_on"][:19], date_format)
                 second_date = datetime.strptime(item["discussion"][1]["posted_on"][:19], date_format)
                 ecart = second_date - first_date
                 ecart_jour = ecart.days + (ecart.seconds / (3600 * 24))
+                # arbitrary threshold of 30 days max
                 if ecart_jour > 30:
                     time_to_answer.append(30)
                 else:
@@ -69,7 +75,7 @@ def calculate_metrics():
             'nom_service_public_numerique': 'data.gouv.fr',
             'indicateur': 'Score qualité moyen 1000 JdD les plus vus',
             'valeur': average_quality_score,
-            'unite_mesure': 'unité',
+            'unite_mesure': '%',
             'est_cible': False,
             'frequence_calcul': 'mensuelle',
             'date': datetime.today().strftime("%Y-%m-%d"),
@@ -93,7 +99,7 @@ def calculate_metrics():
             'est_automatise': True,
             'source_collecte': 'script',
             'mode_calcul': 'moyenne',
-            'commentaires': ''
+            'commentaires': 'les délais sont écrétés à 30 jours'
         },
     ]
     df = pd.DataFrame(data)
