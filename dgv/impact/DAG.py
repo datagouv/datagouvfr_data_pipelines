@@ -7,15 +7,14 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
-    process_rna,
-    send_rna_to_minio,
-    publish_rna_communautaire,
-    send_notification_mattermost,
+from datagouvfr_data_pipelines.dgv.impact.task_functions import (
+    calculate_metrics,
+    send_stats_to_minio,
+    send_notification_mattermost
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
-DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
+DAG_FOLDER = 'datagouvfr_data_pipelines/dgv/impact/'
 DAG_NAME = 'dgv_impact'
 DATADIR = f"{TMP_FOLDER}data"
 
@@ -37,14 +36,22 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
-    send_rna_to_minio = PythonOperator(
-        task_id='send_rna_to_minio',
-        python_callable=send_rna_to_minio,
+    download_history = BashOperator(
+        task_id='download_history',
+        bash_command=(
+            f"bash {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+            f"scripts/script_dl_history.sh {DATADIR} "
+        )
     )
 
-    publish_rna_communautaire = PythonOperator(
-        task_id='publish_rna_communautaire',
-        python_callable=publish_rna_communautaire,
+    calculate_metrics = PythonOperator(
+        task_id='calculate_metrics',
+        python_callable=calculate_metrics,
+    )
+
+    send_stats_to_minio = PythonOperator(
+        task_id='send_stats_to_minio',
+        python_callable=send_stats_to_minio,
     )
 
     send_notification_mattermost = PythonOperator(
@@ -52,6 +59,6 @@ with DAG(
         python_callable=send_notification_mattermost,
     )
 
-    send_rna_to_minio.set_upstream(process_rna)
-    publish_rna_communautaire.set_upstream(send_rna_to_minio)
-    send_notification_mattermost.set_upstream(publish_rna_communautaire)
+    calculate_metrics.set_upstream(download_history)
+    send_stats_to_minio.set_upstream(calculate_metrics)
+    send_notification_mattermost.set_upstream(send_stats_to_minio)

@@ -17,12 +17,13 @@ from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 import numpy as np
 
-DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}impact/data"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
+DATADIR = f"{TMP_FOLDER}data"
 
 
 def calculate_metrics():
     # quality score
+    print("Calculating average quality score")
     df_datasets = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         dtype=str,
@@ -35,6 +36,7 @@ def calculate_metrics():
     average_quality_score = round(100 * final["quality_score"].mean(), 2)
 
     # response time
+    print("Calculating average response time")
     r = get_all_from_api_query("https://www.data.gouv.fr/api/1/discussions/")
     oneyearago = date.today() - relativedelta(years=1)
     oneyearago = oneyearago.strftime("%Y-%m-%d")
@@ -95,11 +97,12 @@ def calculate_metrics():
         },
     ]
     df = pd.DataFrame(data)
-    ## créer un fichier vide sur minio, aller le chercher, concaténer et repush sur un autre (pour l'instant)
-    df.to_csv(os.path.join(DATADIR, "impact.csv"), index=False, encoding="utf8")
+    history = pd.read_csv(f'{DATADIR}/history.csv')
+    final = pd.concat([df, history])
+    df.to_csv(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"), index=False, encoding="utf8")
 
 
-def send_rna_to_minio():
+def send_stats_to_minio():
     send_files(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -108,19 +111,21 @@ def send_rna_to_minio():
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
-                "source_name": "base_rna.csv",
-                "dest_path": "rna/",
-                "dest_name": "base_rna.csv",
+                "source_name": "statistiques_impact_datagouvfr.csv",
+                "dest_path": "dgv/impact/",
+                # à changer avant le passage en prod
+                "dest_name": "new_statistiques_impact_datagouvfr.csv",
             }
         ],
     )
 
 
-def send_notification_mattermost(ti):
+def send_notification_mattermost():
     send_message(
         text=(
-            ":mega: Données des associations mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
+            ":mega: KPI de data.gouv mises à jour.\n"
+            f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
+            f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dgv/impact)\n"
             # f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/XXXXXXXXXXXX)"
         )
     )
