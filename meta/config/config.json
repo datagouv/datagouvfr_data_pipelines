@@ -16,6 +16,7 @@
         "dgv_digests",
         "dgv_edito_post_and_tweet",
         "dgv_harvester_notification",
+        "dgv_impact",
         "dgv_metrics",
         "dgv_moderation_utilisateurs",
         "dgv_notification_activite",
