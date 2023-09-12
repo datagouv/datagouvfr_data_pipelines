@@ -68,7 +68,7 @@ def calculate_metrics():
                     time_to_answer.append(ecart_jour)
             else:
                 time_to_answer.append(30)
-    average_time_to_answer = np.mean(time_to_answer)
+    average_time_to_answer = round(np.mean(time_to_answer), 2)
 
     data = [
         {
