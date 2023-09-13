@@ -96,4 +96,5 @@ def notification_mattermost(ti):
                 if AIRFLOW_ENV == 'prod':
                     url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
                 message += f"\n   - {ft} ([voir log]({url_log}))"
+            message += "\ncc @geoffrey.aldebert @hajar.aitelkadi @pierlou_ramade"
     send_message(message)
