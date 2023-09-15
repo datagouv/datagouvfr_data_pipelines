@@ -13,6 +13,8 @@
         "data_processing_sirene_geolocalisation",
         "data_processing_sirene_publication",
         "data_processing_uai",
+        "dgv_administrateur",
+        "dgv_curation",
         "dgv_digests",
         "dgv_edito_post_and_tweet",
         "dgv_harvester_notification",

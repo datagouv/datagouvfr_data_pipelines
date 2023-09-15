@@ -125,17 +125,17 @@ def process_election_data():
     del results
 
     # getting preprocessed resources
-    resources = get_all_from_api_query(
+    resources_url = [r['url'] for r in get_all_from_api_query(
         'https://www.data.gouv.fr/api/1/datasets/community_resources/?organization=646b7187b50b2a93b1ae3d45'
-    )
-    resources_url = {
-        'general': [r['url'] for r in resources if 'general-results.csv' in r['url']],
-        'candidats': [r['url'] for r in resources if 'candidats-results.csv' in r['url']]
+    )]
+    resources = {
+        'general': [r for r in resources_url if 'general-results.csv' in r],
+        'candidats': [r for r in resources_url if 'candidats-results.csv' in r]
     }
 
     for t in ['general', 'candidats']:
         print(t + ' resources')
-        for url in resources_url[t]:
+        for url in resources[t]:
             print('- ' + url)
             df = pd.read_csv(url, sep=';', dtype=str)
             # adding blank columns if some are missing from overall template
