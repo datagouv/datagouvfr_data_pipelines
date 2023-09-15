@@ -7,7 +7,7 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     DATAGOUV_URL,
-    MATTERMOST_DATAGOUV_DATAENG_TEST  # TODO: replace with MATTERMOST_DATAGOUV_ACTIVITES
+    MATTERMOST_DATAGOUV_ACTIVITES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
@@ -61,7 +61,7 @@ def publish_mattermost(ti):
     for reuse, error in reuses:
         message += f"\n* [{reuse['title']}]({reuse['page']}): {error}"
     print(message)
-    send_message(message, MATTERMOST_DATAGOUV_DATAENG_TEST)
+    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}

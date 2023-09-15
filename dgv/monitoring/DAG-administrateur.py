@@ -5,7 +5,7 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     DATAGOUV_URL,
-    MATTERMOST_DATAGOUV_DATAENG_TEST  # TODO: replace with MATTERMOST_DATAGOUV_ACTIVITES
+    MATTERMOST_DATAGOUV_TEAM
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
@@ -30,7 +30,7 @@ def publish_mattermost(ti):
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
     print(message)
-    send_message(message, MATTERMOST_DATAGOUV_DATAENG_TEST)
+    send_message(message, MATTERMOST_DATAGOUV_TEAM)
 
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
