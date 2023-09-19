@@ -53,7 +53,7 @@ def download_and_process_geozones():
         "Region": "fr:region",
         "Departement": "fr:departement",
         "CollectiviteDOutreMer": "fr:departement",
-        "Intercommunalité": "fr:epci",
+        "Intercommunalite": "fr:epci",
         "Arrondissement": "fr:arrondissement",
         "ArrondissementMunicipal": "fr:arrondissement",
         "Commune": "fr:commune",
@@ -65,6 +65,10 @@ def download_and_process_geozones():
     df['_id'] = df['level'] + ':' + df['codeINSEE']
     df = df.rename({"zone": "uri"}, axis=1)
     df = df.drop(['territory', 'suppression_evt'], axis=1)
+    df = df.loc[
+        (df['type'] != 'Arrondissement') |
+        ((df['type'] == 'Arrondissement') & (df['nom'].str.contains('|'.join(['Paris', 'Lyon', 'Marseille']))))
+    ]
 
     export = {'data': json.loads(df.to_json(orient='records'))}
     os.mkdir(DATADIR)
