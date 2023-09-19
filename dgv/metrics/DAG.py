@@ -24,7 +24,9 @@ DAG_NAME = 'dgv_metrics'
 
 default_args = {
     'email': ['geoffrey.aldebert@data.gouv.fr'],
-    'email_on_failure': False
+    'email_on_failure': False,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=2),
 }
 
 with DAG(
@@ -32,7 +34,7 @@ with DAG(
     schedule_interval='15 3 * * *',
     start_date=days_ago(1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=60*8),
+    dagrun_timeout=timedelta(minutes=60 * 8),
     tags=["dgv", "metrics"],
     default_args=default_args,
 ) as dag:
