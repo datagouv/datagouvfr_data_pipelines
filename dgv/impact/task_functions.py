@@ -72,33 +72,37 @@ def calculate_metrics():
 
     data = [
         {
+            'administration_rattachement': 'DINUM',
             'nom_service_public_numerique': 'data.gouv.fr',
             'indicateur': 'Score qualité moyen 1000 JdD les plus vus',
             'valeur': average_quality_score,
             'unite_mesure': '%',
             'est_cible': False,
-            'frequence_calcul': 'mensuelle',
+            'frequence_monitoring': 'mensuelle',
             'date': datetime.today().strftime("%Y-%m-%d"),
             'est_periode': False,
             'date_debut': '',
             'est_automatise': True,
             'source_collecte': 'script',
-            'mode_calcul': 'moyenne',
+            'code_insee': '',
+            'dataviz_wish': 'barchart',
             'commentaires': ''
         },
         {
+            'administration_rattachement': 'DINUM',
             'nom_service_public_numerique': 'data.gouv.fr',
             'indicateur': 'Délai moyen de réponse à une discussion',
             'valeur': average_time_to_answer,
             'unite_mesure': 'jour',
             'est_cible': False,
-            'frequence_calcul': 'mensuelle',
+            'frequence_monitoring': 'mensuelle',
             'date': datetime.today().strftime("%Y-%m-%d"),
             'est_periode': True,
             'date_debut': oneyearago,
             'est_automatise': True,
             'source_collecte': 'script',
-            'mode_calcul': 'moyenne',
+            'code_insee': '',
+            'dataviz_wish': 'barchart',
             'commentaires': 'les délais sont écrétés à 30 jours'
         },
     ]
