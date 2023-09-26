@@ -71,6 +71,41 @@ def download_and_process_geozones():
     ]
 
     export = {'data': json.loads(df.to_json(orient='records'))}
+    export['data'].extend([
+        {
+            "uri": "http://id.insee.fr/geo/pays/france",
+            "nom": "France",
+            "codeINSEE": "FR",
+            "nomSansArticle": "France",
+            "codeArticle": None,
+            "type": "Etat",
+            "is_deleted": False,
+            "level": "country",
+            "_id": "country:fr"
+        },
+        {
+            "uri": "http://id.insee.fr/geo/world",
+            "nom": "Monde",
+            "codeINSEE": "WORLD",
+            "nomSansArticle": "Monde",
+            "codeArticle": None,
+            "type": "country-group",
+            "is_deleted": False,
+            "level": "country-group",
+            "_id": "country-group:world"
+        },
+        {
+            "uri": "http://id.insee.fr/geo/world",
+            "nom": "Union Européenne",
+            "codeINSEE": "EU",
+            "nomSansArticle": "Union Européenne",
+            "codeArticle": None,
+            "type": "country-group",
+            "is_deleted": False,
+            "level": "country-group",
+            "_id": "country-group:ue"
+        },
+    ])
     os.mkdir(DATADIR)
     with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
