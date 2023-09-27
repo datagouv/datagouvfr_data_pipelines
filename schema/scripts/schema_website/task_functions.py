@@ -14,8 +14,6 @@ import requests
 from urllib import parse
 import numpy as np
 
-LIST_SCHEMAS_YAML = "https://raw.githubusercontent.com/etalab/schema.data.gouv.fr/main/repertoires.yml"
-
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
 SCHEMA_CATALOG = {}
@@ -33,6 +31,11 @@ def initialization(ti, TMP_FOLDER):
         'DATA_FOLDER1': DATA_FOLDER1,
         'DATA_FOLDER2': DATA_FOLDER2,
     }
+
+    branch = 'main'
+    if 'preprod' in TMP_FOLDER:
+        branch = 'preprod'
+    LIST_SCHEMAS_YAML = f"https://raw.githubusercontent.com/etalab/schema.data.gouv.fr/{branch}/repertoires.yml"
 
     # Loading yaml file containing all schemas that we want to display in schema.data.gouv.fr
     r = requests.get(LIST_SCHEMAS_YAML)
