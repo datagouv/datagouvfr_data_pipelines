@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 from langdetect import detect
+import os
 
 import aiohttp
 import asyncio
@@ -10,10 +11,16 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
+    AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_URL
+    DATAGOUV_URL,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import send_files
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
 
 DAG_NAME = "dgv_bizdev"
@@ -229,37 +236,28 @@ def create_all_tables():
     # Top 50 des reuses les plus visitées avec 404
     print('Top 50 des reuses les plus visitées avec 404')
     unavailable_reuses = get_unavailable_reuses()
-    restr_reuses = {d[0]['id']: d[1] for d in unavailable_reuses if str(d[1]).startswith('40')}
-    data = get_all_from_api_query(
-        f'https://api-metrics.preprod.data.gouv.fr/api/reuses/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
-        next_page='links.next',
-        ignore_errors=True
-    )
-    reuses_visited_KO = {}
-    while len(reuses_visited_KO) < 50:
+    restr_reuses = {d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')}
+    for rid in restr_reuses:
+        data = get_all_from_api_query(
+            f'https://api-metrics.preprod.data.gouv.fr/api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
+            next_page='links.next',
+            ignore_errors=True
+        )
         try:
             d = next(data)
+            restr_reuses[rid].update({'monthly_visit': d['monthly_visit']})
         except StopIteration:
-            break
-        if d['monthly_visit'] and d['reuse_id'] in restr_reuses:
-            reuses_visited_KO.update({
-                d['reuse_id']: {
-                    'monthly_visit': d['monthly_visit'],
-                    'error_code': restr_reuses[d['reuse_id']]
-                }
-            })
-    reuses_visited_KO = {
-        k: v for k, v in sorted(reuses_visited_KO.items(), key=lambda x: -x[1]['monthly_visit'])
-    }
-    for k in reuses_visited_KO:
-        r = requests.get(datagouv_api_url + 'reuses/' + k).json()
-        reuses_visited_KO[k].update({
+            restr_reuses[rid].update({'monthly_visit': 0})
+
+        r = requests.get(datagouv_api_url + 'reuses/' + rid).json()
+        restr_reuses[rid].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
-            'creator': r['organization'].get('name', None) if r.get('organization', None) else r['owner'].get('slug', None) if r.get('owner', None) else None
+            'creator': r.get('organization', None).get('name', None) if r.get('organization', None) else r.get('owner', {}).get('slug', None) if r.get('owner', None) else None
         })
-    df = pd.DataFrame(reuses_visited_KO.values(), index=reuses_visited_KO.keys())
-    df.to_csv(DATADIR + 'top50_reuses_most_visits_KO_last_month.csv')
+    df = pd.DataFrame(restr_reuses.values(), index=restr_reuses.keys())
+    df = df.sort_values('monthly_visit', ascending=False)
+    df.to_csv(DATADIR + 'all_reuses_most_visits_KO_last_month.csv', float_format="%.0f")
 
     # Spam
     print('Spam')
@@ -287,7 +285,8 @@ def create_all_tables():
         'miracle',
         'weight loss',
         'voyance',
-        'streaming'
+        'streaming',
+        'benefits',
     ]
     search_types = [
         'datasets',
@@ -308,56 +307,77 @@ def create_all_tables():
                     'creator': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
                     'id': d['id'],
                     'spam_word': word,
+                    'nb_datasets_and_reuses': None if obj not in ['organizations', 'users'] else d['metrics']['datasets'] + d['metrics']['reuses'],
                 })
     print("Détection d'utilisateurs suspects...")
     k = 0
-    for user in get_all_from_api_query(datagouv_api_url + 'users/'):
-        k += 1
-        if k % 5000 == 0:
-            print(f"   > {k} users scannés")
-        try:
-            if user['about']:
-                if any([sus in user['about'] for sus in ['http', 'www.']]):
-                    spam.append({
-                        'type': 'user',
-                        'url': f"https://www.data.gouv.fr/fr/users/{user['id']}/",
-                        'name_or_title': None,
-                        'creator': None,
-                        'id': user['id'],
-                        'spam_word': 'web address',
-                    })
-                elif detect(user['about']) != 'fr':
-                    spam.append({
-                        'type': 'user',
-                        'url': f"https://www.data.gouv.fr/fr/users/{user['id']}/",
-                        'name_or_title': None,
-                        'creator': None,
-                        'id': user['id'],
-                        'spam_word': 'language',
-                    })
-        except:
-            spam.append({
-                'type': 'user',
-                'url': f"https://www.data.gouv.fr/fr/users/{user['id']}/",
-                'name_or_title': None,
-                'creator': None,
-                'id': user['id'],
-                'spam_word': 'suspect error',
-            })
+    # for user in get_all_from_api_query(datagouv_api_url + 'users/'):
+    #     k += 1
+    #     if k % 5000 == 0:
+    #         print(f"   > {k} users scannés")
+    #     try:
+    #         if user['about']:
+    #             if any([sus in user['about'] for sus in ['http', 'www.']]):
+    #                 spam.append({
+    #                     'type': 'user',
+    #                     'url': f"https://www.data.gouv.fr/fr/users/{user['id']}/",
+    #                     'name_or_title': None,
+    #                     'creator': None,
+    #                     'id': user['id'],
+    #                     'spam_word': 'web address',
+    #                     'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
+    #                 })
+    #             elif detect(user['about']) != 'fr':
+    #                 spam.append({
+    #                     'type': 'user',
+    #                     'url': f"https://www.data.gouv.fr/fr/users/{user['id']}/",
+    #                     'name_or_title': None,
+    #                     'creator': None,
+    #                     'id': user['id'],
+    #                     'spam_word': 'language',
+    #                     'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
+    #                 })
+    #     except:
+    #         spam.append({
+    #             'type': 'user',
+    #             'url': f"https://www.data.gouv.fr/fr/users/{user['id']}/",
+    #             'name_or_title': None,
+    #             'creator': None,
+    #             'id': user['id'],
+    #             'spam_word': 'suspect error',
+    #             'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
+    #         })
     df = pd.DataFrame(spam).drop_duplicates(subset='id')
     df.to_csv(DATADIR + 'objects_with_spam_word.csv')
 
 
-# def publish_mattermost(ti):
-#     print("Publishing on mattermost")
-#     reuses = ti.xcom_pull(key="reuses", task_ids="get_unavailable_reuses")
-#     message = (
-#         f":octagonal_sign: Voici la liste des {len(reuses)} réutilisations non disponibles"
-#     )
-#     for reuse, error in reuses:
-#         message += f"\n* [{reuse['title']}]({reuse['page']}): {error}"
-#     print(message)
-#     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+def send_tables_to_minio():
+    print(os.listdir(DATADIR))
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": file,
+                "dest_path": f"bizdev/{datetime.today().strftime('%Y-%m-%d')}/",
+                "dest_name": file,
+            } for file in os.listdir(DATADIR)
+        ],
+    )
+
+
+def publish_mattermost():
+    print("Publishing on mattermost")
+    message = ":zap: Les rapports bizdev sont disponibles :"
+    for file in os.listdir(DATADIR):
+        message += f"\n - [{file}]"
+        message += "(https://explore.data.gouv.fr/?url="
+        message += f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+        message += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file})"
+    send_message(message)
 
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
@@ -382,9 +402,16 @@ with DAG(
         python_callable=create_all_tables
     )
 
-    # publish_mattermost = PythonOperator(
-    #     task_id="publish_mattermost",
-    #     python_callable=publish_mattermost,
-    # )
+    send_tables_to_minio = PythonOperator(
+        task_id="send_tables_to_minio",
+        python_callable=send_tables_to_minio
+    )
+
+    publish_mattermost = PythonOperator(
+        task_id="publish_mattermost",
+        python_callable=publish_mattermost,
+    )
 
     create_all_tables.set_upstream(clean_previous_outputs)
+    send_tables_to_minio.set_upstream(create_all_tables)
+    publish_mattermost.set_upstream(send_tables_to_minio)
