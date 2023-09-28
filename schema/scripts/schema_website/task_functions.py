@@ -170,6 +170,8 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
     # Complete catalog with all relevant information of schema in it
     print('conf: ', conf)
     print('conf_schema: ', conf_schema)
+    if conf_schema:
+        conf.update(conf_schema)
     schema_to_add_to_catalog = generate_catalog_object(
         latest_folder,
         list_schemas,
@@ -177,7 +179,7 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
         schema_type,
         schema_name,
         folders,
-        conf_schema if conf_schema else conf
+        conf
     )
     return schema_to_add_to_catalog
 
@@ -741,7 +743,7 @@ def check_and_save_schemas(ti):
 
     # Save catalog to schemas.json file
     with open(folders['DATA_FOLDER1'] + '/schemas.json', 'w') as fp:
-        json.dump(SCHEMA_CATALOG, fp)
+        json.dump(SCHEMA_CATALOG, fp, indent=4)
 
     schemas_scdl['schemas'] = [
         x for x in schemas_scdl['schemas'] if 'Socle Commun des Données Locales' in x['labels']
@@ -756,21 +758,21 @@ def check_and_save_schemas(ti):
     ]
 
     with open(folders['DATA_FOLDER1'] + '/schemas-scdl.json', 'w') as fp:
-        json.dump(schemas_scdl, fp)
+        json.dump(schemas_scdl, fp, indent=4)
 
     with open(folders['DATA_FOLDER1'] + '/schemas-transport-data-gouv-fr.json', 'w') as fp:
-        json.dump(schemas_transport, fp)
+        json.dump(schemas_transport, fp, indent=4)
 
     with open(folders['DATA_FOLDER1'] + '/schemas-tableschema.json', 'w') as fp:
-        json.dump(schemas_tableschema, fp)
+        json.dump(schemas_tableschema, fp, indent=4)
 
     # Save schemas_infos to schema-infos.json file
     with open(folders['DATA_FOLDER1'] + '/schema-infos.json', 'w') as fp:
-        json.dump(SCHEMA_INFOS, fp)
+        json.dump(SCHEMA_INFOS, fp, indent=4)
 
     # Save errors to errors.json file
     with open(folders['DATA_FOLDER1'] + '/errors.json', 'w') as fp:
-        json.dump(ERRORS_REPORT, fp)
+        json.dump(ERRORS_REPORT, fp, indent=4)
 
     ti.xcom_push(key='SCHEMA_CATALOG', value=SCHEMA_CATALOG)
     ti.xcom_push(key='SCHEMA_INFOS', value=SCHEMA_INFOS)
@@ -849,7 +851,7 @@ def get_issues_and_labels(ti):
 
         # Save stats infos to stats.json file
         with open(folders['DATA_FOLDER2'] + '/stats.json', 'w') as fp:
-            json.dump(mydict, fp)
+            json.dump(mydict, fp, indent=4)
     except:
         pass
 
