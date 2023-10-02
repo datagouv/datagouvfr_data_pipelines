@@ -65,6 +65,53 @@ def get_unavailable_reuses():
     return unavailable_reuses
 
 
+async def classify_user(user):
+    try:
+        if user['about']:
+            if any([sus in user['about'] for sus in ['http', 'www.']]):
+                return {
+                    'type': 'user',
+                    'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
+                    'name_or_title': None,
+                    'creator': None,
+                    'id': user['id'],
+                    'spam_word': 'web address',
+                    'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
+                    'about': user['about'],
+                }
+            elif detect(user['about']) != 'fr':
+                return {
+                    'type': 'user',
+                    'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
+                    'name_or_title': None,
+                    'creator': None,
+                    'id': user['id'],
+                    'spam_word': 'language',
+                    'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
+                    'about': user['about'],
+                }
+            else:
+                return None
+    except:
+        return {
+            'type': 'user',
+            'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
+            'name_or_title': None,
+            'creator': None,
+            'id': user['id'],
+            'spam_word': 'suspect error',
+            'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
+            'about': user['about'],
+        }
+
+
+async def get_suspect_users():
+    users = get_all_from_api_query(datagouv_api_url + 'users/')
+    tasks = [asyncio.create_task(classify_user(k)) for k in users]
+    results = await asyncio.gather(*tasks)
+    return results
+
+
 def create_all_tables():
     today = datetime.today()
     first_day_of_current_month = today.replace(day=1)
@@ -241,7 +288,8 @@ def create_all_tables():
         df.to_csv(DATADIR + 'top50_orgas_most_discussions_30_days.csv', index=False)
 
     # Reuses down et spams tous les lundis
-    if today.weekday() == 0:
+    # if today.weekday() == 0:
+    if True:
         # Reuses avec 404
         print('Reuses avec 404')
         unavailable_reuses = get_unavailable_reuses()
@@ -312,7 +360,10 @@ def create_all_tables():
                     should_add = True
                     # si l'objet est ou provient d'une orga certifiée => pas spam
                     if obj != 'users':
-                        badges = d.get('organization', {}).get('badges', d.get('badges', []))
+                        if obj == 'organization':
+                            badges = d.get('badges', [])
+                        else:
+                            badges = d['organization'].get('badges', []) if d.get('organization', None) else []
                         if 'certified' in [badge['kind'] for badge in badges]:
                             should_add = False
                     if should_add:
@@ -326,46 +377,8 @@ def create_all_tables():
                             'nb_datasets_and_reuses': None if obj not in ['organizations', 'users'] else d['metrics']['datasets'] + d['metrics']['reuses'],
                         })
         print("Détection d'utilisateurs suspects...")
-        k = 0
-        for user in get_all_from_api_query(datagouv_api_url + 'users/'):
-            k += 1
-            if k % 5000 == 0:
-                print(f"   > {k} users scannés")
-            try:
-                if user['about']:
-                    if any([sus in user['about'] for sus in ['http', 'www.']]):
-                        spam.append({
-                            'type': 'users',
-                            'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
-                            'name_or_title': None,
-                            'creator': None,
-                            'id': user['id'],
-                            'spam_word': 'web address',
-                            'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
-                            'about': user['about'][:1000],
-                        })
-                    elif detect(user['about']) != 'fr':
-                        spam.append({
-                            'type': 'users',
-                            'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
-                            'name_or_title': None,
-                            'creator': None,
-                            'id': user['id'],
-                            'spam_word': 'language',
-                            'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
-                            'about': user['about'][:1000],
-                        })
-            except:
-                spam.append({
-                    'type': 'users',
-                    'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
-                    'name_or_title': None,
-                    'creator': None,
-                    'id': user['id'],
-                    'spam_word': 'suspect error',
-                    'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
-                    'about': user['about'][:1000],
-                })
+        suspect_users = asyncio.run(get_suspect_users())
+        spam.extend([u for u in suspect_users if u])
         df = pd.DataFrame(spam).drop_duplicates(subset='id')
         df.to_csv(DATADIR + 'objects_with_spam_word.csv', index=False)
 
