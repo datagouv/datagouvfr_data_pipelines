@@ -532,7 +532,7 @@ def build_reference_table(
             api_url,
             schema_name
         )
-        print(len(df_schema), f'resources found with tag "{tag}"')
+        print(len(df_tag), f'resources found with tag "{tag}"')
         schemas_report_dict[schema_name]["nb_resources_found_by_tags"] += len(
             df_tag
         )
