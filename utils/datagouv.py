@@ -515,7 +515,7 @@ def post_remote_communautary_resource(
     return r.json()
 
 
-def get_all_from_api_query(base_query, next_page='next_page'):
+def get_all_from_api_query(base_query, next_page='next_page', ignore_errors=False):
     def get_link_next_page(elem, separated_keys):
         result = elem
         for k in separated_keys.split('.'):
@@ -523,11 +523,13 @@ def get_all_from_api_query(base_query, next_page='next_page'):
         return result
     # /!\ only for paginated endpoints
     r = requests.get(base_query)
-    r.raise_for_status()
+    if not ignore_errors:
+        r.raise_for_status()
     for elem in r.json()["data"]:
         yield elem
     while get_link_next_page(r.json(), next_page):
         r = requests.get(get_link_next_page(r.json(), next_page))
-        r.raise_for_status()
+        if not ignore_errors:
+            r.raise_for_status()
         for data in r.json()['data']:
             yield data
