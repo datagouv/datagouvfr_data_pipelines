@@ -17,6 +17,8 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    MATTERMOST_DATAGOUV_CURATION,
+    MATTERMOST_DATAGOUV_EDITO,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
@@ -77,7 +79,7 @@ async def classify_user(user):
                     'id': user['id'],
                     'spam_word': 'web address',
                     'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
-                    'about': user['about'],
+                    'about': user['about'][:1000],
                 }
             elif detect(user['about']) != 'fr':
                 return {
@@ -88,7 +90,7 @@ async def classify_user(user):
                     'id': user['id'],
                     'spam_word': 'language',
                     'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
-                    'about': user['about'],
+                    'about': user['about'][:1000],
                 }
             else:
                 return None
@@ -101,7 +103,7 @@ async def classify_user(user):
             'id': user['id'],
             'spam_word': 'suspect error',
             'nb_datasets_and_reuses': user['metrics']['datasets'] + user['metrics']['reuses'],
-            'about': user['about'],
+            'about': user['about'][:1000],
         }
 
 
@@ -316,6 +318,34 @@ def create_all_tables():
         df = df.sort_values('monthly_visit', ascending=False)
         df.to_csv(DATADIR + 'all_reuses_most_visits_KO_last_month.csv', float_format="%.0f", index=False)
 
+        # Datasets sans ressources
+        print('Datasets sans ressources')
+        data = get_all_from_api_query(datagouv_api_url + 'datasets')
+        empty_datasets = {}
+        for d in data:
+            if not d['resources']:
+                empty_datasets.update({d['id']: {
+                    'dataset_id': d['id'],
+                    'title': d.get('title', None),
+                    'url': 'https://www.data.gouv.fr/fr/admin/dataset/' + d['id'],
+                    'organization_or_owner': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
+                    'created_at': d['created_at'][:10] if d.get('created_at', None) else None
+                }})
+            if len(empty_datasets) > 200:
+                print('Early stopping')
+                break
+        print('   > Getting visits...')
+        for d in empty_datasets:
+            data = get_all_from_api_query(f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}', next_page='links.next')
+            try:
+                n = next(data)
+                empty_datasets[d].update({'last_month_visits': n['monthly_visit']})
+            except:
+                empty_datasets[d].update({'last_month_visits': 0})
+        df = pd.DataFrame(empty_datasets.values(), index=empty_datasets.keys())
+        df = df.sort_values('last_month_visits', ascending=False)
+        df.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
+
         # Spam
         print('Spam')
         spam_words = [
@@ -379,7 +409,7 @@ def create_all_tables():
         print("Détection d'utilisateurs suspects...")
         suspect_users = asyncio.run(get_suspect_users())
         spam.extend([u for u in suspect_users if u])
-        df = pd.DataFrame(spam).drop_duplicates(subset='id')
+        df = pd.DataFrame(spam).drop_duplicates(subset='url')
         df.to_csv(DATADIR + 'objects_with_spam_word.csv', index=False)
 
 
@@ -421,24 +451,45 @@ def send_tables_to_minio():
 
 def publish_mattermost():
     print("Publishing on mattermost")
-    message = ":zap: Les rapports bizdev sont disponibles :"
-    for file in os.listdir(DATADIR):
-        url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
-        if any([k in file for k in ['spam', 'KO']]):
-            url += f"/bizdev/{file}"
-        else:
-            url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
-        message += f"\n - [{file}]"
-        message += f"(https://explore.data.gouv.fr/?url={url}) "
-        message += f"[⬇️]({url})"
-    send_message(message)
+    list_curation = ["empty", "spam", "KO", "discussion"]
+    curation = [f for f in os.listdir(DATADIR) if any([k in f for k in list_curation])]
+    if curation:
+        print("   - Files for curation:")
+        print(curation)
+        message = ":zap: Les rapports bizdev curation sont disponibles :"
+        for file in curation:
+            url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+            if any([k in file for k in ['spam', 'KO']]):
+                url += f"/bizdev/{file}"
+            else:
+                url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
+            message += f"\n - [{file}]"
+            message += f"(https://explore.data.gouv.fr/?url={url}) "
+            message += f"[⬇️]({url})"
+        send_message(message, MATTERMOST_DATAGOUV_CURATION)
+
+    edito = [f for f in os.listdir(DATADIR) if f not in curation]
+    if edito:
+        print("   - Files for édito:")
+        print(edito)
+        message = ":zap: Les rapports bizdev édito sont disponibles :"
+        for file in edito:
+            url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+            if any([k in file for k in ['spam', 'KO']]):
+                url += f"/bizdev/{file}"
+            else:
+                url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
+            message += f"\n - [{file}]"
+            message += f"(https://explore.data.gouv.fr/?url={url}) "
+            message += f"[⬇️]({url})"
+        send_message(message, MATTERMOST_DATAGOUV_EDITO)
 
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
 with DAG(
     dag_id=DAG_NAME,
-    # every Monday (for spam and KO reuses) and every 1st day of month for tops
+    # every Monday (for spam, empty JDD and KO reuses) and every 1st day of month for tops
     schedule_interval="0 4 1 * 1",
     start_date=days_ago(0, hour=1),
     dagrun_timeout=timedelta(minutes=120),
