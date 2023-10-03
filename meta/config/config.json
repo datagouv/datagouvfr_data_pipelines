@@ -14,6 +14,7 @@
         "data_processing_sirene_publication": true,
         "data_processing_uai": true,
         "dgv_administrateur": true,
+        "dgv_bizdev": true,
         "dgv_curation": true,
         "dgv_digests": true,
         "dgv_edito_post_and_tweet": true,
