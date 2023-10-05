@@ -10,6 +10,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     calculate_metrics,
     send_stats_to_minio,
+    publish_datagouv,
     send_notification_mattermost
 )
 
@@ -36,6 +37,11 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
+    clean_previous_outputs = BashOperator(
+        task_id="clean_previous_outputs",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
+    )
+
     download_history = BashOperator(
         task_id='download_history',
         bash_command=(
@@ -54,11 +60,24 @@ with DAG(
         python_callable=send_stats_to_minio,
     )
 
+    publish_datagouv = PythonOperator(
+        task_id='publish_datagouv',
+        python_callable=publish_datagouv,
+        op_kwargs={
+            "DAG_FOLDER": DAG_FOLDER,
+        },
+    )
+
     send_notification_mattermost = PythonOperator(
         task_id='send_notification_mattermost',
         python_callable=send_notification_mattermost,
+        op_kwargs={
+            "DAG_FOLDER": DAG_FOLDER,
+        },
     )
 
+    download_history.set_upstream(clean_previous_outputs)
     calculate_metrics.set_upstream(download_history)
     send_stats_to_minio.set_upstream(calculate_metrics)
-    send_notification_mattermost.set_upstream(send_stats_to_minio)
+    publish_datagouv.set_upstream(send_stats_to_minio)
+    send_notification_mattermost.set_upstream(publish_datagouv)

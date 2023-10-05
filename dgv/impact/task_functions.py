@@ -1,6 +1,7 @@
 from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    AIRFLOW_DAG_HOME,
     DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
     MINIO_URL,
@@ -10,12 +11,18 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    post_remote_resource,
+    DATAGOUV_URL
+)
 import pandas as pd
 import os
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 import numpy as np
+import requests
+import json
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"
@@ -36,39 +43,63 @@ def calculate_metrics():
     final["quality_score"] = final["quality_score"].astype(float)
     average_quality_score = round(100 * final["quality_score"].mean(), 2)
 
-    # response time
-    print("Calculating average response time")
-    r = get_all_from_api_query("https://www.data.gouv.fr/api/1/discussions/")
+    # time for legitimate answer
+    print("Calculating average time for legitimate answer")
+    datagouv_team = requests.get(
+        "https://www.data.gouv.fr/api/1/organizations/646b7187b50b2a93b1ae3d45/"
+    ).json()
+    datagouv_team = [m['user']['id'] for m in datagouv_team['members']]
+
+    r = get_all_from_api_query("https://www.data.gouv.fr/api/1/discussions/?sort=-created")
+    end_date = datetime.today().strftime("%Y-%m-%d")
     oneyearago = date.today() - relativedelta(years=1)
-    oneyearago = oneyearago.strftime("%Y-%m-%d")
+    start_date = oneyearago.strftime("%Y-%m-%d")
     nb_discussions = 0
-    nb_discussions_with_answer = 0
+    nb_discussions_with_legit_answer = 0
     time_to_answer = []
-    actual_date = date.today().strftime("%Y-%m-%d")
-    while actual_date > oneyearago:
-        item = next(r)
-        actual_date = item["discussion"][0]["posted_on"]
-        if actual_date > oneyearago and item["subject"]["class"] == "Dataset":
+    k = 0
+    for discussion in r:
+        if discussion['created'] > end_date:
+            continue
+        elif discussion['created'] < start_date:
+            break
+        if discussion['subject']['class'] == 'Dataset':
+            k += 1
+            if k % 100 == 0:
+                print(f"   > {k} discussions processed")
             nb_discussions += 1
-            if len(item["discussion"]) > 1:
-                nb_discussions_with_answer += 1
-                date_format = "%Y-%m-%dT%H:%M:%S"
-                # big assumption here: we consider the first response, whoever is responding
-                # and whatever they are saying. For further improvements we could refine this
-                # by only considering the first response by an admin of the dataset
-                # /!\ could be tricky with automated discussions (for archived datasets for instance)
-                first_date = datetime.strptime(item["discussion"][0]["posted_on"][:19], date_format)
-                second_date = datetime.strptime(item["discussion"][1]["posted_on"][:19], date_format)
-                ecart = second_date - first_date
-                ecart_jour = ecart.days + (ecart.seconds / (3600 * 24))
-                # arbitrary threshold of 30 days max
-                if ecart_jour > 30:
+            if len(discussion['discussion']) > 1:
+                # getting legit users
+                dataset = requests.get(
+                    f"https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/"
+                ).json()
+                if dataset.get('organization', None):
+                    dataset_supervisors = requests.get(
+                        f"https://www.data.gouv.fr/api/1/organizations/{dataset['organization']['id']}/"
+                    ).json()
+                    dataset_supervisors = [m['user']['id'] for m in dataset_supervisors['members']]
+                else:
+                    dataset_supervisors = [dataset['owner']['id']] if dataset['owner'] else []
+                legit = datagouv_team + dataset_supervisors
+
+                # getting time to legit response
+                opening_date = discussion['discussion'][0]['posted_on'][:10]
+                answered_date = None
+                for comment in discussion['discussion'][1:]:
+                    if comment['posted_by']['id'] in legit:
+                        answered_date = comment['posted_on'][:10]
+                        nb_discussions_with_legit_answer += 1
+                if not answered_date:
                     time_to_answer.append(30)
                 else:
-                    time_to_answer.append(ecart_jour)
+                    opening_date = datetime.strptime(opening_date, "%Y-%m-%d")
+                    answered_date = datetime.strptime(answered_date, "%Y-%m-%d")
+                    delai = answered_date - opening_date
+                    time_to_answer.append(min(delai.days, 30))
             else:
                 time_to_answer.append(30)
     average_time_to_answer = round(np.mean(time_to_answer), 2)
+    print(f"Taux de réponses légitimes : {round(nb_discussions_with_legit_answer/nb_discussions*100)}%")
 
     data = [
         {
@@ -91,14 +122,14 @@ def calculate_metrics():
         {
             'administration_rattachement': 'DINUM',
             'nom_service_public_numerique': 'data.gouv.fr',
-            'indicateur': 'Délai moyen de réponse à une discussion',
+            'indicateur': 'Délai moyen pour une réponse légitime à une discussion',
             'valeur': average_time_to_answer,
             'unite_mesure': 'jour',
             'est_cible': False,
             'frequence_monitoring': 'mensuelle',
-            'date': datetime.today().strftime("%Y-%m-%d"),
+            'date': end_date,
             'est_periode': True,
-            'date_debut': oneyearago,
+            'date_debut': start_date,
             'est_automatise': True,
             'source_collecte': 'script',
             'code_insee': '',
@@ -123,19 +154,35 @@ def send_stats_to_minio():
                 "source_path": f"{DATADIR}/",
                 "source_name": "statistiques_impact_datagouvfr.csv",
                 "dest_path": "dgv/impact/",
-                # à changer avant le passage en prod
-                "dest_name": "new_statistiques_impact_datagouvfr.csv",
+                "dest_name": "statistiques_impact_datagouvfr.csv",
             }
         ],
     )
 
 
-def send_notification_mattermost():
+def publish_datagouv(DAG_FOLDER):
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
+        data = json.load(fp)
+    post_remote_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dgv/impact/statistiques_impact_datagouvfr.csv",
+        dataset_id=data[AIRFLOW_ENV]['dataset_id'],
+        resource_id=data[AIRFLOW_ENV]['resource_id'],
+        filesize=os.path.getsize(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")),
+        title="Indicateurs d'impact de data.gouv.fr",
+        format="csv",
+        description=f"Dernière modification : {datetime.today()})",
+    )
+
+
+def send_notification_mattermost(DAG_FOLDER):
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
+        data = json.load(fp)
     send_message(
         text=(
             ":mega: KPI de data.gouv mises à jour.\n"
             f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
             f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dgv/impact)\n"
-            # f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/XXXXXXXXXXXX)"
+            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{data[AIRFLOW_ENV]['dataset_id']})"
         )
     )
