@@ -289,9 +289,8 @@ def create_all_tables():
         df = pd.DataFrame(discussions_of_interest.values(), index=discussions_of_interest.keys())
         df.to_csv(DATADIR + 'top50_orgas_most_discussions_30_days.csv', index=False)
 
-    # Reuses down et spams tous les lundis
-    # if today.weekday() == 0:
-    if True:
+    # Reuses down, JDD vides et spams tous les lundis
+    if today.weekday() == 0:
         # Reuses avec 404
         print('Reuses avec 404')
         unavailable_reuses = get_unavailable_reuses()
@@ -331,7 +330,7 @@ def create_all_tables():
                     'organization_or_owner': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
                     'created_at': d['created_at'][:10] if d.get('created_at', None) else None
                 }})
-            if len(empty_datasets) > 200:
+            if len(empty_datasets) == 1000:
                 print('Early stopping')
                 break
         print('   > Getting visits...')
