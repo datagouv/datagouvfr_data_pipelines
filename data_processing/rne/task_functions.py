@@ -66,7 +66,7 @@ def process_rne_files():
     )
 
     if not os.path.exists(DATADIR):
-        logging.ingo(f"**********Creating {DATADIR}")
+        logging.info(f"**********Creating {DATADIR}")
         os.makedirs(DATADIR)
     # export to csv
     clean_df_dirig_pp.to_csv(
@@ -174,6 +174,7 @@ def clean_dirigeants_rna(df_dirigeants_pp, df_dirigeants_pm):
 
 
 def send_rne_to_minio():
+    logging.info("Saving files in MinIO.....")
     send_files(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
