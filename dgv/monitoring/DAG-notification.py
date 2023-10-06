@@ -14,7 +14,7 @@ import requests
 
 DAG_NAME = "dgv_notification_activite"
 
-TIME_PERIOD = {"hours": 3}
+TIME_PERIOD = {"hours": 1}
 
 
 def check_new(ti, **kwargs):
