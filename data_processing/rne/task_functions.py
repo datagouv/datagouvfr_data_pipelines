@@ -84,6 +84,7 @@ def extract_dirigeants_data(json_data):
 
     for entity in json_data:
         siren = entity.get("siren")
+        date_maj = entity.get("updatedAt")
         dirigeants = (
             entity.get("formality", {})
             .get("content", {})
@@ -103,6 +104,7 @@ def extract_dirigeants_data(json_data):
 
                 dirigeant_pp = {
                     "siren": siren,
+                    "date_mise_a_jour": date_maj,
                     "date_de_naissance": individu.get("dateDeNaissance", None),
                     "role": individu.get("role", None),
                     "nom": individu.get("nom", None),
@@ -131,6 +133,7 @@ def extract_dirigeants_data(json_data):
 
                 dirigeant_pm = {
                     "siren": siren,
+                    "date_mise_a_jour": date_maj,
                     "denomination": entreprise.get("denomination", None),
                     "siren_dirigeant": entreprise.get("siren", None),
                     "role": entreprise.get("roleEntreprise", None),
