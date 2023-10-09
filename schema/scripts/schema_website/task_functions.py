@@ -815,13 +815,16 @@ def sort_folders(ti):
 
 
 def get_issues_and_labels(ti):
+    SCHEMA_CATALOG = ti.xcom_pull(key='SCHEMA_CATALOG', task_ids='check_and_save_schemas')
     folders = ti.xcom_pull(key='folders', task_ids='initialization')
     # For every issue, request them by label schema status (en investigation or en construction)
     mydict = {}
     labels = ['construction', 'investigation']
     # For each label, get relevant info via github api of schema.data.gouv.fr repo
-    try:
-        for lab in labels:
+    print("Getting issues for each label")
+    for lab in labels:
+        print('   >', lab)
+        try:
             r = requests.get(
                 'https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue&labels=Sch%C3%A9ma%20en%20'
                 + lab
@@ -835,25 +838,31 @@ def get_issues_and_labels(ti):
                 mydict2['title'] = issue['title']
                 mydict2['url'] = issue['html_url']
                 mydict[lab].append(mydict2)
+        except:
+            print('Error with github API')
 
-        # Find number of current issue in schema.data.gouv.fr repo
+    # Find number of current issue in schema.data.gouv.fr repo
+    try:
         r = requests.get('https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue')
         mydict['nb_issues'] = len(r.json())
-
-        # for every schema, find relevant info in data.gouv.fr API
-        mydict['references'] = {}
-        for s in SCHEMA_CATALOG['schemas']:
-            r = requests.get('https://www.data.gouv.fr/api/1/datasets/?schema=' + s['name'])
-            mydict['references'][s['name']] = {}
-            mydict['references'][s['name']]['dgv_resources'] = r.json()['total']
-            mydict['references'][s['name']]['title'] = s['title']
-            mydict['references'][s['name']]['contributors'] = get_contributors(s['homepage'])
-
-        # Save stats infos to stats.json file
-        with open(folders['DATA_FOLDER2'] + '/stats.json', 'w') as fp:
-            json.dump(mydict, fp, indent=4)
     except:
-        pass
+        print('Error with github API while trying to get issues from schema.data.gouv.fr repo')
+
+    # for every schema, find relevant info in data.gouv.fr API
+    mydict['references'] = {}
+    print("Getting nb resources on data.gouv")
+    for s in SCHEMA_CATALOG['schemas']:
+        r = requests.get('https://www.data.gouv.fr/api/1/datasets/?schema=' + s['name'])
+        mydict['references'][s['name']] = {
+            'dgv_resources': r.json()['total'],
+            'title': s['title'],
+            'contributors': get_contributors(s['homepage']),
+        }
+        print('   >', mydict['references'][s['name']])
+
+    # Save stats infos to stats.json file
+    with open(folders['DATA_FOLDER2'] + '/stats.json', 'w') as fp:
+        json.dump(mydict, fp, indent=4)
 
 
 def remove_all_files_extension(folder, extension):
