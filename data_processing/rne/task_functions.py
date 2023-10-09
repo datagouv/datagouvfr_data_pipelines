@@ -218,6 +218,6 @@ def send_notification_mattermost(**kwargs):
     send_message(
         f"Données stock RNE mise à jour sur Minio "
         f"- Bucket {MINIO_BUCKET_DATA_PIPELINE} :"
-        f"\n - Nombre diringeats pp : {dirig_pp} "
-        f"\n - Nombre diringeats pm : {dirig_pm} "
+        f"\n - Nombre dirigeants pp : {dirig_pp} "
+        f"\n - Nombre dirigeants pm : {dirig_pm} "
     )
