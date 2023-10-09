@@ -38,7 +38,7 @@ def unzip_files():
         z.extractall(EXTRACTED_FILES_PATH)
 
 
-def process_rne_files():
+def process_rne_files(**kwargs):
     list_all_dirig_pm = []
     list_all_dirig_pp = []
 
@@ -64,6 +64,14 @@ def process_rne_files():
     clean_df_dirig_pp, clean_df_dirig_pm = clean_dirigeants_rna(
         df_dirig_pp, df_dirig_pm
     )
+
+    count_dirigeants_pp = clean_df_dirig_pp.shape[0]
+    count_dirigeants_pm = df_dirig_pm.shape[0]
+
+    kwargs["ti"].xcom_push(key="count_dirigeants_pp", value=count_dirigeants_pp)
+    kwargs["ti"].xcom_push(key="count_dirigeants_pm", value=count_dirigeants_pm)
+    logging.info(f"********* Count dirigeants pp: {count_dirigeants_pp}")
+    logging.info(f"********* Count dirigeants pm: {count_dirigeants_pm}")
 
     if not os.path.exists(DATADIR):
         logging.info(f"**********Creating {DATADIR}")
@@ -200,8 +208,16 @@ def send_rne_to_minio():
     )
 
 
-def send_notification_mattermost():
+def send_notification_mattermost(**kwargs):
+    dirig_pp = kwargs["ti"].xcom_pull(
+        key="count_dirigeants_pp", task_ids="process_files"
+    )
+    dirig_pm = kwargs["ti"].xcom_pull(
+        key="count_dirigeants_pm", task_ids="process_files"
+    )
     send_message(
         f"Données stock RNE mise à jour sur Minio "
-        f"- Bucket {MINIO_BUCKET_DATA_PIPELINE}",
+        f"- Bucket {MINIO_BUCKET_DATA_PIPELINE} :"
+        f"\n - Nombre diringeats pp : {dirig_pp} "
+        f"\n - Nombre diringeats pm : {dirig_pm} "
     )
