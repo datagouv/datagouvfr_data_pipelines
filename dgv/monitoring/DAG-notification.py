@@ -236,7 +236,7 @@ def publish_mattermost(ti):
                 ":loudspeaker: :office: Nouvelle **organisation** : "
                 f"*{item['name']}* \n\n\n:point_right: {item['page']}"
             )
-            send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
     if nb_reuses > 0:
         for item in reuses:
