@@ -58,14 +58,11 @@ async def crawl_reuses(reuses):
 
 
 def get_unavailable_reuses():
-    headers = {
-        "X-Fields": "data{id,url},next_page"
-    }
     print("Fetching reuse list from https://www.data.gouv.fr/api/1/reuses/")
     reuses = list(
         get_all_from_api_query(
             "https://www.data.gouv.fr/api/1/reuses/?page_size=100&sort=-created",
-            headers=headers
+            mask="data{id,url}"
         )
     )
     print(f"Checking {len(reuses)} reuses")
@@ -114,10 +111,7 @@ async def classify_user(user):
 
 
 async def get_suspect_users():
-    headers = {
-        "X-Fields": "data{id,about,metrics},next_page"
-    }
-    users = get_all_from_api_query(datagouv_api_url + 'users/', headers=headers)
+    users = get_all_from_api_query(datagouv_api_url + 'users/', mask="data{id,about,metrics}")
     tasks = [asyncio.create_task(classify_user(k)) for k in users]
     results = await asyncio.gather(*tasks)
     return results
@@ -133,12 +127,9 @@ def create_all_tables():
     if today.day == 1:
         # Top 50 des orga qui ont publié le plus de jeux de données
         print('Top 50 des orga qui ont publié le plus de jeux de données')
-        headers = {
-            "X-Fields": "data{organization{id,name},internal{created_at}},next_page"
-        }
         data = get_all_from_api_query(
             'https://www.data.gouv.fr/api/1/datasets/?sort=-created',
-            headers=headers
+            mask="data{organization{id,name},internal{created_at}}"
         )
         threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
         orgas_of_interest = {}
@@ -280,10 +271,10 @@ def create_all_tables():
 
         # Top 50 des JDD les plus discutés
         print('Top 50 des JDD les plus discutés')
-        headers = {
-            "X-Fields": "data{created,subject{id,class}},next_page"
-        }
-        data = get_all_from_api_query(datagouv_api_url + 'discussions/?sort=-created', headers=headers)
+        data = get_all_from_api_query(
+            datagouv_api_url + 'discussions/?sort=-created',
+            mask="data{created,subject{id,class}}"
+        )
         threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
         discussions_of_interest = {}
         for d in data:
@@ -308,7 +299,8 @@ def create_all_tables():
         df.to_csv(DATADIR + 'top50_orgas_most_discussions_30_days.csv', index=False)
 
     # Reuses down, JDD vides et spams tous les lundis
-    if today.weekday() == 0:
+    # if today.weekday() == 0:
+    if True:
         # Reuses avec 404
         print('Reuses avec 404')
         unavailable_reuses = get_unavailable_reuses()
@@ -337,10 +329,10 @@ def create_all_tables():
 
         # Datasets sans ressources
         print('Datasets sans ressources')
-        headers = {
-            "X-Fields": "data{id,title,organization{name},owner{slug},created_at,resources{id}},next_page"
-        }
-        data = get_all_from_api_query(datagouv_api_url + 'datasets', headers=headers)
+        data = get_all_from_api_query(
+            datagouv_api_url + 'datasets',
+            mask="data{id,title,organization{name},owner{slug},created_at,resources{id}}"
+        )
         empty_datasets = {}
         for d in data:
             if not d['resources']:
@@ -351,6 +343,7 @@ def create_all_tables():
                     'organization_or_owner': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
                     'created_at': d['created_at'][:10] if d.get('created_at', None) else None
                 }})
+            # keeping this for now, because it's resource consuming. It'll get better with curation
             if len(empty_datasets) == 1000:
                 print('Early stopping')
                 break
@@ -402,13 +395,13 @@ def create_all_tables():
             'users'
         ]
         spam = []
-        headers = {
-            "X-Fields": "data{badges,organization,owner,id,name,title,metrics},next_page"
-        }
         for obj in search_types:
             print('   - Starting with', obj)
             for word in spam_words:
-                data = get_all_from_api_query(datagouv_api_url + f'{obj}/?q={word}', headers=headers)
+                data = get_all_from_api_query(
+                    datagouv_api_url + f'{obj}/?q={word}',
+                    mask="data{badges,organization,owner,id,name,title,metrics}"
+                )
                 for d in data:
                     should_add = True
                     # si l'objet est ou provient d'une orga certifiée => pas spam
