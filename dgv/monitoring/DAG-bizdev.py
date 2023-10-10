@@ -299,8 +299,7 @@ def create_all_tables():
         df.to_csv(DATADIR + 'top50_orgas_most_discussions_30_days.csv', index=False)
 
     # Reuses down, JDD vides et spams tous les lundis
-    # if today.weekday() == 0:
-    if True:
+    if today.weekday() == 0:
         # Reuses avec 404
         print('Reuses avec 404')
         unavailable_reuses = get_unavailable_reuses()
