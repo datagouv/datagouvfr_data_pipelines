@@ -504,7 +504,7 @@ def get_all_from_api_query(
     base_query,
     next_page='next_page',
     ignore_errors=False,
-    headers=None,
+    mask=None,
 ):
     def get_link_next_page(elem, separated_keys):
         result = elem
@@ -512,6 +512,7 @@ def get_all_from_api_query(
             result = result[k]
         return result
     # /!\ only for paginated endpoints
+    headers = {'X-fields': mask + f',{next_page}'} if mask else None
     r = requests.get(base_query, headers=headers)
     if not ignore_errors:
         r.raise_for_status()
