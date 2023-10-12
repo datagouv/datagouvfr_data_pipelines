@@ -41,6 +41,10 @@ def format_election_files():
                 pass
         max_nb_columns = max([row.count(';') for row in content]) + 1
         header = content[0].replace('\n', '').split(';')
+        # specific rule for 2019_euro
+        if "N°Panneau" not in header:
+            print("Special process:", f)
+            header[header.index('N°Liste')] = 'N°Panneau'
         hook_candidat_columns = np.argwhere(['Panneau' in c for c in header])[0][0]
         candidat_columns = header[hook_candidat_columns:]
         first_columns = header[:hook_candidat_columns]
