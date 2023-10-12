@@ -126,7 +126,7 @@ def process_election_data():
 
     # getting preprocessed resources
     resources_url = [r['url'] for r in get_all_from_api_query(
-        'https://www.data.gouv.fr/api/1/datasets/community_resources/?organization=646b7187b50b2a93b1ae3d45'
+        'https://www.data.gouv.fr/api/1/datasets/community_resources/?organization=646b7187b50b2a93b1ae3d45&sort=-created_at_internal'
     )]
     resources = {
         'general': [r for r in resources_url if 'general-results.csv' in r],
