@@ -1,4 +1,3 @@
-from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
@@ -28,8 +27,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"
 
 
-def calculate_metrics():
-    # quality score
+def calculate_quality_score(ti):
     print("Calculating average quality score")
     df_datasets = pd.read_csv(
         # this is the catalog
@@ -42,8 +40,27 @@ def calculate_metrics():
     final = df_datasets[:1000]
     final["quality_score"] = final["quality_score"].astype(float)
     average_quality_score = round(100 * final["quality_score"].mean(), 2)
+    kpi = {
+        'administration_rattachement': 'DINUM',
+        'nom_service_public_numerique': 'data.gouv.fr',
+        'indicateur': 'Score qualité moyen 1000 JdD les plus vus',
+        'valeur': average_quality_score,
+        'unite_mesure': '%',
+        'est_cible': False,
+        'frequence_monitoring': 'mensuelle',
+        'date': datetime.today().strftime("%Y-%m-%d"),
+        'est_periode': False,
+        'date_debut': '',
+        'est_automatise': True,
+        'source_collecte': 'script',
+        'code_insee': '',
+        'dataviz_wish': 'barchart',
+        'commentaires': ''
+    }
+    ti.xcom_push(key='kpi', value=kpi)
 
-    # time for legitimate answer
+
+def calculate_time_for_legitimate_answer(ti):
     print("Calculating average time for legitimate answer")
     datagouv_team = requests.get(
         "https://www.data.gouv.fr/api/1/organizations/646b7187b50b2a93b1ae3d45/"
@@ -70,9 +87,13 @@ def calculate_metrics():
             nb_discussions += 1
             if len(discussion['discussion']) > 1:
                 # getting legit users
-                dataset = requests.get(
+                r = requests.get(
                     f"https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/"
-                ).json()
+                )
+                if not r.ok:
+                    print(f"Not OK: https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/")
+                    continue
+                dataset = r.json()
                 if dataset.get('organization', None):
                     dataset_supervisors = requests.get(
                         f"https://www.data.gouv.fr/api/1/organizations/{dataset['organization']['id']}/"
@@ -100,47 +121,43 @@ def calculate_metrics():
                 time_to_answer.append(30)
     average_time_to_answer = round(np.mean(time_to_answer), 2)
     print(f"Taux de réponses légitimes : {round(nb_discussions_with_legit_answer/nb_discussions*100)}%")
+    kpi = {
+        'administration_rattachement': 'DINUM',
+        'nom_service_public_numerique': 'data.gouv.fr',
+        'indicateur': 'Délai moyen pour une réponse légitime à une discussion',
+        'valeur': average_time_to_answer,
+        'unite_mesure': 'jour',
+        'est_cible': False,
+        'frequence_monitoring': 'mensuelle',
+        'date': end_date,
+        'est_periode': True,
+        'date_debut': start_date,
+        'est_automatise': True,
+        'source_collecte': 'script',
+        'code_insee': '',
+        'dataviz_wish': 'barchart',
+        'commentaires': 'les délais sont écrétés à 30 jours'
+    }
+    ti.xcom_push(key='kpi', value=kpi)
 
+
+def gather_kpis(ti):
     data = [
-        {
-            'administration_rattachement': 'DINUM',
-            'nom_service_public_numerique': 'data.gouv.fr',
-            'indicateur': 'Score qualité moyen 1000 JdD les plus vus',
-            'valeur': average_quality_score,
-            'unite_mesure': '%',
-            'est_cible': False,
-            'frequence_monitoring': 'mensuelle',
-            'date': datetime.today().strftime("%Y-%m-%d"),
-            'est_periode': False,
-            'date_debut': '',
-            'est_automatise': True,
-            'source_collecte': 'script',
-            'code_insee': '',
-            'dataviz_wish': 'barchart',
-            'commentaires': ''
-        },
-        {
-            'administration_rattachement': 'DINUM',
-            'nom_service_public_numerique': 'data.gouv.fr',
-            'indicateur': 'Délai moyen pour une réponse légitime à une discussion',
-            'valeur': average_time_to_answer,
-            'unite_mesure': 'jour',
-            'est_cible': False,
-            'frequence_monitoring': 'mensuelle',
-            'date': end_date,
-            'est_periode': True,
-            'date_debut': start_date,
-            'est_automatise': True,
-            'source_collecte': 'script',
-            'code_insee': '',
-            'dataviz_wish': 'barchart',
-            'commentaires': 'les délais sont écrétés à 30 jours'
-        },
+        ti.xcom_pull(key='kpi', task_ids=t)
+        for t in [
+            'calculate_quality_score',
+            'calculate_time_for_legitimate_answer'
+        ]
     ]
     df = pd.DataFrame(data)
+    df.to_csv(
+        os.path.join(DATADIR, f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv"),
+        index=False,
+        encoding="utf8"
+    )
     history = pd.read_csv(f'{DATADIR}/history.csv')
     final = pd.concat([df, history])
-    df.to_csv(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"), index=False, encoding="utf8")
+    final.to_csv(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"), index=False, encoding="utf8")
 
 
 def send_stats_to_minio():
@@ -155,7 +172,14 @@ def send_stats_to_minio():
                 "source_name": "statistiques_impact_datagouvfr.csv",
                 "dest_path": "dgv/impact/",
                 "dest_name": "statistiques_impact_datagouvfr.csv",
-            }
+            },
+            # saving millésimes in case of an emergency
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
+                "dest_path": "dgv/impact/",
+                "dest_name": f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
+            },
         ],
     )
 

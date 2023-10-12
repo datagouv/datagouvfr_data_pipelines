@@ -8,7 +8,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
-    calculate_metrics,
+    calculate_quality_score,
+    calculate_time_for_legitimate_answer,
+    gather_kpis,
     send_stats_to_minio,
     publish_datagouv,
     send_notification_mattermost
@@ -50,9 +52,19 @@ with DAG(
         )
     )
 
-    calculate_metrics = PythonOperator(
-        task_id='calculate_metrics',
-        python_callable=calculate_metrics,
+    calculate_quality_score = PythonOperator(
+        task_id='calculate_quality_score',
+        python_callable=calculate_quality_score,
+    )
+
+    calculate_time_for_legitimate_answer = PythonOperator(
+        task_id='calculate_time_for_legitimate_answer',
+        python_callable=calculate_time_for_legitimate_answer,
+    )
+
+    gather_kpis = PythonOperator(
+        task_id='gather_kpis',
+        python_callable=gather_kpis,
     )
 
     send_stats_to_minio = PythonOperator(
@@ -77,7 +89,11 @@ with DAG(
     )
 
     download_history.set_upstream(clean_previous_outputs)
-    calculate_metrics.set_upstream(download_history)
-    send_stats_to_minio.set_upstream(calculate_metrics)
+    calculate_quality_score.set_upstream(download_history)
+    calculate_time_for_legitimate_answer.set_upstream(download_history)
+
+    gather_kpis.set_upstream(calculate_quality_score)
+    gather_kpis.set_upstream(calculate_time_for_legitimate_answer)
+    send_stats_to_minio.set_upstream(gather_kpis)
     publish_datagouv.set_upstream(send_stats_to_minio)
     send_notification_mattermost.set_upstream(publish_datagouv)
