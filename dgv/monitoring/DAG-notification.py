@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_last_items
+from datagouvfr_data_pipelines.utils.datagouv import get_last_items, SPAM_WORDS
 import requests
 
 DAG_NAME = "dgv_notification_activite"
@@ -32,8 +32,13 @@ def check_new(ti, **kwargs):
             if k in item:
                 mydict[k] = item[k]
         # add field to check if it's the first publication of this type
-        # for this organization/user
+        # for this organization/user, and check for potential spam
         if templates_dict["type"] != 'organizations':
+            mydict['spam'] = any([
+                spam in field.lower() if field else False
+                for spam in SPAM_WORDS
+                for field in [item['title'], item['description']]
+            ])
             if item['organization']:
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
@@ -51,9 +56,24 @@ def check_new(ti, **kwargs):
             else:
                 mydict['owner_type'] = None
             if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] == 1:
-                mydict['first_publication'] = True
+                # if it's a dataset and it's labelled with a schema and not potential spam, no ping
+                if (
+                    templates_dict["type"] == 'datasets'
+                    and any([r['schema'] for r in item['resources']])
+                    and not mydict['spam']
+                ):
+                    print("This dataset has a schema:", item)
+                    mydict['first_publication'] = False
+                else:
+                    mydict['first_publication'] = True
             else:
                 mydict['first_publication'] = False
+        else:
+            mydict['spam'] = any([
+                spam in field.lower() if field else False
+                for spam in SPAM_WORDS
+                for field in [item['name'], item['description']]
+            ])
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
 
@@ -185,10 +205,15 @@ def check_schema(ti):
 
 
 def publish_item(item, item_type):
-    if item_type == "dataset":
-        message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
+    if item['spam']:
+        message = ':warning: @all Spam potentiel\n'
     else:
-        message = ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
+        message = ''
+
+    if item_type == "dataset":
+        message += ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
+    else:
+        message += ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
 
     if item['owner_type'] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
@@ -202,10 +227,16 @@ def publish_item(item, item_type):
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
     if item['first_publication']:
-        if item_type == "dataset":
-            message = ":loudspeaker: :one: Premier jeu de données "
+        if item['spam']:
+            message = ':warning: @all Spam potentiel\n'
         else:
-            message = ":loudspeaker: :one: Première réutilisation "
+            message = ''
+
+        if item_type == "dataset":
+            message += ":loudspeaker: :one: Premier jeu de données "
+        else:
+            message += ":loudspeaker: :one: Première réutilisation "
+
         if item['owner_type'] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
             message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
@@ -226,17 +257,21 @@ def publish_mattermost(ti):
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
 
-    if nb_datasets > 0:
-        for item in datasets:
-            publish_item(item, "dataset")
-
     if nb_orgas > 0:
         for item in orgas:
-            message = (
+            if item['spam']:
+                message = ':warning: @all Spam potentiel\n'
+            else:
+                message = ''
+            message += (
                 ":loudspeaker: :office: Nouvelle **organisation** : "
                 f"*{item['name']}* \n\n\n:point_right: {item['page']}"
             )
             send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+    if nb_datasets > 0:
+        for item in datasets:
+            publish_item(item, "dataset")
 
     if nb_reuses > 0:
         for item in reuses:

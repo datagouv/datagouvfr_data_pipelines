@@ -13,6 +13,36 @@ if AIRFLOW_ENV == "prod":
     ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
 
 
+SPAM_WORDS = [
+    'free',
+    'gratuit',
+    'allah',
+    'jesus'
+    'call',
+    'promo',
+    'argent',
+    'reduction',
+    'economisez',
+    'urgent',
+    'recompense',
+    'discount',
+    'money',
+    'gagner',
+    'libido',
+    'sex',
+    'viagra',
+    'bitcoin',
+    'cash',
+    'satisfied',
+    'miracle',
+    'weight loss',
+    'voyance',
+    'streaming',
+    'benefits',
+    'escort',
+]
+
+
 class File(TypedDict):
     dest_path: str
     dest_name: str

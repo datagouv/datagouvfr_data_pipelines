@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
 
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -360,33 +360,6 @@ def create_all_tables():
 
         # Spam
         print('Spam')
-        spam_words = [
-            'free',
-            'gratuit',
-            'allah',
-            'jesus'
-            'call',
-            'promo',
-            'argent',
-            'reduction',
-            'economisez',
-            'urgent',
-            'recompense',
-            'discount',
-            'money',
-            'gagner',
-            'libido',
-            'sex',
-            'viagra',
-            'bitcoin',
-            'cash',
-            'satisfied',
-            'miracle',
-            'weight loss',
-            'voyance',
-            'streaming',
-            'benefits',
-        ]
         search_types = [
             'datasets',
             'reuses',
@@ -396,7 +369,7 @@ def create_all_tables():
         spam = []
         for obj in search_types:
             print('   - Starting with', obj)
-            for word in spam_words:
+            for word in SPAM_WORDS:
                 data = get_all_from_api_query(
                     datagouv_api_url + f'{obj}/?q={word}',
                     mask="data{badges,organization,owner,id,name,title,metrics}"
