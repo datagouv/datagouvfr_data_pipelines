@@ -41,6 +41,10 @@ def format_election_files():
                 pass
         max_nb_columns = max([row.count(';') for row in content]) + 1
         header = content[0].replace('\n', '').split(';')
+        # specific rule for 2019_euro
+        if "N°Panneau" not in header:
+            print("Special process:", f)
+            header[header.index('N°Liste')] = 'N°Panneau'
         hook_candidat_columns = np.argwhere(['Panneau' in c for c in header])[0][0]
         candidat_columns = header[hook_candidat_columns:]
         first_columns = header[:hook_candidat_columns]
@@ -126,7 +130,9 @@ def process_election_data():
 
     # getting preprocessed resources
     resources_url = [r['url'] for r in get_all_from_api_query(
-        'https://www.data.gouv.fr/api/1/datasets/community_resources/?organization=646b7187b50b2a93b1ae3d45'
+        # due to https://github.com/MongoEngine/mongoengine/issues/2748
+        # we have to specify a sort parameter for now
+        'https://www.data.gouv.fr/api/1/datasets/community_resources/?organization=646b7187b50b2a93b1ae3d45&sort=-created_at_internal'
     )]
     resources = {
         'general': [r for r in resources_url if 'general-results.csv' in r],

@@ -50,6 +50,7 @@ def send_files(
             is_file = os.path.isfile(
                 os.path.join(file["source_path"], file["source_name"])
             )
+            print("Sending ", file["source_name"])
             if is_file:
                 client.fput_object(
                     MINIO_BUCKET,
