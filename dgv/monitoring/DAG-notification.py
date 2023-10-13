@@ -226,10 +226,6 @@ def publish_mattermost(ti):
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
 
-    if nb_datasets > 0:
-        for item in datasets:
-            publish_item(item, "dataset")
-
     if nb_orgas > 0:
         for item in orgas:
             message = (
@@ -237,6 +233,10 @@ def publish_mattermost(ti):
                 f"*{item['name']}* \n\n\n:point_right: {item['page']}"
             )
             send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+    if nb_datasets > 0:
+        for item in datasets:
+            publish_item(item, "dataset")
 
     if nb_reuses > 0:
         for item in reuses:
