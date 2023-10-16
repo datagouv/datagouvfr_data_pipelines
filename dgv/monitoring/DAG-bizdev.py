@@ -75,7 +75,7 @@ async def classify_user(user):
         if user['about']:
             if any([sus in user['about'] for sus in ['http', 'www.']]):
                 return {
-                    'type': 'user',
+                    'type': 'users',
                     'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
                     'name_or_title': None,
                     'creator': None,
@@ -86,7 +86,7 @@ async def classify_user(user):
                 }
             elif detect(user['about']) != 'fr':
                 return {
-                    'type': 'user',
+                    'type': 'users',
                     'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
                     'name_or_title': None,
                     'creator': None,
@@ -99,7 +99,7 @@ async def classify_user(user):
                 return None
     except:
         return {
-            'type': 'user',
+            'type': 'users',
             'url': f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
             'name_or_title': None,
             'creator': None,
