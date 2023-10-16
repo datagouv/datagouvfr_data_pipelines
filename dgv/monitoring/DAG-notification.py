@@ -265,7 +265,7 @@ def publish_mattermost(ti):
                 message = ''
             message += (
                 ":loudspeaker: :office: Nouvelle **organisation** : "
-                f"*{item['name']}* \n\n\n:point_right: {item['page']}"
+                f"*{item['name'].rstrip().lstrip()}* \n\n\n:point_right: {item['page']}"
             )
             send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
