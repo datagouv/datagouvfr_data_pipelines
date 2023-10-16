@@ -479,7 +479,7 @@ with DAG(
     dag_id=DAG_NAME,
     # every Monday (for spam, empty JDD and KO reuses) and every 1st day of month for tops
     schedule_interval="0 4 1 * 1",
-    start_date=days_ago(0, hour=1),
+    start_date=datetime(2023, 10, 15),
     dagrun_timeout=timedelta(minutes=120),
     tags=["curation", "bizdev", "monthly", "datagouv"],
     default_args=default_args,
