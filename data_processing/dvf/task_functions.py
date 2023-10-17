@@ -334,15 +334,15 @@ def get_epci():
 def process_dpe():
     cols_dpe = [
         'batiment_groupe_id',
-        'identifiant_dpe',
-        'type_batiment_dpe',
+        # 'identifiant_dpe',
+        # 'type_batiment_dpe',
         'periode_construction_dpe',
-        'annee_construction_dpe',
-        'date_etablissement_dpe',
-        'nombre_niveau_logement',
+        # 'annee_construction_dpe',
+        # 'date_etablissement_dpe',
+        # 'nombre_niveau_logement',
         'nombre_niveau_immeuble',
         'surface_habitable_immeuble',
-        'surface_habitable_logement',
+        # 'surface_habitable_logement',
         'classe_bilan_dpe',
         'classe_emission_ges',
     ]
@@ -350,27 +350,35 @@ def process_dpe():
         "batiment_groupe_id",
         "parcelle_id"
     ]
+    print("Import et traitement DPE infos...")
     dpe = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
         dtype=str,
         usecols=cols_dpe
     )
-    dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
-    dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
-        lambda x: round(float(x), 2)
-    )
+    # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+    # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+    #     lambda x: round(float(x), 2)
+    # )
+    dpe.set_index('batiment_groupe_id', inplace=True)
+    print("Import DPE parcelles...")
     parcelles = pd.read_csv(
         DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
         dtype=str,
         usecols=cols_parcelles
     )
-    dpe_parcelled = pd.merge(
-        dpe,
+    parcelles.set_index('batiment_groupe_id', inplace=True)
+    print("Jointure des deux tables...")
+    dpe_parcelled = dpe.join(
         parcelles,
         on='batiment_groupe_id',
         how='left'
     )
+    del dpe
+    del parcelles
+    dpe_parcelled.reset_index(inplace=True)
     dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+    print("Export de la table finale...")
     dpe_parcelled.to_csv(
         DATADIR + "/all_dpe.csv",
         sep=",",
