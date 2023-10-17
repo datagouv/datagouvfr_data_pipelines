@@ -44,7 +44,7 @@ default_args = {
         'pierlou.ramade@data.gouv.fr',
         'geoffrey.aldebert@data.gouv.fr'
     ],
-    'email_on_failure': True
+    'email_on_failure': False
 }
 
 with DAG(
