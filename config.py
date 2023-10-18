@@ -48,7 +48,7 @@ SECRET_INPI_USER = Variable.get("SECRET_INPI_USER", "")
 SECRET_INPI_PASSWORD = Variable.get("SECRET_INPI_PASSWORD", "")
 
 # RNE
-AUTH_RNE = Variable.get("AUTH_RNE", "")
+AUTH_RNE = Variable.get("AUTH_RNE", [])
 
 # Twitter
 TWITTER_CONSUMER_KEY = Variable.get("TWITTER_CONSUMER_KEY", "")
