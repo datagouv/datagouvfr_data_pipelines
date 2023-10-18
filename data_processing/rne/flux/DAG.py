@@ -5,7 +5,7 @@ from airflow.operators.python import PythonOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from dags.datagouvfr_data_pipelines.data_processing.rne.flux.task_functions import (
+from datagouvfr_data_pipelines.data_processing.rne.flux.task_functions import (
     TMP_FOLDER,
     get_every_day_flux,
     send_rne_flux_to_minio,
