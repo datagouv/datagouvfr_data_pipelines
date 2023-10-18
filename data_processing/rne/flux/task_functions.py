@@ -113,7 +113,7 @@ def get_daily_flux_rne(
     json_file.close()
 
 
-def get_new_token(session, url: str, auth: list[dict]) -> str | None:
+def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
     """Gets a new access token from the RNE API.
 
     Args:
