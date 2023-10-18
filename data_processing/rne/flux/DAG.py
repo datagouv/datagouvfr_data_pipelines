@@ -12,10 +12,10 @@ from datagouvfr_data_pipelines.data_processing.rne.flux.task_functions import (
 
 with DAG(
     dag_id="data_processing_flux_rne",
-    start_date=datetime(2023, 10, 5),
-    # schedule_interval="0 0 * * FRI",  # every Friday at midnight
+    start_date=datetime(2023, 10, 18),
+    schedule_interval="@daily",
     catchup=False,
-    dagrun_timeout=timedelta(minutes=(60 * 8)),
+    dagrun_timeout=timedelta(minutes=(60 * 20)),
     tags=["data_processing", "rne", "flux"],
     params={},
 ) as dag:
