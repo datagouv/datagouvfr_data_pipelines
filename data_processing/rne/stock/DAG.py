@@ -15,7 +15,6 @@ from datagouvfr_data_pipelines.data_processing.rne.stock.task_functions import (
 with DAG(
     dag_id="data_processing_rne_dirigeants",
     start_date=datetime(2023, 10, 5),
-    # schedule_interval="0 0 * * FRI",  # every Friday at midnight
     catchup=False,
     dagrun_timeout=timedelta(minutes=(60 * 8)),
     tags=["data_processing", "rne", "dirigeants"],
