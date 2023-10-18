@@ -26,7 +26,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/flux/"
 DATADIR = f"{TMP_FOLDER}data"
 DEFAULT_START_DATE = "2023-07-01"
 RNE_API_DIFF_URL = "https://registre-national-entreprises.inpi.fr/api/companies/diff?"
-RNE_API_TOKEN_URL = "https://registre-national-entreprises.inpi.fr/api/sso/login" 
+RNE_API_TOKEN_URL = "https://registre-national-entreprises.inpi.fr/api/sso/login"
 MINIO_DATA_PATH = "rne/flux/data/"
 
 
@@ -59,7 +59,7 @@ def get_last_siren_in_page(page_data):
     return page_data[-1].get("company", {}).get("siren") if page_data else None
 
 
-def get_daily_flux_rne(
+def get_and_save_daily_flux_rne(
     start_date: str,
     end_date: str,
     session,
@@ -74,14 +74,15 @@ def get_daily_flux_rne(
     headers = {"Authorization": f"Bearer {token}"}
     last_siren = None  # Initialize last_siren
 
-    json_file_name = f"{DATADIR}/rne_flux_{start_date}.json"
-    
+    json_file_name = f"rne_flux_{start_date}.json"
+    json_file_path = f"{DATADIR}/{json_file_name}"
+
     if not os.path.exists(DATADIR):
         logging.info(f"********** Creating {DATADIR}")
         os.makedirs(DATADIR)
 
-    with open(json_file_name, "w") as json_file:
-        logging.info(f"****** Opening file: {json_file_name}")
+    with open(json_file_path, "w") as json_file:
+        logging.info(f"****** Opening file: {json_file_path}")
         while True:
             url = f"{RNE_API_DIFF_URL}from={start_date}&to={end_date}&pageSize=100"
 
@@ -98,17 +99,32 @@ def get_daily_flux_rne(
                     json.dump(page_data, json_file)
                     json_file.flush()
                 else:
-                    logging.info(f"****** Closing file: {json_file_name}")
+                    logging.info(f"****** Closing file: {json_file_path}")
                     break
 
             except Exception as e:
-                # If the API request failed, delete the current 
+                # If the API request failed, delete the current
                 # JSON file and break the loop
                 logging.error(f"Error occurred during the API request: {e}")
-                logging.info(f"****** Deleting file: {json_file_name}")
-                os.remove(json_file_name)
+                logging.info(f"****** Deleting file: {json_file_path}")
+                os.remove(json_file_path)
                 break
     json_file.close()
+    send_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": f"{json_file_name}",
+                "dest_path": MINIO_DATA_PATH,
+                "dest_name": f"{json_file_name}",
+            },
+        ],
+    )
+    logging.info(f"****** Sending file to MinIO: {json_file_name}")
 
 
 def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
@@ -127,7 +143,7 @@ def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
         selected_auth = random.choice(auth)
         logging.info(f"Authentification account used: {selected_auth['username']}")
 
-        # Make a POST request to the RNE token endpoint 
+        # Make a POST request to the RNE token endpoint
         # with the selected authentication method.
         response = session.post(url, json=selected_auth)
 
@@ -219,6 +235,7 @@ def make_api_request(session, url, auth, headers, max_retries=10):
 def get_every_day_flux(
     auth=AUTH_RNE,
     token=None,
+    **kwargs,
 ):
     # Create a persistent session
     session = create_persistent_session()
@@ -237,55 +254,26 @@ def get_every_day_flux(
         next_day = current_date + timedelta(days=1)
         next_day_formatted = next_day.strftime("%Y-%m-%d")
 
-        get_daily_flux_rne(
+        get_and_save_daily_flux_rne(
             start_date_formatted, next_day_formatted, session, auth, token
         )
 
         current_date = next_day
 
-
-def send_rne_flux_to_minio(folder_path=DATADIR, **kwargs):
-    logging.info("Saving files in MinIO.....")
-
-    # List all JSON files in the directory
-    json_files = [f for f in os.listdir(folder_path) if f.endswith(".json")]
-
-    if not json_files:
-        logging.warning("No JSON files found to send to MinIO.")
-        return
-
-    sent_files = 0
-    for json_file in json_files:
-        send_files(
-            MINIO_URL=MINIO_URL,
-            MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            list_files=[
-                {
-                    "source_path": f"{DATADIR}/",
-                    "source_name": f"{json_file}",
-                    "dest_path": MINIO_DATA_PATH,
-                    "dest_name": f"{json_file}",
-                },
-            ],
-        )
-        sent_files += 1
-
-    kwargs["ti"].xcom_push(key="count_rne_flux_json_files", value=sent_files)
-    kwargs["ti"].xcom_push(key="rne_flux_json_files", value=json_files)
+    kwargs["ti"].xcom_push(key="rne_flux_start_date", value=start_date)
+    kwargs["ti"].xcom_push(key="rne_flux_end_date", value=end_date)
 
 
 def send_notification_mattermost(**kwargs):
-    count_json_files = kwargs["ti"].xcom_pull(
-        key="count_rne_flux_json_files", task_ids="upload_rne_flux_to_minio"
+    rne_flux_start_date = kwargs["ti"].xcom_pull(
+        key="rne_flux_start_date", task_ids="get_every_day_flux"
     )
-    list_json_files = kwargs["ti"].xcom_pull(
-        key="rne_flux_json_files", task_ids="upload_rne_flux_to_minio"
+    rne_flux_end_date = kwargs["ti"].xcom_pull(
+        key="rne_flux_end_date", task_ids="get_every_day_flux"
     )
     send_message(
         f"Données flux RNE mise à jour sur Minio "
         f"- Bucket {MINIO_BUCKET_DATA_PIPELINE} :"
-        f"\n - Nombre de fichiers json créés : {count_json_files} "
-        f"\n - Liste des fichiers json crées : {list_json_files} "
+        f"\n - Date début flux : {rne_flux_start_date} "
+        f"\n - Date fin flux : {rne_flux_end_date} "
     )
