@@ -65,15 +65,14 @@ def get_and_save_daily_flux_rne(
     session,
     auth: List[Dict],
 ):
-
     json_file_name = f"rne_flux_{start_date}.json"
     json_file_path = f"{DATADIR}/{json_file_name}"
 
     if not os.path.exists(DATADIR):
         logging.info(f"********** Creating {DATADIR}")
         os.makedirs(DATADIR)
-        
-    last_siren = None # Initialize last_siren
+
+    last_siren = None  # Initialize last_siren
 
     with open(json_file_path, "w") as json_file:
         logging.info(f"****** Opening file: {json_file_path}")
