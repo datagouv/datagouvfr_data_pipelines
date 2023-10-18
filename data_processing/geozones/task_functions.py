@@ -70,8 +70,8 @@ def download_and_process_geozones():
         ((df['type'] == 'Arrondissement') & (df['nom'].str.contains('|'.join(['Paris', 'Lyon', 'Marseille']))))
     ]
 
-    export = {'data': json.loads(df.to_json(orient='records'))}
-    export['data'].extend([
+    export = json.loads(df.to_json(orient='records'))
+    export.extend([
         {
             "uri": "http://id.insee.fr/geo/pays/france",
             "nom": "France",
@@ -109,13 +109,18 @@ def download_and_process_geozones():
     os.mkdir(DATADIR)
     with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
-    return
+
+    with open(DATADIR + '/export_countries.json', 'w', encoding='utf8') as f:
+        json.dump(
+            [_ for _ in export if _['level'] == 'country'],
+            f, ensure_ascii=False, indent=4
+        )
 
 
 def post_geozones():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}geozones/config/dgv.json") as fp:
         data = json.load(fp)
-    file_to_upload = {
+    geozones_file = {
         "dest_path": f"{DATADIR}/",
         "dest_name": "export_geozones.json",
     }
@@ -128,12 +133,30 @@ def post_geozones():
     }
     post_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        file_to_upload=file_to_upload,
+        file_to_upload=geozones_file,
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
         resource_payload=payload
     )
-    return
+
+    countries_file = {
+        "dest_path": f"{DATADIR}/",
+        "dest_name": "export_countries.json",
+    }
+    payload = {
+        "description": f"Géozones (pays uniquement) créées à partir du [fichier de l'INSEE](https://rdf.insee.fr/geo/index.html) ({datetime.today()})",
+        "filesize": os.path.getsize(os.path.join(DATADIR + '/export_countries.json')),
+        "mime": "application/json",
+        "title": f"Géozones pays ({datetime.today()})",
+        "type": "main",
+    }
+    post_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        file_to_upload=countries_file,
+        dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
+        resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
+        resource_payload=payload
+    )
 
 
 def notification_mattermost():
