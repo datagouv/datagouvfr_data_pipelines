@@ -5,7 +5,6 @@ from airflow.operators.python import PythonOperator
 from datagouvfr_data_pipelines.data_processing.rne.flux.task_functions import (
     TMP_FOLDER,
     get_every_day_flux,
-    send_rne_flux_to_minio,
     send_notification_mattermost,
 )
 
@@ -25,11 +24,8 @@ with DAG(
     )
 
     get_daily_flux_rne = PythonOperator(
-        task_id="get_every_day_flux", python_callable=get_every_day_flux
-    )
-
-    upload_rne_flux_to_minio = PythonOperator(
-        task_id="upload_rne_flux_to_minio", python_callable=send_rne_flux_to_minio
+        task_id="get_every_day_flux",
+        python_callable=get_every_day_flux,
     )
 
     send_notification_mattermost = PythonOperator(
@@ -38,5 +34,4 @@ with DAG(
     )
 
     get_daily_flux_rne.set_upstream(clean_previous_outputs)
-    upload_rne_flux_to_minio.set_upstream(get_daily_flux_rne)
-    send_notification_mattermost.set_upstream(upload_rne_flux_to_minio)
+    send_notification_mattermost.set_upstream(get_daily_flux_rne)
