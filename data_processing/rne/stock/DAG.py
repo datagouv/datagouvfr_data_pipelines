@@ -5,7 +5,8 @@ from airflow.operators.python import PythonOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.data_processing.rne.task_functions import (
+from datagouvfr_data_pipelines.data_processing.rne.stock.task_functions import (
+    TMP_FOLDER,
     get_rne_stock,
     unzip_files,
     process_rne_files,
@@ -13,7 +14,6 @@ from datagouvfr_data_pipelines.data_processing.rne.task_functions import (
     send_notification_mattermost,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/stock/"
 
 with DAG(
     dag_id="data_processing_rne_dirigeants",
