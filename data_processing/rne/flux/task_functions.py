@@ -6,6 +6,7 @@ import datetime
 from datetime import datetime, timedelta
 import random
 import requests
+import glob
 import re
 import time
 from requests.exceptions import SSLError
@@ -20,27 +21,48 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     AUTH_RNE,
 )
+from datagouvfr_data_pipelines.utils.minio import (
+    get_files_from_prefix,
+)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/flux/"
 DATADIR = f"{TMP_FOLDER}data"
 ZIP_FILE_PATH = f"{TMP_FOLDER}rne.zip"
 EXTRACTED_FILES_PATH = f"{TMP_FOLDER}extracted/"
-DEFAULT_START_DATE = "2023-07-01"
+# DEFAULT_START_DATE = "2023-07-01"
+DEFAULT_START_DATE = "2023-10-16"
 RNE_API_DIFF_URL = "https://registre-national-entreprises.inpi.fr/api/companies/diff?"
 
 
-def get_last_json_file_date(folder_path=TMP_FOLDER):
-    json_files = [f for f in os.listdir(folder_path) if f.endswith(".json")]
-    if not json_files:
+def get_last_json_file_date(folder_path=DATADIR):
+    json_daily_flux_files = get_files_from_prefix(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        prefix=folder_path,
+    )
+
+    # json_files = [f for f in os.listdir(folder_path) if f.endswith(".json")]
+
+    if not json_daily_flux_files:
         return None
-    # Extract dates from the JSON file names
-    date_pattern = r"rne_flux_(\d{4}-\d{2}-\d{2})"
-    dates = [re.search(date_pattern, f).group(1) for f in json_files]
-    # Sort the dates and get the last one
-    dates.sort()
-    last_date = dates[-1]
-    return last_date
+
+    # Extract dates from the JSON file names and sort them
+    dates = sorted(
+        re.findall(r"rne_flux_(\d{4}-\d{2}-\d{2})", " ".join(json_daily_flux_files))
+    )
+
+    if dates:
+        last_date = dates[-1]
+        return last_date
+    else:
+        return None
+
+
+def get_last_siren_in_page(page_data):
+    return page_data[-1].get("company", {}).get("siren") if page_data else None
 
 
 def get_daily_flux_rne(
@@ -55,8 +77,8 @@ def get_daily_flux_rne(
         # If no token is provided, fetch a new one
         logging.info("Getting new token...")
         token = get_new_token(session, url, auth)
-    headers = {"Authorization": f"Bearer {token}"}
 
+    headers = {"Authorization": f"Bearer {token}"}
     last_siren = None  # Initialize last_siren
 
     json_file_name = f"flux-rne/rne_flux_{start_date}.json"
@@ -67,28 +89,24 @@ def get_daily_flux_rne(
 
             if last_siren:
                 url += f"&searchAfter={last_siren}"
+
             try:
                 r = make_api_request(session, url, auth, headers)
                 page_data = r.json()
+
+                last_siren = get_last_siren_in_page(page_data)
+
                 if page_data:
-                    last_company_in_response = page_data[
-                        -1
-                    ]  # Get the last object in the response
-                    last_siren = last_company_in_response.get("company", {}).get(
-                        "siren"
-                    )
-                    print(f"*******{last_siren}")
-                    # Save the response data to the JSON file
                     json.dump(page_data, json_file)
                     json_file.flush()
                 else:
-                    last_siren = None
-                    print(f"*******Closing file: {json_file_name}")
+                    logging.info(f"Closing file: {json_file_name}")
                     break
+
             except Exception as e:
-                logging.error(f"Error occurred during the API request: {e}")
                 # If the API request failed, delete the current JSON file and break the loop
-                print(f"Deleting file: {json_file_name}")
+                logging.error(f"Error occurred during the API request: {e}")
+                logging.info(f"Deleting file: {json_file_name}")
                 os.remove(json_file_name)
                 break
     json_file.close()
@@ -197,11 +215,12 @@ def make_api_request(session, url, auth, headers, max_retries=10):
                 )
 
 
-def get_every_daily_flux(
-    url, auth=AUTH_RNE, 
-    token=None, 
-    folder_path=TMP_FOLDER
-    ):
+def get_every_day_flux(
+    url,
+    auth=AUTH_RNE,
+    token=None,
+    folder_path=DATADIR,
+):
     # Create a persistent session
     session = create_persistent_session()
 
@@ -222,3 +241,50 @@ def get_every_daily_flux(
         )
 
         current_date = next_day
+
+
+def send_rne_flux_to_minio(folder_path=DATADIR, **kwargs):
+    logging.info("Saving files in MinIO.....")
+
+    # List all JSON files in the directory
+    json_files = [f for f in os.listdir(folder_path) if f.endswith(".json")]
+
+    if not json_files:
+        logging.warning("No JSON files found to send to MinIO.")
+        return
+
+    sent_files = 0
+    for json_file in json_files:
+        send_files(
+            MINIO_URL=MINIO_URL,
+            MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            list_files=[
+                {
+                    "source_path": f"{DATADIR}/",
+                    "source_name": f"{json_file}",
+                    "dest_path": "rne/flux/data",
+                    "dest_name": f"{json_file}",
+                },
+            ],
+        )
+        sent_files += 1
+
+    kwargs["ti"].xcom_push(key="count_rne_flux_json_files", value=sent_files)
+    kwargs["ti"].xcom_push(key="rne_flux_json_files", value=json_files)
+
+
+def send_notification_mattermost(**kwargs):
+    count_json_files = kwargs["ti"].xcom_pull(
+        key="count_rne_flux_json_files", task_ids="upload_rne_flux_to_minio"
+    )
+    list_json_files = kwargs["ti"].xcom_pull(
+        key="rne_flux_json_files", task_ids="upload_rne_flux_to_minio"
+    )
+    send_message(
+        f"Données flux RNE mise à jour sur Minio "
+        f"- Bucket {MINIO_BUCKET_DATA_PIPELINE} :"
+        f"\n - Nombre de fichiers json créés : {count_json_files} "
+        f"\n - Liste des fichiers json crées : {list_json_files} "
+    )
