@@ -22,11 +22,8 @@ from datagouvfr_data_pipelines.utils.minio import (
     get_files_from_prefix,
 )
 
-DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/flux/"
 DATADIR = f"{TMP_FOLDER}data"
-ZIP_FILE_PATH = f"{TMP_FOLDER}rne.zip"
-EXTRACTED_FILES_PATH = f"{TMP_FOLDER}extracted/"
 DEFAULT_START_DATE = "2023-07-01"
 RNE_API_DIFF_URL = "https://registre-national-entreprises.inpi.fr/api/companies/diff?"
 RNE_API_TOKEN_URL = "https://registre-national-entreprises.inpi.fr/api/sso/login" 
