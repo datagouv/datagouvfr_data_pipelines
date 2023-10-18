@@ -3,13 +3,16 @@ import json
 from datetime import datetime, timedelta
 import random
 import requests
-from typing import List, Dict, Union
 import re
 import time
+import logging
+from typing import List, Dict, Union
 from requests.exceptions import SSLError
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-import logging
 from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import (
+    get_files_from_prefix,
+)
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_URL,
@@ -18,9 +21,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     AUTH_RNE,
 )
-from datagouvfr_data_pipelines.utils.minio import (
-    get_files_from_prefix,
-)
+
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/flux/"
 DATADIR = f"{TMP_FOLDER}data"
