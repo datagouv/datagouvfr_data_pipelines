@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import random
 import requests
 import glob
+from typing import List, Dict, Union
 import re
 import time
 from requests.exceptions import SSLError
@@ -70,8 +71,8 @@ def get_daily_flux_rne(
     end_date: str,
     session,
     url: str,
-    auth: list[dict],
-    token: str | None,
+    auth: List[Dict],
+    token: Union[str, None],
 ):
     if not token:
         # If no token is provided, fetch a new one
