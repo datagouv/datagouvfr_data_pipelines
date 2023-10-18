@@ -1,12 +1,8 @@
-from datagouvfr_data_pipelines.utils.download import download_files
 import os
-import pandas as pd
 import json
-import datetime
 from datetime import datetime, timedelta
 import random
 import requests
-import glob
 from typing import List, Dict, Union
 import re
 import time
@@ -31,22 +27,20 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/flux/"
 DATADIR = f"{TMP_FOLDER}data"
 ZIP_FILE_PATH = f"{TMP_FOLDER}rne.zip"
 EXTRACTED_FILES_PATH = f"{TMP_FOLDER}extracted/"
-# DEFAULT_START_DATE = "2023-07-01"
-DEFAULT_START_DATE = "2023-10-16"
+DEFAULT_START_DATE = "2023-07-01"
 RNE_API_DIFF_URL = "https://registre-national-entreprises.inpi.fr/api/companies/diff?"
 RNE_API_TOKEN_URL = "https://registre-national-entreprises.inpi.fr/api/sso/login" 
+MINIO_DATA_PATH = "rne/flux/data/"
 
 
-def get_last_json_file_date(folder_path=DATADIR):
+def get_last_json_file_date():
     json_daily_flux_files = get_files_from_prefix(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        prefix=folder_path,
+        prefix=MINIO_DATA_PATH,
     )
-
-    # json_files = [f for f in os.listdir(folder_path) if f.endswith(".json")]
 
     if not json_daily_flux_files:
         return None
@@ -58,6 +52,7 @@ def get_last_json_file_date(folder_path=DATADIR):
 
     if dates:
         last_date = dates[-1]
+        logging.info(f"***** Last date saved: {last_date}")
         return last_date
     else:
         return None
@@ -82,9 +77,14 @@ def get_daily_flux_rne(
     headers = {"Authorization": f"Bearer {token}"}
     last_siren = None  # Initialize last_siren
 
-    json_file_name = f"flux-rne/rne_flux_{start_date}.json"
+    json_file_name = f"{DATADIR}/rne_flux_{start_date}.json"
+    
+    if not os.path.exists(DATADIR):
+        logging.info(f"********** Creating {DATADIR}")
+        os.makedirs(DATADIR)
 
     with open(json_file_name, "w") as json_file:
+        logging.info(f"****** Opening file: {json_file_name}")
         while True:
             url = f"{RNE_API_DIFF_URL}from={start_date}&to={end_date}&pageSize=100"
 
@@ -101,13 +101,14 @@ def get_daily_flux_rne(
                     json.dump(page_data, json_file)
                     json_file.flush()
                 else:
-                    logging.info(f"Closing file: {json_file_name}")
+                    logging.info(f"****** Closing file: {json_file_name}")
                     break
 
             except Exception as e:
-                # If the API request failed, delete the current JSON file and break the loop
+                # If the API request failed, delete the current 
+                # JSON file and break the loop
                 logging.error(f"Error occurred during the API request: {e}")
-                logging.info(f"Deleting file: {json_file_name}")
+                logging.info(f"****** Deleting file: {json_file_name}")
                 os.remove(json_file_name)
                 break
     json_file.close()
@@ -127,9 +128,10 @@ def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
     try:
         # Select a random authentication method from the `AUTH` list.
         selected_auth = random.choice(auth)
-        logging.info(f"Authentification account used: {selected_auth['user_name']}")
+        logging.info(f"Authentification account used: {selected_auth['username']}")
 
-        # Make a POST request to the RNE token endpoint with the selected authentication method.
+        # Make a POST request to the RNE token endpoint 
+        # with the selected authentication method.
         response = session.post(url, json=selected_auth)
 
         # Raise an exception if the response status code is not 200 OK.
@@ -181,7 +183,8 @@ def make_api_request(session, url, auth, headers, max_retries=10):
     """
 
     for attempt in range(max_retries + 1):
-        logging.info(f"Making API call try : {attempt}")
+        if attempt > 0:
+            logging.info(f"Making API call try : {attempt}")
 
         try:
             response = session.get(url, headers=headers)
@@ -219,14 +222,15 @@ def make_api_request(session, url, auth, headers, max_retries=10):
 def get_every_day_flux(
     auth=AUTH_RNE,
     token=None,
-    folder_path=DATADIR,
 ):
     # Create a persistent session
     session = create_persistent_session()
 
     # Get the start and end date
-    start_date = get_last_json_file_date(folder_path) or DEFAULT_START_DATE
-    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = get_last_json_file_date() or DEFAULT_START_DATE
+    end_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    logging.info(f"********* Start date: {start_date}")
+    logging.info(f"********* End date: {end_date}")
 
     current_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date_dt = datetime.strptime(end_date, "%Y-%m-%d")
@@ -264,7 +268,7 @@ def send_rne_flux_to_minio(folder_path=DATADIR, **kwargs):
                 {
                     "source_path": f"{DATADIR}/",
                     "source_name": f"{json_file}",
-                    "dest_path": "rne/flux/data",
+                    "dest_path": MINIO_DATA_PATH,
                     "dest_name": f"{json_file}",
                 },
             ],
