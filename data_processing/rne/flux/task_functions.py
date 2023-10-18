@@ -64,15 +64,7 @@ def get_and_save_daily_flux_rne(
     end_date: str,
     session,
     auth: List[Dict],
-    token: Union[str, None],
 ):
-    if not token:
-        # If no token is provided, fetch a new one
-        logging.info("Getting new token...")
-        token = get_new_token(session, RNE_API_TOKEN_URL, auth)
-
-    headers = {"Authorization": f"Bearer {token}"}
-    last_siren = None  # Initialize last_siren
 
     json_file_name = f"rne_flux_{start_date}.json"
     json_file_path = f"{DATADIR}/{json_file_name}"
@@ -80,26 +72,21 @@ def get_and_save_daily_flux_rne(
     if not os.path.exists(DATADIR):
         logging.info(f"********** Creating {DATADIR}")
         os.makedirs(DATADIR)
+        
+    last_siren = None # Initialize last_siren
 
     with open(json_file_path, "w") as json_file:
         logging.info(f"****** Opening file: {json_file_path}")
         while True:
-            url = f"{RNE_API_DIFF_URL}from={start_date}&to={end_date}&pageSize=100"
-
-            if last_siren:
-                url += f"&searchAfter={last_siren}"
-
             try:
-                r = make_api_request(session, url, auth, headers)
-                page_data = r.json()
-
-                last_siren = get_last_siren_in_page(page_data)
+                page_data, last_siren = make_api_request(
+                    session, auth, start_date, end_date, last_siren
+                )
 
                 if page_data:
                     json.dump(page_data, json_file)
                     json_file.flush()
                 else:
-                    logging.info(f"****** Closing file: {json_file_path}")
                     break
 
             except Exception as e:
@@ -109,6 +96,7 @@ def get_and_save_daily_flux_rne(
                 logging.info(f"****** Deleting file: {json_file_path}")
                 os.remove(json_file_path)
                 break
+    logging.info(f"****** Closing file: {json_file_path}")
     json_file.close()
     send_files(
         MINIO_URL=MINIO_URL,
@@ -124,7 +112,7 @@ def get_and_save_daily_flux_rne(
             },
         ],
     )
-    logging.info(f"****** Sending file to MinIO: {json_file_name}")
+    logging.info(f"****** Sent file to MinIO: {json_file_name}")
 
 
 def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
@@ -178,7 +166,14 @@ def create_persistent_session():
     return session
 
 
-def make_api_request(session, url, auth, headers, max_retries=10):
+def make_api_request(
+    session,
+    auth,
+    start_date,
+    end_date,
+    last_siren=None,
+    max_retries=10,
+):
     """Makes an API request and retries it up to max_retries times if it fails,
     and gets a new token if the return is access denied.
 
@@ -195,14 +190,22 @@ def make_api_request(session, url, auth, headers, max_retries=10):
       Exception: If the API request fails after max_retries retries.
     """
 
+    url = f"{RNE_API_DIFF_URL}from={start_date}&to={end_date}&pageSize=100"
+    if last_siren:
+        url += f"&searchAfter={last_siren}"
+
     for attempt in range(max_retries + 1):
         if attempt > 0:
             logging.info(f"Making API call try : {attempt}")
-
         try:
+            logging.info("Getting new token...")
+            token = get_new_token(session, RNE_API_TOKEN_URL, auth)
+            headers = {"Authorization": f"Bearer {token}"}
             response = session.get(url, headers=headers)
             response.raise_for_status()
-            return response
+            response = response.json()
+            last_siren = get_last_siren_in_page(response)
+            return response, last_siren
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 403 or e.response.status_code == 401:
@@ -234,7 +237,6 @@ def make_api_request(session, url, auth, headers, max_retries=10):
 
 def get_every_day_flux(
     auth=AUTH_RNE,
-    token=None,
     **kwargs,
 ):
     # Create a persistent session
@@ -255,7 +257,7 @@ def get_every_day_flux(
         next_day_formatted = next_day.strftime("%Y-%m-%d")
 
         get_and_save_daily_flux_rne(
-            start_date_formatted, next_day_formatted, session, auth, token
+            start_date_formatted, next_day_formatted, session, auth
         )
 
         current_date = next_day
