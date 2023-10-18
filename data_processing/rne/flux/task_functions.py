@@ -34,6 +34,7 @@ EXTRACTED_FILES_PATH = f"{TMP_FOLDER}extracted/"
 # DEFAULT_START_DATE = "2023-07-01"
 DEFAULT_START_DATE = "2023-10-16"
 RNE_API_DIFF_URL = "https://registre-national-entreprises.inpi.fr/api/companies/diff?"
+RNE_API_TOKEN_URL = "https://registre-national-entreprises.inpi.fr/api/sso/login" 
 
 
 def get_last_json_file_date(folder_path=DATADIR):
@@ -70,14 +71,13 @@ def get_daily_flux_rne(
     start_date: str,
     end_date: str,
     session,
-    url: str,
     auth: List[Dict],
     token: Union[str, None],
 ):
     if not token:
         # If no token is provided, fetch a new one
         logging.info("Getting new token...")
-        token = get_new_token(session, url, auth)
+        token = get_new_token(session, RNE_API_TOKEN_URL, auth)
 
     headers = {"Authorization": f"Bearer {token}"}
     last_siren = None  # Initialize last_siren
@@ -114,7 +114,7 @@ def get_daily_flux_rne(
 
 
 def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
-    """Gets a new access token from the RNE API.
+    """Gets a new access token from the RNE API.g
 
     Args:
         url: The URL of the RNE token endpoint.
@@ -217,7 +217,6 @@ def make_api_request(session, url, auth, headers, max_retries=10):
 
 
 def get_every_day_flux(
-    url,
     auth=AUTH_RNE,
     token=None,
     folder_path=DATADIR,
@@ -238,7 +237,7 @@ def get_every_day_flux(
         next_day_formatted = next_day.strftime("%Y-%m-%d")
 
         get_daily_flux_rne(
-            start_date_formatted, next_day_formatted, session, url, auth, token
+            start_date_formatted, next_day_formatted, session, auth, token
         )
 
         current_date = next_day
