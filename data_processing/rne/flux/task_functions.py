@@ -3,23 +3,18 @@ import json
 from datetime import datetime, timedelta
 import re
 import logging
-from typing import List, Dict
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
 from datagouvfr_data_pipelines.utils.minio import (
     get_files_from_prefix,
 )
-from datagouvfr_data_pipelines.data_processing.rne.flux.rne_api import (
-    create_persistent_session,
-    make_api_request,
-)
+from datagouvfr_data_pipelines.data_processing.rne.flux.rne_api import ApiRNEClient
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-    AUTH_RNE,
 )
 
 
@@ -54,11 +49,22 @@ def get_last_json_file_date():
         return None
 
 
+def compute_start_date():
+    last_json_date = get_last_json_file_date()
+
+    if last_json_date:
+        last_date_obj = datetime.strptime(last_json_date, "%Y-%m-%d")
+        next_day = last_date_obj + timedelta(days=1)
+        start_date = next_day.strftime("%Y-%m-%d")
+    else:
+        start_date = DEFAULT_START_DATE
+
+    return start_date
+
+
 def get_and_save_daily_flux_rne(
     start_date: str,
     end_date: str,
-    session,
-    auth: List[Dict],
 ):
     """
     Fetches daily flux data from RNE API,
@@ -67,8 +73,6 @@ def get_and_save_daily_flux_rne(
     Args:
         start_date (str): The start date for data retrieval in the format 'YYYY-MM-DD'.
         end_date (str): The end date for data retrieval in the format 'YYYY-MM-DD'.
-        session: The session object used for making API requests.
-        auth (List[Dict]): A list of authentication credentials required for the API.
 
     Returns:
         None
@@ -81,28 +85,26 @@ def get_and_save_daily_flux_rne(
         os.makedirs(DATADIR)
 
     last_siren = None  # Initialize last_siren
+    page_data = True
 
     with open(json_file_path, "a") as json_file:
         logging.info(f"****** Opening file: {json_file_path}")
-        while True:
+        while page_data:
             try:
-                page_data, last_siren = make_api_request(
-                    session, auth, start_date, end_date, last_siren
+                rne_client = ApiRNEClient()
+                page_data, last_siren = rne_client.make_api_request(
+                    start_date, end_date, last_siren
                 )
-
                 if page_data:
                     json.dump(page_data, json_file)
                     json_file.write("\n")  # Add a newline for multiple JSON objects
-                else:
-                    break
-
             except Exception as e:
                 # If the API request failed, delete the current
                 # JSON file and break the loop
-                logging.error(f"Error occurred during the API request: {e}")
                 logging.info(f"****** Deleting file: {json_file_path}")
                 os.remove(json_file_path)
-                break
+                raise Exception(f"Error occurred during the API request: {e}")
+
     if os.path.exists(json_file_path):
         send_files(
             MINIO_URL=MINIO_URL,
@@ -121,27 +123,14 @@ def get_and_save_daily_flux_rne(
         logging.info(f"****** Sent file to MinIO: {json_file_name}")
 
 
-def get_every_day_flux(
-    auth=AUTH_RNE,
-    **kwargs,
-):
+def get_every_day_flux(**kwargs):
     """
     Fetches daily flux data from the Registre National des Entreprises (RNE) API
     and saves it to JSON files for a range of dates. This function iterates through
     a date range and calls the `get_and_save_daily_flux_rne` function for each day.
-
-    Args:
-        auth: Authentication credentials for the Registre National des Entreprises API (default: AUTH_RNE).
-        **kwargs: Additional keyword arguments passed to the function.
-
-    Returns:
-        None
     """
-    # Create a persistent session
-    session = create_persistent_session()
-
     # Get the start and end date
-    start_date = get_last_json_file_date() or DEFAULT_START_DATE
+    start_date = compute_start_date()
     end_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     logging.info(f"********* Start date: {start_date}")
     logging.info(f"********* End date: {end_date}")
@@ -154,9 +143,7 @@ def get_every_day_flux(
         next_day = current_date + timedelta(days=1)
         next_day_formatted = next_day.strftime("%Y-%m-%d")
 
-        get_and_save_daily_flux_rne(
-            start_date_formatted, next_day_formatted, session, auth
-        )
+        get_and_save_daily_flux_rne(start_date_formatted, next_day_formatted)
 
         current_date = next_day
 
