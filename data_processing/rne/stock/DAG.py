@@ -12,11 +12,11 @@ from datagouvfr_data_pipelines.data_processing.rne.stock.task_functions import (
 
 
 with DAG(
-    dag_id="data_processing_rne_dirigeants",
+    dag_id="get_stock_rne",
     start_date=datetime(2023, 10, 5),
     catchup=False,
     dagrun_timeout=timedelta(minutes=(60 * 8)),
-    tags=["data_processing", "rne", "dirigeants"],
+    tags=["download", "rne", "stock"],
     params={},
 ) as dag:
     clean_previous_outputs = BashOperator(

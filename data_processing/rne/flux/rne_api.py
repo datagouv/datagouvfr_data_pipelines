@@ -9,7 +9,7 @@ from requests.exceptions import SSLError
 
 
 class ApiRNEClient:
-    """API client for interacting with the 
+    """API client for interacting with the
     Registre National des Entreprises (RNE) API."""
 
     RNE_API_TOKEN_URL = "https://registre-national-entreprises.inpi.fr/api/sso/login"
