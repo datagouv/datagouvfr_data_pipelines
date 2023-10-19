@@ -15,6 +15,7 @@ with DAG(
     dag_id="get_stock_rne",
     start_date=datetime(2023, 10, 5),
     catchup=False,
+    max_active_runs=1,
     dagrun_timeout=timedelta(minutes=(60 * 8)),
     tags=["download", "rne", "stock"],
     params={},

@@ -14,6 +14,7 @@ with DAG(
     start_date=datetime(2023, 10, 18),
     schedule_interval="@daily",
     catchup=False,
+    max_active_runs=1,
     dagrun_timeout=timedelta(minutes=(60 * 20)),
     tags=["api", "rne", "flux"],
     params={},
