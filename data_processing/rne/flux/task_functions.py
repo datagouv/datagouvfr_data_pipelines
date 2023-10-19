@@ -220,7 +220,7 @@ def make_api_request(
                     logging.info(f"*****Memory Error changing size: {e}")
                 else:
                     logging.info(f"*****Error HTTP: {e}")
-                    time.sleep(60)
+                    time.sleep(600)
             else:
                 logging.info(f"*****Error HTTP: {e}")
                 time.sleep(60)
