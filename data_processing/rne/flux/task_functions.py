@@ -66,6 +66,19 @@ def get_and_save_daily_flux_rne(
     session,
     auth: List[Dict],
 ):
+    """
+    Fetches daily flux data from RNE API,
+    stores it in a JSON file, and sends the file to a MinIO server.
+
+    Args:
+        start_date (str): The start date for data retrieval in the format 'YYYY-MM-DD'.
+        end_date (str): The end date for data retrieval in the format 'YYYY-MM-DD'.
+        session: The session object used for making API requests.
+        auth (List[Dict]): A list of authentication credentials required for the API.
+
+    Returns:
+        None
+    """
     json_file_name = f"rne_flux_{start_date}.json"
     json_file_path = f"{DATADIR}/{json_file_name}"
 
@@ -85,7 +98,7 @@ def get_and_save_daily_flux_rne(
 
                 if page_data:
                     json.dump(page_data, json_file)
-                    json_file.write('\n')  # Add a newline for multiple JSON objects
+                    json_file.write("\n")  # Add a newline for multiple JSON objects
                 else:
                     break
 
@@ -238,6 +251,18 @@ def get_every_day_flux(
     auth=AUTH_RNE,
     **kwargs,
 ):
+    """
+    Fetches daily flux data from the Registre National des Entreprises (RNE) API
+    and saves it to JSON files for a range of dates. This function iterates through
+    a date range and calls the `get_and_save_daily_flux_rne` function for each day.
+
+    Args:
+        auth: Authentication credentials for the Registre National des Entreprises API (default: AUTH_RNE).
+        **kwargs: Additional keyword arguments passed to the function.
+
+    Returns:
+        None
+    """
     # Create a persistent session
     session = create_persistent_session()
 
