@@ -6,8 +6,7 @@ from datagouvfr_data_pipelines.data_processing.rne.stock.task_functions import (
     TMP_FOLDER,
     get_rne_stock,
     unzip_files,
-    process_rne_files,
-    send_rne_to_minio,
+    send_extracted_files_to_minio,
     send_notification_mattermost,
 )
 
@@ -31,12 +30,8 @@ with DAG(
 
     unzip_files = PythonOperator(task_id="unzip_files", python_callable=unzip_files)
 
-    process_files = PythonOperator(
-        task_id="process_files", python_callable=process_rne_files
-    )
-
-    upload_rne_to_minio = PythonOperator(
-        task_id="upload_rne_to_minio", python_callable=send_rne_to_minio
+    send_extracted_files_to_minio = PythonOperator(
+        task_id="send_stock_rne", python_callable=send_extracted_files_to_minio
     )
 
     send_notification_mattermost = PythonOperator(
@@ -46,6 +41,5 @@ with DAG(
 
     get_rne_latest_stock.set_upstream(clean_previous_outputs)
     unzip_files.set_upstream(get_rne_latest_stock)
-    process_files.set_upstream(unzip_files)
-    upload_rne_to_minio.set_upstream(process_files)
-    send_notification_mattermost.set_upstream(upload_rne_to_minio)
+    send_extracted_files_to_minio.set_upstream(unzip_files)
+    send_notification_mattermost.set_upstream(send_extracted_files_to_minio)
