@@ -75,7 +75,7 @@ def get_and_save_daily_flux_rne(
 
     last_siren = None  # Initialize last_siren
 
-    with open(json_file_path, "w") as json_file:
+    with open(json_file_path, "a") as json_file:
         logging.info(f"****** Opening file: {json_file_path}")
         while True:
             try:
@@ -85,7 +85,7 @@ def get_and_save_daily_flux_rne(
 
                 if page_data:
                     json.dump(page_data, json_file)
-                    json_file.flush()
+                    json_file.write('\n')  # Add a newline for multiple JSON objects
                 else:
                     break
 
