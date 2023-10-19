@@ -1,7 +1,5 @@
 from datagouvfr_data_pipelines.utils.download import download_files
 import os
-import pandas as pd
-import json
 import zipfile
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 import logging
