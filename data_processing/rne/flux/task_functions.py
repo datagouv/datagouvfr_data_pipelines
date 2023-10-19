@@ -96,23 +96,22 @@ def get_and_save_daily_flux_rne(
                 logging.info(f"****** Deleting file: {json_file_path}")
                 os.remove(json_file_path)
                 break
-    logging.info(f"****** Closing file: {json_file_path}")
-    json_file.close()
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"{json_file_name}",
-                "dest_path": MINIO_DATA_PATH,
-                "dest_name": f"{json_file_name}",
-            },
-        ],
-    )
-    logging.info(f"****** Sent file to MinIO: {json_file_name}")
+    if os.path.exists(json_file_path):
+        send_files(
+            MINIO_URL=MINIO_URL,
+            MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            list_files=[
+                {
+                    "source_path": f"{DATADIR}/",
+                    "source_name": f"{json_file_name}",
+                    "dest_path": MINIO_DATA_PATH,
+                    "dest_name": f"{json_file_name}",
+                },
+            ],
+        )
+        logging.info(f"****** Sent file to MinIO: {json_file_name}")
 
 
 def get_new_token(session, url: str, auth: List[Dict]) -> Union[str, None]:
