@@ -69,20 +69,34 @@ def download_and_process_geozones():
         (df['type'] != 'Arrondissement') |
         ((df['type'] == 'Arrondissement') & (df['nom'].str.contains('|'.join(['Paris', 'Lyon', 'Marseille']))))
     ]
+    df = df.loc[
+        df['level'] != 'country'
+    ]
+
+    # get countries (with ISO alpha 2 code) from another source
+    countries = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/2b38f28d-15e7-4f0c-b61d-6ca1d9b1cfa2",
+        sep=';',
+        encoding='cp1252',
+        dtype=str
+    )
+    countries = countries.loc[countries['SOUVERAIN'] == 'O']
+    countries['uri'] = countries['CODE_COG'].apply(lambda x: "http://id.insee.fr/geo/etat/" + x if isinstance(x, str) else x)
+    countries.rename({
+        'NOM_LONG_ETAT': 'nom',
+        'CODE_COG': 'codeINSEE',
+        'NOM_COURT': 'nomSansArticle',
+    }, axis=1, inplace=True)
+    countries['codeArticle'] = None
+    countries['type'] = 'country'
+    countries['is_deleted'] = False
+    countries['level'] = 'country'
+    countries['_id'] = countries['ISO_alpha2'].apply(lambda x: "country:" + x.lower() if isinstance(x, str) else x)
+    countries = countries[['uri', 'nom', 'codeINSEE', 'nomSansArticle', 'codeArticle', 'type', 'is_deleted', 'level', '_id']]
+    countries_json = json.loads(countries.to_json(orient='records'))
 
     export = json.loads(df.to_json(orient='records'))
     export.extend([
-        {
-            "uri": "http://id.insee.fr/geo/pays/france",
-            "nom": "France",
-            "codeINSEE": "FR",
-            "nomSansArticle": "France",
-            "codeArticle": None,
-            "type": "Etat",
-            "is_deleted": False,
-            "level": "country",
-            "_id": "country:fr"
-        },
         {
             "uri": "http://id.insee.fr/geo/world",
             "nom": "Monde",
@@ -95,7 +109,7 @@ def download_and_process_geozones():
             "_id": "country-group:world"
         },
         {
-            "uri": "http://id.insee.fr/geo/world",
+            "uri": "http://id.insee.fr/geo/europe",
             "nom": "Union Européenne",
             "codeINSEE": "EU",
             "nomSansArticle": "Union Européenne",
@@ -103,16 +117,17 @@ def download_and_process_geozones():
             "type": "country-group",
             "is_deleted": False,
             "level": "country-group",
-            "_id": "country-group:ue"
+            "_id": "country-group:eu"
         },
     ])
+    export.extend(countries_json)
     os.mkdir(DATADIR)
     with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
 
     with open(DATADIR + '/export_countries.json', 'w', encoding='utf8') as f:
         json.dump(
-            [_ for _ in export if _['level'] == 'country'],
+            countries_json,
             f, ensure_ascii=False, indent=4
         )
 
