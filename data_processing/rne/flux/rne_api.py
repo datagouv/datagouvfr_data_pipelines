@@ -17,7 +17,7 @@ class ApiRNEClient:
         "https://registre-national-entreprises.inpi.fr/api/companies/diff?"
     )
 
-    def __init__(self):
+    def __init__(self, max_retries=10):
         """
         Initializes the API client.
 
@@ -28,7 +28,8 @@ class ApiRNEClient:
         """
         self.auth = AUTH_RNE
         self.session = self.create_persistent_session()
-        self.max_retries = 10
+        self.token = self.get_new_token()
+        self.max_retries = max_retries
 
     def create_persistent_session(self):
         """Create a session with a custom HTTP adapter for max retries."""
@@ -82,16 +83,14 @@ class ApiRNEClient:
         if last_siren:
             url += f"&searchAfter={last_siren}"
 
-        token = None
-
         for attempt in range(self.max_retries + 1):
             if attempt > 0:
                 logging.info(f"Making API call try : {attempt}")
             try:
-                if not token:
+                if not self.token:
                     logging.info("Getting new token...")
-                    token = self.get_new_token()
-                headers = {"Authorization": f"Bearer {token}"}
+                    self.token = self.get_new_token()
+                headers = {"Authorization": f"Bearer {self.token}"}
                 response = self.session.get(url, headers=headers)
                 response.raise_for_status()
                 response = response.json()
@@ -102,15 +101,16 @@ class ApiRNEClient:
                 if hasattr(e, "response") and (
                     e.response.status_code == 403 or e.response.status_code == 401
                 ):
-                    token = self.get_new_token()
-                    headers["Authorization"] = f"Bearer {token}"
+                    self.token = self.get_new_token()
                     logging.info("Got a new access token and retrying...")
                 elif hasattr(e, "response") and e.response.status_code == 500:
                     if "Allowed memory size of" in str(e.response.content):
                         url = url.replace("pageSize=100", "pageSize=50")
-                        logging.info(f"*****Memory Error changing size: {e}")
+                        logging.info(f"***Memory Error changing page size to 50 : {e}")
                     else:
-                        logging.info(f"*****Error HTTP: {e}")
+                        logging.info(f"***Error HTTP: {e}")
+                        url = url.replace("pageSize=100", "pageSize=20")
+                        logging.info(f"***Changing page size to 20: {e}")
                         time.sleep(600)
                 else:
                     logging.error(f"Error occurred while making API request: {e}")

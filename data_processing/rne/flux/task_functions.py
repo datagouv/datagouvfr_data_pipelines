@@ -86,12 +86,13 @@ def get_and_save_daily_flux_rne(
 
     last_siren = None  # Initialize last_siren
     page_data = True
+    
+    rne_client = ApiRNEClient()
 
     with open(json_file_path, "a") as json_file:
         logging.info(f"****** Opening file: {json_file_path}")
         while page_data:
             try:
-                rne_client = ApiRNEClient()
                 page_data, last_siren = rne_client.make_api_request(
                     start_date, end_date, last_siren
                 )
