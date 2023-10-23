@@ -11,7 +11,7 @@ TMP_FOLDER="$1"
 FTP_URL="$2"
 
 # Use lftp to connect to the FTP server and download the file
-lftp -e "get '$FTP_URL' -o '$TMP_FOLDER'; quit"
+lftp -e "get '$FTP_URL' -o '$TMP_FOLDER/stock_rne.zip'; quit"
 
 # Check if the FTP operation was successful
 if [ $? -eq 0 ]; then
