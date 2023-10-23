@@ -1,4 +1,5 @@
 from airflow.models import Variable
+import json
 
 # Global
 AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME", "/opt/airflow/dags/")
@@ -48,6 +49,9 @@ SECRET_INSEE_BEARER = Variable.get("SECRET_INSEE_BEARER", "")
 # INPI
 SECRET_INPI_USER = Variable.get("SECRET_INPI_USER", "")
 SECRET_INPI_PASSWORD = Variable.get("SECRET_INPI_PASSWORD", "")
+
+# RNE
+AUTH_RNE = json.loads(Variable.get("AUTH_RNE", []))
 
 # Twitter
 TWITTER_CONSUMER_KEY = Variable.get("TWITTER_CONSUMER_KEY", "")
