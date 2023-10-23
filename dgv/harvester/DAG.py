@@ -1,8 +1,8 @@
 from airflow.models import DAG
-from operators.mattermost import MattermostOperator
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datetime import timedelta
 import requests
 from datagouvfr_data_pipelines.config import (
@@ -17,16 +17,19 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 
 
 def get_pending_harvester_from_api(ti):
-    harvesters =  get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
+    harvesters = get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
     harvesters = [
         {
             "admin_url": "https://www.data.gouv.fr/fr/admin/harvester/" + harvest["id"],
             "name": harvest["name"],
             "url": harvest["url"],
-            "orga": (f"Organisation {harvest['organization']['name']}"  if harvest["organization"]
+            "orga": (f"Organisation {harvest['organization']['name']}" if harvest["organization"]
                      else f"Utilisateur {harvest['owner']['first_name']} {harvest['owner']['last_name']}"),
-            "orga_url": (f"https://www.data.gouv.fr/fr/organizations/{harvest['organization']['id']}" if harvest["organization"]
-                         else f"https://www.data.gouv.fr/fr/users/{harvest['owner']['id']}"),
+            "orga_url": (
+                f"https://www.data.gouv.fr/fr/organizations/{harvest['organization']['id']}"
+                if harvest["organization"]
+                else f"https://www.data.gouv.fr/fr/users/{harvest['owner']['id']}"
+            ),
             "id": harvest["id"]
         }
         for harvest in harvesters
@@ -127,14 +130,8 @@ def publish_mattermost_harvester(ti):
         f"{text}Avant validation, pensez à consulter [le pad des moissonneurs à laisser "
         f"en attente de validation]({PAD_AWAITING_VALIDATION}) \n"
     )
-
-    send_notif = MattermostOperator(
-        task_id="publish_result",
-        mattermost_endpoint=MATTERMOST_DATAGOUV_MOISSONNAGE,
-        text=text,
-    )
+    send_message(text, MATTERMOST_DATAGOUV_MOISSONNAGE)
     print(text)
-    send_notif.execute(dict())
 
 
 with DAG(

@@ -9,7 +9,6 @@ import asyncio
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
