@@ -1,6 +1,6 @@
 from airflow.models import DAG
 from operators.papermill_minio import PapermillMinioOperator
-from operators.mail_datagouv import MailDatagouvOperator
+from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
@@ -66,15 +66,13 @@ def send_email_report_daily(ti, **kwargs):
         key="report_url", task_ids="run_notebook_and_save_to_minio_daily"
     )
     message = get_stats_daily(templates_dict["TODAY"]) + "<br/><br/>" + report_url
-    send_email_report = MailDatagouvOperator(
-        task_id="send_email_report",
+    send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
         email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
         subject="Daily digest of " + templates_dict["TODAY"],
         message=message,
     )
-    send_email_report.execute(dict())
 
 
 def get_stats_weekly(TODAY):
@@ -112,15 +110,13 @@ def send_email_report_weekly(ti, **kwargs):
         key="report_url", task_ids="run_notebook_and_save_to_minio_weekly"
     )
     message = get_stats_weekly(templates_dict["TODAY"]) + "<br/><br/>" + report_url
-    send_email_report = MailDatagouvOperator(
-        task_id="send_email_report",
+    send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
         email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
         subject="Weekly digest of " + templates_dict["TODAY"],
         message=message,
     )
-    send_email_report.execute(dict())
 
 
 def get_stats_monthly(TODAY):
@@ -158,15 +154,13 @@ def send_email_report_monthly(ti, **kwargs):
         key="report_url", task_ids="run_notebook_and_save_to_minio_monthly"
     )
     message = get_stats_monthly(templates_dict["TODAY"]) + "<br/><br/>" + report_url
-    send_email_report = MailDatagouvOperator(
-        task_id="send_email_report",
+    send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
         email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
         subject="Monthly digest of " + templates_dict["TODAY"][:7],
         message=message,
     )
-    send_email_report.execute(dict())
 
 
 default_args = {
