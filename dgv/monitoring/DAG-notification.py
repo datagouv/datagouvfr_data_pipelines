@@ -277,7 +277,7 @@ def publish_mattermost(ti):
             else:
                 message = ''
             if item['duplicated']:
-                message += ':busts_in_silhouette: Duplicata poteniel\n'
+                message += ':busts_in_silhouette: Duplicata potentiel\n'
             else:
                 message += ''
             message += (
