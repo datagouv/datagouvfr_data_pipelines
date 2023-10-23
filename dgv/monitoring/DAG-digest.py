@@ -1,7 +1,7 @@
 from airflow.models import DAG
 from operators.papermill_minio import PapermillMinioOperator
 from operators.mail_datagouv import MailDatagouvOperator
-from operators.clean_folder import CleanFolderOperator
+from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
@@ -185,9 +185,9 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ) as dag:
-    clean_previous_outputs = CleanFolderOperator(
+    clean_previous_output = BashOperator(
         task_id="clean_previous_outputs",
-        folder_path=AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME,
+        bash_command=f"rm -rf {AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME} && mkdir -p {AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME}",
     )
 
     run_nb_daily = PapermillMinioOperator(
