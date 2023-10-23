@@ -1,4 +1,3 @@
-from datagouvfr_data_pipelines.utils.download import download_files
 import os
 import zipfile
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -15,20 +14,8 @@ from datagouvfr_data_pipelines.config import (
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rne/stock/"
 DATADIR = f"{TMP_FOLDER}data"
-ZIP_FILE_PATH = f"{TMP_FOLDER}rne.zip"
+ZIP_FILE_PATH = f"{TMP_FOLDER}stock_rne.zip"
 EXTRACTED_FILES_PATH = f"{TMP_FOLDER}extracted/"
-
-
-def get_rne_stock():
-    download_files(
-        [
-            {
-                "url": "https://www.inpi.fr/sites/default/files/rne/stock_rne.zip",
-                "dest_path": f"{TMP_FOLDER}",
-                "dest_name": "rne.zip",
-            },
-        ]
-    )
 
 
 def unzip_files():
