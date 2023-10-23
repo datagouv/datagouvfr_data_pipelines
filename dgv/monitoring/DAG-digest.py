@@ -26,6 +26,7 @@ from datagouvfr_data_pipelines.utils.utils import (
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/"
 DAG_NAME = "dgv_digests"
+TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME
 MINIO_PATH = "dgv/"
 
 
@@ -181,7 +182,7 @@ with DAG(
 ) as dag:
     clean_previous_output = BashOperator(
         task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME} && mkdir -p {AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME}",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     run_nb_daily = PapermillMinioOperator(
