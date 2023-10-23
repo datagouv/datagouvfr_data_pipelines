@@ -24,6 +24,7 @@ class ApiRNEClient:
         Attributes:
             auth (list[dict]): List of authentication data.
             session (requests.Session): HTTP session with a custom adapter.
+            token (str): The API token used for authentication.
             max_retries (int): Maximum number of retries for API requests.
         """
         self.auth = AUTH_RNE
