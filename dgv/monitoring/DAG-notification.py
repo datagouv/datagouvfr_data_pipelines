@@ -76,7 +76,7 @@ def check_new(ti, **kwargs):
                 for spam in SPAM_WORDS
                 for field in [item['name'], item['description']]
             ])
-        # checking for potenital duplicates in organization creation
+        # checking for potential duplicates in organization creation
         mydict['duplicated'] = False
         if templates_dict["type"] == 'organizations':
             slug = item["slug"]
