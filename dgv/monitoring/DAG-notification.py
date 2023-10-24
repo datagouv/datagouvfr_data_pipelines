@@ -236,7 +236,7 @@ def publish_item(item, item_type):
         message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
     else:
         message += "**/!\\ sans rattachement**"
-    message += f"\n*{item['title'].rstrip().lstrip()}* \n\n\n:point_right: {item['page']}"
+    message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
     if item['first_publication']:
@@ -258,7 +258,7 @@ def publish_item(item, item_type):
             message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
         else:
             message += "**/!\\ sans rattachement**"
-        message += f"\n*{item['title'].rstrip().lstrip()}* \n\n\n:point_right: {item['page']}"
+        message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
@@ -282,7 +282,7 @@ def publish_mattermost(ti):
                 message += ''
             message += (
                 ":loudspeaker: :office: Nouvelle **organisation** : "
-                f"*{item['name'].rstrip().lstrip()}* \n\n\n:point_right: {item['page']}"
+                f"*{item['name'].strip()}* \n\n\n:point_right: {item['page']}"
             )
             send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
