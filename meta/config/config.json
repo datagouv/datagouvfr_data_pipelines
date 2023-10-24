@@ -27,6 +27,8 @@
         "irve_consolidation": true,
         "schema_recommendations": true,
         "schema_website_publication_preprod": true,
-        "schema_website_publication_prod": true
+        "schema_website_publication_prod": true,
+        "get_stock_rne": true,
+        "get_flux_rne": true
     }
 }
