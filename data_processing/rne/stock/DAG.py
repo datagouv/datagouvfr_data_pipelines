@@ -2,9 +2,10 @@ from airflow.models import DAG
 from datetime import timedelta, datetime
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, RNE_FTP_URL
 from datagouvfr_data_pipelines.data_processing.rne.stock.task_functions import (
     TMP_FOLDER,
-    get_rne_stock,
+    DAG_FOLDER,
     unzip_files,
     send_extracted_files_to_minio,
     send_notification_mattermost,
@@ -25,8 +26,12 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
-    get_rne_latest_stock = PythonOperator(
-        task_id="get_latest_stock", python_callable=get_rne_stock
+    get_rne_latest_stock = BashOperator(
+        task_id="get_latest_stock",
+        bash_command=(
+            f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rne/stock/scripts/stock.sh "
+            f"{TMP_FOLDER} {RNE_FTP_URL} "
+        ),
     )
 
     unzip_files = PythonOperator(task_id="unzip_files", python_callable=unzip_files)
