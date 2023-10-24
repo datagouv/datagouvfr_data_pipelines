@@ -83,9 +83,9 @@ def check_new(ti, **kwargs):
             if re.search(duplicate_slug_pattern, slug) is not None:
                 suffix = re.findall(duplicate_slug_pattern, slug)[0]
                 original_orga = slug[:-len(suffix)]
-                test_orga = requests.get(f"https://data.gouv.fr/api/1/organizations/{original_orga}/").json()
-                # only considering a duplicate if the original slug is taken
-                if not test_orga.get('message', False) and not test_orga.get("deleted", False):
+                test_orga = requests.get(f"https://data.gouv.fr/api/1/organizations/{original_orga}/")
+                # only considering a duplicate if the original slug is taken (not not found or deleted)
+                if test_orga.status_code not in [404, 410]:
                     mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
