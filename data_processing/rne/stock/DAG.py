@@ -6,8 +6,7 @@ from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, RNE_FTP_URL
 from datagouvfr_data_pipelines.data_processing.rne.stock.task_functions import (
     TMP_FOLDER,
     DAG_FOLDER,
-    unzip_files,
-    send_extracted_files_to_minio,
+    unzip_files_and_upload_minio,
     send_notification_mattermost,
 )
 
@@ -34,10 +33,14 @@ with DAG(
         ),
     )
 
-    unzip_files = PythonOperator(task_id="unzip_files", python_callable=unzip_files)
+    unzip_files_and_upload_minio = PythonOperator(
+        task_id="unzip_files_and_upload_minio",
+        python_callable=unzip_files_and_upload_minio,
+    )
 
-    send_extracted_files_to_minio = PythonOperator(
-        task_id="send_stock_rne", python_callable=send_extracted_files_to_minio
+    clean_outputs = BashOperator(
+        task_id="clean_outputs",
+        bash_command=f"rm -rf {TMP_FOLDER}",
     )
 
     send_notification_mattermost = PythonOperator(
@@ -46,6 +49,6 @@ with DAG(
     )
 
     get_rne_latest_stock.set_upstream(clean_previous_outputs)
-    unzip_files.set_upstream(get_rne_latest_stock)
-    send_extracted_files_to_minio.set_upstream(unzip_files)
-    send_notification_mattermost.set_upstream(send_extracted_files_to_minio)
+    unzip_files_and_upload_minio.set_upstream(get_rne_latest_stock)
+    clean_outputs.set_upstream(unzip_files_and_upload_minio)
+    send_notification_mattermost.set_upstream(clean_outputs)

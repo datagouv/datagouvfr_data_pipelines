@@ -18,39 +18,33 @@ ZIP_FILE_PATH = f"{TMP_FOLDER}stock_rne.zip"
 EXTRACTED_FILES_PATH = f"{TMP_FOLDER}extracted/"
 
 
-def unzip_files():
+def unzip_files_and_upload_minio(**kwargs):
     with zipfile.ZipFile(ZIP_FILE_PATH, mode="r") as z:
-        z.extractall(EXTRACTED_FILES_PATH)
+        sent_files = 0
+        for file_info in z.infolist():
+            # Extract each file one by one
+            z.extract(file_info, path=EXTRACTED_FILES_PATH)
 
-
-def send_file_to_minio(source_path, source_name, dest_path, dest_name):
-    logging.info("Saving files in MinIO.....")
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        list_files=[
-            {
-                "source_path": source_path,
-                "source_name": source_name,
-                "dest_path": dest_path,
-                "dest_name": dest_name,
-            },
-        ],
-    )
-
-
-def send_extracted_files_to_minio(**kwargs):
-    sent_files = 0
-    for root, dirs, files in os.walk(EXTRACTED_FILES_PATH):
-        for file in files:
-            source_path = EXTRACTED_FILES_PATH
-            source_name = file
-            dest_path = "rne/stock/data/"
-            dest_name = file
-            send_file_to_minio(source_path, source_name, dest_path, dest_name)
+            logging.info(f"Saving file {file_info.filename} in MinIO.....")
+            send_files(
+                MINIO_URL=MINIO_URL,
+                MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
+                MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+                MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+                list_files=[
+                    {
+                        "source_path": EXTRACTED_FILES_PATH,
+                        "source_name": file_info.filename,
+                        "dest_path": "rne/stock/data/",
+                        "dest_name": file_info.filename,
+                    },
+                ],
+            )
             sent_files += 1
+            # Delete the extracted file
+            extracted_file_path = os.path.join(EXTRACTED_FILES_PATH, file_info.filename)
+            os.remove(extracted_file_path)
+
     kwargs["ti"].xcom_push(key="stock_files_rne_count", value=sent_files)
 
 
