@@ -50,7 +50,6 @@ SECRET_INSEE_BEARER = Variable.get("SECRET_INSEE_BEARER", "")
 SECRET_INPI_USER = Variable.get("SECRET_INPI_USER", "")
 SECRET_INPI_PASSWORD = Variable.get("SECRET_INPI_PASSWORD", "")
 
-
 # RNE
 AUTH_RNE = json.loads(Variable.get("AUTH_RNE", []))
 RNE_FTP_URL = Variable.get("RNE_FTP_URL", "")
