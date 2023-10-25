@@ -1,0 +1,14 @@
+{
+    "tmp": {
+        "name": "_",
+        "file": "_",
+        "dev": {
+            "dataset_id": "_",
+            "resource_id": "_"
+        },
+        "prod": {
+            "dataset_id": "_",
+            "resource_id": "_"
+        }
+    },
+}
