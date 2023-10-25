@@ -11,10 +11,12 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items, SPAM_WORDS
 import requests
+import re
 
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"hours": 1}
+duplicate_slug_pattern = r'-\d+$'
 
 
 def check_new(ti, **kwargs):
@@ -74,6 +76,17 @@ def check_new(ti, **kwargs):
                 for spam in SPAM_WORDS
                 for field in [item['name'], item['description']]
             ])
+        # checking for potential duplicates in organization creation
+        mydict['duplicated'] = False
+        if templates_dict["type"] == 'organizations':
+            slug = item["slug"]
+            if re.search(duplicate_slug_pattern, slug) is not None:
+                suffix = re.findall(duplicate_slug_pattern, slug)[0]
+                original_orga = slug[:-len(suffix)]
+                test_orga = requests.get(f"https://data.gouv.fr/api/1/organizations/{original_orga}/")
+                # only considering a duplicate if the original slug is taken (not not found or deleted)
+                if test_orga.status_code not in [404, 410]:
+                    mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
 
@@ -223,7 +236,7 @@ def publish_item(item, item_type):
         message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
     else:
         message += "**/!\\ sans rattachement**"
-    message += f"\n*{item['title']}* \n\n\n:point_right: {item['page']}"
+    message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
     if item['first_publication']:
@@ -245,7 +258,7 @@ def publish_item(item, item_type):
             message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
         else:
             message += "**/!\\ sans rattachement**"
-        message += f"\n*{item['title']}* \n\n\n:point_right: {item['page']}"
+        message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
@@ -263,9 +276,13 @@ def publish_mattermost(ti):
                 message = ':warning: @all Spam potentiel\n'
             else:
                 message = ''
+            if item['duplicated']:
+                message += ':busts_in_silhouette: Duplicata potentiel\n'
+            else:
+                message += ''
             message += (
                 ":loudspeaker: :office: Nouvelle **organisation** : "
-                f"*{item['name'].rstrip().lstrip()}* \n\n\n:point_right: {item['page']}"
+                f"*{item['name'].strip()}* \n\n\n:point_right: {item['page']}"
             )
             send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
