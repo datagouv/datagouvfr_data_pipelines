@@ -81,18 +81,26 @@ def download_and_process_geozones():
         dtype=str
     )
     countries = countries.loc[countries['SOUVERAIN'] == 'O']
-    countries['uri'] = countries['CODE_COG'].apply(lambda x: "http://id.insee.fr/geo/etat/" + x if isinstance(x, str) else x)
+    countries['uri'] = countries['CODE_COG'].apply(
+        lambda x: "http://id.insee.fr/geo/etat/" + x if isinstance(x, str) else x
+    )
     countries.rename({
         'NOM_LONG_ETAT': 'nom',
-        'CODE_COG': 'codeINSEE',
         'NOM_COURT': 'nomSansArticle',
     }, axis=1, inplace=True)
     countries['codeArticle'] = None
     countries['type'] = 'country'
     countries['is_deleted'] = False
     countries['level'] = 'country'
-    countries['_id'] = countries['ISO_alpha2'].apply(lambda x: "country:" + x.lower() if isinstance(x, str) else x)
-    countries = countries[['uri', 'nom', 'codeINSEE', 'nomSansArticle', 'codeArticle', 'type', 'is_deleted', 'level', '_id']]
+    countries['codeINSEE'] = countries['ISO_alpha2'].apply(
+        lambda x: x.lower() if isinstance(x, str) else x
+    )
+    countries['_id'] = countries['ISO_alpha2'].apply(
+        lambda x: "country:" + x.lower() if isinstance(x, str) else x
+    )
+    countries = countries[
+        ['uri', 'nom', 'codeINSEE', 'nomSansArticle', 'codeArticle', 'type', 'is_deleted', 'level', '_id']
+    ]
     countries_json = json.loads(countries.to_json(orient='records'))
 
     export = json.loads(df.to_json(orient='records'))
