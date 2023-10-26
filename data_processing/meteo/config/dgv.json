@@ -1,14 +1,10 @@
 {
-    "tmp": {
-        "name": "_",
-        "file": "_",
-        "dev": {
-            "dataset_id": "_",
-            "resource_id": "_"
-        },
-        "prod": {
-            "dataset_id": "_",
-            "resource_id": "_"
+    "BASE/DECAD": {
+        "source_pattern": "DECADQ_{DEP}_{PERIOD}.csv.gz",
+        "dest_pattern": "DECAD-departement-{DEP}-periode-{PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a660e7a6aa39deaec2de8"
         }
-    },
+    }
 }
