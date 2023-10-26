@@ -22,6 +22,7 @@ def send_files(
     MINIO_USER: str,
     MINIO_PASSWORD: str,
     list_files: List[File],
+    ignore_airflow_env=False
 ):
     """Send list of file to Minio bucket
 
@@ -50,11 +51,16 @@ def send_files(
             is_file = os.path.isfile(
                 os.path.join(file["source_path"], file["source_name"])
             )
-            print("Sending ", file["source_name"])
             if is_file:
+                if ignore_airflow_env:
+                    dest_path = f"{file['dest_path']}{file['dest_name']}"
+                else:
+                    dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
+                print("Sending " + file["source_path"] + file["source_name"])
+                print("to " + dest_path)
                 client.fput_object(
                     MINIO_BUCKET,
-                    f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}",
+                    dest_path,
                     os.path.join(file["source_path"], file["source_name"]),
                     content_type=file['content_type'] if 'content_type' in file else None
                 )
@@ -236,3 +242,34 @@ def copy_object(
             client.remove_object(MINIO_BUCKET_SOURCE, f"{AIRFLOW_ENV}/{path_source}")
     else:
         raise Exception("One Bucket does not exists")
+
+
+def get_all_files_from_parent_folder(
+    MINIO_URL: str,
+    MINIO_BUCKET: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    folder: str,
+):
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    found = client.bucket_exists(MINIO_BUCKET)
+    if found:
+        objects = [o.object_name for o in client.list_objects(MINIO_BUCKET, prefix=folder)]
+        files = [o for o in objects if '.' in o]
+        subfolders = [o for o in objects if o not in files]
+        for subf in subfolders:
+            files += get_all_files_from_parent_folder(
+                MINIO_URL=MINIO_URL,
+                MINIO_BUCKET=MINIO_BUCKET,
+                MINIO_USER=MINIO_USER,
+                MINIO_PASSWORD=MINIO_PASSWORD,
+                folder=subf,
+            )
+        return files
+    else:
+        raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
