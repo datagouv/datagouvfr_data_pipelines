@@ -235,4 +235,4 @@ def copy_object(
         if remove_source_file:
             client.remove_object(MINIO_BUCKET_SOURCE, f"{AIRFLOW_ENV}/{path_source}")
     else:
-        raise Exception(f"One Bucket does not exists")
+        raise Exception("One Bucket does not exists")
