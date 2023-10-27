@@ -36,7 +36,7 @@ DPEDIR = f"{DATADIR}/dpe/"
 schema = 'dvf'
 
 if AIRFLOW_ENV == 'prod':
-    conn = BaseHook.get_connection("POSTGRES_DEV_DVF")
+    conn = BaseHook.get_connection("POSTGRES_DVF")
 else:
     conn = BaseHook.get_connection("postgres_localhost")
 
