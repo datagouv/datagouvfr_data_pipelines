@@ -14,7 +14,8 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
     get_current_files_on_ftp,
     get_current_files_on_minio,
-    get_and_upload_file_diff_ftp_minio
+    get_and_upload_file_diff_ftp_minio,
+    upload_files_datagouv,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
@@ -74,8 +75,18 @@ with DAG(
         },
     )
 
+    upload_files_datagouv = PythonOperator(
+        task_id='upload_files_datagouv',
+        python_callable=upload_files_datagouv,
+        op_kwargs={
+            "minio_folder": minio_folder,
+        },
+    )
+
     get_current_files_on_ftp.set_upstream(clean_previous_outputs)
     get_current_files_on_minio.set_upstream(clean_previous_outputs)
 
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_ftp)
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
+
+    upload_files_datagouv.set_upstream(get_and_upload_file_diff_ftp_minio)

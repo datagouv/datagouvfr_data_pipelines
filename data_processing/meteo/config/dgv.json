@@ -1,10 +1,26 @@
 {
     "BASE/DECAD": {
-        "source_pattern": "DECADQ_{DEP}_{PERIOD}.csv.gz",
+        "source_pattern": "DECADQ_{DEP}_{PERIOD}",
         "dest_pattern": "DECAD-departement-{DEP}-periode-{PERIOD}",
         "dataset_id": {
             "prod": "",
-            "dev": "653a660e7a6aa39deaec2de8"
+            "dev": "653a68f2c52ecb6d2e96fe3e"
+        }
+    },
+    "BASE/HOR": {
+        "source_pattern": "H_{DEP}_{PERIOD}",
+        "dest_pattern": "HOR-departement-{DEP}-periode-{PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a68f2c52ecb6d2e96fe3f"
+        }
+    },
+    "BASE/QUOT": {
+        "source_pattern": "Q_{DEP}_{PERIOD}_{PARAMETRES}",
+        "dest_pattern": "QUOT-departement-{DEP}-periode-{PERIOD}-{PARAMETRES}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a68f2ba54993957fa00af"
         }
     }
 }

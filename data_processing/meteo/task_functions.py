@@ -18,6 +18,8 @@ import ftplib
 import os
 import json
 from datetime import datetime
+import re
+import requests
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
@@ -58,7 +60,7 @@ def get_current_files_on_minio(ti, minio_folder):
 
 
 def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
-    minio_files = ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio')
+    minio_files = list(ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio').keys())
     minio_files = [f.replace(minio_folder, '') for f in minio_files]
 
     ftp_files = ti.xcom_pull(key='ftp_files', task_ids='get_current_files_on_ftp')
@@ -99,19 +101,64 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     ti.xcom_push(key='diff_files', value=diff_files)
 
 
-# def upload_files_datagouv(ti, minio_folder):
-#     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
-#         config = json.load(fp)
-#     diff_files = ti.xcom_pull(key='diff_files', task_ids='get_and_upload_file_diff_ftp_minio')
-#     for file in diff_files:
-#         path_to_file = '/'.join(file.split('/')[:-1])
+def extract_info(source_pattern, file_name):
+    # /!\ REMOVE FILE EXTENSIONS BEFORE APPLYING
+    no_ext = file_name.split('.')[0]
+    params = re.findall(r'\{.*?\}', source_pattern)
+    res = {}
+    sep = '_'
+    for p in params:
+        idx = source_pattern.split(sep).index(p)
+        clean = p.replace('{', '').replace('}', '')
+        res[clean] = no_ext.split(sep)[idx]
+    return res
 
-#         post_remote_resource(
-#             api_key=DATAGOUV_SECRET_API_KEY,
-#             remote_url=f"https://object.files.data.gouv.fr/meteofrance/{minio_folder}{file}",
-#             dataset_id=config[path_to_file][AIRFLOW_ENV]["dataset_id"],
-#             # filesize=,
-#             title="Résultats généraux",
-#             format="csv.gz",
-#             description=f" (dernière modification : {datetime.today()})",
-#         )
+
+def build_resource_name(dest_pattern, params):
+    return dest_pattern.format(**params)
+
+
+def upload_files_datagouv(ti, minio_folder):
+    # this uploads/synchronizes all resources on Minio and data.gouv.fr
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
+        config = json.load(fp)
+
+    minio_files = ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio')
+
+    resources_lists = {
+        path: {
+            r['title']: r['id'] for r in requests.get(
+                f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
+                headers={'X-fields': 'resources{id,title}'}
+            ).json()['resources']
+        }
+        for path in config.keys()
+    }
+
+    k = 0
+    for file in minio_files.keys():
+        path = '/'.join(file.replace(minio_folder, '').split('/')[:-1])
+        file_no_ext = file.split('/')[-1].split('.')[0]
+        resource_name = build_resource_name(
+            config[path]['dest_pattern'],
+            extract_info(config[path]['source_pattern'], file_no_ext)
+        )
+
+        if resource_name not in resources_lists[path].keys():
+            # si la resource n'existe pas, on la crée
+            print('Creating new resource: ', file_no_ext)
+            post_remote_resource(
+                api_key=DATAGOUV_SECRET_API_KEY,
+                remote_url=f"https://object.files.data.gouv.fr/meteofrance/{file}",
+                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+                filesize=minio_files[file],
+                title=resource_name,
+                format="csv.gz",
+                description=f"Dernière modification : {datetime.today()}",
+            )
+        else:
+            # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé ? une maj de métadonnées ?
+            print("Resource already exists: ", file_no_ext)
+        k += 1
+        if k > 5:
+            break
