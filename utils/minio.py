@@ -1,6 +1,5 @@
 import boto3
 import botocore
-import io
 from minio import Minio
 from minio.commonconfig import CopySource
 from typing import List, TypedDict, Optional
@@ -251,6 +250,9 @@ def get_all_files_from_parent_folder(
     MINIO_PASSWORD: str,
     folder: str,
 ):
+    """
+    returns a dict of {"file_name": file_size, ...} for all files in the folder
+    """
     client = Minio(
         MINIO_URL,
         access_key=MINIO_USER,
@@ -259,17 +261,17 @@ def get_all_files_from_parent_folder(
     )
     found = client.bucket_exists(MINIO_BUCKET)
     if found:
-        objects = [o.object_name for o in client.list_objects(MINIO_BUCKET, prefix=folder)]
-        files = [o for o in objects if '.' in o]
-        subfolders = [o for o in objects if o not in files]
+        objects = {o.object_name: o for o in client.list_objects(MINIO_BUCKET, prefix=folder)}
+        files = {k: v.size for k, v in objects.items() if '.' in k}
+        subfolders = [k for k in objects.keys() if k not in files.keys()]
         for subf in subfolders:
-            files += get_all_files_from_parent_folder(
+            files.update(get_all_files_from_parent_folder(
                 MINIO_URL=MINIO_URL,
                 MINIO_BUCKET=MINIO_BUCKET,
                 MINIO_USER=MINIO_USER,
                 MINIO_PASSWORD=MINIO_PASSWORD,
                 folder=subf,
-            )
+            ))
         return files
     else:
         raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
