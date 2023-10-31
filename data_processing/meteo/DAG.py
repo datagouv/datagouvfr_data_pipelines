@@ -5,7 +5,6 @@ from airflow.utils.dates import days_ago
 from datetime import timedelta
 import ftplib
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     SECRET_FTP_METEO_USER,
     SECRET_FTP_METEO_PASSWORD,
@@ -16,6 +15,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
     get_current_files_on_minio,
     get_and_upload_file_diff_ftp_minio,
     upload_files_datagouv,
+    notification_mattermost,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
@@ -83,6 +83,11 @@ with DAG(
         },
     )
 
+    notification_mattermost = PythonOperator(
+        task_id='notification_mattermost',
+        python_callable=notification_mattermost,
+    )
+
     get_current_files_on_ftp.set_upstream(clean_previous_outputs)
     get_current_files_on_minio.set_upstream(clean_previous_outputs)
 
@@ -90,3 +95,4 @@ with DAG(
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
 
     upload_files_datagouv.set_upstream(get_and_upload_file_diff_ftp_minio)
+    notification_mattermost.set_upstream(upload_files_datagouv)

@@ -9,7 +9,6 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
-    get_all_from_api_query,
     DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -65,6 +64,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
 
     ftp_files = ti.xcom_pull(key='ftp_files', task_ids='get_current_files_on_ftp')
     diff_files = [f for f in ftp_files if f not in minio_files]
+    print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
 
     # doing it one file at a time in order not to overload production server
     for file_to_transfer in diff_files:
@@ -73,7 +73,6 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         path_to_file = '/'.join(file_to_transfer.split('/')[:-1])
         file_name = file_to_transfer.split('/')[-1]
         ftp.cwd('/' + path_to_file)
-        ftp.pwd()
         # downaloading the file from FTP
         with open(DATADIR + '/' + file_name, 'wb') as local_file:
             ftp.retrbinary('RETR ' + file_name, local_file.write)
@@ -109,6 +108,7 @@ def extract_info(source_pattern, file_name):
     sep = '_'
     for p in params:
         idx = source_pattern.split(sep).index(p)
+        # could also keep the brackets and dest_pattern.replace(p, res[p])
         clean = p.replace('{', '').replace('}', '')
         res[clean] = no_ext.split(sep)[idx]
     return res
@@ -135,6 +135,7 @@ def upload_files_datagouv(ti, minio_folder):
         for path in config.keys()
     }
 
+    updated = set()
     k = 0
     for file in minio_files.keys():
         path = '/'.join(file.replace(minio_folder, '').split('/')[:-1])
@@ -156,9 +157,23 @@ def upload_files_datagouv(ti, minio_folder):
                 format="csv.gz",
                 description=f"Dernière modification : {datetime.today()}",
             )
+            updated.add(path)
         else:
             # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé ? une maj de métadonnées ?
             print("Resource already exists: ", file_no_ext)
         k += 1
         if k > 5:
             break
+    ti.xcom_push(key='updated', value=updated)
+
+
+def notification_mattermost(ti):
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
+        config = json.load(fp)
+    updated = ti.xcom_pull(key="updated", task_ids="upload_files_datagouv")
+
+    message = "🌦️ Données météo mises à jour :"
+    for path in updated:
+        message += f"\n- [dataset {path}]"
+        message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/)"
+    send_message(message)
