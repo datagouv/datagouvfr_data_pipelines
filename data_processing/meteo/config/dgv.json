@@ -1,7 +1,7 @@
 {
     "BASE/DECAD": {
         "source_pattern": "DECADQ_{DEP}_{PERIOD}",
-        "dest_pattern": "DECAD-departement-{DEP}-periode-{PERIOD}",
+        "dest_pattern": "DECAD_departement_{DEP}_periode_{PERIOD}",
         "dataset_id": {
             "prod": "",
             "dev": "653a68f2c52ecb6d2e96fe3e"
@@ -9,7 +9,7 @@
     },
     "BASE/HOR": {
         "source_pattern": "H_{DEP}_{PERIOD}",
-        "dest_pattern": "HOR-departement-{DEP}-periode-{PERIOD}",
+        "dest_pattern": "HOR_departement_{DEP}_periode_{PERIOD}",
         "dataset_id": {
             "prod": "",
             "dev": "653a68f2c52ecb6d2e96fe3f"
@@ -17,10 +17,34 @@
     },
     "BASE/QUOT": {
         "source_pattern": "Q_{DEP}_{PERIOD}_{PARAMETRES}",
-        "dest_pattern": "QUOT-departement-{DEP}-periode-{PERIOD}-{PARAMETRES}",
+        "dest_pattern": "QUOT_departement_{DEP}_periode_{PERIOD}_{PARAMETRES}",
         "dataset_id": {
             "prod": "",
             "dev": "653a68f2ba54993957fa00af"
+        }
+    },
+    "REF_CC/SQR": {
+        "source_pattern": "",
+        "dest_pattern": "",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a6afa18f9f98d2ffdadee"
+        }
+    },
+    "REF_CC/SIM": {
+        "source_pattern": "",
+        "dest_pattern": "",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a6afa18f9f98d2ffdaded"
+        }
+    },
+    "REF_CC/LSH": {
+        "source_pattern": "",
+        "dest_pattern": "",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a6af9d161b2243d487e04"
         }
     }
 }
