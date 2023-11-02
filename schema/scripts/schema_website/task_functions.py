@@ -852,7 +852,10 @@ def get_issues_and_labels(ti):
     mydict['references'] = {}
     print("Getting nb resources on data.gouv")
     for s in SCHEMA_CATALOG['schemas']:
-        r = requests.get('https://www.data.gouv.fr/api/1/datasets/?schema=' + s['name'])
+        r = requests.get(
+            'https://www.data.gouv.fr/api/1/datasets/?schema=' + s['name'],
+            headers={'X-fields': 'total'}
+        )
         mydict['references'][s['name']] = {
             'dgv_resources': r.json()['total'],
             'title': s['title'],
