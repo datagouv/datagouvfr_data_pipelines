@@ -9,7 +9,6 @@ import asyncio
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
@@ -129,7 +128,7 @@ def create_all_tables():
         print('Top 50 des orga qui ont publié le plus de jeux de données')
         data = get_all_from_api_query(
             'https://www.data.gouv.fr/api/1/datasets/?sort=-created',
-            mask="data{organization{id,name},internal{created_at}}"
+            mask="data{organization{id,name},internal{created_at_internal}}"
         )
         threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
         orgas_of_interest = {}
@@ -154,7 +153,10 @@ def create_all_tables():
         # Top 50 des orga les plus visitées et avec le plus de ressources téléchargées
         # aka le plus de visites sur tous les datasets de l'orga
         print('Top 50 des orga les plus visitées et avec le plus de ressources téléchargées')
-        data = get_all_from_api_query(f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}', next_page='links.next')
+        data = get_all_from_api_query(
+            f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}',
+            next_page='links.next'
+        )
         orga_visited = {
             d['organization_id']: {
                 'monthly_visit_dataset': d['monthly_visit_dataset'],
@@ -215,14 +217,18 @@ def create_all_tables():
         while len(resources_downloaded) < 50:
             d = next(data)
             if d['monthly_visit_resource']:
-                r = requests.get(f"https://www.data.gouv.fr/api/2/datasets/resources/{d['resource_id']}/").json()
+                r = requests.get(
+                    f"https://www.data.gouv.fr/api/2/datasets/resources/{d['resource_id']}/"
+                ).json()
                 d['dataset_id'] = r['dataset_id'] if r['dataset_id'] else 'COMMUNAUTARY'
                 resource_title = r['resource']['title']
                 r2 = {}
                 r3 = {}
                 if d['dataset_id'] != 'COMMUNAUTARY':
                     r2 = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
-                    r3 = requests.get(f"https://api-metrics.preprod.data.gouv.fr/api/datasets/data/?metric_month__exact={last_month}&dataset_id__exact={d['dataset_id']}").json()
+                    r3 = requests.get(
+                        f"https://api-metrics.preprod.data.gouv.fr/api/datasets/data/?metric_month__exact={last_month}&dataset_id__exact={d['dataset_id']}"
+                    ).json()
                 resources_downloaded.update({
                     f"{d['dataset_id']}.{d['resource_id']}": {
                         'monthly_visit_resourced': d['monthly_visit_resource'],
@@ -234,7 +240,10 @@ def create_all_tables():
                     }
                 })
         resources_downloaded = {
-            k: v for k, v in sorted(resources_downloaded.items(), key=lambda x: -x[1]['monthly_visit_resourced'])
+            k: v for k, v in sorted(
+                resources_downloaded.items(),
+                key=lambda x: -x[1]['monthly_visit_resourced']
+            )
         }
         df = pd.DataFrame(resources_downloaded.values(), index=resources_downloaded.keys())
         df = df.sort_values(['dataset_total_resource_visits', 'monthly_visit_resourced'], ascending=False)
@@ -258,7 +267,9 @@ def create_all_tables():
                 reuses_visited.update({
                     d['reuse_id']: {'monthly_visit': d['monthly_visit']}
                 })
-        reuses_visited = {k: v for k, v in sorted(reuses_visited.items(), key=lambda x: -x[1]['monthly_visit'])}
+        reuses_visited = {
+            k: v for k, v in sorted(reuses_visited.items(), key=lambda x: -x[1]['monthly_visit'])
+        }
         for k in reuses_visited:
             r = requests.get(datagouv_api_url + 'reuses/' + k).json()
             reuses_visited[k].update({
@@ -293,7 +304,10 @@ def create_all_tables():
                 )
                 discussions_of_interest[d['subject']['id']]['discussions_created'] += 1
         discussions_of_interest = {
-            k: v for k, v in sorted(discussions_of_interest.items(), key=lambda x: -x[1]['discussions_created'])
+            k: v for k, v in sorted(
+                discussions_of_interest.items(),
+                key=lambda x: -x[1]['discussions_created']
+            )
         }
         df = pd.DataFrame(discussions_of_interest.values(), index=discussions_of_interest.keys())
         df.to_csv(DATADIR + 'top50_orgas_most_discussions_30_days.csv', index=False)
@@ -348,7 +362,10 @@ def create_all_tables():
                 break
         print('   > Getting visits...')
         for d in empty_datasets:
-            data = get_all_from_api_query(f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}', next_page='links.next')
+            data = get_all_from_api_query(
+                f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}',
+                next_page='links.next'
+            )
             try:
                 n = next(data)
                 empty_datasets[d].update({'last_month_visits': n['monthly_visit']})
