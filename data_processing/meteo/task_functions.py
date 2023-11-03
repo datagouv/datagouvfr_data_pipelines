@@ -100,22 +100,8 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     ti.xcom_push(key='diff_files', value=diff_files)
 
 
-def extract_info(source_pattern, file_name):
-    # /!\ REMOVE FILE EXTENSIONS BEFORE APPLYING
-    no_ext = file_name.split('.')[0]
-    params = re.findall(r'\{.*?\}', source_pattern)
-    res = {}
-    sep = '_'
-    for p in params:
-        idx = source_pattern.split(sep).index(p)
-        # could also keep the brackets and dest_pattern.replace(p, res[p])
-        clean = p.replace('{', '').replace('}', '')
-        res[clean] = no_ext.split(sep)[idx]
-    return res
-
-
-def build_resource_name(dest_pattern, params):
-    return dest_pattern.format(**params)
+def get_file_extention(file):
+    return '.'.join(file.split('.')[-file.count('.'):])
 
 
 def upload_files_datagouv(ti, minio_folder):
@@ -125,45 +111,51 @@ def upload_files_datagouv(ti, minio_folder):
 
     minio_files = ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio')
 
+    # check for presence is done with URLs (could also be with resource name)
     resources_lists = {
         path: {
-            r['title']: r['id'] for r in requests.get(
+            r['url']: r['id'] for r in requests.get(
                 f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
-                headers={'X-fields': 'resources{id,title}'}
+                headers={'X-fields': 'resources{id,url}'}
             ).json()['resources']
         }
         for path in config.keys()
     }
 
     updated = set()
-    k = 0
-    for file in minio_files.keys():
+    # reversed so that files get uploaded in a better order for UI
+    for file in reversed(minio_files.keys()):
         path = '/'.join(file.replace(minio_folder, '').split('/')[:-1])
-        file_no_ext = file.split('/')[-1].split('.')[0]
-        resource_name = build_resource_name(
-            config[path]['dest_pattern'],
-            extract_info(config[path]['source_pattern'], file_no_ext)
-        )
+        file_with_ext = file.split('/')[-1]
+        url = f"https://object.files.data.gouv.fr/meteofrance/{file}"
+        # differenciation ressource principale VS documentation
+        is_doc = False
+        description = ""
+        if config[path]['doc_pattern'] and re.match(config[path]['doc_pattern'], file_with_ext):
+            resource_name = file_with_ext.split(".")[0]
+            is_doc = True
+        else:
+            params = re.match(config[path]['source_pattern'], file_with_ext).groupdict()
+            resource_name = config[path]['name_template'].format(**params)
+            description = config[path]['description_template'].format(**params)
 
-        if resource_name not in resources_lists[path].keys():
+        if url not in resources_lists[path].keys():
             # si la resource n'existe pas, on la crée
-            print('Creating new resource: ', file_no_ext)
+            print('Creating new resource for: ', file_with_ext)
             post_remote_resource(
                 api_key=DATAGOUV_SECRET_API_KEY,
-                remote_url=f"https://object.files.data.gouv.fr/meteofrance/{file}",
+                remote_url=url,
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
                 filesize=minio_files[file],
                 title=resource_name,
-                format="csv.gz",
-                description=f"Dernière modification : {datetime.today()}",
+                type="main" if not is_doc else "documentation",
+                format=get_file_extention(file_with_ext),
+                description=description + f" (Dernière modification : {datetime.today()})",
             )
             updated.add(path)
         else:
-            # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé ? une maj de métadonnées ?
-            print("Resource already exists: ", file_no_ext)
-        k += 1
-        if k > 5:
-            break
+            # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé (hydra, taille du fichier) ?
+            print("Resource already exists: ", file_with_ext)
     ti.xcom_push(key='updated', value=updated)
 
 
