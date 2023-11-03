@@ -1,5 +1,4 @@
 from airflow.models import Variable
-import json
 
 # Global
 AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME", "/opt/airflow/dags/")
