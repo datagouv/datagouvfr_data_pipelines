@@ -36,11 +36,15 @@ def check_new(ti, **kwargs):
         # add field to check if it's the first publication of this type
         # for this organization/user, and check for potential spam
         if templates_dict["type"] != 'organizations':
-            mydict['spam'] = any([
-                spam in field.lower() if field else False
-                for spam in SPAM_WORDS
-                for field in [item['title'], item['description']]
-            ])
+            mydict['spam'] = False
+            # if certified orga, no spam check
+            badges = item['organization'].get('badges', []) if item.get('organization', None) else []
+            if 'certified' not in [badge['kind'] for badge in badges]:
+                mydict['spam'] = any([
+                    spam in field.lower() if field else False
+                    for spam in SPAM_WORDS
+                    for field in [item['title'], item['description']]
+                ])
             if item['organization']:
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
