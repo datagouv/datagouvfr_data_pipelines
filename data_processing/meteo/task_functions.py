@@ -29,7 +29,10 @@ def list_ftp_files_recursive(ftp, path='', base_path=''):
     try:
         ftp.cwd(path)
         current_path = f"{base_path}/{path}" if base_path else path
-        ftp.retrlines('LIST', lambda x: files.append((current_path.split('//')[-1], x.split()[-1])))
+        ftp.retrlines(
+            'LIST',
+            lambda x: files.append((current_path.split('//')[-1], x.split()[-1], int(x.split()[4])))
+        )
         for item in files:
             if '.' not in item[1]:
                 files += list_ftp_files_recursive(ftp, f"{path}/{item[1]}", current_path)
@@ -41,9 +44,9 @@ def list_ftp_files_recursive(ftp, path='', base_path=''):
 def get_current_files_on_ftp(ti, ftp):
     ftp_files = list_ftp_files_recursive(ftp)
     print(ftp_files)
-    ftp_files = [
-        path + '/' + file for path, file in ftp_files if '.' in file
-    ]
+    ftp_files = {
+        path + '/' + file: size for (path, file, size) in ftp_files if '.' in file
+    }
     ti.xcom_push(key='ftp_files', value=ftp_files)
 
 
@@ -59,12 +62,22 @@ def get_current_files_on_minio(ti, minio_folder):
 
 
 def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
-    minio_files = list(ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio').keys())
-    minio_files = [f.replace(minio_folder, '') for f in minio_files]
+    minio_files = ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio')
+    minio_files = {
+        k.replace(minio_folder, ''): v for k, v in minio_files.items()
+    }
 
     ftp_files = ti.xcom_pull(key='ftp_files', task_ids='get_current_files_on_ftp')
-    diff_files = [f for f in ftp_files if f not in minio_files]
+    # getting files that are not on Minio or which sizes are different
+    diff_files = [
+        f for f in ftp_files
+        if f not in minio_files
+        # sizes can slightly differ on FTP and Minio for an identical file
+        # or abs(minio_files[f] - ftp_files[f]) > 100
+        # would be better to compare a checksum or the date of creation/modification
+    ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
+    print(diff_files)
 
     # doing it one file at a time in order not to overload production server
     for file_to_transfer in diff_files:
@@ -165,7 +178,11 @@ def notification_mattermost(ti):
     updated = ti.xcom_pull(key="updated", task_ids="upload_files_datagouv")
 
     message = "🌦️ Données météo mises à jour :"
-    for path in updated:
-        message += f"\n- [dataset {path}]"
-        message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/)"
-    send_message(message)
+    if not updated:
+        message += "\nAucun changement."
+        send_message(message)
+    else:
+        for path in updated:
+            message += f"\n- [dataset {path}]"
+            message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/)"
+        send_message(message)
