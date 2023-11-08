@@ -141,6 +141,7 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
                 obj["resource_url"] = res["url"]
                 obj["resource_last_modified"] = res["last_modified"]
                 obj["resource_created_at"] = res["created_at"]
+                obj["publish_source"] = res.get("extras", {}).get("publish_source", "")
                 obj["error_type"] = None
                 if not res.get('extras', {}).get('check:available', True):
                     obj["error_type"] = "hydra-unavailable-resource"
@@ -2172,6 +2173,9 @@ def notification_synthese(
                         "resource_id",
                         "dataset_title",
                         "resource_title",
+                        "organization_or_owner",
+                        "resource_created_at",
+                        "publish_source",
                         "dataset_page",
                         "resource_url",
                         "resource_found_by",
