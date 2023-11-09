@@ -16,9 +16,10 @@ from datagouvfr_data_pipelines.utils.minio import send_files, get_all_files_from
 import ftplib
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import re
 import requests
+from dateutil import parser
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
@@ -31,7 +32,12 @@ def list_ftp_files_recursive(ftp, path='', base_path=''):
         current_path = f"{base_path}/{path}" if base_path else path
         ftp.retrlines(
             'LIST',
-            lambda x: files.append((current_path.split('//')[-1], x.split()[-1], int(x.split()[4])))
+            lambda x: files.append((
+                current_path.split('//')[-1],
+                x.split()[-1],
+                int(x.split()[4]),
+                x.split()[5:7],
+            ))
         )
         for item in files:
             if '.' not in item[1]:
@@ -45,7 +51,9 @@ def get_current_files_on_ftp(ti, ftp):
     ftp_files = list_ftp_files_recursive(ftp)
     print(ftp_files)
     ftp_files = {
-        path + '/' + file: size for (path, file, size) in ftp_files if '.' in file
+        path + '/' + file: {"size": size, "modif_date": parser.parse(' '.join(date_list))}
+        for (path, file, size, date_list) in ftp_files
+        if '.' in file
     }
     ti.xcom_push(key='ftp_files', value=ftp_files)
 
@@ -68,13 +76,18 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     }
 
     ftp_files = ti.xcom_pull(key='ftp_files', task_ids='get_current_files_on_ftp')
-    # getting files that are not on Minio or which sizes are different
+    # much debated part of the code: how to best get which files to consider here
+    # first it was only done with the files' names but what if a file is updated but not renamed?
+    # then we thought about checking the size and comparing with Minio
+    # but sizes can vary for an identical file depending on where/how it is stored
+    # we also thought about a checksum, but hard to compute on the FTP and downloading
+    # all files to compute checksums and compare is inefficient
+    # our best try: check the modification date on the FTP and take the file if it has
+    # been changed since the previous dy (DAG will run daily)
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
-        # sizes can slightly differ on FTP and Minio for an identical file
-        # or abs(minio_files[f] - ftp_files[f]) > 100
-        # would be better to compare a checksum or the date of creation/modification
+        or ftp_files[f]['modif_date'] > datetime.now(timezone.utc) - timedelta(days=1)
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
@@ -86,7 +99,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         path_to_file = '/'.join(file_to_transfer.split('/')[:-1])
         file_name = file_to_transfer.split('/')[-1]
         ftp.cwd('/' + path_to_file)
-        # downaloading the file from FTP
+        # downloading the file from FTP
         with open(DATADIR + '/' + file_name, 'wb') as local_file:
             ftp.retrbinary('RETR ' + file_name, local_file.write)
 
@@ -122,7 +135,14 @@ def upload_files_datagouv(ti, minio_folder):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
         config = json.load(fp)
 
-    minio_files = ti.xcom_pull(key='minio_files', task_ids='get_current_files_on_minio')
+    # re-getting Minio files in case new files have been transfered
+    minio_files = get_all_files_from_parent_folder(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET="meteofrance",
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        folder=minio_folder
+    )
 
     # check for presence is done with URLs (could also be with resource name)
     resources_lists = {
@@ -163,7 +183,7 @@ def upload_files_datagouv(ti, minio_folder):
                 title=resource_name,
                 type="main" if not is_doc else "documentation",
                 format=get_file_extention(file_with_ext),
-                description=description + f" (Dernière modification : {datetime.today()})",
+                description=description,
             )
             updated.add(path)
         else:
