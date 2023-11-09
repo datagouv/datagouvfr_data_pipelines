@@ -1,4 +1,14 @@
 {
+    "BASE/MENS": {
+        "source_pattern": "MENSQ_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "MENS_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "654c962a3b8186a2b5bbc995"
+        }
+    },
     "BASE/DECAD": {
         "source_pattern": "DECADQ_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD_departement_{DEP}_periode_{PERIOD}",
