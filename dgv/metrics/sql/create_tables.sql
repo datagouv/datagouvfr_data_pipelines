@@ -70,7 +70,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.metrics_datasets AS
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            visits.nb_visit,
            matomo.nb_outlink,
-           resources.nb_visit as resource_nb_visit
+           resources.nb_visit as resource_nb_download
     FROM airflow.visits_datasets visits
     FULL OUTER JOIN airflow.matomo_datasets matomo
     ON visits.dataset_id = matomo.dataset_id AND
@@ -96,12 +96,13 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.metrics_reuses AS
     ON visits.reuse_id = matomo.reuse_id AND
        visits.date_metric = matomo.date_metric
 ;
+
 CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.metrics_organizations AS
     SELECT visits.__id as __id,
            COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
            COALESCE(visits.organization_id, matomo.organization_id) as organization_id,
            datasets.nb_visit as dataset_nb_visit,
-           datasets.resource_nb_visit as resource_nb_visit,
+           datasets.resource_nb_download as resource_nb_download,
            reuses.nb_visit as reuse_nb_visit,
            matomo.nb_outlink
     FROM airflow.visits_organizations visits
@@ -109,7 +110,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.metrics_organizations AS
     ON visits.organization_id = matomo.organization_id AND
        visits.date_metric = matomo.date_metric
     LEFT OUTER JOIN (
-        SELECT organization_id, date_metric, sum(nb_visit) as nb_visit, sum(resource_nb_visit) as resource_nb_visit
+        SELECT organization_id, date_metric, sum(nb_visit) as nb_visit, sum(resource_nb_download) as resource_nb_download
         FROM airflow.metrics_datasets
         GROUP BY organization_id, date_metric
     ) datasets
@@ -131,7 +132,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.datasets AS
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(nb_visit) as monthly_visit,
         sum(nb_outlink) as monthly_outlink,
-        sum(resource_nb_visit) as monthly_visit_resource
+        sum(resource_nb_download) as monthly_download_resource
     FROM airflow.metrics_datasets
     GROUP BY metric_month, dataset_id
 ;
@@ -153,7 +154,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.organizations AS
         organization_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(dataset_nb_visit) as monthly_visit_dataset,
-        sum(resource_nb_visit) as monthly_visit_resource,
+        sum(resource_nb_download) as monthly_download_resource,
         sum(reuse_nb_visit) as monthly_visit_reuse,
         sum(nb_outlink) as monthly_outlink
     FROM airflow.metrics_organizations
@@ -166,7 +167,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.resources AS
         resource_id,
         dataset_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
-        sum(nb_visit) as monthly_visit_resource
+        sum(nb_visit) as monthly_download_resource
     FROM airflow.visits_resources
     GROUP BY metric_month, resource_id, dataset_id
 ;
@@ -176,14 +177,14 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.site AS
     SELECT __id,
            COALESCE(datasets.metric_month, reuses.metric_month) as metric_month,
            datasets.monthly_visit as monthly_visit_dataset,
-           datasets.monthly_visit_resource as monthly_visit_resource,
+           datasets.monthly_download_resource as monthly_download_resource,
            reuses.monthly_visit as monthly_visit_reuse,
            reuses.monthly_outlink as monthly_outlink
     FROM (
         SELECT MIN(__id) as __id,
                metric_month,
                sum(monthly_visit) as monthly_visit,
-               sum(monthly_visit_resource) as monthly_visit_resource
+               sum(monthly_download_resource) as monthly_download_resource
         FROM airflow.datasets GROUP BY metric_month ) datasets
     FULL OUTER JOIN (
         SELECT metric_month,
@@ -200,7 +201,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.datasets_total AS
         dataset_id,
         sum(nb_visit) as visit,
         sum(nb_outlink) as outlink,
-        sum(resource_nb_visit) as visit_resource
+        sum(resource_nb_download) as download_resource
     FROM airflow.metrics_datasets
     GROUP BY dataset_id
 ;
@@ -220,7 +221,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.organizations_total AS
         MIN(__id) as __id,
         organization_id,
         sum(dataset_nb_visit) as visit_dataset,
-        sum(resource_nb_visit) as visit_resource,
+        sum(resource_nb_download) as download_resource,
         sum(reuse_nb_visit) as visit_reuse,
         sum(nb_outlink) as outlink
     FROM airflow.metrics_organizations
@@ -232,7 +233,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.resources_total AS
         MIN(__id) as __id,
         resource_id,
         dataset_id,
-        sum(nb_visit) as visit_resource
+        sum(nb_visit) as download_resource
     FROM airflow.visits_resources
     GROUP BY resource_id, dataset_id
 ;
