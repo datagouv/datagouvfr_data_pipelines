@@ -131,7 +131,6 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.datasets AS
         dataset_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(nb_visit) as monthly_visit,
-        sum(nb_outlink) as monthly_outlink,
         sum(resource_nb_download) as monthly_download_resource
     FROM airflow.metrics_datasets
     GROUP BY metric_month, dataset_id
@@ -142,8 +141,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.reuses AS
         MIN(__id) as __id,
         reuse_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
-        sum(nb_visit) as monthly_visit,
-        sum(nb_outlink) as monthly_outlink
+        sum(nb_visit) as monthly_visit
     FROM airflow.metrics_reuses
     GROUP BY metric_month, reuse_id
 ;
@@ -155,8 +153,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.organizations AS
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(dataset_nb_visit) as monthly_visit_dataset,
         sum(resource_nb_download) as monthly_download_resource,
-        sum(reuse_nb_visit) as monthly_visit_reuse,
-        sum(nb_outlink) as monthly_outlink
+        sum(reuse_nb_visit) as monthly_visit_reuse
     FROM airflow.metrics_organizations
     GROUP BY metric_month, organization_id
 ;
@@ -178,8 +175,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.site AS
            COALESCE(datasets.metric_month, reuses.metric_month) as metric_month,
            datasets.monthly_visit as monthly_visit_dataset,
            datasets.monthly_download_resource as monthly_download_resource,
-           reuses.monthly_visit as monthly_visit_reuse,
-           reuses.monthly_outlink as monthly_outlink
+           reuses.monthly_visit as monthly_visit_reuse
     FROM (
         SELECT MIN(__id) as __id,
                metric_month,
@@ -188,8 +184,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS airflow.site AS
         FROM airflow.datasets GROUP BY metric_month ) datasets
     FULL OUTER JOIN (
         SELECT metric_month,
-        sum(monthly_visit) as monthly_visit,
-        sum(monthly_outlink) as monthly_outlink
+        sum(monthly_visit) as monthly_visit
         FROM airflow.reuses GROUP BY metric_month ) reuses
     ON datasets.metric_month = reuses.metric_month
 ;
