@@ -4,7 +4,7 @@
         "file": "export_geozones.json",
         "dev": {
             "dataset_id": "64bfc429d6e029048e577d3e",
-            "resource_id": "7d5e912d-7567-43be-ab52-c18a165a070a"
+            "resource_id": "44916426-3d71-409b-bc65-ee3b6dde3725"
         },
         "prod": {
             "dataset_id": "554210a9c751df2666a7b26c"
@@ -15,7 +15,7 @@
         "file": "export_countries.json",
         "dev": {
             "dataset_id": "64bfc429d6e029048e577d3e",
-            "resource_id": "df967db3-db68-474c-a30a-729bc2c2f583"
+            "resource_id": "37520479-fcf3-4e7c-868b-e5fce369684b"
         },
         "prod": {
             "dataset_id": "554210a9c751df2666a7b26c"
