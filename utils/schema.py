@@ -1251,6 +1251,8 @@ def add_validation_extras(
             r = requests.get(url, headers=headers)
             extras = r.json()["extras"]
             schema = r.json()["schema"]
+            # this throws an error is the schema labelled is not the same as
+            # the schema we're processing (can be the case for old/new IRVE)
             if schema and "name" in schema and schema["name"] != schema_name:
                 if should_succeed:
                     return False
