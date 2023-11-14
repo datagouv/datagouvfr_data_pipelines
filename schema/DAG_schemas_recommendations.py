@@ -1,5 +1,6 @@
 from airflow.models import DAG
-from operators.papermill_minio import PapermillMinioOperator
+from airflow.operators.python import PythonOperator
+from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from airflow.operators.bash import BashOperator
 from datetime import timedelta, datetime
 from airflow.utils.dates import days_ago
@@ -15,6 +16,7 @@ from datagouvfr_data_pipelines.config import (
 DAG_NAME = "schema_recommendations"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
+# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
 
@@ -36,25 +38,28 @@ with DAG(
         bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} ",
     )
 
-    run_nb = PapermillMinioOperator(
-        task_id="run_notebook_schemas_recommendations",
-        input_nb=(
-            f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/"
-            "notebooks/schemas_recommendations.ipynb"
-        ),
-        output_nb="{{ ds }}.ipynb",
-        tmp_path=f"{TMP_FOLDER}",
-        minio_url=MINIO_URL,
-        minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
-        minio_password=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        minio_output_filepath="schema/schemas_recommendations/{{ ds }}/",
-        parameters={
-            "msgs": "Ran from Airflow {{ ds }} !",
-            "WORKING_DIR": f"{AIRFLOW_DAG_HOME}{DAG_NAME}",
-            "TMP_FOLDER": f"{TMP_FOLDER}",
-            "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}output/",
-            "DATE_AIRFLOW": "{{ ds }}",
+    run_nb = PythonOperator(
+        task_id='run_notebook_schemas_recommendations',
+        python_callable=execute_and_upload_notebook,
+        op_kwargs={
+            "input_nb": (
+                f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/"
+                "notebooks/schemas_recommendations.ipynb"
+            ),
+            "output_nb": "{{ ds }}.ipynb",
+            "tmp_path": f"{TMP_FOLDER}",
+            "minio_url": MINIO_URL,
+            "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+            "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            "minio_output_filepath": "schema/schemas_recommendations/{{ ds }}/",
+            "parameters": {
+                "msgs": "Ran from Airflow {{ ds }} !",
+                "WORKING_DIR": f"{AIRFLOW_DAG_HOME}{DAG_NAME}",
+                "TMP_FOLDER": f"{TMP_FOLDER}",
+                "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}output/",
+                "DATE_AIRFLOW": "{{ ds }}",
+            },
         },
     )
 

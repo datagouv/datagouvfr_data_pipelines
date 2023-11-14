@@ -1,5 +1,5 @@
 from airflow.models import DAG
-from operators.papermill_minio import PapermillMinioOperator
+from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
@@ -185,26 +185,29 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
-    run_nb_daily = PapermillMinioOperator(
-        task_id="run_notebook_and_save_to_minio_daily",
-        input_nb=AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-        output_nb="{{ ds }}" + ".ipynb",
-        tmp_path=AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_daily/" + "{{ ds }}" + "/",
-        minio_url=MINIO_URL,
-        minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
-        minio_password=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        minio_output_filepath=MINIO_PATH + "digest_daily/" + "{{ ds }}" + "/",
-        parameters={
-            "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
-            "WORKING_DIR": AIRFLOW_DAG_HOME,
-            "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
-            + DAG_FOLDER
-            + "digest_daily/"
-            + "{{ ds }}"
-            + "/output/",
-            "DATE_AIRFLOW": "{{ ds }}",
-            "PERIOD_DIGEST": "daily",
+    run_nb_daily = PythonOperator(
+        task_id='run_notebook_and_save_to_minio_daily',
+        python_callable=execute_and_upload_notebook,
+        op_kwargs={
+            "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
+            "output_nb": "{{ ds }}" + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_daily/" + "{{ ds }}" + "/",
+            "minio_url": MINIO_URL,
+            "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+            "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            "minio_output_filepath": MINIO_PATH + "digest_daily/" + "{{ ds }}" + "/",
+            "parameters": {
+                "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
+                "WORKING_DIR": AIRFLOW_DAG_HOME,
+                "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
+                + DAG_FOLDER
+                + "digest_daily/"
+                + "{{ ds }}"
+                + "/output/",
+                "DATE_AIRFLOW": "{{ ds }}",
+                "PERIOD_DIGEST": "daily",
+            },
         },
     )
 
@@ -224,26 +227,29 @@ with DAG(
         task_id="check_if_monday", python_callable=check_if_monday
     )
 
-    run_nb_weekly = PapermillMinioOperator(
-        task_id="run_notebook_and_save_to_minio_weekly",
-        input_nb=AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-        output_nb="{{ ds }}" + ".ipynb",
-        tmp_path=AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_weekly/" + "{{ ds }}" + "/",
-        minio_url=MINIO_URL,
-        minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
-        minio_password=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        minio_output_filepath=MINIO_PATH + "digest_weekly/" + "{{ ds }}" + "/",
-        parameters={
-            "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
-            "WORKING_DIR": AIRFLOW_DAG_HOME,
-            "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
-            + DAG_FOLDER
-            + "digest_weekly/"
-            + "{{ ds }}"
-            + "/output/",
-            "DATE_AIRFLOW": "{{ ds }}",
-            "PERIOD_DIGEST": "weekly",
+    run_nb_weekly = PythonOperator(
+        task_id='run_notebook_and_save_to_minio_weekly',
+        python_callable=execute_and_upload_notebook,
+        op_kwargs={
+            "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
+            "output_nb": "{{ ds }}" + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_weekly/" + "{{ ds }}" + "/",
+            "minio_url": MINIO_URL,
+            "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+            "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            "minio_output_filepath": MINIO_PATH + "digest_weekly/" + "{{ ds }}" + "/",
+            "parameters": {
+                "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
+                "WORKING_DIR": AIRFLOW_DAG_HOME,
+                "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
+                + DAG_FOLDER
+                + "digest_weekly/"
+                + "{{ ds }}"
+                + "/output/",
+                "DATE_AIRFLOW": "{{ ds }}",
+                "PERIOD_DIGEST": "weekly",
+            },
         },
     )
 
@@ -264,27 +270,30 @@ with DAG(
         python_callable=check_if_first_day_of_month,
     )
 
-    run_nb_monthly = PapermillMinioOperator(
-        task_id="run_notebook_and_save_to_minio_monthly",
-        input_nb=AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-        output_nb="{{ ds }}" + ".ipynb",
-        tmp_path=AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_monthly/" + "{{ ds }}" + "/",
-        minio_url=MINIO_URL,
-        minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
-        minio_password=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        minio_output_filepath=MINIO_PATH + "digest_monthly/" + "{{ ds }}" + "/",
-        parameters={
-            "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
-            "WORKING_DIR": AIRFLOW_DAG_HOME,
-            "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
-            + DAG_FOLDER
-            + "digest_monthly/"
-            + "{{ ds }}"
-            + "/output/",
-            "DATE_AIRFLOW": "{{ ds }}",
-            "PERIOD_DIGEST": "monthly",
-        },
+    run_nb_monthly = PythonOperator(
+        task_id='run_notebook_and_save_to_minio_monthly',
+        python_callable=execute_and_upload_notebook,
+        op_kwargs={
+            "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
+            "output_nb": "{{ ds }}" + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_monthly/" + "{{ ds }}" + "/",
+            "minio_url": MINIO_URL,
+            "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+            "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            "minio_output_filepath": MINIO_PATH + "digest_monthly/" + "{{ ds }}" + "/",
+            "parameters": {
+                "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
+                "WORKING_DIR": AIRFLOW_DAG_HOME,
+                "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
+                + DAG_FOLDER
+                + "digest_monthly/"
+                + "{{ ds }}"
+                + "/output/",
+                "DATE_AIRFLOW": "{{ ds }}",
+                "PERIOD_DIGEST": "monthly",
+            },
+        }
     )
 
     publish_mattermost_monthly = PythonOperator(
@@ -299,7 +308,7 @@ with DAG(
         templates_dict={"TODAY": "{{ ds }}"},
     )
 
-    run_nb_daily.set_upstream(clean_previous_outputs)
+    run_nb_daily.set_upstream(clean_previous_output)
     publish_mattermost_daily.set_upstream(run_nb_daily)
     send_email_report_daily.set_upstream(run_nb_daily)
 
