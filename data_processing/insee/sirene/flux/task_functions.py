@@ -132,6 +132,7 @@ def get_current_flux_etablissement(ti):
         "https://api.insee.fr/entreprises/sirene/V3/siret?q=dateDernierTraitementEtablissement%3A"
         f"{CURRENT_MONTH}&champs=siren,siret,dateCreationEtablissement,trancheEffectifsEtablissement,"
         "activitePrincipaleRegistreMetiersEtablissement,etablissementSiege,numeroVoieEtablissement,"
+        "dateDernierTraitementEtablissement,anneeEffectifsEtablissement,"
         "libelleVoieEtablissement,codePostalEtablissement,libelleCommuneEtablissement,"
         "libelleCedexEtablissement,typeVoieEtablissement,codeCommuneEtablissement,codeCedexEtablissement,"
         "complementAdresseEtablissement,distributionSpecialeEtablissement,complementAdresse2Etablissement,"

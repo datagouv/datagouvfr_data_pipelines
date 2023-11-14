@@ -44,12 +44,12 @@ default_args = {
         'pierlou.ramade@data.gouv.fr',
         'geoffrey.aldebert@data.gouv.fr'
     ],
-    'email_on_failure': True
+    'email_on_failure': False
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='15 7 1 * *',
+    schedule_interval=None,
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=300),

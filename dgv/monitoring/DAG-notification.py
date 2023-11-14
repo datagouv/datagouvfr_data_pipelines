@@ -6,14 +6,17 @@ from difflib import SequenceMatcher
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+    MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_last_items
+from datagouvfr_data_pipelines.utils.datagouv import get_last_items, SPAM_WORDS
 import requests
+import re
 
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"hours": 1}
+duplicate_slug_pattern = r'-\d+$'
 
 
 def check_new(ti, **kwargs):
@@ -27,12 +30,67 @@ def check_new(ti, **kwargs):
     arr = []
     for item in items:
         mydict = {}
-        if "name" in item:
-            mydict["name"] = item["name"]
-        if "title" in item:
-            mydict["name"] = item["title"]
-        if "page" in item:
-            mydict["page"] = item["page"]
+        for k in ["name", "title", "page"]:
+            if k in item:
+                mydict[k] = item[k]
+        # add field to check if it's the first publication of this type
+        # for this organization/user, and check for potential spam
+        if templates_dict["type"] != 'organizations':
+            mydict['spam'] = False
+            # if certified orga, no spam check
+            badges = item['organization'].get('badges', []) if item.get('organization', None) else []
+            if 'certified' not in [badge['kind'] for badge in badges]:
+                mydict['spam'] = any([
+                    spam in field.lower() if field else False
+                    for spam in SPAM_WORDS
+                    for field in [item['title'], item['description']]
+                ])
+            if item['organization']:
+                owner = requests.get(
+                    f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
+                ).json()
+                mydict['owner_type'] = "organization"
+                mydict['owner_name'] = owner['name']
+                mydict['owner_id'] = owner['id']
+            elif item['owner']:
+                owner = requests.get(
+                    f"https://data.gouv.fr/api/1/users/{item['owner']['id']}/"
+                ).json()
+                mydict['owner_type'] = "user"
+                mydict['owner_name'] = owner['slug']
+                mydict['owner_id'] = owner['id']
+            else:
+                mydict['owner_type'] = None
+            if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] == 1:
+                # if it's a dataset and it's labelled with a schema and not potential spam, no ping
+                if (
+                    templates_dict["type"] == 'datasets'
+                    and any([r['schema'] for r in item['resources']])
+                    and not mydict['spam']
+                ):
+                    print("This dataset has a schema:", item)
+                    mydict['first_publication'] = False
+                else:
+                    mydict['first_publication'] = True
+            else:
+                mydict['first_publication'] = False
+        else:
+            mydict['spam'] = any([
+                spam in field.lower() if field else False
+                for spam in SPAM_WORDS
+                for field in [item['name'], item['description']]
+            ])
+        # checking for potential duplicates in organization creation
+        mydict['duplicated'] = False
+        if templates_dict["type"] == 'organizations':
+            slug = item["slug"]
+            if re.search(duplicate_slug_pattern, slug) is not None:
+                suffix = re.findall(duplicate_slug_pattern, slug)[0]
+                original_orga = slug[:-len(suffix)]
+                test_orga = requests.get(f"https://data.gouv.fr/api/1/organizations/{original_orga}/")
+                # only considering a duplicate if the original slug is taken (not not found or deleted)
+                if test_orga.status_code not in [404, 410]:
+                    mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
 
@@ -163,6 +221,51 @@ def check_schema(ti):
                 pass
 
 
+def publish_item(item, item_type):
+    if item['spam']:
+        message = ':warning: @all Spam potentiel\n'
+    else:
+        message = ''
+
+    if item_type == "dataset":
+        message += ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
+    else:
+        message += ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
+
+    if item['owner_type'] == "organization":
+        message += f"Organisation : [{item['owner_name']}]"
+        message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+    elif item['owner_type'] == "user":
+        message += f"Utilisateur : [{item['owner_name']}]"
+        message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+    else:
+        message += "**/!\\ sans rattachement**"
+    message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
+    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+
+    if item['first_publication']:
+        if item['spam']:
+            message = ':warning: @all Spam potentiel\n'
+        else:
+            message = ''
+
+        if item_type == "dataset":
+            message += ":loudspeaker: :one: Premier jeu de données "
+        else:
+            message += ":loudspeaker: :one: Première réutilisation "
+
+        if item['owner_type'] == "organization":
+            message += f"de l'organisation : [{item['owner_name']}]"
+            message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+        elif item['owner_type'] == "user":
+            message += f"de l'utilisateur : [{item['owner_name']}]"
+            message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+        else:
+            message += "**/!\\ sans rattachement**"
+        message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
+        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+
 def publish_mattermost(ti):
     nb_datasets = float(ti.xcom_pull(key="nb", task_ids="check_new_datasets"))
     datasets = ti.xcom_pull(key="datasets", task_ids="check_new_datasets")
@@ -171,32 +274,37 @@ def publish_mattermost(ti):
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
 
-    if nb_datasets > 0:
-        for item in datasets:
-            message = (
-                ":loudspeaker: :label: Nouveau **Jeu de données** : "
-                f"*{item['name']}* \n\n\n:point_right: {item['page']}"
-            )
-            send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
-
     if nb_orgas > 0:
         for item in orgas:
-            message = (
+            if item['spam']:
+                message = ':warning: @all Spam potentiel\n'
+            else:
+                message = ''
+            if item['duplicated']:
+                message += ':busts_in_silhouette: Duplicata potentiel\n'
+            else:
+                message += ''
+            message += (
                 ":loudspeaker: :office: Nouvelle **organisation** : "
-                f"*{item['name']}* \n\n\n:point_right: {item['page']}"
+                f"*{item['name'].strip()}* \n\n\n:point_right: {item['page']}"
             )
-            send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+    if nb_datasets > 0:
+        for item in datasets:
+            publish_item(item, "dataset")
 
     if nb_reuses > 0:
         for item in reuses:
-            message = (
-                ":loudspeaker: :art: Nouvelle **réutilisation** : "
-                f"*{item['name']}* \n\n\n:point_right: {item['page']}"
-            )
-            send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+            publish_item(item, "reuse")
 
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
+default_args = {
+    "email": ["geoffrey.aldebert@data.gouv.fr"],
+    "email_on_failure": False,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=2),
+}
 
 with DAG(
     dag_id=DAG_NAME,

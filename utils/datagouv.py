@@ -13,6 +13,36 @@ if AIRFLOW_ENV == "prod":
     ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
 
 
+SPAM_WORDS = [
+    'free',
+    'gratuit',
+    'allah',
+    'jesus'
+    'call',
+    'promo',
+    'argent',
+    'reduction',
+    'economisez',
+    'urgent',
+    'recompense',
+    'discount',
+    'money',
+    'gagner',
+    'libido',
+    'sex',
+    'viagra',
+    'bitcoin',
+    'cash',
+    'satisfied',
+    'miracle',
+    'weight loss',
+    'voyance',
+    'streaming',
+    'benefits',
+    'escort',
+]
+
+
 class File(TypedDict):
     dest_path: str
     dest_name: str
@@ -401,32 +431,17 @@ def get_created_date(data, date_key):
 
 
 def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', sort_key='-created'):
-
-    got_everything = False
-    intermediary_result = []
     results = []
-    page = 1
-
-    while not got_everything:
-        data = get_data(endpoint, page, sort_key)
-        for d in data:
-            created = get_created_date(d, date_key)
-            got_everything = (created.timestamp() < start_date.timestamp())
-            if not got_everything:
-                intermediary_result.append(d)
-            else:
-                break
-        if not data or got_everything:
+    data = get_all_from_api_query(
+        f"https://www.data.gouv.fr/api/1/{endpoint}/?sort={sort_key}"
+    )
+    for d in data:
+        created = get_created_date(d, date_key)
+        if end_date and created.timestamp() > end_date.timestamp():
+            continue
+        elif created.timestamp() < start_date.timestamp():
             break
-        else:
-            page += 1
-    if end_date:
-        for d in intermediary_result:
-            created = get_created_date(d, date_key)
-            if created.timestamp() < end_date.timestamp():
-                results.append(d)
-    else:
-        results = intermediary_result
+        results.append(d)
     return results
 
 
@@ -515,19 +530,27 @@ def post_remote_communautary_resource(
     return r.json()
 
 
-def get_all_from_api_query(base_query, next_page='next_page'):
+def get_all_from_api_query(
+    base_query,
+    next_page='next_page',
+    ignore_errors=False,
+    mask=None,
+):
     def get_link_next_page(elem, separated_keys):
         result = elem
         for k in separated_keys.split('.'):
             result = result[k]
         return result
     # /!\ only for paginated endpoints
-    r = requests.get(base_query)
-    r.raise_for_status()
+    headers = {'X-fields': mask + f',{next_page}'} if mask else None
+    r = requests.get(base_query, headers=headers)
+    if not ignore_errors:
+        r.raise_for_status()
     for elem in r.json()["data"]:
         yield elem
     while get_link_next_page(r.json(), next_page):
-        r = requests.get(get_link_next_page(r.json(), next_page))
-        r.raise_for_status()
+        r = requests.get(get_link_next_page(r.json(), next_page), headers=headers)
+        if not ignore_errors:
+            r.raise_for_status()
         for data in r.json()['data']:
             yield data

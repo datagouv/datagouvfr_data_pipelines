@@ -17,16 +17,26 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 
 
 def get_pending_harvester_from_api(ti):
-    harvesters =  get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
+    harvesters = get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
     harvesters = [
         {
             "admin_url": "https://www.data.gouv.fr/fr/admin/harvester/" + harvest["id"],
             "name": harvest["name"],
             "url": harvest["url"],
-            "orga": (f"Organisation {harvest['organization']['name']}"  if harvest["organization"]
-                     else f"Utilisateur {harvest['owner']['first_name']} {harvest['owner']['last_name']}"),
-            "orga_url": (f"https://www.data.gouv.fr/fr/organizations/{harvest['organization']['id']}" if harvest["organization"]
-                         else f"https://www.data.gouv.fr/fr/users/{harvest['owner']['id']}"),
+            "orga": (
+                f"Organisation {harvest['organization']['name']}"
+                if harvest["organization"]
+                else f"Utilisateur {harvest['owner']['first_name']} {harvest['owner']['last_name']}"
+                if harvest['owner']
+                else None
+            ),
+            "orga_url": (
+                f"https://www.data.gouv.fr/fr/organizations/{harvest['organization']['id']}/"
+                if harvest["organization"]
+                else f"https://www.data.gouv.fr/fr/users/{harvest['owner']['id']}/"
+                if harvest['owner']
+                else None
+            ),
             "id": harvest["id"]
         }
         for harvest in harvesters

@@ -22,7 +22,7 @@ MINIO_NEW = "insee/sirene/sirene_geolocalisation_insee/new/"
 
 with DAG(
     dag_id="data_processing_sirene_geolocalisation",
-    schedule_interval="5 8,9,10 21-23 * *",
+    schedule_interval="5 6,7,8,9,10 21-23 * *",
     start_date=days_ago(31),
     dagrun_timeout=timedelta(minutes=60),
     tags=["data_processing", "sirene", "geolocalisation"],

@@ -36,7 +36,7 @@ DPEDIR = f"{DATADIR}/dpe/"
 schema = 'dvf'
 
 if AIRFLOW_ENV == 'prod':
-    conn = BaseHook.get_connection("POSTGRES_DEV_DVF")
+    conn = BaseHook.get_connection("POSTGRES_DVF")
 else:
     conn = BaseHook.get_connection("postgres_localhost")
 
@@ -334,15 +334,15 @@ def get_epci():
 def process_dpe():
     cols_dpe = [
         'batiment_groupe_id',
-        'identifiant_dpe',
-        'type_batiment_dpe',
+        # 'identifiant_dpe',
+        # 'type_batiment_dpe',
         'periode_construction_dpe',
-        'annee_construction_dpe',
-        'date_etablissement_dpe',
-        'nombre_niveau_logement',
+        # 'annee_construction_dpe',
+        # 'date_etablissement_dpe',
+        # 'nombre_niveau_logement',
         'nombre_niveau_immeuble',
         'surface_habitable_immeuble',
-        'surface_habitable_logement',
+        # 'surface_habitable_logement',
         'classe_bilan_dpe',
         'classe_emission_ges',
     ]
@@ -350,27 +350,35 @@ def process_dpe():
         "batiment_groupe_id",
         "parcelle_id"
     ]
+    print("Import et traitement DPE infos...")
     dpe = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
         dtype=str,
         usecols=cols_dpe
     )
-    dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
-    dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
-        lambda x: round(float(x), 2)
-    )
+    # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+    # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+    #     lambda x: round(float(x), 2)
+    # )
+    dpe.set_index('batiment_groupe_id', inplace=True)
+    print("Import DPE parcelles...")
     parcelles = pd.read_csv(
         DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
         dtype=str,
         usecols=cols_parcelles
     )
-    dpe_parcelled = pd.merge(
-        dpe,
+    parcelles.set_index('batiment_groupe_id', inplace=True)
+    print("Jointure des deux tables...")
+    dpe_parcelled = dpe.join(
         parcelles,
         on='batiment_groupe_id',
         how='left'
     )
+    del dpe
+    del parcelles
+    dpe_parcelled.reset_index(inplace=True)
     dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+    print("Export de la table finale...")
     dpe_parcelled.to_csv(
         DATADIR + "/all_dpe.csv",
         sep=",",
@@ -397,7 +405,7 @@ def index_dpe_table():
     )
 
 
-def process_dvf_stats(ti):
+def process_dvf_stats():
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
@@ -481,21 +489,21 @@ def process_dvf_stats(ti):
         # multi-type
         ventes = df.loc[
             (df["nature_mutation"].isin(natures_of_interest)) &
-            (df["code_type_local"].isin([1, 2, 4]))
+            (df["code_type_local"].isin(types_of_interest))
         ]
         del df
         ventes["month"] = (
             ventes["date_mutation"]
             .apply(lambda x: int(x.split("-")[1]))
         )
-        print(len(ventes))
+        print("Après déduplication et filtre types et natures :", len(ventes))
 
         # on ne garde que les ventes d'un seul bien
         # cf historique pour les ventes multi-types
         count_ventes = ventes['id_mutation'].value_counts().reset_index()
         liste_ventes_monobien = count_ventes.loc[count_ventes['id_mutation'] == 1, 'index']
         ventes_nodup = ventes.loc[ventes['id_mutation'].isin(liste_ventes_monobien)]
-        print(len(ventes_nodup))
+        print("Après filtrage des ventes de plusieurs biens :", len(ventes_nodup))
 
         ventes_nodup["prix_m2"] = (
             ventes_nodup["valeur_fonciere"] /
@@ -510,16 +518,21 @@ def process_dvf_stats(ti):
 
         # garde fou pour les valeurs aberrantes
         ventes_nodup = ventes_nodup.loc[ventes_nodup['prix_m2'] < 100000]
-        print(len(ventes_nodup))
-
+        print("Après retrait des ventes sans prix au m² et valeurs aberrantes :", len(ventes_nodup))
         export_intermediary = []
 
-        for m in range(1, 13):
+        # avoid unnecessary steps due to half years
+        month_range = range(1, 13)
+        if len(years) == 6:
+            if year == min(years):
+                month_range = range(7, 13)
+            elif year == max(years):
+                month_range = range(1, 7)
+
+        for m in month_range:
             dfs_dict = {}
             for echelle in echelles_of_interest:
-                grouped = ventes_nodup.loc[
-                    ventes_nodup["code_type_local"].isin(types_of_interest)
-                ].groupby(
+                grouped = ventes_nodup.groupby(
                     [f"code_{echelle}", "month", "type_local"]
                 )["prix_m2"]
 
@@ -862,7 +875,7 @@ def create_distribution_and_stats_whole_period():
                 for i in intervalles[1:-1]
             ] + [[process_borne(intervalles[-1][0], borne_inf, borne_sup), borne_sup]]
         bins = [i[0] for i in intervalles] + [intervalles[-1][1]]
-        # handle case where rounding creates indentical bins
+        # handle case where rounding creates identical bins
         if len(bins) != len(set(bins)):
             # check how many times bounds appear
             count_bins = pd.Series(bins).value_counts().sort_index()

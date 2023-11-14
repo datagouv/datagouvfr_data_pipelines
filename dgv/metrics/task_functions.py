@@ -31,8 +31,8 @@ from datagouvfr_data_pipelines.config import (
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/metrics/"
-conn = BaseHook.get_connection("POSTGRES_DEV")
-DB_METRICS_SCHEMA = Variable.get("DB_METRICS_SCHEMA", "airflow")
+conn = BaseHook.get_connection("POSTGRES_METRIC")
+DB_METRICS_SCHEMA = Variable.get("DB_METRICS_SCHEMA", "metric")
 tqdm.pandas(desc='pandas progress bar', mininterval=5)
 
 

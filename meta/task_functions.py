@@ -60,6 +60,9 @@ def monitor_dags(
 
 
 def notification_mattermost(ti):
+    with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
+        config = json.load(f)
+    dag_ids_to_monitor = config['dag_list']
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     message = '# Récap quotidien DAGs :'
     print(todays_runs)
@@ -96,4 +99,6 @@ def notification_mattermost(ti):
                 if AIRFLOW_ENV == 'prod':
                     url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
                 message += f"\n   - {ft} ([voir log]({url_log}))"
+            if dag_ids_to_monitor.get(dag, False):
+                message += "\ncc @geoffrey.aldebert @hajar.aitelkadi @pierlou_ramade"
     send_message(message)
