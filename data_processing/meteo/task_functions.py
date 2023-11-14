@@ -12,7 +12,10 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import send_files, get_all_files_from_parent_folder
+from datagouvfr_data_pipelines.utils.minio import (
+    send_files,
+    get_all_files_names_and_sizes_from_parent_folder
+)
 import ftplib
 import os
 import json
@@ -59,7 +62,7 @@ def get_current_files_on_ftp(ti, ftp):
 
 
 def get_current_files_on_minio(ti, minio_folder):
-    minio_files = get_all_files_from_parent_folder(
+    minio_files = get_all_files_names_and_sizes_from_parent_folder(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET="meteofrance",
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
@@ -136,7 +139,7 @@ def upload_files_datagouv(ti, minio_folder):
         config = json.load(fp)
 
     # re-getting Minio files in case new files have been transfered
-    minio_files = get_all_files_from_parent_folder(
+    minio_files = get_all_files_names_and_sizes_from_parent_folder(
         MINIO_URL=MINIO_URL,
         MINIO_BUCKET="meteofrance",
         MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,

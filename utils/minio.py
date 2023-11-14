@@ -243,7 +243,7 @@ def copy_object(
         raise Exception("One Bucket does not exists")
 
 
-def get_all_files_from_parent_folder(
+def get_all_files_names_and_sizes_from_parent_folder(
     MINIO_URL: str,
     MINIO_BUCKET: str,
     MINIO_USER: str,
