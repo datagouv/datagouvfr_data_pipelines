@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.utils.minio import send_files
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
     post_remote_resource,
+    update_dataset_or_resource_metadata,
     DATAGOUV_URL
 )
 import pandas as pd
@@ -196,6 +197,14 @@ def publish_datagouv(DAG_FOLDER):
         title="Indicateurs d'impact de data.gouv.fr",
         format="csv",
         description=f"Dernière modification : {datetime.today()})",
+    )
+    update_dataset_or_resource_metadata(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        payload={"temporal_coverage": {
+            "end": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "start": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        }},
+        dataset_id=data[AIRFLOW_ENV]['dataset_id']
     )
 
 
