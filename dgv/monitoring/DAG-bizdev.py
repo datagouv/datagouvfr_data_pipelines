@@ -26,6 +26,7 @@ from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPA
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
+api_metrics_url = "https://metric-api.data.gouv.fr/"
 
 
 async def url_error(url, session, method="head"):
@@ -154,16 +155,16 @@ def create_all_tables():
         # aka le plus de visites sur tous les datasets de l'orga
         print('Top 50 des orga les plus visitées et avec le plus de ressources téléchargées')
         data = get_all_from_api_query(
-            f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}',
+            f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}',
             next_page='links.next'
         )
         orga_visited = {
             d['organization_id']: {
                 'monthly_visit_dataset': d['monthly_visit_dataset'],
-                'monthly_visit_resource': d['monthly_visit_resource']
+                'monthly_download_resource': d['monthly_download_resource']
             }
             for d in data
-            if d['monthly_visit_dataset'] or d['monthly_visit_resource']
+            if d['monthly_visit_dataset'] or d['monthly_download_resource']
         }
         tmp = list({
             k: v for k, v in sorted(
@@ -174,7 +175,7 @@ def create_all_tables():
         tmp2 = list({
             k: v for k, v in sorted(
                 orga_visited.items(),
-                key=lambda x: -x[1]['monthly_visit_resource'] if x[1]['monthly_visit_resource'] else 0
+                key=lambda x: -x[1]['monthly_download_resource'] if x[1]['monthly_download_resource'] else 0
             )
         }.keys())[:50]
         orga_visited = {k: orga_visited[k] for k in orga_visited if k in tmp or k in tmp2}
@@ -187,7 +188,7 @@ def create_all_tables():
         # Top 50 des JDD les plus visités
         print('Top 50 des JDD les plus visités')
         data = get_all_from_api_query(
-            f'https://api-metrics.preprod.data.gouv.fr/api/datasets/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
+            f'{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
             next_page='links.next'
         )
         datasets_visited = {}
@@ -210,13 +211,13 @@ def create_all_tables():
         # Top 50 des ressources les plus téléchargées
         print('Top 50 des ressources les plus téléchargées')
         data = get_all_from_api_query(
-            f'https://api-metrics.preprod.data.gouv.fr/api/resources/data/?metric_month__exact={last_month}&monthly_visit_resource__sort=desc',
+            f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}&monthly_download_resource__sort=desc',
             next_page='links.next'
         )
         resources_downloaded = {}
         while len(resources_downloaded) < 50:
             d = next(data)
-            if d['monthly_visit_resource']:
+            if d['monthly_download_resource']:
                 r = requests.get(
                     f"https://www.data.gouv.fr/api/2/datasets/resources/{d['resource_id']}/"
                 ).json()
@@ -227,26 +228,26 @@ def create_all_tables():
                 if d['dataset_id'] != 'COMMUNAUTARY':
                     r2 = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
                     r3 = requests.get(
-                        f"https://api-metrics.preprod.data.gouv.fr/api/datasets/data/?metric_month__exact={last_month}&dataset_id__exact={d['dataset_id']}"
+                        f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&dataset_id__exact={d['dataset_id']}"
                     ).json()
                 resources_downloaded.update({
                     f"{d['dataset_id']}.{d['resource_id']}": {
-                        'monthly_visit_resourced': d['monthly_visit_resource'],
+                        'monthly_download_resourced': d['monthly_download_resource'],
                         'resource_title': resource_title,
                         'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{d['dataset_id']}/" if d['dataset_id'] != 'COMMUNAUTARY' else None,
                         'dataset_title': r2.get('title', None),
                         'organization_or_owner': r2['organization'].get('name', None) if r2.get('organization', None) else r2['owner'].get('slug', None) if r2.get('owner', None) else None,
-                        'dataset_total_resource_visits': r3['data'][0].get('monthly_visit_resource', None) if d['dataset_id'] != 'COMMUNAUTARY' and r3['data'] else None
+                        'dataset_total_resource_visits': r3['data'][0].get('monthly_download_resource', None) if d['dataset_id'] != 'COMMUNAUTARY' and r3['data'] else None
                     }
                 })
         resources_downloaded = {
             k: v for k, v in sorted(
                 resources_downloaded.items(),
-                key=lambda x: -x[1]['monthly_visit_resourced']
+                key=lambda x: -x[1]['monthly_download_resourced']
             )
         }
         df = pd.DataFrame(resources_downloaded.values(), index=resources_downloaded.keys())
-        df = df.sort_values(['dataset_total_resource_visits', 'monthly_visit_resourced'], ascending=False)
+        df = df.sort_values(['dataset_total_resource_visits', 'monthly_download_resourced'], ascending=False)
         df.to_csv(
             DATADIR + 'top50_resources_most_downloads_last_month.csv',
             float_format="%.0f",
@@ -256,7 +257,7 @@ def create_all_tables():
         # Top 50 des réutilisations les plus visitées
         print('Top 50 des réutilisations les plus visitées')
         data = get_all_from_api_query(
-            f'https://api-metrics.preprod.data.gouv.fr/api/reuses/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
+            f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
             next_page='links.next',
             ignore_errors=True
         )
@@ -320,7 +321,7 @@ def create_all_tables():
         restr_reuses = {d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')}
         for rid in restr_reuses:
             data = get_all_from_api_query(
-                f'https://api-metrics.preprod.data.gouv.fr/api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
+                f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
                 next_page='links.next',
                 ignore_errors=True
             )
@@ -363,7 +364,7 @@ def create_all_tables():
         print('   > Getting visits...')
         for d in empty_datasets:
             data = get_all_from_api_query(
-                f'https://api-metrics.preprod.data.gouv.fr/api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}',
+                f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}',
                 next_page='links.next'
             )
             try:
@@ -469,7 +470,7 @@ def publish_mattermost():
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
             message += f"\n - [{file}]"
-            message += f"(https://explore.data.gouv.fr/?url={url}) "
+            message += f"(https://explore.data.gouv.fr/tableau?url={url}) "
             message += f"[⬇️]({url})"
         send_message(message, MATTERMOST_DATAGOUV_CURATION)
 
@@ -485,7 +486,7 @@ def publish_mattermost():
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
             message += f"\n - [{file}]"
-            message += f"(https://explore.data.gouv.fr/?url={url}) "
+            message += f"(https://explore.data.gouv.fr/tableau?url={url}) "
             message += f"[⬇️]({url})"
         send_message(message, MATTERMOST_DATAGOUV_EDITO)
 
