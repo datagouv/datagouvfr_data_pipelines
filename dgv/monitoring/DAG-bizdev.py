@@ -470,7 +470,7 @@ def publish_mattermost():
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
             message += f"\n - [{file}]"
-            message += f"(https://explore.data.gouv.fr/?url={url}) "
+            message += f"(https://explore.data.gouv.fr/tableau?url={url}) "
             message += f"[⬇️]({url})"
         send_message(message, MATTERMOST_DATAGOUV_CURATION)
 
@@ -486,7 +486,7 @@ def publish_mattermost():
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
             message += f"\n - [{file}]"
-            message += f"(https://explore.data.gouv.fr/?url={url}) "
+            message += f"(https://explore.data.gouv.fr/tableau?url={url}) "
             message += f"[⬇️]({url})"
         send_message(message, MATTERMOST_DATAGOUV_EDITO)
 

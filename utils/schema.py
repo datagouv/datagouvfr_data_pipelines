@@ -2212,7 +2212,7 @@ def notification_synthese(
 
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
-                    f"(https://explore.data.gouv.fr/?url=https://{MINIO_URL}/"
+                    f"(https://explore.data.gouv.fr/tableau?url=https://{MINIO_URL}/"
                     f"{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/schema/schemas_consolidation/"
                     f"liste_erreurs/{erreurs_file_name})\n"
                 )
