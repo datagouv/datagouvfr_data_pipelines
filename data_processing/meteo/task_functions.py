@@ -168,6 +168,9 @@ def upload_files_datagouv(ti, minio_folder):
         is_doc = False
         description = ""
         try:
+            # two known errors:
+            # 1. files that don't match neither pattern
+            # 2. files that are contained in subfolders
             if config[path]['doc_pattern'] and re.match(config[path]['doc_pattern'], file_with_ext):
                 resource_name = file_with_ext.split(".")[0]
                 is_doc = True
