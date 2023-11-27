@@ -201,8 +201,8 @@ def publish_datagouv(DAG_FOLDER):
     update_dataset_or_resource_metadata(
         api_key=DATAGOUV_SECRET_API_KEY,
         payload={"temporal_coverage": {
-            "end": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "start": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            "start": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         }},
         dataset_id=data[AIRFLOW_ENV]['dataset_id']
     )
