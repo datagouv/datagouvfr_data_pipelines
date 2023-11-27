@@ -167,31 +167,39 @@ def upload_files_datagouv(ti, minio_folder):
         # differenciation ressource principale VS documentation
         is_doc = False
         description = ""
-        if config[path]['doc_pattern'] and re.match(config[path]['doc_pattern'], file_with_ext):
-            resource_name = file_with_ext.split(".")[0]
-            is_doc = True
-        else:
-            params = re.match(config[path]['source_pattern'], file_with_ext).groupdict()
-            resource_name = config[path]['name_template'].format(**params)
-            description = config[path]['description_template'].format(**params)
+        try:
+            # two known errors:
+            # 1. files that don't match neither pattern
+            # 2. files that are contained in subfolders
+            if config[path]['doc_pattern'] and re.match(config[path]['doc_pattern'], file_with_ext):
+                resource_name = file_with_ext.split(".")[0]
+                is_doc = True
+            else:
+                # peut-être mettre un try/except ici pour publier les ressources qui posent problème
+                # en doc quoiqu'il ?
+                params = re.match(config[path]['source_pattern'], file_with_ext).groupdict()
+                resource_name = config[path]['name_template'].format(**params)
+                description = config[path]['description_template'].format(**params)
 
-        if url not in resources_lists[path].keys():
-            # si la resource n'existe pas, on la crée
-            print('Creating new resource for: ', file_with_ext)
-            post_remote_resource(
-                api_key=DATAGOUV_SECRET_API_KEY,
-                remote_url=url,
-                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                filesize=minio_files[file],
-                title=resource_name,
-                type="main" if not is_doc else "documentation",
-                format=get_file_extention(file_with_ext),
-                description=description,
-            )
-            updated.add(path)
-        else:
-            # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé (hydra, taille du fichier) ?
-            print("Resource already exists: ", file_with_ext)
+            if url not in resources_lists[path].keys():
+                # si la resource n'existe pas, on la crée
+                print('Creating new resource for: ', file_with_ext)
+                post_remote_resource(
+                    api_key=DATAGOUV_SECRET_API_KEY,
+                    remote_url=url,
+                    dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+                    filesize=minio_files[file],
+                    title=resource_name,
+                    type="main" if not is_doc else "documentation",
+                    format=get_file_extention(file_with_ext),
+                    description=description,
+                )
+                updated.add(path)
+            else:
+                # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé (hydra, taille du fichier) ?
+                print("Resource already exists: ", file_with_ext)
+        except:
+            print('issue with file:', file)
     ti.xcom_push(key='updated', value=updated)
 
 

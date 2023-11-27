@@ -265,7 +265,7 @@ def get_all_files_names_and_sizes_from_parent_folder(
         files = {k: v.size for k, v in objects.items() if '.' in k}
         subfolders = [k for k in objects.keys() if k not in files.keys()]
         for subf in subfolders:
-            files.update(get_all_files_from_parent_folder(
+            files.update(get_all_files_names_and_sizes_from_parent_folder(
                 MINIO_URL=MINIO_URL,
                 MINIO_BUCKET=MINIO_BUCKET,
                 MINIO_USER=MINIO_USER,
