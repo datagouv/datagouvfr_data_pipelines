@@ -1,5 +1,4 @@
 from airflow.models import Variable
-import json
 
 # Global
 AIRFLOW_DAG_HOME = Variable.get("AIRFLOW_DAG_HOME", "/opt/airflow/dags/")
@@ -64,3 +63,12 @@ SECRET_MAIL_DATAGOUV_BOT_PASSWORD = Variable.get(
 SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD = Variable.get(
     "SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD", ""
 ).split(",")
+
+# meteo
+SECRET_FTP_METEO_USER = Variable.get("SECRET_FTP_METEO_USER", "")
+SECRET_FTP_METEO_PASSWORD = Variable.get(
+    "SECRET_FTP_METEO_PASSWORD", ""
+)
+SECRET_FTP_METEO_ADDRESS = Variable.get(
+    "SECRET_FTP_METEO_ADDRESS", ""
+)

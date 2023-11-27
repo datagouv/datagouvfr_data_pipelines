@@ -1,0 +1,72 @@
+{
+    "BASE/MENS": {
+        "source_pattern": "MENSQ_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "MENS_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "654c962a3b8186a2b5bbc995"
+        }
+    },
+    "BASE/DECAD": {
+        "source_pattern": "DECADQ_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "DECAD_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données décadaires pour le département {DEP}, sur la période {PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a68f2c52ecb6d2e96fe3e"
+        }
+    },
+    "BASE/HOR": {
+        "source_pattern": "H_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "HOR_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données horaires pour le département {DEP}, sur la période {PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a68f2c52ecb6d2e96fe3f"
+        }
+    },
+    "BASE/QUOT": {
+        "source_pattern": "Q_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+)_(?P<PARAMETRES>\\S+).csv.gz",
+        "name_template": "QUOT_departement_{DEP}_periode_{PERIOD}_{PARAMETRES}",
+        "doc_pattern": null,
+        "description_template": "Données quotidiennes {PARAMETRES} pour le département {DEP}, sur la période {PERIOD}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a68f2ba54993957fa00af"
+        }
+    },
+    "REF_CC/SQR": {
+        "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
+        "name_template": "SQR_{TYPE}_{GEO}",
+        "doc_pattern": "Liste_SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).csv",
+        "description_template": "Séries quotidiennes de référence {TYPE} pour le périmètre {GEO}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a6afa18f9f98d2ffdadee"
+        }
+    },
+    "REF_CC/SIM": {
+        "source_pattern": "SIM2_(?P<START>[^_]+)_(?P<END>[^_]+).csv.gz",
+        "name_template": "SIM2_{START}_{END}",
+        "doc_pattern": null,
+        "description_template": "Données SIM entre {START} et {END}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a6afa18f9f98d2ffdaded"
+        }
+    },
+    "REF_CC/LSH": {
+        "source_pattern": "SH_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
+        "name_template": "SH_{TYPE}_{GEO}",
+        "doc_pattern": "Liste_SH_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).csv",
+        "description_template": "Séries homogénéisées {TYPE} pour le périmètre {GEO}",
+        "dataset_id": {
+            "prod": "",
+            "dev": "653a6af9d161b2243d487e04"
+        }
+    }
+}
