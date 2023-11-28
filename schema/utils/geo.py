@@ -108,13 +108,15 @@ def fix_code_insee( # noqa
         row["consolidated_is_code_insee_verified"] = False
         row["consolidated_code_insee_modified"] = False
         # Try getting commune with code INSEE from latitude and longitude alone
-        response = requests.get(
-            url=(
-                f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}"
-                f"&lon={row[lon_col]}&fields=code,nom,codesPostaux"
-            )
+        url = (
+            f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}"
+            f"&lon={row[lon_col]}&fields=code,nom,codesPostaux"
         )
-        commune_results = json.loads(response.content)
+        response = requests.get(url)
+        try:
+            commune_results = json.loads(response.content)
+        except json.decoder.JSONDecodeError:
+            commune_results = []
         if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
             commune = commune_results[0]
             if row[code_insee_col] == commune["code"]:
@@ -140,13 +142,17 @@ def fix_code_insee( # noqa
         else:
             # Lat lon do not match any commune
             enrich_row_address.no_match_coords += 1
+            print("⚠️ Issue when using coordinates for this row: ", row)
+            print('requested URL was: ', url)
 
         if str(row[code_insee_col]) in row[address_col]:
             # Code INSEE field actually contains a postcode
-            response = requests.get(
-                url=f"https://geo.api.gouv.fr/communes?codePostal={row[code_insee_col]}&fields=code,nom"
-            )
-            commune_results = json.loads(response.content)
+            url = f"https://geo.api.gouv.fr/communes?codePostal={row[code_insee_col]}&fields=code,nom"
+            response = requests.get(url)
+            try:
+                commune_results = json.loads(response.content)
+            except json.decoder.JSONDecodeError:
+                commune_results = []
             if (response.status_code == requests.codes.ok) and (
                 len(commune_results) > 0
             ):
@@ -158,12 +164,17 @@ def fix_code_insee( # noqa
                 row["consolidated_is_code_insee_verified"] = True
                 enrich_row_address.code_insee_is_postcode_in_address += 1
                 return row
+            else:
+                print("⚠️ Issue when using postcode for this row: ", row)
+                print('requested URL was: ', url)
 
         # Check if postcode is in address
-        response = requests.get(
-            url=f"https://geo.api.gouv.fr/communes?code={row[code_insee_col]}&fields=codesPostaux,nom"
-        )
-        commune_results = json.loads(response.content)
+        url = f"https://geo.api.gouv.fr/communes?code={row[code_insee_col]}&fields=codesPostaux,nom"
+        response = requests.get(url)
+        try:
+            commune_results = json.loads(response.content)
+        except json.decoder.JSONDecodeError:
+            commune_results = []
         if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
             commune = commune_results[0]
             for postcode in commune["codesPostaux"]:
@@ -179,6 +190,8 @@ def fix_code_insee( # noqa
         row["consolidated_code_postal"] = ""
         row["consolidated_commune"] = ""
         enrich_row_address.nothing_matches += 1
+        print("⚠️ Issue when using INSEE code for this row: ", row)
+        print('requested URL was: ', url)
         return row
 
     enrich_row_address.already_good = 0
