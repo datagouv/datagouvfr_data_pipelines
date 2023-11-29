@@ -7,7 +7,8 @@
             "resource_id": "44916426-3d71-409b-bc65-ee3b6dde3725"
         },
         "prod": {
-            "dataset_id": "554210a9c751df2666a7b26c"
+            "dataset_id": "554210a9c751df2666a7b26c",
+            "resource_id": "c6e2dc0a-3d72-43cc-97f5-392cb80bd61f"
         }
     },
     "countries": {
@@ -18,7 +19,8 @@
             "resource_id": "37520479-fcf3-4e7c-868b-e5fce369684b"
         },
         "prod": {
-            "dataset_id": "554210a9c751df2666a7b26c"
+            "dataset_id": "554210a9c751df2666a7b26c",
+            "resource_id": "a1bb263a-6cc7-4871-ab4f-2470235a67bf"
         }
     },
     "levels": {
@@ -29,7 +31,8 @@
             "resource_id": "b35cde4d-d2cb-4263-9f4c-80726ddf86fb"
         },
         "prod": {
-            "dataset_id": "554210a9c751df2666a7b26c"
+            "dataset_id": "554210a9c751df2666a7b26c",
+            "resource_id": "e0206442-78b3-4a00-b71c-c065d20561c8"
         }
     }
 }

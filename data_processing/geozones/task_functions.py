@@ -204,10 +204,10 @@ def post_geozones():
         "dest_name": "export_geozones.json",
     }
     payload = {
-        "description": f"Géozones créées à partir du [fichier de l'INSEE](https://rdf.insee.fr/geo/index.html) ({datetime.today()})",
+        "description": "Géozones créées à partir du [fichier de l'INSEE](https://rdf.insee.fr/geo/index.html)",
         "filesize": os.path.getsize(os.path.join(DATADIR + '/export_geozones.json')),
         "mime": "application/json",
-        "title": f"Géozones ({datetime.today()})",
+        "title": "Zones 2023 (json)",
         "type": "main",
     }
     post_resource(
@@ -223,10 +223,10 @@ def post_geozones():
         "dest_name": "export_countries.json",
     }
     payload = {
-        "description": f"Géozones (pays uniquement) créées à partir du [fichier de l'INSEE](https://rdf.insee.fr/geo/index.html) ({datetime.today()})",
+        "description": "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires](https://www.data.gouv.fr/fr/datasets/64959ecae2bdc5448631a59c/)",
         "filesize": os.path.getsize(os.path.join(DATADIR + '/export_countries.json')),
         "mime": "application/json",
-        "title": f"Géozones pays ({datetime.today()})",
+        "title": "Zones pays uniquement 2023 (json)",
         "type": "main",
     }
     post_resource(
@@ -242,10 +242,9 @@ def post_geozones():
         "dest_name": "levels.json",
     }
     payload = {
-        "description": f"Fichier levels ({datetime.today()})",
         "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
         "mime": "application/json",
-        "title": f"Levels ({datetime.today()})",
+        "title": "Niveaux 2023 (json)",
         "type": "main",
     }
     post_resource(
