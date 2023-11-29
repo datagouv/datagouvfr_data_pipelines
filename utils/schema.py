@@ -67,7 +67,11 @@ def get_schema_dict(
 
 
 def add_most_recent_valid_version(df_ref: pd.DataFrame) -> pd.DataFrame:
-    """Based on validation columns by version, adds a column to the ref_table that shows the most recent version of the schema for which the resource is valid"""
+    """
+    Based on validation columns by version, adds a column to
+    the ref_table that shows the most recent version
+    of the schema for which the resource is valid
+    """
     version_cols_list = [col for col in df_ref.columns if col.startswith("is_valid_v_")]
 
     df_ref["most_recent_valid_version"] = ""
@@ -485,7 +489,7 @@ def build_reference_table(
     if "consolidated_dataset_id" in schema_config.keys():
         datasets_to_exclude += [schema_config["consolidated_dataset_id"]]
     if "exclude_dataset_ids" in schema_config.keys():
-        if type(schema_config["exclude_dataset_ids"]) == list:
+        if isinstance(schema_config["exclude_dataset_ids"], list):
             datasets_to_exclude += schema_config["exclude_dataset_ids"]
 
     # Tags and search words to use to get resources that could match schema (from config)
@@ -613,7 +617,8 @@ def build_reference_table(
                 )
 
         if len(version_names_list) > 0:
-            # Check if resources are at least matching one schema version (only those matching will be downloaded in next step)
+            # Check if resources are at least matching one schema version
+            # (only those matching will be downloaded in next step)
             df["is_valid_one_version"] = (
                 sum(
                     [
@@ -1020,7 +1025,8 @@ def update_config_version_resource_id(schema_name, version_name, r_id, config_pa
         yaml.dump(config_dict, outfile, default_flow_style=False)
 
 
-# Returns if resource schema (version) metadata should be updated or not based on what we know about the resource
+# Returns if resource schema (version) metadata should
+# be updated or not based on what we know about the resource
 def is_schema_version_to_update(row):
     initial_version_name = row["initial_version_name"]
     most_recent_valid_version = row["most_recent_valid_version"]
@@ -1033,7 +1039,8 @@ def is_schema_version_to_update(row):
     )
 
 
-# Returns if resource schema (version) metadata should be added or not based on what we know about the resource
+# Returns if resource schema (version) metadata should
+# be added or not based on what we know about the resource
 def is_schema_to_add(row):
     resource_found_by = row["resource_found_by"]
     is_valid_one_version = row["is_valid_one_version"]
@@ -1041,7 +1048,8 @@ def is_schema_to_add(row):
     return (resource_found_by != "1 - schema request") and is_valid_one_version
 
 
-# Returns if resource schema (version) metadata should be deleted or not based on what we know about the resource
+# Returns if resource schema (version) metadata should
+# be deleted or not based on what we know about the resource
 def is_schema_to_drop(row):
     resource_found_by = row["resource_found_by"]
     is_valid_one_version = row["is_valid_one_version"]
