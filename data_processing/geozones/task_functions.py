@@ -108,7 +108,7 @@ def download_and_process_geozones():
         {
             "uri": "http://id.insee.fr/geo/world",
             "nom": "Monde",
-            "codeINSEE": "WORLD",
+            "codeINSEE": "world",
             "nomSansArticle": "Monde",
             "codeArticle": None,
             "type": "country-group",
@@ -119,16 +119,53 @@ def download_and_process_geozones():
         {
             "uri": "http://id.insee.fr/geo/europe",
             "nom": "Union Européenne",
-            "codeINSEE": "EU",
+            "codeINSEE": "ue",
             "nomSansArticle": "Union Européenne",
             "codeArticle": None,
             "type": "country-group",
             "is_deleted": False,
             "level": "country-group",
-            "_id": "country-group:eu"
+            "_id": "country-group:ue"
+        },
+        {
+            "uri": None,
+            "nom": "DROM",
+            "codeINSEE": "fr:drom",
+            "nomSansArticle": "DROM",
+            "codeArticle": None,
+            "type": "country-subset",
+            "is_deleted": False,
+            "level": "country-subset",
+            "_id": "country-subset:fr:drom"
+        },
+        {
+            "uri": None,
+            "nom": "DROM-COM",
+            "codeINSEE": "fr:dromcom",
+            "nomSansArticle": "DROM-COM",
+            "codeArticle": None,
+            "type": "country-subset",
+            "is_deleted": False,
+            "level": "country-subset",
+            "_id": "country-subset:fr:dromcom"
+        },
+        {
+            "uri": None,
+            "nom": "Metropolitan France",
+            "codeINSEE": "fr:metro",
+            "nomSansArticle": "Metropolitan France",
+            "codeArticle": None,
+            "type": "country-subset",
+            "is_deleted": False,
+            "level": "country-subset",
+            "_id": "country-subset:fr:metro"
         },
     ])
     export.extend(countries_json)
+    for geoz in export:
+        for c in geoz.keys():
+            if geoz[c] == 'nan':
+                geoz[c] = None
     os.mkdir(DATADIR)
     with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
@@ -136,6 +173,25 @@ def download_and_process_geozones():
     with open(DATADIR + '/export_countries.json', 'w', encoding='utf8') as f:
         json.dump(
             countries_json,
+            f, ensure_ascii=False, indent=4
+        )
+
+    levels = [
+        {"id": "country-group", "label": "Country group", "admin_level": 10, "parents": []},
+        {"id": "country", "label": "Country", "admin_level": 20, "parents": ["country-group"]},
+        {"id": "country-subset", "label": "Country subset", "admin_level": 30, "parents": ["country"]},
+        {"id": "fr:region", "label": "French region", "admin_level": 40, "parents": ["country"]},
+        {"id": "fr:departement", "label": "French county", "admin_level": 60, "parents": ["fr:region"]},
+        {"id": "fr:arrondissement", "label": "French arrondissement", "admin_level": 70, "parents": ["fr:departement"]},
+        {"id": "fr:commune", "label": "French town", "admin_level": 80, "parents": ["fr:arrondissement", "fr:epci"]},
+        {"id": "fr:iris", "label": "Iris (Insee districts)", "admin_level": 98, "parents": ["fr:commune"]},
+        {"id": "fr:canton", "label": "French canton", "admin_level": 98, "parents": ["fr:departement"]},
+        {"id": "fr:collectivite", "label": "French overseas collectivities", "admin_level": 60, "parents": ["fr:region"]},
+        {"id": "fr:epci", "label": "French intermunicipal (EPCI)", "admin_level": 68, "parents": ["country"]}
+    ]
+    with open(DATADIR + '/levels.json', 'w', encoding='utf8') as f:
+        json.dump(
+            levels,
             f, ensure_ascii=False, indent=4
         )
 
@@ -178,6 +234,25 @@ def post_geozones():
         file_to_upload=countries_file,
         dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
+        resource_payload=payload
+    )
+
+    levels_file = {
+        "dest_path": f"{DATADIR}/",
+        "dest_name": "levels.json",
+    }
+    payload = {
+        "description": f"Fichier levels ({datetime.today()})",
+        "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
+        "mime": "application/json",
+        "title": f"Levels ({datetime.today()})",
+        "type": "main",
+    }
+    post_resource(
+        api_key=DATAGOUV_SECRET_API_KEY,
+        file_to_upload=levels_file,
+        dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
+        resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),
         resource_payload=payload
     )
 
