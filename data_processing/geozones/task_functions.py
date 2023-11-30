@@ -85,9 +85,9 @@ def download_and_process_geozones():
         lambda x: "http://id.insee.fr/geo/etat/" + x if isinstance(x, str) else x
     )
     countries.rename({
-        'NOM_LONG_ETAT': 'nom',
-        'NOM_COURT': 'nomSansArticle',
+        'NOM_COURT': 'nom',
     }, axis=1, inplace=True)
+    countries['nomSansArticle'] = countries['nom']
     countries['codeArticle'] = None
     countries['type'] = 'country'
     countries['is_deleted'] = False
