@@ -1,6 +1,5 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from operators.mail_datagouv import MailDatagouvOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta, datetime
 from datagouvfr_data_pipelines.config import (
@@ -11,6 +10,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items
+from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 
 DAG_NAME = "dgv_moderation_utilisateurs"
 
@@ -49,18 +49,21 @@ def send_email_report(ti):
     message = "Attention, {} utilisateurs ont été créés sur data.gouv.fr dans la dernière heure.".format(
         nb_users
     )
-    send_email_report = MailDatagouvOperator(
-        task_id="send_email_report",
+    send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
         email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
         subject="Moderation users data.gouv",
         message=message,
     )
-    send_email_report.execute(dict())
 
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
+default_args = {
+    "email": ["geoffrey.aldebert@data.gouv.fr"],
+    "email_on_failure": True,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=2),
+}
 
 with DAG(
     dag_id=DAG_NAME,

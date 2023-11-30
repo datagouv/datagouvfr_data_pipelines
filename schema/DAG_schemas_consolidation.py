@@ -29,7 +29,7 @@ from datagouvfr_data_pipelines.utils.schema import (
 
 # for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
-# DATAGOUV_SECRET_API_KEY = 'non'
+# DATAGOUV_SECRET_API_KEY = ''
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")

@@ -56,17 +56,18 @@ def run_consolidation_upload(
     # ## Upload
     print('Uploading consolidated data')
     for schema_name in config_dict.keys():
-        upload_consolidated(
-            schema_name,
-            consolidated_data_path,
-            config_dict,
-            schemas_catalogue_list,
-            config_path,
-            schemas_report_dict,
-            consolidation_date_str,
-            api_key,
-            bool_upload_geojson=False,
-        )
+        if config_dict[schema_name]["consolidate"]:
+            upload_consolidated(
+                schema_name,
+                consolidated_data_path,
+                config_dict,
+                schemas_catalogue_list,
+                config_path,
+                schemas_report_dict,
+                consolidation_date_str,
+                api_key,
+                bool_upload_geojson=False,
+            )
 
     # ## Schemas (versions) feedback loop on resources
     # ### Adding needed infos for each resource in reference tables
@@ -99,14 +100,15 @@ def run_consolidation_upload(
     # ## Updating consolidation documentation resource
     print('Updating consolidated data documentation')
     for schema_name in config_dict.keys():
-        update_consolidation_documentation_report(
-            schema_name,
-            ref_tables_path,
-            config_path,
-            consolidation_date_str,
-            config_dict,
-            api_key,
-        )
+        if config_dict[schema_name]["consolidate"]:
+            update_consolidation_documentation_report(
+                schema_name,
+                ref_tables_path,
+                config_path,
+                consolidation_date_str,
+                config_dict,
+                api_key,
+            )
 
     # ## Consolidation Reports
     # ### Report by schema

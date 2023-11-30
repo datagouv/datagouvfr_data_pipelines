@@ -1,7 +1,7 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from operators.clean_folder import CleanFolderOperator
+from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -44,12 +44,12 @@ default_args = {
         'pierlou.ramade@data.gouv.fr',
         'geoffrey.aldebert@data.gouv.fr'
     ],
-    'email_on_failure': True
+    'email_on_failure': False
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='15 7 1 * *',
+    schedule_interval=None,
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=300),
@@ -57,9 +57,9 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
-    clean_previous_outputs = CleanFolderOperator(
+    clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        folder_path=TMP_FOLDER
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     download_dvf_data = BashOperator(

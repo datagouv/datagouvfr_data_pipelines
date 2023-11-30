@@ -182,9 +182,8 @@ def custom_filters_irve(
         dtype=str
     )
     df_filtered = df_conso.copy()
-    df_filtered['is_orga'] = df_filtered['is_orga'].astype(bool)
     # on enlève les lignes publiées par des utilisateurs (aka pas par des organisations)
-    df_filtered = df_filtered.loc[df_filtered['is_orga']].drop('is_orga', axis=1)
+    df_filtered = df_filtered.loc[df_filtered['is_orga'] == "True"].drop('is_orga', axis=1)
 
     # pour un id_pdc_itinerance publié plusieurs fois par le même producteur
     # on garde la ligne du fichier le plus récent (si un id_pdc est en double

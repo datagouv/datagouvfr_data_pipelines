@@ -23,7 +23,7 @@ MINIO_NEW = "insee/sirene/sirene_publication/new/"
 
 with DAG(
     dag_id="data_processing_sirene_publication",
-    schedule_interval="5 7,9,11 1-3 * *",
+    schedule_interval="5 6,7,8,9,10 1-3 * *",
     start_date=days_ago(31),
     dagrun_timeout=timedelta(minutes=60),
     tags=["data_processing", "sirene", "publication"],

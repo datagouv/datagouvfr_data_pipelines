@@ -1,6 +1,6 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from operators.clean_folder import CleanFolderOperator
+from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -24,22 +24,24 @@ DAG_NAME = 'dgv_metrics'
 
 default_args = {
     'email': ['geoffrey.aldebert@data.gouv.fr'],
-    'email_on_failure': False
+    'email_on_failure': False,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=2),
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='15 3 * * *',
+    schedule_interval='15 6 * * *',
     start_date=days_ago(1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=60*8),
+    dagrun_timeout=timedelta(minutes=60 * 8),
     tags=["dgv", "metrics"],
     default_args=default_args,
 ) as dag:
 
-    clean_previous_outputs = CleanFolderOperator(
+    clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        folder_path=TMP_FOLDER
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
     create_metrics_tables = PythonOperator(

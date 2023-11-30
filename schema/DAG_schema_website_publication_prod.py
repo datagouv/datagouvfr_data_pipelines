@@ -1,20 +1,23 @@
 from airflow.models import DAG
-from operators.papermill_minio import PapermillMinioOperator
 from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
 from datetime import timedelta, datetime
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+)
+from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions import (
+    initialization,
+    check_and_save_schemas,
+    sort_folders,
+    get_issues_and_labels,
+    final_clean_up
 )
 
 DAG_NAME = "schema_website_publication_prod"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
+# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
 
@@ -37,23 +40,32 @@ with DAG(
         bash_command=f"cd {TMP_FOLDER} && git clone --depth 1 {GIT_REPO} ",
     )
 
-    run_nb = PapermillMinioOperator(
-        task_id="run_notebook_schemas_backend",
-        input_nb=f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/notebooks/schemas_backend.ipynb",
-        output_nb="{{ ds }}" + ".ipynb",
-        tmp_path=f"{TMP_FOLDER}",
-        minio_url=MINIO_URL,
-        minio_bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        minio_user=SECRET_MINIO_DATA_PIPELINE_USER,
-        minio_password=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        minio_output_filepath="schema/schema_website_publication/{{ ds }}/",
-        parameters={
-            "msgs": "Ran from Airflow {{ ds }} !",
-            "TMP_FOLDER": f"{TMP_FOLDER}",
-            "OUTPUT_DATA_FOLDER": f"{TMP_FOLDER}output/",
-            "DATE_AIRFLOW": "{{ ds }}",
-            "LIST_SCHEMAS_YAML": "https://raw.githubusercontent.com/etalab/schema.data.gouv.fr/main/repertoires.yml",
+    initialization = PythonOperator(
+        task_id="initialization",
+        python_callable=initialization,
+        op_kwargs={
+            "TMP_FOLDER": TMP_FOLDER,
         },
+    )
+
+    check_and_save_schemas = PythonOperator(
+        task_id="check_and_save_schemas",
+        python_callable=check_and_save_schemas,
+    )
+
+    sort_folders = PythonOperator(
+        task_id="sort_folders",
+        python_callable=sort_folders,
+    )
+
+    get_issues_and_labels = PythonOperator(
+        task_id="get_issues_and_labels",
+        python_callable=get_issues_and_labels,
+    )
+
+    final_clean_up = PythonOperator(
+        task_id="final_clean_up",
+        python_callable=final_clean_up,
     )
 
     copy_files = BashOperator(
@@ -86,6 +98,10 @@ with DAG(
     )
 
     clone_schema_repo.set_upstream(clean_previous_outputs)
-    run_nb.set_upstream(clone_schema_repo)
-    copy_files.set_upstream(run_nb)
+    initialization.set_upstream(clone_schema_repo)
+    check_and_save_schemas.set_upstream(initialization)
+    sort_folders.set_upstream(check_and_save_schemas)
+    get_issues_and_labels.set_upstream(sort_folders)
+    final_clean_up.set_upstream(get_issues_and_labels)
+    copy_files.set_upstream(final_clean_up)
     commit_changes.set_upstream(copy_files)

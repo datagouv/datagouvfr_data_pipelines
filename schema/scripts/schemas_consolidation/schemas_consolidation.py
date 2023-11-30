@@ -3,16 +3,11 @@ from datagouvfr_data_pipelines.utils.schema import (
     get_schema_report,
     build_reference_table,
     download_schema_files,
-    consolidate_data,
+    consolidate_data
 )
 import pandas as pd
 import yaml
 pd.set_option('display.max_columns', None)
-
-
-VALIDATA_BASE_URL = (
-    "https://validata-api.app.etalab.studio/validate?schema={schema_url}&url={rurl}"
-)
 
 
 def run_schemas_consolidation(
@@ -54,7 +49,8 @@ def run_schemas_consolidation(
     print('Loading config dict')
     with open(config_path, "r") as f:
         config_dict = yaml.safe_load(f)
-        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
+        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list)
+    print(config_dict)
 
     # ## Building reference tables (parsing and listing resources + Validata check)
     print('Building reference tables')
@@ -72,25 +68,27 @@ def run_schemas_consolidation(
     # We download only data that is valid for at least one version of the schema.
     print('Downloading valid data')
     for schema_name in config_dict.keys():
-        download_schema_files(
-            schema_name,
-            ref_tables_path,
-            data_path,
-        )
+        if config_dict[schema_name]["consolidate"]:
+            download_schema_files(
+                schema_name,
+                ref_tables_path,
+                data_path,
+            )
 
     # ## Consolidation
     print('Consolidating data')
     for schema_name in config_dict.keys():
-        consolidate_data(
-            data_path,
-            schema_name,
-            consolidated_data_path,
-            ref_tables_path,
-            schemas_catalogue_list,
-            consolidation_date_str,
-            tmp_path,
-            schemas_report_dict,
-        )
+        if config_dict[schema_name]["consolidate"]:
+            consolidate_data(
+                data_path,
+                schema_name,
+                consolidated_data_path,
+                ref_tables_path,
+                schemas_catalogue_list,
+                consolidation_date_str,
+                tmp_path,
+                schemas_report_dict,
+            )
 
     ti.xcom_push(key='consolidation_date_str', value=consolidation_date_str)
     ti.xcom_push(key='data_path', value=data_path.as_posix())
