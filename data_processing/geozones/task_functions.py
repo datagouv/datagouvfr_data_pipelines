@@ -151,9 +151,9 @@ def download_and_process_geozones():
         },
         {
             "uri": None,
-            "nom": "Metropolitan France",
+            "nom": "France métropolitaine",
             "codeINSEE": "fr:metro",
-            "nomSansArticle": "Metropolitan France",
+            "nomSansArticle": "France métropolitaine",
             "codeArticle": None,
             "type": "country-subset",
             "is_deleted": False,
