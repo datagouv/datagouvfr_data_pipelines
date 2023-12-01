@@ -5,7 +5,7 @@
         "doc_pattern": "MENSQ_descriptif_champs.csv",
         "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b3d7d193b4daf2b43edc",
             "dev": "654c962a3b8186a2b5bbc995"
         }
     },
@@ -15,7 +15,7 @@
         "doc_pattern": "DECADQ_descriptif_champs.csv",
         "description_template": "Données décadaires pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b4a48a4161faec6b2779",
             "dev": "653a68f2c52ecb6d2e96fe3e"
         }
     },
@@ -25,7 +25,7 @@
         "doc_pattern": "H_descriptif_champs.csv",
         "description_template": "Données horaires pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b4473bedf2e7abad3b72",
             "dev": "653a68f2c52ecb6d2e96fe3f"
         }
     },
@@ -35,7 +35,7 @@
         "doc_pattern": "Q_descriptif_champs_.*\\.csv",
         "description_template": "Données quotidiennes {PARAMETRES} pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b51ae64326786e4e8e1a",
             "dev": "653a68f2ba54993957fa00af"
         }
     },
@@ -45,7 +45,7 @@
         "doc_pattern": "MN_descriptif_champs.csv",
         "description_template": "Données à la minute pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569ad61106d1679c93cdf77",
             "dev": "65649a720baab9dbf8f36731"
         }
     },
@@ -55,7 +55,7 @@
         "doc_pattern": "DECADAGRO_descriptif_champs.cs",
         "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569af36ba0c3d2f9d4bf98c",
             "dev": "65649a1b0baab9dbf8f36730"
         }
     },
@@ -65,7 +65,7 @@
         "doc_pattern": "Liste_SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).csv",
         "description_template": "Séries quotidiennes de référence {TYPE} pour le périmètre {GEO}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b00fe24fc9e1e482f74e",
             "dev": "653a6afa18f9f98d2ffdadee"
         }
     },
@@ -75,7 +75,7 @@
         "doc_pattern": null,
         "description_template": "Données SIM entre {START} et {END}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b27598256cc583c917a7",
             "dev": "653a6afa18f9f98d2ffdaded"
         }
     },
@@ -85,7 +85,7 @@
         "doc_pattern": "Liste_SH_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).csv",
         "description_template": "Séries homogénéisées {TYPE} pour le périmètre {GEO}",
         "dataset_id": {
-            "prod": "",
+            "prod": "6569b2c4f1937611d4c8b1a3",
             "dev": "653a6af9d161b2243d487e04"
         }
     }
