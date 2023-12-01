@@ -86,7 +86,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     # we also thought about a checksum, but hard to compute on the FTP and downloading
     # all files to compute checksums and compare is inefficient
     # our best try: check the modification date on the FTP and take the file if it has
-    # been changed since the previous dy (DAG will run daily)
+    # been changed since the previous day (DAG will run daily)
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
