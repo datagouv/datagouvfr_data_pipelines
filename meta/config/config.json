@@ -6,6 +6,7 @@
         "data_processing_elections": true,
         "data_processing_formation_qualiopi": true,
         "data_processing_geozones": true,
+        "data_processing_meteo": true,
         "data_processing_inpi_dirigeants": true,
         "data_processing_rna": true,
         "data_processing_signaux_faibles_ratio_financiers": true,
