@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
+    update_dataset_or_resource_metadata,
     DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -26,6 +27,8 @@ from dateutil import parser
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
+with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
+    config = json.load(fp)
 
 
 def list_ftp_files_recursive(ftp, path='', base_path=''):
@@ -69,7 +72,27 @@ def get_current_files_on_minio(ti, minio_folder):
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         folder=minio_folder
     )
+    # getting the start of each time period to update datasets metadata
+    period_starts = {}
+    for file in minio_files:
+        path = '/'.join(file.replace(minio_folder, '').split('/')[:-1])
+        file_with_ext = file.split('/')[-1]
+        if config.get(path):
+            params = re.match(config[path]['source_pattern'], file_with_ext)
+            params = params.groupdict() if params else {}
+            if params:
+                if 'PERIOD' in params:
+                    period_starts[path] = min(
+                        int(params['PERIOD'].split('-')[0]),
+                        period_starts.get(path, datetime.today().year)
+                    )
+                elif 'START' in params:
+                    period_starts[path] = min(
+                        int(params['START'].split('-')[0]),
+                        period_starts.get(path, datetime.today().year)
+                    )
     ti.xcom_push(key='minio_files', value=minio_files)
+    ti.xcom_push(key='period_starts', value=period_starts)
 
 
 def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
@@ -95,12 +118,14 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
 
+    updated_datasets = set()
     # doing it one file at a time in order not to overload production server
     for file_to_transfer in diff_files:
         print(f"\nTransfering {file_to_transfer}...")
         # we are recreating the file structure from FTP to Minio
         path_to_file = '/'.join(file_to_transfer.split('/')[:-1])
         file_name = file_to_transfer.split('/')[-1]
+        updated_datasets.add(path_to_file)
         ftp.cwd('/' + path_to_file)
         # downloading the file from FTP
         with open(DATADIR + '/' + file_name, 'wb') as local_file:
@@ -126,7 +151,9 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         except:
             print("⚠️ Unable to send file")
         os.remove(f"{DATADIR}/{file_name}")
+    print(updated_datasets)
     ti.xcom_push(key='diff_files', value=diff_files)
+    ti.xcom_push(key='updated_datasets', value=updated_datasets)
 
 
 def get_file_extention(file):
@@ -135,8 +162,8 @@ def get_file_extention(file):
 
 def upload_files_datagouv(ti, minio_folder):
     # this uploads/synchronizes all resources on Minio and data.gouv.fr
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
-        config = json.load(fp)
+    period_starts = ti.xcom_pull(key="period_starts", task_ids="get_current_files_on_minio")
+    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
 
     # re-getting Minio files in case new files have been transfered
     minio_files = get_all_files_names_and_sizes_from_parent_folder(
@@ -158,7 +185,7 @@ def upload_files_datagouv(ti, minio_folder):
         for path in config.keys()
     }
 
-    updated = set()
+    new_files_datasets = set()
     # reversed so that files get uploaded in a better order for UI
     for file in reversed(minio_files.keys()):
         path = '/'.join(file.replace(minio_folder, '').split('/')[:-1])
@@ -194,26 +221,40 @@ def upload_files_datagouv(ti, minio_folder):
                     format=get_file_extention(file_with_ext),
                     description=description,
                 )
-                updated.add(path)
+                new_files_datasets.add(path)
             else:
                 # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé (hydra, taille du fichier) ?
                 print("Resource already exists: ", file_with_ext)
         except:
             print('issue with file:', file)
-    ti.xcom_push(key='updated', value=updated)
+    print("Updating datasets temporal_coverage")
+    for path in updated_datasets:
+        if path in period_starts:
+            update_dataset_or_resource_metadata(
+                api_key=DATAGOUV_SECRET_API_KEY,
+                payload={"temporal_coverage": {
+                    "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                    "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                }},
+                dataset_id=config[path]['dataset_id'][AIRFLOW_ENV]
+            )
+    ti.xcom_push(key='new_files_datasets', value=new_files_datasets)
 
 
 def notification_mattermost(ti):
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
-        config = json.load(fp)
-    updated = ti.xcom_pull(key="updated", task_ids="upload_files_datagouv")
+    new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_files_datagouv")
+    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
 
     message = "🌦️ Données météo mises à jour :"
-    if not updated:
+    if not (new_files_datasets or updated_datasets):
         message += "\nAucun changement."
-        send_message(message)
     else:
-        for path in updated:
-            message += f"\n- [dataset {path}]"
-            message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/)"
-        send_message(message)
+        for path in updated_datasets:
+            if path in config:
+                message += f"\n- [dataset {path}]"
+                message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
+                if path in new_files_datasets:
+                    message += "nouvelles données"
+                else:
+                    message += "mise à jour des métadonnées"
+    send_message(message)
