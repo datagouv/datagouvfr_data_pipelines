@@ -175,8 +175,8 @@ def upload_files_datagouv(ti, minio_folder):
                 resource_name = file_with_ext.split(".")[0]
                 is_doc = True
             else:
-                # peut-être mettre un try/except ici pour publier les ressources qui posent problème
-                # en doc quoiqu'il ?
+                # peut-être mettre un 'if params else' ici pour publier les ressources
+                # qui posent problème en doc quoiqu'il ?
                 params = re.match(config[path]['source_pattern'], file_with_ext).groupdict()
                 resource_name = config[path]['name_template'].format(**params)
                 description = config[path]['description_template'].format(**params)
