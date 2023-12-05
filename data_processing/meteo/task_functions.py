@@ -55,12 +55,12 @@ def list_ftp_files_recursive(ftp, path='', base_path=''):
 
 def get_current_files_on_ftp(ti, ftp):
     ftp_files = list_ftp_files_recursive(ftp)
-    print(ftp_files)
     ftp_files = {
         path + '/' + file: {"size": size, "modif_date": parser.parse(' '.join(date_list))}
         for (path, file, size, date_list) in ftp_files
         if '.' in file
     }
+    print(ftp_files)
     ti.xcom_push(key='ftp_files', value=ftp_files)
 
 
@@ -110,6 +110,8 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     # all files to compute checksums and compare is inefficient
     # our best try: check the modification date on the FTP and take the file if it has
     # been changed since the previous day (DAG will run daily)
+    print(datetime.now(timezone.utc))
+    print(datetime.now(timezone.utc) - timedelta(days=1))
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
