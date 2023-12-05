@@ -40,7 +40,6 @@ forced_validation_day = date(2023, 12, 6)
 forced_validation = False
 if datetime.today().date().month == forced_validation_day.month:
     if datetime.today().date().day == forced_validation_day.day:
-        print("🎂 Today is forced validation day!")
         forced_validation = True
 
 
@@ -340,7 +339,7 @@ def save_validata_report(
             errors = None
         save_report["validation-report:errors"] = errors
         if 'date' in report.get('report', {}).keys():
-            save_report["validation-report:validation_date"] = report['date']
+            save_report["validation-report:validation_date"] = report['report']['date']
         else:
             # progressively switching to timezone-aware dates
             save_report["validation-report:validation_date"] = str(datetime.now(local_timezone))
@@ -500,6 +499,8 @@ def build_reference_table(
     should_succeed=False
 ):
     print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
+    if forced_validation:
+        print("🎂 Today is forced validation day!")
 
     schema_config = config_dict[schema_name]
 
