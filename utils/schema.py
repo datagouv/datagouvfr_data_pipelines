@@ -36,6 +36,12 @@ schema_url_base = api_url + "datasets/?schema={schema_name}"
 tag_url_base = api_url + "datasets/?tag={tag}"
 search_url_base = api_url.replace('1', '2') + "datasets/search/?q={search_word}"
 local_timezone = pytz.timezone('Europe/Paris')
+forced_validation_day = date(2023, 12, 6)
+forced_validation = False
+if datetime.today().date().month == forced_validation_day.month:
+    if datetime.today().date().day == forced_validation_day.day:
+        print("🎂 Today is forced validation day!")
+        forced_validation = True
 
 
 def remove_old_schemas(
@@ -215,9 +221,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 'valid': False
             }}
         # once a year we force scan every file, to compensate for potential anomalies
-        forced_validation_day = date(2023, 12, 6)
-        if datetime.today().date() == forced_validation_day:
-            print("🎂 Today is forced validation day!")
+        if forced_validation:
             print(f"forced validation for {resource_api_url}")
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
             r.raise_for_status()
