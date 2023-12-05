@@ -133,12 +133,15 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
     if 'api/2' in url:
         session = requests.Session()
         session.headers.update({'X-fields': fields})
-        all_datasets = [
-            session.get(
+        tmp = []
+        for d in all_datasets:
+            r = session.get(
                 api_url + "datasets/" + d["id"]
-            ).json() for d in all_datasets
-        ]
+            )
+            r.raise_for_status()
+            tmp.append(r.json())
         session.close()
+        all_datasets = tmp
     arr = []
     for dataset in all_datasets:
         for res in dataset["resources"]:
