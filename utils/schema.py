@@ -13,7 +13,7 @@ import json
 from json import JSONDecodeError
 import os
 import yaml
-from datetime import datetime
+from datetime import datetime, date
 import time
 from pathlib import Path
 import chardet
@@ -214,9 +214,18 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 'hydra:unavailable': 'ressource not available',
                 'valid': False
             }}
+        # once a year we force scan every file, to compensate for potential anomalies
+        forced_validation_day = date(2023, 12, 6)
+        if datetime.today().date() == forced_validation_day:
+            print("🎂 Today is forced validation day!")
+            print(f"forced validation for {resource_api_url}")
+            r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
+            r.raise_for_status()
+            time.sleep(0.5)
+            return r.json()
         # check if resource has never been validated
         if "validation-report:validation_date" not in extras:
-            print("no validation yet: validation")
+            print(f"no validation yet: validation for {resource_api_url}")
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
             r.raise_for_status()
             time.sleep(0.5)
@@ -229,7 +238,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             if not last_validation_date.tzinfo:
                 last_validation_date = local_timezone.localize(last_validation_date)
             if last_modification_date > last_validation_date:
-                print("recent hydra check: validation")
+                print(f"recent hydra check: validation for {resource_api_url}")
                 # resource has been changed since last validation: validate again
                 r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
                 r.raise_for_status()
@@ -238,7 +247,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             else:
                 # resource has not changed since last validation, validation report from metadata
                 # NB: only recreating the keys required for downstream processes
-                print("old hydra check: no validation")
+                print(f"old hydra check: no validation for {resource_api_url}")
                 return {
                     'report': {
                         'stats': {'errors': extras['validation-report:nb_errors']},
@@ -249,7 +258,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 }
         # no analysis: no (detectable) change since the crawler has started
         else:
-            print("no hydra check: no validation")
+            print(f"no hydra check: no validation for {resource_api_url}")
             return {
                 'report': {
                     'stats': {'errors': extras['validation-report:nb_errors']},
@@ -259,7 +268,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 }
             }
     else:
-        print("remote resource: validation")
+        print(f"remote resource: validation for {resource_api_url}")
         r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
         r.raise_for_status()
         time.sleep(0.5)
@@ -326,7 +335,7 @@ def save_validata_report(
         except:
             errors = None
         save_report["validation-report:errors"] = errors
-        if 'date' in report.keys():
+        if 'date' in report.get('report', {}).keys():
             save_report["validation-report:validation_date"] = report['date']
         else:
             # progressively switching to timezone-aware dates
