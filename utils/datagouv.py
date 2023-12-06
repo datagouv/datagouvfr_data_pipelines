@@ -40,6 +40,7 @@ SPAM_WORDS = [
     'streaming',
     'benefits',
     'escort',
+    'kbis'
 ]
 
 
