@@ -223,14 +223,12 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
         if forced_validation:
             print(f"forced validation for {resource_api_url}")
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
-            r.raise_for_status()
             time.sleep(0.5)
             return r.json()
         # check if resource has never been validated
         if "validation-report:validation_date" not in extras:
             print(f"no validation yet: validation for {resource_api_url}")
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
-            r.raise_for_status()
             time.sleep(0.5)
             return r.json()
         # if it has, check whether hydra has detected a change since last validation
@@ -244,7 +242,6 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 print(f"recent hydra check: validation for {resource_api_url}")
                 # resource has been changed since last validation: validate again
                 r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
-                r.raise_for_status()
                 time.sleep(0.5)
                 return r.json()
             else:
@@ -273,7 +270,6 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     else:
         print(f"remote resource: validation for {resource_api_url}")
         r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
-        r.raise_for_status()
         time.sleep(0.5)
         return r.json()
 
