@@ -72,8 +72,18 @@
     "REF_CC/SIM": {
         "source_pattern": "SIM2_(?P<START>[^_]+)_(?P<END>[^_]+).csv.gz",
         "name_template": "SIM2_{START}_{END}",
-        "doc_pattern": null,
+        "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
         "description_template": "Données SIM entre {START} et {END}",
+        "dataset_id": {
+            "prod": "6569b27598256cc583c917a7",
+            "dev": "653a6afa18f9f98d2ffdaded"
+        }
+    },
+    "REF_CC/SIM/Shapefile": {
+        "source_pattern": null,
+        "name_template": null,
+        "doc_pattern": ".*\\..*",
+        "description_template": null,
         "dataset_id": {
             "prod": "6569b27598256cc583c917a7",
             "dev": "653a6afa18f9f98d2ffdaded"
