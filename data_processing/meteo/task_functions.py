@@ -56,11 +56,16 @@ def list_ftp_files_recursive(ftp, path='', base_path=''):
 def get_current_files_on_ftp(ti, ftp):
     ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {
-        path + '/' + file: {"size": size, "modif_date": parser.parse(' '.join(date_list))}
+        path.lstrip('/') + '/' + file: {
+            "size": size,
+            "modif_date": parser.parse(' '.join(date_list))
+        }
         for (path, file, size, date_list) in ftp_files
         if '.' in file
     }
-    print(ftp_files)
+    # printing files on single lines for easier debug
+    for f in ftp_files:
+        print(f, ':', ftp_files[f])
     ti.xcom_push(key='ftp_files', value=ftp_files)
 
 
@@ -72,12 +77,15 @@ def get_current_files_on_minio(ti, minio_folder):
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         folder=minio_folder
     )
+    # printing files on single lines for easier debug
+    for f in minio_files:
+        print(f, ':', minio_files[f])
     # getting the start of each time period to update datasets metadata
     period_starts = {}
     for file in minio_files:
         path = '/'.join(file.replace(minio_folder, '').split('/')[:-1])
         file_with_ext = file.split('/')[-1]
-        if config.get(path):
+        if config.get(path, {}).get('source_pattern'):
             params = re.match(config[path]['source_pattern'], file_with_ext)
             params = params.groupdict() if params else {}
             if params:
@@ -91,6 +99,7 @@ def get_current_files_on_minio(ti, minio_folder):
                         int(params['START'].split('-')[0]),
                         period_starts.get(path, datetime.today().year)
                     )
+    print(period_starts)
     ti.xcom_push(key='minio_files', value=minio_files)
     ti.xcom_push(key='period_starts', value=period_starts)
 
@@ -110,8 +119,6 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     # all files to compute checksums and compare is inefficient
     # our best try: check the modification date on the FTP and take the file if it has
     # been changed since the previous day (DAG will run daily)
-    print(datetime.now(timezone.utc))
-    print(datetime.now(timezone.utc) - timedelta(days=1))
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
@@ -127,7 +134,6 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         # we are recreating the file structure from FTP to Minio
         path_to_file = '/'.join(file_to_transfer.split('/')[:-1])
         file_name = file_to_transfer.split('/')[-1]
-        updated_datasets.add(path_to_file)
         ftp.cwd('/' + path_to_file)
         # downloading the file from FTP
         with open(DATADIR + '/' + file_name, 'wb') as local_file:
@@ -150,6 +156,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
                 ],
                 ignore_airflow_env=True
             )
+            updated_datasets.add(path_to_file)
         except:
             print("⚠️ Unable to send file")
         os.remove(f"{DATADIR}/{file_name}")
@@ -199,7 +206,7 @@ def upload_files_datagouv(ti, minio_folder):
         try:
             # two known errors:
             # 1. files that don't match neither pattern
-            # 2. files that are contained in subfolders
+            # 2. files that are contained in subfolders => creating new paths in config
             if config[path]['doc_pattern'] and re.match(config[path]['doc_pattern'], file_with_ext):
                 resource_name = file_with_ext.split(".")[0]
                 is_doc = True
@@ -212,23 +219,27 @@ def upload_files_datagouv(ti, minio_folder):
 
             if url not in resources_lists[path].keys():
                 # si la resource n'existe pas, on la crée
-                print('Creating new resource for: ', file_with_ext)
+                print(
+                    f'Creating new {"documentation " if is_doc else ""}resource for: ',
+                    file_with_ext
+                )
                 post_remote_resource(
                     api_key=DATAGOUV_SECRET_API_KEY,
                     remote_url=url,
                     dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
                     filesize=minio_files[file],
-                    title=resource_name,
+                    title=resource_name if not is_doc else file_with_ext,
                     type="main" if not is_doc else "documentation",
                     format=get_file_extention(file_with_ext),
                     description=description,
                 )
                 new_files_datasets.add(path)
+                updated_datasets.add(path)
             else:
                 # qu'est-ce qu'on veut faire ici ? un check que rien n'a changé (hydra, taille du fichier) ?
                 print("Resource already exists: ", file_with_ext)
         except:
-            print('issue with file:', file)
+            print('issue with file:', file_with_ext)
     print("Updating datasets temporal_coverage")
     for path in updated_datasets:
         if path in period_starts:
@@ -237,15 +248,19 @@ def upload_files_datagouv(ti, minio_folder):
                 payload={"temporal_coverage": {
                     "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                     "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                }},
+                },
+                    # to be removed when data is ready to opened
+                    "private": True
+                },
                 dataset_id=config[path]['dataset_id'][AIRFLOW_ENV]
             )
     ti.xcom_push(key='new_files_datasets', value=new_files_datasets)
+    ti.xcom_push(key='updated_datasets', value=updated_datasets)
 
 
 def notification_mattermost(ti):
     new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_files_datagouv")
-    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
+    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="upload_files_datagouv")
 
     message = "🌦️ Données météo mises à jour :"
     if not (new_files_datasets or updated_datasets):
