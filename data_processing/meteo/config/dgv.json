@@ -52,7 +52,7 @@
     "BASE/DECADAGRO": {
         "source_pattern": "DECADAGRO_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECADAGRO_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "DECADAGRO_descriptif_champs.cs",
+        "doc_pattern": "DECADAGRO_descriptif_champs.csv",
         "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
             "prod": "6569af36ba0c3d2f9d4bf98c",
