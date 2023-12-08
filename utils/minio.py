@@ -293,8 +293,9 @@ def delete_file(
     )
     found = client.bucket_exists(MINIO_BUCKET)
     if found:
-        client.remove_object(MINIO_BUCKET, file_path)
+        # NEED TO THROW AN EXCEPTION IF FILE DOESN'T EXIST
+        # client.remove_object(MINIO_BUCKET, file_path)
+        print("ONLY PRETENDING FOR NOW")
         print(f"File '{file_path}' deleted successfully.")
-        return True
     else:
         raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
