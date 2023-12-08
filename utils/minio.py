@@ -275,3 +275,26 @@ def get_all_files_names_and_sizes_from_parent_folder(
         return files
     else:
         raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
+
+
+def delete_file(
+    MINIO_URL: str,
+    MINIO_BUCKET: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    file_path: str,
+):
+    """/!\ USE WITH CAUTION"""
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    found = client.bucket_exists(MINIO_BUCKET)
+    if found:
+        client.remove_object(MINIO_BUCKET, file_path)
+        print(f"File '{file_path}' deleted successfully.")
+        return True
+    else:
+        raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
