@@ -1,6 +1,6 @@
 import boto3
 import botocore
-from minio import Minio
+from minio import Minio, S3Error
 from minio.commonconfig import CopySource
 from typing import List, TypedDict, Optional
 import os
@@ -273,5 +273,31 @@ def get_all_files_names_and_sizes_from_parent_folder(
                 folder=subf,
             ))
         return files
+    else:
+        raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
+
+
+def delete_file(
+    MINIO_URL: str,
+    MINIO_BUCKET: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    file_path: str,
+):
+    """/!\ USE WITH CAUTION"""
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    found = client.bucket_exists(MINIO_BUCKET)
+    if found:
+        try:
+            client.stat_object(MINIO_BUCKET, file_path)
+            client.remove_object(MINIO_BUCKET, file_path)
+            print(f"File '{file_path}' deleted successfully.")
+        except S3Error as e:
+            print(e)
     else:
         raise Exception(f"Bucket {MINIO_BUCKET} does not exists")

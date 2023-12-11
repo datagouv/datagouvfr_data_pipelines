@@ -52,7 +52,7 @@
     "BASE/DECADAGRO": {
         "source_pattern": "DECADAGRO_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECADAGRO_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "DECADAGRO_descriptif_champs.cs",
+        "doc_pattern": "DECADAGRO_descriptif_champs.csv",
         "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD}",
         "dataset_id": {
             "prod": "6569af36ba0c3d2f9d4bf98c",
@@ -70,10 +70,10 @@
         }
     },
     "REF_CC/SIM": {
-        "source_pattern": "SIM2_(?P<START>[^_]+)_(?P<END>[^_]+).csv.gz",
-        "name_template": "SIM2_{START}_{END}",
+        "source_pattern": "QUOT_SIM2_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "QUOT_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données SIM entre {START} et {END}",
+        "description_template": "Données quotidiennes SIM entre {PERIOD}",
         "dataset_id": {
             "prod": "6569b27598256cc583c917a7",
             "dev": "653a6afa18f9f98d2ffdaded"
