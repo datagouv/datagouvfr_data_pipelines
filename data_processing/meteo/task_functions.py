@@ -168,6 +168,8 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
+    if len(diff_files) == 0:
+        raise ValueError("No new file today, is that normal?")
 
     new_files = []
     files_to_update_same_name = []
@@ -175,8 +177,6 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     updated_datasets = set()
     # doing it one file at a time in order not to overload production server
     for file_to_transfer in diff_files:
-        if not any([k in file_to_transfer for k in ['SIM']]):
-            continue
         print("___________________________")
         # if the file id is in minio_files, it means that the current file is not
         # a true new file, but an updated file. We delete the old file only if the file's name
@@ -195,13 +195,6 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
                 files_to_update_new_name[
                     ftp_files[file_to_transfer]['file_path']
                 ] = minio_files[file_to_transfer]['file_path']
-                delete_file(
-                    MINIO_URL=MINIO_URL,
-                    MINIO_BUCKET="meteofrance",
-                    MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-                    MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-                    file_path=minio_folder + minio_files[file_to_transfer]['file_path']
-                )
             else:
                 print("🔃 This file already exists, it will only be updated")
                 files_to_update_same_name.append(minio_files[file_to_transfer]['file_path'])
@@ -240,7 +233,6 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     print(new_files)
     print(files_to_update_same_name)
     print(files_to_update_new_name)
-    print(non)
     ti.xcom_push(key='updated_datasets', value=updated_datasets)
     ti.xcom_push(key='new_files', value=new_files)
     ti.xcom_push(key='files_to_update_new_name', value=files_to_update_new_name)
@@ -377,6 +369,22 @@ def upload_files_datagouv(ti, minio_folder):
             )
     ti.xcom_push(key='new_files_datasets', value=new_files_datasets)
     ti.xcom_push(key='updated_datasets', value=updated_datasets)
+
+
+def delete_replaced_minio_files(ti, minio_folder):
+    # files that have been renamed while update will be removed
+    files_to_update_new_name = ti.xcom_pull(
+        key="files_to_update_new_name",
+        task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    for old_file in files_to_update_new_name:
+        delete_file(
+            MINIO_URL=MINIO_URL,
+            MINIO_BUCKET="meteofrance",
+            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            file_path=minio_folder + old_file
+        )
 
 
 def notification_mattermost(ti):

@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
     get_current_files_on_minio,
     get_and_upload_file_diff_ftp_minio,
     upload_files_datagouv,
+    delete_replaced_minio_files,
     notification_mattermost,
 )
 
@@ -83,6 +84,14 @@ with DAG(
         },
     )
 
+    delete_replaced_minio_files = PythonOperator(
+        task_id='delete_replaced_minio_files',
+        python_callable=delete_replaced_minio_files,
+        op_kwargs={
+            "minio_folder": minio_folder,
+        },
+    )
+
     notification_mattermost = PythonOperator(
         task_id='notification_mattermost',
         python_callable=notification_mattermost,
@@ -95,4 +104,5 @@ with DAG(
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
 
     upload_files_datagouv.set_upstream(get_and_upload_file_diff_ftp_minio)
-    notification_mattermost.set_upstream(upload_files_datagouv)
+    delete_replaced_minio_files.set_upstream(upload_files_datagouv)
+    notification_mattermost.set_upstream(delete_replaced_minio_files)
