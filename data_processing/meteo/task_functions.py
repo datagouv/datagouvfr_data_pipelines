@@ -46,6 +46,7 @@ def build_file_id(file, path):
     # for instance:
     # QUOT_SIM2_latest-2020-202310.csv.gz becomes QUOT_SIM2_latest-2020-202311.csv.gz
     # when Nov2023 is added, but it actually *is* just a content update of the same file
+    # for this case, id of both files would be QUOT_SIM2_latest
     file_id = file
     if config.get(path, {}).get("source_pattern"):
         params = re.match(config[path]["source_pattern"], file)
@@ -344,8 +345,8 @@ def upload_files_datagouv(ti, minio_folder):
                     updated_datasets.add(path)
                 # resource is updated with a new name, we redirect the existing resource, rename it
                 # and update size and description
-                # values because we are dealing with the resource's new name
-                elif clean_file_path in files_to_update_new_name.values():
+                # keys because we are dealing with the resource's new name
+                elif clean_file_path in files_to_update_new_name:
                     print(
                         "Updating URL and metadata for:",
                         file_with_ext
@@ -365,8 +366,10 @@ def upload_files_datagouv(ti, minio_folder):
                         resource_id=resources_lists[path][old_url],
                     )
                 else:
-                    if url in resources_lists[path]:
-                        print("File is untouched on data.gouv", file_with_ext)
+                    if url in files_to_update_new_name.values():
+                        print("This is an old version of a file, will be deleted:", file_with_ext)
+                    elif url in resources_lists[path]:
+                        print("File is untouched on data.gouv:", file_with_ext)
                     else:
                         print("⚠️ This should never be seen: ", file_with_ext)
             except:
