@@ -175,11 +175,10 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     for file_to_transfer in diff_files:
         print("___________________________")
         # if the file id is in minio_files, it means that the current file is not
-        # a true new file, but an updated file. We delete the old file only if the file's name
-        # has changed, otherwise new one will just overwrite the old one, and upload the new
-        # one right after. NB: this will cause short downtimes on these files when the
-        # real file names are changed, because the remote URL on data.gouv won't be reachable
-        # until it is updated in the next step
+        # a true new file, but an updated file. We delete the old file at the end of
+        # the process (to prevent downtimes) only if the file's name has changed
+        # (otherwise the new one will just overwrite the old one) and upload the new
+        # one right which will replace its previous version (change the resource URL).
         print(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
         if file_to_transfer in minio_files:
             if minio_files[file_to_transfer]['file_path'] != ftp_files[file_to_transfer]['file_path']:
@@ -282,8 +281,18 @@ def upload_files_datagouv(ti, minio_folder):
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
         if file in files_to_update_same_name:
             print("Resource already exists and name unchanged:", file_with_ext)
-            # should we touch the resource's metadata to update the last
-            # modification date on data.gouv.fr?
+            # touching the resource just to update the last modification date on data.gouv.fr
+            # eventually hydra crawler will make this unnecessary
+            resource_api_url = (
+                DATAGOUV_URL +
+                f"/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/resources/{resources_lists[url]}/"
+            )
+            r = requests.put(
+                url=resource_api_url,
+                json={},
+                headers={'X-API-KEY': DATAGOUV_SECRET_API_KEY},
+            )
+            r.raise_for_status()
             continue
         else:
             # differenciation ressource principale VS documentation
@@ -291,7 +300,7 @@ def upload_files_datagouv(ti, minio_folder):
             description = ""
             try:
                 # two known errors:
-                # 1. files that don't match neither pattern
+                # 1. files that don't match either pattern
                 # 2. files that are contained in subfolders => creating new paths in config
                 if config[path]['doc_pattern'] and re.match(config[path]['doc_pattern'], file_with_ext):
                     resource_name = file_with_ext.split(".")[0]
