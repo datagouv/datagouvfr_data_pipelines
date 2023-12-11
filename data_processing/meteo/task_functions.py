@@ -245,11 +245,11 @@ def upload_files_datagouv(ti, minio_folder):
     new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
-        task_ids="files_to_update_new_name"
+        task_ids="get_and_upload_file_diff_ftp_minio"
     )
     files_to_update_same_name = ti.xcom_pull(
         key="files_to_update_same_name",
-        task_ids="files_to_update_same_name"
+        task_ids="get_and_upload_file_diff_ftp_minio"
     )
 
     # re-getting Minio files in case new files have been transfered
@@ -274,18 +274,24 @@ def upload_files_datagouv(ti, minio_folder):
 
     new_files_datasets = set()
     # reversed so that files get uploaded in a better order for UI
-    for file in reversed(minio_files.keys()):
-        file_path = minio_files[file]["file_path"]
-        path = "/".join(file_path.replace(minio_folder, "").split("/")[:-1])
+    for file_path in reversed(minio_files.keys()):
+        clean_file_path = file_path.replace(minio_folder, "")
+        path = "/".join(clean_file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
-        if file in files_to_update_same_name:
+        if url not in resources_lists.get(path, []) and clean_file_path not in new_files:
+            # this handles the case of files having been deleted from data.gouv
+            # but not from Minio
+            print("This file is not on data.gouv, uploading:", file_with_ext)
+            new_files.append(clean_file_path)
+        if clean_file_path in files_to_update_same_name:
             print("Resource already exists and name unchanged:", file_with_ext)
             # touching the resource just to update the last modification date on data.gouv.fr
             # eventually hydra crawler will make this unnecessary
             resource_api_url = (
                 DATAGOUV_URL +
-                f"/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/resources/{resources_lists[url]}/"
+                f"/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}" +
+                f"/resources/{resources_lists[path][url]}/"
             )
             r = requests.put(
                 url=resource_api_url,
@@ -308,14 +314,18 @@ def upload_files_datagouv(ti, minio_folder):
                 else:
                     # peut-être mettre un 'if params else' ici pour publier les ressources
                     # qui posent problème en doc quoiqu'il ?
-                    params = re.match(config[path]["source_pattern"], file_with_ext).groupdict()
+                    try:
+                        params = re.match(config[path]["source_pattern"], file_with_ext).groupdict()
+                    except AttributeError:
+                        print("File is not matching pattern")
+                        continue
                     for k in params:
                         # removing hook names for data.gouv display
                         params[k] = clean_hooks(params[k])
                     resource_name = config[path]["name_template"].format(**params)
                     description = config[path]["description_template"].format(**params)
                 # if the resource doesn't exist yet, we simply create it
-                if file in new_files:
+                if clean_file_path in new_files:
                     print(
                         f"Creating new {'documentation ' if is_doc else ''}resource for:",
                         file_with_ext
@@ -324,7 +334,7 @@ def upload_files_datagouv(ti, minio_folder):
                         api_key=DATAGOUV_SECRET_API_KEY,
                         remote_url=url,
                         dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                        filesize=minio_files[file],
+                        filesize=minio_files[file_path],
                         title=resource_name if not is_doc else file_with_ext,
                         type="main" if not is_doc else "documentation",
                         format=get_file_extention(file_with_ext),
@@ -335,7 +345,7 @@ def upload_files_datagouv(ti, minio_folder):
                 # resource is updated with a new name, we redirect the existing resource, rename it
                 # and update size and description
                 # values because we are dealing with the resource's new name
-                elif file in files_to_update_new_name.values:
+                elif clean_file_path in files_to_update_new_name.values():
                     print(
                         "Updating URL and metadata for:",
                         file_with_ext
@@ -349,13 +359,16 @@ def upload_files_datagouv(ti, minio_folder):
                             "url": url,
                             "title": resource_name if not is_doc else file_with_ext,
                             "description": description,
-                            "filesize": minio_files[file],
+                            "filesize": minio_files[file_path],
                         },
                         dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                        resource_id=resources_lists[old_url],
+                        resource_id=resources_lists[path][old_url],
                     )
                 else:
-                    print("⚠️ This should never be seen: ", file_with_ext)
+                    if url in resources_lists[path]:
+                        print("File is untouched on data.gouv", file_with_ext)
+                    else:
+                        print("⚠️ This should never be seen: ", file_with_ext)
             except:
                 print("issue with file:", file_with_ext)
     print("Updating datasets temporal_coverage")
