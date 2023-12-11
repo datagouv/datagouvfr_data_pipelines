@@ -295,8 +295,7 @@ def delete_file(
     if found:
         try:
             client.stat_object(MINIO_BUCKET, file_path)
-            # client.remove_object(MINIO_BUCKET, file_path)
-            print("ONLY PRETENDING FOR NOW")
+            client.remove_object(MINIO_BUCKET, file_path)
             print(f"File '{file_path}' deleted successfully.")
         except S3Error as e:
             print(e)
