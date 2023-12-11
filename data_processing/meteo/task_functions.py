@@ -94,15 +94,13 @@ def get_current_files_on_ftp(ti, ftp):
         if '.' in file:
             path = path.lstrip("/")
             file_id = build_file_id(file, path)
-            ftp_files.update({
-                # we keep path in the id just in case two files would have the same name/id
-                # but in different folders
-                path + '/' + file_id: {
-                    "file_path": path + '/' + file,
-                    "size": size,
-                    "modif_date": parser.parse(' '.join(date_list))
-                }
-            })
+            # we keep path in the id just in case two files would have the same name/id
+            # but in different folders
+            ftp_files[path + '/' + file_id] = {
+                "file_path": path + '/' + file,
+                "size": size,
+                "modif_date": parser.parse(' '.join(date_list))
+            }
     for f in ftp_files:
         print(f, ':', ftp_files[f])
     ti.xcom_push(key='ftp_files', value=ftp_files)
@@ -138,12 +136,10 @@ def get_current_files_on_minio(ti, minio_folder):
         clean_file_path = file_path.replace(minio_folder, '')
         file_name = clean_file_path.split('/')[-1]
         path = '/'.join(clean_file_path.split('/')[:-1])
-        final_minio_files.update({
-            path + '/' + build_file_id(file_name, path): {
-                "file_path": clean_file_path,
-                "size": minio_files[file_path],
-            }
-        })
+        final_minio_files[path + '/' + build_file_id(file_name, path)] = {
+            "file_path": clean_file_path,
+            "size": minio_files[file_path],
+        }
     for f in final_minio_files:
         print(f, ':', final_minio_files[f])
     ti.xcom_push(key='minio_files', value=final_minio_files)
