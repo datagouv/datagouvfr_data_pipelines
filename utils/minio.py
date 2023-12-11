@@ -1,6 +1,6 @@
 import boto3
 import botocore
-from minio import Minio
+from minio import Minio, S3Error
 from minio.commonconfig import CopySource
 from typing import List, TypedDict, Optional
 import os
@@ -293,9 +293,12 @@ def delete_file(
     )
     found = client.bucket_exists(MINIO_BUCKET)
     if found:
-        # NEED TO THROW AN EXCEPTION IF FILE DOESN'T EXIST
-        # client.remove_object(MINIO_BUCKET, file_path)
-        print("ONLY PRETENDING FOR NOW")
-        print(f"File '{file_path}' deleted successfully.")
+        try:
+            client.stat_object(MINIO_BUCKET, file_path)
+            # client.remove_object(MINIO_BUCKET, file_path)
+            print("ONLY PRETENDING FOR NOW")
+            print(f"File '{file_path}' deleted successfully.")
+        except S3Error as e:
+            print(e)
     else:
         raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
