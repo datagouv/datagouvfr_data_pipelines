@@ -14,7 +14,10 @@ from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
     get_current_files_on_ftp,
     get_current_files_on_minio,
     get_and_upload_file_diff_ftp_minio,
-    upload_files_datagouv,
+    upload_new_files,
+    handle_updated_files_same_name,
+    handle_updated_files_new_name,
+    update_temporal_coverages,
     delete_replaced_minio_files,
     notification_mattermost,
 )
@@ -76,9 +79,25 @@ with DAG(
         },
     )
 
-    upload_files_datagouv = PythonOperator(
-        task_id='upload_files_datagouv',
-        python_callable=upload_files_datagouv,
+    upload_new_files = PythonOperator(
+        task_id='upload_new_files',
+        python_callable=upload_new_files,
+        op_kwargs={
+            "minio_folder": minio_folder,
+        },
+    )
+
+    handle_updated_files_same_name = PythonOperator(
+        task_id='handle_updated_files_same_name',
+        python_callable=handle_updated_files_same_name,
+        op_kwargs={
+            "minio_folder": minio_folder,
+        },
+    )
+
+    handle_updated_files_new_name = PythonOperator(
+        task_id='handle_updated_files_new_name',
+        python_callable=handle_updated_files_new_name,
         op_kwargs={
             "minio_folder": minio_folder,
         },
@@ -92,6 +111,11 @@ with DAG(
         },
     )
 
+    update_temporal_coverages = PythonOperator(
+        task_id='update_temporal_coverages',
+        python_callable=update_temporal_coverages,
+    )
+
     notification_mattermost = PythonOperator(
         task_id='notification_mattermost',
         python_callable=notification_mattermost,
@@ -103,6 +127,15 @@ with DAG(
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_ftp)
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
 
-    upload_files_datagouv.set_upstream(get_and_upload_file_diff_ftp_minio)
-    delete_replaced_minio_files.set_upstream(upload_files_datagouv)
+    upload_new_files.set_upstream(get_and_upload_file_diff_ftp_minio)
+    handle_updated_files_same_name.set_upstream(get_and_upload_file_diff_ftp_minio)
+    handle_updated_files_new_name.set_upstream(get_and_upload_file_diff_ftp_minio)
+
+    delete_replaced_minio_files.set_upstream(handle_updated_files_new_name)
+
+    update_temporal_coverages.set_upstream(upload_new_files)
+    update_temporal_coverages.set_upstream(handle_updated_files_same_name)
+    update_temporal_coverages.set_upstream(handle_updated_files_new_name)
+
     notification_mattermost.set_upstream(delete_replaced_minio_files)
+    notification_mattermost.set_upstream(update_temporal_coverages)
