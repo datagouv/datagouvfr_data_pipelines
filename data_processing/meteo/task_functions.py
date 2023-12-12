@@ -40,6 +40,19 @@ def clean_hooks(string, hooks=hooks):
     return _
 
 
+def get_resource_lists():
+    resources_lists = {
+        path: {
+            r["url"]: r["id"] for r in requests.get(
+                f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
+                headers={"X-fields": "resources{id,url}"}
+            ).json()["resources"]
+        }
+        for path in config.keys()
+    }
+    return resources_lists
+
+
 def build_file_id(file, path):
     # we are creating ids for files based on their name so that we can
     # match files that have been updated with a name change
@@ -73,7 +86,10 @@ def build_resource(file_path, minio_folder):
     # two known errors:
     # 1. files that don"t match either pattern
     # 2. files that are contained in subfolders => creating new paths in config
-    if config[path]["doc_pattern"] and re.match(config[path]["doc_pattern"], file_with_ext):
+    if path not in config:
+        resource_name = file_with_ext
+        description = ""
+    elif config[path]["doc_pattern"] and re.match(config[path]["doc_pattern"], file_with_ext):
         resource_name = file_with_ext.split(".")[0]
         is_doc = True
     else:
@@ -81,14 +97,16 @@ def build_resource(file_path, minio_folder):
         # qui posent problème en doc quoiqu'il ?
         try:
             params = re.match(config[path]["source_pattern"], file_with_ext).groupdict()
+            for k in params:
+                # removing hook names for data.gouv display
+                params[k] = clean_hooks(params[k])
+            resource_name = config[path]["name_template"].format(**params)
+            description = config[path]["description_template"].format(**params)
         except AttributeError:
             print("File is not matching pattern")
-        for k in params:
-            # removing hook names for data.gouv display
-            params[k] = clean_hooks(params[k])
-        resource_name = config[path]["name_template"].format(**params)
-        description = config[path]["description_template"].format(**params)
-    return file_with_ext, resource_name, description, url, is_doc
+            resource_name = file_with_ext
+            description = ""
+    return file_with_ext, path, resource_name, description, url, is_doc
 
 
 def list_ftp_files_recursive(ftp, path="", base_path=""):
@@ -268,17 +286,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         folder=minio_folder
     )
-    resources_lists = {
-        path: {
-            r["url"]: r["id"] for r in requests.get(
-                f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
-                headers={"X-fields": "resources{id,url}"}
-            ).json()["resources"]
-        }
-        for path in config.keys()
-    }
     ti.xcom_push(key="minio_files", value=minio_files)
-    ti.xcom_push(key="resources_lists", value=resources_lists)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
     ti.xcom_push(key="new_files", value=new_files)
     ti.xcom_push(key="files_to_update_new_name", value=files_to_update_new_name)
@@ -292,8 +300,8 @@ def get_file_extention(file):
 def upload_new_files(ti, minio_folder):
     new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
-    resources_lists = ti.xcom_pull(key="resources_lists", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    resources_lists = get_resource_lists()
 
     # adding files that are on minio, not updated from FTP in this batch,
     # but that are missing on data.gouv
@@ -310,26 +318,31 @@ def upload_new_files(ti, minio_folder):
 
     new_files_datasets = set()
     for file_path in new_files:
-        file_with_ext, resource_name, description, url, is_doc = build_resource(file_path, minio_folder)
+        file_with_ext, path, resource_name, description, url, is_doc = build_resource(
+            file_path,
+            minio_folder
+        )
         print(
             f"Creating new {'documentation ' if is_doc else ''}resource for:",
             file_with_ext
         )
-        post_remote_resource(
-            api_key=DATAGOUV_SECRET_API_KEY,
-            remote_url=url,
-            dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-            filesize=minio_files[file_path],
-            title=resource_name if not is_doc else file_with_ext,
-            type="main" if not is_doc else "documentation",
-            format=get_file_extention(file_with_ext),
-            description=description,
-        )
-        new_files_datasets.add(path)
-        updated_datasets.add(path)
+        try:
+            post_remote_resource(
+                api_key=DATAGOUV_SECRET_API_KEY,
+                remote_url=url,
+                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+                filesize=minio_files[minio_folder + file_path],
+                title=resource_name if not is_doc else file_with_ext,
+                type="main" if not is_doc else "documentation",
+                format=get_file_extention(file_with_ext),
+                description=description,
+            )
+            new_files_datasets.add(path)
+            updated_datasets.add(path)
+        except KeyError:
+            print("⚠️ no config for this file")
     ti.xcom_push(key="new_files_datasets", value=new_files_datasets)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
-    print(non)
 
 
 def handle_updated_files_same_name(ti, minio_folder):
@@ -338,8 +351,8 @@ def handle_updated_files_same_name(ti, minio_folder):
         key="files_to_update_same_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    resources_lists = ti.xcom_pull(key="resources_lists", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    resources_lists = get_resource_lists()
 
     for file_path in files_to_update_same_name:
         path = "/".join(file_path.split("/")[:-1])
@@ -348,18 +361,21 @@ def handle_updated_files_same_name(ti, minio_folder):
         print("Resource already exists and name unchanged:", file_with_ext)
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
-        resource_api_url = (
-            DATAGOUV_URL +
-            f"/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}" +
-            f"/resources/{resources_lists[path][url]}/"
-        )
-        r = requests.put(
-            url=resource_api_url,
-            json={"filesize": minio_files[minio_folder + file_path]},
-            headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
-        )
-        r.raise_for_status()
-        updated_datasets.add(path)
+        try:
+            resource_api_url = (
+                DATAGOUV_URL +
+                f"/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}" +
+                f"/resources/{resources_lists[path][url]}/"
+            )
+            r = requests.put(
+                url=resource_api_url,
+                json={"filesize": minio_files[minio_folder + file_path]},
+                headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+            )
+            r.raise_for_status()
+            updated_datasets.add(path)
+        except KeyError:
+            print("⚠️ no config for this file")
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
@@ -369,29 +385,36 @@ def handle_updated_files_new_name(ti, minio_folder):
         key="files_to_update_new_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    resources_lists = ti.xcom_pull(key="resources_lists", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    resources_lists = get_resource_lists()
+
     for file_path in files_to_update_new_name:
-        path = "/".join(file_path.split("/")[:-1])
-        file_with_ext, resource_name, description, url, is_doc = build_resource(file_path, minio_folder)
+        file_with_ext, path, resource_name, description, url, is_doc = build_resource(
+            file_path,
+            minio_folder
+        )
         # resource is updated with a new name, we redirect the existing resource, rename it
         # and update size and description
         print("Updating URL and metadata for:", file_with_ext)
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
         old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
-        update_dataset_or_resource_metadata(
-            api_key=DATAGOUV_SECRET_API_KEY,
-            payload={
-                "url": url,
-                "title": resource_name if not is_doc else file_with_ext,
-                "description": description,
-                "filesize": minio_files[file_path],
-            },
-            dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-            resource_id=resources_lists[path][old_url],
-        )
-        updated_datasets.add(path)
+        try:
+            update_dataset_or_resource_metadata(
+                api_key=DATAGOUV_SECRET_API_KEY,
+                payload={
+                    "url": url,
+                    "title": resource_name if not is_doc else file_with_ext,
+                    "description": description,
+                    "filesize": minio_files[minio_folder + file_path],
+                },
+                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+                resource_id=resources_lists[path][old_url],
+            )
+            updated_datasets.add(path)
+        except KeyError:
+            print("⚠️ no config for this file")
+    ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
 def update_temporal_coverages(ti):
@@ -415,10 +438,7 @@ def update_temporal_coverages(ti):
                 payload={"temporal_coverage": {
                     "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                     "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                },
-                    # to be removed when data is ready to opened
-                    "private": True
-                },
+                }},
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV]
             )
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
@@ -452,7 +472,7 @@ def notification_mattermost(ti):
             if path in config:
                 message += f"\n- [{path}]"
                 message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
-                if path in new_files_datasets:
+                if new_files_datasets and path in new_files_datasets:
                     message += "nouvelles données"
                 else:
                     message += "mise à jour des métadonnées"
