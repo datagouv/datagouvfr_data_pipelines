@@ -24,7 +24,7 @@ from minio import Minio
 import pytz
 
 # DEV : for local dev in order not to mess up with production
-# DATAGOUV_URL = 'https://data.gouv.fr'
+# DATAGOUV_URL = 'https://www.data.gouv.fr'
 # DATAGOUV_SECRET_API_KEY = ''
 
 VALIDATA_BASE_URL = (
@@ -150,52 +150,51 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
     arr = []
     for dataset in all_datasets:
         for res in dataset["resources"]:
-            if res["schema"].get("name", "") == schema_name:
-                if "format=csv" in res["url"]:
-                    filename = res["url"].split("/")[-3] + ".csv"
+            if "format=csv" in res["url"]:
+                filename = res["url"].split("/")[-3] + ".csv"
+            else:
+                filename = res["url"].split("/")[-1]
+            ext = filename.split(".")[-1]
+            detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
+            obj = {}
+            obj["dataset_id"] = dataset["id"]
+            obj["dataset_title"] = dataset["title"]
+            obj["dataset_slug"] = dataset["slug"]
+            obj["dataset_page"] = dataset["page"]
+            obj["resource_id"] = res["id"]
+            obj["resource_title"] = res["title"]
+            obj["resource_url"] = res["url"]
+            obj["resource_last_modified"] = res["last_modified"]
+            obj["resource_created_at"] = res["created_at"]
+            obj["publish_source"] = res.get("extras", {}).get("publish_source", "")
+            obj["error_type"] = None
+            if not res.get('extras', {}).get('check:available', True):
+                obj["error_type"] = "hydra-unavailable-resource"
+            appropriate_extension = ext in ["csv", "xls", "xlsx"]
+            mime_dict = {
+                "text/csv": "csv",
+                "application/vnd.ms-excel": "xls"
+            }
+            appropriate_mime = detected_mime in mime_dict.keys()
+            if appropriate_extension:
+                obj["resource_extension"] = ext
+            elif appropriate_mime:
+                obj["resource_extension"] = mime_dict[detected_mime]
+            else:
+                obj["resource_extension"] = ext
+            if not (appropriate_extension or appropriate_mime):
+                obj["error_type"] = "wrong-file-format"
+            else:
+                if not dataset["organization"] and not dataset["owner"]:
+                    obj["error_type"] = "orphan-dataset"
                 else:
-                    filename = res["url"].split("/")[-1]
-                ext = filename.split(".")[-1]
-                detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
-                obj = {}
-                obj["dataset_id"] = dataset["id"]
-                obj["dataset_title"] = dataset["title"]
-                obj["dataset_slug"] = dataset["slug"]
-                obj["dataset_page"] = dataset["page"]
-                obj["resource_id"] = res["id"]
-                obj["resource_title"] = res["title"]
-                obj["resource_url"] = res["url"]
-                obj["resource_last_modified"] = res["last_modified"]
-                obj["resource_created_at"] = res["created_at"]
-                obj["publish_source"] = res.get("extras", {}).get("publish_source", "")
-                obj["error_type"] = None
-                if not res.get('extras', {}).get('check:available', True):
-                    obj["error_type"] = "hydra-unavailable-resource"
-                appropriate_extension = ext in ["csv", "xls", "xlsx"]
-                mime_dict = {
-                    "text/csv": "csv",
-                    "application/vnd.ms-excel": "xls"
-                }
-                appropriate_mime = detected_mime in mime_dict.keys()
-                if appropriate_extension:
-                    obj["resource_extension"] = ext
-                elif appropriate_mime:
-                    obj["resource_extension"] = mime_dict[detected_mime]
-                else:
-                    obj["resource_extension"] = ext
-                if not (appropriate_extension or appropriate_mime):
-                    obj["error_type"] = "wrong-file-format"
-                else:
-                    if not dataset["organization"] and not dataset["owner"]:
-                        obj["error_type"] = "orphan-dataset"
-                    else:
-                        obj["organization_or_owner"] = (
-                            dataset["organization"]["slug"]
-                            if dataset["organization"]
-                            else dataset["owner"]["slug"]
-                        )
-                        obj["is_orga"] = bool(dataset["organization"])
-                arr.append(obj)
+                    obj["organization_or_owner"] = (
+                        dataset["organization"]["slug"]
+                        if dataset["organization"]
+                        else dataset["owner"]["slug"]
+                    )
+                    obj["is_orga"] = bool(dataset["organization"])
+            arr.append(obj)
     df = pd.DataFrame(arr)
     return df
 
@@ -2154,11 +2153,13 @@ def notification_synthese(
     for s in schemas:
         if s["schema_type"] == "tableschema":
             try:
+                latest_version = s["versions"][0]["version_name"]
                 filename = (
                     f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/','_')}.csv"
                 )
                 df = pd.read_csv(filename)
+                nb_resources_consolidees = len(df.loc[df["most_recent_valid_version"] == latest_version])
                 nb_declares = df[df["resource_found_by"] == "1 - schema request"].shape[0]
                 nb_suspectes = df[df["resource_found_by"] != "1 - schema request"].shape[0]
                 nb_valides = df[df["is_valid_one_version"]].shape[0]
@@ -2214,6 +2215,7 @@ def notification_synthese(
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
                     f"(https://explore.data.gouv.fr/tableau?url=https://{MINIO_URL}/"
                     f"{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/schema/schemas_consolidation/"
+                    f"Nombres de lignes dans le fichier consolidé : {nb_resources_consolidees}"
                     f"liste_erreurs/{erreurs_file_name})\n"
                 )
             except: # noqa
