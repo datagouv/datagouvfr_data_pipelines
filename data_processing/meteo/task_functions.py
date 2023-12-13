@@ -461,8 +461,10 @@ def delete_replaced_minio_files(ti, minio_folder):
 
 
 def notification_mattermost(ti):
-    new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_files_datagouv")
+    new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_new_files")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="update_temporal_coverages")
+    print(new_files_datasets)
+    print(updated_datasets)
 
     message = "🌦️ Données météo mises à jour :"
     if not (new_files_datasets or updated_datasets):
@@ -472,7 +474,7 @@ def notification_mattermost(ti):
             if path in config:
                 message += f"\n- [{path}]"
                 message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
-                if new_files_datasets and path in new_files_datasets:
+                if path in new_files_datasets:
                     message += "nouvelles données"
                 else:
                     message += "mise à jour des métadonnées"
