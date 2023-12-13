@@ -81,8 +81,6 @@ with DAG(
         # bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
     )
 
-    date_airflow = "{{ ds }}"
-
     get_all_irve_resources = PythonOperator(
         task_id="get_all_irve_resources",
         python_callable=get_all_irve_resources,
