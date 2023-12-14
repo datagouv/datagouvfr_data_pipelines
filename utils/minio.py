@@ -1,7 +1,6 @@
 import boto3
 import botocore
-import io
-from minio import Minio
+from minio import Minio, S3Error
 from minio.commonconfig import CopySource
 from typing import List, TypedDict, Optional
 import os
@@ -22,6 +21,7 @@ def send_files(
     MINIO_USER: str,
     MINIO_PASSWORD: str,
     list_files: List[File],
+    ignore_airflow_env=False
 ):
     """Send list of file to Minio bucket
 
@@ -50,11 +50,16 @@ def send_files(
             is_file = os.path.isfile(
                 os.path.join(file["source_path"], file["source_name"])
             )
-            print("Sending ", file["source_name"])
             if is_file:
+                if ignore_airflow_env:
+                    dest_path = f"{file['dest_path']}{file['dest_name']}"
+                else:
+                    dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
+                print("Sending " + file["source_path"] + file["source_name"])
+                print("to " + dest_path)
                 client.fput_object(
                     MINIO_BUCKET,
-                    f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}",
+                    dest_path,
                     os.path.join(file["source_path"], file["source_name"]),
                     content_type=file['content_type'] if 'content_type' in file else None
                 )
@@ -235,4 +240,64 @@ def copy_object(
         if remove_source_file:
             client.remove_object(MINIO_BUCKET_SOURCE, f"{AIRFLOW_ENV}/{path_source}")
     else:
-        raise Exception(f"One Bucket does not exists")
+        raise Exception("One Bucket does not exists")
+
+
+def get_all_files_names_and_sizes_from_parent_folder(
+    MINIO_URL: str,
+    MINIO_BUCKET: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    folder: str,
+):
+    """
+    returns a dict of {"file_name": file_size, ...} for all files in the folder
+    """
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    found = client.bucket_exists(MINIO_BUCKET)
+    if found:
+        objects = {o.object_name: o for o in client.list_objects(MINIO_BUCKET, prefix=folder)}
+        files = {k: v.size for k, v in objects.items() if '.' in k}
+        subfolders = [k for k in objects.keys() if k not in files.keys()]
+        for subf in subfolders:
+            files.update(get_all_files_names_and_sizes_from_parent_folder(
+                MINIO_URL=MINIO_URL,
+                MINIO_BUCKET=MINIO_BUCKET,
+                MINIO_USER=MINIO_USER,
+                MINIO_PASSWORD=MINIO_PASSWORD,
+                folder=subf,
+            ))
+        return files
+    else:
+        raise Exception(f"Bucket {MINIO_BUCKET} does not exists")
+
+
+def delete_file(
+    MINIO_URL: str,
+    MINIO_BUCKET: str,
+    MINIO_USER: str,
+    MINIO_PASSWORD: str,
+    file_path: str,
+):
+    """/!\ USE WITH CAUTION"""
+    client = Minio(
+        MINIO_URL,
+        access_key=MINIO_USER,
+        secret_key=MINIO_PASSWORD,
+        secure=True,
+    )
+    found = client.bucket_exists(MINIO_BUCKET)
+    if found:
+        try:
+            client.stat_object(MINIO_BUCKET, file_path)
+            client.remove_object(MINIO_BUCKET, file_path)
+            print(f"File '{file_path}' deleted successfully.")
+        except S3Error as e:
+            print(e)
+    else:
+        raise Exception(f"Bucket {MINIO_BUCKET} does not exists")

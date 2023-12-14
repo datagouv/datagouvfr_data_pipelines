@@ -105,8 +105,8 @@ def get_current_flux_unite_legale(ti):
         "denominationUniteLegale,denominationUsuelle1UniteLegale,denominationUsuelle2UniteLegale,"
         "denominationUsuelle3UniteLegale,categorieJuridiqueUniteLegale,activitePrincipaleUniteLegale,"
         "economieSocialeSolidaireUniteLegale,statutDiffusionUniteLegale,"
-        "societeMissionUniteLegale,anneeCategorieEntreprise,anneeEffectifsUniteLegale"
-        "&nombre=1000&curseur="
+        "societeMissionUniteLegale,anneeCategorieEntreprise,anneeEffectifsUniteLegale,"
+        "caractereEmployeurUniteLegale&nombre=1000&curseur="
     )
     data = call_insee_api(endpoint, "unitesLegales")
     flux = []
@@ -144,7 +144,7 @@ def get_current_flux_etablissement(ti):
         "activitePrincipaleEtablissement,indiceRepetitionEtablissement,libelleCommuneEtrangerEtablissement,"
         "codePaysEtrangerEtablissement,libellePaysEtrangerEtablissement,"
         "libelleCommuneEtranger2Etablissement,codePaysEtranger2Etablissement,"
-        "libellePaysEtranger2Etablissement&nombre=1000&curseur="
+        "libellePaysEtranger2Etablissement,caractereEmployeurEtablissement&nombre=1000&curseur="
     )
     data = call_insee_api(endpoint, "etablissements")
     flux = []

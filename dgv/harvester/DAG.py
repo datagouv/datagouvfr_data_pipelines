@@ -1,8 +1,8 @@
 from airflow.models import DAG
-from operators.mattermost import MattermostOperator
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datetime import timedelta
 import requests
 from datagouvfr_data_pipelines.config import (
@@ -137,14 +137,8 @@ def publish_mattermost_harvester(ti):
         f"{text}Avant validation, pensez à consulter [le pad des moissonneurs à laisser "
         f"en attente de validation]({PAD_AWAITING_VALIDATION}) \n"
     )
-
-    send_notif = MattermostOperator(
-        task_id="publish_result",
-        mattermost_endpoint=MATTERMOST_DATAGOUV_MOISSONNAGE,
-        text=text,
-    )
+    send_message(text, MATTERMOST_DATAGOUV_MOISSONNAGE)
     print(text)
-    send_notif.execute(dict())
 
 
 with DAG(

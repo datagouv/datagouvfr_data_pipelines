@@ -40,6 +40,8 @@ SPAM_WORDS = [
     'streaming',
     'benefits',
     'escort',
+    'kbis',
+    'hack',
 ]
 
 
@@ -112,9 +114,8 @@ def post_resource(
         resource_id (Optional[str], optional): ID of the resource where
         to upload file. If it is a new resource, let it to None.
         Defaults to None.
-        resource_payload (Optional[dict], optional): payload to update the
-        resource's metadata, only if resource_id is given
-        Defaults to None.
+        resource_payload (Optional[dict], optional): payload to update the resource's metadata
+        Defaults to None (then the id is retrieved when the resource is created)
 
     Returns:
         json: return API result in a dictionnary
@@ -134,6 +135,10 @@ def post_resource(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
     r = requests.post(url, files=files, headers=headers)
     r.raise_for_status()
+    if not resource_id:
+        resource_id = r.json()['id']
+        print("Resource was given this id:", resource_id)
+        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and resource_payload:
         r_put = requests.put(url.replace('upload/', ''), json=resource_payload, headers=headers)
         r_put.raise_for_status()

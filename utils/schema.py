@@ -13,7 +13,7 @@ import json
 from json import JSONDecodeError
 import os
 import yaml
-from datetime import datetime
+from datetime import datetime, date
 import time
 from pathlib import Path
 import chardet
@@ -39,6 +39,11 @@ local_timezone = pytz.timezone('Europe/Paris')
 ignored_datasets = [
     "5b598be088ee387c0c353714"
 ]
+forced_validation_day = date(2023, 12, 6)
+forced_validation = False
+if datetime.today().date().month == forced_validation_day.month:
+    if datetime.today().date().day == forced_validation_day.day:
+        forced_validation = True
 
 
 def remove_old_schemas(
@@ -70,7 +75,11 @@ def get_schema_dict(
 
 
 def add_most_recent_valid_version(df_ref: pd.DataFrame) -> pd.DataFrame:
-    """Based on validation columns by version, adds a column to the ref_table that shows the most recent version of the schema for which the resource is valid"""
+    """
+    Based on validation columns by version, adds a column to
+    the ref_table that shows the most recent version
+    of the schema for which the resource is valid
+    """
     version_cols_list = [col for col in df_ref.columns if col.startswith("is_valid_v_")]
 
     df_ref["most_recent_valid_version"] = ""
@@ -121,7 +130,8 @@ def add_schema_default_config(
 # API parsing to get resources infos based on schema metadata, tags and search keywords
 def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
     fields = 'id,title,slug,page,organization,owner,'
-    fields += 'resources{schema,url,extras,id,title,last_modified,created_at}'
+    fields += 'resources{schema,url,id,title,last_modified,created_at,'
+    fields += 'extras{check:headers:content-type,check:available}}'
     mask = f"data{{{fields}}}"
     all_datasets = get_all_from_api_query(
         url,
@@ -129,12 +139,17 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
     )
     # when using api/2, the resources are not directly accessible, so we use api/1 to get them
     if 'api/2' in url:
-        all_datasets = [
-            requests.get(
-                api_url + "datasets/" + d["id"],
-                headers={'X-fields': fields}
-            ).json() for d in all_datasets
-        ]
+        session = requests.Session()
+        session.headers.update({'X-fields': fields})
+        tmp = []
+        for d in all_datasets:
+            r = session.get(
+                api_url + "datasets/" + d["id"]
+            )
+            r.raise_for_status()
+            tmp.append(r.json())
+        session.close()
+        all_datasets = tmp
     arr = []
     for dataset in all_datasets:
         if dataset["id"] in ignored_datasets:
@@ -194,7 +209,9 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
 # the schema url and validation url
 def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
     # saves time by not pinging Validata for unchanged resources
-    data = requests.get(resource_api_url).json()
+    data = requests.get(resource_api_url)
+    data.raise_for_status()
+    data = data.json()
     # if resource is a file on data.gouv.fr (not remote, due to hydra async work)
     # as of today (2023-09-04), hydra processes a check every week and we want a consolidation every day,
     # this condition should be removed when hydra and consolidation follow the same schedule (every day).
@@ -207,9 +224,15 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 'hydra:unavailable': 'ressource not available',
                 'valid': False
             }}
+        # once a year we force scan every file, to compensate for potential anomalies
+        if forced_validation:
+            print(f"forced validation for {resource_api_url}")
+            r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
+            time.sleep(0.5)
+            return r.json()
         # check if resource has never been validated
         if "validation-report:validation_date" not in extras:
-            print("no validation yet: validation")
+            print(f"no validation yet: validation for {resource_api_url}")
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
             time.sleep(0.5)
             return r.json()
@@ -221,7 +244,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             if not last_validation_date.tzinfo:
                 last_validation_date = local_timezone.localize(last_validation_date)
             if last_modification_date > last_validation_date:
-                print("recent hydra check: validation")
+                print(f"recent hydra check: validation for {resource_api_url}")
                 # resource has been changed since last validation: validate again
                 r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
                 time.sleep(0.5)
@@ -229,7 +252,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             else:
                 # resource has not changed since last validation, validation report from metadata
                 # NB: only recreating the keys required for downstream processes
-                print("old hydra check: no validation")
+                print(f"old hydra check: no validation for {resource_api_url}")
                 return {
                     'report': {
                         'stats': {'errors': extras['validation-report:nb_errors']},
@@ -240,7 +263,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 }
         # no analysis: no (detectable) change since the crawler has started
         else:
-            print("no hydra check: no validation")
+            print(f"no hydra check: no validation for {resource_api_url}")
             return {
                 'report': {
                     'stats': {'errors': extras['validation-report:nb_errors']},
@@ -250,7 +273,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 }
             }
     else:
-        print("remote resource: validation")
+        print(f"remote resource: validation for {resource_api_url}")
         r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
         time.sleep(0.5)
         return r.json()
@@ -320,8 +343,8 @@ def save_validata_report(
         except:
             errors = None
         save_report["validation-report:errors"] = errors
-        if 'date' in report.keys():
-            save_report["validation-report:validation_date"] = report['date']
+        if 'date' in report.get('report', {}).keys():
+            save_report["validation-report:validation_date"] = report['report']['date']
         else:
             # progressively switching to timezone-aware dates
             save_report["validation-report:validation_date"] = str(datetime.now(local_timezone))
@@ -369,6 +392,7 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
 def get_resource_schema_version(row: pd.Series, api_url: str):
     url = api_url + f'datasets/{row["dataset_id"]}/resources/{row["resource_id"]}/'
     r = requests.get(url, headers={'X-fields': 'schema'})
+    r.raise_for_status()
     if r.status_code == 200:
         r_json = r.json()
         if r_json.get('schema', {}).get('version', False):
@@ -395,7 +419,9 @@ def get_schema_report(
 
     schemas_report_dict = {}
 
-    schemas_catalogue_dict = requests.get(schemas_catalogue_url).json()
+    schemas_catalogue_dict = requests.get(schemas_catalogue_url)
+    schemas_catalogue_dict.raise_for_status()
+    schemas_catalogue_dict = schemas_catalogue_dict.json()
     print("Schema catalogue URL:", schemas_catalogue_dict["$schema"])
     print("Version:", schemas_catalogue_dict["version"])
 
@@ -478,6 +504,8 @@ def build_reference_table(
     should_succeed=False
 ):
     print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
+    if forced_validation:
+        print("🎂 Today is forced validation day!")
 
     schema_config = config_dict[schema_name]
 
@@ -494,7 +522,7 @@ def build_reference_table(
     if "consolidated_dataset_id" in schema_config.keys():
         datasets_to_exclude += [schema_config["consolidated_dataset_id"]]
     if "exclude_dataset_ids" in schema_config.keys():
-        if type(schema_config["exclude_dataset_ids"]) == list:
+        if isinstance(schema_config["exclude_dataset_ids"], list):
             datasets_to_exclude += schema_config["exclude_dataset_ids"]
 
     # Tags and search words to use to get resources that could match schema (from config)
@@ -622,7 +650,8 @@ def build_reference_table(
                 )
 
         if len(version_names_list) > 0:
-            # Check if resources are at least matching one schema version (only those matching will be downloaded in next step)
+            # Check if resources are at least matching one schema version
+            # (only those matching will be downloaded in next step)
             df["is_valid_one_version"] = (
                 sum(
                     [
@@ -692,11 +721,12 @@ def download_schema_files(
             schema_data_path = Path(data_path) / schema_name.replace("/", "_")
             schema_data_path.mkdir(exist_ok=True)
 
+            session = requests.Session()
             for index, row in df_ref[
                 df_ref["is_valid_one_version"]
             ].iterrows():
                 rurl = row["resource_url"]
-                r = requests.get(rurl, allow_redirects=True)
+                r = session.get(rurl, allow_redirects=True)
 
                 if r.status_code == 200:
                     p = Path(schema_data_path) / row["dataset_slug"]
@@ -723,6 +753,7 @@ def download_schema_files(
                             datetime.now(), row["resource_title"], rurl
                         )
                     )
+            session.close()
 
         else:
             print(
@@ -798,7 +829,9 @@ def consolidate_data(
 
                 if len(df_ref_v) > 0:
                     # Get schema version parameters for ddup
-                    version_dict = requests.get(version["schema_url"]).json()
+                    version_dict = requests.get(version["schema_url"])
+                    version_dict.raise_for_status()
+                    version_dict = version_dict.json()
                     version_all_cols_list = [
                         field_dict["name"] for field_dict in version_dict["fields"]
                     ]
@@ -1000,6 +1033,7 @@ def create_schema_consolidation_dataset(
         },
         headers=headers,
     )
+    response.raise_for_status()
 
     return response
 
@@ -1029,7 +1063,8 @@ def update_config_version_resource_id(schema_name, version_name, r_id, config_pa
         yaml.dump(config_dict, outfile, default_flow_style=False)
 
 
-# Returns if resource schema (version) metadata should be updated or not based on what we know about the resource
+# Returns if resource schema (version) metadata should
+# be updated or not based on what we know about the resource
 def is_schema_version_to_update(row):
     initial_version_name = row["initial_version_name"]
     most_recent_valid_version = row["most_recent_valid_version"]
@@ -1042,7 +1077,8 @@ def is_schema_version_to_update(row):
     )
 
 
-# Returns if resource schema (version) metadata should be added or not based on what we know about the resource
+# Returns if resource schema (version) metadata should
+# be added or not based on what we know about the resource
 def is_schema_to_add(row):
     resource_found_by = row["resource_found_by"]
     is_valid_one_version = row["is_valid_one_version"]
@@ -1050,7 +1086,8 @@ def is_schema_to_add(row):
     return (resource_found_by != "1 - schema request") and is_valid_one_version
 
 
-# Returns if resource schema (version) metadata should be deleted or not based on what we know about the resource
+# Returns if resource schema (version) metadata should
+# be deleted or not based on what we know about the resource
 def is_schema_to_drop(row):
     resource_found_by = row["resource_found_by"]
     is_valid_one_version = row["is_valid_one_version"]
@@ -1074,6 +1111,7 @@ def add_resource_schema(
     try:
         url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
         r = requests.get(url, headers=headers.update({'X-fields': 'extras'}))
+        r.raise_for_status()
         extras = r.json()["extras"]
     except:
         extras = {}
@@ -1109,6 +1147,7 @@ def update_resource_schema(
     try:
         url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
         r = requests.get(url, headers=headers.update({'X-fields': 'extras'}))
+        r.raise_for_status()
         extras = r.json()["extras"]
     except:
         extras = {}
@@ -1143,6 +1182,7 @@ def delete_resource_schema(
     try:
         url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
         r = requests.get(url, headers=headers.update({'X-fields': 'extras'}))
+        r.raise_for_status()
         extras = r.json()["extras"]
     except:
         extras = {}
@@ -1167,6 +1207,7 @@ def delete_resource_schema(
 # Get the (list of) e-mail address(es) of the owner or of the admin(s) of the owner organization of a dataset
 def get_owner_or_admin_mails(dataset_id, api_url, headers):
     r = requests.get(api_url + f"datasets/{dataset_id}/")
+    r.raise_for_status()
     r_dict = r.json()
 
     if r_dict["organization"] is not None:
@@ -1182,28 +1223,32 @@ def get_owner_or_admin_mails(dataset_id, api_url, headers):
     mails_type = None
     mails_list = []
 
+    session = requests.Session()
     if org_id is not None:
         mails_type = "organisation_admins"
-        r_org = requests.get(api_url + f"organizations/{org_id}/")
+        r_org = session.get(api_url + f"organizations/{org_id}/")
+        r_org.raise_for_status()
         members_list = r_org.json()["members"]
         for member in members_list:
             if member["role"] == "admin":
                 user_id = member["user"]["id"]
-                r_user = requests.get(
+                r_user = session.get(
                     api_url + f"users/{user_id}/", headers=headers
                 )
+                r_user.raise_for_status()
                 user_mail = r_user.json()["email"]
                 mails_list += [user_mail]
 
     else:
         if owner_id is not None:
             mails_type = "owner"
-            r_user = requests.get(
+            r_user = session.get(
                 api_url + f"users/{owner_id}/", headers=headers
             )
+            r_user.raise_for_status()
             user_mail = r_user.json()["email"]
             mails_list += [user_mail]
-
+    session.close()
     return (mails_type, mails_list)
 
 
@@ -1238,7 +1283,7 @@ def post_comment_on_dataset(dataset_id, title, comment, api_url):
     }
 
     _ = requests.post(api_url + "discussions/", json=post_object, headers=HEADER)
-
+    _.raise_for_status()
     return _
 
 
@@ -1258,6 +1303,7 @@ def add_validation_extras(
         try:
             url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
             r = requests.get(url, headers=headers)
+            r.raise_for_status()
             extras = r.json()["extras"]
             schema = r.json()["schema"]
             # if the resource already has a schema mentionned in its metadata, we don't
@@ -2104,6 +2150,7 @@ def notification_synthese(
     """
     last_conso = date_dict["TODAY"]
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
+    r.raise_for_status()
     schemas = r.json()["schemas"]
 
     message = (
@@ -2173,7 +2220,7 @@ def notification_synthese(
 
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
-                    f"(https://explore.data.gouv.fr/?url=https://{MINIO_URL}/"
+                    f"(https://explore.data.gouv.fr/tableau?url=https://{MINIO_URL}/"
                     f"{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/schema/schemas_consolidation/"
                     f"liste_erreurs/{erreurs_file_name})\n"
                 )
