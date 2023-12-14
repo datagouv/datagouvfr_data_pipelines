@@ -24,8 +24,8 @@ from minio import Minio
 import pytz
 
 # DEV : for local dev in order not to mess up with production
-# DATAGOUV_URL = 'https://data.gouv.fr'
-# DATAGOUV_SECRET_API_KEY = ''
+DATAGOUV_URL = 'https://www.data.gouv.fr'
+DATAGOUV_SECRET_API_KEY = ''
 
 VALIDATA_BASE_URL = (
     "https://api.validata.etalab.studio/validate?schema={schema_url}&url={rurl}"
@@ -36,6 +36,9 @@ schema_url_base = api_url + "datasets/?schema={schema_name}"
 tag_url_base = api_url + "datasets/?tag={tag}"
 search_url_base = api_url.replace('1', '2') + "datasets/search/?q={search_word}"
 local_timezone = pytz.timezone('Europe/Paris')
+ignored_datasets = [
+    "5b598be088ee387c0c353714"
+]
 
 
 def remove_old_schemas(
@@ -134,6 +137,8 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
         ]
     arr = []
     for dataset in all_datasets:
+        if dataset["id"] in ignored_datasets:
+            continue
         for res in dataset["resources"]:
             if res["schema"].get("name", "") == schema_name:
                 if "format=csv" in res["url"]:
@@ -253,6 +258,8 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
 
 # Returns if a resource is valid or not regarding a schema (version)
 def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
+    if any([r in resource_api_url for r in ["62ea8cd6af9f2e745fa84023", "64c28634468d0d94dd98405e"]]):
+        print(resource_api_url)
     try:
         report = make_validata_report(rurl, schema_url, resource_api_url, validata_base_url)
         try:
@@ -273,6 +280,8 @@ def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALI
         )
         res = False
         report = None
+    if any([r in resource_api_url for r in ["62ea8cd6af9f2e745fa84023", "64c28634468d0d94dd98405e"]]):
+        print(res, report)
     return res, report
 
 
@@ -1251,15 +1260,12 @@ def add_validation_extras(
             r = requests.get(url, headers=headers)
             extras = r.json()["extras"]
             schema = r.json()["schema"]
-            # this throws an error is the schema labelled is not the same as
-            # the schema we're processing (can be the case for old/new IRVE)
+            # if the resource already has a schema mentionned in its metadata, we don't
+            # change it, we display how it is, but don't throw an error anymore
             if schema and "name" in schema and schema["name"] != schema_name:
                 print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
                 print("Schema metadata error, it looks like this:", schema)
-                if should_succeed:
-                    return False
-                else:
-                    return True
+                return True
         except Exception as e:
             print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
             print("Schema:", schema_name)
