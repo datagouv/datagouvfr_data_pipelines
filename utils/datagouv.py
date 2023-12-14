@@ -3,6 +3,7 @@ from typing import List, Optional, TypedDict
 import requests
 import os
 import numpy as np
+from json import JSONDecodeError
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 if AIRFLOW_ENV == "dev":
@@ -311,7 +312,11 @@ def update_dataset_or_resource_metadata(
 
     r = requests.put(url, json=payload, headers=headers)
     assert r.status_code == 200
-    return r.json()
+    try:
+        return r.json()
+    except JSONDecodeError:
+        print("Issue returning json for this URL:", url)
+        return None
 
 
 def update_dataset_or_resource_extras(

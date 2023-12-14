@@ -301,6 +301,10 @@ def upload_new_files(ti, minio_folder):
     new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    files_to_update_new_name = ti.xcom_pull(
+        key="files_to_update_new_name",
+        task_ids="get_and_upload_file_diff_ftp_minio"
+    )
     resources_lists = get_resource_lists()
 
     # adding files that are on minio, not updated from FTP in this batch,
@@ -310,7 +314,14 @@ def upload_new_files(ti, minio_folder):
         path = "/".join(clean_file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
-        if url not in resources_lists.get(path, []) and clean_file_path not in new_files:
+        # we add the file to the new files list if the URL is not in the dataset
+        # it is supposed to be in, and if it's not already in the list, and
+        # if it's not an updated file that has been renamed
+        if (
+            url not in resources_lists.get(path, [])
+            and clean_file_path not in new_files
+            and url not in files_to_update_new_name
+        ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
             print("This file is not on data.gouv, uploading:", file_with_ext)
@@ -450,7 +461,7 @@ def delete_replaced_minio_files(ti, minio_folder):
         key="files_to_update_new_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    for old_file in files_to_update_new_name:
+    for old_file in files_to_update_new_name.values():
         delete_file(
             MINIO_URL=MINIO_URL,
             MINIO_BUCKET="meteofrance",
