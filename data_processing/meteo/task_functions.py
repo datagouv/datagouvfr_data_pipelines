@@ -274,9 +274,9 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         except:
             print("⚠️ Unable to send file")
         os.remove(f"{DATADIR}/{file_name}")
-    print(new_files)
-    print(files_to_update_same_name)
-    print(files_to_update_new_name)
+    print("New files:", new_files)
+    print("Updated same name:", files_to_update_same_name)
+    print("Updated new name:", files_to_update_new_name)
 
     # re-getting Minio files in case new files have been transfered for downstream tasks
     minio_files = get_all_files_names_and_sizes_from_parent_folder(
@@ -364,7 +364,7 @@ def handle_updated_files_same_name(ti, minio_folder):
         try:
             resource_api_url = (
                 DATAGOUV_URL +
-                f"/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}" +
+                f"/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}" +
                 f"/resources/{resources_lists[path][url]}/"
             )
             r = requests.put(
