@@ -2166,7 +2166,9 @@ def notification_synthese(
                 nb_declares = df[df["resource_found_by"] == "1 - schema request"].shape[0]
                 nb_suspectes = df[df["resource_found_by"] != "1 - schema request"].shape[0]
                 nb_valides = df[df["is_valid_one_version"]].shape[0]
-                df = df[~(df["is_valid_one_version"])]
+                # if error_type is not empty, the error is inherent to the file or the context
+                # not to its content, so we don't want it here
+                df = df[(~(df["is_valid_one_version"])) & df["error_type"].isna()]
                 df = df[
                     [
                         "dataset_id",
