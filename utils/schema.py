@@ -155,52 +155,51 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
         if dataset["id"] in ignored_datasets:
             continue
         for res in dataset["resources"]:
-            if res["schema"].get("name", "") == schema_name:
-                if "format=csv" in res["url"]:
-                    filename = res["url"].split("/")[-3] + ".csv"
+            if "format=csv" in res["url"]:
+                filename = res["url"].split("/")[-3] + ".csv"
+            else:
+                filename = res["url"].split("/")[-1]
+            ext = filename.split(".")[-1]
+            detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
+            obj = {}
+            obj["dataset_id"] = dataset["id"]
+            obj["dataset_title"] = dataset["title"]
+            obj["dataset_slug"] = dataset["slug"]
+            obj["dataset_page"] = dataset["page"]
+            obj["resource_id"] = res["id"]
+            obj["resource_title"] = res["title"]
+            obj["resource_url"] = res["url"]
+            obj["resource_last_modified"] = res["last_modified"]
+            obj["resource_created_at"] = res["created_at"]
+            obj["publish_source"] = res.get("extras", {}).get("publish_source", "")
+            obj["error_type"] = None
+            if not res.get('extras', {}).get('check:available', True):
+                obj["error_type"] = "hydra-unavailable-resource"
+            appropriate_extension = ext in ["csv", "xls", "xlsx"]
+            mime_dict = {
+                "text/csv": "csv",
+                "application/vnd.ms-excel": "xls"
+            }
+            appropriate_mime = detected_mime in mime_dict.keys()
+            if appropriate_extension:
+                obj["resource_extension"] = ext
+            elif appropriate_mime:
+                obj["resource_extension"] = mime_dict[detected_mime]
+            else:
+                obj["resource_extension"] = ext
+            if not (appropriate_extension or appropriate_mime):
+                obj["error_type"] = "wrong-file-format"
+            else:
+                if not dataset["organization"] and not dataset["owner"]:
+                    obj["error_type"] = "orphan-dataset"
                 else:
-                    filename = res["url"].split("/")[-1]
-                ext = filename.split(".")[-1]
-                detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
-                obj = {}
-                obj["dataset_id"] = dataset["id"]
-                obj["dataset_title"] = dataset["title"]
-                obj["dataset_slug"] = dataset["slug"]
-                obj["dataset_page"] = dataset["page"]
-                obj["resource_id"] = res["id"]
-                obj["resource_title"] = res["title"]
-                obj["resource_url"] = res["url"]
-                obj["resource_last_modified"] = res["last_modified"]
-                obj["resource_created_at"] = res["created_at"]
-                obj["publish_source"] = res.get("extras", {}).get("publish_source", "")
-                obj["error_type"] = None
-                if not res.get('extras', {}).get('check:available', True):
-                    obj["error_type"] = "hydra-unavailable-resource"
-                appropriate_extension = ext in ["csv", "xls", "xlsx"]
-                mime_dict = {
-                    "text/csv": "csv",
-                    "application/vnd.ms-excel": "xls"
-                }
-                appropriate_mime = detected_mime in mime_dict.keys()
-                if appropriate_extension:
-                    obj["resource_extension"] = ext
-                elif appropriate_mime:
-                    obj["resource_extension"] = mime_dict[detected_mime]
-                else:
-                    obj["resource_extension"] = ext
-                if not (appropriate_extension or appropriate_mime):
-                    obj["error_type"] = "wrong-file-format"
-                else:
-                    if not dataset["organization"] and not dataset["owner"]:
-                        obj["error_type"] = "orphan-dataset"
-                    else:
-                        obj["organization_or_owner"] = (
-                            dataset["organization"]["slug"]
-                            if dataset["organization"]
-                            else dataset["owner"]["slug"]
-                        )
-                        obj["is_orga"] = bool(dataset["organization"])
-                arr.append(obj)
+                    obj["organization_or_owner"] = (
+                        dataset["organization"]["slug"]
+                        if dataset["organization"]
+                        else dataset["owner"]["slug"]
+                    )
+                    obj["is_orga"] = bool(dataset["organization"])
+            arr.append(obj)
     df = pd.DataFrame(arr)
     return df
 
@@ -281,8 +280,6 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
 
 # Returns if a resource is valid or not regarding a schema (version)
 def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
-    if any([r in resource_api_url for r in ["62ea8cd6af9f2e745fa84023", "64c28634468d0d94dd98405e"]]):
-        print(resource_api_url)
     try:
         report = make_validata_report(rurl, schema_url, resource_api_url, validata_base_url)
         try:
@@ -303,8 +300,6 @@ def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALI
         )
         res = False
         report = None
-    if any([r in resource_api_url for r in ["62ea8cd6af9f2e745fa84023", "64c28634468d0d94dd98405e"]]):
-        print(res, report)
     return res, report
 
 
@@ -696,7 +691,6 @@ def build_reference_table(
         )
         if should_succeed:
             return False
-
     return True
 
 
