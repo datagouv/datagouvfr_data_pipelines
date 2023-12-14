@@ -1254,6 +1254,8 @@ def add_validation_extras(
             # this throws an error is the schema labelled is not the same as
             # the schema we're processing (can be the case for old/new IRVE)
             if schema and "name" in schema and schema["name"] != schema_name:
+                print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+                print("Schema metadata error, it looks like this:", schema)
                 if should_succeed:
                     return False
                 else:
