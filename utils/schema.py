@@ -36,6 +36,9 @@ schema_url_base = api_url + "datasets/?schema={schema_name}"
 tag_url_base = api_url + "datasets/?tag={tag}"
 search_url_base = api_url.replace('1', '2') + "datasets/search/?q={search_word}"
 local_timezone = pytz.timezone('Europe/Paris')
+ignored_datasets = [
+    "5b598be088ee387c0c353714"
+]
 forced_validation_day = date(2023, 12, 6)
 forced_validation = False
 if datetime.today().date().month == forced_validation_day.month:
@@ -149,6 +152,8 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
         all_datasets = tmp
     arr = []
     for dataset in all_datasets:
+        if dataset["id"] in ignored_datasets:
+            continue
         for res in dataset["resources"]:
             if "format=csv" in res["url"]:
                 filename = res["url"].split("/")[-3] + ".csv"
@@ -686,7 +691,6 @@ def build_reference_table(
         )
         if should_succeed:
             return False
-
     return True
 
 
@@ -1296,13 +1300,12 @@ def add_validation_extras(
             r.raise_for_status()
             extras = r.json()["extras"]
             schema = r.json()["schema"]
-            # this throws an error is the schema labelled is not the same as
-            # the schema we're processing (can be the case for old/new IRVE)
+            # if the resource already has a schema mentionned in its metadata, we don't
+            # change it, we display how it is, but don't throw an error anymore
             if schema and "name" in schema and schema["name"] != schema_name:
-                if should_succeed:
-                    return False
-                else:
-                    return True
+                print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+                print("Schema metadata error, it looks like this:", schema)
+                return True
         except Exception as e:
             print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
             print("Schema:", schema_name)
@@ -2163,7 +2166,9 @@ def notification_synthese(
                 nb_declares = df[df["resource_found_by"] == "1 - schema request"].shape[0]
                 nb_suspectes = df[df["resource_found_by"] != "1 - schema request"].shape[0]
                 nb_valides = df[df["is_valid_one_version"]].shape[0]
-                df = df[~(df["is_valid_one_version"])]
+                # if error_type is not empty, the error is inherent to the file or the context
+                # not to its content, so we don't want it here
+                df = df[(~(df["is_valid_one_version"])) & df["error_type"].isna()]
                 df = df[
                     [
                         "dataset_id",
