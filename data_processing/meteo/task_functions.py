@@ -320,7 +320,7 @@ def upload_new_files(ti, minio_folder):
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
-            and url not in files_to_update_new_name
+            and clean_file_path not in files_to_update_new_name
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
