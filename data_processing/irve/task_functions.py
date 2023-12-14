@@ -62,7 +62,7 @@ def get_all_irve_resources(
         config_dict = yaml.safe_load(f)
         config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
-    # for demo
+    # uncomment to consolidate on demo
     # schemas_catalogue_list = [{
     #     'name': 'etalab/schema-irve-statique',
     #     'title': 'IRVE statique',

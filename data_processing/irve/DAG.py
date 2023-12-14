@@ -34,19 +34,14 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
 from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
     improve_geo_data_quality,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    DATAGOUV_URL,
-)
 
 # DEV : for local dev in order not to mess up with production
-# DATAGOUV_URL = 'https://data.gouv.fr'
 # DATAGOUV_SECRET_API_KEY = ''
 
 DAG_NAME = "irve_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
-API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 date_airflow = "{{ ds }}"

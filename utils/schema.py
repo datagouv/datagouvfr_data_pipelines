@@ -25,7 +25,6 @@ import pytz
 
 # DEV : for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://www.data.gouv.fr'
-# DATAGOUV_SECRET_API_KEY = ''
 
 VALIDATA_BASE_URL = (
     "https://api.validata.etalab.studio/validate?schema={schema_url}&url={rurl}"
@@ -257,7 +256,8 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                         'stats': {'errors': extras['validation-report:nb_errors']},
                         'valid': extras['validation-report:valid_resource'],
                         'tasks': [{'errors': extras['validation-report:errors']}],
-                        'date': extras['validation-report:validation_date']
+                        'date': extras['validation-report:validation_date'],
+                        'from_metadata': True,
                     }
                 }
         # no analysis: no (detectable) change since the crawler has started
@@ -268,7 +268,8 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                     'stats': {'errors': extras['validation-report:nb_errors']},
                     'valid': extras['validation-report:valid_resource'],
                     'tasks': [{'errors': extras['validation-report:errors']}],
-                    'date': extras['validation-report:validation_date']
+                    'date': extras['validation-report:validation_date'],
+                    'from_metadata': True,
                 }
             }
     else:
@@ -319,6 +320,8 @@ def save_validata_report(
         save_report["validation-report:schema_type"] = "tableschema"
         save_report["validation-report:validator"] = "validata"
         save_report["validation-report:valid_resource"] = res
+        if report.get("report", {}).get("from_metadata"):
+            save_report["from_metadata"] = True
         try:
             nb_errors = (
                 report["report"]["stats"]["errors"]
@@ -1294,6 +1297,12 @@ def add_validation_extras(
         with open(validata_report_path) as out:
             validation_report = json.load(out)
 
+        print("_____________________________")
+        if validation_report.get("from_metadata"):
+            print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+            print("report is made from metadata and unchanged, passing")
+            return True
+
         try:
             url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
             r = requests.get(url, headers=headers)
@@ -1305,6 +1314,7 @@ def add_validation_extras(
             if schema and "name" in schema and schema["name"] != schema_name:
                 print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
                 print("Schema metadata error, it looks like this:", schema)
+                print("while trying to set it to", schema_name)
                 return True
         except Exception as e:
             print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
@@ -1330,6 +1340,9 @@ def add_validation_extras(
             )
             if should_succeed:
                 return False
+        else:
+            print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+            print("Schema metadata updated with:", schema)
 
         return response.status_code == 200
     return True
