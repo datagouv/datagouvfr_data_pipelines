@@ -287,17 +287,13 @@ def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALI
             res = report["report"]["valid"]
         except:
             print(
-                "{} ---- 🔴 No info in validata report for resource: {}".format(
-                    datetime.today(), rurl
-                )
+                f"---- 🔴 No info in validata report for resource: {rurl}"
             )
             res = False
             report = None
     except JSONDecodeError:
         print(
-            "{} ---- 🔴 Could not make JSON from validata report for resource: {}".format(
-                datetime.today(), rurl
-            )
+            f"---- 🔴 Could not make JSON from validata report for resource: {rurl}"
         )
         res = False
         report = None
@@ -477,16 +473,12 @@ def get_schema_report(
             )
             schemas_report_dict[schema["name"]]["new_config_created"] = True
             print(
-                "{} - ➕ Schema {} added to config file.".format(
-                    datetime.today(), schema["name"]
-                )
+                f"- ➕ Schema {schema['name']} added to config file."
             )
         else:
             schemas_report_dict[schema["name"]]["new_config_created"] = False
             print(
-                "{} - 🆗 Schema {} already in config file.".format(
-                    datetime.today(), schema["name"]
-                )
+                f"- 🆗 Schema {schema['name']} already in config file."
             )
     return schemas_report_dict, schemas_catalogue_list
 
@@ -501,7 +493,7 @@ def build_reference_table(
     ref_tables_path,
     should_succeed=False
 ):
-    print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
+    print("- ℹ️ STARTING SCHEMA: {schema_name}")
     if forced_validation:
         print("🎂 Today is forced validation day!")
 
@@ -605,9 +597,8 @@ def build_reference_table(
         df = df.drop_duplicates(subset=["resource_id"], keep="first")
 
         print(
-            "{} -- 🔢 {} resource(s) found for this schema.".format(
-                datetime.now(), len(df)
-            )
+            f"🔢 {len(df)} resource(s) found for this schema,",
+            f"{len(df.loc[df['error_type'].isna()])} with no inherent error."
         )
 
         if (
@@ -636,15 +627,11 @@ def build_reference_table(
                 )
                 version_names_list += [version_name]
                 print(
-                    "{} --- ☑️ Validata check done for version {}".format(
-                        datetime.now(), version_name
-                    )
+                    f"--- ☑️ Validata check done for version {version_name}"
                 )
             else:
                 print(
-                    "{} --- ❌ Version {} to drop according to config file".format(
-                        datetime.now(), version_name
-                    )
+                    f"--- ❌ Version {version_name} to drop according to config file"
                 )
 
         if len(version_names_list) > 0:
@@ -671,26 +658,20 @@ def build_reference_table(
                 index=False,
             )
             print(
-                "{} -- ✅ Validata check done for {}.".format(
-                    datetime.now(), schema_name
-                )
+                f"-- ✅ Validata check done for {schema_name}."
             )
 
         else:
             schemas_report_dict[schema_name]["nb_valid_resources"] = 0
             print(
-                "{} -- ❌ All possible versions for this schema were dropped by config file.".format(
-                    datetime.now()
-                )
+                "-- ❌ All possible versions for this schema were dropped by config file."
             )
             if should_succeed:
                 return False
 
     else:
         print(
-            "{} -- ⚠️ No resource found for {}.".format(
-                datetime.now(), schema_name
-            )
+            f"-- ⚠️ No resource found for {schema_name}."
         )
         if should_succeed:
             return False
@@ -703,7 +684,7 @@ def download_schema_files(
     data_path,
     should_succeed=False
 ):
-    print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     ref_table_path = os.path.join(
         ref_tables_path,
@@ -740,21 +721,21 @@ def download_schema_files(
                     ] = True
 
                     print(
-                        "{} --- ⬇️✅ downloaded file [{}] {}".format(
-                            datetime.now(), row["resource_title"], rurl
+                        "--- ⬇️✅ downloaded file [{}] {}".format(
+                            row["resource_title"], rurl
                         )
                     )
                 else:
                     print(
-                        "{} --- ⬇️❌ File could not be downloaded: [{}] {}".format(
-                            datetime.now(), row["resource_title"], rurl
+                        "--- ⬇️❌ File could not be downloaded: [{}] {}".format(
+                            row["resource_title"], rurl
                         )
                     )
             session.close()
 
         else:
             print(
-                "{} -- ⚠️ No valid resource for this schema".format(datetime.now())
+                "-- ⚠️ No valid resource for this schema"
             )
             if should_succeed:
                 return False
@@ -765,9 +746,8 @@ def download_schema_files(
 
     else:
         print(
-            "{} -- ❌ No reference table made for this schema (schema not to consolidate, no version to consolidate or no resource found).".format(
-                datetime.now()
-            )
+            "-- ❌ No reference table made for this schema (schema not to consolidate,",
+            "no version to consolidate or no resource found)."
         )
         if should_succeed:
             return False
@@ -786,7 +766,7 @@ def consolidate_data(
     schemas_report_dict,
     should_succeed=False
 ):
-    print("{} - ℹ️ STARTING SCHEMA: {}".format(datetime.now(), schema_name))
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     schema_data_path = Path(data_path) / schema_name.replace("/", "_")
 
@@ -968,15 +948,12 @@ def consolidate_data(
                             encoding="utf-8",
                         )
                         print(
-                            "{} -- ✅ DONE: {} version {}".format(
-                                datetime.today(), schema_name, version_name
-                            )
+                            f"-- ✅ DONE: {schema_name} version {version_name}"
                         )
 
                     else:
                         print(
-                            "{} -- ⚠️ Less than {} (non-empty) valid resources for version {} : consolidation file is not built".format(
-                                datetime.today(),
+                            "-- ⚠️ Less than {} (non-empty) valid resources for version {} : consolidation file is not built".format(
                                 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE,
                                 version_name
                             )
@@ -986,9 +963,7 @@ def consolidate_data(
 
                 else:
                     print(
-                        "{} -- ⚠️ No valid resource for version {} of this schema".format(
-                            datetime.today(), version_name
-                        )
+                        f"-- ⚠️ No valid resource for version {version_name} of this schema"
                     )
                     if should_succeed:
                         return False
@@ -999,7 +974,7 @@ def consolidate_data(
 
     else:
         print(
-            "{} -- ❌ No data downloaded for this schema.".format(datetime.today())
+            "-- ❌ No data downloaded for this schema."
         )
         if should_succeed:
             return False
@@ -1402,7 +1377,7 @@ def upload_geojson(
     response = requests.post(url, files=files, headers=headers)
 
     if response.status_code != expected_status_code:
-        print(f"{datetime.today()} --- ⚠️: GeoJSON file could not be uploaded.")
+        print("--- ⚠️: GeoJSON file could not be uploaded.")
         if should_succeed:
             return False
     else:
@@ -1416,11 +1391,11 @@ def upload_geojson(
 
         if r_response.status_code == 200:
             print(
-                f"{datetime.today()} --- ✅ Successfully updated GeoJSON file with metadata."
+                "--- ✅ Successfully updated GeoJSON file with metadata."
             )
         else:
             print(
-                f"{datetime.today()} --- ⚠️: file uploaded but metadata could not be updated."
+                "--- ⚠️: file uploaded but metadata could not be updated."
             )
             if should_succeed:
                 return False
@@ -1442,7 +1417,7 @@ def upload_consolidated(
     headers = {
         "X-API-KEY": api_key,
     }
-    print(f"{datetime.now()} - ℹ️ STARTING SCHEMA: {schema_name}")
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     schema_consolidated_data_path = Path(
         consolidated_data_path
@@ -1466,15 +1441,13 @@ def upload_consolidated(
                         config_path,
                     )
                     print(
-                        "{} -- 🟢 No consolidation dataset for this schema - Successfully created (id: {})".format(
-                            datetime.today(), consolidated_dataset_id
+                        "-- 🟢 No consolidation dataset for this schema - Successfully created (id: {})".format(
+                            consolidated_dataset_id
                         )
                     )
                 else:
                     print(
-                        "{} -- 🔴 No consolidation dataset for this schema - Failed to create one".format(
-                            datetime.today()
-                        )
+                        "-- 🔴 No consolidation dataset for this schema - Failed to create one"
                     )
             else:
                 consolidated_dataset_id = schema_config["consolidated_dataset_id"]
@@ -1549,8 +1522,7 @@ def upload_consolidated(
                             schema_name, version_name, r_id, config_path
                         )
                         print(
-                            "{} --- ➕ New latest resource ID created for {} v{} (id: {})".format(
-                                datetime.today(),
+                            "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
                                 schema_name,
                                 version_name,
                                 r_id,
@@ -1559,7 +1531,7 @@ def upload_consolidated(
                 else:
                     r_id = None
                     print(
-                        f"{datetime.today()} --- ⚠️ Version {version_name}: file could not be uploaded."
+                        f"--- ⚠️ Version {version_name}: file could not be uploaded."
                     )
                     if should_succeed:
                         return False
@@ -1571,20 +1543,20 @@ def upload_consolidated(
                     if r_response.status_code == 200:
                         if r_to_create:
                             print(
-                                "{} --- ✅ Version {}: Successfully created consolidated file.".format(
-                                    datetime.today(), version_name
+                                "--- ✅ Version {}: Successfully created consolidated file.".format(
+                                    version_name
                                 )
                             )
                         else:
                             print(
-                                "{} --- ✅ Version {}: Successfully updated consolidated file.".format(
-                                    datetime.today(), version_name
+                                "--- ✅ Version {}: Successfully updated consolidated file.".format(
+                                    version_name
                                 )
                             )
                     else:
                         print(
-                            "{} --- ⚠️ Version {}: file uploaded but metadata could not be updated.".format(
-                                datetime.today(), version_name
+                            "--- ⚠️ Version {}: file uploaded but metadata could not be updated.".format(
+                                version_name
                             )
                         )
                         if should_succeed:
@@ -1603,13 +1575,13 @@ def upload_consolidated(
                 )
         else:
             schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
-            print(f"{datetime.today()} -- ❌ No publication for this schema.")
+            print("-- ❌ No publication for this schema.")
             if should_succeed:
                 return False
 
     else:
         schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
-        print(f"{datetime.today()} -- ❌ No consolidated file for this schema.")
+        print("-- ❌ No consolidated file for this schema.")
         if should_succeed:
             return False
     if should_succeed:
@@ -1639,10 +1611,10 @@ def update_reference_table(
 
         df_ref.to_csv(ref_table_path, index=False)
 
-        print(f"{datetime.today()} - ✅ Infos added for schema {schema_name}")
+        print("- ✅ Infos added for schema {schema_name}")
 
     else:
-        print(f"{datetime.today()} - ❌ No reference table for schema {schema_name}")
+        print("- ❌ No reference table for schema {schema_name}")
         if should_succeed:
             return False
     return True
@@ -1815,10 +1787,10 @@ def update_resource_send_mail_producer(
 
         df_ref.to_csv(ref_table_path, index=False)
 
-        print(f"{datetime.today()} - ✅ Resources updated for schema {schema_name}")
+        print("- ✅ Resources updated for schema {schema_name}")
 
     else:
-        print(f"{datetime.today()} - ❌ No reference table for schema {schema_name}")
+        print("- ❌ No reference table for schema {schema_name}")
         if should_succeed:
             return False
     return True
@@ -1912,7 +1884,7 @@ def update_consolidation_documentation_report(
         "ref_table_{}.csv".format(schema_name.replace("/", "_")),
     )
 
-    print(f"{datetime.now()} - ℹ️ STARTING SCHEMA: {schema_name}")
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     schema_config = config_dict[schema_name]
     if ("publication" in schema_config.keys()) and schema_config[
@@ -1967,13 +1939,13 @@ def update_consolidation_documentation_report(
                             config_path,
                         )
                         print(
-                            "{} --- ➕ New documentation resource ID created for {} (id: {})".format(
-                                datetime.today(), schema_name, doc_r_id
+                            "--- ➕ New documentation resource ID created for {} (id: {})".format(
+                                schema_name, doc_r_id
                             )
                         )
                 else:
                     doc_r_id = None
-                    print(f"{datetime.today()} --- ⚠️ Documentation file could not be uploaded.")
+                    print("--- ⚠️ Documentation file could not be uploaded.")
                     if should_succeed:
                         return False
 
@@ -1984,30 +1956,28 @@ def update_consolidation_documentation_report(
                     )
                     if doc_r_response.status_code == 200:
                         if doc_r_to_create:
-                            print(f"{datetime.today()} --- ✅ Successfully created documentation file.")
+                            print("--- ✅ Successfully created documentation file.")
                         else:
-                            print(f"{datetime.today()} --- ✅ Successfully updated documentation file.")
+                            print("--- ✅ Successfully updated documentation file.")
                     else:
                         print(
-                            "{} --- ⚠️ Documentation file uploaded but metadata could not be updated.".format(
-                                datetime.today()
-                            )
+                            "--- ⚠️ Documentation file uploaded but metadata could not be updated."
                         )
                         if should_succeed:
                             return False
 
             else:
-                print(f"{datetime.today()} -- ❌ No consolidation dataset ID for this schema.")
+                print("-- ❌ No consolidation dataset ID for this schema.")
                 if should_succeed:
                     return False
 
         else:
-            print(f"{datetime.today()} -- ❌ No reference table for this schema.")
+            print("-- ❌ No reference table for this schema.")
             if should_succeed:
                 return False
 
     else:
-        print(f"{datetime.today()} -- ❌ No publication for this schema.")
+        print("-- ❌ No publication for this schema.")
         if should_succeed:
             return False
     return True
@@ -2091,10 +2061,10 @@ def create_detailed_report(
             index=False,
         )
 
-        print(f"{datetime.today()} - ✅ Report done for schema {schema_name}")
+        print("- ✅ Report done for schema {schema_name}")
 
     else:
-        print(f"{datetime.today()} - ❌ No reference table for schema {schema_name}")
+        print("- ❌ No reference table for schema {schema_name}")
         if should_succeed:
             return False
     return True
@@ -2150,11 +2120,14 @@ def notification_synthese(
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     date_dict,
     schema_name=False,
+    list_schema_skip=[]
 ):
     """
     For single schema processing (e.g IRVE): specify schema_name as string
     For general case: specify list_schema_skip as a list of schemas to ignore
     """
+    assert schema_name or len(list_schema_skip) > 0
+
     last_conso = date_dict["TODAY"]
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
@@ -2166,6 +2139,8 @@ def notification_synthese(
 
     if schema_name:
         schemas = [s for s in schemas if s['name'] == schema_name]
+    else:
+        schemas = [s for s in schemas if s['name'] not in list_schema_skip]
     for s in schemas:
         if s["schema_type"] == "tableschema":
             try:
@@ -2175,7 +2150,6 @@ def notification_synthese(
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/','_')}.csv"
                 )
                 df = pd.read_csv(filename)
-                nb_resources_consolidees = len(df.loc[df["most_recent_valid_version"] == latest_version])
                 nb_declares = df[df["resource_found_by"] == "1 - schema request"].shape[0]
                 nb_suspectes = df[df["resource_found_by"] != "1 - schema request"].shape[0]
                 nb_valides = df[df["is_valid_one_version"]].shape[0]
@@ -2233,7 +2207,6 @@ def notification_synthese(
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
                     f"(https://explore.data.gouv.fr/tableau?url=https://{MINIO_URL}/"
                     f"{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/schema/schemas_consolidation/"
-                    f"Nombres de lignes dans le fichier consolidé : {nb_resources_consolidees}"
                     f"liste_erreurs/{erreurs_file_name})\n"
                 )
             except: # noqa
