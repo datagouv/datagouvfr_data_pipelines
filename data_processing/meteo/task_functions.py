@@ -316,10 +316,12 @@ def upload_new_files(ti, minio_folder):
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list, and
-        # if it's not an updated file that has been renamed (values of new_name)
+        # if it's not an updated file that has been renamed (keys of new_name),
+        # and if it's not an old file that has been renamed (values of new_name)
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
+            and clean_file_path not in files_to_update_new_name.keys()
             and clean_file_path not in files_to_update_new_name.values()
         ):
             # this handles the case of files having been deleted from data.gouv
