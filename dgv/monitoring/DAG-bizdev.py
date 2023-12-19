@@ -228,7 +228,10 @@ def create_all_tables():
             datasets_visited[k].update({
                 'title': r.get('title', None),
                 'url': r.get('page', None),
-                'organization_or_owner': r['organization'].get('name', None) if r.get('organization', None) else r['owner'].get('slug', None) if r.get('owner', None) else None
+                'organization_or_owner': (
+                    r['organization'].get('name', None) if r.get('organization', None) 
+                    else r['owner'].get('slug', None) if r.get('owner', None) else None
+                )
             })
         df = pd.DataFrame(datasets_visited.values(), index=datasets_visited.keys())
         df.to_csv(DATADIR + 'top50_datasets_most_visits_last_month.csv', index=False)
@@ -236,7 +239,10 @@ def create_all_tables():
         # Top 50 des ressources les plus téléchargées
         print('Top 50 des ressources les plus téléchargées')
         data = get_all_from_api_query(
-            f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}&monthly_download_resource__sort=desc',
+            (
+                f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}'
+                '&monthly_download_resource__sort=desc'
+            ),
             next_page='links.next'
         )
         resources_downloaded = {}
@@ -253,16 +259,26 @@ def create_all_tables():
                 if d['dataset_id'] != 'COMMUNAUTARY':
                     r2 = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
                     r3 = requests.get(
-                        f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&dataset_id__exact={d['dataset_id']}"
+                        f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}"
+                        f"&dataset_id__exact={d['dataset_id']}"
                     ).json()
                 resources_downloaded.update({
                     f"{d['dataset_id']}.{d['resource_id']}": {
                         'monthly_download_resourced': d['monthly_download_resource'],
                         'resource_title': resource_title,
-                        'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{d['dataset_id']}/" if d['dataset_id'] != 'COMMUNAUTARY' else None,
+                        'dataset_url': (
+                            f"https://www.data.gouv.fr/fr/datasets/{d['dataset_id']}/"
+                            if d['dataset_id'] != 'COMMUNAUTARY' else None
+                        ),
                         'dataset_title': r2.get('title', None),
-                        'organization_or_owner': r2['organization'].get('name', None) if r2.get('organization', None) else r2['owner'].get('slug', None) if r2.get('owner', None) else None,
-                        'dataset_total_resource_visits': r3['data'][0].get('monthly_download_resource', None) if d['dataset_id'] != 'COMMUNAUTARY' and r3['data'] else None
+                        'organization_or_owner': (
+                            r2['organization'].get('name', None) if r2.get('organization', None)
+                            else r2['owner'].get('slug', None) if r2.get('owner', None) else None
+                        ),
+                        'dataset_total_resource_visits': (
+                            r3['data'][0].get('monthly_download_resource', None)
+                            if d['dataset_id'] != 'COMMUNAUTARY' and r3['data'] else None
+                        )
                     }
                 })
         resources_downloaded = {
@@ -301,7 +317,10 @@ def create_all_tables():
             reuses_visited[k].update({
                 'title': r.get('title', None),
                 'url': r.get('page', None),
-                'creator': r['organization'].get('name', None) if r.get('organization', None) else r['owner'].get('slug', None) if r.get('owner', None) else None
+                'creator': (
+                    r['organization'].get('name', None) if r.get('organization', None)
+                    else r['owner'].get('slug', None) if r.get('owner', None) else None
+                )
             })
         df = pd.DataFrame(reuses_visited.values(), index=reuses_visited.keys())
         df.to_csv(DATADIR + 'top50_reuses_most_visits_last_month.csv', index=False)
@@ -319,7 +338,10 @@ def create_all_tables():
                 break
             if d['subject']['class'] == 'Dataset':
                 tmp = requests.get(datagouv_api_url + f"datasets/{d['subject']['id']}").json()
-                organization_or_owner = tmp.get('organization', {}).get('name', None) if tmp.get('organization', None) else tmp.get('owner', {}).get('slug', None)
+                organization_or_owner = (
+                    tmp.get('organization', {}).get('name', None) if tmp.get('organization', None)
+                    else tmp.get('owner', {}).get('slug', None)
+                )
                 discussions_of_interest.setdefault(
                     d['subject']['id'], {
                         'discussions_created': 0,
@@ -343,7 +365,9 @@ def create_all_tables():
         # Reuses avec 404
         print('Reuses avec 404')
         unavailable_reuses = get_unavailable_reuses()
-        restr_reuses = {d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')}
+        restr_reuses = {
+            d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')
+        }
         for rid in restr_reuses:
             data = get_all_from_api_query(
                 f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
@@ -360,7 +384,10 @@ def create_all_tables():
             restr_reuses[rid].update({
                 'title': r.get('title', None),
                 'url': r.get('page', None),
-                'creator': r.get('organization', None).get('name', None) if r.get('organization', None) else r.get('owner', {}).get('slug', None) if r.get('owner', None) else None
+                'creator': (
+                    r.get('organization', None).get('name', None) if r.get('organization', None)
+                    else r.get('owner', {}).get('slug', None) if r.get('owner', None) else None
+                )
             })
         df = pd.DataFrame(restr_reuses.values(), index=restr_reuses.keys())
         df = df.sort_values('monthly_visit', ascending=False)
@@ -379,7 +406,10 @@ def create_all_tables():
                     'dataset_id': d['id'],
                     'title': d.get('title', None),
                     'url': 'https://www.data.gouv.fr/fr/admin/dataset/' + d['id'],
-                    'organization_or_owner': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
+                    'organization_or_owner': (
+                        d['organization'].get('name', None) if d.get('organization', None)
+                        else d['owner'].get('slug', None) if d.get('owner', None) else None
+                    ),
                     'created_at': d['created_at'][:10] if d.get('created_at', None) else None
                 }})
             # keeping this for now, because it's resource consuming. It'll get better with curation
@@ -389,7 +419,10 @@ def create_all_tables():
         print('   > Getting visits...')
         for d in empty_datasets:
             data = get_all_from_api_query(
-                f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}',
+                (
+                    f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}'
+                    '&dataset_id__exact={d}'
+                ),
                 next_page='links.next'
             )
             try:
@@ -424,7 +457,10 @@ def create_all_tables():
                         if obj == 'organization':
                             badges = d.get('badges', [])
                         else:
-                            badges = d['organization'].get('badges', []) if d.get('organization', None) else []
+                            badges = (
+                                d['organization'].get('badges', [])
+                                if d.get('organization', None) else []
+                            )
                         if 'certified' in [badge['kind'] for badge in badges]:
                             should_add = False
                     if should_add:
@@ -432,10 +468,16 @@ def create_all_tables():
                             'type': obj,
                             'url': f"https://www.data.gouv.fr/fr/admin/{obj[:-1]}/{d['id']}/",
                             'name_or_title': d.get('name', d.get('title', None)),
-                            'creator': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
+                            'creator': (
+                                d['organization'].get('name', None) if d.get('organization', None)
+                                else d['owner'].get('slug', None) if d.get('owner', None) else None
+                            ),
                             'id': d['id'],
                             'spam_word': word,
-                            'nb_datasets_and_reuses': None if obj not in ['organizations', 'users'] else d['metrics']['datasets'] + d['metrics']['reuses'],
+                            'nb_datasets_and_reuses': (
+                                None if obj not in ['organizations', 'users']
+                                else d['metrics']['datasets'] + d['metrics']['reuses']
+                            ),
                         })
         print("Détection d'utilisateurs suspects...")
         suspect_users = asyncio.run(get_suspect_users())
