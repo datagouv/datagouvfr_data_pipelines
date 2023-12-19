@@ -29,13 +29,38 @@ datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 
 
-async def url_error(url, session, method="head"):
+async def url_error(url, session, method="head", idx=0):
+    agents = [
+        (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/99.0.4844.83 Safari/537.36"
+        ),
+        (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/99.0.4844.51 Safari/537.36"
+        ),
+        (
+            "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+        )
+    ]
     try:
         _method = getattr(session, method)
-        async with _method(url, timeout=15, allow_redirects=True) as r:
-            if r.status in [405, 500] and method == "head":
-                # HEAD might not be allowed or correctly implemented, trying with GET
-                return await url_error(url, session, method="get")
+        async with _method(
+            url,
+            timeout=15,
+            allow_redirects=True,
+            headers={"User-Agent": agents[idx]}
+        ) as r:
+            if r.status in [403, 405, 500]:
+                if idx < len(agents) - 1:
+                    # trying different user agents
+                    return await url_error(url, session, method=method, idx=idx + 1)
+                elif method == "head":
+                    # HEAD might not be allowed or correctly implemented, trying with GET
+                    return await url_error(url, session, method="get", idx=0)
             r.raise_for_status()
         return False
     except (
