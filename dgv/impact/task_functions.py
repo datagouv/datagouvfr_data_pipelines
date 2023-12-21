@@ -7,6 +7,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    SECRET_NOTION_KEY_IMPACT,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import send_files
@@ -142,12 +143,67 @@ def calculate_time_for_legitimate_answer(ti):
     ti.xcom_push(key='kpi', value=kpi)
 
 
+def get_quality_reuses(ti):
+    print("Getting number of qality reuses among top 100 datasets")
+    notion_api = 'https://api.notion.com/v1/search'
+    headers = {
+        'Authorization': f"Bearer {SECRET_NOTION_KEY_IMPACT}",
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+    }
+    search_params = {
+        "filter": {"value": "page", "property": "object"},
+    }
+    search_response = requests.post(
+        notion_api,
+        json=search_params,
+        headers=headers
+    ).json()
+    results = search_response["results"]
+    while search_response.get("next_cursor", False):
+        search_params["start_cursor"] = search_response.get("next_cursor")
+        search_response = requests.post(
+            notion_api,
+            headers=headers,
+            json=search_params
+        ).json()
+        results += search_response["results"]
+    # storing reuses as a list [{"reuse_dataset_url": "has_reuse"}]
+    output = []
+    for r in results:
+        if "Lien du jeu de données" in r["properties"]:
+            output.append([
+                [r["properties"]["Lien du jeu de données"]["url"]],
+                r["properties"]["Absence de réutilisations de qualité sur le jdd"]["checkbox"]
+            ])
+    nb_reuses_top100 = 100 - sum([r[1] for r in output])
+    kpi = {
+        'administration_rattachement': 'DINUM',
+        'nom_service_public_numerique': 'data.gouv.fr',
+        'indicateur': 'Nombre de datasets du top 100 ayant une réutilisation de qualité',
+        'valeur': nb_reuses_top100,
+        'unite_mesure': '%',
+        'est_cible': False,
+        'frequence_monitoring': 'mensuelle',
+        'date': datetime.today().strftime("%Y-%m-%d"),
+        'est_periode': False,
+        'date_debut': '',
+        'est_automatise': True,
+        'source_collecte': 'script',
+        'code_insee': '',
+        'dataviz_wish': 'barchart',
+        'commentaires': ''
+    }
+    ti.xcom_push(key='kpi', value=kpi)
+
+
 def gather_kpis(ti):
     data = [
         ti.xcom_pull(key='kpi', task_ids=t)
         for t in [
             'calculate_quality_score',
-            'calculate_time_for_legitimate_answer'
+            'calculate_time_for_legitimate_answer',
+            'get_quality_reuses',
         ]
     ]
     df = pd.DataFrame(data)
@@ -190,7 +246,10 @@ def publish_datagouv(DAG_FOLDER):
         data = json.load(fp)
     post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dgv/impact/statistiques_impact_datagouvfr.csv",
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
+            "dgv/impact/statistiques_impact_datagouvfr.csv"
+        ),
         dataset_id=data[AIRFLOW_ENV]['dataset_id'],
         resource_id=data[AIRFLOW_ENV]['resource_id'],
         filesize=os.path.getsize(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")),
@@ -215,7 +274,9 @@ def send_notification_mattermost(DAG_FOLDER):
         text=(
             ":mega: KPI de data.gouv mises à jour.\n"
             f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
-            f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dgv/impact)\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{data[AIRFLOW_ENV]['dataset_id']})"
+            f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/dgv/impact)\n"
+            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/"
+            f"datasets/{data[AIRFLOW_ENV]['dataset_id']})"
         )
     )
