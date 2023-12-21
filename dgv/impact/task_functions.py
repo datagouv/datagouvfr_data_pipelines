@@ -144,7 +144,7 @@ def calculate_time_for_legitimate_answer(ti):
 
 
 def get_quality_reuses(ti):
-    print("Getting number of qality reuses among top 100 datasets")
+    print("Getting number of quality reuses among top 100 datasets")
     notion_api = 'https://api.notion.com/v1/search'
     headers = {
         'Authorization': f"Bearer {SECRET_NOTION_KEY_IMPACT}",
@@ -197,6 +197,60 @@ def get_quality_reuses(ti):
     ti.xcom_push(key='kpi', value=kpi)
 
 
+def get_discoverability(ti):
+    print("Getting discoverability from poll results")
+    notion_api = 'https://api.notion.com/v1/search'
+    headers = {
+        'Authorization': f"Bearer {SECRET_NOTION_KEY_IMPACT}",
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+    }
+    search_params = {
+        "filter": {"value": "page", "property": "object"},
+    }
+    search_response = requests.post(
+        notion_api,
+        json=search_params,
+        headers=headers
+    ).json()
+    results = search_response["results"]
+    while search_response.get("next_cursor", False):
+        search_params["start_cursor"] = search_response.get("next_cursor")
+        search_response = requests.post(
+            notion_api,
+            headers=headers,
+            json=search_params
+        ).json()
+        results += search_response["results"]
+    # storing reuses as a list [{"reuse_dataset_url": "has_reuse"}]
+    has_answered = 0
+    has_found = 0
+    for r in results:
+        if "Avez-vous trouvé ?" in r["properties"]:
+            has_answered += 1
+            if r["properties"]["Avez-vous trouvé ?"]["select"]["name"] == "OUI":
+                has_found += 1
+    discoverability = round(has_found / has_answered * 100, 1)
+    kpi = {
+        'administration_rattachement': 'DINUM',
+        'nom_service_public_numerique': 'data.gouv.fr',
+        'indicateur': 'Découvrabilité (résultat du sondage dédié sur data.gouv.fr)',
+        'valeur': discoverability,
+        'unite_mesure': '%',
+        'est_cible': False,
+        'frequence_monitoring': 'mensuelle',
+        'date': datetime.today().strftime("%Y-%m-%d"),
+        'est_periode': False,
+        'date_debut': '',
+        'est_automatise': True,
+        'source_collecte': 'script',
+        'code_insee': '',
+        'dataviz_wish': 'barchart',
+        'commentaires': ''
+    }
+    ti.xcom_push(key='kpi', value=kpi)
+
+
 def gather_kpis(ti):
     data = [
         ti.xcom_pull(key='kpi', task_ids=t)
@@ -204,6 +258,7 @@ def gather_kpis(ti):
             'calculate_quality_score',
             'calculate_time_for_legitimate_answer',
             'get_quality_reuses',
+            'get_discoverability',
         ]
     ]
     df = pd.DataFrame(data)

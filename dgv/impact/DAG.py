@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     calculate_quality_score,
     calculate_time_for_legitimate_answer,
     get_quality_reuses,
+    get_discoverability,
     gather_kpis,
     send_stats_to_minio,
     publish_datagouv,
@@ -68,6 +69,11 @@ with DAG(
         python_callable=get_quality_reuses,
     )
 
+    get_discoverability = PythonOperator(
+        task_id='get_discoverability',
+        python_callable=get_discoverability,
+    )
+
     gather_kpis = PythonOperator(
         task_id='gather_kpis',
         python_callable=gather_kpis,
@@ -99,10 +105,12 @@ with DAG(
     calculate_quality_score.set_upstream(download_history)
     calculate_time_for_legitimate_answer.set_upstream(download_history)
     get_quality_reuses.set_upstream(download_history)
+    get_discoverability.set_upstream(download_history)
 
     gather_kpis.set_upstream(calculate_quality_score)
     gather_kpis.set_upstream(calculate_time_for_legitimate_answer)
     gather_kpis.set_upstream(get_quality_reuses)
+    gather_kpis.set_upstream(get_discoverability)
 
     send_stats_to_minio.set_upstream(gather_kpis)
     publish_datagouv.set_upstream(send_stats_to_minio)
