@@ -100,7 +100,7 @@ def publish_mattermost_weekly(ti, **kwargs):
     message = f"Weekly Digest : {report_url}\n{stats}"
     image_url = (
         f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{MINIO_PATH}"
-        f"digest_weekly/{templates_dict['TODAY']}/output/weekly-graph.png",
+        f"digest_weekly/{templates_dict['TODAY']}/output/weekly-graph.png"
     )
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES, image_url)
 
