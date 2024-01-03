@@ -128,7 +128,7 @@ def list_ftp_files_recursive(ftp, path="", base_path=""):
                 current_path.split("//")[-1],
                 x.split()[-1],
                 int(x.split()[4]),
-                x.split()[5:7],
+                x.split()[5:8],
             ))
         )
         for item in files:
