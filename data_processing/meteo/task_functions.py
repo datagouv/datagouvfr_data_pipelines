@@ -40,6 +40,14 @@ def clean_hooks(string, hooks=hooks):
     return _
 
 
+def previous_date_parse(date_string):
+    # this returns the last occurrence of the date, not a future one
+    tmp = parser.parse(date_string)
+    if tmp > datetime.today():
+        tmp = tmp.replace(year=tmp.year - 1)
+    return tmp
+
+
 def get_resource_lists():
     resources_lists = {
         path: {
@@ -148,7 +156,7 @@ def get_current_files_on_ftp(ti, ftp):
             ftp_files[path + "/" + file_id] = {
                 "file_path": path + "/" + file,
                 "size": size,
-                "modif_date": parser.parse(" ".join(date_list))
+                "modif_date": previous_date_parse(" ".join(date_list))
             }
     for f in ftp_files:
         print(f, ":", ftp_files[f])
