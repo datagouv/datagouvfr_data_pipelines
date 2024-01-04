@@ -22,6 +22,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
     check_if_first_day_of_month,
+    check_if_first_day_of_year,
 )
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/"
@@ -30,143 +31,61 @@ TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME
 MINIO_PATH = "dgv/"
 
 
-def get_stats_daily(TODAY):
+def get_stats_period(TODAY, period):
     with open(
-        AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_daily/" + TODAY + "/output/stats.json"
+        AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{period}/" + TODAY + "/output/stats.json"
     ) as json_file:
         res = json.load(json_file)
     recap = (
         "- "
         + str(res["stats"]["nb_datasets"])
         + " datasets créés\n- "
-        + str(res["stats"]["nb_orgas"])
-        + " orgas créées\n- "
         + str(res["stats"]["nb_reuses"])
-        + " reuses créées\n- "
-        + str(res["stats"]["nb_discussions"])
-        + " discussions créées\n- "
-        + str(res["stats"]["nb_users"])
-        + " users créés\n"
+        + " reuses créées"
     )
+    if period == "daily":
+        recap += (
+            "\n- "
+            + str(res["stats"]["nb_orgas"])
+            + " orgas créées\n- "
+            + str(res["stats"]["nb_discussions"])
+            + " discussions créées\n- "
+            + str(res["stats"]["nb_users"])
+            + " users créés\n"
+        )
     return recap
 
 
-def publish_mattermost_daily(ti, **kwargs):
+def publish_mattermost_period(ti, **kwargs):
     templates_dict = kwargs.get("templates_dict")
+    period = templates_dict["period"]
     report_url = ti.xcom_pull(
-        key="report_url", task_ids="run_notebook_and_save_to_minio_daily"
+        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{period}"
     )
-    stats = get_stats_daily(templates_dict["TODAY"])
-    message = f"Daily Digest : {report_url} \n{stats}"
+    stats = get_stats_period(templates_dict["TODAY"], period)
+    message = f"{period.title()} Digest : {report_url} \n{stats}"
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
 
-def send_email_report_daily(ti, **kwargs):
+def send_email_report_period(ti, **kwargs):
     templates_dict = kwargs.get("templates_dict")
+    period = templates_dict["period"]
     report_url = ti.xcom_pull(
-        key="report_url", task_ids="run_notebook_and_save_to_minio_daily"
+        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{period}"
     )
-    message = get_stats_daily(templates_dict["TODAY"]) + "<br/><br/>" + report_url
+    message = get_stats_period(templates_dict["TODAY"], period) + "<br/><br/>" + report_url
     send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
         email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
-        subject="Daily digest of " + templates_dict["TODAY"],
-        message=message,
-    )
-
-
-def get_stats_weekly(TODAY):
-    with open(
-        AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_weekly/" + TODAY + "/output/stats.json"
-    ) as json_file:
-        res = json.load(json_file)
-    recap = (
-        "- "
-        + str(res["stats"]["nb_datasets"])
-        + " datasets créés\n- "
-        + str(res["stats"]["nb_reuses"])
-        + " reuses créées\n"
-    )
-    return recap
-
-
-def publish_mattermost_weekly(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    report_url = ti.xcom_pull(
-        key="report_url", task_ids="run_notebook_and_save_to_minio_weekly"
-    )
-    stats = get_stats_weekly(templates_dict["TODAY"])
-    message = f"Weekly Digest : {report_url}\n{stats}"
-    image_url = (
-        f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{MINIO_PATH}"
-        f"digest_weekly/{templates_dict['TODAY']}/output/weekly-graph.png"
-    )
-    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES, image_url)
-
-
-def send_email_report_weekly(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    report_url = ti.xcom_pull(
-        key="report_url", task_ids="run_notebook_and_save_to_minio_weekly"
-    )
-    message = get_stats_weekly(templates_dict["TODAY"]) + "<br/><br/>" + report_url
-    send_mail_datagouv(
-        email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
-        email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
-        email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
-        subject="Weekly digest of " + templates_dict["TODAY"],
-        message=message,
-    )
-
-
-def get_stats_monthly(TODAY):
-    with open(
-        AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_monthly/" + TODAY + "/output/stats.json"
-    ) as json_file:
-        res = json.load(json_file)
-    recap = (
-        "- "
-        + str(res["stats"]["nb_datasets"])
-        + " datasets créés\n- "
-        + str(res["stats"]["nb_reuses"])
-        + " reuses créées\n"
-    )
-    return recap
-
-
-def publish_mattermost_monthly(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    report_url = ti.xcom_pull(
-        key="report_url", task_ids="run_notebook_and_save_to_minio_monthly"
-    )
-    stats = get_stats_monthly(templates_dict["TODAY"])
-    message = f"Monthly Digest : {report_url} \n{stats}"
-    image_url = (
-        f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{MINIO_PATH}"
-        f"digest_monthly/{templates_dict['TODAY']}/output/monthly-graph.png"
-    )
-    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES, image_url)
-
-
-def send_email_report_monthly(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    report_url = ti.xcom_pull(
-        key="report_url", task_ids="run_notebook_and_save_to_minio_monthly"
-    )
-    message = get_stats_monthly(templates_dict["TODAY"]) + "<br/><br/>" + report_url
-    send_mail_datagouv(
-        email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
-        email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
-        email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
-        subject="Monthly digest of " + templates_dict["TODAY"][:7],
+        subject=f"{period.title()} digest of " + templates_dict["TODAY"],
         message=message,
     )
 
 
 default_args = {
-    "email": ["geoffrey.aldebert@data.gouv.fr"],
-    "email_on_failure": True,
+    # "email": ["geoffrey.aldebert@data.gouv.fr"],
+    "email_on_failure": False,
     'retries': 3,
     'retry_delay': timedelta(minutes=2),
 }
@@ -198,7 +117,6 @@ with DAG(
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "minio_output_filepath": MINIO_PATH + "digest_daily/" + "{{ ds }}" + "/",
             "parameters": {
-                "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
@@ -213,14 +131,20 @@ with DAG(
 
     publish_mattermost_daily = PythonOperator(
         task_id="publish_mattermost_daily",
-        python_callable=publish_mattermost_daily,
-        templates_dict={"TODAY": "{{ ds }}"},
+        python_callable=publish_mattermost_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "daily",
+        },
     )
 
     send_email_report_daily = PythonOperator(
         task_id="send_email_report_daily",
-        python_callable=send_email_report_daily,
-        templates_dict={"TODAY": "{{ ds }}"},
+        python_callable=send_email_report_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "daily",
+        },
     )
 
     check_if_monday = ShortCircuitOperator(
@@ -240,7 +164,6 @@ with DAG(
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "minio_output_filepath": MINIO_PATH + "digest_weekly/" + "{{ ds }}" + "/",
             "parameters": {
-                "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
@@ -255,14 +178,20 @@ with DAG(
 
     publish_mattermost_weekly = PythonOperator(
         task_id="publish_mattermost_weekly",
-        python_callable=publish_mattermost_weekly,
-        templates_dict={"TODAY": "{{ ds }}"},
+        python_callable=publish_mattermost_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "weekly",
+        },
     )
 
     send_email_report_weekly = PythonOperator(
         task_id="send_email_report_weekly",
-        python_callable=send_email_report_weekly,
-        templates_dict={"TODAY": "{{ ds }}"},
+        python_callable=send_email_report_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "daily",
+        },
     )
 
     check_if_first_day_of_month = ShortCircuitOperator(
@@ -283,7 +212,6 @@ with DAG(
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "minio_output_filepath": MINIO_PATH + "digest_monthly/" + "{{ ds }}" + "/",
             "parameters": {
-                "msgs": "Ran from Airflow " + "{{ ds }}" + "!",
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
@@ -298,28 +226,85 @@ with DAG(
 
     publish_mattermost_monthly = PythonOperator(
         task_id="publish_mattermost_monthly",
-        python_callable=publish_mattermost_monthly,
-        templates_dict={"TODAY": "{{ ds }}"},
+        python_callable=publish_mattermost_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "monthly",
+        },
     )
 
     send_email_report_monthly = PythonOperator(
         task_id="send_email_report_monthly",
-        python_callable=send_email_report_monthly,
-        templates_dict={"TODAY": "{{ ds }}"},
+        python_callable=send_email_report_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "daily",
+        },
+    )
+
+    check_if_first_day_of_year = ShortCircuitOperator(
+        task_id="check_if_first_day_of_year",
+        python_callable=check_if_first_day_of_year,
+    )
+
+    run_nb_yearly = PythonOperator(
+        task_id='run_notebook_and_save_to_minio_yearly',
+        python_callable=execute_and_upload_notebook,
+        op_kwargs={
+            "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
+            "output_nb": "{{ ds }}" + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_yearly/" + "{{ ds }}" + "/",
+            "minio_url": MINIO_URL,
+            "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+            "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            "minio_output_filepath": MINIO_PATH + "digest_yearly/" + "{{ ds }}" + "/",
+            "parameters": {
+                "WORKING_DIR": AIRFLOW_DAG_HOME,
+                "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
+                + DAG_FOLDER
+                + "digest_yearly/"
+                + "{{ ds }}"
+                + "/output/",
+                "DATE_AIRFLOW": "{{ ds }}",
+                "PERIOD_DIGEST": "yearly",
+            },
+        }
+    )
+
+    publish_mattermost_yearly = PythonOperator(
+        task_id="publish_mattermost_yearly",
+        python_callable=publish_mattermost_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "yearly",
+        },
+    )
+
+    send_email_report_yearly = PythonOperator(
+        task_id="send_email_report_yearly",
+        python_callable=send_email_report_period,
+        templates_dict={
+            "TODAY": "{{ ds }}",
+            "period": "daily",
+        },
     )
 
     run_nb_daily.set_upstream(clean_previous_output)
     publish_mattermost_daily.set_upstream(run_nb_daily)
     send_email_report_daily.set_upstream(run_nb_daily)
 
-    check_if_monday.set_upstream(send_email_report_daily)
-    check_if_monday.set_upstream(publish_mattermost_daily)
+    check_if_monday.set_upstream(clean_previous_output)
     run_nb_weekly.set_upstream(check_if_monday)
     publish_mattermost_weekly.set_upstream(run_nb_weekly)
     send_email_report_weekly.set_upstream(run_nb_weekly)
 
-    check_if_first_day_of_month.set_upstream(send_email_report_daily)
-    check_if_first_day_of_month.set_upstream(publish_mattermost_daily)
+    check_if_first_day_of_month.set_upstream(clean_previous_output)
     run_nb_monthly.set_upstream(check_if_first_day_of_month)
     publish_mattermost_monthly.set_upstream(run_nb_monthly)
     send_email_report_monthly.set_upstream(run_nb_monthly)
+
+    check_if_first_day_of_year.set_upstream(clean_previous_output)
+    run_nb_yearly.set_upstream(check_if_first_day_of_year)
+    publish_mattermost_yearly.set_upstream(run_nb_yearly)
+    send_email_report_yearly.set_upstream(run_nb_yearly)
