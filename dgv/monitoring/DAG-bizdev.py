@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from langdetect import detect
 import os
-
+import random
 import aiohttp
 import asyncio
 from airflow.models import DAG
@@ -29,7 +29,7 @@ datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 
 
-async def url_error(url, session, method="head", idx=0):
+async def url_error(url, session, method="head"):
     agents = [
         (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -52,15 +52,12 @@ async def url_error(url, session, method="head", idx=0):
             url,
             timeout=15,
             allow_redirects=True,
-            headers={"User-Agent": agents[idx]}
+            headers={"User-Agent": random.choice(agents)}
         ) as r:
             if r.status in [403, 405, 500]:
-                if idx < len(agents) - 1:
-                    # trying different user agents
-                    return await url_error(url, session, method=method, idx=idx + 1)
-                elif method == "head":
+                if method == "head":
                     # HEAD might not be allowed or correctly implemented, trying with GET
-                    return await url_error(url, session, method="get", idx=0)
+                    return await url_error(url, session, method="get")
             r.raise_for_status()
         return False
     except (
