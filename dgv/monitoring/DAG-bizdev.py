@@ -521,7 +521,7 @@ def send_tables_to_minio():
 
 def publish_mattermost():
     print("Publishing on mattermost")
-    list_curation = ["empty", "spam", "KO", "discussion"]
+    list_curation = ["empty", "spam", "KO"]
     curation = [f for f in os.listdir(DATADIR) if any([k in f for k in list_curation])]
     if curation:
         print("   - Files for curation:")
