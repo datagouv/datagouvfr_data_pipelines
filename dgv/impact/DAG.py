@@ -1,8 +1,7 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from datetime import timedelta, datetime
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -10,6 +9,8 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     calculate_quality_score,
     calculate_time_for_legitimate_answer,
+    get_quality_reuses,
+    get_discoverability,
     gather_kpis,
     send_stats_to_minio,
     publish_datagouv,
@@ -32,7 +33,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval='0 5 1 * *',
-    start_date=days_ago(1),
+    start_date=datetime(2023, 10, 15),
     catchup=False,
     dagrun_timeout=timedelta(minutes=120),
     tags=["datagouv", "impact", "metrics"],
@@ -62,6 +63,16 @@ with DAG(
         python_callable=calculate_time_for_legitimate_answer,
     )
 
+    get_quality_reuses = PythonOperator(
+        task_id='get_quality_reuses',
+        python_callable=get_quality_reuses,
+    )
+
+    get_discoverability = PythonOperator(
+        task_id='get_discoverability',
+        python_callable=get_discoverability,
+    )
+
     gather_kpis = PythonOperator(
         task_id='gather_kpis',
         python_callable=gather_kpis,
@@ -89,11 +100,17 @@ with DAG(
     )
 
     download_history.set_upstream(clean_previous_outputs)
+
     calculate_quality_score.set_upstream(download_history)
     calculate_time_for_legitimate_answer.set_upstream(download_history)
+    get_quality_reuses.set_upstream(download_history)
+    get_discoverability.set_upstream(download_history)
 
     gather_kpis.set_upstream(calculate_quality_score)
     gather_kpis.set_upstream(calculate_time_for_legitimate_answer)
+    gather_kpis.set_upstream(get_quality_reuses)
+    gather_kpis.set_upstream(get_discoverability)
+
     send_stats_to_minio.set_upstream(gather_kpis)
     publish_datagouv.set_upstream(send_stats_to_minio)
     send_notification_mattermost.set_upstream(publish_datagouv)

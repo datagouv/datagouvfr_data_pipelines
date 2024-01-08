@@ -40,6 +40,14 @@ def clean_hooks(string, hooks=hooks):
     return _
 
 
+def previous_date_parse(date_string):
+    # this returns the last occurrence of the date, not a future one
+    tmp = parser.parse(date_string)
+    if tmp > datetime.today():
+        tmp = tmp.replace(year=tmp.year - 1)
+    return tmp
+
+
 def get_resource_lists():
     resources_lists = {
         path: {
@@ -120,7 +128,7 @@ def list_ftp_files_recursive(ftp, path="", base_path=""):
                 current_path.split("//")[-1],
                 x.split()[-1],
                 int(x.split()[4]),
-                x.split()[5:7],
+                x.split()[5:8],
             ))
         )
         for item in files:
@@ -148,7 +156,7 @@ def get_current_files_on_ftp(ti, ftp):
             ftp_files[path + "/" + file_id] = {
                 "file_path": path + "/" + file,
                 "size": size,
-                "modif_date": parser.parse(" ".join(date_list))
+                "modif_date": previous_date_parse(" ".join(date_list))
             }
     for f in ftp_files:
         print(f, ":", ftp_files[f])
@@ -316,11 +324,13 @@ def upload_new_files(ti, minio_folder):
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list, and
-        # if it's not an updated file that has been renamed
+        # if it's not an updated file that has been renamed (keys of new_name),
+        # and if it's not an old file that has been renamed (values of new_name)
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
-            and clean_file_path not in files_to_update_new_name
+            and clean_file_path not in files_to_update_new_name.keys()
+            and clean_file_path not in files_to_update_new_name.values()
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio

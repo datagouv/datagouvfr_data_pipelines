@@ -43,6 +43,8 @@ SPAM_WORDS = [
     'escort',
     'kbis',
     'hack',
+    'fuck',
+    'macron',
 ]
 
 
