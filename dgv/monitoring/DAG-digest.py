@@ -4,7 +4,7 @@ from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta
+from datetime import datetime, timedelta
 import json
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -29,11 +29,12 @@ DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/"
 DAG_NAME = "dgv_digests"
 TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME
 MINIO_PATH = "dgv/"
+today = datetime.today().strftime('%Y-%m-%d')
 
 
 def get_stats_period(TODAY, period):
     with open(
-        AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{period}/" + TODAY + "/output/stats.json"
+        AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{period}/{TODAY}/output/stats.json"
     ) as json_file:
         res = json.load(json_file)
     recap = (
@@ -95,7 +96,7 @@ with DAG(
     schedule_interval="0 6 * * *",
     start_date=days_ago(1),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["digest", "daily", "weekly", "monthly", "datagouv"],
+    tags=["digest", "daily", "weekly", "monthly", "yearly", "datagouv"],
     default_args=default_args,
     catchup=False,
 ) as dag:
@@ -109,21 +110,19 @@ with DAG(
         python_callable=execute_and_upload_notebook,
         op_kwargs={
             "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-            "output_nb": "{{ ds }}" + ".ipynb",
-            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_daily/" + "{{ ds }}" + "/",
+            "output_nb": today + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_daily/{today}/",
             "minio_url": MINIO_URL,
             "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            "minio_output_filepath": MINIO_PATH + "digest_daily/" + "{{ ds }}" + "/",
+            "minio_output_filepath": MINIO_PATH + f"digest_daily/{today}/",
             "parameters": {
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
-                + "digest_daily/"
-                + "{{ ds }}"
-                + "/output/",
-                "DATE_AIRFLOW": "{{ ds }}",
+                + f"digest_daily/{today}/output/",
+                "DATE_AIRFLOW": today,
                 "PERIOD_DIGEST": "daily",
             },
         },
@@ -133,7 +132,7 @@ with DAG(
         task_id="publish_mattermost_daily",
         python_callable=publish_mattermost_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "daily",
         },
     )
@@ -142,7 +141,7 @@ with DAG(
         task_id="send_email_report_daily",
         python_callable=send_email_report_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "daily",
         },
     )
@@ -156,21 +155,19 @@ with DAG(
         python_callable=execute_and_upload_notebook,
         op_kwargs={
             "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-            "output_nb": "{{ ds }}" + ".ipynb",
-            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_weekly/" + "{{ ds }}" + "/",
+            "output_nb": today + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_weekly/{today}/",
             "minio_url": MINIO_URL,
             "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            "minio_output_filepath": MINIO_PATH + "digest_weekly/" + "{{ ds }}" + "/",
+            "minio_output_filepath": MINIO_PATH + f"digest_weekly/{today}/",
             "parameters": {
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
-                + "digest_weekly/"
-                + "{{ ds }}"
-                + "/output/",
-                "DATE_AIRFLOW": "{{ ds }}",
+                + f"digest_weekly/{today}/output/",
+                "DATE_AIRFLOW": today,
                 "PERIOD_DIGEST": "weekly",
             },
         },
@@ -180,7 +177,7 @@ with DAG(
         task_id="publish_mattermost_weekly",
         python_callable=publish_mattermost_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "weekly",
         },
     )
@@ -189,7 +186,7 @@ with DAG(
         task_id="send_email_report_weekly",
         python_callable=send_email_report_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "daily",
         },
     )
@@ -204,21 +201,19 @@ with DAG(
         python_callable=execute_and_upload_notebook,
         op_kwargs={
             "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-            "output_nb": "{{ ds }}" + ".ipynb",
-            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_monthly/" + "{{ ds }}" + "/",
+            "output_nb": today + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_monthly/{today}/",
             "minio_url": MINIO_URL,
             "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            "minio_output_filepath": MINIO_PATH + "digest_monthly/" + "{{ ds }}" + "/",
+            "minio_output_filepath": MINIO_PATH + f"digest_monthly/{today}/",
             "parameters": {
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
-                + "digest_monthly/"
-                + "{{ ds }}"
-                + "/output/",
-                "DATE_AIRFLOW": "{{ ds }}",
+                + f"digest_monthly/{today}/output/",
+                "DATE_AIRFLOW": today,
                 "PERIOD_DIGEST": "monthly",
             },
         }
@@ -228,7 +223,7 @@ with DAG(
         task_id="publish_mattermost_monthly",
         python_callable=publish_mattermost_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "monthly",
         },
     )
@@ -237,7 +232,7 @@ with DAG(
         task_id="send_email_report_monthly",
         python_callable=send_email_report_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "daily",
         },
     )
@@ -252,21 +247,19 @@ with DAG(
         python_callable=execute_and_upload_notebook,
         op_kwargs={
             "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-            "output_nb": "{{ ds }}" + ".ipynb",
-            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + "digest_yearly/" + "{{ ds }}" + "/",
+            "output_nb": today + ".ipynb",
+            "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_yearly/{today}/",
             "minio_url": MINIO_URL,
             "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
             "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            "minio_output_filepath": MINIO_PATH + "digest_yearly/" + "{{ ds }}" + "/",
+            "minio_output_filepath": MINIO_PATH + f"digest_yearly/{today}/",
             "parameters": {
                 "WORKING_DIR": AIRFLOW_DAG_HOME,
                 "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
                 + DAG_FOLDER
-                + "digest_yearly/"
-                + "{{ ds }}"
-                + "/output/",
-                "DATE_AIRFLOW": "{{ ds }}",
+                + f"digest_yearly/{today}/output/",
+                "DATE_AIRFLOW": today,
                 "PERIOD_DIGEST": "yearly",
             },
         }
@@ -276,7 +269,7 @@ with DAG(
         task_id="publish_mattermost_yearly",
         python_callable=publish_mattermost_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "yearly",
         },
     )
@@ -285,7 +278,7 @@ with DAG(
         task_id="send_email_report_yearly",
         python_callable=send_email_report_period,
         templates_dict={
-            "TODAY": "{{ ds }}",
+            "TODAY": today,
             "period": "daily",
         },
     )
