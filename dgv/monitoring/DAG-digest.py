@@ -187,7 +187,7 @@ with DAG(
         python_callable=send_email_report_period,
         templates_dict={
             "TODAY": today,
-            "period": "daily",
+            "period": "weekly",
         },
     )
 
@@ -233,7 +233,7 @@ with DAG(
         python_callable=send_email_report_period,
         templates_dict={
             "TODAY": today,
-            "period": "daily",
+            "period": "monthly",
         },
     )
 
@@ -279,7 +279,7 @@ with DAG(
         python_callable=send_email_report_period,
         templates_dict={
             "TODAY": today,
-            "period": "daily",
+            "period": "yearly",
         },
     )
 
