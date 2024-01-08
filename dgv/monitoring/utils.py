@@ -1,6 +1,10 @@
 import dateutil
 from IPython.core.display import display, HTML
-from datagouvfr_data_pipelines.utils.datagouv import get_data, get_last_items
+from datagouvfr_data_pipelines.utils.datagouv import (
+    DATAGOUV_URL,
+    get_all_from_api_query,
+    get_last_items,
+)
 
 
 def show_html(html):
@@ -20,35 +24,28 @@ def fullname(user):
 
 
 def get_last_discussions(start_date, end_date=None):
-    got_everything = False
     results = []
-    page = 1
-
-    while not got_everything:
-        data = get_data("discussions", page, "-discussion__posted_on")
-        data = [(d["id"], d["subject"], d["title"], d["discussion"]) for d in data]
-        for _id, subject, title, comments in data:
-            createds = [dateutil.parser.parse(c["posted_on"]) for c in comments]
-            created = max(createds)
-            got_everything = (created.timestamp() < start_date.timestamp())
-            if not got_everything:
-                for comment in comments:
-                    if end_date:
-                        if (
-                            (dateutil.parser.parse(comment["posted_on"]).timestamp() >= start_date.timestamp()) &
-                            (dateutil.parser.parse(comment["posted_on"]).timestamp() < end_date.timestamp())
-                        ):
-                            results.append((_id, subject, title, comment))
-                    else:
-                        if dateutil.parser.parse(comment["posted_on"]) >= start_date:
-                            results.append((_id, subject, title, comment))
-            else:
-                break
-        if got_everything:
-            break
+    data = get_all_from_api_query(
+        f"{DATAGOUV_URL}/api/1/discussions/?sort=discussion__posted_on"
+    )
+    for d in data:
+        _id, subject, title, comments = d["id"], d["subject"], d["title"], d["discussion"]
+        createds = [dateutil.parser.parse(c["posted_on"]) for c in comments]
+        created = max(createds)
+        got_everything = (created.timestamp() < start_date.timestamp())
+        if not got_everything:
+            for comment in comments:
+                if end_date:
+                    if (
+                        (dateutil.parser.parse(comment["posted_on"]).timestamp() >= start_date.timestamp()) &
+                        (dateutil.parser.parse(comment["posted_on"]).timestamp() < end_date.timestamp())
+                    ):
+                        results.append((_id, subject, title, comment))
+                else:
+                    if dateutil.parser.parse(comment["posted_on"]) >= start_date:
+                        results.append((_id, subject, title, comment))
         else:
-            page += 1
-            print('page', page)
+            break
     return results
 
 

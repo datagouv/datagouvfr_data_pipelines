@@ -426,14 +426,6 @@ def create_post(
     return r.json()
 
 
-def get_data(endpoint, page, sort):
-    r = requests.get(
-        f"{DATAGOUV_URL}/api/1/{endpoint}?page_size=100&sort={sort}&page={page}"
-    )
-    r.raise_for_status()
-    return r.json().get('data', [])
-
-
 def get_created_date(data, date_key):
     # Helper to get created date based on a date_key that could be nested, using . as a separator
     for key in date_key.split('.'):
