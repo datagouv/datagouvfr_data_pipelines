@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.task_functions import 
     download_latest_data,
     generate_latest_france,
     generate_rupture_france,
+    get_daily_prices,
     reformat_file,
     send_files_minio,
     unzip_files,
@@ -35,6 +36,11 @@ with DAG(
 
     download_latest_data = PythonOperator(
         task_id="download_latest_data", python_callable=download_latest_data
+    )
+
+    get_daily_prices = PythonOperator(
+        task_id="get_daily_prices",
+        python_callable=get_daily_prices
     )
 
     unzip_files = PythonOperator(
@@ -67,7 +73,8 @@ with DAG(
     )
 
     download_latest_data.set_upstream(clean_previous_outputs)
-    unzip_files.set_upstream(download_latest_data)
+    get_daily_prices.set_upstream(download_latest_data)
+    unzip_files.set_upstream(get_daily_prices)
     convert_utf8_files.set_upstream(unzip_files)
     reformat_file.set_upstream(convert_utf8_files)
     generate_latest_france.set_upstream(reformat_file)

@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix import (
     reformat_prix,
 )
-from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import get_files, send_files
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 
 
@@ -91,6 +91,23 @@ def generate_rupture_france():
     generate_kpis_rupture(f"{AIRFLOW_DAG_TMP}carburants/")
 
 
+def get_daily_prices():
+    get_files(
+        MINIO_URL=MINIO_URL,
+        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
+        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        list_files=[
+            {
+                "source_path": "carburants/",
+                "source_name": "daily_prices.json",
+                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
+                "dest_name": "daily_prices.json",
+            }
+        ],
+    )
+
+
 def send_files_minio():
     today = date.today()
     today = today.strftime("%Y-%m-%d")
@@ -106,6 +123,13 @@ def send_files_minio():
                 "source_name": "latest_france.geojson",
                 "dest_path": "carburants/",
                 "dest_name": "latest_france.geojson",
+                "content_type": "application/json; charset=utf-8",
+            },
+            {
+                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
+                "source_name": "daily_prices.json",
+                "dest_path": "carburants/",
+                "dest_name": "daily_prices.json",
                 "content_type": "application/json; charset=utf-8",
             },
             {
