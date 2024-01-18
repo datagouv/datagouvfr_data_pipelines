@@ -64,12 +64,16 @@ def calculate_quality_score(ti):
 
 def calculate_time_for_legitimate_answer(ti):
     print("Calculating average time for legitimate answer")
+    # getting the list of super admins, considered legitimate for all topics
     datagouv_team = requests.get(
         "https://www.data.gouv.fr/api/1/organizations/646b7187b50b2a93b1ae3d45/"
     ).json()
     datagouv_team = [m['user']['id'] for m in datagouv_team['members']]
 
-    r = get_all_from_api_query("https://www.data.gouv.fr/api/1/discussions/?sort=-created")
+    discussions = get_all_from_api_query(
+        "https://www.data.gouv.fr/api/1/discussions/?sort=-created",
+        mask='data{created,subject,discussion}'
+    )
     end_date = datetime.today().strftime("%Y-%m-%d")
     oneyearago = date.today() - relativedelta(years=1)
     start_date = oneyearago.strftime("%Y-%m-%d")
@@ -77,7 +81,7 @@ def calculate_time_for_legitimate_answer(ti):
     nb_discussions_with_legit_answer = 0
     time_to_answer = []
     k = 0
-    for discussion in r:
+    for discussion in discussions:
         if discussion['created'] > end_date:
             continue
         elif discussion['created'] < start_date:
@@ -90,7 +94,8 @@ def calculate_time_for_legitimate_answer(ti):
             if len(discussion['discussion']) > 1:
                 # getting legit users
                 r = requests.get(
-                    f"https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/"
+                    f"https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/",
+                    headers={'X-fields': 'organization,owner'}
                 )
                 if not r.ok:
                     print(f"Not OK: https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/")
@@ -98,7 +103,8 @@ def calculate_time_for_legitimate_answer(ti):
                 dataset = r.json()
                 if dataset.get('organization', None):
                     dataset_supervisors = requests.get(
-                        f"https://www.data.gouv.fr/api/1/organizations/{dataset['organization']['id']}/"
+                        f"https://www.data.gouv.fr/api/1/organizations/{dataset['organization']['id']}/",
+                        headers={'X-fields': 'members'}
                     ).json()
                     dataset_supervisors = [m['user']['id'] for m in dataset_supervisors['members']]
                 else:
@@ -122,7 +128,10 @@ def calculate_time_for_legitimate_answer(ti):
             else:
                 time_to_answer.append(30)
     average_time_to_answer = round(np.mean(time_to_answer), 2)
-    print(f"Taux de réponses légitimes : {round(nb_discussions_with_legit_answer/nb_discussions*100)}%")
+    print(
+        "Taux de discussions avec réponse légitime : "
+        f"{(nb_discussions_with_legit_answer/nb_discussions*100)}%"
+    )
     kpi = {
         'administration_rattachement': 'DINUM',
         'nom_service_public_numerique': 'data.gouv.fr',
