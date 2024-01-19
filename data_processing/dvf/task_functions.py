@@ -7,8 +7,6 @@ from datagouvfr_data_pipelines.config import (
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
@@ -16,7 +14,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 import gc
 import glob
 from unidecode import unidecode
@@ -39,6 +37,9 @@ if AIRFLOW_ENV == 'prod':
     conn = BaseHook.get_connection("POSTGRES_DVF")
 else:
     conn = BaseHook.get_connection("postgres_localhost")
+
+minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def create_copro_table():
@@ -206,16 +207,30 @@ def populate_copro_table():
         "Syndicat coopératif": "syndicat_cooperatif",
         "Syndicat principal ou syndicat secondaire": "syndicat_principal_ou_secondaire",
         "Si secondaire, n° d’immatriculation du principal": "si_secondaire_numero_immatriculation_principal",
-        "Nombre d’ASL auxquelles est rattaché le syndicat de copropriétaires": "nombre_asl_rattache_syndicat_coproprietaires",
-        "Nombre d’AFUL auxquelles est rattaché le syndicat de copropriétaires": "nombre_aful_rattache_syndicat_coproprietaires",
-        "Nombre d’Unions de syndicats auxquelles est rattaché le syndicat de copropriétaires": "nombre_unions_syndicats_rattache_syndicat_coproprietaires",
+        "Nombre d’ASL auxquelles est rattaché le syndicat de copropriétaires": (
+            "nombre_asl_rattache_syndicat_coproprietaires"
+        ),
+        "Nombre d’AFUL auxquelles est rattaché le syndicat de copropriétaires": (
+            "nombre_aful_rattache_syndicat_coproprietaires"
+        ),
+        "Nombre d’Unions de syndicats auxquelles est rattaché le syndicat de copropriétaires": (
+            "nombre_unions_syndicats_rattache_syndicat_coproprietaires"
+        ),
         "Nombre total de lots": "nombre_total_lots",
-        "Nombre total de lots à usage d’habitation, de bureaux ou de commerces": "nombre_total_lots_usage_habitation_bureaux_ou_commerces",
+        "Nombre total de lots à usage d’habitation, de bureaux ou de commerces": (
+            "nombre_total_lots_usage_habitation_bureaux_ou_commerces"
+        ),
         "Nombre de lots à usage d’habitation": "nombre_lots_usage_habitation",
         "Nombre de lots de stationnement": "nombre_lots_stationnement",
-        "Nombre d'arrêtés relevant du code de la santé publique en cours": "nombre_arretes_code_sante_publique_en_cours",
-        "Nombre d'arrêtés de péril sur les parties communes en cours": "nombre_arretes_peril_parties_communes_en_cours",
-        "Nombre d'arrêtés sur les équipements communs en cours": "nombre_arretes_equipements_communs_en_cours",
+        "Nombre d'arrêtés relevant du code de la santé publique en cours": (
+            "nombre_arretes_code_sante_publique_en_cours"
+        ),
+        "Nombre d'arrêtés de péril sur les parties communes en cours": (
+            "nombre_arretes_peril_parties_communes_en_cours"
+        ),
+        "Nombre d'arrêtés sur les équipements communs en cours": (
+            "nombre_arretes_equipements_communs_en_cours"
+        ),
         "Période de construction": "periode_construction",
         "Référence Cadastrale 1": "reference_cadastrale_1",
         "Code INSEE commune 1": "code_insee_commune_1",
@@ -1104,11 +1119,7 @@ def create_distribution_and_stats_whole_period():
 
 
 def send_stats_to_minio():
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
@@ -1127,11 +1138,7 @@ def send_stats_to_minio():
 
 
 def send_distribution_to_minio():
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_restricted.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
@@ -1148,7 +1155,10 @@ def publish_stats_dvf(ti):
         data = json.load(fp)
     post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dvf/stats_dvf.csv",
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
+        ),
         dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
         filesize=os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
@@ -1161,7 +1171,10 @@ def publish_stats_dvf(ti):
     print("Done with stats mensuelles")
     post_remote_resource(
         api_key=DATAGOUV_SECRET_API_KEY,
-        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/dvf/stats_whole_period.csv",
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
+        ),
         dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
         filesize=os.path.getsize(os.path.join(DATADIR, "stats_whole_period.csv")),

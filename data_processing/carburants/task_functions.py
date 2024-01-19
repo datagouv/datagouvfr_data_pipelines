@@ -4,10 +4,7 @@ import glob
 import os
 import zipfile
 from datagouvfr_data_pipelines.config import (
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_and_files import (
@@ -19,8 +16,10 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix import (
     reformat_prix,
 )
-from datagouvfr_data_pipelines.utils.minio import get_files, send_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
+
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data():
@@ -92,11 +91,7 @@ def generate_rupture_france():
 
 
 def get_daily_prices():
-    get_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.get_files(
         list_files=[
             {
                 "source_path": "carburants/",
@@ -112,11 +107,7 @@ def send_files_minio():
     today = date.today()
     today = today.strftime("%Y-%m-%d")
 
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}carburants/",

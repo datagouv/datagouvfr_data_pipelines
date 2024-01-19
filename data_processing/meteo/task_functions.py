@@ -3,9 +3,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
-    MINIO_URL,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
@@ -13,11 +10,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import (
-    send_files,
-    get_all_files_names_and_sizes_from_parent_folder,
-    delete_file,
-)
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 import ftplib
 import os
 import json
@@ -31,6 +24,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
+minio_meteo = MinIOClient(bucket='meteofrance')
 
 
 def clean_hooks(string, hooks=hooks):
@@ -164,11 +158,7 @@ def get_current_files_on_ftp(ti, ftp):
 
 
 def get_current_files_on_minio(ti, minio_folder):
-    minio_files = get_all_files_names_and_sizes_from_parent_folder(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET="meteofrance",
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=minio_folder
     )
     # getting the start of each time period to update datasets temporal_coverage
@@ -209,7 +199,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     # much debated part of the code: how to best get which files to consider here
     # first it was only done with the files' names but what if a file is updated but not renamed?
     # then we thought about checking the size and comparing with Minio
-    # but sizes can vary for an identical file depending on where/how it is stored
+    # but size can vary for an identical file depending on where/how it is stored
     # we also thought about a checksum, but hard to compute on the FTP and downloading
     # all files to compute checksums and compare is inefficient
     # our best try: check the modification date on the FTP and take the file if it has
@@ -263,11 +253,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
 
         # sending file to Minio
         try:
-            send_files(
-                MINIO_URL=MINIO_URL,
-                MINIO_BUCKET="meteofrance",
-                MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-                MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+            minio_meteo.send_files(
                 list_files=[
                     {
                         "source_path": f"{DATADIR}/",
@@ -287,11 +273,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     print("Updated new name:", files_to_update_new_name)
 
     # re-getting Minio files in case new files have been transfered for downstream tasks
-    minio_files = get_all_files_names_and_sizes_from_parent_folder(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET="meteofrance",
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=minio_folder
     )
     ti.xcom_push(key="minio_files", value=minio_files)
@@ -472,11 +454,7 @@ def delete_replaced_minio_files(ti, minio_folder):
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
     for old_file in files_to_update_new_name.values():
-        delete_file(
-            MINIO_URL=MINIO_URL,
-            MINIO_BUCKET="meteofrance",
-            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        minio_meteo.delete_file(
             file_path=minio_folder + old_file
         )
 

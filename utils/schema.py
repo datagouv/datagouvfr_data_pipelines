@@ -3,7 +3,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
-from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from typing import List, Optional, Dict
 import pandas as pd
@@ -365,7 +365,10 @@ def save_validata_report(
 def is_validata_valid_row(row, schema_url, version, schema_name, validata_reports_path):
     if row["error_type"] is None:  # if no error
         rurl = row["resource_url"]
-        resource_api_url = DATAGOUV_URL + f'/api/1/datasets/{row["dataset_id"]}/resources/{row["resource_id"]}'
+        resource_api_url = (
+            DATAGOUV_URL
+            + f'/api/1/datasets/{row["dataset_id"]}/resources/{row["resource_id"]}'
+        )
         res, report = is_validata_valid(rurl, schema_url, resource_api_url)
         if report and not report.get('report', {}).get('hydra:unavailable', False):
             save_validata_report(
@@ -953,10 +956,9 @@ def consolidate_data(
 
                     else:
                         print(
-                            "-- ⚠️ Less than {} (non-empty) valid resources for version {} : consolidation file is not built".format(
-                                MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE,
-                                version_name
-                            )
+                            f"-- ⚠️ Less than {MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE}"
+                            f" (non-empty) valid resources for version {version_name} :"
+                            " consolidation file is not built"
                         )
                         if should_succeed:
                             return False
@@ -1441,7 +1443,8 @@ def upload_consolidated(
                         config_path,
                     )
                     print(
-                        "-- 🟢 No consolidation dataset for this schema - Successfully created (id: {})".format(
+                        "-- 🟢 No consolidation dataset for this schema"
+                        " - Successfully created (id: {})".format(
                             consolidated_dataset_id
                         )
                     )
@@ -1670,7 +1673,10 @@ def update_resource_send_mail_producer(
                     #
                     # producer_notification_success = (comment_post.status_code == 201)
 
-                    # df_ref.loc[(df_ref['resource_id'] == row['resource_id']), 'producer_notification_success'] = producer_notification_success
+                    # df_ref.loc[
+                    #     (df_ref['resource_id'] == row['resource_id']),
+                    #     'producer_notification_success'
+                    # ] = producer_notification_success
                     # No notification at the moment:
                     df_ref.loc[
                         (df_ref["resource_id"] == row["resource_id"]),
@@ -1692,12 +1698,12 @@ def update_resource_send_mail_producer(
                 ] = resource_update_success
 
                 if resource_update_success:
-                    title = "Ajout de la métadonnée schéma"
-                    comment = added_schema_comment_template.format(
-                        resource_title=row["resource_title"],
-                        schema_name=schema_name,
-                        most_recent_valid_version=row["most_recent_valid_version"],
-                    )
+                    # title = "Ajout de la métadonnée schéma"
+                    # comment = added_schema_comment_template.format(
+                    #     resource_title=row["resource_title"],
+                    #     schema_name=schema_name,
+                    #     most_recent_valid_version=row["most_recent_valid_version"],
+                    # )
                     # comment_post = post_comment_on_dataset(dataset_id=row['dataset_id'],
                     #                                       title=title,
                     #                                       comment=comment,
@@ -1705,7 +1711,10 @@ def update_resource_send_mail_producer(
                     #                                      )
                     #
                     # producer_notification_success = (comment_post.status_code == 201)
-                    # df_ref.loc[(df_ref['resource_id'] == row['resource_id']), 'producer_notification_success'] = producer_notification_success
+                    # df_ref.loc[
+                    #     (df_ref['resource_id'] == row['resource_id']),
+                    #     'producer_notification_success'
+                    # ] = producer_notification_success
                     # No notification at the moment:
                     df_ref.loc[
                         (df_ref["resource_id"] == row["resource_id"]),
@@ -1714,31 +1723,52 @@ def update_resource_send_mail_producer(
 
             # Right now, we don't drop schema and do no notification
             elif row["is_schema_to_drop"]:
-                #    resource_update_success = delete_resource_schema(api_url, row['dataset_id'], row['resource_id'], schema_name, headers)
-                #    df_ref.loc[(df_ref['resource_id'] == row['resource_id']), 'resource_schema_update_success'] = resource_update_success
+                #    resource_update_success = delete_resource_schema(
+                #        api_url,
+                #        row['dataset_id'],
+                #        row['resource_id'],
+                #        schema_name,
+                #        headers
+                #     )
+                #    df_ref.loc[
+                #        (df_ref['resource_id'] == row['resource_id']),
+                #        'resource_schema_update_success'
+                #     ] = resource_update_success
                 #
                 #    if resource_update_success:
                 #        title = 'Suppression de la métadonnée schéma'
                 #
-                #        mails_type, mails_list = get_owner_or_admin_mails(row['dataset_id'], api_url, headers)
+                #       mails_type, mails_list = get_owner_or_admin_mails(
+                #           row['dataset_id'],
+                #           api_url,
+                #           headers
+                #        )
                 #
                 #        if len(mails_list) > 0 : #If we found some email addresses, we send mails
                 #
                 #            if mails_type == 'organisation_admins' :
-                #                message = deleted_schema_mail_template_org.format(organisation_name=row['organization_or_owner'],
-                #                                                                  dataset_title=row['dataset_title'],
-                #                                                                  resource_title=row['resource_title'],
-                #                                                                  schema_name=schema_name,
-                #                                                                  schema_url=get_schema_dict(schema_name, schemas_catalogue_list)['schema_url'],
-                #                                                                  resource_url=row['resource_url']
-                #                                                                 )
+                #               message = deleted_schema_mail_template_org.format(
+                #                    organisation_name=row['organization_or_owner'],
+                #                    dataset_title=row['dataset_title'],
+                #                    resource_title=row['resource_title'],
+                #                    schema_name=schema_name,
+                #                    schema_url=get_schema_dict(
+                #                        schema_name,
+                #                        schemas_catalogue_list
+                #                    )['schema_url'],
+                #                    resource_url=row['resource_url']
+                #                )
                 #            elif mails_type == 'owner' :
-                #                message = deleted_schema_mail_template_own.format(dataset_title=row['dataset_title'],
-                #                                                                  resource_title=row['resource_title'],
-                #                                                                  schema_name=schema_name,
-                #                                                                  schema_url=get_schema_dict(schema_name, schemas_catalogue_list)['schema_url'],
-                #                                                                  resource_url=row['resource_url']
-                #                                                                 )
+                #               message = deleted_schema_mail_template_own.format(
+                #                    dataset_title=row['dataset_title'],
+                #                    resource_title=row['resource_title'],
+                #                    schema_name=schema_name,
+                #                    schema_url=get_schema_dict(
+                #                        schema_name,
+                #                        schemas_catalogue_list
+                #                    )['schema_url'],
+                #                    resource_url=row['resource_url']
+                #                )
                 #
                 #
                 #            #Sending mail
@@ -1755,25 +1785,33 @@ def update_resource_send_mail_producer(
                 #                #                       smtp_password=smtp_password)
 
                 #                #producer_notification_success_list += [(mail_send.status_code == 250)]
-                #
-                #            #producer_notification_success = any(producer_notification_success_list) # Success if at least one person receives the mail
+                #            # Success if at least one person receives the mail
+                #            #producer_notification_success = any(producer_notification_success_list)
                 #
                 #        else : #If no mail address, we post a comment on dataset
-                #            comment = deleted_schema_comment_template.format(resource_title=row['resource_title'],
-                #                                                             schema_name=schema_name,
-                #                                                             schema_url=get_schema_dict(schema_name, schemas_catalogue_list)['schema_url'],
-                #                                                             resource_url=row['resource_url']
-                #                                                            )
+                #           comment = deleted_schema_comment_template.format(
+                #                resource_title=row['resource_title'],
+                #                schema_name=schema_name,
+                #                schema_url=get_schema_dict(
+                #                    schema_name,
+                #                    schemas_catalogue_list
+                #                )['schema_url'],
+                #                resource_url=row['resource_url']
+                #            )
                 #
-                #            #comment_post = post_comment_on_dataset(dataset_id=row['dataset_id'],
-                #            #                                       title=title,
-                #            #                                       comment=comment,
-                #            #                                       api_url=api_url
-                #            #                                      )
+                #           comment_post = post_comment_on_dataset(
+                #                dataset_id=row['dataset_id'],
+                #                title=title,
+                #                comment=comment,
+                #                api_url=api_url
+                #            )
                 #
                 #            #producer_notification_success = (comment_post.status_code == 201)
                 #
-                #        #df_ref.loc[(df_ref['resource_id'] == row['resource_id']), 'producer_notification_success'] = producer_notification_success
+                #       df_ref.loc[
+                #           (df_ref['resource_id'] == row['resource_id']),
+                #           'producer_notification_success'
+                #        ] = producer_notification_success
 
                 # TO DROP when schema will be deleted and producer notified:
                 df_ref.loc[
@@ -2081,33 +2119,25 @@ def final_directory_clean_up(
 
 def upload_minio(
     TMP_FOLDER,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     minio_output_filepath,
 ):
-    client = Minio(
-        MINIO_URL,
-        access_key=SECRET_MINIO_DATA_PIPELINE_USER,
-        secret_key=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        secure=True,
-    )
+    minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
-    # check if bucket exists.
-    found = client.bucket_exists(MINIO_BUCKET_DATA_PIPELINE_OPEN)
-    if found:
-        for path, subdirs, files in os.walk(TMP_FOLDER + "/output/"):
-            for name in files:
-                this_file = os.path.join(path, name)
-                print(this_file)
-                isFile = os.path.isfile(this_file)
-                if isFile:
-                    client.fput_object(
-                        MINIO_BUCKET_DATA_PIPELINE_OPEN,
-                        minio_output_filepath + this_file.replace(TMP_FOLDER, ""),
-                        this_file,
-                    )
+    list_files = [{
+        "source_path": path,
+        "source_name": name,
+        "dest_path": minio_output_filepath,
+        "dest_name": os.path.join(path, name).replace(TMP_FOLDER, ""),
+    }
+        for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
+        for name in files
+        if os.path.isfile(os.path.join(path, name))
+    ]
+
+    minio_open.send_files(
+        list_files=list_files,
+    )
     return
 
 
@@ -2115,8 +2145,6 @@ def notification_synthese(
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     TMP_FOLDER,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     date_dict,
     schema_name=False,
@@ -2132,6 +2160,7 @@ def notification_synthese(
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
+    minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
     message = (
         ":mega: *Rapport sur la consolidation des données répondant à un schéma.*\n"
@@ -2183,11 +2212,7 @@ def notification_synthese(
                 )
 
                 # reminder : send_files puts the files into an intermediary {AIRFLOW_ENV} folder
-                send_files(
-                    MINIO_URL=MINIO_URL,
-                    MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-                    MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-                    MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+                minio_open.send_files(
                     list_files=[
                         {
                             "source_path": f"{TMP_FOLDER}/",

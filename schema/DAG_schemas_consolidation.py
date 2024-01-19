@@ -10,8 +10,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     DATAGOUV_SECRET_API_KEY,
     DATAGOUV_URL
@@ -96,10 +94,7 @@ with DAG(
         python_callable=upload_minio,
         op_kwargs={
             "TMP_FOLDER": TMP_FOLDER.as_posix(),
-            "MINIO_URL": MINIO_URL,
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
-            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "minio_output_filepath": "/schema/schemas_consolidation/{{ ds }}/",
         },
     )
@@ -122,8 +117,6 @@ with DAG(
             "MINIO_URL": MINIO_URL,
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
-            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
-            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
             "date_dict": {"TODAY": "{{ ds }}"},
             "list_schema_skip": ['etalab/schema-irve-statique'],

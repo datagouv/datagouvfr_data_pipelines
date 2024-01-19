@@ -390,18 +390,12 @@ def final_directory_clean_up_irve(
 
 def upload_minio_irve(
     TMP_FOLDER,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     minio_output_filepath
 ):
     upload_minio(
         TMP_FOLDER.as_posix(),
-        MINIO_URL,
         MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        SECRET_MINIO_DATA_PIPELINE_USER,
-        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         minio_output_filepath,
     )
 
@@ -410,8 +404,6 @@ def notification_synthese_irve(
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     TMP_FOLDER,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     date_dict
 ):
@@ -419,8 +411,6 @@ def notification_synthese_irve(
         MINIO_URL,
         MINIO_BUCKET_DATA_PIPELINE_OPEN,
         TMP_FOLDER,
-        SECRET_MINIO_DATA_PIPELINE_USER,
-        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
         date_dict,
         schema_name
