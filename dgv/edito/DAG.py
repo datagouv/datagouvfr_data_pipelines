@@ -14,9 +14,8 @@ from datagouvfr_data_pipelines.config import (
     TWITTER_ACCESS_TOKEN,
     TWITTER_SECRET_TOKEN,
     MATTERMOST_DATAGOUV_EDITO,
-    DATAGOUV_URL,
 )
-from datagouvfr_data_pipelines.utils.datagouv import create_post
+from datagouvfr_data_pipelines.utils.datagouv import create_post, DATAGOUV_URL
 
 DAG_NAME = "dgv_edito_post_and_tweet"
 NOW = date.today()

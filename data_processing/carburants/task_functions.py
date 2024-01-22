@@ -4,6 +4,7 @@ import glob
 import os
 import zipfile
 from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.download import download_files
@@ -17,7 +18,6 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix 
     reformat_prix,
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 

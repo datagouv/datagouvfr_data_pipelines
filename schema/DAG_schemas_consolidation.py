@@ -12,7 +12,6 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     DATAGOUV_SECRET_API_KEY,
-    DATAGOUV_URL
 )
 from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schemas_consolidation import (
     run_schemas_consolidation,
@@ -24,6 +23,7 @@ from datagouvfr_data_pipelines.utils.schema import (
     upload_minio,
     notification_synthese
 )
+from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
 # for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
