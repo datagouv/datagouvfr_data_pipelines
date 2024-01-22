@@ -2,7 +2,6 @@ from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -10,6 +9,7 @@ from datagouvfr_data_pipelines.utils.postgres import execute_sql_file, copy_file
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_communautary_resource,
     ORGA_REFERENCE,
+    DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -25,10 +25,8 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 if AIRFLOW_ENV == "prod":
-    DATAGOUV_URL = "https://www.data.gouv.fr"
     conn = BaseHook.get_connection("POSTGRES_DEV")
 else:
-    DATAGOUV_URL = "https://demo.data.gouv.fr"
     conn = BaseHook.get_connection("postgres_localhost")
 
 
@@ -128,7 +126,6 @@ def send_rna_to_minio():
 def publish_rna_communautaire():
     file_size = os.path.getsize(os.path.join(DATADIR, "base_rna.csv"))
     post_remote_communautary_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         dataset_id="58e53811c751df03df38f42d",
         title="RNA agrégé",
         format="csv",

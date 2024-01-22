@@ -1,7 +1,6 @@
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -331,7 +330,6 @@ def upload_new_files(ti, minio_folder):
         )
         try:
             post_remote_resource(
-                api_key=DATAGOUV_SECRET_API_KEY,
                 remote_url=url,
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
                 filesize=minio_files[minio_folder + file_path],
@@ -365,17 +363,13 @@ def handle_updated_files_same_name(ti, minio_folder):
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
         try:
-            resource_api_url = (
-                DATAGOUV_URL +
-                f"/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}" +
-                f"/resources/{resources_lists[path][url]}/"
+            update_dataset_or_resource_metadata(
+                payload={
+                    "filesize": minio_files[minio_folder + file_path],
+                },
+                dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
+                resource_id=resources_lists[path][url],
             )
-            r = requests.put(
-                url=resource_api_url,
-                json={"filesize": minio_files[minio_folder + file_path]},
-                headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
-            )
-            r.raise_for_status()
             updated_datasets.add(path)
         except KeyError:
             print("⚠️ no config for this file")
@@ -404,7 +398,6 @@ def handle_updated_files_new_name(ti, minio_folder):
         old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
         try:
             update_dataset_or_resource_metadata(
-                api_key=DATAGOUV_SECRET_API_KEY,
                 payload={
                     "url": url,
                     "title": resource_name if not is_doc else file_with_ext,
@@ -437,7 +430,6 @@ def update_temporal_coverages(ti):
     for path in updated_datasets:
         if path in period_starts:
             update_dataset_or_resource_metadata(
-                api_key=DATAGOUV_SECRET_API_KEY,
                 payload={"temporal_coverage": {
                     "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                     "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

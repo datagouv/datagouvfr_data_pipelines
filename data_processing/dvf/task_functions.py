@@ -2,7 +2,6 @@ from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE,
@@ -1154,7 +1153,6 @@ def publish_stats_dvf(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         remote_url=(
             f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
             f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
@@ -1170,7 +1168,6 @@ def publish_stats_dvf(ti):
     )
     print("Done with stats mensuelles")
     post_remote_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         remote_url=(
             f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
             f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"

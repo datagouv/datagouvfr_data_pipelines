@@ -13,7 +13,6 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE,
     SECRET_INSEE_LOGIN,
     SECRET_INSEE_PASSWORD,
-    DATAGOUV_SECRET_API_KEY,
 )
 
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
@@ -169,7 +168,6 @@ def update_dataset_data_gouv(ti, **kwargs):
             obj["checksum"]["value"] = hashs[d["nameFTP"]]
 
         update_dataset_or_resource_metadata(
-            api_key=DATAGOUV_SECRET_API_KEY,
             payload=obj,
             dataset_id=d["dataset_id"],
             resource_id=d["resource_id"],

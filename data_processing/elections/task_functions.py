@@ -1,7 +1,6 @@
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -188,7 +187,6 @@ def publish_results_elections():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         remote_url=(
             f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
             f"/{AIRFLOW_ENV}/elections/general_results.csv"
@@ -206,7 +204,6 @@ def publish_results_elections():
     )
     print('Done with general results')
     post_remote_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         remote_url=(
             f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
             f"/{AIRFLOW_ENV}/elections/candidats_results.csv"

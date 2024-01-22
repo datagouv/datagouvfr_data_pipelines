@@ -14,7 +14,6 @@ from datagouvfr_data_pipelines.config import (
     TWITTER_ACCESS_TOKEN,
     TWITTER_SECRET_TOKEN,
     MATTERMOST_DATAGOUV_EDITO,
-    DATAGOUV_SECRET_API_KEY,
     DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import create_post
@@ -263,7 +262,6 @@ def create_edito_post(**kwargs):
     name = f"Suivi des sorties - {LAST_MONTH_DATE_STR}"
 
     data = create_post(
-        api_key=DATAGOUV_SECRET_API_KEY,
         name=name,
         headline=headline,
         content=content,

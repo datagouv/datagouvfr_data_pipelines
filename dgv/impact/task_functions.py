@@ -1,7 +1,6 @@
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_NOTION_KEY_IMPACT,
@@ -303,7 +302,6 @@ def publish_datagouv(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         remote_url=(
             f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
             "dgv/impact/statistiques_impact_datagouvfr.csv"
@@ -316,7 +314,6 @@ def publish_datagouv(DAG_FOLDER):
         description=f"Dernière modification : {datetime.today()})",
     )
     update_dataset_or_resource_metadata(
-        api_key=DATAGOUV_SECRET_API_KEY,
         payload={"temporal_coverage": {
             "start": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
