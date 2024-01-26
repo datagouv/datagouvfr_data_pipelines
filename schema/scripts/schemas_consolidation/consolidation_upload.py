@@ -2,7 +2,6 @@ from datagouvfr_data_pipelines.utils.schema import (
     upload_consolidated,
     update_reference_table,
     update_resource_send_mail_producer,
-    add_validata_report,
     update_consolidation_documentation_report,
     append_stats_list,
     create_detailed_report,
@@ -11,17 +10,12 @@ from datagouvfr_data_pipelines.utils.schema import (
 import os
 import pandas as pd
 import pickle
-import requests
 from ast import literal_eval
 
 
 def run_consolidation_upload(
     ti,
-    api_url: str,
-    api_key: str,
     tmp_path: str,
-    date_airflow: str,
-    schema_catalog: str,
     output_data_folder: str,
     config_path: str,
 ) -> None:
@@ -43,17 +37,8 @@ def run_consolidation_upload(
     with open(tmp_path / "schemas_report_dict.pickle", "rb") as f:
         schemas_report_dict = pickle.load(f)
 
-    consolidation_date_str = date_airflow.replace("-", "")
-
-    schemas_list_url = schema_catalog
-    schemas_catalogue_dict = requests.get(schemas_list_url).json()
-    schemas_catalogue_list = [
-        schema
-        for schema in schemas_catalogue_dict["schemas"]
-        if schema["schema_type"] == "tableschema"
-    ]
-
     # ## Upload
+    print("______________________")
     print('Uploading consolidated data')
     for schema_name in config_dict.keys():
         if config_dict[schema_name]["consolidate"]:
@@ -65,12 +50,12 @@ def run_consolidation_upload(
                 config_path,
                 schemas_report_dict,
                 consolidation_date_str,
-                api_key,
                 bool_upload_geojson=False,
             )
 
     # ## Schemas (versions) feedback loop on resources
     # ### Adding needed infos for each resource in reference tables
+    print("______________________")
     print('Adding infos to resources in reference table')
     for schema_name in config_dict.keys():
         update_reference_table(
@@ -79,25 +64,17 @@ def run_consolidation_upload(
         )
 
     # ### Updating resources schemas and sending comments/mails to notify producers
+    print("______________________")
     print('Adding schema to resources and emailing producers')
     for schema_name in config_dict.keys():
         update_resource_send_mail_producer(
             ref_tables_path,
             schema_name,
-            api_key,
-        )
-
-    # ### Add validata report to extras for each resource
-    print('Adding validata report in resources extras')
-    for schema_name in config_dict.keys():
-        add_validata_report(
-            ref_tables_path,
             validata_reports_path,
-            schema_name,
-            api_key,
         )
 
     # ## Updating consolidation documentation resource
+    print("______________________")
     print('Updating consolidated data documentation')
     for schema_name in config_dict.keys():
         if config_dict[schema_name]["consolidate"]:
@@ -107,11 +84,11 @@ def run_consolidation_upload(
                 config_path,
                 consolidation_date_str,
                 config_dict,
-                api_key,
             )
 
     # ## Consolidation Reports
     # ### Report by schema
+    print("______________________")
     print('Building consolidation reports')
     reports_list = []
 
@@ -158,6 +135,7 @@ def run_consolidation_upload(
     )
 
     # ## Detailed reports (by schema and resource source)
+    print("______________________")
     print('Creating detailed reports')
     for schema_name in config_dict.keys():
         create_detailed_report(
@@ -167,6 +145,7 @@ def run_consolidation_upload(
         )
 
     # %%
+    print("______________________")
     print('Final cleanup')
     tmp_folder = tmp_path.as_posix() + "/"
     final_directory_clean_up(

@@ -1,6 +1,11 @@
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
-    DATAGOUV_URL
+    DATAGOUV_URL,
+    post_resource,
+    create_dataset,
+    update_dataset_or_resource_metadata,
+    post_comment_on_dataset,
+    update_dataset_or_resource_extras,
 )
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -20,8 +25,8 @@ import chardet
 import pickle
 import emails
 import shutil
-from minio import Minio
 import pytz
+pd.set_option('display.max_columns', None)
 
 # DEV : for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://www.data.gouv.fr'
@@ -43,6 +48,53 @@ forced_validation = False
 if datetime.today().date().month == forced_validation_day.month:
     if datetime.today().date().day == forced_validation_day.day:
         forced_validation = True
+
+
+def load_config(config_path):
+    if os.path.exists(config_path):
+        with open(config_path, "r") as infile:
+            return yaml.safe_load(infile)
+    return {}
+
+
+def build_ref_table_name(schema_name):
+    return "ref_table_{}.csv".format(schema_name.replace("/", "_"))
+
+
+def build_consolidation_name(
+    schema_name,
+    version_name,
+    consolidation_date_str,
+    extension='csv'
+):
+    return "consolidation_{}_v_{}_{}.{}".format(
+        schema_name.replace("/", "_"),
+        version_name,
+        consolidation_date_str,
+        extension
+    )
+
+
+def build_report_prefix(
+    validata_reports_path,
+    schema_name,
+    dataset_id,
+    resource_id,
+):
+    return (
+        str(validata_reports_path)
+        + "/"
+        + schema_name.replace("/", "_")
+        + "_"
+        + dataset_id
+        + "_"
+        + resource_id
+        + "_"
+    )
+
+
+def comparer_versions(version):
+    return [int(part) if part.isnumeric() else np.inf for part in version.split('.')]
 
 
 def remove_old_schemas(
@@ -69,8 +121,7 @@ def get_schema_dict(
     for schema in schemas_catalogue_list:
         if schema["name"] == schema_name:
             return schema
-    print(f"No schema named '{schema_name}' found.")
-    return None
+    raise ValueError(f"No schema named '{schema_name}' found.")
 
 
 def add_most_recent_valid_version(df_ref: pd.DataFrame) -> pd.DataFrame:
@@ -83,18 +134,13 @@ def add_most_recent_valid_version(df_ref: pd.DataFrame) -> pd.DataFrame:
 
     df_ref["most_recent_valid_version"] = ""
 
-    for col in sorted(version_cols_list, reverse=True):
+    for col in sorted(version_cols_list, reverse=True, key=comparer_versions):
         df_ref.loc[
-            (df_ref["most_recent_valid_version"] == ""),
+            df_ref["most_recent_valid_version"] == "",
             "most_recent_valid_version",
-        ] = df_ref.loc[(df_ref["most_recent_valid_version"] == ""), col].apply(
+        ] = df_ref.loc[df_ref["most_recent_valid_version"] == "", col].apply(
             lambda x: x * col.replace("is_valid_v_", "")
         )
-
-    df_ref.loc[
-        (df_ref["most_recent_valid_version"] == ""),
-        "most_recent_valid_version",
-    ] = np.nan
 
     return df_ref
 
@@ -104,22 +150,15 @@ def add_schema_default_config(
     schema_name: str, config_path: str, schemas_catalogue_list: List[dict]
 ) -> None:
     schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
-    schema_title = schema_dict["title"]
 
     default_schema_config_dict = {
         "consolidate": False,
         "search_words": [
-            schema_title
+            schema_dict["title"]
         ],  # setting schema title as a default search keyword for resources
     }
 
-    if os.path.exists(config_path):
-        with open(config_path, "r") as infile:
-            config_dict = yaml.safe_load(infile)
-
-    else:
-        config_dict = {}
-
+    config_dict = load_config(config_path)
     config_dict[schema_name] = default_schema_config_dict
 
     with open(config_path, "w") as outfile:
@@ -131,10 +170,9 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
     fields = 'id,title,slug,page,organization,owner,'
     fields += 'resources{schema,url,id,title,last_modified,created_at,'
     fields += 'extras{check:headers:content-type,check:available}}'
-    mask = f"data{{{fields}}}"
     all_datasets = get_all_from_api_query(
         url,
-        mask=mask if 'api/2' not in url else None
+        mask=f"data{{{fields}}}" if 'api/2' not in url else None
     )
     # when using api/2, the resources are not directly accessible, so we use api/1 to get them
     if 'api/2' in url:
@@ -344,14 +382,12 @@ def save_validata_report(
             save_report["validation-report:validation_date"] = str(datetime.now(local_timezone))
 
         with open(
-            str(validata_reports_path)
-            + "/"
-            + schema_name.replace("/", "_")
-            + "_"
-            + dataset_id
-            + "_"
-            + resource_id
-            + "_"
+            build_report_prefix(
+                validata_reports_path,
+                schema_name,
+                dataset_id,
+                resource_id,
+            )
             + version
             + ".json",
             "w",
@@ -432,16 +468,13 @@ def get_schema_report(
         print("Total number of schemas:", len(schemas_catalogue_list))
 
         for schema in schemas_catalogue_list:
-            print("- {} ({} versions)".format(schema["name"], len(schema["versions"])))
+            print(f"- {schema['name']} ({len(schema['versions'])} versions)")
             schemas_report_dict[schema["name"]] = {"nb_versions": len(schema["versions"])}
 
         # Creating/updating config file with missing schemas
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                config_dict = yaml.safe_load(f)
+        config_dict = load_config(config_path)
+        if config_dict:
             config_dict = remove_old_schemas(config_dict, schemas_catalogue_list)
-        else:
-            config_dict = {}
 
     else:
         schemas_catalogue_list = [
@@ -458,16 +491,13 @@ def get_schema_report(
         )
         schemas_report_dict[schema_name] = {"nb_versions": len(schemas_catalogue_list[0]["versions"])}
         # Creating/updating config file with missing schemas
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                config_dict = yaml.safe_load(f)
+        config_dict = load_config(config_path)
+        if config_dict:
             config_dict = remove_old_schemas(
                 config_dict,
                 schemas_catalogue_list,
                 single_schema=True
             )
-        else:
-            config_dict = {}
 
     for schema in schemas_catalogue_list:
         if schema["name"] not in config_dict.keys():
@@ -496,10 +526,11 @@ def build_reference_table(
     ref_tables_path,
     should_succeed=False
 ):
-    print("- ℹ️ STARTING SCHEMA: {schema_name}")
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
     if forced_validation:
         print("🎂 Today is forced validation day!")
 
+    # only info about consolidation and publication
     schema_config = config_dict[schema_name]
 
     if schema_config["consolidate"]:
@@ -618,7 +649,7 @@ def build_reference_table(
             version_name = version["version_name"]
             if version_name not in drop_versions:
                 schema_url = version["schema_url"]
-                df["is_valid_v_{}".format(version_name)] = df.apply(
+                df[f"is_valid_v_{version_name}"] = df.apply(
                     lambda row: is_validata_valid_row(
                         row,
                         schema_url,
@@ -640,23 +671,21 @@ def build_reference_table(
         if len(version_names_list) > 0:
             # Check if resources are at least matching one schema version
             # (only those matching will be downloaded in next step)
-            df["is_valid_one_version"] = (
-                sum(
-                    [
-                        df["is_valid_v_{}".format(version_name)]
-                        for version_name in version_names_list
-                    ]
-                )
-                > 0
-            )
+            df["is_valid_one_version"] = sum(
+                [
+                    df[f"is_valid_v_{version_name}"]
+                    for version_name in version_names_list
+                ]
+            ) > 0
             schemas_report_dict[schema_name]["nb_valid_resources"] = df[
                 "is_valid_one_version"
             ].sum()
             df = add_most_recent_valid_version(df)
+            print(df)
             df.to_csv(
                 os.path.join(
                     ref_tables_path,
-                    "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+                    f'ref_table_{schema_name.replace("/", "_")}.csv',
                 ),
                 index=False,
             )
@@ -691,7 +720,7 @@ def download_schema_files(
 
     ref_table_path = os.path.join(
         ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+        build_ref_table_name(schema_name),
     )
 
     if os.path.exists(ref_table_path):
@@ -715,7 +744,7 @@ def download_schema_files(
                     file_extension = row["resource_extension"]
                     written_filename = f"{row['resource_id']}.{file_extension}"
 
-                    with open("{}/{}".format(p, written_filename), "wb") as f:
+                    with open(f"{p}/{written_filename}", "wb") as f:
                         f.write(r.content)
 
                     df_ref.loc[
@@ -734,6 +763,7 @@ def download_schema_files(
                             row["resource_title"], rurl
                         )
                     )
+                    print("Error looks like this:", r.text)
             session.close()
 
         else:
@@ -781,7 +811,7 @@ def consolidate_data(
 
         ref_table_path = os.path.join(
             ref_tables_path,
-            "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+            build_ref_table_name(schema_name),
         )
         df_ref = pd.read_csv(
             ref_table_path
@@ -789,7 +819,7 @@ def consolidate_data(
 
         # We will test if downloaded files are empty or not (so we set default values)
         df_ref["is_empty"] = np.nan
-        df_ref.loc[(df_ref["is_downloaded"]), "is_empty"] = False
+        df_ref.loc[df_ref["is_downloaded"], "is_empty"] = False
 
         schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
 
@@ -861,7 +891,11 @@ def consolidate_data(
                                     keep_default_na=False,
                                     engine="openpyxl",
                                 )
+                        except Exception as e:
+                            print("Pb on reading resource: ", file_path)
+                            print(e)
 
+                        try:
                             # Remove potential blanks in column names
                             df_r.columns = [c.replace(' ', '') for c in df_r.columns]
                             # Remove potential unwanted characters
@@ -917,8 +951,9 @@ def consolidate_data(
                                     (df_ref["resource_id"] == row["resource_id"]),
                                     "is_empty",
                                 ] = True
-                        except:
-                            print("Pb on reading resource - {}".format(file_path))
+                        except Exception as e:
+                            print("Pb on cleaning resource:", file_path)
+                            print(e)
 
                     if len(df_r_list) >= MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE:
                         df_conso = pd.concat(df_r_list, ignore_index=True)
@@ -941,10 +976,10 @@ def consolidate_data(
                         df_conso.to_csv(
                             os.path.join(
                                 schema_consolidated_data_path,
-                                "consolidation_{}_v_{}_{}.csv".format(
-                                    schema_name.replace("/", "_"),
+                                build_consolidation_name(
+                                    schema_name,
                                     version_name,
-                                    consolidation_date_str,
+                                    consolidation_date_str
                                 ),
                             ),
                             index=False,
@@ -989,15 +1024,14 @@ def consolidate_data(
 
 # Creates a dataset on data.gouv.fr for consolidation files (used only if does not exist yet in config file)
 def create_schema_consolidation_dataset(
-    schema_name, schemas_catalogue_list, api_url, headers
+    schema_name, schemas_catalogue_list,
 ):
     global datasets_description_template, datasets_title_template
 
     schema_title = get_schema_dict(schema_name, schemas_catalogue_list)["title"]
 
-    response = requests.post(
-        api_url + "datasets/",
-        json={
+    response = create_dataset(
+        payload={
             "title": datasets_title_template.format(schema_title=schema_title),
             "description": datasets_description_template.format(
                 schema_name=schema_name
@@ -1005,7 +1039,6 @@ def create_schema_consolidation_dataset(
             "organization": "534fff75a3a7292c64a77de4",
             "license": "lov2",
         },
-        headers=headers,
     )
     response.raise_for_status()
 
@@ -1014,8 +1047,7 @@ def create_schema_consolidation_dataset(
 
 # Generic function to update a field (key) in the config file
 def update_config_file(schema_name, key, value, config_path):
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
+    config_dict = load_config(config_path)
 
     config_dict[schema_name][key] = value
 
@@ -1025,8 +1057,7 @@ def update_config_file(schema_name, key, value, config_path):
 
 # Adds the resource ID of the consolidated file for a given schema version in the config file
 def update_config_version_resource_id(schema_name, version_name, r_id, config_path):
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
+    config_dict = load_config(config_path)
 
     if "latest_resource_ids" not in config_dict[schema_name]:
         config_dict[schema_name]["latest_resource_ids"] = {version_name: r_id}
@@ -1046,18 +1077,8 @@ def is_schema_version_to_update(row):
 
     return (
         (resource_found_by == "1 - schema request")
-        and (most_recent_valid_version == most_recent_valid_version)
         and (initial_version_name != most_recent_valid_version)
     )
-
-
-# Returns if resource schema (version) metadata should
-# be added or not based on what we know about the resource
-def is_schema_to_add(row):
-    resource_found_by = row["resource_found_by"]
-    is_valid_one_version = row["is_valid_one_version"]
-
-    return (resource_found_by != "1 - schema request") and is_valid_one_version
 
 
 # Returns if resource schema (version) metadata should
@@ -1071,111 +1092,334 @@ def is_schema_to_drop(row):
     )
 
 
-# Function that adds a schema (version) metadata on a resource
-def add_resource_schema(
-    api_url: str,
-    dataset_id: str,
-    resource_id: str,
-    schema_name: str,
-    version_name: str,
-    headers: Dict[str, str],
-) -> bool:
-    schema = {"name": schema_name, "version": version_name}
+def update_resource_metadata(
+    schema_name,
+    version_name,
+    dataset_id,
+    resource_id,
+    validata_report_path,
+    api_url,
+    update_version,
+    should_succeed,
+):
+    """
+    What we are doing here:
+    - if validation_report is made from the resource's metadata (see make_validata_report
+    for the logic with hydra), we don't touch anything
+    - if the report is from validata:
+        * if the resource already has a schema in its metadata:
+            > if it's not the same schema as the one we're currently processing (can happen if keywords
+            are too vague or for datapackages for instance), we don't touch anything
+            > if it's the same schema:
+                ¤ if the resource is valid for at least one version, we put the highest valid version
+                in schema metadata and the corresponding report in extras
+                ¤ if the resource is not valid for any version, we don't touch the schema metadata
+                (so no version), and we update the extras with the validation report from the latest version
+        * if the resource doesn't have a schema metadata:
+            > if the resource is valid for at least one version, we put the highest valid version in
+            schema metadata and the corresponding report in extras
+            > if the resource is not valid for any version, we don't touch anything
+    """
+    if os.path.isfile(validata_report_path):
+        schema_from_consolidation = {"name": schema_name, "version": version_name}
+        with open(validata_report_path) as out:
+            validation_report = json.load(out)
 
-    try:
-        url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-        r = requests.get(url, headers=headers.update({'X-fields': 'extras'}))
-        r.raise_for_status()
-        extras = r.json()["extras"]
-    except:
-        extras = {}
+        print("_____________________________")
+        print(f"Updating metadata for {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+        if validation_report.get("from_metadata"):
+            print("report is made from metadata and unchanged, passing")
+            return True
 
-    extras["consolidation_schema:add_schema"] = schema_name
+        try:
+            url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
+            r = requests.get(url, headers={"X-fields": "schema"})
+            r.raise_for_status()
+            schema_from_resource = r.json()["schema"]
+            # if the resource already has a schema mentionned in its metadata, we don't
+            # change it, we display how it is, but don't throw an error anymore
+            if schema_from_resource and schema_from_resource.get("name") != schema_name:
+                print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+                print("Schema metadata error, it looks like this:", schema_from_resource)
+                print("while this report is about", schema_name)
+                return True
+        except Exception as e:
+            print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
+            print("Schema:", schema_name)
+            print("URL:", url)
+            print("Error:", e)
+            if should_succeed:
+                return False
 
-    obj = {"schema": schema, "extras": extras}
-
-    url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-    response = requests.put(url, json=obj, headers=headers)
-
-    if response.status_code != 200:
-        print(
-            "🔴 Schema could not be added on resource. Dataset ID: {} - Resource ID: {}".format(
-                dataset_id, resource_id
-            )
+        reponse_extras = update_dataset_or_resource_extras(
+            payload=validation_report,
+            dataset_id=dataset_id,
+            resource_id=resource_id,
         )
+        if reponse_extras.status_code != 200:
+            print("🔴 Schema could not be added to extras")
+            if should_succeed:
+                return False
+        else:
+            print("Schema extras updated with:", validation_report)
 
-    return response.status_code == 200
+        if update_version:
+            obj = {"schema": schema_from_consolidation}
+            print(obj)
 
-
-# Function that updates a schema (version) metadata on a resource
-def update_resource_schema(
-    api_url: str,
-    dataset_id: str,
-    resource_id: str,
-    schema_name: str,
-    version_name: str,
-    headers: Dict[str, str],
-) -> bool:
-    schema = {"name": schema_name, "version": version_name}
-
-    try:
-        url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-        r = requests.get(url, headers=headers.update({'X-fields': 'extras'}))
-        r.raise_for_status()
-        extras = r.json()["extras"]
-    except:
-        extras = {}
-
-    extras["consolidation_schema:update_schema"] = schema_name
-
-    obj = {"schema": schema, "extras": extras}
-
-    url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-    response = requests.put(url, json=obj, headers=headers)
-
-    if response.status_code != 200:
-        print(
-            "🔴 Resource schema could not be updated. Dataset ID: {} - Resource ID: {}".format(
-                dataset_id, resource_id
+            response = update_dataset_or_resource_metadata(
+                payload=obj,
+                dataset_id=dataset_id,
+                resource_id=resource_id,
             )
-        )
 
-    return response.status_code == 200
+            if response.status_code != 200:
+                print("🔴 Schema could not be added on resource")
+                if should_succeed:
+                    return False
+            else:
+                print("Schema metadata updated with:", obj)
+        else:
+            print("Not updating schema metadata")
+
+        return reponse_extras.status_code == 200
+    return True
 
 
-# Function that deletes a schema (version) metadata on a resource
-def delete_resource_schema(
-    api_url: str,
-    dataset_id: str,
-    resource_id: str,
+def upload_geojson(
+    schema_consolidated_data_path: str,
+    consolidation_date_str: str,
     schema_name: str,
-    headers: Dict[str, str],
+    config_dict: dict,
+    should_succeed=False
 ) -> bool:
-    schema = {}
 
-    try:
-        url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-        r = requests.get(url, headers=headers.update({'X-fields': 'extras'}))
-        r.raise_for_status()
-        extras = r.json()["extras"]
-    except:
-        extras = {}
+    geojson_version_names_list = sorted(
+        [
+            filename.replace(
+                "consolidation_" + schema_name.replace("/", "_") + "_v_",
+                "",
+            ).replace("_" + consolidation_date_str + ".json", "")
+            for filename in os.listdir(schema_consolidated_data_path)
+            if filename.endswith(".json") and not filename.startswith(".")
+        ]
+    )
+    if len(geojson_version_names_list) > 1:
+        print("Warning: multiple versions of GeoJSON found for {}".format(schema_name))
 
-    extras["consolidation_schema:remove_schema"] = schema_name
+    # Uploading file
+    consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
+    r_id = config_dict[schema_name]["geojson_resource_id"]
+    expected_status_code = 200
 
-    obj = {"schema": schema, "extras": extras}
+    obj = {}
+    obj["type"] = "main"
+    obj["title"] = "Export au format geojson"
+    obj["format"] = "json"
+    response = post_resource(
+        file_to_upload={
+            'dest_path': schema_consolidated_data_path.as_posix(),
+            'dest_name': build_consolidation_name(
+                schema_name,
+                geojson_version_names_list[-1],
+                consolidation_date_str,
+                extension='json'
+            ),
+        },
+        dataset_id=consolidated_dataset_id,
+        resource_id=r_id,
+        resource_payload=obj
+    )
 
-    url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-    response = requests.put(url, json=obj, headers=headers)
-
-    if response.status_code != 200:
+    if response.status_code != expected_status_code:
+        print("--- ⚠️: GeoJSON file could not be uploaded.")
+        print(response.text)
+        if should_succeed:
+            return False
+    else:
         print(
-            "🔴 Resource schema could not be deleted. Dataset ID: {} - Resource ID: {}".format(
-                dataset_id, resource_id
-            )
+            "--- ✅ Successfully updated GeoJSON file with metadata."
         )
+    return True
 
-    return response.status_code == 200
+
+def upload_consolidated(
+    schema_name,
+    consolidated_data_path,
+    config_dict,
+    schemas_catalogue_list,
+    config_path,
+    schemas_report_dict,
+    consolidation_date_str,
+    bool_upload_geojson,
+    should_succeed=False
+):
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
+
+    schema_consolidated_data_path = Path(
+        consolidated_data_path
+    ) / schema_name.replace("/", "_")
+    if os.path.exists(schema_consolidated_data_path):
+        # Check if dataset_id is in config. If not, create a dataset on datagouv
+        schema_config = config_dict[schema_name]
+        if schema_config.get("publication"):
+            if "consolidated_dataset_id" not in schema_config.keys():
+                response = create_schema_consolidation_dataset(
+                    schema_name, schemas_catalogue_list,
+                )
+                if response.status_code == 201:
+                    consolidated_dataset_id = response.json()["id"]
+                    update_config_file(
+                        schema_name,
+                        "consolidated_dataset_id",
+                        consolidated_dataset_id,
+                        config_path,
+                    )
+                    print(
+                        "-- 🟢 No consolidation dataset for this schema"
+                        f" - Successfully created (id: {consolidated_dataset_id})"
+                    )
+                else:
+                    print(
+                        "-- 🔴 No consolidation dataset for this schema - Failed to create one"
+                    )
+            else:
+                consolidated_dataset_id = schema_config["consolidated_dataset_id"]
+
+            schemas_report_dict[schema_name]["consolidated_dataset_id"] = consolidated_dataset_id
+
+            # Creating last consolidation resources
+            version_names_list = [
+                filename.replace(
+                    "consolidation_" + schema_name.replace("/", "_") + "_v_",
+                    "",
+                ).replace("_" + consolidation_date_str + ".csv", "")
+                for filename in os.listdir(schema_consolidated_data_path)
+                if filename.endswith(".csv") and not filename.startswith(".")
+            ]
+
+            for version_name in sorted(version_names_list):
+                schema = {"name": schema_name, "version": version_name}
+                obj = {}
+                obj["schema"] = schema
+                obj["type"] = "main"
+                obj[
+                    "title"
+                ] = "Dernière version consolidée (v{} du schéma) - {}".format(
+                    version_name, consolidation_date_str
+                )
+                obj["format"] = "csv"
+
+                # Uploading file (creating a new resource if version was not there before)
+                try:
+                    r_id = config_dict[schema_name]["latest_resource_ids"][
+                        version_name
+                    ]
+                    r_to_create = False
+                    expected_status_code = 200
+
+                except KeyError:
+                    r_id = None
+                    r_to_create = True
+                    expected_status_code = 201
+
+                response = post_resource(
+                    file_to_upload={
+                        'dest_path': schema_consolidated_data_path.as_posix(),
+                        'dest_name': build_consolidation_name(
+                            schema_name,
+                            version_name,
+                            consolidation_date_str
+                        ),
+                    },
+                    dataset_id=consolidated_dataset_id,
+                    resource_id=r_id,
+                    resource_payload=obj,
+                )
+
+                if response.status_code == expected_status_code:
+                    if r_to_create:
+                        r_id = response.json()["id"]
+                        update_config_version_resource_id(
+                            schema_name, version_name, r_id, config_path
+                        )
+                        print(
+                            "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
+                                schema_name,
+                                version_name,
+                                r_id,
+                            )
+                        )
+                    else:
+                        print(
+                            "--- ✅ Updated consolidation for {} v{} (id: {})".format(
+                                schema_name,
+                                version_name,
+                                r_id,
+                            )
+                        )
+                else:
+                    r_id = None
+                    print(
+                        f"--- ⚠️ Version {version_name}: file could not be uploaded."
+                    )
+                    print(response.text)
+                    if should_succeed:
+                        return False
+
+            # Upload GeoJSON file (e.g IRVE)
+            if bool_upload_geojson:
+                upload_success = upload_geojson(
+                    schema_consolidated_data_path,
+                    consolidation_date_str,
+                    schema_name,
+                    config_dict,
+                    should_succeed
+                )
+        else:
+            schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
+            print("-- ❌ No publication for this schema.")
+            if should_succeed:
+                return False
+
+    else:
+        schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
+        print("-- ❌ No consolidated file for this schema.")
+        if should_succeed:
+            return False
+    if should_succeed:
+        return upload_success
+    return True
+
+
+def update_reference_table(
+    ref_tables_path,
+    schema_name,
+    should_succeed=False
+):
+    # this is done after table is uploaded, in order not to publish these columns
+    ref_table_path = os.path.join(
+        ref_tables_path,
+        build_ref_table_name(schema_name),
+    )
+
+    if os.path.isfile(ref_table_path):
+        df_ref = pd.read_csv(ref_table_path)
+
+        df_ref["is_schema_version_to_update"] = df_ref.apply(
+            is_schema_version_to_update, axis=1
+        )
+        df_ref["is_schema_to_drop"] = df_ref.apply(is_schema_to_drop, axis=1)
+
+        df_ref.to_csv(ref_table_path, index=False)
+
+        print(f"- ✅ Infos added for schema {schema_name}")
+
+    else:
+        print(f"- ❌ No reference table for schema {schema_name}")
+        if should_succeed:
+            return False
+    return True
 
 
 # Get the (list of) e-mail address(es) of the owner or of the admin(s) of the owner organization of a dataset
@@ -1246,395 +1490,18 @@ def send_email(
     return _
 
 
-# Function to post a comment on a dataset
-def post_comment_on_dataset(dataset_id, title, comment, api_url):
-    global HEADER
-
-    post_object = {
-        "title": title,
-        "comment": comment,
-        "subject": {"class": "Dataset", "id": dataset_id},
-    }
-
-    _ = requests.post(api_url + "discussions/", json=post_object, headers=HEADER)
-    _.raise_for_status()
-    return _
-
-
-def add_validation_extras(
-    dataset_id,
-    resource_id,
-    validata_report_path,
-    api_url,
-    headers,
-    schema_name,
-    should_succeed
-):
-    if os.path.isfile(validata_report_path):
-        with open(validata_report_path) as out:
-            validation_report = json.load(out)
-
-        print("_____________________________")
-        if validation_report.get("from_metadata"):
-            print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
-            print("report is made from metadata and unchanged, passing")
-            return True
-
-        try:
-            url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-            r = requests.get(url, headers=headers)
-            r.raise_for_status()
-            extras = r.json()["extras"]
-            schema = r.json()["schema"]
-            # if the resource already has a schema mentionned in its metadata, we don't
-            # change it, we display how it is, but don't throw an error anymore
-            if schema and "name" in schema and schema["name"] != schema_name:
-                print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
-                print("Schema metadata error, it looks like this:", schema)
-                print("while trying to set it to", schema_name)
-                return True
-        except Exception as e:
-            print("abnormal exception (or you're in dev mode (mismatch datagouv URL and ids)? 🧑‍💻)")
-            print("Schema:", schema_name)
-            print("URL:", url)
-            print("Error:", e)
-            extras = {}
-            if should_succeed:
-                return False
-
-        extras = {**extras, **validation_report}
-
-        obj = {"extras": extras}
-
-        url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
-        response = requests.put(url, json=obj, headers=headers)
-
-        if response.status_code != 200:
-            print(
-                "🔴 Schema could not be added on resource. Dataset ID: {} - Resource ID: {}".format(
-                    dataset_id, resource_id
-                )
-            )
-            if should_succeed:
-                return False
-        else:
-            print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
-            print("Schema metadata updated with:", schema)
-
-        return response.status_code == 200
-    return True
-
-
-def upload_geojson(
-    api_url: str,
-    api_key: str,
-    schema_consolidated_data_path: str,
-    consolidation_date_str: str,
-    schema_name: str,
-    config_dict: dict,
-    should_succeed=False
-) -> bool:
-    headers = {
-        "X-API-KEY": api_key,
-    }
-
-    geojson_version_names_list = sorted(
-        [
-            filename.replace(
-                "consolidation_" + schema_name.replace("/", "_") + "_v_",
-                "",
-            ).replace("_" + consolidation_date_str + ".json", "")
-            for filename in os.listdir(schema_consolidated_data_path)
-            if filename.endswith(".json") and not filename.startswith(".")
-        ]
-    )
-    if len(geojson_version_names_list) > 1:
-        print("Warning: multiple versions of GeoJSON found for {}".format(schema_name))
-
-    geojson_path = os.path.join(
-        schema_consolidated_data_path,
-        "consolidation_{}_v_{}_{}.json".format(
-            schema_name.replace("/", "_"),
-            geojson_version_names_list[-1],
-            consolidation_date_str,
-        ),
-    )
-
-    # Uploading file
-    consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
-    r_id = config_dict[schema_name]["geojson_resource_id"]
-    url = (
-        api_url
-        + "datasets/"
-        + consolidated_dataset_id
-        + "/resources/"
-        + r_id
-        + "/upload/"
-    )
-    expected_status_code = 200
-
-    with open(geojson_path, "rb") as file:
-        files = {"file": (geojson_path.split("/")[-1], file.read())}
-
-    response = requests.post(url, files=files, headers=headers)
-
-    if response.status_code != expected_status_code:
-        print("--- ⚠️: GeoJSON file could not be uploaded.")
-        if should_succeed:
-            return False
-    else:
-        obj = {}
-        obj["type"] = "main"
-        obj["title"] = "Export au format geojson"
-        obj["format"] = "json"
-
-        r_url = api_url + f"datasets/{consolidated_dataset_id}/resources/{r_id}/"
-        r_response = requests.put(r_url, json=obj, headers=headers)
-
-        if r_response.status_code == 200:
-            print(
-                "--- ✅ Successfully updated GeoJSON file with metadata."
-            )
-        else:
-            print(
-                "--- ⚠️: file uploaded but metadata could not be updated."
-            )
-            if should_succeed:
-                return False
-    return True
-
-
-def upload_consolidated(
-    schema_name,
-    consolidated_data_path,
-    config_dict,
-    schemas_catalogue_list,
-    config_path,
-    schemas_report_dict,
-    consolidation_date_str,
-    api_key,
-    bool_upload_geojson,
-    should_succeed=False
-):
-    headers = {
-        "X-API-KEY": api_key,
-    }
-    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
-
-    schema_consolidated_data_path = Path(
-        consolidated_data_path
-    ) / schema_name.replace("/", "_")
-    if os.path.exists(schema_consolidated_data_path):
-        # Check if dataset_id is in config. If not, create a dataset on datagouv
-        schema_config = config_dict[schema_name]
-        if ("publication" in schema_config.keys()) and schema_config[
-            "publication"
-        ]:
-            if "consolidated_dataset_id" not in schema_config.keys():
-                response = create_schema_consolidation_dataset(
-                    schema_name, schemas_catalogue_list, api_url, headers
-                )
-                if response.status_code == 201:
-                    consolidated_dataset_id = response.json()["id"]
-                    update_config_file(
-                        schema_name,
-                        "consolidated_dataset_id",
-                        consolidated_dataset_id,
-                        config_path,
-                    )
-                    print(
-                        "-- 🟢 No consolidation dataset for this schema"
-                        " - Successfully created (id: {})".format(
-                            consolidated_dataset_id
-                        )
-                    )
-                else:
-                    print(
-                        "-- 🔴 No consolidation dataset for this schema - Failed to create one"
-                    )
-            else:
-                consolidated_dataset_id = schema_config["consolidated_dataset_id"]
-
-            schemas_report_dict[schema_name][
-                "consolidated_dataset_id"
-            ] = consolidated_dataset_id
-
-            # Creating last consolidation resources
-            version_names_list = [
-                filename.replace(
-                    "consolidation_" + schema_name.replace("/", "_") + "_v_",
-                    "",
-                ).replace("_" + consolidation_date_str + ".csv", "")
-                for filename in os.listdir(schema_consolidated_data_path)
-                if filename.endswith(".csv") and not filename.startswith(".")
-            ]
-
-            for version_name in sorted(version_names_list):
-                schema = {"name": schema_name, "version": version_name}
-                obj = {}
-                obj["schema"] = schema
-                obj["type"] = "main"
-                obj[
-                    "title"
-                ] = "Dernière version consolidée (v{} du schéma) - {}".format(
-                    version_name, consolidation_date_str
-                )
-                obj["format"] = "csv"
-
-                file_path = os.path.join(
-                    schema_consolidated_data_path,
-                    "consolidation_{}_v_{}_{}.csv".format(
-                        schema_name.replace("/", "_"),
-                        version_name,
-                        consolidation_date_str,
-                    ),
-                )
-
-                # Uploading file (creating a new resource if version was not there before)
-                try:
-                    r_id = config_dict[schema_name]["latest_resource_ids"][
-                        version_name
-                    ]
-                    url = (
-                        api_url
-                        + "datasets/"
-                        + consolidated_dataset_id
-                        + "/resources/"
-                        + r_id
-                        + "/upload/"
-                    )
-                    r_to_create = False
-                    expected_status_code = 200
-
-                except KeyError:
-                    url = (
-                        api_url + "datasets/" + consolidated_dataset_id + "/upload/"
-                    )
-                    r_to_create = True
-                    expected_status_code = 201
-
-                with open(file_path, "rb") as file:
-                    files = {"file": (file_path.split("/")[-1], file.read())}
-
-                response = requests.post(url, files=files, headers=headers)
-
-                if response.status_code == expected_status_code:
-                    if r_to_create:
-                        r_id = response.json()["id"]
-                        update_config_version_resource_id(
-                            schema_name, version_name, r_id, config_path
-                        )
-                        print(
-                            "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
-                                schema_name,
-                                version_name,
-                                r_id,
-                            )
-                        )
-                else:
-                    r_id = None
-                    print(
-                        f"--- ⚠️ Version {version_name}: file could not be uploaded."
-                    )
-                    if should_succeed:
-                        return False
-
-                if r_id is not None:
-                    r_url = api_url + f"datasets/{consolidated_dataset_id}/resources/{r_id}/"
-                    r_response = requests.put(r_url, json=obj, headers=headers)
-
-                    if r_response.status_code == 200:
-                        if r_to_create:
-                            print(
-                                "--- ✅ Version {}: Successfully created consolidated file.".format(
-                                    version_name
-                                )
-                            )
-                        else:
-                            print(
-                                "--- ✅ Version {}: Successfully updated consolidated file.".format(
-                                    version_name
-                                )
-                            )
-                    else:
-                        print(
-                            "--- ⚠️ Version {}: file uploaded but metadata could not be updated.".format(
-                                version_name
-                            )
-                        )
-                        if should_succeed:
-                            return False
-
-            # Update GeoJSON file (e.g IRVE)
-            if bool_upload_geojson:
-                upload_success = upload_geojson(
-                    api_url,
-                    api_key,
-                    schema_consolidated_data_path,
-                    consolidation_date_str,
-                    schema_name,
-                    config_dict,
-                    should_succeed
-                )
-        else:
-            schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
-            print("-- ❌ No publication for this schema.")
-            if should_succeed:
-                return False
-
-    else:
-        schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
-        print("-- ❌ No consolidated file for this schema.")
-        if should_succeed:
-            return False
-    if should_succeed:
-        return upload_success
-    return True
-
-
-def update_reference_table(
-    ref_tables_path,
-    schema_name,
-    should_succeed=False
-):
-    ref_table_path = os.path.join(
-        ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
-    )
-
-    if os.path.isfile(ref_table_path):
-        df_ref = pd.read_csv(ref_table_path)
-
-        df_ref = add_most_recent_valid_version(df_ref)
-        df_ref["is_schema_version_to_update"] = df_ref.apply(
-            is_schema_version_to_update, axis=1
-        )
-        df_ref["is_schema_to_add"] = df_ref.apply(is_schema_to_add, axis=1)
-        df_ref["is_schema_to_drop"] = df_ref.apply(is_schema_to_drop, axis=1)
-
-        df_ref.to_csv(ref_table_path, index=False)
-
-        print("- ✅ Infos added for schema {schema_name}")
-
-    else:
-        print("- ❌ No reference table for schema {schema_name}")
-        if should_succeed:
-            return False
-    return True
-
-
 def update_resource_send_mail_producer(
     ref_tables_path,
     schema_name,
-    api_key,
-    should_succeed=False
+    validata_reports_path,
+    should_succeed=False,
+    send_mails=False,
 ):
-    headers = {
-        "X-API-KEY": api_key,
-    }
+    print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
+
     ref_table_path = os.path.join(
         ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+        build_ref_table_name(schema_name),
     )
 
     if os.path.isfile(ref_table_path):
@@ -1643,21 +1510,56 @@ def update_resource_send_mail_producer(
         df_ref["producer_notification_success"] = np.nan
 
         for idx, row in df_ref.iterrows():
-            if row["is_schema_version_to_update"]:
-                resource_update_success = update_resource_schema(
-                    api_url,
-                    row["dataset_id"],
-                    row["resource_id"],
-                    schema_name,
-                    row["most_recent_valid_version"],
-                    headers,
+            validata_report_path = build_report_prefix(
+                validata_reports_path,
+                schema_name,
+                row['dataset_id'],
+                row['resource_id'],
+            )
+            # whether or not to update the version in schema metadata
+            update_version = False
+            # If there is a valid version, put validata report from it
+            if isinstance(row["most_recent_valid_version"], str):
+                validata_report_path += row["most_recent_valid_version"] + ".json"
+                update_version = True
+            # Else, check if declarative version ; not setting the version in metadata
+            else:
+                # If so, put validation report from it
+                if isinstance(row["initial_version_name"], str):
+                    validata_report_path += row["initial_version_name"] + ".json"
+                # If not, put validation report from latest version
+                else:
+                    validata_report_path += (
+                        max(
+                            [
+                                x.replace("is_valid_v_", "")
+                                for x in list(row.keys())
+                                if "is_valid_v_" in x
+                            ], key=comparer_versions
+                        )
+                        + ".json"
+                    )
+            if row["is_schema_version_to_update"] or row["is_valid_one_version"]:
+                resource_update_success = update_resource_metadata(
+                    schema_name=schema_name,
+                    version_name=row["most_recent_valid_version"],
+                    dataset_id=row["dataset_id"],
+                    resource_id=row["resource_id"],
+                    validata_report_path=validata_report_path,
+                    api_url=api_url,
+                    update_version=update_version,
+                    should_succeed=should_succeed,
                 )
                 df_ref.loc[
                     (df_ref["resource_id"] == row["resource_id"]),
                     "resource_schema_update_success",
                 ] = resource_update_success
 
-                if resource_update_success:
+            # for now no email is sent
+            if send_mails:
+                if resource_update_success and (
+                    row["is_schema_version_to_update"] or row["is_valid_one_version"]
+                ):
                     title = "Mise à jour de la version de la métadonnée schéma"
                     comment = updated_schema_comment_template.format(
                         resource_title=row["resource_title"],
@@ -1683,21 +1585,6 @@ def update_resource_send_mail_producer(
                         "producer_notification_success",
                     ] = False
 
-            elif row["is_schema_to_add"]:
-                resource_update_success = add_resource_schema(
-                    api_url,
-                    row["dataset_id"],
-                    row["resource_id"],
-                    schema_name,
-                    row["most_recent_valid_version"],
-                    headers,
-                )
-                df_ref.loc[
-                    (df_ref["resource_id"] == row["resource_id"]),
-                    "resource_schema_update_success",
-                ] = resource_update_success
-
-                if resource_update_success:
                     # title = "Ajout de la métadonnée schéma"
                     # comment = added_schema_comment_template.format(
                     #     resource_title=row["resource_title"],
@@ -1721,97 +1608,97 @@ def update_resource_send_mail_producer(
                         "producer_notification_success",
                     ] = False
 
-            # Right now, we don't drop schema and do no notification
-            elif row["is_schema_to_drop"]:
-                #    resource_update_success = delete_resource_schema(
-                #        api_url,
-                #        row['dataset_id'],
-                #        row['resource_id'],
-                #        schema_name,
-                #        headers
-                #     )
-                #    df_ref.loc[
-                #        (df_ref['resource_id'] == row['resource_id']),
-                #        'resource_schema_update_success'
-                #     ] = resource_update_success
-                #
-                #    if resource_update_success:
-                #        title = 'Suppression de la métadonnée schéma'
-                #
-                #       mails_type, mails_list = get_owner_or_admin_mails(
-                #           row['dataset_id'],
-                #           api_url,
-                #           headers
-                #        )
-                #
-                #        if len(mails_list) > 0 : #If we found some email addresses, we send mails
-                #
-                #            if mails_type == 'organisation_admins' :
-                #               message = deleted_schema_mail_template_org.format(
-                #                    organisation_name=row['organization_or_owner'],
-                #                    dataset_title=row['dataset_title'],
-                #                    resource_title=row['resource_title'],
-                #                    schema_name=schema_name,
-                #                    schema_url=get_schema_dict(
-                #                        schema_name,
-                #                        schemas_catalogue_list
-                #                    )['schema_url'],
-                #                    resource_url=row['resource_url']
-                #                )
-                #            elif mails_type == 'owner' :
-                #               message = deleted_schema_mail_template_own.format(
-                #                    dataset_title=row['dataset_title'],
-                #                    resource_title=row['resource_title'],
-                #                    schema_name=schema_name,
-                #                    schema_url=get_schema_dict(
-                #                        schema_name,
-                #                        schemas_catalogue_list
-                #                    )['schema_url'],
-                #                    resource_url=row['resource_url']
-                #                )
-                #
-                #
-                #            #Sending mail
-                #
-                #            producer_notification_success_list = []
-                #            print('- {} | {}:'.format(row['dataset_title'], row['resource_title']))
-                #            for mail_to in mails_list :
-                #                #mail_send = send_email(subject=title,
-                #                #                       message=message,
-                #                #                       mail_from=mail_from,
-                #                #                       mail_to=mail_to,
-                #                #                       smtp_host=smtp_host,
-                #                #                       smtp_user=smtp_user,
-                #                #                       smtp_password=smtp_password)
+                # Right now, we don't drop schema and do no notification
+                # elif row["is_schema_to_drop"]:
+                    #    resource_update_success = delete_resource_schema(
+                    #        api_url,
+                    #        row['dataset_id'],
+                    #        row['resource_id'],
+                    #        schema_name,
+                    #        headers
+                    #     )
+                    #    df_ref.loc[
+                    #        (df_ref['resource_id'] == row['resource_id']),
+                    #        'resource_schema_update_success'
+                    #     ] = resource_update_success
+                    #
+                    #    if resource_update_success:
+                    #        title = 'Suppression de la métadonnée schéma'
+                    #
+                    #       mails_type, mails_list = get_owner_or_admin_mails(
+                    #           row['dataset_id'],
+                    #           api_url,
+                    #           headers
+                    #        )
+                    #
+                    #        if len(mails_list) > 0 : #If we found some email addresses, we send mails
+                    #
+                    #            if mails_type == 'organisation_admins' :
+                    #               message = deleted_schema_mail_template_org.format(
+                    #                    organisation_name=row['organization_or_owner'],
+                    #                    dataset_title=row['dataset_title'],
+                    #                    resource_title=row['resource_title'],
+                    #                    schema_name=schema_name,
+                    #                    schema_url=get_schema_dict(
+                    #                        schema_name,
+                    #                        schemas_catalogue_list
+                    #                    )['schema_url'],
+                    #                    resource_url=row['resource_url']
+                    #                )
+                    #            elif mails_type == 'owner' :
+                    #               message = deleted_schema_mail_template_own.format(
+                    #                    dataset_title=row['dataset_title'],
+                    #                    resource_title=row['resource_title'],
+                    #                    schema_name=schema_name,
+                    #                    schema_url=get_schema_dict(
+                    #                        schema_name,
+                    #                        schemas_catalogue_list
+                    #                    )['schema_url'],
+                    #                    resource_url=row['resource_url']
+                    #                )
+                    #
+                    #
+                    #            #Sending mail
+                    #
+                    #            producer_notification_success_list = []
+                    #            print('- {} | {}:'.format(row['dataset_title'], row['resource_title']))
+                    #            for mail_to in mails_list :
+                    #                #mail_send = send_email(subject=title,
+                    #                #                       message=message,
+                    #                #                       mail_from=mail_from,
+                    #                #                       mail_to=mail_to,
+                    #                #                       smtp_host=smtp_host,
+                    #                #                       smtp_user=smtp_user,
+                    #                #                       smtp_password=smtp_password)
 
-                #                #producer_notification_success_list += [(mail_send.status_code == 250)]
-                #            # Success if at least one person receives the mail
-                #            #producer_notification_success = any(producer_notification_success_list)
-                #
-                #        else : #If no mail address, we post a comment on dataset
-                #           comment = deleted_schema_comment_template.format(
-                #                resource_title=row['resource_title'],
-                #                schema_name=schema_name,
-                #                schema_url=get_schema_dict(
-                #                    schema_name,
-                #                    schemas_catalogue_list
-                #                )['schema_url'],
-                #                resource_url=row['resource_url']
-                #            )
-                #
-                #           comment_post = post_comment_on_dataset(
-                #                dataset_id=row['dataset_id'],
-                #                title=title,
-                #                comment=comment,
-                #                api_url=api_url
-                #            )
-                #
-                #            #producer_notification_success = (comment_post.status_code == 201)
-                #
-                #       df_ref.loc[
-                #           (df_ref['resource_id'] == row['resource_id']),
-                #           'producer_notification_success'
-                #        ] = producer_notification_success
+                    #                #producer_notification_success_list += [(mail_send.status_code == 250)]
+                    #            # Success if at least one person receives the mail
+                    #            #producer_notification_success = any(producer_notification_success_list)
+                    #
+                    #        else : #If no mail address, we post a comment on dataset
+                    #           comment = deleted_schema_comment_template.format(
+                    #                resource_title=row['resource_title'],
+                    #                schema_name=schema_name,
+                    #                schema_url=get_schema_dict(
+                    #                    schema_name,
+                    #                    schemas_catalogue_list
+                    #                )['schema_url'],
+                    #                resource_url=row['resource_url']
+                    #            )
+                    #
+                    #           comment_post = post_comment_on_dataset(
+                    #                dataset_id=row['dataset_id'],
+                    #                title=title,
+                    #                comment=comment,
+                    #                api_url=api_url
+                    #            )
+                    #
+                    #            #producer_notification_success = (comment_post.status_code == 201)
+                    #
+                    #       df_ref.loc[
+                    #           (df_ref['resource_id'] == row['resource_id']),
+                    #           'producer_notification_success'
+                    #        ] = producer_notification_success
 
                 # TO DROP when schema will be deleted and producer notified:
                 df_ref.loc[
@@ -1825,83 +1712,12 @@ def update_resource_send_mail_producer(
 
         df_ref.to_csv(ref_table_path, index=False)
 
-        print("- ✅ Resources updated for schema {schema_name}")
+        print(f"- ✅ Resources updated for schema {schema_name}")
 
     else:
-        print("- ❌ No reference table for schema {schema_name}")
+        print(f"- ❌ No reference table for schema {schema_name}")
         if should_succeed:
             return False
-    return True
-
-
-def add_validata_report(
-    ref_tables_path,
-    validata_reports_path,
-    schema_name,
-    api_key,
-    should_succeed=False
-):
-    headers = {
-        "X-API-KEY": api_key,
-    }
-    ref_table_path = os.path.join(
-        ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
-    )
-
-    if os.path.isfile(ref_table_path):
-        df_ref = pd.read_csv(ref_table_path)
-        df_ref["resource_schema_update_success"] = np.nan
-        df_ref["producer_notification_success"] = np.nan
-
-        successes = []
-        for idx, row in df_ref.iterrows():
-            validata_report_path = (
-                str(validata_reports_path)
-                + "/"
-                + schema_name.replace("/", "_")
-                + "_"
-                + row["dataset_id"]
-                + "_"
-                + row["resource_id"]
-                + "_"
-            )
-
-            # If there is a valid version, put validata report from it
-            if row["most_recent_valid_version"] == row["most_recent_valid_version"]:
-                validata_report_path += row["most_recent_valid_version"] + ".json"
-            # Else, check if declarative version
-            else:
-                # If so, put validation report from it
-                if row["initial_version_name"] == row["initial_version_name"]:
-                    validata_report_path += row["initial_version_name"] + ".json"
-                # If not, put validation report from latest version
-                else:
-                    validata_report_path += (
-                        max(
-                            [
-                                x.replace("is_valid_v_", "")
-                                for x in list(row.keys())
-                                if "is_valid_v_" in x
-                            ]
-                        )
-                        + ".json"
-                    )
-
-            success = add_validation_extras(
-                row["dataset_id"],
-                row["resource_id"],
-                validata_report_path,
-                api_url,
-                headers,
-                schema_name,
-                should_succeed
-            )
-            if not success:
-                print(row)
-            successes.append(success)
-    if should_succeed:
-        return all(successes)
     return True
 
 
@@ -1911,23 +1727,17 @@ def update_consolidation_documentation_report(
     config_path,
     consolidation_date_str,
     config_dict,
-    api_key,
     should_succeed=False
 ):
-    headers = {
-        "X-API-KEY": api_key,
-    }
     ref_table_path = os.path.join(
         ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+        build_ref_table_name(schema_name),
     )
 
     print(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     schema_config = config_dict[schema_name]
-    if ("publication" in schema_config.keys()) and schema_config[
-        "publication"
-    ]:
+    if schema_config.get("publication"):
         if os.path.isfile(ref_table_path):
             if "consolidated_dataset_id" in schema_config.keys():
                 consolidated_dataset_id = schema_config["consolidated_dataset_id"]
@@ -1939,33 +1749,23 @@ def update_consolidation_documentation_report(
                 # Uploading documentation file (creating a new resource if version was not there before)
                 try:
                     doc_r_id = config_dict[schema_name]["documentation_resource_id"]
-                    url = (
-                        api_url
-                        + "datasets/"
-                        + consolidated_dataset_id
-                        + "/resources/"
-                        + doc_r_id
-                        + "/upload/"
-                    )
                     doc_r_to_create = False
                     expected_status_code = 200
 
                 except KeyError:
-                    url = (
-                        api_url + "datasets/" + consolidated_dataset_id + "/upload/"
-                    )
+                    doc_r_id = None
                     doc_r_to_create = True
                     expected_status_code = 201
 
-                with open(ref_table_path, "rb") as file:
-                    files = {
-                        "file": (
-                            ref_table_path.split("/")[-1],
-                            file.read(),
-                        )
-                    }
-
-                response = requests.post(url, files=files, headers=headers)
+                response = post_resource(
+                    file_to_upload={
+                        'dest_path': ref_tables_path,
+                        'dest_name': build_ref_table_name(schema_name),
+                    },
+                    dataset_id=consolidated_dataset_id,
+                    resource_id=doc_r_id,
+                    resource_payload=obj,
+                )
 
                 if response.status_code == expected_status_code:
                     if doc_r_to_create:
@@ -1981,28 +1781,18 @@ def update_consolidation_documentation_report(
                                 schema_name, doc_r_id
                             )
                         )
+                    else:
+                        print(
+                            "--- ✅ Updated documentation resource ID created for {} (id: {})".format(
+                                schema_name, doc_r_id
+                            )
+                        )
+
                 else:
                     doc_r_id = None
                     print("--- ⚠️ Documentation file could not be uploaded.")
                     if should_succeed:
                         return False
-
-                if doc_r_id is not None:
-                    doc_r_url = api_url + f"datasets/{consolidated_dataset_id}/resources/{doc_r_id}/"
-                    doc_r_response = requests.put(
-                        doc_r_url, json=obj, headers=headers
-                    )
-                    if doc_r_response.status_code == 200:
-                        if doc_r_to_create:
-                            print("--- ✅ Successfully created documentation file.")
-                        else:
-                            print("--- ✅ Successfully updated documentation file.")
-                    else:
-                        print(
-                            "--- ⚠️ Documentation file uploaded but metadata could not be updated."
-                        )
-                        if should_succeed:
-                            return False
 
             else:
                 print("-- ❌ No consolidation dataset ID for this schema.")
@@ -2028,7 +1818,7 @@ def append_stats_list(
 ):
     ref_table_path = os.path.join(
         ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+        build_ref_table_name(schema_name),
     )
 
     if os.path.isfile(ref_table_path):
@@ -2039,7 +1829,7 @@ def append_stats_list(
             & df_ref["resource_schema_update_success"]
         )
         df_ref["is_schema_added"] = (
-            df_ref["is_schema_to_add"] & df_ref["resource_schema_update_success"]
+            df_ref["is_valid_one_version"] & df_ref["resource_schema_update_success"]
         )
         df_ref["is_schema_dropped"] = (
             df_ref["is_schema_to_drop"] & df_ref["resource_schema_update_success"]
@@ -2051,7 +1841,7 @@ def append_stats_list(
                 [
                     "schema_name",
                     "is_schema_version_to_update",
-                    "is_schema_to_add",
+                    "is_valid_one_version",
                     "is_schema_to_drop",
                     "resource_schema_update_success",
                     "is_schema_version_updated",
@@ -2074,7 +1864,7 @@ def create_detailed_report(
 ):
     ref_table_path = os.path.join(
         ref_tables_path,
-        "ref_table_{}.csv".format(schema_name.replace("/", "_")),
+        build_ref_table_name(schema_name),
     )
 
     if os.path.isfile(ref_table_path):
@@ -2099,10 +1889,10 @@ def create_detailed_report(
             index=False,
         )
 
-        print("- ✅ Report done for schema {schema_name}")
+        print(f"- ✅ Report done for schema {schema_name}")
 
     else:
-        print("- ❌ No reference table for schema {schema_name}")
+        print(f"- ❌ No reference table for schema {schema_name}")
         if should_succeed:
             return False
     return True
@@ -2146,7 +1936,6 @@ def notification_synthese(
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     TMP_FOLDER,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    date_dict,
     schema_name=False,
     list_schema_skip=[]
 ):
@@ -2156,7 +1945,7 @@ def notification_synthese(
     """
     assert schema_name or len(list_schema_skip) > 0
 
-    last_conso = date_dict["TODAY"]
+    last_conso = datetime.today().strftime('%Y%m%d')
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
@@ -2173,7 +1962,6 @@ def notification_synthese(
     for s in schemas:
         if s["schema_type"] == "tableschema":
             try:
-                latest_version = s["versions"][0]["version_name"]
                 filename = (
                     f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/','_')}.csv"

@@ -11,7 +11,6 @@ from datagouvfr_data_pipelines.config import (
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    DATAGOUV_SECRET_API_KEY,
 )
 from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schemas_consolidation import (
     run_schemas_consolidation,
@@ -36,9 +35,8 @@ SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
-date_airflow = "{{ ds }}"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
+default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
 
 with DAG(
@@ -62,14 +60,12 @@ with DAG(
     )
 
     working_dir = f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/"
-    date_airflow = "{{ ds }}"
 
     run_consolidation = PythonOperator(
         task_id="run_schemas_consolidation",
         python_callable=run_schemas_consolidation,
         op_kwargs={
             "tmp_path": TMP_FOLDER,
-            "date_airflow": date_airflow,
             "schema_catalog_url": SCHEMA_CATALOG,
             "config_path": TMP_CONFIG_FILE,
         },
@@ -79,11 +75,7 @@ with DAG(
         task_id="upload_consolidated_datasets",
         python_callable=run_consolidation_upload,
         op_kwargs={
-            "api_url": API_URL,
-            "api_key": DATAGOUV_SECRET_API_KEY,
             "tmp_path": TMP_FOLDER,
-            "date_airflow": date_airflow,
-            "schema_catalog": SCHEMA_CATALOG,
             "output_data_folder": output_data_folder,
             "config_path": TMP_CONFIG_FILE,
         },
@@ -95,7 +87,7 @@ with DAG(
         op_kwargs={
             "TMP_FOLDER": TMP_FOLDER.as_posix(),
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "minio_output_filepath": "/schema/schemas_consolidation/{{ ds }}/",
+            "minio_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
 
@@ -104,7 +96,7 @@ with DAG(
         bash_command=(
             f"cd {TMP_FOLDER.as_posix()}/schema.data.gouv.fr/ && git add config_consolidation.yml "
             ' && git commit -m "Update config consolidation file - '
-            f'{ datetime.today().strftime("%Y-%m-%d")}'
+            f'{datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'
             " && git push origin main"
         )
@@ -118,7 +110,6 @@ with DAG(
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "date_dict": {"TODAY": "{{ ds }}"},
             "list_schema_skip": ['etalab/schema-irve-statique'],
         },
     )

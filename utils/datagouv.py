@@ -122,6 +122,8 @@ def post_resource(
     Returns:
         json: return API result in a dictionnary
     """
+    if not file_to_upload['dest_path'].endswith('/'):
+        file_to_upload['dest_path'] += '/'
     files = {
         "file": open(
             f"{file_to_upload['dest_path']}{file_to_upload['dest_name']}",
@@ -141,7 +143,7 @@ def post_resource(
     if resource_id and resource_payload:
         r_put = datagouv_session.put(url.replace('upload/', ''), json=resource_payload)
         r_put.raise_for_status()
-    return r.json()
+    return r
 
 
 def post_remote_resource(
@@ -265,8 +267,8 @@ def get_dataset_from_resource_id(
     """
     url = f"{DATAGOUV_URL}/api/2/datasets/resources/{resource_id}/"
     r = datagouv_session.get(url)
-    if r.status_code == 200:
-        return r.json()
+    r.raise_for_status()
+    return r.json()['dataset_id']
 
 
 def update_dataset_or_resource_metadata(
@@ -293,11 +295,7 @@ def update_dataset_or_resource_metadata(
 
     r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
-    try:
-        return r.json()
-    except JSONDecodeError:
-        print("Issue returning json for this URL:", url)
-        return None
+    return r
 
 
 def update_dataset_or_resource_extras(
@@ -323,7 +321,7 @@ def update_dataset_or_resource_extras(
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/extras/"
     r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
-    return r.json()
+    return r
 
 
 def delete_dataset_or_resource_extras(
@@ -513,3 +511,18 @@ def get_all_from_api_query(
             r.raise_for_status()
         for data in r.json()['data']:
             yield data
+
+
+# Function to post a comment on a dataset
+def post_comment_on_dataset(dataset_id, title, comment):
+    post_object = {
+        "title": title,
+        "comment": comment,
+        "subject": {"class": "Dataset", "id": dataset_id},
+    }
+    r = datagouv_session.post(
+        f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/discussions/",
+        json=post_object
+    )
+    r.raise_for_status()
+    return r

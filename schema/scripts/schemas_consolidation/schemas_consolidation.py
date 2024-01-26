@@ -3,22 +3,22 @@ from datagouvfr_data_pipelines.utils.schema import (
     get_schema_report,
     build_reference_table,
     download_schema_files,
-    consolidate_data
+    consolidate_data,
+    load_config,
 )
 import pandas as pd
-import yaml
+from datetime import datetime
 pd.set_option('display.max_columns', None)
 
 
 def run_schemas_consolidation(
     ti,
     tmp_path: str,
-    date_airflow: str,
     schema_catalog_url: str,
     config_path: str,
 ) -> None:
 
-    consolidation_date_str = date_airflow.replace("-", "")
+    consolidation_date_str = datetime.today().strftime('%Y%m%d')
     print(consolidation_date_str)
 
     data_path = tmp_path / "data"
@@ -39,6 +39,7 @@ def run_schemas_consolidation(
     validata_reports_path = tmp_path / "validata_reports"
     validata_reports_path.mkdir(parents=True, exist_ok=True)
 
+    print("______________________")
     print('Building catalogue')
     schemas_report_dict, schemas_catalogue_list = get_schema_report(
         schemas_catalogue_url=schema_catalog_url,
@@ -46,13 +47,15 @@ def run_schemas_consolidation(
         list_schema_skip=['etalab/schema-irve-statique']
     )
 
+    print("______________________")
     print('Loading config dict')
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
+    config_dict = load_config(config_path)
+    if config_dict:
         config_dict = remove_old_schemas(config_dict, schemas_catalogue_list)
     print(config_dict)
 
     # ## Building reference tables (parsing and listing resources + Validata check)
+    print("______________________")
     print('Building reference tables')
     for schema_name in config_dict.keys():
         build_reference_table(
@@ -66,6 +69,7 @@ def run_schemas_consolidation(
 
     # ## Downloading valid data
     # We download only data that is valid for at least one version of the schema.
+    print("______________________")
     print('Downloading valid data')
     for schema_name in config_dict.keys():
         if config_dict[schema_name]["consolidate"]:
@@ -76,6 +80,7 @@ def run_schemas_consolidation(
             )
 
     # ## Consolidation
+    print("______________________")
     print('Consolidating data')
     for schema_name in config_dict.keys():
         if config_dict[schema_name]["consolidate"]:
