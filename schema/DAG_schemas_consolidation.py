@@ -12,11 +12,17 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
-from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schemas_consolidation import (
-    run_schemas_consolidation,
-)
-from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.consolidation_upload import (
-    run_consolidation_upload,
+from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schema_consolidation import (
+    get_resources,
+    download_resources,
+    consolidate_resources,
+    upload_consolidated_data,
+    update_reference_tables,
+    update_resources,
+    update_consolidation_documentation,
+    create_consolidation_reports,
+    create_detailed_reports,
+    final_clean_up,
 )
 from datagouvfr_data_pipelines.utils.schema import (
     upload_minio,
@@ -26,7 +32,6 @@ from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
 # for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
-# DATAGOUV_SECRET_API_KEY = ''
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
@@ -61,9 +66,9 @@ with DAG(
 
     working_dir = f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/"
 
-    run_consolidation = PythonOperator(
-        task_id="run_schemas_consolidation",
-        python_callable=run_schemas_consolidation,
+    get_resources = PythonOperator(
+        task_id="get_resources",
+        python_callable=get_resources,
         op_kwargs={
             "tmp_path": TMP_FOLDER,
             "schema_catalog_url": SCHEMA_CATALOG,
@@ -71,13 +76,61 @@ with DAG(
         },
     )
 
-    upload_consolidation = PythonOperator(
-        task_id="upload_consolidated_datasets",
-        python_callable=run_consolidation_upload,
+    download_resources = PythonOperator(
+        task_id="download_resources",
+        python_callable=download_resources,
+    )
+
+    consolidate_resources = PythonOperator(
+        task_id="consolidate_resources",
+        python_callable=consolidate_resources,
+        op_kwargs={
+            "tmp_path": TMP_FOLDER,
+        },
+    )
+
+    upload_consolidated_data = PythonOperator(
+        task_id="upload_consolidated_data",
+        python_callable=upload_consolidated_data,
+        op_kwargs={
+            "config_path": TMP_CONFIG_FILE,
+        },
+    )
+
+    update_reference_tables = PythonOperator(
+        task_id="update_reference_tables",
+        python_callable=update_reference_tables,
+    )
+
+    update_resources = PythonOperator(
+        task_id="update_resources",
+        python_callable=update_resources,
+    )
+
+    update_consolidation_documentation = PythonOperator(
+        task_id="update_consolidation_documentation",
+        python_callable=update_consolidation_documentation,
+        op_kwargs={
+            "config_path": TMP_CONFIG_FILE,
+        },
+    )
+
+    create_consolidation_reports = PythonOperator(
+        task_id="create_consolidation_reports",
+        python_callable=create_consolidation_reports,
+    )
+
+    create_detailed_reports = PythonOperator(
+        task_id="create_detailed_reports",
+        python_callable=create_detailed_reports,
+    )
+
+    final_clean_up = PythonOperator(
+        task_id="final_clean_up",
+        python_callable=final_clean_up,
         op_kwargs={
             "tmp_path": TMP_FOLDER,
             "output_data_folder": output_data_folder,
-            "config_path": TMP_CONFIG_FILE,
         },
     )
 
@@ -115,8 +168,16 @@ with DAG(
     )
 
     clone_dag_schema_repo.set_upstream(clean_previous_outputs)
-    run_consolidation.set_upstream(clone_dag_schema_repo)
-    upload_consolidation.set_upstream(run_consolidation)
-    upload_minio.set_upstream(upload_consolidation)
+    get_resources.set_upstream(clone_dag_schema_repo)
+    download_resources.set_upstream(get_resources)
+    consolidate_resources.set_upstream(download_resources)
+    upload_consolidated_data.set_upstream(consolidate_resources)
+    update_reference_tables.set_upstream(upload_consolidated_data)
+    update_resources.set_upstream(update_reference_tables)
+    update_consolidation_documentation.set_upstream(update_resources)
+    create_consolidation_reports.set_upstream(update_consolidation_documentation)
+    create_detailed_reports.set_upstream(create_consolidation_reports)
+    final_clean_up.set_upstream(create_detailed_reports)
+    upload_minio.set_upstream(final_clean_up)
     commit_changes.set_upstream(upload_minio)
     notification_synthese.set_upstream(commit_changes)

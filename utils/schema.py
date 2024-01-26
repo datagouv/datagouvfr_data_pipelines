@@ -1297,7 +1297,11 @@ def upload_consolidated(
                 for filename in os.listdir(schema_consolidated_data_path)
                 if filename.endswith(".csv") and not filename.startswith(".")
             ]
-
+            if not version_names_list:
+                print(
+                    '-- ⚠️ No consolidated file was created for the schema, see consolidate_resources logs'
+                )
+                return not should_succeed
             for version_name in sorted(version_names_list):
                 schema = {"name": schema_name, "version": version_name}
                 obj = {}
@@ -1336,7 +1340,6 @@ def upload_consolidated(
                     resource_id=r_id,
                     resource_payload=obj,
                 )
-
                 if response.status_code == expected_status_code:
                     if r_to_create:
                         r_id = response.json()["id"]
@@ -1777,13 +1780,13 @@ def update_consolidation_documentation_report(
                             config_path,
                         )
                         print(
-                            "--- ➕ New documentation resource ID created for {} (id: {})".format(
+                            "--- ➕ New documentation resource created for {} (id: {})".format(
                                 schema_name, doc_r_id
                             )
                         )
                     else:
                         print(
-                            "--- ✅ Updated documentation resource ID created for {} (id: {})".format(
+                            "--- ✅ Updated documentation resource  for {} (id: {})".format(
                                 schema_name, doc_r_id
                             )
                         )
