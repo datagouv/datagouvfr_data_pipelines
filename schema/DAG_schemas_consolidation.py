@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
-from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schema_consolidation import (
+from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.task_functions import (
     get_resources,
     download_resources,
     consolidate_resources,
