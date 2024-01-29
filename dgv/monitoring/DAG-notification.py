@@ -16,7 +16,7 @@ from langdetect import detect
 
 DAG_NAME = "dgv_notification_activite"
 
-TIME_PERIOD = {"hours": 1}
+TIME_PERIOD = {"minutes": 5}
 duplicate_slug_pattern = r'-\d+$'
 
 
@@ -314,7 +314,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="42 * * * *",
+    schedule_interval=f"*/{TIME_PERIOD['minutes']} * * * *",
     start_date=days_ago(0, hour=1),
     dagrun_timeout=timedelta(minutes=60),
     tags=["notification", "hourly", "datagouv", "activite", "schemas"],
