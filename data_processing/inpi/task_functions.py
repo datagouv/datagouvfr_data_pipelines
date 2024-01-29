@@ -3,7 +3,6 @@ from airflow.operators.bash import BashOperator
 from datetime import datetime, timedelta
 from unicodedata import normalize
 import os
-from minio import Minio
 import glob
 import unidecode
 import pandas as pd
@@ -13,38 +12,21 @@ import time
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     SECRET_INPI_USER,
     SECRET_INPI_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.minio import send_files, get_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}inpi/"
 PATH_MINIO_INPI_DATA = "inpi/"
 
-client = Minio(
-    MINIO_URL,
-    access_key=SECRET_MINIO_DATA_PIPELINE_USER,
-    secret_key=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-    secure=True,
-)
+client = MinIOClient()
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-
-
-def send_to_minio(list_files):
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        list_files=list_files,
-    )
 
 
 def retrieve_list_files(base_path):
@@ -63,14 +45,20 @@ def retrieve_list_files(base_path):
 def upload_minio_synthese_files():
     list_files = retrieve_list_files(f"{TMP_FOLDER}synthese")
     print(list_files)
-    send_to_minio(list_files)
+    minio_open.send_files(
+        list_files=list_files,
+    )
 
 
 def upload_minio_original_files():
     list_files_tc = retrieve_list_files(f"{TMP_FOLDER}flux-tc")
     list_files_stock = retrieve_list_files(f"{TMP_FOLDER}stock")
-    send_to_minio(list_files_tc)
-    send_to_minio(list_files_stock)
+    minio_open.send_files(
+        list_files=list_files_tc,
+    )
+    minio_open.send_files(
+        list_files=list_files_stock,
+    )
 
 
 # Etape de processing des données en amont du lancement de l'enrichissement de la bdd sqlite
@@ -102,11 +90,7 @@ def concatFilesRep(
 
 
 def get_latest_db(ti):
-    get_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.get_files(
         list_files=[
             {
                 "source_path": PATH_MINIO_INPI_DATA,
@@ -278,8 +262,8 @@ def update_db(ti):
 
 
 def upload_minio_db():
-    send_to_minio(
-        [
+    minio_open.send_files(
+        list_files=[
             {
                 "source_path": TMP_FOLDER,
                 "source_name": "inpi.db",
@@ -291,8 +275,8 @@ def upload_minio_db():
 
 
 def upload_minio_clean_db():
-    send_to_minio(
-        [
+    minio_open.send_files(
+        list_files=[
             {
                 "source_path": TMP_FOLDER,
                 "source_name": "inpi-clean.db",
@@ -314,11 +298,7 @@ def check_emptiness():
 
 
 def get_start_date_minio(ti):
-    get_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.get_files(
         list_files=[
             {
                 "source_path": PATH_MINIO_INPI_DATA,
@@ -366,8 +346,8 @@ def upload_latest_date_inpi_minio(ti):
     with open(TMP_FOLDER + "latest_inpi_date.json", "w") as write_file:
         json.dump(data, write_file)
 
-    send_to_minio(
-        [
+    minio_open.send_files(
+        list_files=[
             {
                 "source_path": TMP_FOLDER,
                 "source_name": "latest_inpi_date.json",

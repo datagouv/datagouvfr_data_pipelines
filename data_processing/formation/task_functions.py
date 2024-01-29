@@ -6,14 +6,13 @@ import requests
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_URL,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.minio import send_files, compare_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
+
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data(ti):
@@ -120,11 +119,7 @@ def process_organismes_formation(ti):
 
 def send_file_to_minio(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}formation/",
@@ -138,11 +133,7 @@ def send_file_to_minio(ti):
 
 def compare_files_minio(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
-    is_same = compare_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    is_same = minio_open.compare_files(
         file_path_1="formation/new/",
         file_name_2=f"{res['name']}_clean.csv",
         file_path_2="formation/latest/",
@@ -154,11 +145,7 @@ def compare_files_minio(ti):
     if is_same is None:
         print("First time in this Minio env. Creating")
 
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}formation/",

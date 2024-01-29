@@ -12,7 +12,7 @@ from unidecode import unidecode
 import codecs
 import requests
 from urllib import parse
-import numpy as np
+from datagouvfr_data_pipelines.utils.schema import comparer_versions
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
@@ -504,10 +504,6 @@ def manage_other(
         shutil.rmtree(dest_folder)
 
     return list_schemas, conf_schema
-
-
-def comparer_versions(version):
-    return [int(part) if part.isnumeric() else np.inf for part in version.split('.')]
 
 
 def manage_latest_folder(schema_name, folders):

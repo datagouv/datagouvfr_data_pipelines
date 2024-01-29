@@ -11,21 +11,20 @@ import pandas as pd
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_REPORTING,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_first_day_of_month,
     check_if_monday,
 )
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DAG_NAME = "dgv_tops"
 MINIO_PATH = "dgv/"
 
 BASE_URL = "https://stats.data.gouv.fr/index.php"
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 PARAMS_TOPS = {
     "module": "API",
@@ -189,25 +188,6 @@ def publish_top_mattermost(ti, **kwargs):
     send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
 
-def dict_to_bytes_to_minio(dict_top, minio):
-    client = Minio(
-        endpoint=MINIO_URL,
-        access_key=SECRET_MINIO_DATA_PIPELINE_USER,
-        secret_key=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-        secure=True,
-    )
-
-    raw_data = io.BytesIO(json.dumps(dict_top, indent=2).encode("utf-8"))
-    raw_data_size = raw_data.getbuffer().nbytes
-
-    client.put_object(
-        bucket_name=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        object_name=minio,
-        length=raw_data_size,
-        data=raw_data,
-    )
-
-
 def send_tops_to_minio(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
     top_datasets = ti.xcom_pull(
@@ -216,8 +196,8 @@ def send_tops_to_minio(ti, **kwargs):
     top_reuses = ti.xcom_pull(
         key="top_reuses_dict", task_ids="get_top_reuses_" + publish_info["period"]
     )
-    dict_to_bytes_to_minio(top_datasets, publish_info["minio"] + "top_datasets.json")
-    dict_to_bytes_to_minio(top_reuses, publish_info["minio"] + "top_reuses.json")
+    minio_open.dict_to_bytes_to_minio(top_datasets, publish_info["minio"] + "top_datasets.json")
+    minio_open.dict_to_bytes_to_minio(top_reuses, publish_info["minio"] + "top_reuses.json")
 
 
 def send_stats_to_minio(ti, **kwargs):
@@ -242,21 +222,21 @@ def send_stats_to_minio(ti, **kwargs):
     mydict["unite"] = "visites"
     mydict["values"] = pageviews
     mydict["date_maj"] = datetime.strftime(date.today(), "%Y-%m-%d")
-    dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "visits.json")
+    minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "visits.json")
 
     mydict = {}
     mydict["nom"] = "Nombre de visiteurs uniques"
     mydict["unite"] = "visiteurs"
     mydict["values"] = uniq_pageviews
     mydict["date_maj"] = datetime.strftime(date.today(), "%Y-%m-%d")
-    dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "uniq_visits.json")
+    minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "uniq_visits.json")
 
     mydict = {}
     mydict["nom"] = "Nombre de téléchargements"
     mydict["unite"] = "téléchargements"
     mydict["values"] = downloads
     mydict["date_maj"] = datetime.strftime(date.today(), "%Y-%m-%d")
-    dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "downloads.json")
+    minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "downloads.json")
 
 
 default_args = {

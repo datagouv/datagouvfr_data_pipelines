@@ -12,21 +12,19 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_CURATION,
     MATTERMOST_DATAGOUV_EDITO,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
 
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 async def url_error(url, session, method="head"):
@@ -486,11 +484,7 @@ def create_all_tables():
 def send_tables_to_minio():
     print(os.listdir(DATADIR))
     print('Saving tops as millésimes')
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
@@ -502,11 +496,7 @@ def send_tables_to_minio():
         ],
     )
     print('Saving KO reuses and spams (erasing previous files)')
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",

@@ -10,11 +10,7 @@ import tarfile
 from tqdm import tqdm
 
 from datagouvfr_data_pipelines.utils.datagouv import get_resource
-from datagouvfr_data_pipelines.utils.minio import (
-    copy_object,
-    get_files,
-    get_files_from_prefix,
-)
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.postgres import (
     copy_file,
     execute_sql_file,
@@ -23,10 +19,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
-    MINIO_URL,
     MINIO_BUCKET_INFRA,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}metrics/"
@@ -34,6 +27,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/dgv/metrics/"
 conn = BaseHook.get_connection("POSTGRES_METRIC")
 DB_METRICS_SCHEMA = Variable.get("DB_METRICS_SCHEMA", "metric")
 tqdm.pandas(desc='pandas progress bar', mininterval=5)
+minio_infra = MinIOClient(bucket=MINIO_BUCKET_INFRA)
 
 
 def create_metrics_tables():
@@ -53,11 +47,7 @@ def create_metrics_tables():
 
 
 def get_new_logs(ti):
-    new_logs = get_files_from_prefix(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_INFRA,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    new_logs = minio_infra.get_files_from_prefix(
         prefix="metrics-logs/new/"
     )
     ti.xcom_push(key="new_logs", value=new_logs)
@@ -69,10 +59,7 @@ def get_new_logs(ti):
 
 def copy_log(new_logs, source_folder, target_folder):
     for nl in new_logs:
-        copy_object(
-            MINIO_URL=MINIO_URL,
-            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        minio_infra.copy_object(
             MINIO_BUCKET_SOURCE=MINIO_BUCKET_INFRA,
             MINIO_BUCKET_TARGET=MINIO_BUCKET_INFRA,
             path_source=nl,
@@ -136,7 +123,7 @@ def get_dict(df, obj_property):
     arr = {}
     for index, row in df.iterrows():
         if (
-            type(row[obj_property]) == str
+            isinstance(row[obj_property], str)
             and "static.data.gouv.fr" in row[obj_property]
         ):
             arr[row[obj_property]] = row["id"]
@@ -175,7 +162,11 @@ def get_info(parsed_line):
     slug_line = None
     found = False
 
-    if "DATAGOUVFR_RGS~" in parsed_line and '"GET' in parsed_line and ('302' in parsed_line or '200' in parsed_line):
+    if (
+        "DATAGOUVFR_RGS~" in parsed_line
+        and '"GET' in parsed_line
+        and ('302' in parsed_line or '200' in parsed_line)
+    ):
         for item in parsed_line:
             slug, found, detect = search_pattern(patterns_resources_id, item, "resources-id")
             if not found:
@@ -185,7 +176,11 @@ def get_info(parsed_line):
             if not found:
                 slug, found, detect = search_pattern(patterns_organizations, item, "organizations")
             if not found:
-                slug, found, detect = search_pattern_resource_static(pattern_resources_static, item, "resources-static")
+                slug, found, detect = search_pattern_resource_static(
+                    pattern_resources_static,
+                    item,
+                    "resources-static"
+                )
             if slug:
                 slug_line = slug
                 type_detect = detect
@@ -273,11 +268,7 @@ def process_log(ti):
     all_dates_processed = []
     print("downloading files...")
     for nl in newlogs:
-        get_files(
-            MINIO_URL=MINIO_URL,
-            MINIO_BUCKET=MINIO_BUCKET_INFRA,
-            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        minio_infra.get_files(
             list_files=[
                 {
                     "source_path": "metrics-logs/ongoing/",
@@ -459,7 +450,7 @@ def process_log(ti):
             print("no data resources file")
         except pd.errors.EmptyDataError:
             print("empty data resources id or static")
-        
+
     ti.xcom_push(key="all_dates_processed", value=all_dates_processed)
 
 

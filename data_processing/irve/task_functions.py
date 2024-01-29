@@ -1,4 +1,5 @@
 from datagouvfr_data_pipelines.utils.schema import (
+    load_config,
     remove_old_schemas,
     get_schema_report,
     build_reference_table,
@@ -7,7 +8,6 @@ from datagouvfr_data_pipelines.utils.schema import (
     upload_consolidated,
     update_reference_table,
     update_resource_send_mail_producer,
-    add_validata_report,
     update_consolidation_documentation_report,
     append_stats_list,
     create_detailed_report,
@@ -15,23 +15,22 @@ from datagouvfr_data_pipelines.utils.schema import (
     upload_minio,
     notification_synthese
 )
-import yaml
 from ast import literal_eval
 import pandas as pd
 import os
 from pathlib import Path
+from datetime import datetime
 
 schema_name = "etalab/schema-irve-statique"
 
 
 def get_all_irve_resources(
     ti,
-    date_airflow,
     tmp_path,
     schemas_catalogue_url,
     config_path
 ):
-    consolidation_date_str = date_airflow.replace("-", "")
+    consolidation_date_str = datetime.today().strftime('%Y%m%d')
     print(consolidation_date_str)
 
     data_path = tmp_path / "data"
@@ -58,9 +57,8 @@ def get_all_irve_resources(
         schema_name=schema_name
     )
 
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
-        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
+    config_dict = load_config(config_path)
+    config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
     # uncomment to consolidate on demo
     # schemas_catalogue_list = [{
@@ -211,7 +209,6 @@ def custom_filters_irve(
 
 def upload_consolidated_irve(
     ti,
-    api_key,
     config_path
 ):
     consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
@@ -232,7 +229,6 @@ def upload_consolidated_irve(
         config_path,
         schemas_report_dict,
         consolidation_date_str,
-        api_key,
         bool_upload_geojson=True,
         should_succeed=True
     )
@@ -255,30 +251,13 @@ def update_reference_table_irve(
 
 def update_resource_send_mail_producer_irve(
     ti,
-    api_key
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    success = update_resource_send_mail_producer(
-        ref_tables_path,
-        schema_name,
-        api_key,
-        should_succeed=False
-    )
-    assert success
-    return
-
-
-def add_validata_report_irve(
-    ti,
-    api_key
 ):
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
     validata_reports_path = ti.xcom_pull(key='validata_reports_path', task_ids='get_all_irve_resources')
-    success = add_validata_report(
+    success = update_resource_send_mail_producer(
         ref_tables_path,
-        validata_reports_path,
         schema_name,
-        api_key,
+        validata_reports_path,
         should_succeed=True
     )
     assert success
@@ -287,7 +266,6 @@ def add_validata_report_irve(
 
 def update_consolidation_documentation_report_irve(
     ti,
-    api_key,
     config_path
 ):
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
@@ -301,7 +279,6 @@ def update_consolidation_documentation_report_irve(
         config_path,
         consolidation_date_str,
         config_dict,
-        api_key,
         should_succeed=True
     )
     assert success
@@ -390,18 +367,12 @@ def final_directory_clean_up_irve(
 
 def upload_minio_irve(
     TMP_FOLDER,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     minio_output_filepath
 ):
     upload_minio(
         TMP_FOLDER.as_posix(),
-        MINIO_URL,
         MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        SECRET_MINIO_DATA_PIPELINE_USER,
-        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         minio_output_filepath,
     )
 
@@ -410,18 +381,12 @@ def notification_synthese_irve(
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     TMP_FOLDER,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    date_dict
 ):
     notification_synthese(
         MINIO_URL,
         MINIO_BUCKET_DATA_PIPELINE_OPEN,
         TMP_FOLDER,
-        SECRET_MINIO_DATA_PIPELINE_USER,
-        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-        date_dict,
         schema_name
     )

@@ -1,7 +1,6 @@
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
@@ -211,7 +210,6 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload=geozones_file,
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
@@ -230,7 +228,6 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload=countries_file,
         dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
@@ -248,7 +245,6 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         file_to_upload=levels_file,
         dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),

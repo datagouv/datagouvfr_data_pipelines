@@ -10,10 +10,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    DATAGOUV_SECRET_API_KEY
 )
 from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     get_all_irve_resources,
@@ -23,7 +20,6 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     upload_consolidated_irve,
     update_reference_table_irve,
     update_resource_send_mail_producer_irve,
-    add_validata_report_irve,
     update_consolidation_documentation_report_irve,
     create_consolidation_reports_irve,
     create_detailed_report_irve,
@@ -35,16 +31,12 @@ from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
     improve_geo_data_quality,
 )
 
-# DEV : for local dev in order not to mess up with production
-# DATAGOUV_SECRET_API_KEY = ''
-
 DAG_NAME = "irve_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
-date_airflow = "{{ ds }}"
 
 default_args = {
     'email': [
@@ -80,7 +72,6 @@ with DAG(
         task_id="get_all_irve_resources",
         python_callable=get_all_irve_resources,
         op_kwargs={
-            "date_airflow": date_airflow,
             "tmp_path": TMP_FOLDER,
             "schemas_catalogue_url": SCHEMA_CATALOG,
             "config_path": TMP_CONFIG_FILE
@@ -131,7 +122,6 @@ with DAG(
         task_id="upload_consolidated_irve",
         python_callable=upload_consolidated_irve,
         op_kwargs={
-            "api_key": DATAGOUV_SECRET_API_KEY,
             "config_path": TMP_CONFIG_FILE
         },
     )
@@ -144,24 +134,12 @@ with DAG(
     update_resource_send_mail_producer_irve = PythonOperator(
         task_id="update_resource_send_mail_producer_irve",
         python_callable=update_resource_send_mail_producer_irve,
-        op_kwargs={
-            "api_key": DATAGOUV_SECRET_API_KEY
-        },
-    )
-
-    add_validata_report_irve = PythonOperator(
-        task_id="add_validata_report_irve",
-        python_callable=add_validata_report_irve,
-        op_kwargs={
-            "api_key": DATAGOUV_SECRET_API_KEY
-        },
     )
 
     update_consolidation_documentation_report_irve = PythonOperator(
         task_id="update_consolidation_documentation_report_irve",
         python_callable=update_consolidation_documentation_report_irve,
         op_kwargs={
-            "api_key": DATAGOUV_SECRET_API_KEY,
             "config_path": TMP_CONFIG_FILE
         },
     )
@@ -190,11 +168,8 @@ with DAG(
         python_callable=upload_minio_irve,
         op_kwargs={
             "TMP_FOLDER": TMP_FOLDER,
-            "MINIO_URL": MINIO_URL,
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
-            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            "minio_output_filepath": "/schema/schemas_consolidation/{{ ds }}/",
+            "minio_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
 
@@ -216,10 +191,8 @@ with DAG(
             "MINIO_URL": MINIO_URL,
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
-            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
-            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "date_dict": {"TODAY": "{{ ds }}"}
+            "date_dict": {"TODAY": f"{datetime.today().strftime('%Y-%m-%d')}"}
         },
     )
 
@@ -232,8 +205,7 @@ with DAG(
     upload_consolidated_irve.set_upstream(geodata_quality_improvement)
     update_reference_table_irve.set_upstream(upload_consolidated_irve)
     update_resource_send_mail_producer_irve.set_upstream(update_reference_table_irve)
-    add_validata_report_irve.set_upstream(update_resource_send_mail_producer_irve)
-    update_consolidation_documentation_report_irve.set_upstream(add_validata_report_irve)
+    update_consolidation_documentation_report_irve.set_upstream(update_resource_send_mail_producer_irve)
     create_consolidation_reports_irve.set_upstream(update_consolidation_documentation_report_irve)
     create_detailed_report_irve.set_upstream(create_consolidation_reports_irve)
     final_directory_clean_up_irve.set_upstream(create_detailed_report_irve)

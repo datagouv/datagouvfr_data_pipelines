@@ -4,7 +4,10 @@ import requests
 import os
 import numpy as np
 from json import JSONDecodeError
-from datagouvfr_data_pipelines.config import AIRFLOW_ENV
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_ENV,
+    DATAGOUV_SECRET_API_KEY,
+)
 
 if AIRFLOW_ENV == "dev":
     DATAGOUV_URL = "https://demo.data.gouv.fr"
@@ -47,6 +50,9 @@ SPAM_WORDS = [
     'macron',
 ]
 
+datagouv_session = requests.Session()
+datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
+
 
 class File(TypedDict):
     dest_path: str
@@ -54,23 +60,18 @@ class File(TypedDict):
 
 
 def create_dataset(
-    api_key: str,
     payload: TypedDict,
 ):
     """Create a dataset in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         payload (TypedDict): payload for dataset containing at minimum title
 
     Returns:
         json: return API result in a dictionnary
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
-    r = requests.post(
-        f"{DATAGOUV_URL}/api/1/datasets/", json=payload, headers=headers
+    r = datagouv_session.post(
+        f"{DATAGOUV_URL}/api/1/datasets/", json=payload
     )
     r.raise_for_status()
     return r.json()
@@ -88,7 +89,7 @@ def get_resource(
         `dest_name` where to store downloaded resource
 
     """
-    with requests.get(
+    with datagouv_session.get(
         f"{DATAGOUV_URL}/fr/datasets/r/{resource_id}", stream=True
     ) as r:
         r.raise_for_status()
@@ -101,7 +102,6 @@ def get_resource(
 
 
 def post_resource(
-    api_key: str,
     file_to_upload: File,
     dataset_id: str,
     resource_id: Optional[str] = None,
@@ -110,7 +110,6 @@ def post_resource(
     """Upload a resource in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         file_to_upload (File): Dictionnary containing `dest_path` and
         `dest_name` where resource to upload is stored
         dataset_id (str): ID of the dataset where to store resource
@@ -123,9 +122,8 @@ def post_resource(
     Returns:
         json: return API result in a dictionnary
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
+    if not file_to_upload['dest_path'].endswith('/'):
+        file_to_upload['dest_path'] += '/'
     files = {
         "file": open(
             f"{file_to_upload['dest_path']}{file_to_upload['dest_name']}",
@@ -136,20 +134,19 @@ def post_resource(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
-    r = requests.post(url, files=files, headers=headers)
+    r = datagouv_session.post(url, files=files)
     r.raise_for_status()
     if not resource_id:
         resource_id = r.json()['id']
         print("Resource was given this id:", resource_id)
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and resource_payload:
-        r_put = requests.put(url.replace('upload/', ''), json=resource_payload, headers=headers)
+        r_put = datagouv_session.put(url.replace('upload/', ''), json=resource_payload)
         r_put.raise_for_status()
-    return r.json()
+    return r
 
 
 def post_remote_resource(
-    api_key: str,
     dataset_id: str,
     title: str,
     format: str,
@@ -163,7 +160,6 @@ def post_remote_resource(
     """Create a post in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         dataset_id (str): id of the dataset
         title (str): resource title
         format (str): resource format
@@ -177,9 +173,6 @@ def post_remote_resource(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
     payload = {
         'title': title,
         'description': description,
@@ -193,32 +186,28 @@ def post_remote_resource(
     if resource_id:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
         print(f"Putting '{title}' at {url}")
-        r = requests.put(
+        r = datagouv_session.put(
             url,
             json=payload,
-            headers=headers
         )
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/"
         print(f"Posting '{title}' at {url}")
-        r = requests.post(
+        r = datagouv_session.post(
             url,
             json=payload,
-            headers=headers
         )
     r.raise_for_status()
     return r.json()
 
 
 def delete_dataset_or_resource(
-    api_key: str,
     dataset_id: str,
     resource_id: Optional[str] = None,
 ):
     """Delete a dataset or a resource in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         dataset_id (str): ID of the dataset
         resource_id (Optional[str], optional): ID of the resource.
         If resource is None, the dataset will be deleted. Else only the resource.
@@ -227,15 +216,12 @@ def delete_dataset_or_resource(
     Returns:
         json: return API result in a dictionnary
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
     if resource_id:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
 
-    r = requests.delete(url, headers=headers)
+    r = datagouv_session.delete(url)
     if r.status_code == 204:
         return {"message": "ok"}
     else:
@@ -261,7 +247,7 @@ def get_dataset_or_resource_metadata(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}"
-    r = requests.get(url)
+    r = datagouv_session.get(url)
     if r.status_code == 200:
         return r.json()
     else:
@@ -280,13 +266,12 @@ def get_dataset_from_resource_id(
        json: return API result in a dictionnary containing metadatas
     """
     url = f"{DATAGOUV_URL}/api/2/datasets/resources/{resource_id}/"
-    r = requests.get(url)
-    if r.status_code == 200:
-        return r.json()
+    r = datagouv_session.get(url)
+    r.raise_for_status()
+    return r.json()['dataset_id']
 
 
 def update_dataset_or_resource_metadata(
-    api_key: str,
     payload: TypedDict,
     dataset_id: str,
     resource_id: Optional[str] = None,
@@ -294,7 +279,6 @@ def update_dataset_or_resource_metadata(
     """Update metadata to dataset or resource in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         payload (TypedDict): metadata to upload.
         dataset_id (str): ID of the dataset
         resource_id (Optional[str], optional): ID of the resource.
@@ -304,25 +288,17 @@ def update_dataset_or_resource_metadata(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
     if resource_id:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
 
-    r = requests.put(url, json=payload, headers=headers)
-    assert r.status_code == 200
-    try:
-        return r.json()
-    except JSONDecodeError:
-        print("Issue returning json for this URL:", url)
-        return None
+    r = datagouv_session.put(url, json=payload)
+    r.raise_for_status()
+    return r
 
 
 def update_dataset_or_resource_extras(
-    api_key: str,
     payload: TypedDict,
     dataset_id: str,
     resource_id: Optional[str] = None,
@@ -330,7 +306,6 @@ def update_dataset_or_resource_extras(
     """Update specific extras to a dataset or resource in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         payload (TypedDict): Payload contaning extra and its value
         dataset_id (str): ID of the dataset.
         resource_id (Optional[str], optional): ID of the resource.
@@ -340,21 +315,16 @@ def update_dataset_or_resource_extras(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
     if resource_id:
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/resources/{resource_id}/extras/"
     else:
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/extras/"
-
-    r = requests.put(url, json=payload, headers=headers)
+    r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
-    return r.json()
+    return r
 
 
 def delete_dataset_or_resource_extras(
-    api_key: str,
     extras: List,
     dataset_id: str,
     resource_id: Optional[str] = None,
@@ -362,7 +332,6 @@ def delete_dataset_or_resource_extras(
     """Delete extras from a dataset or resoruce in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         extras (List): List of extras to delete.
         dataset_id (str): ID of the dataset.
         resource_id (Optional[str], optional): ID of the resource.
@@ -372,14 +341,11 @@ def delete_dataset_or_resource_extras(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
     if resource_id:
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/resources/{resource_id}/extras/"
     else:
         url = f"{DATAGOUV_URL}/api/2/datasets/{dataset_id}/extras/"
-    r = requests.delete(url, json=extras, headers=headers)
+    r = datagouv_session.delete(url, json=extras)
     if r.status_code == 204:
         return {"message": "ok"}
     else:
@@ -387,7 +353,6 @@ def delete_dataset_or_resource_extras(
 
 
 def create_post(
-    api_key: str,
     name: str,
     headline: str,
     content: str,
@@ -397,7 +362,6 @@ def create_post(
     """Create a post in data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         name (str): name of post.
         headline (str): headline of post
         content (str) : content of post
@@ -407,11 +371,8 @@ def create_post(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
 
-    r = requests.post(
+    r = datagouv_session.post(
         f"{DATAGOUV_URL}/api/1/posts/",
         json={
             'name': name,
@@ -420,7 +381,6 @@ def create_post(
             'body_type': body_type,
             'tags': tags
         },
-        headers=headers
     )
     assert r.status_code == 201
     return r.json()
@@ -450,7 +410,6 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
 
 
 def post_remote_communautary_resource(
-    api_key: str,
     dataset_id: str,
     title: str,
     format: str,
@@ -464,7 +423,6 @@ def post_remote_communautary_resource(
     """Post a remote communautary resource on data.gouv.fr
 
     Args:
-        api_key (str): API key from data.gouv.fr
         dataset_id (str): id of the dataset
         title (str): resource title
         format (str): resource format
@@ -478,14 +436,11 @@ def post_remote_communautary_resource(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    headers = {
-        "X-API-KEY": api_key,
-    }
     community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
     dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
 
     # Check if resource already exists
-    data = requests.get(
+    data = datagouv_session.get(
         community_resource_url,
         {"dataset": dataset_id}
     ).json()["data"]
@@ -516,19 +471,17 @@ def post_remote_communautary_resource(
         resource_id = data[idx]['id']
         refined_url = community_resource_url + f"/{resource_id}"
 
-        r = requests.put(
+        r = datagouv_session.put(
             refined_url,
             json=payload,
-            headers=headers
         )
 
     else:
         print(f"Creating resource at {dataset_link} from {remote_url}")
         # Create resource
-        r = requests.post(
+        r = datagouv_session.post(
             community_resource_url,
             json=payload,
-            headers=headers
         )
     r.raise_for_status()
     return r.json()
@@ -558,3 +511,18 @@ def get_all_from_api_query(
             r.raise_for_status()
         for data in r.json()['data']:
             yield data
+
+
+# Function to post a comment on a dataset
+def post_comment_on_dataset(dataset_id, title, comment):
+    post_object = {
+        "title": title,
+        "comment": comment,
+        "subject": {"class": "Dataset", "id": dataset_id},
+    }
+    r = datagouv_session.post(
+        f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/discussions/",
+        json=post_object
+    )
+    r.raise_for_status()
+    return r
