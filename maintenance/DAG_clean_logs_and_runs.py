@@ -93,7 +93,7 @@ def send_notification_mattermost(ti):
     total_size_bytes = round(total_size_bytes, 1)
     unit = units[k]
     send_message(
-        f"Les logs Airflow d'il y a plus de 14 jours ont été supprimés"
+        f"Les logs Airflow d'il y a plus de {nb_days_to_keep} jours ont été supprimés"
         f" ({total_size_bytes}{' ' * (len(unit) > 2) + unit} nettoyés)"
     )
 
@@ -109,7 +109,7 @@ default_args = {
 with DAG(
     dag_id="maintenance_clean_logs_and_runs",
     default_args=default_args,
-    description="Delete Airflow logs and runs older than 14 days",
+    description=f"Delete Airflow logs and runs older than {nb_days_to_keep} days",
     schedule_interval="0 16 * * 1",  # run every Monday at 4:00 PM (UTC)
     dagrun_timeout=timedelta(minutes=30),
     start_date=datetime(2024, 1, 25),
