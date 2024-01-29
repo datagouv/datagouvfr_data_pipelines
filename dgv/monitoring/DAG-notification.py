@@ -12,11 +12,25 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items, SPAM_WORDS
 import requests
 import re
+from langdetect import detect
 
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"hours": 1}
 duplicate_slug_pattern = r'-\d+$'
+
+
+def detect_spam(name, description):
+    contains_spam_word = any([
+        spam in field.lower() if field else False
+        for spam in SPAM_WORDS
+        for field in [name, description]
+    ])
+    doesnt_look_french = (
+        detect(description.lower()) != 'fr' if description
+        else detect(name.lower()) != 'fr'
+    )
+    return contains_spam_word or doesnt_look_french
 
 
 def check_new(ti, **kwargs):
@@ -40,11 +54,7 @@ def check_new(ti, **kwargs):
             # if certified orga, no spam check
             badges = item['organization'].get('badges', []) if item.get('organization', None) else []
             if 'certified' not in [badge['kind'] for badge in badges]:
-                mydict['spam'] = any([
-                    spam in field.lower() if field else False
-                    for spam in SPAM_WORDS
-                    for field in [item['title'], item['description']]
-                ])
+                mydict['spam'] = detect_spam(item['title'], item['description'])
             if item['organization']:
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
@@ -75,11 +85,7 @@ def check_new(ti, **kwargs):
             else:
                 mydict['first_publication'] = False
         else:
-            mydict['spam'] = any([
-                spam in field.lower() if field else False
-                for spam in SPAM_WORDS
-                for field in [item['name'], item['description']]
-            ])
+            mydict['spam'] = detect_spam(item['name'], item['description'])
         # checking for potential duplicates in organization creation
         mydict['duplicated'] = False
         if templates_dict["type"] == 'organizations':
