@@ -7,7 +7,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     post_comment_on_dataset,
     update_dataset_or_resource_extras,
 )
-from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from typing import List, Optional, Dict
@@ -2003,7 +2002,6 @@ def notification_synthese(
                     index=False
                 )
 
-                # reminder : send_files puts the files into an intermediary {AIRFLOW_ENV} folder
                 minio_open.send_files(
                     list_files=[
                         {
@@ -2013,6 +2011,7 @@ def notification_synthese(
                             "dest_name": erreurs_file_name,
                         }
                     ],
+                    ignore_airflow_env=True
                 )
 
                 message += f"\n- Schéma ***{s['title']}***\n - Ressources déclarées : {nb_declares}"
@@ -2023,12 +2022,11 @@ def notification_synthese(
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
                     f"(https://explore.data.gouv.fr/tableau?url=https://{MINIO_URL}/"
-                    f"{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/schema/schemas_consolidation/"
+                    f"{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
                     f"liste_erreurs/{erreurs_file_name})\n"
                 )
-            except: # noqa
-                print("No report for {}".format(s["name"]))
-                pass
+            except Exception as e:
+                print(s["name"], "erreur :", e)
     send_message(message, MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE)
 
 
