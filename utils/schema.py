@@ -1930,6 +1930,7 @@ def upload_minio(
 
     minio_open.send_files(
         list_files=list_files,
+        ignore_airflow_env=True,
     )
     return
 
