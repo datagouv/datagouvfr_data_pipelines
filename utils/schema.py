@@ -1948,7 +1948,7 @@ def notification_synthese(
     """
     assert schema_name or len(list_schema_skip) > 0
 
-    last_conso = datetime.today().strftime('%Y%m%d')
+    last_conso = datetime.today().strftime('%Y-%m-%d')
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
