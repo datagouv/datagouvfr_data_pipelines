@@ -35,7 +35,10 @@ def initialization(ti, TMP_FOLDER):
     branch = 'main'
     if 'preprod' in TMP_FOLDER:
         branch = 'preprod'
-    LIST_SCHEMAS_YAML = f"https://raw.githubusercontent.com/etalab/schema.data.gouv.fr/{branch}/repertoires.yml"
+    LIST_SCHEMAS_YAML = (
+        "https://raw.githubusercontent.com/etalab/"
+        f"schema.data.gouv.fr/{branch}/repertoires.yml"
+    )
 
     # Loading yaml file containing all schemas that we want to display in schema.data.gouv.fr
     r = requests.get(LIST_SCHEMAS_YAML)
@@ -236,7 +239,9 @@ def check_datapackage(repertoire_slug, conf, folders):
                     if f != 'datapackage.json':
                         SCHEMA_INFOS[dpkg_name]['versions'][version]['pages'].append(f)
                     else:
-                        SCHEMA_INFOS[dpkg_name]['versions'][version]['schema_url'] = '/' + dpkg_name + '/' + version + '/datapackage.json'
+                        SCHEMA_INFOS[dpkg_name]['versions'][version]['schema_url'] = (
+                            '/' + dpkg_name + '/' + version + '/datapackage.json'
+                        )
 
             # Verify that a file datapackage.json is present
             if os.path.isfile(src_folder + 'datapackage.json'):
@@ -285,11 +290,15 @@ def check_datapackage(repertoire_slug, conf, folders):
                         # destination folder will store pertinents files for website
                         # for each version of each schema
 
-                        schema_dest_folder = folders['DATA_FOLDER1'] + '/' + schema_name + '/' + version + '/'
+                        schema_dest_folder = (
+                            folders['DATA_FOLDER1'] + '/' + schema_name + '/' + version + '/'
+                        )
                         if len(schema.split('/')) > 1:
                             os.makedirs(schema_dest_folder, exist_ok=True)
                         shutil.copyfile(src_folder + schema, schema_dest_folder + schema.split('/')[-1])
-                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + schema.split("/")[-1]
+                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                            '/' + schema_name + '/' + version + '/' + schema.split("/")[-1]
+                        )
                         for f in ['README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md']:
                             if os.path.isfile(src_folder + '/'.join(schema.split('/')[:-1]) + '/' + f):
                                 shutil.copyfile(
@@ -379,13 +388,16 @@ def manage_tableschema(
             # if so, we copy paste them into dest folder
             for f in [schema_file, 'README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md']:
                 if os.path.isfile(src_folder + subfolder + f):
+                    print("schema has", f)
                     shutil.copyfile(src_folder + subfolder + f, dest_folder + f)
                     # if it is a markdown file, we will read them as page in website
                     if f[-3:] == '.md':
                         SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
                     # if it is the schema, we indicate it as it in object
                     if f == schema_file:
-                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + schema_file
+                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                            '/' + schema_name + '/' + version + '/' + schema_file
+                        )
             # Create documentation file and save it
             with open(dest_folder + 'documentation.md', "w") as out:
                 try:
@@ -442,14 +454,17 @@ def manage_jsonschema(
                         # if so, we copy paste them into dest folder
                         for f in ['README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md', s['path']]:
                             if os.path.isfile(src_folder + f):
+                                print("schema has", f)
                                 os.makedirs(os.path.dirname(dest_folder + f), exist_ok=True)
                                 shutil.copyfile(src_folder + f, dest_folder + f)
-                            # if it is a markdown file, we will read them as page in website
-                            if f[-3:] == '.md':
-                                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
-                            # if it is the schema, we indicate it as it in object
-                            if f == s['path']:
-                                SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + s['path']
+                                # if it is a markdown file, we will read them as page in website
+                                if f[-3:] == '.md':
+                                    SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
+                                # if it is the schema, we indicate it as it in object
+                                if f == s['path']:
+                                    SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                                        '/' + schema_name + '/' + version + '/' + s['path']
+                                    )
         # If schema release is not valid, we remove it from DATA_FOLDER1
         except:
             manage_errors(repertoire_slug, version, 'jsonschema validation')
@@ -493,7 +508,9 @@ def manage_other(
                         SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
                     # if it is the schema, we indicate it as it in object
                     if f == 'schema.yml':
-                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + 'schema.yml'
+                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                            '/' + schema_name + '/' + version + '/' + 'schema.yml'
+                        )
         # If schema release is not valid, we remove it from DATA_FOLDER1
         except:
             manage_errors(repertoire_slug, version, 'validation of type other')
@@ -510,7 +527,10 @@ def manage_latest_folder(schema_name, folders):
     """Create latest folder containing all files from latest valid version of a schema"""
     # Get all valid version from a schema by analyzing folders
     # then sort them to get latest valid version and related folder
-    subfolders = [f.name for f in os.scandir(folders['DATA_FOLDER1'] + '/' + schema_name + '/') if f.is_dir()]
+    subfolders = [
+        f.name for f in os.scandir(folders['DATA_FOLDER1'] + '/' + schema_name + '/')
+        if f.is_dir()
+    ]
     subfolders = sorted(subfolders, key=comparer_versions)
     sf = subfolders[-1]
     if sf == 'latest':
@@ -537,7 +557,9 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
     mydict['name'] = dpkg_name
     mydict['title'] = dpkg['title']
     mydict['description'] = dpkg['description']
-    mydict['schema_url'] = 'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/latest/' + 'datapackage.json'
+    mydict['schema_url'] = (
+        'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/latest/' + 'datapackage.json'
+    )
     mydict['schema_type'] = 'datapackage'
     mydict['contact'] = conf.get('email', None)
     mydict['examples'] = []
@@ -547,7 +569,9 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
     for sf in list_schemas:
         mydict2 = {}
         mydict2['version_name'] = sf
-        mydict2['schema_url'] = 'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/' + sf + '/' + 'datapackage.json'
+        mydict2['schema_url'] = (
+            'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/' + sf + '/' + 'datapackage.json'
+        )
         mydict['versions'].append(mydict2)
     # These four following property are not in catalog spec
     mydict['external_doc'] = conf.get('external_doc', None)
@@ -592,7 +616,9 @@ def generate_catalog_object(
     for sf in list_schemas:
         mydict2 = {}
         mydict2['version_name'] = sf
-        mydict2['schema_url'] = 'https://schema.data.gouv.fr/schemas/' + mydict['name'] + '/' + sf + '/' + list_schemas[sf]
+        mydict2['schema_url'] = (
+            'https://schema.data.gouv.fr/schemas/' + mydict['name'] + '/' + sf + '/' + list_schemas[sf]
+        )
         mydict['versions'].append(mydict2)
     # These four following property are not in catalog spec
     mydict['external_doc'] = obj_info.get('external_doc', None)
@@ -688,10 +714,17 @@ def get_contributors(url):
     parse_url = parse.urlsplit(url)
     # if github, use github api
     if 'github.com' in parse_url.netloc:
-        api_url = parse_url.scheme + '://api.github.com/repos/' + parse_url.path[1:].replace('.git', '') + '/contributors'
+        api_url = (
+            parse_url.scheme + '://api.github.com/repos/'
+            + parse_url.path[1:].replace('.git', '') + '/contributors'
+        )
     # else, use gitlab api
     else:
-        api_url = parse_url.scheme + '://' + parse_url.netloc + '/api/v4/projects/' + parse_url.path[1:].replace('/', '%2F').replace('.git', '') + '/repository/contributors'
+        api_url = (
+            parse_url.scheme + '://' + parse_url.netloc
+            + '/api/v4/projects/' + parse_url.path[1:].replace('/', '%2F').replace('.git', '')
+            + '/repository/contributors'
+        )
     try:
         r = requests.get(api_url)
         return len(r.json())
@@ -699,7 +732,7 @@ def get_contributors(url):
         return None
 
 
-################################################################################################################
+#######################################################################################################
 # DAG functions
 
 def check_and_save_schemas(ti):
@@ -716,7 +749,8 @@ def check_and_save_schemas(ti):
 
     # For every schema in repertoires.yml, check it
     for repertoire_slug, conf in config.items():
-        print("\n\nStarting with ", repertoire_slug)
+        print("_______________________________")
+        print("Starting with ", repertoire_slug)
         print(conf)
         try:
             if conf['type'] != 'datapackage':
@@ -732,11 +766,9 @@ def check_and_save_schemas(ti):
             print(f'--- {repertoire_slug} processed')
         except git.exc.GitCommandError:
             print(f'--- {repertoire_slug} failed to process due to git error')
-
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
     schemas_tableschema = SCHEMA_CATALOG.copy()
-
     # Save catalog to schemas.json file
     with open(folders['DATA_FOLDER1'] + '/schemas.json', 'w') as fp:
         json.dump(SCHEMA_CATALOG, fp, indent=4)
@@ -785,7 +817,9 @@ def sort_folders(ti):
     files = []
     files = getListOfFiles(folders['DATA_FOLDER1'])
     # Create list of file that we do not want to copy paste
-    avoid_files = [folders['DATA_FOLDER1'] + '/' + s['name'] + '/README.md' for s in SCHEMA_CATALOG['schemas']]
+    avoid_files = [
+        folders['DATA_FOLDER1'] + '/' + s['name'] + '/README.md' for s in SCHEMA_CATALOG['schemas']
+    ]
     # for every file
     for f in files:
         # if it is a markdown, add custom front to content
@@ -822,7 +856,10 @@ def get_issues_and_labels(ti):
         print('   >', lab)
         try:
             r = requests.get(
-                'https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue&labels=Sch%C3%A9ma%20en%20'
+                (
+                    'https://api.github.com/repos/etalab/schema.data.gouv.fr/'
+                    'issues?q=is%3Aopen+is%3Aissue&labels=Sch%C3%A9ma%20en%20'
+                )
                 + lab
             )
             mydict[lab] = []
@@ -839,7 +876,9 @@ def get_issues_and_labels(ti):
 
     # Find number of current issue in schema.data.gouv.fr repo
     try:
-        r = requests.get('https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue')
+        r = requests.get(
+            'https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue'
+        )
         mydict['nb_issues'] = len(r.json())
     except:
         print('Error with github API while trying to get issues from schema.data.gouv.fr repo')
