@@ -222,15 +222,10 @@ def check_schema(ti):
 
 
 def publish_item(item, item_type):
-    if item['spam']:
-        message = ':warning: @all Spam potentiel\n'
-    else:
-        message = ''
-
     if item_type == "dataset":
-        message += ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
+        message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
     else:
-        message += ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
+        message = ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
 
     if item['owner_type'] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
