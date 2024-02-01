@@ -9,10 +9,14 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_last_items, SPAM_WORDS
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_last_items,
+    get_latest_comments,
+    SPAM_WORDS,
+)
 import requests
 import re
-from langdetect import detect
+from langdetect import detect, LangDetectException
 
 DAG_NAME = "dgv_notification_activite"
 
@@ -26,10 +30,13 @@ def detect_spam(name, description):
         for spam in SPAM_WORDS
         for field in [name, description]
     ])
-    doesnt_look_french = (
-        detect(description.lower()) != 'fr' if description
-        else detect(name.lower()) != 'fr'
-    )
+    try:
+        doesnt_look_french = (
+            detect(description.lower()) != 'fr' if description
+            else detect(name.lower()) != 'fr'
+        )
+    except LangDetectException:
+        doesnt_look_french = False
     return contains_spam_word or doesnt_look_french
 
 
@@ -99,6 +106,16 @@ def check_new(ti, **kwargs):
                     mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
+
+
+def check_new_comments(ti):
+    latest_comments = get_latest_comments(
+        start_date=datetime.now() - timedelta(**TIME_PERIOD)
+    )
+    spam_comments = [
+        k for k in latest_comments if detect_spam('', k[-1]['content'].replace('\n', ' '))
+    ]
+    ti.xcom_push(key="spam_comments", value=spam_comments)
 
 
 def similar(a, b):
@@ -274,6 +291,7 @@ def publish_mattermost(ti):
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
+    spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:
@@ -298,6 +316,28 @@ def publish_mattermost(ti):
     if nb_reuses > 0:
         for item in reuses:
             publish_item(item, "reuse")
+
+    if spam_comments:
+        for comment_id, subject, comment in spam_comments:
+            if subject['class'] in ['Dataset', 'Reuse']:
+                discussion_url = (
+                    f"\nhttps://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
+                    f"#/discussions/{comment_id.split(':')[0]}"
+                )
+            else:
+                discussion_url = (
+                    f"\nhttps://www.data.gouv.fr/api/1/discussions/{comment_id.split(':')[0]}"
+                )
+            owner_url = (
+                f"https://www.data.gouv.fr/fr/{comment['posted_by']['class'].lower()}s/"
+                f"{comment['posted_by']['id']}/"
+            )
+            message = (
+                ':warning: @all Spam potentiel\n'
+                f':right_anger_bubble: Commentaire suspect de [{comment["posted_by"]["slug"]}]({owner_url})'
+                f' dans la discussion :\n:point_right: {discussion_url}'
+            )
+            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 default_args = {
@@ -334,6 +374,11 @@ with DAG(
         templates_dict={"type": "organizations"},
     )
 
+    check_new_comments = PythonOperator(
+        task_id="check_new_comments",
+        python_callable=check_new_comments,
+    )
+
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
         python_callable=publish_mattermost,
@@ -345,7 +390,7 @@ with DAG(
     )
 
     (
-        [check_new_datasets, check_new_reuses, check_new_orgas]
+        [check_new_datasets, check_new_reuses, check_new_orgas, check_new_comments]
         >> publish_mattermost
         >> check_schema
     )

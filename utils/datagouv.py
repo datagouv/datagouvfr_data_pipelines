@@ -3,7 +3,7 @@ from typing import List, Optional, TypedDict
 import requests
 import os
 import numpy as np
-from json import JSONDecodeError
+from datetime import datetime
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
@@ -406,6 +406,30 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
         elif created.timestamp() < start_date.timestamp():
             break
         results.append(d)
+    return results
+
+
+def get_latest_comments(start_date, end_date=None):
+    """
+    Get latest comments posted on discussions, stored as a list of tuples:
+    ("discussion_id:comment_timestamp", subject, comment)
+    """
+    results = []
+    data = get_all_from_api_query(
+        "https://www.data.gouv.fr/api/1/discussions/?sort=-discussion.posted_on"
+    )
+    for d in data:
+        latest_comment = datetime.fromisoformat(d['discussion'][-1]['posted_on'])
+        if latest_comment.timestamp() < start_date.timestamp():
+            break
+        # going up from the latest comment
+        for comment in d['discussion'][::-1]:
+            posted_ts = datetime.fromisoformat(comment['posted_on']).timestamp()
+            if end_date and posted_ts > end_date.timestamp():
+                continue
+            elif posted_ts < start_date.timestamp():
+                break
+            results.append((f"{d['id']}:{comment['posted_on']}", d['subject'], comment))
     return results
 
 
