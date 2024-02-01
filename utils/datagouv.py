@@ -429,7 +429,13 @@ def get_latest_comments(start_date, end_date=None):
                 continue
             elif posted_ts < start_date.timestamp():
                 break
-            results.append((f"{d['id']}:{comment['posted_on']}", d['subject'], comment))
+            results.append({
+                "comment_id": f"{d['id']}|{comment['posted_on']}",
+                "discussion_subject": d['subject'],
+                "discussion_title": d['title'],
+                "discussion_created": d['created'],
+                "comment": comment,
+            })
     return results
 
 

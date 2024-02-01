@@ -113,7 +113,7 @@ def check_new_comments(ti):
         start_date=datetime.now() - timedelta(**TIME_PERIOD)
     )
     spam_comments = [
-        k for k in latest_comments if detect_spam('', k[-1]['content'].replace('\n', ' '))
+        k for k in latest_comments if detect_spam('', k['comment']['content'].replace('\n', ' '))
     ]
     ti.xcom_push(key="spam_comments", value=spam_comments)
 
@@ -318,23 +318,25 @@ def publish_mattermost(ti):
             publish_item(item, "reuse")
 
     if spam_comments:
-        for comment_id, subject, comment in spam_comments:
-            if subject['class'] in ['Dataset', 'Reuse']:
+        for comment in spam_comments:
+            if comment['discussion_subject']['class'] in ['Dataset', 'Reuse']:
                 discussion_url = (
-                    f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
-                    f"#/discussions/{comment_id.split(':')[0]}"
+                    f"https://www.data.gouv.fr/fr/{comment['discussion_subject']['class'].lower()}s/"
+                    f"{comment['discussion_subject']['id']}/#/"
+                    f"discussions/{comment['comment_id'].split('|')[0]}"
                 )
             else:
                 discussion_url = (
-                    f"https://www.data.gouv.fr/api/1/discussions/{comment_id.split(':')[0]}"
+                    f"https://www.data.gouv.fr/api/1/discussions/{comment['comment_id'].split('|')[0]}"
                 )
             owner_url = (
-                f"https://www.data.gouv.fr/fr/{comment['posted_by']['class'].lower()}s/"
-                f"{comment['posted_by']['id']}/"
+                f"https://www.data.gouv.fr/fr/{comment['comment']['posted_by']['class'].lower()}s/"
+                f"{comment['comment']['posted_by']['id']}/"
             )
             message = (
                 ':warning: @all Spam potentiel\n'
-                f':right_anger_bubble: Commentaire suspect de [{comment["posted_by"]["slug"]}]({owner_url})'
+                ':right_anger_bubble: Commentaire suspect de'
+                f' [{comment["comment"]["posted_by"]["slug"]}]({owner_url})'
                 f' dans la discussion :\n:point_right: {discussion_url}'
             )
             send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
