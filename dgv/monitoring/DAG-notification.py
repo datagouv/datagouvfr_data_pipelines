@@ -321,12 +321,12 @@ def publish_mattermost(ti):
         for comment_id, subject, comment in spam_comments:
             if subject['class'] in ['Dataset', 'Reuse']:
                 discussion_url = (
-                    f"\nhttps://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
+                    f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
                     f"#/discussions/{comment_id.split(':')[0]}"
                 )
             else:
                 discussion_url = (
-                    f"\nhttps://www.data.gouv.fr/api/1/discussions/{comment_id.split(':')[0]}"
+                    f"https://www.data.gouv.fr/api/1/discussions/{comment_id.split(':')[0]}"
                 )
             owner_url = (
                 f"https://www.data.gouv.fr/fr/{comment['posted_by']['class'].lower()}s/"
