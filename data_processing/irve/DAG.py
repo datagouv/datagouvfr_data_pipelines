@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     download_irve_resources,
     consolidate_irve,
     custom_filters_irve,
+    improve_irve_geo_data_quality,
     upload_consolidated_irve,
     update_reference_table_irve,
     update_resource_send_mail_producer_irve,
@@ -26,9 +27,6 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     final_directory_clean_up_irve,
     upload_minio_irve,
     notification_synthese_irve
-)
-from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
-    improve_geo_data_quality,
 )
 
 DAG_NAME = "irve_consolidation"
@@ -97,24 +95,11 @@ with DAG(
         python_callable=custom_filters_irve,
     )
 
-    schema_irve_path = TMP_FOLDER / "consolidated_data" / "etalab_schema-irve-statique"
-    # it will exist for sure at this point but otherwise airflow throws an error
-    if schema_irve_path.exists():
-        schema_irve_path = schema_irve_path / os.listdir(schema_irve_path)[0]
-
-    schema_irve_cols = {
-        "xy_coords": "coordonneesXY",
-        "code_insee": "code_insee_commune",
-        "adress": "adresse_station",
-        "longitude": "consolidated_longitude",
-        "latitude": "consolidated_latitude",
-    }
-
     geodata_quality_improvement = PythonOperator(
         task_id="geodata_quality_improvement",
-        python_callable=improve_geo_data_quality,
+        python_callable=improve_irve_geo_data_quality,
         op_kwargs={
-            "file_cols_mapping": {schema_irve_path.as_posix(): schema_irve_cols}
+            "tmp_path": TMP_FOLDER,
         },
     )
 

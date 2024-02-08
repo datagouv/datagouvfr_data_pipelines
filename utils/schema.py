@@ -1189,6 +1189,7 @@ def upload_geojson(
     schema_consolidated_data_path: str,
     consolidation_date_str: str,
     schema_name: str,
+    latest_version: str,
     config_dict: dict,
     should_succeed=False
 ) -> bool:
@@ -1213,7 +1214,7 @@ def upload_geojson(
 
     obj = {}
     obj["type"] = "main"
-    obj["title"] = "Export au format geojson"
+    obj["title"] = f"Export au format geojson (v{latest_version})"
     obj["format"] = "json"
     response = post_resource(
         file_to_upload={
@@ -1301,15 +1302,21 @@ def upload_consolidated(
                     '-- ⚠️ No consolidated file was created for the schema, see consolidate_resources logs'
                 )
                 return not should_succeed
-            for version_name in sorted(version_names_list):
-                schema = {"name": schema_name, "version": version_name}
+            sorted_version = sorted(version_names_list, key=comparer_versions)
+            latest_mapping = {'latest': sorted_version[-1]}
+            sorted_version.append('latest')
+            for version_name in sorted_version:
+                schema = {"name": schema_name, "version": latest_mapping.get(version_name, version_name)}
                 obj = {}
                 obj["schema"] = schema
                 obj["type"] = "main"
-                obj[
-                    "title"
-                ] = "Dernière version consolidée (v{} du schéma) - {}".format(
-                    version_name, consolidation_date_str
+                obj["title"] = (
+                    "Consolidation de la v{} du schéma - {}".format(
+                        version_name, consolidation_date_str
+                    ) if version_name != 'latest'
+                    else "Consolidation de la dernière version à date du schéma (v{}) - {}".format(
+                        latest_mapping['latest'], consolidation_date_str
+                    )
                 )
                 obj["format"] = "csv"
 
@@ -1331,7 +1338,7 @@ def upload_consolidated(
                         'dest_path': schema_consolidated_data_path.as_posix(),
                         'dest_name': build_consolidation_name(
                             schema_name,
-                            version_name,
+                            latest_mapping.get(version_name, version_name),
                             consolidation_date_str
                         ),
                     },
@@ -1375,6 +1382,7 @@ def upload_consolidated(
                     schema_consolidated_data_path,
                     consolidation_date_str,
                     schema_name,
+                    latest_mapping['latest'],
                     config_dict,
                     should_succeed
                 )
