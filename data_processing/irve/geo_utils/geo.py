@@ -14,6 +14,10 @@ with open(
 ) as f:
     FRANCE_BBOXES = geojson.load(f)
 
+# Create a Polygon
+geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
+polys = [shape(geom) for geom in geoms]
+
 
 def is_point_in_polygon(x: float, y: float, polygon: List[List[float]]) -> bool:
     point = Point(x, y)
@@ -23,10 +27,6 @@ def is_point_in_polygon(x: float, y: float, polygon: List[List[float]]) -> bool:
 
 def is_point_in_france(coordonnees_xy: List[float]) -> bool:
     p = Point(*coordonnees_xy)
-
-    # Create a Polygon
-    geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
-    polys = [shape(geom) for geom in geoms]
     return any([p.within(poly) for poly in polys])
 
 
@@ -103,12 +103,12 @@ def fix_code_insee( # noqa
     Requires address and coordinates columns
     """
 
-    def enrich_row_address(row: pd.Series) -> pd.Series:
+    def enrich_row_address(row: pd.Series, session) -> pd.Series:
         row["consolidated_is_lon_lat_correct"] = False
         row["consolidated_is_code_insee_verified"] = False
         row["consolidated_code_insee_modified"] = False
         # Try getting commune with code INSEE from latitude and longitude alone
-        response = requests.get(
+        response = session.get(
             url=(
                 f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}"
                 f"&lon={row[lon_col]}&fields=code,nom,codesPostaux"
@@ -143,7 +143,7 @@ def fix_code_insee( # noqa
 
         if str(row[code_insee_col]) in row[address_col]:
             # Code INSEE field actually contains a postcode
-            response = requests.get(
+            response = session.get(
                 url=f"https://geo.api.gouv.fr/communes?codePostal={row[code_insee_col]}&fields=code,nom"
             )
             commune_results = json.loads(response.content)
@@ -160,7 +160,7 @@ def fix_code_insee( # noqa
                 return row
 
         # Check if postcode is in address
-        response = requests.get(
+        response = session.get(
             url=f"https://geo.api.gouv.fr/communes?code={row[code_insee_col]}&fields=codesPostaux,nom"
         )
         commune_results = json.loads(response.content)
@@ -181,6 +181,7 @@ def fix_code_insee( # noqa
         enrich_row_address.nothing_matches += 1
         return row
 
+    session = requests.Session()
     enrich_row_address.already_good = 0
     enrich_row_address.code_fixed = 0
     enrich_row_address.code_coords_mismatch = 0
@@ -189,7 +190,7 @@ def fix_code_insee( # noqa
     enrich_row_address.code_insee_has_postcode_in_address = 0
     enrich_row_address.nothing_matches = 0
 
-    df = df.apply(enrich_row_address, axis=1)
+    df = df.apply(lambda x: enrich_row_address(x, session), axis=1)
 
     total_rows = len(df)
     print(
