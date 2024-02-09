@@ -61,7 +61,8 @@ async def url_error(url, session, method="head"):
     except (
         aiohttp.ClientError,
         AssertionError,
-        asyncio.exceptions.TimeoutError
+        asyncio.exceptions.TimeoutError,
+        ValueError,
     ) as e:
         return e.status if hasattr(e, "status") else str(e)
 
