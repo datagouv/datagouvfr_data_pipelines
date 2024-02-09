@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 import requests
 from io import StringIO
-import plotly.express as px
-import plotly.graph_objects as go
+from time import sleep
+import json
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import month_year_iter
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
 
 DAG_NAME = "dgv_support_monitor"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -23,8 +24,10 @@ groups = [
     k + "@" + ".".join(['data', 'gouv', 'fr'])
     for k in ['support', 'ouverture', 'moissonnage', 'certification']
 ]
+api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_destination_folder = "dashboard/"
 
 
 def get_monthly_tickets(year_month, tags=None, per_page=200):
@@ -157,9 +160,73 @@ def gather_and_upload(
             {
                 "source_path": DATADIR,
                 "source_name": 'stats_support.csv',
-                "dest_path": "support/",
+                "dest_path": minio_destination_folder,
                 "dest_name": 'stats_support.csv',
             }
+        ],
+        ignore_airflow_env=True,
+    )
+
+
+def is_certified(badges):
+    for b in badges:
+        if b['kind'] == 'certified':
+            return True
+    return False
+
+
+def is_SP_or_CT(siret, session):
+    issue = None
+    if siret is None:
+        return False, issue
+    try:
+        r = session.get(api_url + siret).json()
+    except:
+        sleep(1)
+        r = session.get(api_url + siret).json()
+    if len(r['results']) == 0:
+        print('No match for: ', siret)
+        issue = "pas de correspondance : " + siret
+        return False, issue
+    if len(r['results']) > 1:
+        print('Ambiguous: ', siret)
+        issue = "SIRET ambigu : " + siret
+    complements = r['results'][0]['complements']
+    return complements['collectivite_territoriale'] or complements['est_service_public'], issue
+
+
+def get_and_upload_certification():
+    session = requests.Session()
+    orgas = get_all_from_api_query(
+        'https://www.data.gouv.fr/api/1/organizations',
+        mask='data{id,badges,business_number_id}'
+    )
+    certified = []
+    SP_or_CT = []
+    issues = []
+    for o in orgas:
+        if is_certified(o['badges']):
+            certified.append(o['id'])
+        it_is, issue = is_SP_or_CT(o['business_number_id'], session)
+        if it_is:
+            SP_or_CT.append(o['id'])
+        if issue:
+            issues.append({o['id']: issue})
+    with open(DATADIR + 'certified.json', 'w') as f:
+        json.dump(certified, f)
+    with open(DATADIR + 'SP_or_CT.json', 'w') as f:
+        json.dump(SP_or_CT, f)
+    with open(DATADIR + 'issues.json', 'w') as f:
+        json.dump(issues, f)
+
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": DATADIR,
+                "source_name": f,
+                "dest_path": minio_destination_folder + datetime.now().strftime("%Y-%m-%d") + '/',
+                "dest_name": f,
+            } for f in ['certified.json', 'SP_or_CT.json', 'issues.json']
         ],
         ignore_airflow_env=True,
     )
@@ -172,7 +239,7 @@ with DAG(
     schedule_interval="0 4 1 * *",
     start_date=datetime(2023, 10, 15),
     dagrun_timeout=timedelta(minutes=30),
-    tags=["support"],
+    tags=["support", "certification"],
     default_args=default_args,
     catchup=False,
 ) as dag:
@@ -194,6 +261,11 @@ with DAG(
         op_kwargs={'start_date': one_year_ago},
     )
 
+    get_and_upload_certification = PythonOperator(
+        task_id="get_and_upload_certification",
+        python_callable=get_and_upload_certification,
+    )
+
     gather_and_upload = PythonOperator(
         task_id="gather_and_upload",
         python_callable=gather_and_upload,
@@ -201,6 +273,7 @@ with DAG(
 
     get_zammad_tickets.set_upstream(clean_previous_outputs)
     get_visits.set_upstream(clean_previous_outputs)
+    get_and_upload_certification.set_upstream(clean_previous_outputs)
 
     gather_and_upload.set_upstream(get_zammad_tickets)
     gather_and_upload.set_upstream(get_visits)
