@@ -25,6 +25,7 @@
         "dgv_metrics": true,
         "dgv_moderation_utilisateurs": false,
         "dgv_notification_activite": false,
+        "dgv_support_monitor": true,
         "dgv_tops": true,
         "schema_consolidation": true,
         "irve_consolidation": true,
