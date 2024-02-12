@@ -9,7 +9,6 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_ZAMMAD_API_URL,
     SECRET_ZAMMAD_API_TOKEN,
 )
@@ -26,7 +25,7 @@ groups = [
 ]
 api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = MinIOClient(bucket='dataeng-open')
 minio_destination_folder = "dashboard/"
 
 
