@@ -30,13 +30,13 @@ def detect_spam(name, description):
         for spam in SPAM_WORDS
         for field in [name, description]
     ])
-    try:
-        doesnt_look_french = (
-            detect(description.lower()) != 'fr' if description
-            else detect(name.lower()) != 'fr'
-        )
-    except LangDetectException:
+    if not description or len(description) < 30:
         doesnt_look_french = False
+    else:
+        try:
+            doesnt_look_french = detect(description.lower()) != 'fr'
+        except LangDetectException:
+            doesnt_look_french = False
     return contains_spam_word or doesnt_look_french
 
 
