@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import month_year_iter
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_NAME = "dgv_support_monitor"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -270,9 +271,20 @@ with DAG(
         python_callable=gather_and_upload,
     )
 
+    publish_mattermost = PythonOperator(
+        task_id="publish_mattermost",
+        python_callable=send_message,
+        op_kwargs={
+            'text': ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
+        },
+    )
+
     get_zammad_tickets.set_upstream(clean_previous_outputs)
     get_visits.set_upstream(clean_previous_outputs)
     get_and_upload_certification.set_upstream(clean_previous_outputs)
 
     gather_and_upload.set_upstream(get_zammad_tickets)
     gather_and_upload.set_upstream(get_visits)
+
+    publish_mattermost.set_upstream(gather_and_upload)
+    publish_mattermost.set_upstream(get_and_upload_certification)
