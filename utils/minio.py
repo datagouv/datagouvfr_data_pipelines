@@ -55,6 +55,8 @@ class MinIOClient:
             Exception: when specified local file does not exists
             Exception: when specified bucket does not exist
         """
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         for file in list_files:
             is_file = os.path.isfile(
                 os.path.join(file["source_path"], file["source_name"])
@@ -92,6 +94,8 @@ class MinIOClient:
         Raises:
             Exception: _description_
         """
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         for file in list_files:
             self.client.fget_object(
                 self.bucket,
@@ -112,6 +116,8 @@ class MinIOClient:
             both path and name from files to compare
 
         """
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         s3 = boto3.client(
             "s3",
             endpoint_url=f"https://{self.url}",
@@ -150,6 +156,8 @@ class MinIOClient:
         Raises:
             Exception: _description_
         """
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         list_objects = []
         objects = self.client.list_objects(self.bucket, prefix=f"{AIRFLOW_ENV}/{prefix}")
         for obj in objects:
@@ -201,6 +209,8 @@ class MinIOClient:
         """
         returns a dict of {"file_name": file_size, ...} for all files in the folder
         """
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         objects = {o.object_name: o for o in self.client.list_objects(self.bucket, prefix=folder)}
         files = {k: v.size for k, v in objects.items() if '.' in k}
         subfolders = [k for k in objects.keys() if k not in files.keys()]
@@ -215,6 +225,8 @@ class MinIOClient:
         file_path: str,
     ):
         """/!\ USE WITH CAUTION"""
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         try:
             self.client.stat_object(self.bucket, file_path)
             self.client.remove_object(self.bucket, file_path)
@@ -227,6 +239,8 @@ class MinIOClient:
         dict_top,
         name,
     ):
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
         raw_data = io.BytesIO(json.dumps(dict_top, indent=2).encode("utf-8"))
         self.client.put_object(
             bucket_name=self.bucket,
