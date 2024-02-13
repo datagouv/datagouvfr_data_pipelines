@@ -26,7 +26,11 @@ groups = [
 ]
 api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
-minio_open = MinIOClient(bucket='dataeng-open')
+# bypassing a Denied Access error in production
+try:
+    minio_open = MinIOClient(bucket='dataeng-open')
+except:
+    minio_open = None
 minio_destination_folder = "dashboard/"
 
 
