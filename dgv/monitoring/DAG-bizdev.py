@@ -52,18 +52,17 @@ async def url_error(url, session, method="head"):
             allow_redirects=True,
             headers={"User-Agent": random.choice(agents)}
         ) as r:
-            if r.status in [403, 405, 500]:
+            if r.status in [
+                301, 302, 303,
+                401, 403, 404, 405,
+                500
+            ]:
                 if method == "head":
                     # HEAD might not be allowed or correctly implemented, trying with GET
                     return await url_error(url, session, method="get")
             r.raise_for_status()
         return False
-    except (
-        aiohttp.ClientError,
-        AssertionError,
-        asyncio.exceptions.TimeoutError,
-        ValueError,
-    ) as e:
+    except Exception as e:
         return e.status if hasattr(e, "status") else str(e)
 
 
@@ -86,8 +85,18 @@ def get_unavailable_reuses():
             mask="data{id,url}"
         )
     )
-    print(f"Checking {len(reuses)} reuses")
-    unavailable_reuses = asyncio.run(crawl_reuses(reuses))
+    # gather on the whole reuse list is inconsistent (some unavailable reuses do not
+    # appear), having a smaller batch size provides better results and keeps the duration
+    # acceptable (compared to synchronous process) 
+    batch_size = 50
+    print(f"Checking {len(reuses)} reuses with batch size of", batch_size)
+    unavailable_reuses = []
+    for k in range(len(reuses) // batch_size + 1):
+        batch = reuses[k * batch_size:min((k + 1) * batch_size, len(reuses))]
+        current = len(unavailable_reuses)
+        unavailable_reuses += asyncio.run(crawl_reuses(batch))
+        print(f"Batch n°{k + 1} errors: ", len(unavailable_reuses) - current)
+    print("All errors:", len(unavailable_reuses))
     return unavailable_reuses
 
 
@@ -225,7 +234,7 @@ def create_all_tables():
                 'title': r.get('title', None),
                 'url': r.get('page', None),
                 'organization_or_owner': (
-                    r['organization'].get('name', None) if r.get('organization', None) 
+                    r['organization'].get('name', None) if r.get('organization', None)
                     else r['owner'].get('slug', None) if r.get('owner', None) else None
                 )
             })
@@ -358,8 +367,8 @@ def create_all_tables():
 
     # Reuses down, JDD vides et spams tous les lundis
     if today.weekday() == 0:
-        # Reuses avec 404
-        print('Reuses avec 404')
+        # Reuses inaccessibles
+        print('Reuses inaccessibles')
         unavailable_reuses = get_unavailable_reuses()
         restr_reuses = {
             d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')
@@ -379,7 +388,8 @@ def create_all_tables():
             r = requests.get(datagouv_api_url + 'reuses/' + rid).json()
             restr_reuses[rid].update({
                 'title': r.get('title', None),
-                'url': r.get('page', None),
+                'page': r.get('page', None),
+                'url': r.get('url', None),
                 'creator': (
                     r.get('organization', None).get('name', None) if r.get('organization', None)
                     else r.get('owner', {}).get('slug', None) if r.get('owner', None) else None
@@ -444,7 +454,7 @@ def create_all_tables():
             for word in SPAM_WORDS:
                 data = get_all_from_api_query(
                     datagouv_api_url + f'{obj}/?q={word}',
-                    mask="data{badges,organization,owner,id,name,title,metrics}"
+                    mask="data{badges,organization,owner,id,name,title,metrics,created_at,since}"
                 )
                 for d in data:
                     should_add = True
@@ -468,6 +478,7 @@ def create_all_tables():
                                 d['organization'].get('name', None) if d.get('organization', None)
                                 else d['owner'].get('slug', None) if d.get('owner', None) else None
                             ),
+                            'created_at': d.get('created_at', d.get('since'))[:10],
                             'id': d['id'],
                             'spam_word': word,
                             'nb_datasets_and_reuses': (
