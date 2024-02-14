@@ -52,18 +52,17 @@ async def url_error(url, session, method="head"):
             allow_redirects=True,
             headers={"User-Agent": random.choice(agents)}
         ) as r:
-            if r.status in [403, 405, 500]:
+            if r.status in [
+                301, 302, 303,
+                401, 403, 404, 405,
+                500
+            ]:
                 if method == "head":
                     # HEAD might not be allowed or correctly implemented, trying with GET
                     return await url_error(url, session, method="get")
             r.raise_for_status()
         return False
-    except (
-        aiohttp.ClientError,
-        AssertionError,
-        asyncio.exceptions.TimeoutError,
-        ValueError,
-    ) as e:
+    except Exception as e:
         return e.status if hasattr(e, "status") else str(e)
 
 
@@ -86,8 +85,18 @@ def get_unavailable_reuses():
             mask="data{id,url}"
         )
     )
-    print(f"Checking {len(reuses)} reuses")
-    unavailable_reuses = asyncio.run(crawl_reuses(reuses))
+    # gather on the whole reuse list is inconsistent (some unavailable reuses do not
+    # appear), having a smaller batch size provides better results and keeps the duration
+    # acceptable (compared to synchronous process) 
+    batch_size = 50
+    print(f"Checking {len(reuses)} reuses with batch size of", batch_size)
+    unavailable_reuses = []
+    for k in range(len(reuses) // batch_size + 1):
+        batch = reuses[k * batch_size:min((k + 1) * batch_size, len(reuses))]
+        current = len(unavailable_reuses)
+        unavailable_reuses += asyncio.run(crawl_reuses(batch))
+        print(f"Batch n°{k + 1} errors: ", len(unavailable_reuses) - current)
+    print("All errors:", len(unavailable_reuses))
     return unavailable_reuses
 
 
@@ -225,7 +234,7 @@ def create_all_tables():
                 'title': r.get('title', None),
                 'url': r.get('page', None),
                 'organization_or_owner': (
-                    r['organization'].get('name', None) if r.get('organization', None) 
+                    r['organization'].get('name', None) if r.get('organization', None)
                     else r['owner'].get('slug', None) if r.get('owner', None) else None
                 )
             })
