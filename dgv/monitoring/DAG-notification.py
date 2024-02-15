@@ -17,11 +17,13 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 import requests
 import re
 from langdetect import detect, LangDetectException
+from time import sleep
 
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"minutes": 5}
 duplicate_slug_pattern = r'-\d+$'
+entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 
 def detect_spam(name, description):
@@ -40,6 +42,23 @@ def detect_spam(name, description):
     return contains_spam_word or doesnt_look_french
 
 
+def detect_potential_certif(siret):
+    if siret is None:
+        return False
+    try:
+        r = requests.get(entreprises_api_url + siret).json()
+    except:
+        sleep(1)
+        r = requests.get(entreprises_api_url + siret).json()
+    if len(r['results']) == 0:
+        print('No match for: ', siret)
+        return False
+    if len(r['results']) > 1:
+        print('Ambiguous: ', siret)
+    complements = r['results'][0]['complements']
+    return bool(complements['collectivite_territoriale'] or complements['est_service_public'])
+
+
 def check_new(ti, **kwargs):
     templates_dict = kwargs.get("templates_dict")
     # we want everything that happened since this date
@@ -56,6 +75,8 @@ def check_new(ti, **kwargs):
                 mydict[k] = item[k]
         # add field to check if it's the first publication of this type
         # for this organization/user, and check for potential spam
+        mydict['duplicated'] = False
+        mydict['potential_certif'] = False
         if templates_dict["type"] != 'organizations':
             mydict['spam'] = False
             # if certified orga, no spam check
@@ -93,9 +114,8 @@ def check_new(ti, **kwargs):
                 mydict['first_publication'] = False
         else:
             mydict['spam'] = detect_spam(item['name'], item['description'])
-        # checking for potential duplicates in organization creation
-        mydict['duplicated'] = False
-        if templates_dict["type"] == 'organizations':
+            mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
+            # checking for potential duplicates in organization creation
             slug = item["slug"]
             if re.search(duplicate_slug_pattern, slug) is not None:
                 suffix = re.findall(duplicate_slug_pattern, slug)[0]
@@ -301,6 +321,10 @@ def publish_mattermost(ti):
                 message = ''
             if item['duplicated']:
                 message += ':busts_in_silhouette: Duplicata potentiel\n'
+            else:
+                message += ''
+            if item['potential_certif']:
+                message += ':ballot_box_with_check: Certification potentielle @clarisse\n'
             else:
                 message += ''
             message += (

@@ -24,7 +24,7 @@ groups = [
     k + "@" + ".".join(['data', 'gouv', 'fr'])
     for k in ['support', 'ouverture', 'moissonnage', 'certification']
 ]
-api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
+entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 minio_open = MinIOClient(bucket='dataeng-open')
 minio_destination_folder = "dashboard/"
@@ -180,10 +180,10 @@ def is_SP_or_CT(siret, session):
     if siret is None:
         return False, issue
     try:
-        r = session.get(api_url + siret).json()
+        r = session.get(entreprises_api_url + siret).json()
     except:
         sleep(1)
-        r = session.get(api_url + siret).json()
+        r = session.get(entreprises_api_url + siret).json()
     if len(r['results']) == 0:
         print('No match for: ', siret)
         issue = "pas de correspondance : " + siret
