@@ -341,29 +341,30 @@ def publish_mattermost(ti):
         for item in reuses:
             publish_item(item, "reuse")
 
-    if spam_comments:
-        for comment in spam_comments:
-            if comment['discussion_subject']['class'] in ['Dataset', 'Reuse']:
-                discussion_url = (
-                    f"https://www.data.gouv.fr/fr/{comment['discussion_subject']['class'].lower()}s/"
-                    f"{comment['discussion_subject']['id']}/#/"
-                    f"discussions/{comment['comment_id'].split('|')[0]}"
-                )
-            else:
-                discussion_url = (
-                    f"https://www.data.gouv.fr/api/1/discussions/{comment['comment_id'].split('|')[0]}"
-                )
-            owner_url = (
-                f"https://www.data.gouv.fr/fr/{comment['comment']['posted_by']['class'].lower()}s/"
-                f"{comment['comment']['posted_by']['id']}/"
-            )
-            message = (
-                ':warning: @all Spam potentiel\n'
-                ':right_anger_bubble: Commentaire suspect de'
-                f' [{comment["comment"]["posted_by"]["slug"]}]({owner_url})'
-                f' dans la discussion :\n:point_right: {discussion_url}'
-            )
-            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    # removing notifications for discussions due to https://github.com/opendatateam/udata/pull/2954
+    # if spam_comments:
+    #     for comment in spam_comments:
+    #         if comment['discussion_subject']['class'] in ['Dataset', 'Reuse']:
+    #             discussion_url = (
+    #                 f"https://www.data.gouv.fr/fr/{comment['discussion_subject']['class'].lower()}s/"
+    #                 f"{comment['discussion_subject']['id']}/#/"
+    #                 f"discussions/{comment['comment_id'].split('|')[0]}"
+    #             )
+    #         else:
+    #             discussion_url = (
+    #                 f"https://www.data.gouv.fr/api/1/discussions/{comment['comment_id'].split('|')[0]}"
+    #             )
+    #         owner_url = (
+    #             f"https://www.data.gouv.fr/fr/{comment['comment']['posted_by']['class'].lower()}s/"
+    #             f"{comment['comment']['posted_by']['id']}/"
+    #         )
+    #         message = (
+    #             ':warning: @all Spam potentiel\n'
+    #             ':right_anger_bubble: Commentaire suspect de'
+    #             f' [{comment["comment"]["posted_by"]["slug"]}]({owner_url})'
+    #             f' dans la discussion :\n:point_right: {discussion_url}'
+    #         )
+    #         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 default_args = {
