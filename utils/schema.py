@@ -1306,6 +1306,7 @@ def upload_consolidated(
             latest_mapping = {'latest': sorted_version[-1]}
             sorted_version.append('latest')
             for version_name in sorted_version:
+                time.sleep(2)
                 schema = {"name": schema_name, "version": latest_mapping.get(version_name, version_name)}
                 obj = {}
                 obj["schema"] = schema
