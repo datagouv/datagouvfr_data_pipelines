@@ -371,7 +371,7 @@ def create_all_tables():
         print('Reuses inaccessibles')
         unavailable_reuses = get_unavailable_reuses()
         restr_reuses = {
-            d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')
+            d[0]['id']: {'error': d[1]} for d in unavailable_reuses
         }
         for rid in restr_reuses:
             data = get_all_from_api_query(
