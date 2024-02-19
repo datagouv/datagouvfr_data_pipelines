@@ -290,10 +290,10 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 print(f"old hydra check: no validation for {resource_api_url}")
                 return {
                     'report': {
-                        'stats': {'errors': extras['validation-report:nb_errors']},
-                        'valid': extras['validation-report:valid_resource'],
-                        'tasks': [{'errors': extras['validation-report:errors']}],
-                        'date': extras['validation-report:validation_date'],
+                        'stats': {'errors': extras.get('validation-report:nb_errors')},
+                        'valid': extras.get('validation-report:valid_resource'),
+                        'tasks': [{'errors': extras.get('validation-report:errors')}],
+                        'date': extras.get('validation-report:validation_date'),
                         'from_metadata': True,
                     }
                 }
@@ -302,10 +302,10 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             print(f"no hydra check: no validation for {resource_api_url}")
             return {
                 'report': {
-                    'stats': {'errors': extras['validation-report:nb_errors']},
-                    'valid': extras['validation-report:valid_resource'],
-                    'tasks': [{'errors': extras['validation-report:errors']}],
-                    'date': extras['validation-report:validation_date'],
+                    'stats': {'errors': extras.get('validation-report:nb_errors')},
+                    'valid': extras.get('validation-report:valid_resource'),
+                    'tasks': [{'errors': extras.get('validation-report:errors')}],
+                    'date': extras.get('validation-report:validation_date'),
                     'from_metadata': True,
                 }
             }
