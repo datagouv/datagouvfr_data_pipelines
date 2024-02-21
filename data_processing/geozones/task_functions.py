@@ -66,7 +66,10 @@ def download_and_process_geozones():
     df = df.drop(['territory', 'suppression_evt'], axis=1)
     df = df.loc[
         (df['type'] != 'Arrondissement') |
-        ((df['type'] == 'Arrondissement') & (df['nom'].str.contains('|'.join(['Paris', 'Lyon', 'Marseille']))))
+        (
+            (df['type'] == 'Arrondissement') &
+            (df['nom'].str.contains('|'.join(['Paris', 'Lyon', 'Marseille'])))
+        )
     ]
     df = df.loc[
         df['level'] != 'country'
@@ -198,15 +201,20 @@ def download_and_process_geozones():
 def post_geozones():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}geozones/config/dgv.json") as fp:
         data = json.load(fp)
+    year = datetime.now().strftime('%Y')
+
     geozones_file = {
         "dest_path": f"{DATADIR}/",
         "dest_name": "export_geozones.json",
     }
     payload = {
-        "description": "Géozones créées à partir du [fichier de l'INSEE](https://rdf.insee.fr/geo/index.html)",
+        "description": (
+            "Géozones créées à partir du [fichier de l'INSEE]"
+            "(https://rdf.insee.fr/geo/index.html)"
+        ),
         "filesize": os.path.getsize(os.path.join(DATADIR + '/export_geozones.json')),
         "mime": "application/json",
-        "title": "Zones 2023 (json)",
+        "title": f"Zones {year} (json)",
         "type": "main",
     }
     post_resource(
@@ -221,10 +229,13 @@ def post_geozones():
         "dest_name": "export_countries.json",
     }
     payload = {
-        "description": "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires](https://www.data.gouv.fr/fr/datasets/64959ecae2bdc5448631a59c/)",
+        "description": (
+            "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
+            "(https://www.data.gouv.fr/fr/datasets/64959ecae2bdc5448631a59c/)"
+        ),
         "filesize": os.path.getsize(os.path.join(DATADIR + '/export_countries.json')),
         "mime": "application/json",
-        "title": "Zones pays uniquement 2023 (json)",
+        "title": f"Zones pays uniquement {year} (json)",
         "type": "main",
     }
     post_resource(
@@ -241,7 +252,7 @@ def post_geozones():
     payload = {
         "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
         "mime": "application/json",
-        "title": "Niveaux 2023 (json)",
+        "title": f"Niveaux {year} (json)",
         "type": "main",
     }
     post_resource(
