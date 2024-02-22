@@ -20,6 +20,7 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import requests
 import json
+from io import StringIO
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"
@@ -273,7 +274,11 @@ def gather_kpis(ti):
         index=False,
         encoding="utf8"
     )
-    history = pd.read_csv(f'{DATADIR}/history.csv')
+    history = pd.read_csv(StringIO(
+        minio_open.get_file_content(
+            f"{AIRFLOW_ENV}/dgv/impact/statistiques_impact_datagouvfr.csv"
+        )
+    ))
     final = pd.concat([df, history])
     final.to_csv(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"), index=False, encoding="utf8")
 

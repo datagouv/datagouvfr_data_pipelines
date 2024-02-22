@@ -3,7 +3,6 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from datetime import timedelta, datetime
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
@@ -42,15 +41,11 @@ with DAG(
 
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
-    )
-
-    download_history = BashOperator(
-        task_id='download_history',
         bash_command=(
-            f"bash {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"scripts/script_dl_history.sh {DATADIR} "
-        )
+            f"rm -rf {TMP_FOLDER} && "
+            f"mkdir -p {TMP_FOLDER} && "
+            f"mkdir -p {DATADIR}"
+        ),
     )
 
     calculate_quality_score = PythonOperator(
@@ -99,12 +94,10 @@ with DAG(
         },
     )
 
-    download_history.set_upstream(clean_previous_outputs)
-
-    calculate_quality_score.set_upstream(download_history)
-    calculate_time_for_legitimate_answer.set_upstream(download_history)
-    get_quality_reuses.set_upstream(download_history)
-    get_discoverability.set_upstream(download_history)
+    calculate_quality_score.set_upstream(clean_previous_outputs)
+    calculate_time_for_legitimate_answer.set_upstream(clean_previous_outputs)
+    get_quality_reuses.set_upstream(clean_previous_outputs)
+    get_discoverability.set_upstream(clean_previous_outputs)
 
     gather_kpis.set_upstream(calculate_quality_score)
     gather_kpis.set_upstream(calculate_time_for_legitimate_answer)
