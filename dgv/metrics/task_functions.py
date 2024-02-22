@@ -268,7 +268,7 @@ def process_log(ti):
     all_dates_processed = []
     print("downloading files...")
     for nl in newlogs:
-        minio_infra.get_files(
+        minio_infra.download_files(
             list_files=[
                 {
                     "source_path": "metrics-logs/ongoing/",

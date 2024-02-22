@@ -80,9 +80,10 @@ class MinIOClient:
                     "does not exists"
                 )
 
-    def get_files(
+    def download_files(
         self,
         list_files: List[File],
+        ignore_airflow_env=False,
     ):
         """Retrieve list of files from Minio
 
@@ -97,11 +98,28 @@ class MinIOClient:
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         for file in list_files:
+            if ignore_airflow_env:
+                source_path = f"{file['source_path']}{file['source_name']}"
+            else:
+                source_path = f"{AIRFLOW_ENV}/{file['source_path']}{file['source_name']}"
             self.client.fget_object(
                 self.bucket,
-                f"{AIRFLOW_ENV}/{file['source_path']}{file['source_name']}",
+                source_path,
                 f"{file['dest_path']}{file['dest_name']}",
             )
+
+    def get_file_content(
+        self,
+        file_path,
+        encoding="utf-8",
+    ):
+        """
+        Return the content of a file as a string.
+        """
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
+        r = self.client.get_object(self.bucket, file_path)
+        return r.read().decode(encoding)
 
     def compare_files(
         self,

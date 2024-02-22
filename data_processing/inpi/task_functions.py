@@ -90,7 +90,7 @@ def concatFilesRep(
 
 
 def get_latest_db(ti):
-    minio_open.get_files(
+    minio_open.download_files(
         list_files=[
             {
                 "source_path": PATH_MINIO_INPI_DATA,
@@ -298,7 +298,7 @@ def check_emptiness():
 
 
 def get_start_date_minio(ti):
-    minio_open.get_files(
+    minio_open.download_files(
         list_files=[
             {
                 "source_path": PATH_MINIO_INPI_DATA,
