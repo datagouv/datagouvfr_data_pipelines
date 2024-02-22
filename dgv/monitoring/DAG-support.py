@@ -232,6 +232,40 @@ def get_and_upload_certification():
     )
 
 
+def get_and_upload_reuses_down():
+    client = MinIOClient(bucket="data-pipeline-open")
+    # getting latest data
+    df = pd.read_csv(StringIO(
+        client.get_file_content("prod/bizdev/all_reuses_most_visits_KO_last_month.csv")
+    ))
+    stats = pd.DataFrame(
+        df['error'].apply(lambda x: x if x == "404" else 'Autre erreur').value_counts()
+    ).T
+    stats['date'] = [datetime.now().strftime('%Y-%m-%d')]
+
+    # getting historical data
+    output_file_name = "stats_reuses_down.csv"
+    hist = pd.read_csv(StringIO(
+        minio_open.get_file_content(minio_destination_folder + output_file_name)
+    ))
+    start_len = len(hist)
+    hist = pd.concat([hist, stats]).drop_duplicates('date')
+    # just in case
+    assert start_len <= len(hist)
+    hist.to_csv(DATADIR + output_file_name, index=False)
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": DATADIR,
+                "source_name": output_file_name,
+                "dest_path": minio_destination_folder,
+                "dest_name": output_file_name,
+            }
+        ],
+        ignore_airflow_env=True,
+    )
+
+
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
 with DAG(
@@ -266,6 +300,11 @@ with DAG(
         python_callable=get_and_upload_certification,
     )
 
+    get_and_upload_reuses_down = PythonOperator(
+        task_id="get_and_upload_reuses_down",
+        python_callable=get_and_upload_reuses_down,
+    )
+
     gather_and_upload = PythonOperator(
         task_id="gather_and_upload",
         python_callable=gather_and_upload,
@@ -282,9 +321,11 @@ with DAG(
     get_zammad_tickets.set_upstream(clean_previous_outputs)
     get_visits.set_upstream(clean_previous_outputs)
     get_and_upload_certification.set_upstream(clean_previous_outputs)
+    get_and_upload_reuses_down.set_upstream(clean_previous_outputs)
 
     gather_and_upload.set_upstream(get_zammad_tickets)
     gather_and_upload.set_upstream(get_visits)
 
     publish_mattermost.set_upstream(gather_and_upload)
     publish_mattermost.set_upstream(get_and_upload_certification)
+    publish_mattermost.set_upstream(get_and_upload_reuses_down)
