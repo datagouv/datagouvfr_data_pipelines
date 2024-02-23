@@ -854,7 +854,14 @@ def update_news_feed(ti, TMP_FOLDER):
         with open(schema_updates_file, 'r', encoding='utf-8') as f:
             updates = json.load(f)
             f.close()
-        updates.update(changes)
+        if today not in updates:
+            updates.update(changes)
+        else:
+            for change_type in changes[today]:
+                if change_type not in updates[today]:
+                    updates[today][change_type] = changes[today][change_type]
+                else:
+                    updates[today][change_type] += changes[today][change_type]
         with open(schema_updates_file, 'w', encoding='utf-8') as f:
             json.dump(updates, f, indent=4)
 
