@@ -12,6 +12,7 @@ from unidecode import unidecode
 import codecs
 import requests
 from urllib import parse
+from datetime import datetime
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 
 ERRORS_REPORT = []
@@ -51,6 +52,7 @@ def initialization(ti, TMP_FOLDER):
 
     ti.xcom_push(key='folders', value=folders)
     ti.xcom_push(key='config', value=config)
+    ti.xcom_push(key='branch', value=branch)
 
 
 def clean_and_create_folder(folder):
@@ -808,6 +810,85 @@ def check_and_save_schemas(ti):
     print('End of process catalog: ', SCHEMA_CATALOG)
     print('End of process infos: ', SCHEMA_INFOS)
     print('End of process errors: ', ERRORS_REPORT)
+
+
+def update_news_feed(ti, TMP_FOLDER):
+    branch = ti.xcom_pull(key='branch', task_ids='initialization')
+    new = ti.xcom_pull(key='SCHEMA_INFOS', task_ids='check_and_save_schemas')
+    today = datetime.now().strftime('%Y-%m-%d')
+    changes = {today: {}}
+    old = requests.get(
+        'https://raw.githubusercontent.com/etalab/schema.data.gouv.fr'
+        f'/{branch}/site/.vuepress/public/schema-infos.json'
+    ).json()
+    for schema in new:
+        if schema not in old:
+            if 'new_schema' not in changes[today]:
+                changes[today]['new_schema'] = []
+            changes[today]['new_schema'].append({
+                'schema_name': schema,
+                'version': new[schema].get('latest'),
+            })
+        else:
+            for v in new[schema]['versions']:
+                if v not in old[schema]['versions']:
+                    if 'new_version' not in changes[today]:
+                        changes[today]['new_version'] = []
+                    changes[today]['new_version'].append({
+                        'schema_name': schema,
+                        'version': (
+                            f"{old[schema].get('latest')} => "
+                            f"{new[schema].get('latest')}"
+                        ),
+                    })
+    for schema in old:
+        if schema not in new:
+            if 'delete_schema' not in changes[today]:
+                changes[today]['delete_schema'] = []
+            changes[today]['delete_schema'].append({
+                'schema_name': schema,
+                'version': old[schema].get('latest'),
+            })
+    if changes[today]:
+        schema_updates_file = TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-updates.json'
+        with open(schema_updates_file, 'r', encoding='utf-8') as f:
+            updates = json.load(f)
+            f.close()
+        updates.update(changes)
+        with open(schema_updates_file, 'w', encoding='utf-8') as f:
+            json.dump(updates, f, indent=4)
+
+        mapping = {
+            'new_schema': 'Schéma{} ajouté{}',
+            'new_version': 'Montée{} de version{}',
+            'delete_schema': 'Schéma{} supprimé{}',
+        }
+        md = ''
+        for date in sorted(updates.keys())[::-1]:
+            if md:
+                md += '\n---\n\n'
+            md += f"### {date}\n"
+            for change_type in updates[date]:
+                md += f'\n#### {mapping[change_type].format(*["s" if len(updates[date][change_type]) > 1 else ""]*2)}:\n'
+                for schema in updates[date][change_type]:
+                    if "=>" in schema["version"]:
+                        old_v, new_v = schema["version"].split(' => ')
+                        md += (
+                            f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["schema_name"]}]'
+                            f'(/{schema["schema_name"]}/)** : '
+                            f'<span style="color:red;">{old_v}</span> => '
+                            f'<span style="color:green;">{new_v}</span><br>\n'
+                        )
+                    else:
+                        md += (
+                            f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["schema_name"]}]'
+                            f'(/{schema["schema_name"]}/)** : '
+                            f'<span style="color:blue;">{schema["version"]}</span><br>\n'
+                        )
+            with open(TMP_FOLDER + 'schema.data.gouv.fr/site/actualites.md', 'w', encoding='utf-8') as f:
+                f.write(md)
+    else:
+        print('No update today')
 
 
 def sort_folders(ti):
