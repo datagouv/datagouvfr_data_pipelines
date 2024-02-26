@@ -843,9 +843,9 @@ def update_news_feed(ti, TMP_FOLDER):
                     })
     for schema in old:
         if schema not in new:
-            if 'delete_schema' not in changes[today]:
-                changes[today]['delete_schema'] = []
-            changes[today]['delete_schema'].append({
+            if 'deleted_schema' not in changes[today]:
+                changes[today]['deleted_schema'] = []
+            changes[today]['deleted_schema'].append({
                 'schema_name': schema,
                 'version': old[schema].get('latest'),
             })
@@ -868,7 +868,7 @@ def update_news_feed(ti, TMP_FOLDER):
         mapping = {
             'new_schema': 'Schéma{} ajouté{}',
             'new_version': 'Montée{} de version{}',
-            'delete_schema': 'Schéma{} supprimé{}',
+            'deleted_schema': 'Schéma{} supprimé{}',
         }
         md = ''
         for date in sorted(updates.keys())[::-1]:
