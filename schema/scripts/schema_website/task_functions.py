@@ -850,6 +850,7 @@ def update_news_feed(ti, TMP_FOLDER):
                 'version': old[schema].get('latest'),
             })
     if changes[today]:
+        print("Updating news feed with:", changes[today])
         schema_updates_file = TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-updates.json'
         with open(schema_updates_file, 'r', encoding='utf-8') as f:
             updates = json.load(f)
