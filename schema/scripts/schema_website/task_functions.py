@@ -13,6 +13,9 @@ import codecs
 import requests
 from urllib import parse
 from datetime import datetime
+from feedgen.feed import FeedGenerator
+import xml.etree.ElementTree as ET
+import pytz
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 
 ERRORS_REPORT = []
@@ -849,8 +852,18 @@ def update_news_feed(ti, TMP_FOLDER):
                 'schema_name': schema,
                 'version': old[schema].get('latest'),
             })
+    # if you want to check changes in dev mode
+    # changes[today] = {
+    #     'new_schema': [
+    #         {'schema_name': 'test/schematest', 'version': '0.1.0'},
+    #     ],
+    #     'new_version': [
+    #         {'schema_name': '139bercy/format-commande-publique', 'version': '3.1.1 => 3.1.2'},
+    #     ],
+    # }
     if changes[today]:
         print("Updating news feed with:", changes[today])
+        # updating schema-updates.json
         schema_updates_file = TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-updates.json'
         with open(schema_updates_file, 'r', encoding='utf-8') as f:
             updates = json.load(f)
@@ -863,9 +876,11 @@ def update_news_feed(ti, TMP_FOLDER):
                     updates[today][change_type] = changes[today][change_type]
                 else:
                     updates[today][change_type] += changes[today][change_type]
+        print(updates)
         with open(schema_updates_file, 'w', encoding='utf-8') as f:
             json.dump(updates, f, indent=4)
 
+        # updating actualites.md
         mapping = {
             'new_schema': 'Schéma{} ajouté{}',
             'new_version': 'Montée{} de version{}',
@@ -877,7 +892,10 @@ def update_news_feed(ti, TMP_FOLDER):
                 md += '\n---\n\n'
             md += f"### {date}\n"
             for change_type in updates[date]:
-                md += f'\n#### {mapping[change_type].format(*["s" if len(updates[date][change_type]) > 1 else ""]*2)}:\n'
+                args = ["s" if len(updates[date][change_type]) > 1 else ""] * 2
+                md += (
+                    f'\n#### {mapping[change_type].format(*args)}:\n'
+                )
                 for schema in updates[date][change_type]:
                     if "=>" in schema["version"]:
                         old_v, new_v = schema["version"].split(' => ')
@@ -895,6 +913,94 @@ def update_news_feed(ti, TMP_FOLDER):
                         )
             with open(TMP_FOLDER + 'schema.data.gouv.fr/site/actualites.md', 'w', encoding='utf-8') as f:
                 f.write(md)
+
+        # updating RSS feed
+        tz = pytz.timezone('CET')
+        url = "https://schema.data.gouv.fr/"
+        rss_folder = 'schema.data.gouv.fr/site/.vuepress/public/rss/'
+        # loading existing file
+        tree = ET.parse(TMP_FOLDER + rss_folder + 'global.xml')
+        root = tree.getroot()
+        root.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
+        root.set('xmlns:content', 'http://purl.org/rss/1.0/modules/content/')
+        # print(ET.tostring(root, encoding='utf-8').decode('utf-8'))
+
+        existing_feeds = [
+            k.replace('_', '/').replace('.xml', '') for k in os.listdir(TMP_FOLDER + rss_folder)
+        ]
+
+        for date, up in changes.items():
+            for update_type, versions in up.items():
+                for version in versions:
+                    print(f"   - {version['schema_name']}")
+                    v = version['version'].replace('=>', 'to')
+
+                    # updating global feed
+                    new_item = ET.Element('item')
+                    title = ET.SubElement(new_item, 'title')
+                    title.text = (
+                        f"{update_type.capitalize().replace('_', ' ')} - {version['schema_name']} ({v})"
+                    )
+                    link = ET.SubElement(new_item, 'link')
+                    link.text = f"{url}{version['schema_name']}"
+                    description = ET.SubElement(new_item, 'description')
+                    description.text = f"Schema update on {date}: {v} for {version['schema_name']}"
+                    pub_date = ET.SubElement(new_item, 'pubDate')
+                    pub_date.text = (
+                        tz.localize(datetime.strptime(date, "%Y-%m-%d")).strftime('%a, %d %b %Y %H:%M:%S %z')
+                    )
+                    ET.indent(new_item, level=2)
+                    root.find('./channel').text = '\n  '
+                    root.find('./channel').append(new_item)
+                    root.find('./channel').text = '\n  '
+
+                    # updating specific feed
+                    title_content = f"{date} - {update_type} - {v}"
+                    description_content = (
+                        f"Update on {date}: {update_type.capitalize().replace('_', ' ')} "
+                        f"({version['schema_name']})"
+                    )
+                    date_content = (
+                        tz.localize(datetime.strptime(date, "%Y-%m-%d")).strftime('%a, %d %b %Y %H:%M:%S %z')
+                    )
+                    if version['schema_name'] in existing_feeds:
+                        feed_path = (
+                            TMP_FOLDER + rss_folder + version['schema_name'].replace('/', '_') + '.xml'
+                        )
+                        specific_tree = ET.parse(feed_path)
+                        specific_root = specific_tree.getroot()
+                        specific_root.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
+                        specific_root.set('xmlns:content', 'http://purl.org/rss/1.0/modules/content/')
+                        # print(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
+                        new_item = ET.Element('item')
+                        title = ET.SubElement(new_item, 'title')
+                        title.text = title_content
+                        description = ET.SubElement(new_item, 'description')
+                        description.text = description_content
+                        pub_date = ET.SubElement(new_item, 'pubDate')
+                        pub_date.text = date_content
+                        ET.indent(new_item, level=2)
+                        specific_root.find('./channel').text = '\n  '
+                        specific_root.find('./channel').append(new_item)
+                        specific_root.find('./channel').text = '\n  '
+                        # print(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
+                        specific_tree.write(feed_path)
+                    else:
+                        specific_fg = FeedGenerator()
+                        specific_fg.title(f"{version['schema_name']} Versioning RSS Feed")
+                        specific_fg.link(href=url + version['schema_name'], rel="alternate")
+                        specific_fg.description(f"Updates on {version['schema_name']} versioning")
+                        fe = specific_fg.add_entry()
+                        fe.title(title_content)
+                        fe.description(description_content)
+                        fe.published(date_content)
+                        # print(specific_fg.rss_str(pretty=True))
+                        specific_fg.rss_file(
+                            TMP_FOLDER + rss_folder + version['schema_name'].replace('/', '_') + '.xml',
+                            pretty=True
+                        )
+        # print(ET.tostring(root, encoding='utf-8').decode('utf-8'))
+        tree.write(TMP_FOLDER + rss_folder + 'global.xml')
     else:
         print('No update today')
 
