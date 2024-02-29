@@ -98,5 +98,25 @@
             "prod": "6569b2c4f1937611d4c8b1a3",
             "dev": "653a6af9d161b2243d487e04"
         }
-    }
+    },
+    "REF_CC/SIM_DECAD": {
+        "source_pattern": "DECAD_SIM2_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "DECAD_SIM2_{PERIOD}",
+        "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
+        "description_template": "Données décadaires SIM entre {PERIOD}",
+        "dataset_id": {
+            "prod": "65e04035010927c797072b29",
+            "dev": "65e04239afffd240dae81853"
+        }
+    },
+    "REF_CC/SIM_MENS": {
+        "source_pattern": "MENS_SIM2_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "MENS_SIM2_{PERIOD}",
+        "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
+        "description_template": "Données mensuelles SIM entre {PERIOD}",
+        "dataset_id": {
+            "prod": "65e040c50a5c6872ebebc711",
+            "dev": "65e04268afffd240dae81854"
+        }
+    },
 }
