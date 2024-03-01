@@ -1163,7 +1163,7 @@ def update_resource_metadata(
             print("Schema extras updated with:", validation_report)
 
         # not touching metadata if nothing changes
-        if update_version and version_name != schema_from_resource.get('version'):
+        if update_version and schema_from_resource and version_name != schema_from_resource.get('version'):
             obj = {"schema": schema_from_consolidation}
 
             response = update_dataset_or_resource_metadata(
