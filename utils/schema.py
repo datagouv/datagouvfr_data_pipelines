@@ -427,7 +427,7 @@ def get_resource_schema_version(row: pd.Series, api_url: str):
     r.raise_for_status()
     if r.status_code == 200:
         r_json = r.json()
-        if r_json.get('schema', {}).get('version', False):
+        if r_json.get('schema') and r_json.get('schema').get('version', False):
             return r_json["schema"]["version"]
         else:
             return np.nan
