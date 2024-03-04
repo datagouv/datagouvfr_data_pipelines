@@ -241,7 +241,13 @@ def get_and_upload_reuses_down():
     stats = pd.DataFrame(
         df['error'].apply(lambda x: x if x == "404" else 'Autre erreur').value_counts()
     ).T
-    stats['date'] = [datetime.now().strftime('%Y-%m-%d')]
+    stats['Date'] = [datetime.now().strftime('%Y-%m-%d')]
+    stats['Total'] = [
+        requests.get(
+            'https://www.data.gouv.fr/api/1/reuses/',
+            headers={"X-fields": "total"},
+        ).json()['total']
+    ]
 
     # getting historical data
     output_file_name = "stats_reuses_down.csv"
