@@ -48,6 +48,14 @@ SPAM_WORDS = [
     'hack',
     'fuck',
     'macron',
+    'acte de',
+    'siret',
+    'casier judiciaire',
+    'officiel',
+    'annuaire',
+    'carte grise',
+    'passeport',
+    'administratif',
 ]
 
 datagouv_session = requests.Session()
