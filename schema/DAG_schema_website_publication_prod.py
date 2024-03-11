@@ -80,8 +80,11 @@ with DAG(
     copy_etalab_folder = BashOperator(
         task_id="copy_etalab_folder",
         bash_command=(
-            f"cp -r {TMP_FOLDER}schema.data.gouv.fr/site/etalab/ "
-            f"{TMP_FOLDER}schema.data.gouv.fr/site/datagouv/ "
+            "mkdir -p etalab && mkdir -p datagouv && "
+            f"cp -r {TMP_FOLDER}schema.data.gouv.fr/site/etalab/* "
+            f"{TMP_FOLDER}schema.data.gouv.fr/site/datagouv/ && "
+            f"cp -r {TMP_FOLDER}schema.data.gouv.fr/site/datagouv/* "
+            f"{TMP_FOLDER}schema.data.gouv.fr/site/etalab/ && "
         ),
     )
 
