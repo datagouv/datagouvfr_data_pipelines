@@ -56,6 +56,10 @@ SPAM_WORDS = [
     'carte grise',
     'passeport',
     'administratif',
+    'répertoire d’entreprises',
+    'documents professionnels',
+    'immatriculation',
+    'greffe',
 ]
 
 datagouv_session = requests.Session()
