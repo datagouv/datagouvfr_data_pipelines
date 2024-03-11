@@ -84,7 +84,7 @@ with DAG(
             f"cp -r {TMP_FOLDER}schema.data.gouv.fr/site/etalab/* "
             f"{TMP_FOLDER}schema.data.gouv.fr/site/datagouv/ && "
             f"cp -r {TMP_FOLDER}schema.data.gouv.fr/site/datagouv/* "
-            f"{TMP_FOLDER}schema.data.gouv.fr/site/etalab/ && "
+            f"{TMP_FOLDER}schema.data.gouv.fr/site/etalab/ "
         ),
     )
 
