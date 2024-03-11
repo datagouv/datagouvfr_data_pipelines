@@ -12,13 +12,13 @@ from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions impo
     update_news_feed,
     sort_folders,
     get_issues_and_labels,
-    final_clean_up
+    final_clean_up,
 )
 
 DAG_NAME = "schema_website_publication_preprod"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
-GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
-# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
+GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
+# GIT_REPO = "https://github.com/datagouv/schema.data.gouv.fr.git"
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
@@ -77,6 +77,14 @@ with DAG(
         python_callable=final_clean_up,
     )
 
+    copy_etalab_folder = BashOperator(
+        task_id="copy_etalab_folder",
+        bash_command=(
+            f"cp -r {TMP_FOLDER}schema.data.gouv.fr/site/etalab/ "
+            f"{TMP_FOLDER}schema.data.gouv.fr/site/datagouv/ "
+        ),
+    )
+
     copy_files = BashOperator(
         task_id="copy_files",
         bash_command=(
@@ -113,5 +121,6 @@ with DAG(
     sort_folders.set_upstream(update_news_feed)
     get_issues_and_labels.set_upstream(sort_folders)
     final_clean_up.set_upstream(get_issues_and_labels)
-    copy_files.set_upstream(final_clean_up)
+    copy_etalab_folder.set_upstream(final_clean_up)
+    copy_files.set_upstream(copy_etalab_folder)
     commit_changes.set_upstream(copy_files)
