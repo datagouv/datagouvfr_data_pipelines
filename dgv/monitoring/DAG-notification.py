@@ -28,7 +28,7 @@ entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 def detect_spam(name, description):
     contains_spam_word = any([
-        spam in field.lower().replace('’', "'") if field else False
+        spam in field.lower() if field else False
         for spam in SPAM_WORDS
         for field in [name, description]
     ])
