@@ -4,9 +4,7 @@ import requests
 from io import StringIO
 from time import sleep
 import json
-from airflow.models import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
+import numpy as np
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     SECRET_ZAMMAD_API_URL,
@@ -15,9 +13,8 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import month_year_iter
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-DAG_NAME = "dgv_support_monitor"
+DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
@@ -213,11 +210,11 @@ def get_and_upload_certification():
         if issue:
             issues.append({o['id']: issue})
     with open(DATADIR + 'certified.json', 'w') as f:
-        json.dump(certified, f)
+        json.dump(certified, f, indent=4)
     with open(DATADIR + 'SP_or_CT.json', 'w') as f:
-        json.dump(SP_or_CT, f)
+        json.dump(SP_or_CT, f, indent=4)
     with open(DATADIR + 'issues.json', 'w') as f:
-        json.dump(issues, f)
+        json.dump(issues, f, indent=4)
 
     minio_open.send_files(
         list_files=[
@@ -272,66 +269,80 @@ def get_and_upload_reuses_down():
     )
 
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
-
-with DAG(
-    dag_id=DAG_NAME,
-    schedule_interval="0 4 1 * *",
-    start_date=datetime(2023, 10, 15),
-    dagrun_timeout=timedelta(minutes=30),
-    tags=["support", "certification"],
-    default_args=default_args,
-    catchup=False,
-) as dag:
-
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
+def get_catalog_stats():
+    datasets = []
+    resources = []
+    crawler = get_all_from_api_query(
+        'https://www.data.gouv.fr/api/1/datasets/',
+        mask='data{id,harvest,quality,resources{id,format,type}}'
     )
+    processed = 0
+    for c in crawler:
+        datasets.append([c['id'], bool(c['harvest']), c['quality']])
+        for r in c['resources']:
+            resources.append({k: r[k] for k in ['id', 'format', 'type']})
+        processed += 1
+        if processed % 1000 == 0:
+            print(f'> {processed} datasets processed')
 
-    get_zammad_tickets = PythonOperator(
-        task_id="get_zammad_tickets",
-        python_callable=get_zammad_tickets,
-        op_kwargs={'start_date': one_year_ago},
+    # getting datasets quality and count
+    cats = list(max(datasets, key=lambda x: len(x[2]))[2].keys())
+    dataset_quality = {
+        k: {c: [] for c in cats} for k in ['all', 'harvested', 'local']
+    }
+    dataset_quality.update({'count': {k: 0 for k in ['all', 'harvested', 'local']}})
+    for d in datasets:
+        dataset_quality['count']['all'] += 1
+        dataset_quality['count']['harvested' if d[1] else 'local'] += 1
+        for c in cats:
+            dataset_quality['all'][c].append(d[2].get(c, False) or False)
+            dataset_quality['harvested' if d[1] else 'local'][c].append(d[2].get(c, False) or False)
+    for k in dataset_quality.keys():
+        for c in dataset_quality[k]:
+            dataset_quality[k][c] = np.mean(dataset_quality[k][c])
+    dataset_quality = {datetime.now().strftime('%Y-%m-%d'): dataset_quality}
+
+    # getting resources types and formats
+    resources_stats = {'all': {}}
+    for r in resources:
+        if r['format'] not in resources_stats['all']:
+            resources_stats['all'][r['format']] = 0
+        resources_stats['all'][r['format']] += 1
+
+        if r['type'] not in resources_stats:
+            resources_stats[r['type']] = {}
+        if r['format'] not in resources_stats[r['type']]:
+            resources_stats[r['type']][r['format']] = 0
+        resources_stats[r['type']][r['format']] += 1
+
+    resources_stats = {datetime.now().strftime('%Y-%m-%d'): resources_stats}
+
+    hist_dq = json.loads(
+        minio_open.get_file_content(minio_destination_folder + 'datasets_quality.json')
     )
+    hist_dq.update(dataset_quality)
+    with open(DATADIR + 'datasets_quality.json', 'w') as f:
+        json.dump(hist_dq, f, indent=4)
 
-    get_visits = PythonOperator(
-        task_id="get_visits",
-        python_callable=get_visits,
-        op_kwargs={'start_date': one_year_ago},
+    hist_rs = json.loads(
+        minio_open.get_file_content(minio_destination_folder + 'resources_stats.json')
     )
+    hist_rs.update(resources_stats)
+    with open(DATADIR + 'resources_stats.json', 'w') as f:
+        json.dump(hist_rs, f, indent=4)
 
-    get_and_upload_certification = PythonOperator(
-        task_id="get_and_upload_certification",
-        python_callable=get_and_upload_certification,
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": DATADIR,
+                "source_name": output_file_name,
+                "dest_path": minio_destination_folder,
+                "dest_name": output_file_name,
+            }
+            for output_file_name in [
+                # 'resources_stats.json',
+                'datasets_quality.json'
+            ]
+        ],
+        ignore_airflow_env=True,
     )
-
-    get_and_upload_reuses_down = PythonOperator(
-        task_id="get_and_upload_reuses_down",
-        python_callable=get_and_upload_reuses_down,
-    )
-
-    gather_and_upload = PythonOperator(
-        task_id="gather_and_upload",
-        python_callable=gather_and_upload,
-    )
-
-    publish_mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=send_message,
-        op_kwargs={
-            'text': ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
-        },
-    )
-
-    get_zammad_tickets.set_upstream(clean_previous_outputs)
-    get_visits.set_upstream(clean_previous_outputs)
-    get_and_upload_certification.set_upstream(clean_previous_outputs)
-    get_and_upload_reuses_down.set_upstream(clean_previous_outputs)
-
-    gather_and_upload.set_upstream(get_zammad_tickets)
-    gather_and_upload.set_upstream(get_visits)
-
-    publish_mattermost.set_upstream(gather_and_upload)
-    publish_mattermost.set_upstream(get_and_upload_certification)
-    publish_mattermost.set_upstream(get_and_upload_reuses_down)
