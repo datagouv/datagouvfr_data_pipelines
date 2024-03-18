@@ -56,7 +56,7 @@ SPAM_WORDS = [
     'carte grise',
     'passeport',
     'administratif',
-    'répertoire d’entreprises',
+    "répertoire d'entreprises",
     'documents professionnels',
     'immatriculation',
     'greffe',
