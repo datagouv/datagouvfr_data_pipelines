@@ -815,15 +815,83 @@ def check_and_save_schemas(ti):
     print('End of process errors: ', ERRORS_REPORT)
 
 
+def get_template_github_issues():
+    def get_all_issues():
+        url = "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?state=all"
+        issues = []
+        page = 1
+        while True:
+            response = requests.get(
+                url + f"&page={page}",
+                # could need to specify token if rate limited
+            )
+            if response.status_code == 200:
+                issues.extend(response.json())
+                if len(response.json()) < 30:
+                    break
+                page += 1
+            else:
+                raise Exception("This shouldn't fail, maybe consider adding a token in the headers")
+        return issues
+
+    print("Getting issues from repo")
+    issues = get_all_issues()
+    print("Sorting relevant issues")
+    dates = {}
+    for issue in issues:
+        d = issue['created_at'][:10]
+        body = issue['body']
+        if body is None:
+            continue
+        processed = False
+        # getting all issues that are correctly labelled
+        for phase in ['investigation', 'construction']:
+            if any(lab['name'] == f'Schéma en {phase}' for lab in issue['labels']):
+                processed = True
+                d = issue['created_at'][:10]
+                if d not in dates:
+                    dates[d] = {}
+                if phase not in dates[d]:
+                    dates[d][phase] = []
+                dates[d][phase].append({
+                    'title': issue['title'],
+                    'url': issue['html_url']
+                })
+        # getting potentially unlabelled issues
+        if not processed and "Stade d'avancement" in body:
+            rows = body.split('\n')
+            phases = [
+                row for row in rows
+                if row.startswith('- [')
+                and any(w in row for w in ['investigation', 'construction'])
+            ]
+            # reversed to get the latest advancement state
+            for phase in reversed(phases):
+                if phase.startswith('- [x]'):
+                    if d not in dates:
+                        dates[d] = {}
+                    phase = 'construction' if 'construction' in phase else 'investigation'
+                    if phase not in dates[d]:
+                        dates[d][phase] = []
+                    dates[d][phase].append({
+                        'title': issue['title'],
+                        'url': issue['html_url']
+                    })
+    return dates
+
+
 def update_news_feed(ti, TMP_FOLDER):
-    branch = ti.xcom_pull(key='branch', task_ids='initialization')
     new = ti.xcom_pull(key='SCHEMA_INFOS', task_ids='check_and_save_schemas')
     today = datetime.now().strftime('%Y-%m-%d')
     changes = {today: {}}
-    old = requests.get(
-        'https://raw.githubusercontent.com/etalab/schema.data.gouv.fr'
-        f'/{branch}/site/.vuepress/public/schema-infos.json'
-    ).json()
+    with open(
+        TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-infos.json',
+        'r',
+        encoding='utf-8'
+    ) as f:
+        old = json.load(f)
+        f.close()
+    # getting existing schemas infos
     for schema in new:
         if schema not in old:
             if 'new_schema' not in changes[today]:
@@ -852,6 +920,34 @@ def update_news_feed(ti, TMP_FOLDER):
                 'schema_name': schema,
                 'version': old[schema].get('latest'),
             })
+
+    # getting investigation/construction from github issues
+    # only parsing issues made from the template
+    schema_updates_file = TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-updates.json'
+    with open(schema_updates_file, 'r', encoding='utf-8') as f:
+        updates = json.load(f)
+        f.close()
+    issues = get_template_github_issues()
+    # to have updates when issues change status we check which ones have already been seen
+    # in one state or another
+    print("Gathering issues in groups")
+    already_there_issues = {'investigation': [], 'construction': []}
+    for date in updates:
+        for k in already_there_issues:
+            if k in updates[date]:
+                for schema in updates[date][k]:
+                    already_there_issues[k].append(schema['url'])
+    print("Updating changes with issues")
+    for date in issues:
+        for change_type in issues[date]:
+            for issue in issues[date][change_type]:
+                if issue['url'] not in already_there_issues[change_type]:
+                    print("  >", issue['title'], f"changed status for {change_type}")
+                    if today not in changes:
+                        changes[today] = {}
+                    if change_type not in changes[today]:
+                        changes[today][change_type] = []
+                    changes[today][change_type].append(issue)
     # if you want to check changes in dev mode
     # changes[today] = {
     #     'new_schema': [
@@ -860,14 +956,16 @@ def update_news_feed(ti, TMP_FOLDER):
     #     'new_version': [
     #         {'schema_name': '139bercy/format-commande-publique', 'version': '3.1.1 => 3.1.2'},
     #     ],
+    #     'investigation': [
+    #         {
+    #             'title': 'Schéma table en bois',
+    #             'url': 'https://github.com/datagouv/schema.data.gouv.fr/issues/910'
+    #         },
+    #     ],
     # }
     if changes[today]:
         print("Updating news feed with:", changes[today])
         # updating schema-updates.json
-        schema_updates_file = TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-updates.json'
-        with open(schema_updates_file, 'r', encoding='utf-8') as f:
-            updates = json.load(f)
-            f.close()
         if today not in updates:
             updates.update(changes)
         else:
@@ -876,6 +974,7 @@ def update_news_feed(ti, TMP_FOLDER):
                     updates[today][change_type] = changes[today][change_type]
                 else:
                     updates[today][change_type] += changes[today][change_type]
+        updates = {k: updates[k] for k in sorted(updates.keys())}
         print(updates)
         with open(schema_updates_file, 'w', encoding='utf-8') as f:
             json.dump(updates, f, indent=4)
@@ -885,6 +984,8 @@ def update_news_feed(ti, TMP_FOLDER):
             'new_schema': 'Schéma{} ajouté{}',
             'new_version': 'Montée{} de version{}',
             'deleted_schema': 'Schéma{} supprimé{}',
+            'investigation': 'Schéma{} en investigation',
+            'construction': 'Schéma{} en construction',
         }
         md = ''
         for date in sorted(updates.keys())[::-1]:
@@ -897,7 +998,12 @@ def update_news_feed(ti, TMP_FOLDER):
                     f'\n#### {mapping[change_type].format(*args)}:\n'
                 )
                 for schema in updates[date][change_type]:
-                    if "=>" in schema["version"]:
+                    if change_type in ["investigation", "construction"]:
+                        md += (
+                            f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["title"]}]'
+                            f'({schema["url"]}/)**'
+                        )
+                    elif "=>" in schema["version"]:
                         old_v, new_v = schema["version"].split(' => ')
                         md += (
                             f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["schema_name"]}]'
@@ -911,8 +1017,8 @@ def update_news_feed(ti, TMP_FOLDER):
                             f'(/{schema["schema_name"]}/)** : '
                             f'<span style="color:blue;">{schema["version"]}</span><br>\n'
                         )
-            with open(TMP_FOLDER + 'schema.data.gouv.fr/site/actualites.md', 'w', encoding='utf-8') as f:
-                f.write(md)
+        with open(TMP_FOLDER + 'schema.data.gouv.fr/site/actualites.md', 'w', encoding='utf-8') as f:
+            f.write(md)
 
         # updating RSS feed
         tz = pytz.timezone('CET')
@@ -932,19 +1038,30 @@ def update_news_feed(ti, TMP_FOLDER):
         for date, up in changes.items():
             for update_type, versions in up.items():
                 for version in versions:
-                    print(f"   - {version['schema_name']}")
-                    v = version['version'].replace('=>', 'to')
-
                     # updating global feed
                     new_item = ET.Element('item')
                     title = ET.SubElement(new_item, 'title')
-                    title.text = (
-                        f"{update_type.capitalize().replace('_', ' ')} - {version['schema_name']} ({v})"
-                    )
                     link = ET.SubElement(new_item, 'link')
-                    link.text = f"{url}{version['schema_name']}"
                     description = ET.SubElement(new_item, 'description')
-                    description.text = f"Schema update on {date}: {v} for {version['schema_name']}"
+                    if version.get('schema_name'):
+                        # existing schemas
+                        print(f"   - {version['schema_name']}")
+                        v = version['version'].replace('=>', 'to')
+                        title.text = (
+                            f"{update_type.capitalize().replace('_', ' ')} - {version['schema_name']} ({v})"
+                        )
+                        link.text = f"{url}{version['schema_name']}"
+                        description.text = f"Schema update on {date}: {v} for {version['schema_name']}"
+                    else:
+                        # issues from repo
+                        print(f"   - {version['title']}")
+                        title.text = (
+                            f"{update_type.capitalize()} - {version['title']}"
+                        )
+                        link.text = version['url']
+                        description.text = (
+                            f"Schema update on {date}: {version['title']} is in {update_type}"
+                        )
                     pub_date = ET.SubElement(new_item, 'pubDate')
                     pub_date.text = (
                         tz.localize(datetime.strptime(date, "%Y-%m-%d")).strftime('%a, %d %b %Y %H:%M:%S %z')
@@ -955,6 +1072,9 @@ def update_news_feed(ti, TMP_FOLDER):
                     root.find('./channel').text = '\n  '
 
                     # updating specific feed
+                    if version.get('title'):
+                        # no feed for schemas that are not yet published
+                        continue
                     title_content = f"{date} - {update_type} - {v}"
                     description_content = (
                         f"Update on {date}: {update_type.capitalize().replace('_', ' ')} "
