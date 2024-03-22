@@ -1001,7 +1001,7 @@ def update_news_feed(ti, TMP_FOLDER):
                     if change_type in ["investigation", "construction"]:
                         md += (
                             f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["title"]}]'
-                            f'({schema["url"]}/)**'
+                            f'({schema["url"]}/)**\n'
                         )
                     elif "=>" in schema["version"]:
                         old_v, new_v = schema["version"].split(' => ')
