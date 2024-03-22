@@ -314,16 +314,12 @@ def check_datapackage(repertoire_slug, conf, folders):
 
                         # Create documentation file and save it
                         with open(schema_dest_folder + '/' + 'documentation.md', "w") as out:
-                            try:
-                                # From schema.json, we use tableschema_to_markdown package to convert it in a
-                                # readable mardown file that will be use for documentation
-                                convert_source(schema_dest_folder + schema.split('/')[-1], out, 'page', [])
-                                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(
-                                    'documentation.md'
-                                )
-                            except:
-                                # if conversion is on error, we add it to ERRORS_REPORT
-                                manage_errors(repertoire_slug, version, 'convert to markdown')
+                            # From schema.json, we use tableschema_to_markdown package to convert it in a
+                            # readable mardown file that will be use for documentation
+                            convert_source(schema_dest_folder + schema.split('/')[-1], out, 'page')
+                            SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(
+                                'documentation.md'
+                            )
 
                         latest_folder, sf = manage_latest_folder(schema_name, folders)
                 else:
@@ -405,14 +401,10 @@ def manage_tableschema(
                         )
             # Create documentation file and save it
             with open(dest_folder + 'documentation.md', "w") as out:
-                try:
-                    # From schema.json, we use tableschema_to_markdown package to convert it in a
-                    # readable mardown file that will be use for documentation
-                    convert_source(dest_folder + schema_file, out, 'page', [])
-                    SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
-                except:
-                    # if conversion is on error, we add it to ERRORS_REPORT
-                    manage_errors(repertoire_slug, version, 'convert to markdown')
+                # From schema.json, we use tableschema_to_markdown package to convert it in a
+                # readable mardown file that will be use for documentation
+                convert_source(dest_folder + schema_file, out, 'page')
+                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
         # If schema release is not valid, we remove it from DATA_FOLDER1
         else:
             manage_errors(repertoire_slug, version, 'tableschema validation')
