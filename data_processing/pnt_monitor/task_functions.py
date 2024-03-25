@@ -77,7 +77,7 @@ def notification_mattermost(ti):
 
     message = ''
     if too_old:
-        message += ":warning: @geoffrey.aldebert Des ressources n'ont pas été mises à jour récemment :"
+        message += ":warning: @geoffrey.aldebert Ces ressources n'ont pas été mises à jour récemment :"
         for dataset in too_old:
             message += f'\n- {dataset}:'
             for k in too_old[dataset]:
@@ -85,8 +85,8 @@ def notification_mattermost(ti):
 
     if unavailable_resources:
         if message:
-            message += '\n'
-        message += "Des ressources n'ont pas de fichier associé :"
+            message += '\n\n'
+        message += "Certaines ressources n'ont pas de fichier associé :"
         for dataset in unavailable_resources:
             message += f'\n- {dataset}:'
             for k in unavailable_resources[dataset]:
