@@ -8,7 +8,7 @@ import logging
 import shutil
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-nb_days_to_keep = 31
+nb_days_to_keep = 60
 
 
 def get_directory_size(directory):
