@@ -252,7 +252,7 @@ def get_and_upload_reuses_down():
         minio_open.get_file_content(minio_destination_folder + output_file_name)
     ))
     start_len = len(hist)
-    hist = pd.concat([hist, stats]).drop_duplicates('date')
+    hist = pd.concat([hist, stats]).drop_duplicates('Date')
     # just in case
     assert start_len <= len(hist)
     hist.to_csv(DATADIR + output_file_name, index=False)
