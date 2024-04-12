@@ -91,7 +91,7 @@ def generate_rupture_france():
 
 
 def get_daily_prices():
-    minio_open.get_files(
+    minio_open.download_files(
         list_files=[
             {
                 "source_path": "carburants/",

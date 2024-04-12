@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions import (
     initialization,
     check_and_save_schemas,
+    update_news_feed,
     sort_folders,
     get_issues_and_labels,
     final_clean_up
@@ -51,6 +52,14 @@ with DAG(
     check_and_save_schemas = PythonOperator(
         task_id="check_and_save_schemas",
         python_callable=check_and_save_schemas,
+    )
+
+    update_news_feed = PythonOperator(
+        task_id="update_news_feed",
+        python_callable=update_news_feed,
+        op_kwargs={
+            "TMP_FOLDER": TMP_FOLDER,
+        },
     )
 
     sort_folders = PythonOperator(
@@ -100,7 +109,8 @@ with DAG(
     clone_schema_repo.set_upstream(clean_previous_outputs)
     initialization.set_upstream(clone_schema_repo)
     check_and_save_schemas.set_upstream(initialization)
-    sort_folders.set_upstream(check_and_save_schemas)
+    update_news_feed.set_upstream(check_and_save_schemas)
+    sort_folders.set_upstream(update_news_feed)
     get_issues_and_labels.set_upstream(sort_folders)
     final_clean_up.set_upstream(get_issues_and_labels)
     copy_files.set_upstream(final_clean_up)

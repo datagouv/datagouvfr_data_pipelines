@@ -25,6 +25,37 @@ DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+ignored_reuses = [
+    '5cc31646634f415773630550',
+    '6551ad5de16abd15501bb229',
+    '60ba9c29b5cf00b439cf2db2',
+    '60336c61169032c050241917',
+    '622603f40afc69ae230ba3bb',
+    '635c23d415ba3a284e9f6b55',
+    '620619bf57530fafb331840f',
+    '60b2d449fa46c495f9b6fcc4',
+    '63ad24474cbeaae107477cf5',
+    '5e3439408b4c412dc0d6d48c',
+    '6066cb811b31b4046459152c',
+    '63b6ac225e830edcc13a33bd',
+    '62196bdfa6f0568851c3acf5',
+    '5a2ebeb388ee3876ffcde5d4',
+    '62a11452e6f309c60cd669b1',
+    '62a11367699461f7c1eeb990',
+    '62a11367699461f7c1eeb990',
+    '5d0fff996f44410df0661086',
+    '61e156cb03b7712be8a87767',
+    '60c757480e323442ef3da882',
+    '5dc005c66f44415fb80731a3',
+    '63a34633c78e0630594e351f',
+    '5b3cbc68c751df3c3e3aaa9c',
+    '61bc9d5d0b4aa67cb0b239b2',
+    '57ffa6d288ee3858375ff490',
+    '64133a9ea43892071bef7084',
+    '5c8b75b6634f41525cfa1629',
+    '65406410e2c5c54317513866',
+    '60edbed1dd659431fcf45e04',
+]
 
 
 async def url_error(url, session, method="head"):
@@ -85,6 +116,7 @@ def get_unavailable_reuses():
             mask="data{id,url}"
         )
     )
+    reuses = [r for r in reuses if r['id'] not in ignored_reuses]
     # gather on the whole reuse list is inconsistent (some unavailable reuses do not
     # appear), having a smaller batch size provides better results and keeps the duration
     # acceptable (compared to synchronous process) 
@@ -371,7 +403,7 @@ def create_all_tables():
         print('Reuses inaccessibles')
         unavailable_reuses = get_unavailable_reuses()
         restr_reuses = {
-            d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')
+            d[0]['id']: {'error': d[1]} for d in unavailable_reuses
         }
         for rid in restr_reuses:
             data = get_all_from_api_query(

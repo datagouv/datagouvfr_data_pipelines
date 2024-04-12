@@ -1,20 +1,15 @@
 {
     "dag_list": {
-        "data_processing_agence_bio": true,
         "data_processing_prix_carburants": true,
         "data_processing_dvf": true,
         "data_processing_elections": true,
-        "data_processing_formation_qualiopi": true,
         "data_processing_geozones": true,
-        "data_processing_inpi_dirigeants": true,
         "data_processing_meteo": true,
+        "data_processing_pnt_monitor": true,
         "data_processing_rna": true,
-        "data_processing_signaux_faibles_ratio_financiers": true,
-        "data_processing_sirene_flux": true,
         "data_processing_sirene_geocodage": true,
         "data_processing_sirene_geolocalisation": true,
         "data_processing_sirene_publication": true,
-        "data_processing_uai": true,
         "dgv_administrateur": true,
         "dgv_bizdev": true,
         "dgv_curation": true,
@@ -25,15 +20,13 @@
         "dgv_metrics": true,
         "dgv_moderation_utilisateurs": false,
         "dgv_notification_activite": false,
-        "dgv_support_monitor": true,
+        "dgv_dashboard": true,
         "dgv_tops": true,
         "schema_consolidation": true,
         "irve_consolidation": true,
         "maintenance_clean_logs_and_runs": true,
         "schema_recommendations": true,
         "schema_website_publication_preprod": true,
-        "schema_website_publication_prod": true,
-        "get_stock_rne": true,
-        "get_flux_rne": true
+        "schema_website_publication_prod": true
     }
 }

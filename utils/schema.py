@@ -290,10 +290,10 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
                 print(f"old hydra check: no validation for {resource_api_url}")
                 return {
                     'report': {
-                        'stats': {'errors': extras['validation-report:nb_errors']},
-                        'valid': extras['validation-report:valid_resource'],
-                        'tasks': [{'errors': extras['validation-report:errors']}],
-                        'date': extras['validation-report:validation_date'],
+                        'stats': {'errors': extras.get('validation-report:nb_errors')},
+                        'valid': extras.get('validation-report:valid_resource'),
+                        'tasks': [{'errors': extras.get('validation-report:errors')}],
+                        'date': extras.get('validation-report:validation_date'),
                         'from_metadata': True,
                     }
                 }
@@ -302,10 +302,10 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
             print(f"no hydra check: no validation for {resource_api_url}")
             return {
                 'report': {
-                    'stats': {'errors': extras['validation-report:nb_errors']},
-                    'valid': extras['validation-report:valid_resource'],
-                    'tasks': [{'errors': extras['validation-report:errors']}],
-                    'date': extras['validation-report:validation_date'],
+                    'stats': {'errors': extras.get('validation-report:nb_errors')},
+                    'valid': extras.get('validation-report:valid_resource'),
+                    'tasks': [{'errors': extras.get('validation-report:errors')}],
+                    'date': extras.get('validation-report:validation_date'),
                     'from_metadata': True,
                 }
             }
@@ -427,7 +427,7 @@ def get_resource_schema_version(row: pd.Series, api_url: str):
     r.raise_for_status()
     if r.status_code == 200:
         r_json = r.json()
-        if r_json.get('schema', {}).get('version', False):
+        if r_json.get('schema') and r_json.get('schema').get('version', False):
             return r_json["schema"]["version"]
         else:
             return np.nan
@@ -1163,7 +1163,7 @@ def update_resource_metadata(
             print("Schema extras updated with:", validation_report)
 
         # not touching metadata if nothing changes
-        if update_version and version_name != schema_from_resource.get('version'):
+        if update_version and schema_from_resource and version_name != schema_from_resource.get('version'):
             obj = {"schema": schema_from_consolidation}
 
             response = update_dataset_or_resource_metadata(
@@ -1306,6 +1306,7 @@ def upload_consolidated(
             latest_mapping = {'latest': sorted_version[-1]}
             sorted_version.append('latest')
             for version_name in sorted_version:
+                time.sleep(2)
                 schema = {"name": schema_name, "version": latest_mapping.get(version_name, version_name)}
                 obj = {}
                 obj["schema"] = schema
