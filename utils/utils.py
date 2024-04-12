@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 
 def check_if_monday():
@@ -25,3 +25,10 @@ def month_year_iter(start_month, start_year, end_month, end_year):
     for ym in range(ym_start, ym_end + 1):
         y, m = divmod(ym, 12)
         yield y, m + 1
+
+
+def time_is_between(time1, time2):
+    # no date involved here
+    if time1 > time2:
+        time1, time2 = time2, time1
+    return time1 <= datetime.now().time() <= time2

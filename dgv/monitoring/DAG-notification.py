@@ -1,7 +1,7 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, time as dtime
 from difflib import SequenceMatcher
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
@@ -12,8 +12,10 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_last_items,
     get_latest_comments,
+    get_all_from_api_query,
     SPAM_WORDS,
 )
+from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
 import requests
 import re
 from langdetect import detect, LangDetectException
@@ -126,6 +128,42 @@ def check_new(ti, **kwargs):
                     mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
+
+
+def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
+    # DAG runs every 5min, we want this to run every Monday at ~10:00
+    start, end = dtime(10, 0, 0), dtime(10, 7, 0)
+    if not (check_if_monday() and time_is_between(start, end)):
+        print("Not running now")
+        return
+    orgas = get_all_from_api_query(
+        "https://www.data.gouv.fr/api/1/organizations/?sort=-created",
+        mask="data{id,metrics,created_at,name}",
+    )
+    inactive = {}
+    threshold = (datetime.today() - timedelta(days=cutoff_days)).strftime("%Y-%m-%d")
+    too_soon = (datetime.today() - timedelta(days=days_before_flag)).strftime("%Y-%m-%d")
+    for o in orgas:
+        if o["created_at"] < threshold:
+            print("Too old:", o["id"])
+            break
+        if o["created_at"] >= too_soon:
+            print("Too recent:", o["id"])
+            continue
+        if all(o["metrics"][k] == 0 for k in ["datasets", "reuses"]):
+            inactive[o["id"]] = o["name"]
+    if inactive:
+        message = (
+            f"#### :sloth: Organisations créées il y a entre {days_before_flag} et "
+            f"{cutoff_days} jours, sans dataset ni réutilisation\n- "
+        )
+        message += (
+            "\n- ".join([
+                f"[{n}](https://www.data.gouv.fr/fr/organizations/{i}/)"
+                for i, n in inactive.items()
+            ])
+        )
+        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 def check_new_comments(ti):
@@ -311,7 +349,7 @@ def publish_mattermost(ti):
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
-    spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
+    # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:
@@ -401,10 +439,10 @@ with DAG(
         templates_dict={"type": "organizations"},
     )
 
-    check_new_comments = PythonOperator(
-        task_id="check_new_comments",
-        python_callable=check_new_comments,
-    )
+    # check_new_comments = PythonOperator(
+    #     task_id="check_new_comments",
+    #     python_callable=check_new_comments,
+    # )
 
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
@@ -416,8 +454,15 @@ with DAG(
         python_callable=check_schema,
     )
 
-    (
-        [check_new_datasets, check_new_reuses, check_new_orgas, check_new_comments]
-        >> publish_mattermost
-        >> check_schema
+    get_inactive_orgas = PythonOperator(
+        task_id="get_inactive_orgas",
+        python_callable=get_inactive_orgas,
     )
+
+    publish_mattermost.set_upstream(check_new_datasets)
+    publish_mattermost.set_upstream(check_new_reuses)
+    publish_mattermost.set_upstream(check_new_orgas)
+
+    check_schema.set_upstream(publish_mattermost)
+
+    get_inactive_orgas
