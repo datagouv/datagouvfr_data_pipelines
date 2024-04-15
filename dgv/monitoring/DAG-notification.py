@@ -133,7 +133,7 @@ def check_new(ti, **kwargs):
 
 def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     # DAG runs every 5min, we want this to run every Monday at ~10:00
-    start, end = dtime(10, 1, 0), dtime(10, 6, 0)
+    start, end = dtime(9, 1, 0), dtime(9, 6, 0)
     if not (check_if_monday() and time_is_between(start, end)):
         print("Not running now")
         return
@@ -169,7 +169,7 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
 
 def alert_if_awaiting_spam_comments():
     # DAG runs every 5min, we want this to run everyday at ~11:00
-    start, end = dtime(11, 1, 0), dtime(11, 6, 0)
+    start, end = dtime(8, 1, 0), dtime(8, 6, 0)
     if not time_is_between(start, end):
         print("Not running now")
         return
