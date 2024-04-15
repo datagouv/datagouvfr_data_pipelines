@@ -458,7 +458,7 @@ def notification_mattermost(ti):
     print(new_files_datasets)
     print(updated_datasets)
 
-    message = "🌦️ Données météo mises à jour :"
+    message = "##### 🌦️ Données météo mises à jour :"
     if not (new_files_datasets or updated_datasets):
         message += "\nAucun changement."
     else:
