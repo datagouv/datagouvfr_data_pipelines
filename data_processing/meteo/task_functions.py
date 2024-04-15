@@ -267,9 +267,10 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
         except:
             print("⚠️ Unable to send file")
         os.remove(f"{DATADIR}/{file_name}")
-    print("New files:", new_files)
-    print("Updated same name:", files_to_update_same_name)
-    print("Updated new name:", files_to_update_new_name)
+    print("___________________________")
+    print(len(new_files), "new files:", new_files)
+    print(len(files_to_update_same_name), "updated same name:", files_to_update_same_name)
+    print(len(files_to_update_new_name), "updated new name:", files_to_update_new_name)
 
     # re-getting Minio files in case new files have been transfered for downstream tasks
     minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
@@ -457,7 +458,7 @@ def notification_mattermost(ti):
     print(new_files_datasets)
     print(updated_datasets)
 
-    message = "🌦️ Données météo mises à jour :"
+    message = "##### 🌦️ Données météo mises à jour :"
     if not (new_files_datasets or updated_datasets):
         message += "\nAucun changement."
     else:
