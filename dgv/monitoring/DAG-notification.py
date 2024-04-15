@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_last_items,
     get_latest_comments,
     get_all_from_api_query,
+    get_awaiting_spam_comments,
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
@@ -132,7 +133,7 @@ def check_new(ti, **kwargs):
 
 def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     # DAG runs every 5min, we want this to run every Monday at ~10:00
-    start, end = dtime(10, 0, 0), dtime(10, 7, 0)
+    start, end = dtime(10, 1, 0), dtime(10, 6, 0)
     if not (check_if_monday() and time_is_between(start, end)):
         print("Not running now")
         return
@@ -162,6 +163,21 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
                 f"[{n}](https://www.data.gouv.fr/fr/organizations/{i}/)"
                 for i, n in inactive.items()
             ])
+        )
+        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+
+def alert_if_awaiting_spam_comments():
+    # DAG runs every 5min, we want this to run everyday at ~11:00
+    start, end = dtime(11, 1, 0), dtime(11, 6, 0)
+    if not time_is_between(start, end):
+        print("Not running now")
+        return
+    comments = get_awaiting_spam_comments()
+    if comments:
+        message = (
+            f"@all Il y a {len(comments)} en attente de validation "
+            "(voir [ici](https://www.data.gouv.fr/api/1/spam/))"
         )
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
@@ -459,6 +475,11 @@ with DAG(
         python_callable=get_inactive_orgas,
     )
 
+    alert_if_awaiting_spam_comments = PythonOperator(
+        task_id="alert_if_awaiting_spam_comments",
+        python_callable=alert_if_awaiting_spam_comments,
+    )
+
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
     publish_mattermost.set_upstream(check_new_orgas)
@@ -466,3 +487,4 @@ with DAG(
     check_schema.set_upstream(publish_mattermost)
 
     get_inactive_orgas
+    alert_if_awaiting_spam_comments
