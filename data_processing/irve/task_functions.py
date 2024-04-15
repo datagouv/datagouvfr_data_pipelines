@@ -1,13 +1,14 @@
 from datagouvfr_data_pipelines.utils.schema import (
+    load_config,
     remove_old_schemas,
     get_schema_report,
     build_reference_table,
     download_schema_files,
     consolidate_data,
+    comparer_versions,
     upload_consolidated,
     update_reference_table,
     update_resource_send_mail_producer,
-    add_validata_report,
     update_consolidation_documentation_report,
     append_stats_list,
     create_detailed_report,
@@ -15,23 +16,26 @@ from datagouvfr_data_pipelines.utils.schema import (
     upload_minio,
     notification_synthese
 )
-import yaml
+from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
+    improve_geo_data_quality,
+)
 from ast import literal_eval
 import pandas as pd
 import os
 from pathlib import Path
+from datetime import datetime
+import re
 
 schema_name = "etalab/schema-irve-statique"
 
 
 def get_all_irve_resources(
     ti,
-    date_airflow,
     tmp_path,
     schemas_catalogue_url,
     config_path
 ):
-    consolidation_date_str = date_airflow.replace("-", "")
+    consolidation_date_str = datetime.today().strftime('%Y%m%d')
     print(consolidation_date_str)
 
     data_path = tmp_path / "data"
@@ -58,11 +62,10 @@ def get_all_irve_resources(
         schema_name=schema_name
     )
 
-    with open(config_path, "r") as f:
-        config_dict = yaml.safe_load(f)
-        config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
+    config_dict = load_config(config_path)
+    config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
-    # for demo
+    # uncomment to consolidate on demo
     # schemas_catalogue_list = [{
     #     'name': 'etalab/schema-irve-statique',
     #     'title': 'IRVE statique',
@@ -72,7 +75,10 @@ def get_all_irve_resources(
     #     'examples': [{'title': 'Exemple de fichier IRVE valide', 'path': 'https://github.com/etalab/schema-irve/raw/v2.1.0/exemple-valide.csv'}],
     #     'labels': ['Socle Commun des Données Locales', 'transport.data.gouv.fr'],
     #     'consolidation_dataset_id': '64b521568ecbee60f15aa241',
-    #     'versions': [{'version_name': '2.2.0', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.2.0/schema-statique.json'}],
+    #     'versions': [
+    #         {'version_name': '2.3.0', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.0/schema-statique.json'},
+    #         {'version_name': '2.3.1', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.1/schema-statique.json'},
+    #     ],
     #     'external_doc': 'https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve',
     #     'external_tool': None,
     #     'homepage': 'https://github.com/etalab/schema-irve.git',
@@ -85,10 +91,14 @@ def get_all_irve_resources(
     #         'consolidate': True,
     #         'consolidated_dataset_id': '64b521568ecbee60f15aa241',
     #         'documentation_resource_id': '66f90dcf-caa3-43ad-9aeb-0f504f503104',
-    #         'drop_versions': ['1.0.0', '1.0.1', '1.0.2', '1.0.3', '2.0.0', '2.0.1', '2.0.2', '2.0.3', '2.1.0'],
+    #         'drop_versions': ['1.0.0', '1.0.1', '1.0.2', '1.0.3', '2.0.0', '2.0.1', '2.0.2', '2.0.3', '2.1.0', '2.2.0', '2.2.1'],
     #         'exclude_dataset_ids': ['54231d4a88ee38334b5b9e1d', '601d660f2be2c8896f86e18d'],
     #         'geojson_resource_id': '489c3d81-4312-4506-8242-44a674b0bb55',
-    #         'latest_resource_ids': {'2.2.0': '18ac7b73-5781-4493-b98a-d624f9f9ab27'},
+    #         'latest_resource_ids': {
+    #             '2.3.0': '18ac7b73-5781-4493-b98a-d624f9f9ab27',
+    #             '2.3.1': '9a300b97-d0c4-411b-9830-b2465624cf22',
+    #             'latest': 'f8fdc246-e67b-4006-8f65-6db0f2f9b57b',
+    #         },
     #         'publication': True,
     #         'search_words': ['Infrastructures de recharge pour véhicules électriques', 'IRVE']
     #     }
@@ -209,9 +219,33 @@ def custom_filters_irve(
     return
 
 
+def improve_irve_geo_data_quality(
+    tmp_path,
+):
+    def sort_consolidated_from_version(file_name):
+        version = re.search(r'\d+.\d+.\d+', file_name)[0]
+        return comparer_versions(version)
+
+    schema_irve_cols = {
+        "xy_coords": "coordonneesXY",
+        "code_insee": "code_insee_commune",
+        "adress": "adresse_station",
+        "longitude": "consolidated_longitude",
+        "latitude": "consolidated_latitude",
+    }
+    schema_irve_path = os.path.join(tmp_path, "consolidated_data", "etalab_schema-irve-statique")
+    latest_version_consolidation = sorted([
+        file for file in os.listdir(schema_irve_path) if file.endswith('.csv')
+    ], key=sort_consolidated_from_version)[-1]
+    print('Only processing the latest version (too time-consuming):', latest_version_consolidation)
+    improve_geo_data_quality({
+        os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols
+    })
+
+
+
 def upload_consolidated_irve(
     ti,
-    api_key,
     config_path
 ):
     consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
@@ -232,7 +266,6 @@ def upload_consolidated_irve(
         config_path,
         schemas_report_dict,
         consolidation_date_str,
-        api_key,
         bool_upload_geojson=True,
         should_succeed=True
     )
@@ -255,30 +288,13 @@ def update_reference_table_irve(
 
 def update_resource_send_mail_producer_irve(
     ti,
-    api_key
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    success = update_resource_send_mail_producer(
-        ref_tables_path,
-        schema_name,
-        api_key,
-        should_succeed=False
-    )
-    assert success
-    return
-
-
-def add_validata_report_irve(
-    ti,
-    api_key
 ):
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
     validata_reports_path = ti.xcom_pull(key='validata_reports_path', task_ids='get_all_irve_resources')
-    success = add_validata_report(
+    success = update_resource_send_mail_producer(
         ref_tables_path,
-        validata_reports_path,
         schema_name,
-        api_key,
+        validata_reports_path,
         should_succeed=True
     )
     assert success
@@ -287,7 +303,6 @@ def add_validata_report_irve(
 
 def update_consolidation_documentation_report_irve(
     ti,
-    api_key,
     config_path
 ):
     ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
@@ -301,7 +316,6 @@ def update_consolidation_documentation_report_irve(
         config_path,
         consolidation_date_str,
         config_dict,
-        api_key,
         should_succeed=True
     )
     assert success
@@ -390,18 +404,12 @@ def final_directory_clean_up_irve(
 
 def upload_minio_irve(
     TMP_FOLDER,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     minio_output_filepath
 ):
     upload_minio(
         TMP_FOLDER.as_posix(),
-        MINIO_URL,
         MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        SECRET_MINIO_DATA_PIPELINE_USER,
-        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         minio_output_filepath,
     )
 
@@ -410,18 +418,12 @@ def notification_synthese_irve(
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     TMP_FOLDER,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    date_dict
 ):
     notification_synthese(
         MINIO_URL,
         MINIO_BUCKET_DATA_PIPELINE_OPEN,
         TMP_FOLDER,
-        SECRET_MINIO_DATA_PIPELINE_USER,
-        SECRET_MINIO_DATA_PIPELINE_PASSWORD,
         MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-        date_dict,
         schema_name
     )

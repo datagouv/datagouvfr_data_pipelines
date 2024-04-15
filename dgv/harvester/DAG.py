@@ -1,13 +1,14 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    datagouv_session,
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datetime import timedelta
-import requests
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_MOISSONNAGE,
-    DATAGOUV_SECRET_API_KEY,
 )
 
 DAG_NAME = "dgv_harvester_notification"
@@ -47,23 +48,19 @@ def get_pending_harvester_from_api(ti):
 
 def get_preview_state_from_api(ti):
     list_pendings = ti.xcom_pull(key="list_pendings", task_ids="get_pending_harvester")
-
-    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
     for item in list_pendings:
         try:
-            r = requests.get(
+            r = datagouv_session.get(
                 "https://www.data.gouv.fr/api/1/harvest/source/{}/preview".format(
                     item["id"]
                 ),
                 timeout=60,
-                headers=headers,
             )
             print(r.json())
             item["preview"] = r.json()["status"]
         except:
             print("error on " + item["id"])
             item["preview"] = "timeout"
-
     ti.xcom_push(key="list_pendings_complete", value=list_pendings)
 
 

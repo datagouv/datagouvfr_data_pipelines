@@ -1,6 +1,9 @@
-import dateutil
+import requests
 from IPython.core.display import display, HTML
-from datagouvfr_data_pipelines.utils.datagouv import get_data, get_last_items
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_last_items,
+    get_latest_comments,
+)
 
 
 def show_html(html):
@@ -8,7 +11,7 @@ def show_html(html):
 
 
 def make_link(text, link):
-    return "<a href='%s' target='_blank'>%s</a>" % (link, text)
+    return f"<a href='{link}' target='_blank'>{text}</a>"
 
 
 def show_link(text, link):
@@ -16,46 +19,13 @@ def show_link(text, link):
 
 
 def fullname(user):
-    return "%s %s" % (user["first_name"], user["last_name"])
-
-
-def get_last_discussions(start_date, end_date=None):
-    got_everything = False
-    results = []
-    page = 1
-
-    while not got_everything:
-        data = get_data("discussions", page, "-discussion__posted_on")
-        data = [(d["id"], d["subject"], d["title"], d["discussion"]) for d in data]
-        for _id, subject, title, comments in data:
-            createds = [dateutil.parser.parse(c["posted_on"]) for c in comments]
-            created = max(createds)
-            got_everything = (created.timestamp() < start_date.timestamp())
-            if not got_everything:
-                for comment in comments:
-                    if end_date:
-                        if (
-                            (dateutil.parser.parse(comment["posted_on"]).timestamp() >= start_date.timestamp()) &
-                            (dateutil.parser.parse(comment["posted_on"]).timestamp() < end_date.timestamp())
-                        ):
-                            results.append((_id, subject, title, comment))
-                    else:
-                        if dateutil.parser.parse(comment["posted_on"]) >= start_date:
-                            results.append((_id, subject, title, comment))
-            else:
-                break
-        if got_everything:
-            break
-        else:
-            page += 1
-            print('page', page)
-    return results
+    return user["first_name"] + " " + user["last_name"]
 
 
 def show_users(start_date, end_date=None):
     users = get_last_items("users", start_date, end_date, date_key="since",)
 
-    show_html("<h3>%s utilisateurs créés</h3>" % len(users))
+    show_html(f"<h3>{len(users)} utilisateurs créés</h3>")
 
     for user in users:
         show_link(fullname(user), user["page"])
@@ -66,7 +36,7 @@ def show_datasets(start_date, end_date=None):
     datasets = get_last_items("datasets", start_date, end_date,
                               date_key="internal.created_at_internal")
 
-    show_html("<h3>%s jeux de données créés</h3>" % len(datasets))
+    show_html(f"<h3>{len(datasets)} jeux de données créés</h3>")
 
     for dataset in datasets:
         if not dataset["organization"] and not dataset["owner"]:
@@ -87,7 +57,7 @@ def show_datasets(start_date, end_date=None):
 def show_orgas(start_date, end_date=None):
     orgs = get_last_items("organizations", start_date, end_date)
 
-    show_html("<h3>%s organisations créées</h3>" % len(orgs))
+    show_html(f"<h3>{len(orgs)} organisations créées</h3>")
 
     for org in orgs:
         show_link(org["name"], org["page"])
@@ -97,7 +67,7 @@ def show_orgas(start_date, end_date=None):
 def show_reuses(start_date, end_date=None):
     reuses = get_last_items("reuses", start_date, end_date)
 
-    show_html("<h3>%s réutilisations créées</h3>" % len(reuses))
+    show_html(f"<h3>{len(reuses)} réutilisations créées</h3>")
 
     for reuse in reuses:
         owner = None
@@ -116,20 +86,28 @@ def show_reuses(start_date, end_date=None):
 
 
 def show_discussions(start_date, end_date=None):
-    discussions = get_last_discussions(start_date, end_date)
+    discussions = get_latest_comments(start_date, end_date)
 
-    show_html("<h3>%s commentaires créées</h3>" % len(discussions))
+    show_html(f"<h3>{len(discussions)} commentaires créées</h3>")
 
     for d in discussions:
-        _id, subject, title, comment = d
+        subject = d['discussion_subject']
+        comment = d['comment']
+        try:
+            object_title = requests.get(
+                f'https://www.data.gouv.fr/api/1/{subject["class"].lower()}s/{subject["id"]}/'
+            ).json()['title']
+        except:
+            object_title = None
         url = "#"
-        if subject["class"] == "Dataset":
-            url = "https://%s/fr/datasets/%s" % ("www.data.gouv.fr", subject["id"])
-        elif subject["class"] == "Reuse":
-            url = "https://%s/fr/reuses/%s" % ("www.data.gouv.fr", subject["id"])
+        if subject["class"] in ["Dataset", "Reuse"]:
+            url = f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
         user = make_link(fullname(comment["posted_by"]), comment["posted_by"]["page"])
-        show_html("%s sur %s par %s" % (title, make_link(subject["class"], url), user))
-        show_html("<pre>%s</pre>" % comment["content"])
+        to_be_shown = object_title + f" ({subject['class']})" if object_title else subject['class']
+        show_html(
+            f"{d['discussion_title']} sur {make_link(to_be_shown, url)} par {user}"
+        )
+        show_html(f"<pre>{comment['content']}</pre>")
         show_html("<hr/>")
 
     return len(discussions), discussions

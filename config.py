@@ -7,9 +7,6 @@ AIRFLOW_ENV = Variable.get("AIRFLOW_ENV", "dev")
 AIRFLOW_URL = Variable.get("AIRFLOW_URL", "")
 
 # Datagouv
-DATAGOUV_URL = "https://www.data.gouv.fr"
-if AIRFLOW_ENV == "dev":
-    DATAGOUV_URL = "https://demo.data.gouv.fr"
 DATAGOUV_SECRET_API_KEY = Variable.get("DATAGOUV_SECRET_API_KEY", "")
 FILES_BASE_URL = Variable.get("FILES_BASE_URL", "")
 
@@ -72,3 +69,10 @@ SECRET_FTP_METEO_PASSWORD = Variable.get(
 SECRET_FTP_METEO_ADDRESS = Variable.get(
     "SECRET_FTP_METEO_ADDRESS", ""
 )
+
+# notion
+SECRET_NOTION_KEY_IMPACT = Variable.get("SECRET_NOTION_KEY_IMPACT", "")
+
+# zammad
+SECRET_ZAMMAD_API_URL = Variable.get("SECRET_ZAMMAD_API_URL", "")
+SECRET_ZAMMAD_API_TOKEN = Variable.get("SECRET_ZAMMAD_API_TOKEN", "")

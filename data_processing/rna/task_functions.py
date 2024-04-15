@@ -2,17 +2,17 @@ from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
     AIRFLOW_ENV,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.postgres import execute_sql_file, copy_file
-from datagouvfr_data_pipelines.utils.datagouv import post_remote_communautary_resource
+from datagouvfr_data_pipelines.utils.datagouv import (
+    post_remote_communautary_resource,
+    ORGA_REFERENCE,
+    DATAGOUV_URL,
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 import pandas as pd
 import os
 from datetime import datetime
@@ -21,12 +21,12 @@ from unidecode import unidecode
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}rna/data"
 SQLDIR = f"{AIRFLOW_DAG_TMP}rna/sql"
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+
 
 if AIRFLOW_ENV == "prod":
-    DATAGOUV_URL = "https://www.data.gouv.fr"
     conn = BaseHook.get_connection("POSTGRES_DEV")
 else:
-    DATAGOUV_URL = "https://demo.data.gouv.fr"
     conn = BaseHook.get_connection("postgres_localhost")
 
 
@@ -111,11 +111,7 @@ def index_rna_table():
 
 
 def send_rna_to_minio():
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
@@ -129,21 +125,20 @@ def send_rna_to_minio():
 
 def publish_rna_communautaire():
     file_size = os.path.getsize(os.path.join(DATADIR, "base_rna.csv"))
-    if AIRFLOW_ENV == "prod":
-        # data.gouv.fr
-        orga_id = "646b7187b50b2a93b1ae3d45"
-    else:
-        # DataTeam
-        orga_id = "63e3ae4082ddaa6c806b8417"
     post_remote_communautary_resource(
-        api_key=DATAGOUV_SECRET_API_KEY,
         dataset_id="58e53811c751df03df38f42d",
         title="RNA agrégé",
         format="csv",
-        remote_url=f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/rna/base_rna.csv",
-        organisation_publication_id=orga_id,
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/rna/base_rna.csv"
+        ),
+        organisation_publication_id=ORGA_REFERENCE,
         filesize=file_size,
-        description=f"Répertoire National des Associations en un seul fichier, agrégé à partir des données brutes ({datetime.now()})",
+        description=(
+            f"Répertoire National des Associations en un seul fichier,"
+            f" agrégé à partir des données brutes ({datetime.now()})"
+        ),
     )
 
 

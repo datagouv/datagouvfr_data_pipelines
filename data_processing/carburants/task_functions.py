@@ -4,10 +4,8 @@ import glob
 import os
 import zipfile
 from datagouvfr_data_pipelines.config import (
-    MINIO_URL,
+    AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_and_files import (
@@ -19,8 +17,9 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix import (
     reformat_prix,
 )
-from datagouvfr_data_pipelines.utils.minio import send_files
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
+
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data():
@@ -91,21 +90,37 @@ def generate_rupture_france():
     generate_kpis_rupture(f"{AIRFLOW_DAG_TMP}carburants/")
 
 
+def get_daily_prices():
+    minio_open.download_files(
+        list_files=[
+            {
+                "source_path": "carburants/",
+                "source_name": "daily_prices.json",
+                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
+                "dest_name": "daily_prices.json",
+            }
+        ],
+    )
+
+
 def send_files_minio():
     today = date.today()
     today = today.strftime("%Y-%m-%d")
 
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
                 "source_name": "latest_france.geojson",
                 "dest_path": "carburants/",
                 "dest_name": "latest_france.geojson",
+                "content_type": "application/json; charset=utf-8",
+            },
+            {
+                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
+                "source_name": "daily_prices.json",
+                "dest_path": "carburants/",
+                "dest_name": "daily_prices.json",
                 "content_type": "application/json; charset=utf-8",
             },
             {

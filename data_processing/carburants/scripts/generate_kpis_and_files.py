@@ -171,28 +171,28 @@ def generate_kpis(path):
     with open(f"{path}latest_france.geojson", "w") as fp:
         json.dump(final, fp)
 
-    # with open("dist/prix_2022.json", 'r') as fp:
-    #     data = json.load(fp)
+    with open(f"{path}daily_prices.json", 'r') as fp:
+        data = json.load(fp)
 
-    # for d in data:
-    #     if d["date"] == final["properties"]["maj"][:10]:
-    #         del d
+    for d in data:
+        if d["date"] == final["properties"]["maj"][:10]:
+            del d
 
-    # mydict = {}
-    # mydict["date"] = final["properties"]["maj"][:10]
-    # mydict["SP95_mean"] = final["properties"]["SP95_mean"]
-    # mydict["SP95_median"] = final["properties"]["SP95_median"]
-    # mydict["E10_mean"] = final["properties"]["E10_mean"]
-    # mydict["E10_median"] = final["properties"]["E10_median"]
-    # mydict["SP98_mean"] = final["properties"]["SP98_mean"]
-    # mydict["SP98_median"] = final["properties"]["SP98_median"]
-    # mydict["Gazole_mean"] = final["properties"]["Gazole_mean"]
-    # mydict["Gazole_median"] = final["properties"]["Gazole_median"]
-    # mydict["GPLc_mean"] = final["properties"]["GPLc_mean"]
-    # mydict["GPLc_median"] = final["properties"]["GPLc_median"]
-    # mydict["E85_mean"] = final["properties"]["E85_mean"]
-    # mydict["E85_median"] = final["properties"]["E85_median"]
-    # data.append(mydict)
+    mydict = {}
+    mydict["date"] = final["properties"]["maj"][:10]
+    mydict["SP95_mean"] = final["properties"]["SP95_mean"]
+    mydict["SP95_median"] = final["properties"]["SP95_median"]
+    mydict["E10_mean"] = final["properties"]["E10_mean"]
+    mydict["E10_median"] = final["properties"]["E10_median"]
+    mydict["SP98_mean"] = final["properties"]["SP98_mean"]
+    mydict["SP98_median"] = final["properties"]["SP98_median"]
+    mydict["Gazole_mean"] = final["properties"]["Gazole_mean"]
+    mydict["Gazole_median"] = final["properties"]["Gazole_median"]
+    mydict["GPLc_mean"] = final["properties"]["GPLc_mean"]
+    mydict["GPLc_median"] = final["properties"]["GPLc_median"]
+    mydict["E85_mean"] = final["properties"]["E85_mean"]
+    mydict["E85_median"] = final["properties"]["E85_median"]
+    data.append(mydict)
 
-    # with open("dist/prix_2022.json", 'w') as fp:
-    #     json.dump(data, fp)
+    with open(f"{path}daily_prices.json", 'w') as fp:
+        json.dump(data, fp)

@@ -10,26 +10,28 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    DATAGOUV_SECRET_API_KEY,
-    DATAGOUV_URL
 )
-from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.schemas_consolidation import (
-    run_schemas_consolidation,
-)
-from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.consolidation_upload import (
-    run_consolidation_upload,
+from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.task_functions import (
+    get_resources,
+    download_resources,
+    consolidate_resources,
+    upload_consolidated_data,
+    update_reference_tables,
+    update_resources,
+    update_consolidation_documentation,
+    create_consolidation_reports,
+    create_detailed_reports,
+    final_clean_up,
 )
 from datagouvfr_data_pipelines.utils.schema import (
     upload_minio,
     notification_synthese
 )
+from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
 # for local dev in order not to mess up with production
 # DATAGOUV_URL = 'https://data.gouv.fr'
-# DATAGOUV_SECRET_API_KEY = ''
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
@@ -38,9 +40,8 @@ SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
-date_airflow = "{{ ds }}"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
+default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
 
 with DAG(
@@ -64,30 +65,72 @@ with DAG(
     )
 
     working_dir = f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/"
-    date_airflow = "{{ ds }}"
 
-    run_consolidation = PythonOperator(
-        task_id="run_schemas_consolidation",
-        python_callable=run_schemas_consolidation,
+    get_resources = PythonOperator(
+        task_id="get_resources",
+        python_callable=get_resources,
         op_kwargs={
             "tmp_path": TMP_FOLDER,
-            "date_airflow": date_airflow,
             "schema_catalog_url": SCHEMA_CATALOG,
             "config_path": TMP_CONFIG_FILE,
         },
     )
 
-    upload_consolidation = PythonOperator(
-        task_id="upload_consolidated_datasets",
-        python_callable=run_consolidation_upload,
+    download_resources = PythonOperator(
+        task_id="download_resources",
+        python_callable=download_resources,
+    )
+
+    consolidate_resources = PythonOperator(
+        task_id="consolidate_resources",
+        python_callable=consolidate_resources,
         op_kwargs={
-            "api_url": API_URL,
-            "api_key": DATAGOUV_SECRET_API_KEY,
             "tmp_path": TMP_FOLDER,
-            "date_airflow": date_airflow,
-            "schema_catalog": SCHEMA_CATALOG,
-            "output_data_folder": output_data_folder,
+        },
+    )
+
+    upload_consolidated_data = PythonOperator(
+        task_id="upload_consolidated_data",
+        python_callable=upload_consolidated_data,
+        op_kwargs={
             "config_path": TMP_CONFIG_FILE,
+        },
+    )
+
+    update_reference_tables = PythonOperator(
+        task_id="update_reference_tables",
+        python_callable=update_reference_tables,
+    )
+
+    update_resources = PythonOperator(
+        task_id="update_resources",
+        python_callable=update_resources,
+    )
+
+    update_consolidation_documentation = PythonOperator(
+        task_id="update_consolidation_documentation",
+        python_callable=update_consolidation_documentation,
+        op_kwargs={
+            "config_path": TMP_CONFIG_FILE,
+        },
+    )
+
+    create_consolidation_reports = PythonOperator(
+        task_id="create_consolidation_reports",
+        python_callable=create_consolidation_reports,
+    )
+
+    create_detailed_reports = PythonOperator(
+        task_id="create_detailed_reports",
+        python_callable=create_detailed_reports,
+    )
+
+    final_clean_up = PythonOperator(
+        task_id="final_clean_up",
+        python_callable=final_clean_up,
+        op_kwargs={
+            "tmp_path": TMP_FOLDER,
+            "output_data_folder": output_data_folder,
         },
     )
 
@@ -96,11 +139,8 @@ with DAG(
         python_callable=upload_minio,
         op_kwargs={
             "TMP_FOLDER": TMP_FOLDER.as_posix(),
-            "MINIO_URL": MINIO_URL,
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
-            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-            "minio_output_filepath": "/schema/schemas_consolidation/{{ ds }}/",
+            "minio_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
 
@@ -109,7 +149,7 @@ with DAG(
         bash_command=(
             f"cd {TMP_FOLDER.as_posix()}/schema.data.gouv.fr/ && git add config_consolidation.yml "
             ' && git commit -m "Update config consolidation file - '
-            f'{ datetime.today().strftime("%Y-%m-%d")}'
+            f'{datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'
             " && git push origin main"
         )
@@ -122,16 +162,22 @@ with DAG(
             "MINIO_URL": MINIO_URL,
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
-            "SECRET_MINIO_DATA_PIPELINE_USER": SECRET_MINIO_DATA_PIPELINE_USER,
-            "SECRET_MINIO_DATA_PIPELINE_PASSWORD": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "date_dict": {"TODAY": "{{ ds }}"}
+            "list_schema_skip": ['etalab/schema-irve-statique'],
         },
     )
 
     clone_dag_schema_repo.set_upstream(clean_previous_outputs)
-    run_consolidation.set_upstream(clone_dag_schema_repo)
-    upload_consolidation.set_upstream(run_consolidation)
-    upload_minio.set_upstream(upload_consolidation)
+    get_resources.set_upstream(clone_dag_schema_repo)
+    download_resources.set_upstream(get_resources)
+    consolidate_resources.set_upstream(download_resources)
+    upload_consolidated_data.set_upstream(consolidate_resources)
+    update_reference_tables.set_upstream(upload_consolidated_data)
+    update_resources.set_upstream(update_reference_tables)
+    update_consolidation_documentation.set_upstream(update_resources)
+    create_consolidation_reports.set_upstream(update_consolidation_documentation)
+    create_detailed_reports.set_upstream(create_consolidation_reports)
+    final_clean_up.set_upstream(create_detailed_reports)
+    upload_minio.set_upstream(final_clean_up)
     commit_changes.set_upstream(upload_minio)
     notification_synthese.set_upstream(commit_changes)

@@ -9,14 +9,54 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_last_items, SPAM_WORDS
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_last_items,
+    get_latest_comments,
+    SPAM_WORDS,
+)
 import requests
 import re
+from langdetect import detect, LangDetectException
+from time import sleep
 
 DAG_NAME = "dgv_notification_activite"
 
-TIME_PERIOD = {"hours": 1}
+TIME_PERIOD = {"minutes": 5}
 duplicate_slug_pattern = r'-\d+$'
+entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
+
+
+def detect_spam(name, description):
+    contains_spam_word = any([
+        spam in field.lower() if field else False
+        for spam in SPAM_WORDS
+        for field in [name, description]
+    ])
+    if not description or len(description) < 30:
+        doesnt_look_french = False
+    else:
+        try:
+            doesnt_look_french = detect(description.lower()) != 'fr'
+        except LangDetectException:
+            doesnt_look_french = False
+    return contains_spam_word or doesnt_look_french
+
+
+def detect_potential_certif(siret):
+    if siret is None:
+        return False
+    try:
+        r = requests.get(entreprises_api_url + siret).json()
+    except:
+        sleep(1)
+        r = requests.get(entreprises_api_url + siret).json()
+    if len(r['results']) == 0:
+        print('No match for: ', siret)
+        return False
+    if len(r['results']) > 1:
+        print('Ambiguous: ', siret)
+    complements = r['results'][0]['complements']
+    return bool(complements['collectivite_territoriale'] or complements['est_service_public'])
 
 
 def check_new(ti, **kwargs):
@@ -35,16 +75,14 @@ def check_new(ti, **kwargs):
                 mydict[k] = item[k]
         # add field to check if it's the first publication of this type
         # for this organization/user, and check for potential spam
+        mydict['duplicated'] = False
+        mydict['potential_certif'] = False
         if templates_dict["type"] != 'organizations':
             mydict['spam'] = False
             # if certified orga, no spam check
             badges = item['organization'].get('badges', []) if item.get('organization', None) else []
             if 'certified' not in [badge['kind'] for badge in badges]:
-                mydict['spam'] = any([
-                    spam in field.lower() if field else False
-                    for spam in SPAM_WORDS
-                    for field in [item['title'], item['description']]
-                ])
+                mydict['spam'] = detect_spam(item['title'], item['description'])
             if item['organization']:
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
@@ -75,14 +113,9 @@ def check_new(ti, **kwargs):
             else:
                 mydict['first_publication'] = False
         else:
-            mydict['spam'] = any([
-                spam in field.lower() if field else False
-                for spam in SPAM_WORDS
-                for field in [item['name'], item['description']]
-            ])
-        # checking for potential duplicates in organization creation
-        mydict['duplicated'] = False
-        if templates_dict["type"] == 'organizations':
+            mydict['spam'] = detect_spam(item['name'], item['description'])
+            mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
+            # checking for potential duplicates in organization creation
             slug = item["slug"]
             if re.search(duplicate_slug_pattern, slug) is not None:
                 suffix = re.findall(duplicate_slug_pattern, slug)[0]
@@ -93,6 +126,16 @@ def check_new(ti, **kwargs):
                     mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
+
+
+def check_new_comments(ti):
+    latest_comments = get_latest_comments(
+        start_date=datetime.now() - timedelta(**TIME_PERIOD)
+    )
+    spam_comments = [
+        k for k in latest_comments if detect_spam('', k['comment']['content'].replace('\n', ' '))
+    ]
+    ti.xcom_push(key="spam_comments", value=spam_comments)
 
 
 def similar(a, b):
@@ -222,15 +265,10 @@ def check_schema(ti):
 
 
 def publish_item(item, item_type):
-    if item['spam']:
-        message = ':warning: @all Spam potentiel\n'
-    else:
-        message = ''
-
     if item_type == "dataset":
-        message += ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
+        message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
     else:
-        message += ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
+        message = ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
 
     if item['owner_type'] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
@@ -273,6 +311,7 @@ def publish_mattermost(ti):
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
+    spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:
@@ -282,6 +321,10 @@ def publish_mattermost(ti):
                 message = ''
             if item['duplicated']:
                 message += ':busts_in_silhouette: Duplicata potentiel\n'
+            else:
+                message += ''
+            if item['potential_certif']:
+                message += ':ballot_box_with_check: Certification potentielle @clarisse\n'
             else:
                 message += ''
             message += (
@@ -298,6 +341,31 @@ def publish_mattermost(ti):
         for item in reuses:
             publish_item(item, "reuse")
 
+    # removing notifications for discussions due to https://github.com/opendatateam/udata/pull/2954
+    # if spam_comments:
+    #     for comment in spam_comments:
+    #         if comment['discussion_subject']['class'] in ['Dataset', 'Reuse']:
+    #             discussion_url = (
+    #                 f"https://www.data.gouv.fr/fr/{comment['discussion_subject']['class'].lower()}s/"
+    #                 f"{comment['discussion_subject']['id']}/#/"
+    #                 f"discussions/{comment['comment_id'].split('|')[0]}"
+    #             )
+    #         else:
+    #             discussion_url = (
+    #                 f"https://www.data.gouv.fr/api/1/discussions/{comment['comment_id'].split('|')[0]}"
+    #             )
+    #         owner_url = (
+    #             f"https://www.data.gouv.fr/fr/{comment['comment']['posted_by']['class'].lower()}s/"
+    #             f"{comment['comment']['posted_by']['id']}/"
+    #         )
+    #         message = (
+    #             ':warning: @all Spam potentiel\n'
+    #             ':right_anger_bubble: Commentaire suspect de'
+    #             f' [{comment["comment"]["posted_by"]["slug"]}]({owner_url})'
+    #             f' dans la discussion :\n:point_right: {discussion_url}'
+    #         )
+    #         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
 
 default_args = {
     "email": ["geoffrey.aldebert@data.gouv.fr"],
@@ -308,7 +376,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="42 * * * *",
+    schedule_interval=f"*/{TIME_PERIOD['minutes']} * * * *",
     start_date=days_ago(0, hour=1),
     dagrun_timeout=timedelta(minutes=60),
     tags=["notification", "hourly", "datagouv", "activite", "schemas"],
@@ -333,6 +401,11 @@ with DAG(
         templates_dict={"type": "organizations"},
     )
 
+    check_new_comments = PythonOperator(
+        task_id="check_new_comments",
+        python_callable=check_new_comments,
+    )
+
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
         python_callable=publish_mattermost,
@@ -344,7 +417,7 @@ with DAG(
     )
 
     (
-        [check_new_datasets, check_new_reuses, check_new_orgas]
+        [check_new_datasets, check_new_reuses, check_new_orgas, check_new_comments]
         >> publish_mattermost
         >> check_schema
     )

@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from langdetect import detect
 import os
-
+import random
 import aiohttp
 import asyncio
 from airflow.models import DAG
@@ -12,37 +12,88 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
     MATTERMOST_DATAGOUV_CURATION,
     MATTERMOST_DATAGOUV_EDITO,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import send_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
 
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+ignored_reuses = [
+    '5cc31646634f415773630550',
+    '6551ad5de16abd15501bb229',
+    '60ba9c29b5cf00b439cf2db2',
+    '60336c61169032c050241917',
+    '622603f40afc69ae230ba3bb',
+    '635c23d415ba3a284e9f6b55',
+    '620619bf57530fafb331840f',
+    '60b2d449fa46c495f9b6fcc4',
+    '63ad24474cbeaae107477cf5',
+    '5e3439408b4c412dc0d6d48c',
+    '6066cb811b31b4046459152c',
+    '63b6ac225e830edcc13a33bd',
+    '62196bdfa6f0568851c3acf5',
+    '5a2ebeb388ee3876ffcde5d4',
+    '62a11452e6f309c60cd669b1',
+    '62a11367699461f7c1eeb990',
+    '62a11367699461f7c1eeb990',
+    '5d0fff996f44410df0661086',
+    '61e156cb03b7712be8a87767',
+    '60c757480e323442ef3da882',
+    '5dc005c66f44415fb80731a3',
+    '63a34633c78e0630594e351f',
+    '5b3cbc68c751df3c3e3aaa9c',
+    '61bc9d5d0b4aa67cb0b239b2',
+    '57ffa6d288ee3858375ff490',
+    '64133a9ea43892071bef7084',
+    '5c8b75b6634f41525cfa1629',
+    '65406410e2c5c54317513866',
+    '60edbed1dd659431fcf45e04',
+]
 
 
 async def url_error(url, session, method="head"):
+    agents = [
+        (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/99.0.4844.83 Safari/537.36"
+        ),
+        (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/99.0.4844.51 Safari/537.36"
+        ),
+        (
+            "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+        )
+    ]
     try:
         _method = getattr(session, method)
-        async with _method(url, timeout=15, allow_redirects=True) as r:
-            if r.status in [405, 500] and method == "head":
-                # HEAD might not be allowed or correctly implemented, trying with GET
-                return await url_error(url, session, method="get")
+        async with _method(
+            url,
+            timeout=15,
+            allow_redirects=True,
+            headers={"User-Agent": random.choice(agents)}
+        ) as r:
+            if r.status in [
+                301, 302, 303,
+                401, 403, 404, 405,
+                500
+            ]:
+                if method == "head":
+                    # HEAD might not be allowed or correctly implemented, trying with GET
+                    return await url_error(url, session, method="get")
             r.raise_for_status()
         return False
-    except (
-        aiohttp.ClientError,
-        AssertionError,
-        asyncio.exceptions.TimeoutError
-    ) as e:
+    except Exception as e:
         return e.status if hasattr(e, "status") else str(e)
 
 
@@ -65,8 +116,19 @@ def get_unavailable_reuses():
             mask="data{id,url}"
         )
     )
-    print(f"Checking {len(reuses)} reuses")
-    unavailable_reuses = asyncio.run(crawl_reuses(reuses))
+    reuses = [r for r in reuses if r['id'] not in ignored_reuses]
+    # gather on the whole reuse list is inconsistent (some unavailable reuses do not
+    # appear), having a smaller batch size provides better results and keeps the duration
+    # acceptable (compared to synchronous process) 
+    batch_size = 50
+    print(f"Checking {len(reuses)} reuses with batch size of", batch_size)
+    unavailable_reuses = []
+    for k in range(len(reuses) // batch_size + 1):
+        batch = reuses[k * batch_size:min((k + 1) * batch_size, len(reuses))]
+        current = len(unavailable_reuses)
+        unavailable_reuses += asyncio.run(crawl_reuses(batch))
+        print(f"Batch n°{k + 1} errors: ", len(unavailable_reuses) - current)
+    print("All errors:", len(unavailable_reuses))
     return unavailable_reuses
 
 
@@ -203,7 +265,10 @@ def create_all_tables():
             datasets_visited[k].update({
                 'title': r.get('title', None),
                 'url': r.get('page', None),
-                'organization_or_owner': r['organization'].get('name', None) if r.get('organization', None) else r['owner'].get('slug', None) if r.get('owner', None) else None
+                'organization_or_owner': (
+                    r['organization'].get('name', None) if r.get('organization', None)
+                    else r['owner'].get('slug', None) if r.get('owner', None) else None
+                )
             })
         df = pd.DataFrame(datasets_visited.values(), index=datasets_visited.keys())
         df.to_csv(DATADIR + 'top50_datasets_most_visits_last_month.csv', index=False)
@@ -211,7 +276,10 @@ def create_all_tables():
         # Top 50 des ressources les plus téléchargées
         print('Top 50 des ressources les plus téléchargées')
         data = get_all_from_api_query(
-            f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}&monthly_download_resource__sort=desc',
+            (
+                f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}'
+                '&monthly_download_resource__sort=desc'
+            ),
             next_page='links.next'
         )
         resources_downloaded = {}
@@ -228,16 +296,26 @@ def create_all_tables():
                 if d['dataset_id'] != 'COMMUNAUTARY':
                     r2 = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
                     r3 = requests.get(
-                        f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&dataset_id__exact={d['dataset_id']}"
+                        f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}"
+                        f"&dataset_id__exact={d['dataset_id']}"
                     ).json()
                 resources_downloaded.update({
                     f"{d['dataset_id']}.{d['resource_id']}": {
                         'monthly_download_resourced': d['monthly_download_resource'],
                         'resource_title': resource_title,
-                        'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{d['dataset_id']}/" if d['dataset_id'] != 'COMMUNAUTARY' else None,
+                        'dataset_url': (
+                            f"https://www.data.gouv.fr/fr/datasets/{d['dataset_id']}/"
+                            if d['dataset_id'] != 'COMMUNAUTARY' else None
+                        ),
                         'dataset_title': r2.get('title', None),
-                        'organization_or_owner': r2['organization'].get('name', None) if r2.get('organization', None) else r2['owner'].get('slug', None) if r2.get('owner', None) else None,
-                        'dataset_total_resource_visits': r3['data'][0].get('monthly_download_resource', None) if d['dataset_id'] != 'COMMUNAUTARY' and r3['data'] else None
+                        'organization_or_owner': (
+                            r2['organization'].get('name', None) if r2.get('organization', None)
+                            else r2['owner'].get('slug', None) if r2.get('owner', None) else None
+                        ),
+                        'dataset_total_resource_visits': (
+                            r3['data'][0].get('monthly_download_resource', None)
+                            if d['dataset_id'] != 'COMMUNAUTARY' and r3['data'] else None
+                        )
                     }
                 })
         resources_downloaded = {
@@ -276,7 +354,10 @@ def create_all_tables():
             reuses_visited[k].update({
                 'title': r.get('title', None),
                 'url': r.get('page', None),
-                'creator': r['organization'].get('name', None) if r.get('organization', None) else r['owner'].get('slug', None) if r.get('owner', None) else None
+                'creator': (
+                    r['organization'].get('name', None) if r.get('organization', None)
+                    else r['owner'].get('slug', None) if r.get('owner', None) else None
+                )
             })
         df = pd.DataFrame(reuses_visited.values(), index=reuses_visited.keys())
         df.to_csv(DATADIR + 'top50_reuses_most_visits_last_month.csv', index=False)
@@ -294,7 +375,10 @@ def create_all_tables():
                 break
             if d['subject']['class'] == 'Dataset':
                 tmp = requests.get(datagouv_api_url + f"datasets/{d['subject']['id']}").json()
-                organization_or_owner = tmp.get('organization', {}).get('name', None) if tmp.get('organization', None) else tmp.get('owner', {}).get('slug', None)
+                organization_or_owner = (
+                    tmp.get('organization', {}).get('name', None) if tmp.get('organization', None)
+                    else tmp.get('owner', {}).get('slug', None)
+                )
                 discussions_of_interest.setdefault(
                     d['subject']['id'], {
                         'discussions_created': 0,
@@ -315,10 +399,12 @@ def create_all_tables():
 
     # Reuses down, JDD vides et spams tous les lundis
     if today.weekday() == 0:
-        # Reuses avec 404
-        print('Reuses avec 404')
+        # Reuses inaccessibles
+        print('Reuses inaccessibles')
         unavailable_reuses = get_unavailable_reuses()
-        restr_reuses = {d[0]['id']: {'error_code': d[1]} for d in unavailable_reuses if str(d[1]).startswith('40')}
+        restr_reuses = {
+            d[0]['id']: {'error': d[1]} for d in unavailable_reuses
+        }
         for rid in restr_reuses:
             data = get_all_from_api_query(
                 f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
@@ -334,8 +420,12 @@ def create_all_tables():
             r = requests.get(datagouv_api_url + 'reuses/' + rid).json()
             restr_reuses[rid].update({
                 'title': r.get('title', None),
-                'url': r.get('page', None),
-                'creator': r.get('organization', None).get('name', None) if r.get('organization', None) else r.get('owner', {}).get('slug', None) if r.get('owner', None) else None
+                'page': r.get('page', None),
+                'url': r.get('url', None),
+                'creator': (
+                    r.get('organization', None).get('name', None) if r.get('organization', None)
+                    else r.get('owner', {}).get('slug', None) if r.get('owner', None) else None
+                )
             })
         df = pd.DataFrame(restr_reuses.values(), index=restr_reuses.keys())
         df = df.sort_values('monthly_visit', ascending=False)
@@ -354,7 +444,10 @@ def create_all_tables():
                     'dataset_id': d['id'],
                     'title': d.get('title', None),
                     'url': 'https://www.data.gouv.fr/fr/admin/dataset/' + d['id'],
-                    'organization_or_owner': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
+                    'organization_or_owner': (
+                        d['organization'].get('name', None) if d.get('organization', None)
+                        else d['owner'].get('slug', None) if d.get('owner', None) else None
+                    ),
                     'created_at': d['created_at'][:10] if d.get('created_at', None) else None
                 }})
             # keeping this for now, because it's resource consuming. It'll get better with curation
@@ -364,7 +457,10 @@ def create_all_tables():
         print('   > Getting visits...')
         for d in empty_datasets:
             data = get_all_from_api_query(
-                f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}&dataset_id__exact={d}',
+                (
+                    f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}'
+                    '&dataset_id__exact={d}'
+                ),
                 next_page='links.next'
             )
             try:
@@ -390,7 +486,7 @@ def create_all_tables():
             for word in SPAM_WORDS:
                 data = get_all_from_api_query(
                     datagouv_api_url + f'{obj}/?q={word}',
-                    mask="data{badges,organization,owner,id,name,title,metrics}"
+                    mask="data{badges,organization,owner,id,name,title,metrics,created_at,since}"
                 )
                 for d in data:
                     should_add = True
@@ -399,7 +495,10 @@ def create_all_tables():
                         if obj == 'organization':
                             badges = d.get('badges', [])
                         else:
-                            badges = d['organization'].get('badges', []) if d.get('organization', None) else []
+                            badges = (
+                                d['organization'].get('badges', [])
+                                if d.get('organization', None) else []
+                            )
                         if 'certified' in [badge['kind'] for badge in badges]:
                             should_add = False
                     if should_add:
@@ -407,10 +506,17 @@ def create_all_tables():
                             'type': obj,
                             'url': f"https://www.data.gouv.fr/fr/admin/{obj[:-1]}/{d['id']}/",
                             'name_or_title': d.get('name', d.get('title', None)),
-                            'creator': d['organization'].get('name', None) if d.get('organization', None) else d['owner'].get('slug', None) if d.get('owner', None) else None,
+                            'creator': (
+                                d['organization'].get('name', None) if d.get('organization', None)
+                                else d['owner'].get('slug', None) if d.get('owner', None) else None
+                            ),
+                            'created_at': d.get('created_at', d.get('since'))[:10],
                             'id': d['id'],
                             'spam_word': word,
-                            'nb_datasets_and_reuses': None if obj not in ['organizations', 'users'] else d['metrics']['datasets'] + d['metrics']['reuses'],
+                            'nb_datasets_and_reuses': (
+                                None if obj not in ['organizations', 'users']
+                                else d['metrics']['datasets'] + d['metrics']['reuses']
+                            ),
                         })
         print("Détection d'utilisateurs suspects...")
         suspect_users = asyncio.run(get_suspect_users())
@@ -422,11 +528,7 @@ def create_all_tables():
 def send_tables_to_minio():
     print(os.listdir(DATADIR))
     print('Saving tops as millésimes')
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
@@ -438,11 +540,7 @@ def send_tables_to_minio():
         ],
     )
     print('Saving KO reuses and spams (erasing previous files)')
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_open.send_files(
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
@@ -457,7 +555,7 @@ def send_tables_to_minio():
 
 def publish_mattermost():
     print("Publishing on mattermost")
-    list_curation = ["empty", "spam", "KO", "discussion"]
+    list_curation = ["empty", "spam", "KO"]
     curation = [f for f in os.listdir(DATADIR) if any([k in f for k in list_curation])]
     if curation:
         print("   - Files for curation:")

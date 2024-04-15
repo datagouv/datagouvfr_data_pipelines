@@ -12,7 +12,11 @@ from unidecode import unidecode
 import codecs
 import requests
 from urllib import parse
-import numpy as np
+from datetime import datetime
+from feedgen.feed import FeedGenerator
+import xml.etree.ElementTree as ET
+import pytz
+from datagouvfr_data_pipelines.utils.schema import comparer_versions
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
@@ -35,7 +39,10 @@ def initialization(ti, TMP_FOLDER):
     branch = 'main'
     if 'preprod' in TMP_FOLDER:
         branch = 'preprod'
-    LIST_SCHEMAS_YAML = f"https://raw.githubusercontent.com/etalab/schema.data.gouv.fr/{branch}/repertoires.yml"
+    LIST_SCHEMAS_YAML = (
+        "https://raw.githubusercontent.com/etalab/"
+        f"schema.data.gouv.fr/{branch}/repertoires.yml"
+    )
 
     # Loading yaml file containing all schemas that we want to display in schema.data.gouv.fr
     r = requests.get(LIST_SCHEMAS_YAML)
@@ -48,6 +55,7 @@ def initialization(ti, TMP_FOLDER):
 
     ti.xcom_push(key='folders', value=folders)
     ti.xcom_push(key='config', value=config)
+    ti.xcom_push(key='branch', value=branch)
 
 
 def clean_and_create_folder(folder):
@@ -236,7 +244,9 @@ def check_datapackage(repertoire_slug, conf, folders):
                     if f != 'datapackage.json':
                         SCHEMA_INFOS[dpkg_name]['versions'][version]['pages'].append(f)
                     else:
-                        SCHEMA_INFOS[dpkg_name]['versions'][version]['schema_url'] = '/' + dpkg_name + '/' + version + '/datapackage.json'
+                        SCHEMA_INFOS[dpkg_name]['versions'][version]['schema_url'] = (
+                            '/' + dpkg_name + '/' + version + '/datapackage.json'
+                        )
 
             # Verify that a file datapackage.json is present
             if os.path.isfile(src_folder + 'datapackage.json'):
@@ -285,11 +295,15 @@ def check_datapackage(repertoire_slug, conf, folders):
                         # destination folder will store pertinents files for website
                         # for each version of each schema
 
-                        schema_dest_folder = folders['DATA_FOLDER1'] + '/' + schema_name + '/' + version + '/'
+                        schema_dest_folder = (
+                            folders['DATA_FOLDER1'] + '/' + schema_name + '/' + version + '/'
+                        )
                         if len(schema.split('/')) > 1:
                             os.makedirs(schema_dest_folder, exist_ok=True)
                         shutil.copyfile(src_folder + schema, schema_dest_folder + schema.split('/')[-1])
-                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + schema.split("/")[-1]
+                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                            '/' + schema_name + '/' + version + '/' + schema.split("/")[-1]
+                        )
                         for f in ['README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md']:
                             if os.path.isfile(src_folder + '/'.join(schema.split('/')[:-1]) + '/' + f):
                                 shutil.copyfile(
@@ -300,16 +314,12 @@ def check_datapackage(repertoire_slug, conf, folders):
 
                         # Create documentation file and save it
                         with open(schema_dest_folder + '/' + 'documentation.md', "w") as out:
-                            try:
-                                # From schema.json, we use tableschema_to_markdown package to convert it in a
-                                # readable mardown file that will be use for documentation
-                                convert_source(schema_dest_folder + schema.split('/')[-1], out, 'page', [])
-                                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(
-                                    'documentation.md'
-                                )
-                            except:
-                                # if conversion is on error, we add it to ERRORS_REPORT
-                                manage_errors(repertoire_slug, version, 'convert to markdown')
+                            # From schema.json, we use tableschema_to_markdown package to convert it in a
+                            # readable mardown file that will be use for documentation
+                            convert_source(schema_dest_folder + schema.split('/')[-1], out, 'page')
+                            SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(
+                                'documentation.md'
+                            )
 
                         latest_folder, sf = manage_latest_folder(schema_name, folders)
                 else:
@@ -379,23 +389,22 @@ def manage_tableschema(
             # if so, we copy paste them into dest folder
             for f in [schema_file, 'README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md']:
                 if os.path.isfile(src_folder + subfolder + f):
+                    print("schema has", f)
                     shutil.copyfile(src_folder + subfolder + f, dest_folder + f)
                     # if it is a markdown file, we will read them as page in website
                     if f[-3:] == '.md':
                         SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
                     # if it is the schema, we indicate it as it in object
                     if f == schema_file:
-                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + schema_file
+                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                            '/' + schema_name + '/' + version + '/' + schema_file
+                        )
             # Create documentation file and save it
             with open(dest_folder + 'documentation.md', "w") as out:
-                try:
-                    # From schema.json, we use tableschema_to_markdown package to convert it in a
-                    # readable mardown file that will be use for documentation
-                    convert_source(dest_folder + schema_file, out, 'page', [])
-                    SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
-                except:
-                    # if conversion is on error, we add it to ERRORS_REPORT
-                    manage_errors(repertoire_slug, version, 'convert to markdown')
+                # From schema.json, we use tableschema_to_markdown package to convert it in a
+                # readable mardown file that will be use for documentation
+                convert_source(dest_folder + schema_file, out, 'page')
+                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
         # If schema release is not valid, we remove it from DATA_FOLDER1
         else:
             manage_errors(repertoire_slug, version, 'tableschema validation')
@@ -442,14 +451,17 @@ def manage_jsonschema(
                         # if so, we copy paste them into dest folder
                         for f in ['README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md', s['path']]:
                             if os.path.isfile(src_folder + f):
+                                print("schema has", f)
                                 os.makedirs(os.path.dirname(dest_folder + f), exist_ok=True)
                                 shutil.copyfile(src_folder + f, dest_folder + f)
-                            # if it is a markdown file, we will read them as page in website
-                            if f[-3:] == '.md':
-                                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
-                            # if it is the schema, we indicate it as it in object
-                            if f == s['path']:
-                                SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + s['path']
+                                # if it is a markdown file, we will read them as page in website
+                                if f[-3:] == '.md':
+                                    SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
+                                # if it is the schema, we indicate it as it in object
+                                if f == s['path']:
+                                    SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                                        '/' + schema_name + '/' + version + '/' + s['path']
+                                    )
         # If schema release is not valid, we remove it from DATA_FOLDER1
         except:
             manage_errors(repertoire_slug, version, 'jsonschema validation')
@@ -493,7 +505,9 @@ def manage_other(
                         SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(f)
                     # if it is the schema, we indicate it as it in object
                     if f == 'schema.yml':
-                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = '/' + schema_name + '/' + version + '/' + 'schema.yml'
+                        SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
+                            '/' + schema_name + '/' + version + '/' + 'schema.yml'
+                        )
         # If schema release is not valid, we remove it from DATA_FOLDER1
         except:
             manage_errors(repertoire_slug, version, 'validation of type other')
@@ -506,15 +520,14 @@ def manage_other(
     return list_schemas, conf_schema
 
 
-def comparer_versions(version):
-    return [int(part) if part.isnumeric() else np.inf for part in version.split('.')]
-
-
 def manage_latest_folder(schema_name, folders):
     """Create latest folder containing all files from latest valid version of a schema"""
     # Get all valid version from a schema by analyzing folders
     # then sort them to get latest valid version and related folder
-    subfolders = [f.name for f in os.scandir(folders['DATA_FOLDER1'] + '/' + schema_name + '/') if f.is_dir()]
+    subfolders = [
+        f.name for f in os.scandir(folders['DATA_FOLDER1'] + '/' + schema_name + '/')
+        if f.is_dir()
+    ]
     subfolders = sorted(subfolders, key=comparer_versions)
     sf = subfolders[-1]
     if sf == 'latest':
@@ -541,7 +554,9 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
     mydict['name'] = dpkg_name
     mydict['title'] = dpkg['title']
     mydict['description'] = dpkg['description']
-    mydict['schema_url'] = 'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/latest/' + 'datapackage.json'
+    mydict['schema_url'] = (
+        'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/latest/' + 'datapackage.json'
+    )
     mydict['schema_type'] = 'datapackage'
     mydict['contact'] = conf.get('email', None)
     mydict['examples'] = []
@@ -551,7 +566,9 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
     for sf in list_schemas:
         mydict2 = {}
         mydict2['version_name'] = sf
-        mydict2['schema_url'] = 'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/' + sf + '/' + 'datapackage.json'
+        mydict2['schema_url'] = (
+            'https://schema.data.gouv.fr/schemas/' + dpkg_name + '/' + sf + '/' + 'datapackage.json'
+        )
         mydict['versions'].append(mydict2)
     # These four following property are not in catalog spec
     mydict['external_doc'] = conf.get('external_doc', None)
@@ -596,7 +613,9 @@ def generate_catalog_object(
     for sf in list_schemas:
         mydict2 = {}
         mydict2['version_name'] = sf
-        mydict2['schema_url'] = 'https://schema.data.gouv.fr/schemas/' + mydict['name'] + '/' + sf + '/' + list_schemas[sf]
+        mydict2['schema_url'] = (
+            'https://schema.data.gouv.fr/schemas/' + mydict['name'] + '/' + sf + '/' + list_schemas[sf]
+        )
         mydict['versions'].append(mydict2)
     # These four following property are not in catalog spec
     mydict['external_doc'] = obj_info.get('external_doc', None)
@@ -692,10 +711,17 @@ def get_contributors(url):
     parse_url = parse.urlsplit(url)
     # if github, use github api
     if 'github.com' in parse_url.netloc:
-        api_url = parse_url.scheme + '://api.github.com/repos/' + parse_url.path[1:].replace('.git', '') + '/contributors'
+        api_url = (
+            parse_url.scheme + '://api.github.com/repos/'
+            + parse_url.path[1:].replace('.git', '') + '/contributors'
+        )
     # else, use gitlab api
     else:
-        api_url = parse_url.scheme + '://' + parse_url.netloc + '/api/v4/projects/' + parse_url.path[1:].replace('/', '%2F').replace('.git', '') + '/repository/contributors'
+        api_url = (
+            parse_url.scheme + '://' + parse_url.netloc
+            + '/api/v4/projects/' + parse_url.path[1:].replace('/', '%2F').replace('.git', '')
+            + '/repository/contributors'
+        )
     try:
         r = requests.get(api_url)
         return len(r.json())
@@ -703,7 +729,7 @@ def get_contributors(url):
         return None
 
 
-################################################################################################################
+#######################################################################################################
 # DAG functions
 
 def check_and_save_schemas(ti):
@@ -720,7 +746,8 @@ def check_and_save_schemas(ti):
 
     # For every schema in repertoires.yml, check it
     for repertoire_slug, conf in config.items():
-        print("\n\nStarting with ", repertoire_slug)
+        print("_______________________________")
+        print("Starting with ", repertoire_slug)
         print(conf)
         try:
             if conf['type'] != 'datapackage':
@@ -736,11 +763,9 @@ def check_and_save_schemas(ti):
             print(f'--- {repertoire_slug} processed')
         except git.exc.GitCommandError:
             print(f'--- {repertoire_slug} failed to process due to git error')
-
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
     schemas_tableschema = SCHEMA_CATALOG.copy()
-
     # Save catalog to schemas.json file
     with open(folders['DATA_FOLDER1'] + '/schemas.json', 'w') as fp:
         json.dump(SCHEMA_CATALOG, fp, indent=4)
@@ -782,6 +807,316 @@ def check_and_save_schemas(ti):
     print('End of process errors: ', ERRORS_REPORT)
 
 
+def get_template_github_issues():
+    def get_all_issues():
+        url = "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?state=all"
+        issues = []
+        page = 1
+        while True:
+            response = requests.get(
+                url + f"&page={page}",
+                # could need to specify token if rate limited
+            )
+            if response.status_code == 200:
+                issues.extend(response.json())
+                if len(response.json()) < 30:
+                    break
+                page += 1
+            else:
+                raise Exception("This shouldn't fail, maybe consider adding a token in the headers")
+        return issues
+
+    print("Getting issues from repo")
+    issues = get_all_issues()
+    print("Sorting relevant issues")
+    dates = {}
+    for issue in issues:
+        d = issue['created_at'][:10]
+        body = issue['body']
+        if body is None:
+            continue
+        processed = False
+        # getting all issues that are correctly labelled
+        for phase in ['investigation', 'construction']:
+            if any(lab['name'] == f'Schéma en {phase}' for lab in issue['labels']):
+                processed = True
+                d = issue['created_at'][:10]
+                if d not in dates:
+                    dates[d] = {}
+                if phase not in dates[d]:
+                    dates[d][phase] = []
+                dates[d][phase].append({
+                    'title': issue['title'],
+                    'url': issue['html_url']
+                })
+        # getting potentially unlabelled issues
+        if not processed and "Stade d'avancement" in body:
+            rows = body.split('\n')
+            phases = [
+                row for row in rows
+                if row.startswith('- [')
+                and any(w in row for w in ['investigation', 'construction'])
+            ]
+            # reversed to get the latest advancement state
+            for phase in reversed(phases):
+                if phase.startswith('- [x]'):
+                    if d not in dates:
+                        dates[d] = {}
+                    phase = 'construction' if 'construction' in phase else 'investigation'
+                    if phase not in dates[d]:
+                        dates[d][phase] = []
+                    dates[d][phase].append({
+                        'title': issue['title'],
+                        'url': issue['html_url']
+                    })
+    return dates
+
+
+def update_news_feed(ti, TMP_FOLDER):
+    new = ti.xcom_pull(key='SCHEMA_INFOS', task_ids='check_and_save_schemas')
+    today = datetime.now().strftime('%Y-%m-%d')
+    changes = {today: {}}
+    with open(
+        TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-infos.json',
+        'r',
+        encoding='utf-8'
+    ) as f:
+        old = json.load(f)
+        f.close()
+    # getting existing schemas infos
+    for schema in new:
+        if schema not in old:
+            if 'new_schema' not in changes[today]:
+                changes[today]['new_schema'] = []
+            changes[today]['new_schema'].append({
+                'schema_name': schema,
+                'version': new[schema].get('latest'),
+            })
+        else:
+            for v in new[schema]['versions']:
+                if v not in old[schema]['versions']:
+                    if 'new_version' not in changes[today]:
+                        changes[today]['new_version'] = []
+                    changes[today]['new_version'].append({
+                        'schema_name': schema,
+                        'version': (
+                            f"{old[schema].get('latest')} => "
+                            f"{new[schema].get('latest')}"
+                        ),
+                    })
+    for schema in old:
+        if schema not in new:
+            if 'deleted_schema' not in changes[today]:
+                changes[today]['deleted_schema'] = []
+            changes[today]['deleted_schema'].append({
+                'schema_name': schema,
+                'version': old[schema].get('latest'),
+            })
+
+    # getting investigation/construction from github issues
+    # only parsing issues made from the template
+    schema_updates_file = TMP_FOLDER + 'schema.data.gouv.fr/site/.vuepress/public/schema-updates.json'
+    with open(schema_updates_file, 'r', encoding='utf-8') as f:
+        updates = json.load(f)
+        f.close()
+    issues = get_template_github_issues()
+    # to have updates when issues change status we check which ones have already been seen
+    # in one state or another
+    print("Gathering issues in groups")
+    already_there_issues = {'investigation': [], 'construction': []}
+    for date in updates:
+        for k in already_there_issues:
+            if k in updates[date]:
+                for schema in updates[date][k]:
+                    already_there_issues[k].append(schema['url'])
+    print("Updating changes with issues")
+    for date in issues:
+        for change_type in issues[date]:
+            for issue in issues[date][change_type]:
+                if issue['url'] not in already_there_issues[change_type]:
+                    print("  >", issue['title'], f"changed status for {change_type}")
+                    if today not in changes:
+                        changes[today] = {}
+                    if change_type not in changes[today]:
+                        changes[today][change_type] = []
+                    changes[today][change_type].append(issue)
+    # if you want to check changes in dev mode
+    # changes[today] = {
+    #     'new_schema': [
+    #         {'schema_name': 'test/schematest', 'version': '0.1.0'},
+    #     ],
+    #     'new_version': [
+    #         {'schema_name': '139bercy/format-commande-publique', 'version': '3.1.1 => 3.1.2'},
+    #     ],
+    #     'investigation': [
+    #         {
+    #             'title': 'Schéma table en bois',
+    #             'url': 'https://github.com/datagouv/schema.data.gouv.fr/issues/910'
+    #         },
+    #     ],
+    # }
+    if changes[today]:
+        print("Updating news feed with:", changes[today])
+        # updating schema-updates.json
+        if today not in updates:
+            updates.update(changes)
+        else:
+            for change_type in changes[today]:
+                if change_type not in updates[today]:
+                    updates[today][change_type] = changes[today][change_type]
+                else:
+                    updates[today][change_type] += changes[today][change_type]
+        updates = {k: updates[k] for k in sorted(updates.keys())}
+        print(updates)
+        with open(schema_updates_file, 'w', encoding='utf-8') as f:
+            json.dump(updates, f, indent=4)
+
+        # updating actualites.md
+        mapping = {
+            'new_schema': 'Schéma{} ajouté{}',
+            'new_version': 'Montée{} de version{}',
+            'deleted_schema': 'Schéma{} supprimé{}',
+            'investigation': 'Schéma{} en investigation',
+            'construction': 'Schéma{} en construction',
+        }
+        md = ''
+        for date in sorted(updates.keys())[::-1]:
+            if md:
+                md += '\n---\n\n'
+            md += f"### {date}\n"
+            for change_type in updates[date]:
+                args = ["s" if len(updates[date][change_type]) > 1 else ""] * 2
+                md += (
+                    f'\n#### {mapping[change_type].format(*args)}:\n'
+                )
+                for schema in updates[date][change_type]:
+                    if change_type in ["investigation", "construction"]:
+                        md += (
+                            f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["title"]}]'
+                            f'({schema["url"]}/)**\n'
+                        )
+                    elif "=>" in schema["version"]:
+                        old_v, new_v = schema["version"].split(' => ')
+                        md += (
+                            f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["schema_name"]}]'
+                            f'(/{schema["schema_name"]}/)** : '
+                            f'<span style="color:red;">{old_v}</span> => '
+                            f'<span style="color:green;">{new_v}</span><br>\n'
+                        )
+                    else:
+                        md += (
+                            f'&nbsp;&nbsp;&nbsp;&nbsp; - **[{schema["schema_name"]}]'
+                            f'(/{schema["schema_name"]}/)** : '
+                            f'<span style="color:blue;">{schema["version"]}</span><br>\n'
+                        )
+        with open(TMP_FOLDER + 'schema.data.gouv.fr/site/actualites.md', 'w', encoding='utf-8') as f:
+            f.write(md)
+
+        # updating RSS feed
+        tz = pytz.timezone('CET')
+        url = "https://schema.data.gouv.fr/"
+        rss_folder = 'schema.data.gouv.fr/site/.vuepress/public/rss/'
+        # loading existing file
+        tree = ET.parse(TMP_FOLDER + rss_folder + 'global.xml')
+        root = tree.getroot()
+        root.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
+        root.set('xmlns:content', 'http://purl.org/rss/1.0/modules/content/')
+        # print(ET.tostring(root, encoding='utf-8').decode('utf-8'))
+
+        existing_feeds = [
+            k.replace('_', '/').replace('.xml', '') for k in os.listdir(TMP_FOLDER + rss_folder)
+        ]
+
+        for date, up in changes.items():
+            for update_type, versions in up.items():
+                for version in versions:
+                    # updating global feed
+                    new_item = ET.Element('item')
+                    title = ET.SubElement(new_item, 'title')
+                    link = ET.SubElement(new_item, 'link')
+                    description = ET.SubElement(new_item, 'description')
+                    if version.get('schema_name'):
+                        # existing schemas
+                        print(f"   - {version['schema_name']}")
+                        v = version['version'].replace('=>', 'to')
+                        title.text = (
+                            f"{update_type.capitalize().replace('_', ' ')} - {version['schema_name']} ({v})"
+                        )
+                        link.text = f"{url}{version['schema_name']}"
+                        description.text = f"Schema update on {date}: {v} for {version['schema_name']}"
+                    else:
+                        # issues from repo
+                        print(f"   - {version['title']}")
+                        title.text = (
+                            f"{update_type.capitalize()} - {version['title']}"
+                        )
+                        link.text = version['url']
+                        description.text = (
+                            f"Schema update on {date}: {version['title']} is in {update_type}"
+                        )
+                    pub_date = ET.SubElement(new_item, 'pubDate')
+                    pub_date.text = (
+                        tz.localize(datetime.strptime(date, "%Y-%m-%d")).strftime('%a, %d %b %Y %H:%M:%S %z')
+                    )
+                    ET.indent(new_item, level=2)
+                    root.find('./channel').text = '\n  '
+                    root.find('./channel').append(new_item)
+                    root.find('./channel').text = '\n  '
+
+                    # updating specific feed
+                    if version.get('title'):
+                        # no feed for schemas that are not yet published
+                        continue
+                    title_content = f"{date} - {update_type} - {v}"
+                    description_content = (
+                        f"Update on {date}: {update_type.capitalize().replace('_', ' ')} "
+                        f"({version['schema_name']})"
+                    )
+                    date_content = (
+                        tz.localize(datetime.strptime(date, "%Y-%m-%d")).strftime('%a, %d %b %Y %H:%M:%S %z')
+                    )
+                    if version['schema_name'] in existing_feeds:
+                        feed_path = (
+                            TMP_FOLDER + rss_folder + version['schema_name'].replace('/', '_') + '.xml'
+                        )
+                        specific_tree = ET.parse(feed_path)
+                        specific_root = specific_tree.getroot()
+                        specific_root.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
+                        specific_root.set('xmlns:content', 'http://purl.org/rss/1.0/modules/content/')
+                        # print(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
+                        new_item = ET.Element('item')
+                        title = ET.SubElement(new_item, 'title')
+                        title.text = title_content
+                        description = ET.SubElement(new_item, 'description')
+                        description.text = description_content
+                        pub_date = ET.SubElement(new_item, 'pubDate')
+                        pub_date.text = date_content
+                        ET.indent(new_item, level=2)
+                        specific_root.find('./channel').text = '\n  '
+                        specific_root.find('./channel').append(new_item)
+                        specific_root.find('./channel').text = '\n  '
+                        # print(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
+                        specific_tree.write(feed_path)
+                    else:
+                        specific_fg = FeedGenerator()
+                        specific_fg.title(f"{version['schema_name']} Versioning RSS Feed")
+                        specific_fg.link(href=url + version['schema_name'], rel="alternate")
+                        specific_fg.description(f"Updates on {version['schema_name']} versioning")
+                        fe = specific_fg.add_entry()
+                        fe.title(title_content)
+                        fe.description(description_content)
+                        fe.published(date_content)
+                        # print(specific_fg.rss_str(pretty=True))
+                        specific_fg.rss_file(
+                            TMP_FOLDER + rss_folder + version['schema_name'].replace('/', '_') + '.xml',
+                            pretty=True
+                        )
+        # print(ET.tostring(root, encoding='utf-8').decode('utf-8'))
+        tree.write(TMP_FOLDER + rss_folder + 'global.xml')
+    else:
+        print('No update today')
+
+
 def sort_folders(ti):
     SCHEMA_CATALOG = ti.xcom_pull(key='SCHEMA_CATALOG', task_ids='check_and_save_schemas')
     folders = ti.xcom_pull(key='folders', task_ids='initialization')
@@ -789,7 +1124,9 @@ def sort_folders(ti):
     files = []
     files = getListOfFiles(folders['DATA_FOLDER1'])
     # Create list of file that we do not want to copy paste
-    avoid_files = [folders['DATA_FOLDER1'] + '/' + s['name'] + '/README.md' for s in SCHEMA_CATALOG['schemas']]
+    avoid_files = [
+        folders['DATA_FOLDER1'] + '/' + s['name'] + '/README.md' for s in SCHEMA_CATALOG['schemas']
+    ]
     # for every file
     for f in files:
         # if it is a markdown, add custom front to content
@@ -826,7 +1163,10 @@ def get_issues_and_labels(ti):
         print('   >', lab)
         try:
             r = requests.get(
-                'https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue&labels=Sch%C3%A9ma%20en%20'
+                (
+                    'https://api.github.com/repos/etalab/schema.data.gouv.fr/'
+                    'issues?q=is%3Aopen+is%3Aissue&labels=Sch%C3%A9ma%20en%20'
+                )
                 + lab
             )
             mydict[lab] = []
@@ -843,7 +1183,9 @@ def get_issues_and_labels(ti):
 
     # Find number of current issue in schema.data.gouv.fr repo
     try:
-        r = requests.get('https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue')
+        r = requests.get(
+            'https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue'
+        )
         mydict['nb_issues'] = len(r.json())
     except:
         print('Error with github API while trying to get issues from schema.data.gouv.fr repo')

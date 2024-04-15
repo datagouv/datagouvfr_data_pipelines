@@ -4,11 +4,10 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
-    DATAGOUV_URL,
     MATTERMOST_DATAGOUV_TEAM
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, DATAGOUV_URL
 
 DAG_NAME = "dgv_administrateur"
 

@@ -4,20 +4,18 @@ from airflow.providers.sftp.operators.sftp import SFTPOperator
 from datetime import datetime
 import hashlib
 from datagouvfr_data_pipelines.utils.download import download_files
-from datagouvfr_data_pipelines.utils.minio import send_files, compare_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.config import (
     FILES_BASE_URL,
     INSEE_BASE_URL,
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE,
     SECRET_INSEE_LOGIN,
     SECRET_INSEE_PASSWORD,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-    DATAGOUV_SECRET_API_KEY,
 )
+
+minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 
 
 def get_files(**kwargs):
@@ -70,11 +68,7 @@ def upload_files_minio(**kwargs):
         for item in data
     ]
 
-    send_files(
-        MINIO_URL=MINIO_URL,
-        MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-        MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-        MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    minio_restricted.send_files(
         list_files=list_files,
     )
 
@@ -91,11 +85,7 @@ def compare_minio_files(**kwargs):
 
     nb_same = 0
     for item in data:
-        isSame = compare_files(
-            MINIO_URL=MINIO_URL,
-            MINIO_BUCKET=MINIO_BUCKET_DATA_PIPELINE,
-            MINIO_USER=SECRET_MINIO_DATA_PIPELINE_USER,
-            MINIO_PASSWORD=SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        isSame = minio_restricted.compare_files(
             file_path_1=minio_path_latest,
             file_path_2=minio_path_new,
             file_name_1=item["nameFTP"],
@@ -178,7 +168,6 @@ def update_dataset_data_gouv(ti, **kwargs):
             obj["checksum"]["value"] = hashs[d["nameFTP"]]
 
         update_dataset_or_resource_metadata(
-            api_key=DATAGOUV_SECRET_API_KEY,
             payload=obj,
             dataset_id=d["dataset_id"],
             resource_id=d["resource_id"],
