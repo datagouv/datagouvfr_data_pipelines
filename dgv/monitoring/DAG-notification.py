@@ -175,9 +175,10 @@ def alert_if_awaiting_spam_comments():
         return
     comments = get_awaiting_spam_comments()
     if comments:
+        n = len(comments)
         message = (
-            f"@all Il y a {len(comments)} en attente de validation "
-            "(voir [ici](https://www.data.gouv.fr/api/1/spam/))"
+            f"@all Il y a {n} commentaire{'s' if n > 1 else ''} en attente "
+            "de validation (voir [ici](https://www.data.gouv.fr/api/1/spam/))"
         )
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
