@@ -155,53 +155,6 @@ def create_edito_post(**kwargs):
         })
     print(mapping)
 
-    # def load_catalog(url):
-    #     r = requests.get(url)
-    #     return pd.read_csv(StringIO(r.text), delimiter=";")
-
-    # df_dataset = load_catalog(
-    #     "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3"
-    # )
-    # df_reuse = load_catalog(
-    #     "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379"
-    # )
-
-    # # Get featured
-    # featured_datasets_slug = df_dataset[
-    #     df_dataset.created_at.str.match(LAST_MONTH_DATE_FMT) & df_dataset.featured
-    # ].slug.values
-    # featured_reuses_slug = df_reuse[
-    #     df_reuse.created_at.str.match(LAST_MONTH_DATE_FMT) & df_reuse.featured
-    # ].slug.values
-
-    # # Get new counts
-    # new_datasets_count = df_dataset[
-    #     df_dataset.created_at.str.match(LAST_MONTH_DATE_FMT)
-    # ].shape[0]
-    # new_reuses_count = df_reuse[
-    #     df_reuse.created_at.str.match(LAST_MONTH_DATE_FMT)
-    # ].shape[0]
-
-    # # Get trending datasets and reuses
-    # def load_trending(url):
-    #     return requests.get(url).json()
-
-    # trending_datasets_url = (
-    #     "https://object.files.data.gouv.fr/opendata/datagouv/dashboard/tops-trending-datasets-weekly.json"
-    # )
-    # trending_reuses_url = (
-    #     "https://object.files.data.gouv.fr/opendata/datagouv/dashboard/tops-trending-reuses-weekly.json"
-    # )
-
-    # trending_datasets_slug = [
-    #     res["url"].split("/")[-2]
-    #     for res in load_trending(trending_datasets_url)["values"][:6]
-    # ]
-    # trending_reuses_slug = [
-    #     res["url"].split("/")[-2]
-    #     for res in load_trending(trending_reuses_url)["values"][:6]
-    # ]
-
     # Generate HTML
     def list_datasets(datasets):
         out = '<div class="fr-my-2w">\n'
