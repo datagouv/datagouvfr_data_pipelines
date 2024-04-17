@@ -151,6 +151,56 @@ def process_election_data():
         'candidats': [r for r in resources_url if 'candidats-results.csv' in r]
     }
 
+    # to optimize the reading of the files
+    dtypes = {
+        "general": {
+            "id_election": "category",
+            "id_brut_miom": "category",
+            "Code du département": "category",
+            "Libellé du département": "category",
+            "Code de la commune": "category",
+            "Libellé de la commune": "category",
+            "Code du b.vote": "category",
+            "Inscrits": int,
+            "Abstentions": int,
+            # "% Abs/Ins": ,
+            "Votants": int,
+            # "% Vot/Ins": ,
+            # "Blancs": int,
+            # "% Blancs/Ins": ,
+            # "% Blancs/Vot": ,
+            "Nuls": int,
+            # "% Nuls/Ins": ,
+            # "% Nuls/Vot": ,
+            "Exprimés": int,
+            # "% Exp/Ins": ,
+            # "% Exp/Vot": ,
+            "Code de la circonscription": "category",
+            "Libellé de la circonscription": "category",
+            "Code du canton": "category",
+            "Libellé du canton": "category",
+        },
+        "candidats": {
+            "id_election": "category",
+            "id_brut_miom": "category",
+            "Code du département": "category",
+            "Code de la commune": "category",
+            "N°Panneau": "category",
+            "Libellé Abrégé Liste": "category",
+            "Libellé Etendu Liste": "category",
+            # "Nom Tête de Liste": ,
+            # "Voix": ,
+            # "% Voix/Ins": ,
+            # "% Voix/Exp": ,
+            "Sexe": "category",
+            # "Nom": ,
+            # "Prénom": ,
+            "Nuance": "category",
+            # "Binôme": ,
+            "Liste": "category",
+        },
+    }
+
     for t in ['general', 'candidats']:
         print(t + ' resources')
         for url in resources[t]:
@@ -174,8 +224,8 @@ def process_election_data():
         full = pd.read_csv(
             DATADIR + f'/{t}_results.csv',
             sep=';',
-            dtype=str,
-            low_memory=True,
+            dtype=dtypes[t],
+            # low_memory=True,
         )
         print("> Export...")
         full.to_parquet(DATADIR + f'/{t}_results.parquet', index=False)
