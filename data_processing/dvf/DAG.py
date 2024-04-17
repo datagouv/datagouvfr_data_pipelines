@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
+    get_year_interval,
     alter_dvf_table,
     create_copro_table,
     populate_copro_table,
@@ -38,6 +39,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_dvf'
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
+start, end = get_year_interval()
 
 default_args = {
     'email': [
@@ -67,6 +69,7 @@ with DAG(
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
             f"dvf/scripts/script_dl_dvf.sh {DATADIR} "
+            f"{start} {end} "
         )
     )
 

@@ -1,6 +1,6 @@
-curr_year=`date +'%Y'`
-five_ago=$((curr_year-5))
 DATADIR="$1"
+five_ago=$2
+curr_year=$3
 rm -rf $DATADIR
 mkdir -p $DATADIR
 
