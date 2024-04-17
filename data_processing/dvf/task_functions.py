@@ -23,8 +23,6 @@ import pandas as pd
 import requests
 from datetime import datetime
 import json
-import shutil
-import zipfile
 from functools import reduce
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -39,6 +37,14 @@ else:
 
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+
+
+def get_year_interval():
+    today = datetime.today()
+    # data updates happen in April and October
+    if 4 <= today.month < 10:
+        return today.year - 5, today.year - 1
+    return today.year - 5, today.year
 
 
 def create_copro_table():
