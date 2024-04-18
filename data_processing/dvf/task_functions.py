@@ -404,7 +404,7 @@ def process_dpe():
             for chunk in iter_dpe
         ])
         del iter_dpe
-        print(f"> Processing {pref}: {len(dpe)} values")
+        print(f"> Processing {pref}: {len(dpe)} values ({idx + 1}/{len(prefixes)})")
         dpe.set_index('batiment_groupe_id', inplace=True)
         iter_parcelles = pd.read_csv(
             DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
