@@ -381,7 +381,8 @@ def process_dpe():
         usecols=["batiment_groupe_id"],
         sep=";",
     )
-    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9))
+    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9).unique())
+    print(f"{len(prefixes)} prefixes to process")
     del bat_id
     print("Imports et traitements DPE x parcelles par batch...")
     chunk_size = 100000
