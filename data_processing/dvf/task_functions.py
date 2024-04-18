@@ -373,7 +373,7 @@ def process_dpe():
     print("Import des batiment_id pour imports segmentés")
     # these files are too big to be loaded at once
     # ids look like this: "bdnb-bg-5CWD-3J5Q-VEGE"
-    # they seem to be in even groups if considering the "bdnb-bg-XY" prefix
+    # they seem to be in even groups if considering the "bdnb-bg-X" prefix
     # we'll loop through these to merge subparts and append them
     # if this becomes too heavy we can move down one more character for prefixes
     bat_id = pd.read_csv(
@@ -381,30 +381,43 @@ def process_dpe():
         usecols=["batiment_groupe_id"],
         sep=";",
     )
-    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 10))
+    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9))
     del bat_id
     print("Imports et traitements DPE x parcelles par batch...")
+    chunk_size = 100000
     for idx, pref in enumerate(prefixes):
-        dpe = pd.read_csv(
+        iter_dpe = pd.read_csv(
             DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
             dtype=cols_dpe,
             usecols=cols_dpe.keys(),
             sep=";",
+            iterator=True,
+            chunksize=chunk_size,
         )
         # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
         # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
         #     lambda x: round(float(x), 2)
         # )
-        dpe = dpe.loc[dpe["batiment_groupe_id"].str.startswith(pref)]
+        dpe = pd.concat([
+            chunk.loc[chunk["batiment_groupe_id"].str.startswith(pref)]
+            for chunk in iter_dpe
+        ])
+        del iter_dpe
         print(f"> Processing {pref}: {len(dpe)} values")
         dpe.set_index('batiment_groupe_id', inplace=True)
-        parcelles = pd.read_csv(
+        iter_parcelles = pd.read_csv(
             DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
             dtype=str,
             usecols=cols_parcelles,
             sep=";",
+            iterator=True,
+            chunksize=chunk_size,
         )
-        parcelles = parcelles.loc[parcelles["batiment_groupe_id"].str.startswith(pref)]
+        parcelles = pd.concat([
+            chunk.loc[chunk["batiment_groupe_id"].str.startswith(pref)]
+            for chunk in iter_parcelles
+        ])
+        del iter_parcelles
         parcelles.set_index('batiment_groupe_id', inplace=True)
         print("  Merging...")
         dpe_parcelled = dpe.join(
