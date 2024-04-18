@@ -352,20 +352,20 @@ def get_epci():
 
 
 def process_dpe():
-    cols_dpe = [
-        'batiment_groupe_id',
+    cols_dpe = {
+        'batiment_groupe_id': str,
         # 'identifiant_dpe',
         # 'type_batiment_dpe',
-        'periode_construction_dpe',
+        'periode_construction_dpe': "category",
         # 'annee_construction_dpe',
         # 'date_etablissement_dpe',
         # 'nombre_niveau_logement',
-        'nombre_niveau_immeuble',
-        'surface_habitable_immeuble',
+        'nombre_niveau_immeuble': float,
+        'surface_habitable_immeuble': float,
         # 'surface_habitable_logement',
-        'classe_bilan_dpe',
-        'classe_emission_ges',
-    ]
+        'classe_bilan_dpe': "category",
+        'classe_emission_ges': "category",
+    }
     cols_parcelles = [
         "batiment_groupe_id",
         "parcelle_id"
@@ -373,8 +373,8 @@ def process_dpe():
     print("Import et traitement DPE infos...")
     dpe = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
-        dtype=str,
-        usecols=cols_dpe,
+        dtype=cols_dpe,
+        usecols=cols_dpe.keys(),
         sep=";",
     )
     # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
