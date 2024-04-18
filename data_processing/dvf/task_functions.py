@@ -370,44 +370,60 @@ def process_dpe():
         "batiment_groupe_id",
         "parcelle_id"
     ]
-    print("Import et traitement DPE infos...")
-    dpe = pd.read_csv(
+    print("Import des batiment_id pour imports segmentés")
+    # these files are too big to be loaded at once
+    # ids look like this: "bdnb-bg-5CWD-3J5Q-VEGE"
+    # they seem to be in even groups if considering the "bdnb-bg-X" prefix
+    # we'll loop through these to merge subparts and append them
+    # if this becomes too heavy we can move down one more character for prefixes
+    bat_id = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
-        dtype=cols_dpe,
-        usecols=cols_dpe.keys(),
+        usecols=["batiment_groupe_id"],
         sep=";",
     )
-    # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
-    # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
-    #     lambda x: round(float(x), 2)
-    # )
-    dpe.set_index('batiment_groupe_id', inplace=True)
-    print("Import DPE parcelles...")
-    parcelles = pd.read_csv(
-        DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
-        dtype=str,
-        usecols=cols_parcelles,
-        sep=";",
-    )
-    parcelles.set_index('batiment_groupe_id', inplace=True)
-    print("Jointure des deux tables...")
-    dpe_parcelled = dpe.join(
-        parcelles,
-        on='batiment_groupe_id',
-        how='left'
-    )
-    del dpe
-    del parcelles
-    dpe_parcelled.reset_index(inplace=True)
-    dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
-    print("Export de la table finale...")
-    dpe_parcelled.to_csv(
-        DATADIR + "/all_dpe.csv",
-        sep=",",
-        index=False,
-        encoding="utf8",
-        header=False
-    )
+    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9))
+    print("Imports et traitements DPE x parcelles par batch...")
+    for idx, pref in enumerate(prefixes):
+        dpe = pd.read_csv(
+            DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
+            dtype=cols_dpe,
+            usecols=cols_dpe.keys(),
+            sep=";",
+        )
+        # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+        # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+        #     lambda x: round(float(x), 2)
+        # )
+        dpe = dpe.loc[dpe["batiment_groupe_id"].str.startswith(pref)]
+        print(f"> Processing {pref}: {len(dpe)} values")
+        dpe.set_index('batiment_groupe_id', inplace=True)
+        parcelles = pd.read_csv(
+            DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
+            dtype=str,
+            usecols=cols_parcelles,
+            sep=";",
+        )
+        parcelles = parcelles.loc[parcelles["batiment_groupe_id"].str.startswith(pref)]
+        parcelles.set_index('batiment_groupe_id', inplace=True)
+        print("  Merging...")
+        dpe_parcelled = dpe.join(
+            parcelles,
+            on='batiment_groupe_id',
+            how='left'
+        )
+        del dpe
+        del parcelles
+        dpe_parcelled.reset_index(inplace=True)
+        dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+        dpe_parcelled.to_csv(
+            DATADIR + "/all_dpe.csv",
+            sep=",",
+            index=False,
+            encoding="utf8",
+            header=False,
+            mode="w" if idx == 0 else "a",
+        )
+        del dpe_parcelled
 
 
 def index_dpe_table():
