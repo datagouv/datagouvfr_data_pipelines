@@ -1068,7 +1068,7 @@ def create_distribution_and_stats_whole_period():
                 operations = len(codes_geo)
                 for i, code in enumerate(codes_geo):
                     if i % (operations // 10) == 0 and i > 0:
-                        print(round(i / operations * 100, -1), '%')
+                        print(int(round(i / operations * 100, -1)), '%')
                     if code in idx:
                         prix = restr_dvf.loc[code]
                         if not isinstance(prix, pd.core.series.Series):
