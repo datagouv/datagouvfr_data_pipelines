@@ -253,8 +253,8 @@ def populate_copro_table():
         "Section 3": "section_3",
         "Numéro parcelle 3": "numero_parcelle_3",
         "Nombre de parcelles cadastrales": "nombre_parcelles_cadastrales",
-        "nom_qp": "nom_qp",
-        "code_qp": "code_qp",
+        "nom_qp_2024": "nom_qp",
+        "code_qp_2024": "code_qp",
         "Copro dans ACV": "copro_dans_acv",
         "Copro dans PVD": "copro_dans_pvd",
     }
