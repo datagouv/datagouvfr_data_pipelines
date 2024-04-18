@@ -374,7 +374,8 @@ def process_dpe():
     dpe = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
         dtype=str,
-        usecols=cols_dpe
+        usecols=cols_dpe,
+        sep=";",
     )
     # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
     # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
@@ -385,7 +386,8 @@ def process_dpe():
     parcelles = pd.read_csv(
         DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
         dtype=str,
-        usecols=cols_parcelles
+        usecols=cols_parcelles,
+        sep=";",
     )
     parcelles.set_index('batiment_groupe_id', inplace=True)
     print("Jointure des deux tables...")
