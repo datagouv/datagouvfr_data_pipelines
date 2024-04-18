@@ -373,7 +373,7 @@ def process_dpe():
     print("Import des batiment_id pour imports segmentés")
     # these files are too big to be loaded at once
     # ids look like this: "bdnb-bg-5CWD-3J5Q-VEGE"
-    # they seem to be in even groups if considering the "bdnb-bg-X" prefix
+    # they seem to be in even groups if considering the "bdnb-bg-XY" prefix
     # we'll loop through these to merge subparts and append them
     # if this becomes too heavy we can move down one more character for prefixes
     bat_id = pd.read_csv(
@@ -381,7 +381,8 @@ def process_dpe():
         usecols=["batiment_groupe_id"],
         sep=";",
     )
-    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9))
+    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 10))
+    del bat_id
     print("Imports et traitements DPE x parcelles par batch...")
     for idx, pref in enumerate(prefixes):
         dpe = pd.read_csv(
