@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-from datetime import date
 import duckdb
-=======
 from datetime import date, datetime
->>>>>>> main
 
 
 def check_if_monday():
