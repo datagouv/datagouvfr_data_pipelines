@@ -32,7 +32,7 @@
         },
         "prod": {
             "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": ""
+            "resource_id": "ff16d511-10c0-405e-9b35-511723948fce"
         }
     },
     "candidats_parquet": {
@@ -44,7 +44,7 @@
         },
         "prod": {
             "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": ""
+            "resource_id": "4d3b35f6-0b22-4415-a24c-419a676312e2"
         }
     }
 }
