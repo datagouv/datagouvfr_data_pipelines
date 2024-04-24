@@ -1,6 +1,5 @@
 from datetime import date
-import dask.dataframe as dd
-import shutil
+import duckdb
 
 
 def check_if_monday():
@@ -31,27 +30,23 @@ def month_year_iter(start_month, start_year, end_month, end_year):
 
 def csv_to_parquet(
     csv_file_path,
+    columns,
     output_name=None,
     output_path=None,
-    tmp_parquet_folder="tmp_parquet/",
-    sep=";"
+    sep=";",
 ):
+    """
+    columns are required to load everything as string (for safety)
+    """
     if output_name is None:
         output_name = csv_file_path.split('/')[-1].replace('.csv', '.parquet')
     if output_path is None:
         output_path = '/'.join(csv_file_path.split('/')[:-1]) + '/'
-    print(f"Saving {csv_file_path}\nto {output_path + output_name}")
-    df = dd.read_csv(
+    print(f"Saving {csv_file_path}")
+    print(f"to {output_path + output_name}")
+    db = duckdb.read_csv(
         csv_file_path,
         sep=sep,
-        dtype=str,
-        blocksize=None,
+        dtype={c: 'VARCHAR' for c in columns},
     )
-    df.to_parquet(output_path + tmp_parquet_folder, write_index=False)
-    del df
-    print("> Cleaning up")
-    shutil.move(
-        output_path + tmp_parquet_folder + "part.0.parquet",
-        output_path + output_name
-    )
-    shutil.rmtree(output_path + tmp_parquet_folder)
+    db.write_parquet(output_path + output_name)
