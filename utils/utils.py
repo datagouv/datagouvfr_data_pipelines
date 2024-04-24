@@ -1,3 +1,4 @@
+import duckdb
 from datetime import date, datetime
 
 
@@ -25,6 +26,30 @@ def month_year_iter(start_month, start_year, end_month, end_year):
     for ym in range(ym_start, ym_end + 1):
         y, m = divmod(ym, 12)
         yield y, m + 1
+
+
+def csv_to_parquet(
+    csv_file_path,
+    columns,
+    output_name=None,
+    output_path=None,
+    sep=";",
+):
+    """
+    columns are required to load everything as string (for safety)
+    """
+    if output_name is None:
+        output_name = csv_file_path.split('/')[-1].replace('.csv', '.parquet')
+    if output_path is None:
+        output_path = '/'.join(csv_file_path.split('/')[:-1]) + '/'
+    print(f"Saving {csv_file_path}")
+    print(f"to {output_path + output_name}")
+    db = duckdb.read_csv(
+        csv_file_path,
+        sep=sep,
+        dtype={c: 'VARCHAR' for c in columns},
+    )
+    db.write_parquet(output_path + output_name)
 
 
 def time_is_between(time1, time2):

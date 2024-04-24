@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
 import numpy as np
 import os
 import pandas as pd
@@ -90,7 +91,9 @@ def process_election_data():
             dtype=str,
         )
         df['id_election'] = file.replace('.csv', '')
-        df['id_brut_miom'] = df['Code du département'] + df['Code de la commune'] + '_' + df['Code du b.vote']
+        df['id_brut_miom'] = (
+            df['Code du département'] + df['Code de la commune'] + '_' + df['Code du b.vote']
+        )
         # getting where the candidates results start
         threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
         results['general'].append(df[['id_election', 'id_brut_miom'] + list(df.columns[:threshold])])
@@ -168,6 +171,11 @@ def process_election_data():
                 header=False
             )
             del df
+        print('> Export en parquet')
+        csv_to_parquet(
+            csv_file_path=DATADIR + f'/{t}_results.csv',
+            columns=columns[t],
+        )
 
 
 def send_results_to_minio():
@@ -175,10 +183,10 @@ def send_results_to_minio():
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
-                "source_name": f"{t}_results.csv",
+                "source_name": f"{t}_results.{ext}",
                 "dest_path": "elections/",
-                "dest_name": f"{t}_results.csv",
-            } for t in ['general', 'candidats']
+                "dest_name": f"{t}_results.{ext}",
+            } for t in ['general', 'candidats'] for ext in ["csv", "parquet"]
         ],
     )
 
@@ -213,6 +221,40 @@ def publish_results_elections():
         filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
         title="Résultats par candidat",
         format="csv",
+        description=(
+            f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+            " créés à partir des données du Ministère de l'Intérieur"
+            f" (dernière modification : {datetime.today()})"
+        ),
+    )
+    print('Done with candidats results')
+    post_remote_resource(
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/elections/general_results.parquet"
+        ),
+        dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
+        title="Résultats généraux (format parquet)",
+        format="parquet",
+        description=(
+            f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+            " créés à partir des données du Ministère de l'Intérieur"
+            f" (dernière modification : {datetime.today()})"
+        ),
+    )
+    print('Done with general results parquet')
+    post_remote_resource(
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/elections/candidats_results.parquet"
+        ),
+        dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
+        title="Résultats par candidat (format parquet)",
+        format="parquet",
         description=(
             f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
             " créés à partir des données du Ministère de l'Intérieur"
