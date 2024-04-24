@@ -60,6 +60,7 @@ SPAM_WORDS = [
     'documents professionnels',
     'immatriculation',
     'greffe',
+    'seo',
 ]
 
 datagouv_session = requests.Session()
@@ -568,3 +569,9 @@ def post_comment_on_dataset(dataset_id, title, comment):
     )
     r.raise_for_status()
     return r
+
+
+def get_awaiting_spam_comments():
+    r = datagouv_session.get("https://www.data.gouv.fr/api/1/spam/")
+    r.raise_for_status()
+    return r.json()

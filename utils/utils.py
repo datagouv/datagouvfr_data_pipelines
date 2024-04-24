@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 from datetime import date
 import duckdb
+=======
+from datetime import date, datetime
+>>>>>>> main
 
 
 def check_if_monday():
@@ -50,3 +54,10 @@ def csv_to_parquet(
         dtype={c: 'VARCHAR' for c in columns},
     )
     db.write_parquet(output_path + output_name)
+
+
+def time_is_between(time1, time2):
+    # no date involved here
+    if time1 > time2:
+        time1, time2 = time2, time1
+    return time1 <= datetime.now().time() <= time2

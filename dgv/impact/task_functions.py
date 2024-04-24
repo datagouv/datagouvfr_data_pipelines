@@ -181,9 +181,10 @@ def get_quality_reuses(ti):
         if "Lien du jeu de données" in r["properties"]:
             output.append([
                 [r["properties"]["Lien du jeu de données"]["url"]],
-                r["properties"]["Absence de réutilisations de qualité sur le jdd"]["checkbox"]
+                r["properties"]["Absence de réutilisations de qualité sur le jdd"]["checkbox"],
+                r["properties"]["Top 100 actuel"]["checkbox"],
             ])
-    nb_reuses_top100 = 100 - sum([r[1] for r in output])
+    nb_reuses_top100 = 100 - sum([r[1] for r in output if r[2]])
     kpi = {
         'administration_rattachement': 'DINUM',
         'nom_service_public_numerique': 'data.gouv.fr',
