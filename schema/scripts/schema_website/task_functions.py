@@ -17,6 +17,7 @@ from feedgen.feed import FeedGenerator
 import xml.etree.ElementTree as ET
 import pytz
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
+from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
@@ -169,7 +170,6 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
                     schema_name,
                     repertoire_slug
                 )
-
     # Find latest valid version and create a specific folder 'latest' copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(schema_name, folders)
     # Indicate in schema_info object name of latest schema
@@ -462,6 +462,22 @@ def manage_jsonschema(
                                     SCHEMA_INFOS[schema_name]['versions'][version]['schema_url'] = (
                                         '/' + schema_name + '/' + version + '/' + s['path']
                                     )
+                # Create documentation file and save it
+                try:
+                    with open(dest_folder + 'documentation.md', "w", encoding="utf8") as out:
+                        md = (
+                            f"## {schema_name.split('/')[-1]}\n\n"
+                            f"{conf_schema['title']}\n\n"
+                            f"{conf_schema['description']}\n\n"
+                            f"- Site web : {conf_schema['homepage']}\n"
+                            f"- Version : {version}\n\n"
+                            "### Arborescence des propriétés :\n\n"
+                        )
+                        md += jsonschema_to_markdown(schema_data)
+                        out.write(md)
+                        SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
+                except:
+                    print("Could not build documentation from schema")
         # If schema release is not valid, we remove it from DATA_FOLDER1
         except:
             manage_errors(repertoire_slug, version, 'jsonschema validation')
@@ -751,7 +767,7 @@ def check_and_save_schemas(ti):
         print(conf)
         try:
             if conf['type'] != 'datapackage':
-                print('Recognized as a simple schema')
+                print(f"Recognized as a simple {conf['type']}")
                 schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
                 SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
             else:
@@ -1121,19 +1137,19 @@ def sort_folders(ti):
     SCHEMA_CATALOG = ti.xcom_pull(key='SCHEMA_CATALOG', task_ids='check_and_save_schemas')
     folders = ti.xcom_pull(key='folders', task_ids='initialization')
     # Get list of all files in DATA_FOLDER
-    files = []
     files = getListOfFiles(folders['DATA_FOLDER1'])
     # Create list of file that we do not want to copy paste
     avoid_files = [
         folders['DATA_FOLDER1'] + '/' + s['name'] + '/README.md' for s in SCHEMA_CATALOG['schemas']
     ]
+    jsonschemas = [s['name'] for s in SCHEMA_CATALOG['schemas'] if s['schema_type'] == 'jsonschema']
     # for every file
     for f in files:
         # if it is a markdown, add custom front to content
         if f[-3:] == '.md':
             addFrontToMarkdown('/'.join(f.split('/')[:-1]) + '/', f.split('/')[-1])
-        # if it is the documentation file, clean links on it
-        if f.split('/')[-1] == 'documentation.md':
+        # if it is the documentation file (except for jsonschemas), clean links on it
+        if f.split('/')[-1] == 'documentation.md' and not any(s in f for s in jsonschemas):
             cleanLinksDocumentation('/'.join(f.split('/')[:-1]) + '/')
         # if it is a README file (except if on avoid_list)
         # then copy paste it to root folder of schema (for website use)
