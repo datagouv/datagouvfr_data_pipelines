@@ -36,8 +36,21 @@ def get_required(jsonschema, parent=''):
     return required
 
 
+def get_dependencies(jsonschema, parent=''):
+    dependencies = {}
+    if isinstance(jsonschema, dict):
+        for k in jsonschema:
+            if k == "dependencies":
+                dependencies.update(jsonschema['dependencies'])
+            else:
+                dependencies.update(get_dependencies(jsonschema[k], parent=parent + '.' + k))
+    return dependencies
+
+
 def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
+    # these two won't work correctly if somes properties share the same name
     required = get_required(jsonschema)
+    dependencies = get_dependencies(jsonschema)
 
     def _process(jsonschema, indent=indent, parent=parent, indent_char=indent_char):
         # we'll add introduction from other metadata (name, title, description, website, version, jsonschema)
@@ -76,7 +89,14 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                 if prop in required:
                     md += indent * indent_char + "- Valeur obligatoire\n"
                 else:
-                    md += indent * indent_char + "- Valeur optionnelle\n"
+                    add_dep = ''
+                    if prop in dependencies:
+                        add_dep = (
+                            " (obligatoire si "
+                            f"{' ou '.join([f'`{k}`' for k in dependencies[prop]])}"
+                            " renseigné)"
+                        )
+                    md += indent * indent_char + f"- Valeur optionnelle{add_dep}\n"
                 if 'type' in spec:
                     if isinstance(spec['type'], list):
                         type_ = " ou ".join([
