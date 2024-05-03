@@ -18,10 +18,35 @@ import pandas as pd
 import json
 from itertools import chain
 from datetime import datetime
+import math
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+int_cols = {
+    'general': ['Inscrits', 'Abstentions', 'Votants', 'Blancs', 'Nuls', 'Exprimés'],
+    'candidats': ['N°Panneau', 'Voix'],
+}
+
+
+def num_converter(value, _type):
+    if not isinstance(value, str) and math.isnan(value):
+        return value
+    try:
+        return _type(value.replace(',', '.'))
+    except:
+        # print("erreur:", value)
+        return ''
+
+
+def process(df, int_cols):
+    for c in df.columns:
+        if "%" in c:
+            # these columns are percentages
+            df[c] = df[c].apply(lambda x: num_converter(x, float))
+        elif any(c == k for k in int_cols):
+            # these are numbers
+            df[c] = df[c].apply(lambda x: num_converter(x, int))
 
 
 def format_election_files():
@@ -122,6 +147,10 @@ def process_election_data():
         del tmp_candidats
 
     results['general'] = pd.concat(results['general'], ignore_index=True)
+    process(
+        df=results['general'],
+        int_cols=int_cols['general'],
+    )
     results['general'].to_csv(
         DATADIR + '/general_results.csv',
         sep=';',
@@ -129,6 +158,10 @@ def process_election_data():
     )
     # removing rows created from empty columns due to uneven canditates number
     results['candidats'] = pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])
+    process(
+        df=results['candidats'],
+        int_cols=int_cols['candidats']
+    )
     results['candidats'].to_csv(
         DATADIR + '/candidats_results.csv',
         sep=';',
@@ -162,6 +195,10 @@ def process_election_data():
                 if c not in df.columns:
                     df[c] = ['' for k in range(len(df))]
             df = df[columns[t]]
+            process(
+                df=df,
+                int_cols=int_cols[t],
+            )
             # concatenating all files (first one has header)
             df.to_csv(
                 DATADIR + f'/{t}_results.csv',
@@ -172,9 +209,17 @@ def process_election_data():
             )
             del df
         print('> Export en parquet')
+        dtype = {}
+        for c in columns[t]:
+            if "%" in c:
+                dtype[c] = "FLOAT"
+            elif any(c == k for k in int_cols[t]):
+                dtype[c] = "INT32"
+            else:
+                dtype[c] = "VARCHAR"
         csv_to_parquet(
             csv_file_path=DATADIR + f'/{t}_results.csv',
-            columns=columns[t],
+            dtype=dtype,
         )
 
 
