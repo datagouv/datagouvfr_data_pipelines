@@ -30,14 +30,19 @@ def month_year_iter(start_month, start_year, end_month, end_year):
 
 def csv_to_parquet(
     csv_file_path,
-    columns,
+    dtype=None,
+    columns=None,
     output_name=None,
     output_path=None,
     sep=";",
+    compression="snappy",
 ):
     """
-    columns are required to load everything as string (for safety)
+    if dtype is not specified, columns are required to load everything as string (for safety)
+    for now keeping snappy compression as more efficient ones are less widespread
+    (cf https://github.com/apache/parquet-format/blob/54e6133e887a6ea90501ddd72fff5312b7038a7c/src/main/thrift/parquet.thrift#L457)
     """
+    assert dtype is not None or columns is not None
     if output_name is None:
         output_name = csv_file_path.split('/')[-1].replace('.csv', '.parquet')
     if output_path is None:
@@ -47,9 +52,9 @@ def csv_to_parquet(
     db = duckdb.read_csv(
         csv_file_path,
         sep=sep,
-        dtype={c: 'VARCHAR' for c in columns},
+        dtype=dtype or {c: 'VARCHAR' for c in columns},
     )
-    db.write_parquet(output_path + output_name)
+    db.write_parquet(output_path + output_name, compression=compression)
 
 
 def time_is_between(time1, time2):
