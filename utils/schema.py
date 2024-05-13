@@ -214,7 +214,8 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
             appropriate_extension = ext in ["csv", "xls", "xlsx"]
             mime_dict = {
                 "text/csv": "csv",
-                "application/vnd.ms-excel": "xls"
+                "application/vnd.ms-excel": "xls",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
             }
             appropriate_mime = detected_mime in mime_dict.keys()
             if appropriate_extension:
