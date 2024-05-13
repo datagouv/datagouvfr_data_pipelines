@@ -56,6 +56,9 @@ ignored_reuses = [
     '65406410e2c5c54317513866',
     '60edbed1dd659431fcf45e04',
 ]
+ignored_users = [
+    '534fff3ea3a7292c64a774e4',
+]
 
 
 async def url_error(url, session, method="head"):
@@ -500,6 +503,9 @@ def create_all_tables():
                                 if d.get('organization', None) else []
                             )
                         if 'certified' in [badge['kind'] for badge in badges]:
+                            should_add = False
+                    if obj in ['datasets', 'reuses']:
+                        if d.get('owner', {}).get('id') in ignored_users:
                             should_add = False
                     if should_add:
                         spam.append({
