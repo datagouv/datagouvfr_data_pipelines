@@ -35,12 +35,10 @@ def csv_to_parquet(
     output_name=None,
     output_path=None,
     sep=";",
-    compression="snappy",
+    compression="zstd",
 ):
     """
     if dtype is not specified, columns are required to load everything as string (for safety)
-    for now keeping snappy compression as more efficient ones are less widespread
-    (cf https://github.com/apache/parquet-format/blob/54e6133e887a6ea90501ddd72fff5312b7038a7c/src/main/thrift/parquet.thrift#L457)
     """
     assert dtype is not None or columns is not None
     if output_name is None:
