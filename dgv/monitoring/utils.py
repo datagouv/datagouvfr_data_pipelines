@@ -28,7 +28,11 @@ def show_users(start_date, end_date=None):
     show_html(f"<h3>{len(users)} utilisateurs créés</h3>")
 
     for user in users:
-        show_link(fullname(user), user["page"])
+        html = make_link(fullname(user), user["page"])
+        if user["website"]:
+            html += " avec comme site "
+            html += make_link(user["website"], user["website"])
+        show_html(html)
     return len(users), users
 
 

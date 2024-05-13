@@ -22,6 +22,8 @@ groups = [
     for k in ['support', 'ouverture', 'moissonnage', 'certification']
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
+# rate limiting of 7 requests/second
+rate_limiting_delay = 1 / 7
 
 minio_open = MinIOClient(bucket='dataeng-open')
 minio_destination_folder = "dashboard/"
@@ -177,8 +179,10 @@ def is_SP_or_CT(siret, session):
     if siret is None:
         return False, issue
     try:
+        sleep(rate_limiting_delay)
         r = session.get(entreprises_api_url + siret).json()
     except:
+        print('Sleeping a bit more')
         sleep(1)
         r = session.get(entreprises_api_url + siret).json()
     if len(r['results']) == 0:
@@ -252,7 +256,7 @@ def get_and_upload_reuses_down():
         minio_open.get_file_content(minio_destination_folder + output_file_name)
     ))
     start_len = len(hist)
-    hist = pd.concat([hist, stats]).drop_duplicates('date')
+    hist = pd.concat([hist, stats]).drop_duplicates('Date')
     # just in case
     assert start_len <= len(hist)
     hist.to_csv(DATADIR + output_file_name, index=False)
@@ -340,7 +344,7 @@ def get_catalog_stats():
                 "dest_name": output_file_name,
             }
             for output_file_name in [
-                # 'resources_stats.json',
+                'resources_stats.json',
                 'datasets_quality.json'
             ]
         ],

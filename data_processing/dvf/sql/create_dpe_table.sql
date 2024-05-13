@@ -2,7 +2,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'dpe' AND TABLE_SCHEMA = 'dvf') THEN
         TRUNCATE TABLE dvf.dpe;
-        DROP INDEX parcelle_id_idx;
+        DROP INDEX IF EXISTS parcelle_id_idx;
     ELSE
         CREATE UNLOGGED TABLE dvf.dpe (
             batiment_groupe_id VARCHAR(30),

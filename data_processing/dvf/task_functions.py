@@ -23,8 +23,6 @@ import pandas as pd
 import requests
 from datetime import datetime
 import json
-import shutil
-import zipfile
 from functools import reduce
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -39,6 +37,14 @@ else:
 
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+
+
+def get_year_interval():
+    today = datetime.today()
+    # data updates happen in April and October
+    if 4 <= today.month < 10:
+        return today.year - 5, today.year - 1
+    return today.year - 5, today.year
 
 
 def create_copro_table():
@@ -247,8 +253,8 @@ def populate_copro_table():
         "Section 3": "section_3",
         "Numéro parcelle 3": "numero_parcelle_3",
         "Nombre de parcelles cadastrales": "nombre_parcelles_cadastrales",
-        "nom_qp": "nom_qp",
-        "code_qp": "code_qp",
+        "nom_qp_2024": "nom_qp",
+        "code_qp_2024": "code_qp",
         "Copro dans ACV": "copro_dans_acv",
         "Copro dans PVD": "copro_dans_pvd",
     }
@@ -346,60 +352,93 @@ def get_epci():
 
 
 def process_dpe():
-    cols_dpe = [
-        'batiment_groupe_id',
+    cols_dpe = {
+        'batiment_groupe_id': str,
         # 'identifiant_dpe',
         # 'type_batiment_dpe',
-        'periode_construction_dpe',
+        'periode_construction_dpe': "category",
         # 'annee_construction_dpe',
         # 'date_etablissement_dpe',
         # 'nombre_niveau_logement',
-        'nombre_niveau_immeuble',
-        'surface_habitable_immeuble',
+        'nombre_niveau_immeuble': str,
+        'surface_habitable_immeuble': str,
         # 'surface_habitable_logement',
-        'classe_bilan_dpe',
-        'classe_emission_ges',
-    ]
+        'classe_bilan_dpe': "category",
+        'classe_emission_ges': "category",
+    }
     cols_parcelles = [
         "batiment_groupe_id",
         "parcelle_id"
     ]
-    print("Import et traitement DPE infos...")
-    dpe = pd.read_csv(
+    print("Import des batiment_id pour imports segmentés")
+    # these files are too big to be loaded at once
+    # ids look like this: "bdnb-bg-5CWD-3J5Q-VEGE"
+    # they seem to be in even groups if considering the "bdnb-bg-X" prefix
+    # we'll loop through these to merge subparts and append them
+    # if this becomes too heavy we can move down one more character for prefixes
+    bat_id = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
-        dtype=str,
-        usecols=cols_dpe
+        usecols=["batiment_groupe_id"],
+        sep=";",
     )
-    # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
-    # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
-    #     lambda x: round(float(x), 2)
-    # )
-    dpe.set_index('batiment_groupe_id', inplace=True)
-    print("Import DPE parcelles...")
-    parcelles = pd.read_csv(
-        DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
-        dtype=str,
-        usecols=cols_parcelles
-    )
-    parcelles.set_index('batiment_groupe_id', inplace=True)
-    print("Jointure des deux tables...")
-    dpe_parcelled = dpe.join(
-        parcelles,
-        on='batiment_groupe_id',
-        how='left'
-    )
-    del dpe
-    del parcelles
-    dpe_parcelled.reset_index(inplace=True)
-    dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
-    print("Export de la table finale...")
-    dpe_parcelled.to_csv(
-        DATADIR + "/all_dpe.csv",
-        sep=",",
-        index=False,
-        encoding="utf8",
-        header=False
-    )
+    prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9).unique())
+    print(f"{len(prefixes)} prefixes to process")
+    del bat_id
+    print("Imports et traitements DPE x parcelles par batch...")
+    chunk_size = 100000
+    for idx, pref in enumerate(prefixes):
+        iter_dpe = pd.read_csv(
+            DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
+            dtype=cols_dpe,
+            usecols=cols_dpe.keys(),
+            sep=";",
+            iterator=True,
+            chunksize=chunk_size,
+        )
+        # dpe['date_etablissement_dpe'] = dpe['date_etablissement_dpe'].str.slice(0, 10)
+        # dpe['surface_habitable_logement'] = dpe['surface_habitable_logement'].apply(
+        #     lambda x: round(float(x), 2)
+        # )
+        dpe = pd.concat([
+            chunk.loc[chunk["batiment_groupe_id"].str.startswith(pref)]
+            for chunk in iter_dpe
+        ])
+        del iter_dpe
+        print(f"> Processing {pref}: {len(dpe)} values ({idx + 1}/{len(prefixes)})")
+        dpe.set_index('batiment_groupe_id', inplace=True)
+        iter_parcelles = pd.read_csv(
+            DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
+            dtype=str,
+            usecols=cols_parcelles,
+            sep=";",
+            iterator=True,
+            chunksize=chunk_size,
+        )
+        parcelles = pd.concat([
+            chunk.loc[chunk["batiment_groupe_id"].str.startswith(pref)]
+            for chunk in iter_parcelles
+        ])
+        del iter_parcelles
+        parcelles.set_index('batiment_groupe_id', inplace=True)
+        print("  Merging...")
+        dpe_parcelled = dpe.join(
+            parcelles,
+            on='batiment_groupe_id',
+            how='left'
+        )
+        del dpe
+        del parcelles
+        dpe_parcelled.reset_index(inplace=True)
+        dpe_parcelled = dpe_parcelled.dropna(subset=['parcelle_id'])
+        dpe_parcelled.to_csv(
+            DATADIR + "/all_dpe.csv",
+            sep=",",
+            index=False,
+            encoding="utf8",
+            header=False,
+            mode="w" if idx == 0 else "a",
+        )
+        del dpe_parcelled
 
 
 def index_dpe_table():
@@ -1062,7 +1101,7 @@ def create_distribution_and_stats_whole_period():
                 operations = len(codes_geo)
                 for i, code in enumerate(codes_geo):
                     if i % (operations // 10) == 0 and i > 0:
-                        print(round(i / operations * 100), '%')
+                        print(int(round(i / operations * 100, -1)), '%')
                     if code in idx:
                         prix = restr_dvf.loc[code]
                         if not isinstance(prix, pd.core.series.Series):

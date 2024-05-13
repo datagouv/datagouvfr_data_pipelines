@@ -11,16 +11,42 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
 import numpy as np
 import os
 import pandas as pd
 import json
 from itertools import chain
 from datetime import datetime
+import math
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+int_cols = {
+    'general': ['Inscrits', 'Abstentions', 'Votants', 'Blancs', 'Nuls', 'Exprimés'],
+    'candidats': ['N°Panneau', 'Voix'],
+}
+
+
+def num_converter(value, _type):
+    if not isinstance(value, str) and math.isnan(value):
+        return value
+    try:
+        return _type(value.replace(',', '.'))
+    except:
+        # print("erreur:", value)
+        return ''
+
+
+def process(df, int_cols):
+    for c in df.columns:
+        if "%" in c:
+            # these columns are percentages
+            df[c] = df[c].apply(lambda x: num_converter(x, float))
+        elif any(c == k for k in int_cols):
+            # these are numbers
+            df[c] = df[c].apply(lambda x: num_converter(x, int))
 
 
 def format_election_files():
@@ -90,7 +116,9 @@ def process_election_data():
             dtype=str,
         )
         df['id_election'] = file.replace('.csv', '')
-        df['id_brut_miom'] = df['Code du département'] + df['Code de la commune'] + '_' + df['Code du b.vote']
+        df['id_brut_miom'] = (
+            df['Code du département'] + df['Code de la commune'] + '_' + df['Code du b.vote']
+        )
         # getting where the candidates results start
         threshold = np.argwhere(['Panneau' in c for c in df.columns])[0][0]
         results['general'].append(df[['id_election', 'id_brut_miom'] + list(df.columns[:threshold])])
@@ -119,6 +147,10 @@ def process_election_data():
         del tmp_candidats
 
     results['general'] = pd.concat(results['general'], ignore_index=True)
+    process(
+        df=results['general'],
+        int_cols=int_cols['general'],
+    )
     results['general'].to_csv(
         DATADIR + '/general_results.csv',
         sep=';',
@@ -126,6 +158,10 @@ def process_election_data():
     )
     # removing rows created from empty columns due to uneven canditates number
     results['candidats'] = pd.concat(results['candidats'], ignore_index=True).dropna(subset=['Voix'])
+    process(
+        df=results['candidats'],
+        int_cols=int_cols['candidats']
+    )
     results['candidats'].to_csv(
         DATADIR + '/candidats_results.csv',
         sep=';',
@@ -159,6 +195,10 @@ def process_election_data():
                 if c not in df.columns:
                     df[c] = ['' for k in range(len(df))]
             df = df[columns[t]]
+            process(
+                df=df,
+                int_cols=int_cols[t],
+            )
             # concatenating all files (first one has header)
             df.to_csv(
                 DATADIR + f'/{t}_results.csv',
@@ -168,6 +208,19 @@ def process_election_data():
                 header=False
             )
             del df
+        print('> Export en parquet')
+        dtype = {}
+        for c in columns[t]:
+            if "%" in c:
+                dtype[c] = "FLOAT"
+            elif any(c == k for k in int_cols[t]):
+                dtype[c] = "INT32"
+            else:
+                dtype[c] = "VARCHAR"
+        csv_to_parquet(
+            csv_file_path=DATADIR + f'/{t}_results.csv',
+            dtype=dtype,
+        )
 
 
 def send_results_to_minio():
@@ -175,10 +228,10 @@ def send_results_to_minio():
         list_files=[
             {
                 "source_path": f"{DATADIR}/",
-                "source_name": f"{t}_results.csv",
+                "source_name": f"{t}_results.{ext}",
                 "dest_path": "elections/",
-                "dest_name": f"{t}_results.csv",
-            } for t in ['general', 'candidats']
+                "dest_name": f"{t}_results.{ext}",
+            } for t in ['general', 'candidats'] for ext in ["csv", "parquet"]
         ],
     )
 
@@ -213,6 +266,40 @@ def publish_results_elections():
         filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
         title="Résultats par candidat",
         format="csv",
+        description=(
+            f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+            " créés à partir des données du Ministère de l'Intérieur"
+            f" (dernière modification : {datetime.today()})"
+        ),
+    )
+    print('Done with candidats results')
+    post_remote_resource(
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/elections/general_results.parquet"
+        ),
+        dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
+        title="Résultats généraux (format parquet)",
+        format="parquet",
+        description=(
+            f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+            " créés à partir des données du Ministère de l'Intérieur"
+            f" (dernière modification : {datetime.today()})"
+        ),
+    )
+    print('Done with general results parquet')
+    post_remote_resource(
+        remote_url=(
+            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"/{AIRFLOW_ENV}/elections/candidats_results.parquet"
+        ),
+        dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
+        resource_id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
+        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
+        title="Résultats par candidat (format parquet)",
+        format="parquet",
         description=(
             f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
             " créés à partir des données du Ministère de l'Intérieur"

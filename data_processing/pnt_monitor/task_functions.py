@@ -1,9 +1,18 @@
 import requests
 from datetime import datetime
 from datetime import timedelta
+import json
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.config import (
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    AIRFLOW_ENV,
+    AIRFLOW_DAG_TMP,
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-api_url = 'https://www.data.gouv.fr/api/1/'
+api_url = "https://www.data.gouv.fr/api/1/"
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+too_old_filename = "too_old.json"
 
 
 def get_timeslot_and_paquet(url):
@@ -62,22 +71,41 @@ def scan_pnt_files(ti):
                 if d['title'] not in unavailable_resources:
                     unavailable_resources[d['title']] = []
                 unavailable_resources[d['title']].append([r['title'], d['id'], r['id']])
+
+    with open(AIRFLOW_DAG_TMP + too_old_filename, "w") as f:
+        json.dump(too_old, f, ensure_ascii=False)
+
     ti.xcom_push(key="time_slots", value=time_slots)
     ti.xcom_push(key="unavailable_resources", value=unavailable_resources)
     ti.xcom_push(key="too_old", value=too_old)
 
 
 def notification_mattermost(ti):
-    time_slots = ti.xcom_pull(key="time_slots", task_ids="scan_pnt_files")
     unavailable_resources = ti.xcom_pull(key="unavailable_resources", task_ids="scan_pnt_files")
     too_old = ti.xcom_pull(key="too_old", task_ids="scan_pnt_files")
-    print(time_slots)
     print(unavailable_resources)
     print(too_old)
 
-    message = ''
+    # saving the list of issues to ping only if new issues
+    previous_too_old = json.loads(minio_open.get_file_content(
+        f"{AIRFLOW_ENV}/pnt/too_old.json"
+    ))
+    prev = []
+    for dataset in previous_too_old.values():
+        for f, _, _ in dataset:
+            prev.append(f)
+
+    alert = False
+    for dataset in too_old.values():
+        for f, _, _ in dataset:
+            alert = alert or f not in prev
+
+    message = ""
     if too_old:
-        message += ":warning: @geoffrey.aldebert Des ressources n'ont pas été mises à jour récemment :"
+        message += ":warning: "
+        if alert:
+            message += "@geoffrey.aldebert "
+        message += "Ces ressources n'ont pas été mises à jour récemment :"
         for dataset in too_old:
             message += f'\n- {dataset}:'
             for k in too_old[dataset]:
@@ -85,12 +113,23 @@ def notification_mattermost(ti):
 
     if unavailable_resources:
         if message:
-            message += '\n'
-        message += "Des ressources n'ont pas de fichier associé :"
+            message += '\n\n'
+        message += "Certaines ressources n'ont pas de fichier associé :"
         for dataset in unavailable_resources:
             message += f'\n- {dataset}:'
             for k in unavailable_resources[dataset]:
                 message += f'\n   - [{k[0]}](https://www.data.gouv.fr/fr/datasets/{k[1]}/#/resources/{k[2]})'
+
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": AIRFLOW_DAG_TMP,
+                "source_name": too_old_filename,
+                "dest_path": "pnt/",
+                "dest_name": too_old_filename,
+            },
+        ]
+    )
 
     if message:
         message = "##### :crystal_ball: :sun_behind_rain_cloud: Données PNT\n" + message
