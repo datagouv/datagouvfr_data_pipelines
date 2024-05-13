@@ -62,6 +62,7 @@ SPAM_WORDS = [
     'greffe',
     'juridique',
     'seo',
+    'démarche',
 ]
 
 datagouv_session = requests.Session()
