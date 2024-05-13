@@ -85,6 +85,8 @@ def notification_mattermost(ti):
     too_old = ti.xcom_pull(key="too_old", task_ids="scan_pnt_files")
     print(unavailable_resources)
     print(too_old)
+    nb_too_old = sum([len(too_old[d]) for d in too_old])
+    print(nb_too_old)
 
     # saving the list of issues to ping only if new issues
     previous_too_old = json.loads(minio_open.get_file_content(
@@ -105,7 +107,7 @@ def notification_mattermost(ti):
         message += ":warning: "
         if alert:
             message += "@geoffrey.aldebert "
-        message += "Ces ressources n'ont pas été mises à jour récemment :"
+        message += f"Ces {nb_too_old} ressources n'ont pas été mises à jour récemment :"
         for dataset in too_old:
             message += f'\n- {dataset}:'
             for k in too_old[dataset]:
@@ -133,4 +135,6 @@ def notification_mattermost(ti):
 
     if message:
         message = "##### :crystal_ball: :sun_behind_rain_cloud: Données PNT\n" + message
+        if len(message) > 60000:
+            message = message[:60000] + "\n\nEt plus encore !"
         send_message(message)
