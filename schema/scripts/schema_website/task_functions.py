@@ -3,7 +3,7 @@ import git
 from git import Repo, Git
 import os
 import shutil
-from table_schema_to_markdown import convert_source
+from table_schema_to_markdown import convert_source, sources_to_markdown
 import frictionless
 import json
 import jsonschema
@@ -321,6 +321,17 @@ def check_datapackage(repertoire_slug, conf, folders):
                                 'documentation.md'
                             )
 
+                        # Create sources file
+                        with open(schema_dest_folder + schema.split('/')[-1], 'r') as f:
+                            schema_content = json.load(f)
+                        sources_md = sources_to_markdown(schema_content)
+                        if sources_md:
+                            with open(schema_dest_folder + '/' + 'sources.md', "w") as out:
+                                out.write(sources_md)
+                            SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(
+                                'sources.md'
+                            )
+
                         latest_folder, sf = manage_latest_folder(schema_name, folders)
                 else:
                     print('not valid')
@@ -405,6 +416,15 @@ def manage_tableschema(
                 # readable mardown file that will be use for documentation
                 convert_source(dest_folder + schema_file, out, 'page')
                 SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
+
+            # Create sources file
+            with open(dest_folder + schema_file, 'r') as f:
+                schema_content = json.load(f)
+            sources_md = sources_to_markdown(schema_content)
+            if sources_md:
+                with open(dest_folder + '/' + 'sources.md', "w") as out:
+                    out.write(sources_md)
+                SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('sources.md')
         # If schema release is not valid, we remove it from DATA_FOLDER1
         else:
             manage_errors(repertoire_slug, version, 'tableschema validation')
