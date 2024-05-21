@@ -20,12 +20,13 @@ def get_timeslot_and_paquet(url):
     URLs look like this:
     https://object.data.gouv.fr/meteofrance-pnt/pnt/2024-03-13T00:00:00Z/
     arome-om/ANTIL/0025/HP1/arome-om-ANTIL__0025__HP1__001H__2024-03-13T00:00:00Z.grib2
+    So we get ('2024-03-13T00:00:00Z', 'arome-om')
     """
     _ = url.split('/')
     return _[5], _[6]
 
 
-def threshold_in_the_past(nb_batches_behind=2):
+def threshold_in_the_past(nb_batches_behind=3):
     now = datetime.now()
     if now.hour < 6:
         batch_hour = 0
@@ -83,10 +84,10 @@ def scan_pnt_files(ti):
 def notification_mattermost(ti):
     unavailable_resources = ti.xcom_pull(key="unavailable_resources", task_ids="scan_pnt_files")
     too_old = ti.xcom_pull(key="too_old", task_ids="scan_pnt_files")
-    print(unavailable_resources)
-    print(too_old)
+    print("Unavailable resources:", unavailable_resources)
+    print("Too old resources:", too_old)
     nb_too_old = sum([len(too_old[d]) for d in too_old])
-    print(nb_too_old)
+    print(nb_too_old, "resources are too old")
 
     # saving the list of issues to ping only if new issues
     previous_too_old = json.loads(minio_open.get_file_content(
