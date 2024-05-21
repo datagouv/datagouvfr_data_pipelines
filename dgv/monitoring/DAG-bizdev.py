@@ -505,7 +505,7 @@ def create_all_tables():
                         if 'certified' in [badge['kind'] for badge in badges]:
                             should_add = False
                     if obj in ['datasets', 'reuses']:
-                        if d.get('owner', {}).get('id') in ignored_users:
+                        if d.get('owner') and d['owner']['id'] in ignored_users:
                             should_add = False
                     if should_add:
                         spam.append({
