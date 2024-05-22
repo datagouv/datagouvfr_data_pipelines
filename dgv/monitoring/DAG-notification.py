@@ -102,7 +102,7 @@ def check_new(ti, **kwargs):
                 mydict['owner_id'] = owner['id']
             else:
                 mydict['owner_type'] = None
-            if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] == 1:
+            if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 if (
                     templates_dict["type"] == 'datasets'
