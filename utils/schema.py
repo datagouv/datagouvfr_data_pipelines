@@ -96,6 +96,33 @@ def comparer_versions(version):
     return [int(part) if part.isnumeric() else np.inf for part in version.split('.')]
 
 
+def drop_versions_sample(versions, nb_to_keep=5, level=0):
+    _versions = sorted(versions, key=comparer_versions)
+    majors = set('.'.join(v.split('.')[0:level + 1]) for v in _versions)
+    # if only one major: consider each minor as a major and run again
+    if len(majors) == 1:
+        if level == 2:
+            return []
+        return drop_versions_sample(versions, level=level + 1)
+    latest_each_major = sorted([
+        sorted(
+            [v for v in _versions if '.'.join(v.split('.')[0:level + 1]) == m],
+            key=comparer_versions
+        )[-1]
+        for m in majors
+    ], key=comparer_versions)
+    # if more than nb_to_keep majors: keep latest of each of the nb_to_keep latest majors
+    if len(latest_each_major) >= nb_to_keep:
+        return [v for v in versions if v not in latest_each_major[-nb_to_keep:]]
+    # if 1 < len(majors) < nb_to_keep: keep latest of each major and fill with latest of the latest major
+    for v in reversed(_versions):
+        if len(latest_each_major) == nb_to_keep:
+            break
+        if v not in latest_each_major:
+            latest_each_major.append(v)
+    return [v for v in versions if v not in latest_each_major]
+
+
 def remove_old_schemas(
     config_dict,
     schemas_catalogue_list,
@@ -561,6 +588,10 @@ def build_reference_table(
     drop_versions = []
     if "drop_versions" in schema_config.keys():
         drop_versions += schema_config["drop_versions"]
+    else:
+        # we only consider certain versions to save processing time
+        # see the func for insights
+        drop_versions = drop_versions_sample([v['version_name'] for v in schema_dict['versions']])
 
     schemas_report_dict[schema_name]["nb_versions_to_drop_in_config"] = len(
         drop_versions
