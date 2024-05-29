@@ -165,6 +165,7 @@ class MinIOClient:
     def get_files_from_prefix(
         self,
         prefix: str,
+        ignore_airflow_env=False,
     ):
         """Retrieve only the list of files in a Minio pattern
 
@@ -177,9 +178,11 @@ class MinIOClient:
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         list_objects = []
-        objects = self.client.list_objects(self.bucket, prefix=f"{AIRFLOW_ENV}/{prefix}")
+        if not ignore_airflow_env:
+            prefix = f"{AIRFLOW_ENV}/{prefix}"
+        objects = self.client.list_objects(self.bucket, prefix=prefix)
         for obj in objects:
-            print(obj.object_name)
+            # print(obj.object_name)
             list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
         return list_objects
 
@@ -265,4 +268,15 @@ class MinIOClient:
             object_name=name,
             length=raw_data.getbuffer().nbytes,
             data=raw_data,
+        )
+
+    def get_file_url(
+        self,
+        file_path,
+        ignore_airflow_env=False,
+    ):
+        return (
+            f"https://{MINIO_URL}/{self.bucket}/"
+            f"{AIRFLOW_ENV + '/' if not ignore_airflow_env else ''}"
+            f"{file_path}"
         )
