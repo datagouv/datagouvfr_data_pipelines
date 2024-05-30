@@ -430,11 +430,18 @@ def update_temporal_coverages(ti):
     print("Updating datasets temporal_coverage")
     for path in updated_datasets:
         if path in period_starts:
+            # for now the tags are erased when touching the metadata so we save them and put them back
+            tags = requests.get(
+                f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
+            ).json()["tags"]
             update_dataset_or_resource_metadata(
-                payload={"temporal_coverage": {
-                    "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                    "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                }},
+                payload={
+                    "temporal_coverage": {
+                        "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                        "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                    },
+                    "tags": tags,
+                },
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV]
             )
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
