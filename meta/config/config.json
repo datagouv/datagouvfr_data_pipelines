@@ -16,6 +16,7 @@
         "dgv_digests": true,
         "dgv_edito_post_and_tweet": true,
         "dgv_harvester_notification": true,
+        "dgv_hvd": true,
         "dgv_impact": true,
         "dgv_metrics": true,
         "dgv_moderation_utilisateurs": false,
