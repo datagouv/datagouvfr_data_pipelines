@@ -29,7 +29,7 @@ def get_hvd(ti):
     print("Getting suivi ouverture")
     ouverture_hvd_api = 'https://ouverture.data.gouv.fr/api/high_value_datasets'
     df_ouverture = pd.DataFrame(requests.get(ouverture_hvd_api).json())
-    goal = len(df_ouverture)
+    goal = df_ouverture['ENSEMBLE DE DONNÉES'].nunique()
     categories = {
         slugify(cat): cat
         for cat in set(df_ouverture.THÉMATIQUE)
