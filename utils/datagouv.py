@@ -541,7 +541,9 @@ def get_all_from_api_query(
             result = result[k]
         return result
     # /!\ only for paginated endpoints
-    headers = {'X-fields': mask + f',{next_page}'} if mask else None
+    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
+    if mask is not None:
+        headers["X-fields"] = mask + f",{next_page}"
     r = requests.get(base_query, headers=headers)
     if not ignore_errors:
         r.raise_for_status()
