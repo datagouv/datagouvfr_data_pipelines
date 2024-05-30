@@ -470,4 +470,29 @@ def notification_mattermost(ti):
                     message += "nouvelles données"
                 else:
                     message += "mise à jour des métadonnées"
+
+    issues = {}
+    for path in config:
+        resources = requests.get(
+            f'{DATAGOUV_URL}/api/1/datasets/{config[path]["dataset_id"][AIRFLOW_ENV]}/',
+            headers={'X-fields': 'resources{title,id,type}'}
+        ).json()['resources']
+        for r in resources:
+            if (
+                r['type'] == 'main'
+                and config[path]['name_template']
+                and not r['title'].startswith(config[path]['name_template'].split('_')[0])
+            ):
+                if path not in issues:
+                    issues[path] = {}
+                issues[path][r['id']] = r['title']
+    if issues:
+        message += "\n:alert: Des ressources semblent mal placées :\n"
+        for path in issues:
+            message += f"- [{path}]({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) :\n"
+            for rid in issues[path]:
+                message += (
+                    f"   - [{issues[path][rid]}]({DATAGOUV_URL}/fr/datasets/"
+                    f"{config[path]['dataset_id'][AIRFLOW_ENV]}/#/resources/{rid})\n"
+                )
     send_message(message)
