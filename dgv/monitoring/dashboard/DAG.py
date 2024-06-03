@@ -28,7 +28,10 @@ entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 minio_open = MinIOClient(bucket='dataeng-open')
 minio_destination_folder = "dashboard/"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 with DAG(
     dag_id=DAG_NAME,
