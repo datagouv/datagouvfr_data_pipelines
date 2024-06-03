@@ -595,7 +595,10 @@ def publish_mattermost():
         send_message(message, MATTERMOST_DATAGOUV_EDITO)
 
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 with DAG(
     dag_id=DAG_NAME,
