@@ -78,7 +78,7 @@ class File(TypedDict):
 
 
 def create_dataset(
-    payload: TypedDict,
+    payload,
 ):
     """Create a dataset in data.gouv.fr
 
@@ -290,7 +290,7 @@ def get_dataset_from_resource_id(
 
 
 def update_dataset_or_resource_metadata(
-    payload: TypedDict,
+    payload,
     dataset_id: str,
     resource_id: Optional[str] = None,
 ):
@@ -317,7 +317,7 @@ def update_dataset_or_resource_metadata(
 
 
 def update_dataset_or_resource_extras(
-    payload: TypedDict,
+    payload,
     dataset_id: str,
     resource_id: Optional[str] = None,
 ):
