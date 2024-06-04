@@ -15,7 +15,10 @@ DAG_NAME = "dgv_administrateur"
 def list_current_admins(ti):
     # We want the list of all current users with an admin role
     print(f"Fetching admins from {DATAGOUV_URL}/api/1/users/")
-    users = get_all_from_api_query(f"{DATAGOUV_URL}/api/1/users/?page_size=100")
+    users = get_all_from_api_query(
+        f"{DATAGOUV_URL}/api/1/users/?page_size=100",
+        auth=True,
+    )
     admins = [user for user in users if "admin" in user["roles"]]
     ti.xcom_push(key="admins", value=admins)
 

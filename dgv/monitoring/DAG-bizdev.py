@@ -176,7 +176,11 @@ async def classify_user(user):
 
 
 async def get_suspect_users():
-    users = get_all_from_api_query(datagouv_api_url + 'users/', mask="data{id,about,metrics}")
+    users = get_all_from_api_query(
+        datagouv_api_url + 'users/',
+        mask="data{id,about,metrics}",
+        auth=True,
+    )
     tasks = [asyncio.create_task(classify_user(k)) for k in users]
     results = await asyncio.gather(*tasks)
     return results
@@ -489,7 +493,9 @@ def create_all_tables():
             for word in SPAM_WORDS:
                 data = get_all_from_api_query(
                     datagouv_api_url + f'{obj}/?q={word}',
-                    mask="data{badges,organization,owner,id,name,title,metrics,created_at,since}"
+                    mask="data{badges,organization,owner,id,name,title,metrics,created_at,since}",
+                    # this WILL fail locally  for users because of token mismath (demo/prod)
+                    auth=obj == "users",
                 )
                 for d in data:
                     should_add = True

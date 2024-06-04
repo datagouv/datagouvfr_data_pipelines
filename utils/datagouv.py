@@ -415,7 +415,9 @@ def get_created_date(data, date_key):
 def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', sort_key='-created'):
     results = []
     data = get_all_from_api_query(
-        f"https://www.data.gouv.fr/api/1/{endpoint}/?sort={sort_key}"
+        f"https://www.data.gouv.fr/api/1/{endpoint}/?sort={sort_key}",
+        # this WILL fail locally  for users because of token mismath (demo/prod)
+        auth=endpoint == "users",
     )
     for d in data:
         created = get_created_date(d, date_key)
@@ -540,14 +542,17 @@ def get_all_from_api_query(
     next_page='next_page',
     ignore_errors=False,
     mask=None,
+    auth=False,
 ):
+    """/!\ only for paginated endpoints"""
     def get_link_next_page(elem, separated_keys):
         result = elem
         for k in separated_keys.split('.'):
             result = result[k]
         return result
-    # /!\ only for paginated endpoints
-    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
+    # certain endpoints require authentification but otherwise we're not using it
+    # when running locally this can trigger 401 (if you use your dev/demo token in prod)
+    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
     if mask is not None:
         headers["X-fields"] = mask + f",{next_page}"
     r = requests.get(base_query, headers=headers)
