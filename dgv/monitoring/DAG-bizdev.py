@@ -495,7 +495,7 @@ def create_all_tables():
                     should_add = True
                     # si l'objet est ou provient d'une orga certifiée => pas spam
                     if obj != 'users':
-                        if obj == 'organization':
+                        if obj == 'organizations':
                             badges = d.get('badges', [])
                         else:
                             badges = (
