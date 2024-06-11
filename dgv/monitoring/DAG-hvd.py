@@ -26,12 +26,14 @@ def slugify(s):
 
 def get_hvd(ti):
     print("Getting suivi ouverture")
-    ouverture_hvd_api = 'https://ouverture.data.gouv.fr/api/high_value_datasets'
-    df_ouverture = pd.DataFrame(requests.get(ouverture_hvd_api).json())
-    goal = df_ouverture['ENSEMBLE DE DONNÉES'].nunique()
+    ouverture_hvd_api = 'https://grist.incubateur.net/api/docs/sD3qG5AMXYDH/tables/Hvd/records'
+    r = requests.get(ouverture_hvd_api).json()
+    df_ouverture = pd.DataFrame([k['fields'] for k in r['records']])
+    goal = df_ouverture['Ensemble_de_donnees'].nunique()
+    # goal_list = list(df_ouverture['Ensemble_de_donnees'].unique())
     categories = {
         slugify(cat): cat
-        for cat in set(df_ouverture.THÉMATIQUE)
+        for cat in set(df_ouverture['Thematique'])
     }
 
     print("Getting datasets catalog")
@@ -44,13 +46,12 @@ def get_hvd(ti):
     print("Merging")
     df_merge = df_datasets.merge(
         df_ouverture,
-        left_on='url',
-        right_on='URL',
+        on='url',
         how='outer',
     )
     df_merge['tagged_hvd'] = df_merge['tags'].str.contains('hvd') | False
-    df_merge['in_ouverture'] = df_merge['STATUT'].notna()
-    df_merge['hvd_name'] = df_merge['ENSEMBLE DE DONNÉES']
+    df_merge['in_ouverture'] = df_merge['Statut'].notna()
+    df_merge['hvd_name'] = df_merge['Ensemble_de_donnees']
     df_merge['hvd_category'] = (
         df_merge['tags'].fillna('').apply(
             lambda tags: next((tag for tag in tags.split(',') if tag in categories.keys()), None)
@@ -58,7 +59,10 @@ def get_hvd(ti):
     )
     df_merge = (
         df_merge.loc[
-            df_merge['tagged_hvd'] | (df_merge['in_ouverture'] & ~(df_merge['URL'].isna())),
+            df_merge['tagged_hvd'] | (df_merge['in_ouverture'] & (df_merge['Statut'].apply(
+                lambda s: any(s == k for k in ['Disponible sur data.gouv.fr', 'Disponible'])
+                if isinstance(s, str) else False
+            ))),
             [
                 'title', 'url', 'in_ouverture', 'tagged_hvd', 'hvd_name',
                 'hvd_category', 'organization', 'organization_id', 'license'
@@ -70,6 +74,7 @@ def get_hvd(ti):
     df_merge.to_csv(f"{DATADIR}/{filename}", index=False)
     ti.xcom_push(key="filename", value=filename)
     ti.xcom_push(key="goal", value=goal)
+    # ti.xcom_push(key="goal_list", value=goal_list)
 
 
 def send_to_minio(ti):
@@ -110,6 +115,7 @@ def markdown_item(row):
 def publish_mattermost(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
     goal = ti.xcom_pull(key="goal", task_ids="get_hvd")
+    # goal_list = ti.xcom_pull(key="goal_list", task_ids="get_hvd")
     minio_files = sorted(minio_open.get_files_from_prefix('hvd/', ignore_airflow_env=True))
     print(minio_files)
     if len(minio_files) == 1:
@@ -120,12 +126,21 @@ def publish_mattermost(ti):
     ))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
 
-    new = this_week.loc[~this_week['title'].isin(previous_week['title'])]
-    removed = previous_week.loc[~previous_week['title'].isin(this_week['title'])]
+    new = this_week.loc[
+        (~this_week['title'].isin(previous_week['title']))
+        & (~this_week['title'].isna())
+    ]
+    removed = previous_week.loc[
+        (~previous_week['title'].isin(this_week['title']))
+        & (~previous_week['title'].isna())
+    ]
+    # tmp = list(this_week['hvd_name'].unique())
+    # print([k for k in tmp if k not in goal_list])
+    # print([k for k in goal_list if k not in tmp])
 
     message = "#### :flag-eu: :pokeball: Suivi HVD\n"
     if len(this_week['hvd_name'].unique()) == goal:
-        message += f"# :tada: :tada: {len(this_week['hvd_name'].unique())}/{goal} HVD référencés :tada: :tada: "
+        message += f"# :tada: :tada: {this_week['hvd_name'].nunique()}/{goal} HVD référencés :tada: :tada: "
     else:
         message += f"{len(this_week['hvd_name'].unique())}/{goal} HVD référencés "
     message += "([:arrow_down: télécharger le dernier fichier]"
