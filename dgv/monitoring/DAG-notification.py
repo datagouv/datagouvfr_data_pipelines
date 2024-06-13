@@ -20,6 +20,7 @@ from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_betwe
 import requests
 import re
 from langdetect import detect, LangDetectException
+from unidecode import unidecode
 from time import sleep
 
 DAG_NAME = "dgv_notification_activite"
@@ -31,7 +32,7 @@ entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 def detect_spam(name, description):
     contains_spam_word = any([
-        spam in field.lower() if field else False
+        unidecode(spam) in unidecode(field.lower()) if field else False
         for spam in SPAM_WORDS
         for field in [name, description]
     ])
