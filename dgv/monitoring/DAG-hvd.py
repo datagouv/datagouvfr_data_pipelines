@@ -26,7 +26,7 @@ def slugify(s):
 
 def get_hvd(ti):
     print("Getting suivi ouverture")
-    ouverture_hvd_api = 'https://grist.incubateur.net/api/docs/sD3qG5AMXYDH/tables/Hvd/records'
+    ouverture_hvd_api = 'https://grist.incubateur.net/api/docs/eJxok2H2va3E/tables/Hvd/records'
     r = requests.get(ouverture_hvd_api).json()
     df_ouverture = pd.DataFrame([k['fields'] for k in r['records']])
     goal = df_ouverture['Ensemble_de_donnees'].nunique()
@@ -142,7 +142,9 @@ def publish_mattermost(ti):
     if len(this_week['hvd_name'].unique()) == goal:
         message += f"# :tada: :tada: {this_week['hvd_name'].nunique()}/{goal} HVD référencés :tada: :tada: "
     else:
-        message += f"{len(this_week['hvd_name'].unique())}/{goal} HVD référencés "
+        message += f"{len(this_week['hvd_name'].unique())}/{goal} HVD référencés, "
+    message += f"soit {round(this_week['hvd_name'].nunique() / goal * 100, 1)}% "
+    message += f"et un total de {this_week['url'].nunique()} JdD "
     message += "([:arrow_down: télécharger le dernier fichier]"
     message += f"({minio_open.get_file_url('hvd/' + filename, ignore_airflow_env=True)}))\n"
     if len(new):
