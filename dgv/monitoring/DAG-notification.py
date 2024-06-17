@@ -105,6 +105,7 @@ def check_new(ti, **kwargs):
                 mydict['owner_type'] = None
             if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
+                # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
                     templates_dict["type"] == 'datasets'
                     and any([r['schema'] for r in item['resources']])
@@ -130,6 +131,17 @@ def check_new(ti, **kwargs):
                     mydict['duplicated'] = True
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
+
+
+def check_user_wave():
+    start_date = datetime.now() - timedelta(hours=1)
+    end_date = datetime.now()
+    items = get_last_items("users", start_date, end_date)
+    if len(items) >= 50:
+        send_message(
+            f":warning: @all {len(items)} utilisateurs créés en 1h",
+            MATTERMOST_MODERATION_NOUVEAUTES
+        )
 
 
 def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
@@ -482,6 +494,11 @@ with DAG(
         python_callable=alert_if_awaiting_spam_comments,
     )
 
+    check_user_wave = PythonOperator(
+        task_id="check_user_wave",
+        python_callable=check_user_wave,
+    )
+
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
     publish_mattermost.set_upstream(check_new_orgas)
@@ -490,3 +507,4 @@ with DAG(
 
     get_inactive_orgas
     alert_if_awaiting_spam_comments
+    check_user_wave
