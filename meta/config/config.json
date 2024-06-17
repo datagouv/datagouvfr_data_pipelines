@@ -10,6 +10,7 @@
         "data_processing_sirene_geocodage": true,
         "data_processing_sirene_geolocalisation": true,
         "data_processing_sirene_publication": true,
+        "data_processing_stats_meteo": true,
         "dgv_administrateur": true,
         "dgv_bizdev": true,
         "dgv_curation": true,

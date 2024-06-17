@@ -8,12 +8,23 @@ from datetime import datetime
 import requests
 import pandas as pd
 import json
+from io import StringIO
 
 DATADIR = f"{AIRFLOW_DAG_TMP}stats_meteo/data"
 minio_meteo = MinIOClient(bucket='meteofrance')
 
 
+def fill_url(start, end, site_id, label, **kwargs):
+    return (
+        f"https://stats.data.gouv.fr/index.php?module=API&format=CSV&idSite={site_id}"
+        f"&period=month&date={start},{end}&method=Actions.getPageUrls&label={label}"
+        "&filter_limit=100&format_metrics=1&expanded=1&translateColumnNames=1"
+        "&language=fr&token_auth=anonymous"
+    )
+
+
 def gather_meteo_stats(ti):
+    print("> Stats détaillées")
     # on récupère tous les datasets de meteo.data.gouv
     datasets = requests.get(
         "https://www.data.gouv.fr/api/1/topics/6571f222129681e83de11aa2"
@@ -76,6 +87,23 @@ def gather_meteo_stats(ti):
     }
     ti.xcom_push(key="filename", value=filename)
 
+    # visites sur meteo.data.gouv.fr
+    print("> Stats mensuelles")
+    start_date = "2023-12-01"
+    today = datetime.today().strftime('%Y-%m-%d')
+    r = requests.get(fill_url(
+        start=start_date,
+        end=today,
+        site_id=292,
+        label="",
+    ))
+    df = pd.read_csv(StringIO(r.text))
+    df = df.groupby('Date')['Visiteurs uniques (résumé quotidien)'].sum().reset_index()
+    df.to_csv(
+        f"{DATADIR}/visites_meteo.csv",
+        index=False
+    )
+
 
 def send_to_minio(ti):
     filename = ti.xcom_pull(key="filename", task_ids="gather_meteo_stats")
@@ -87,15 +115,27 @@ def send_to_minio(ti):
                 "dest_path": f"metrics/{AIRFLOW_ENV}/",
                 "dest_name": f"{filename}.{ext}",
             } for ext in ["csv", "json"]
+        ] + [
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": "visites_meteo.csv",
+                "dest_path": f"metrics/{AIRFLOW_ENV}/",
+                "dest_name": "visites_meteo.csv",
+            }
         ],
         ignore_airflow_env=True,
     )
 
 
-def send_notification():
+def send_notification(ti):
+    filename = ti.xcom_pull(key="filename", task_ids="gather_meteo_stats")
+    url = f"https://object.files.data.gouv.fr/meteofrance/metrics/{AIRFLOW_ENV}/"
     send_message(
         text=(
-            ":bar_chart: :partly_sunny_rain: Statistiques mensuelles "
-            "de meteo.data.gouv disponibles sur Minio"
+            "##### :bar_chart: :partly_sunny_rain: Statistiques mensuelles "
+            "de meteo.data.gouv disponibles sur Minio :"
+            f"\n- Statistiques détaillées (en [csv]({url + filename}.csv) "
+            f"et en [json]({url + filename}.json))"
+            f"\n- [Visites mensuelles]({url}visites_meteo.csv)"
         )
     )
