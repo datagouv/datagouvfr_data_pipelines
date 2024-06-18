@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    MATTERMOST_DATAGOUV_CURATION,
+    MATTERMOST_MODERATION_NOUVEAUTES,
     MATTERMOST_DATAGOUV_EDITO,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -579,10 +579,8 @@ def publish_mattermost():
                 url += f"/bizdev/{file}"
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
-            message += f"\n - [{file}]"
-            message += f"(https://explore.data.gouv.fr/tableau?url={url}) "
-            message += f"[⬇️]({url})"
-        send_message(message, MATTERMOST_DATAGOUV_CURATION)
+            message += f"\n - [{file} ⬇️]({url})"
+        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
     edito = [f for f in os.listdir(DATADIR) if f not in curation]
     if edito:
@@ -595,9 +593,7 @@ def publish_mattermost():
                 url += f"/bizdev/{file}"
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
-            message += f"\n - [{file}]"
-            message += f"(https://explore.data.gouv.fr/tableau?url={url}) "
-            message += f"[⬇️]({url})"
+            message += f"\n - [{file} ⬇️]({url})"
         send_message(message, MATTERMOST_DATAGOUV_EDITO)
 
 
