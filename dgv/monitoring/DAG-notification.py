@@ -14,11 +14,11 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_latest_comments,
     get_all_from_api_query,
     get_awaiting_spam_comments,
+    check_duplicated_orga,
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
 import requests
-import re
 from langdetect import detect, LangDetectException
 from unidecode import unidecode
 from time import sleep
@@ -26,7 +26,6 @@ from time import sleep
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"minutes": 5}
-duplicate_slug_pattern = r'-\d+$'
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 
@@ -121,14 +120,7 @@ def check_new(ti, **kwargs):
             mydict['spam'] = detect_spam(item['name'], item['description'])
             mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
             # checking for potential duplicates in organization creation
-            slug = item["slug"]
-            if re.search(duplicate_slug_pattern, slug) is not None:
-                suffix = re.findall(duplicate_slug_pattern, slug)[0]
-                original_orga = slug[:-len(suffix)]
-                test_orga = requests.get(f"https://data.gouv.fr/api/1/organizations/{original_orga}/")
-                # only considering a duplicate if the original slug is taken (not not found or deleted)
-                if test_orga.status_code not in [404, 410]:
-                    mydict['duplicated'] = True
+            mydict['duplicated'], _ = check_duplicated_orga(item["slug"])
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
 

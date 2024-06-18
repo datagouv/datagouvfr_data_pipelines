@@ -4,6 +4,7 @@ import requests
 import os
 import numpy as np
 from datetime import datetime
+import re
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
@@ -552,6 +553,8 @@ def get_all_from_api_query(
         return result
     # certain endpoints require authentification but otherwise we're not using it
     # when running locally this can trigger 401 (if you use your dev/demo token in prod)
+    # to prevent, overwrite the API key with a valid prod key down here
+    # DATAGOUV_SECRET_API_KEY = ""
     headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
     if mask is not None:
         headers["X-fields"] = mask + f",{next_page}"
@@ -587,3 +590,16 @@ def get_awaiting_spam_comments():
     r = datagouv_session.get("https://www.data.gouv.fr/api/1/spam/")
     r.raise_for_status()
     return r.json()
+
+
+def check_duplicated_orga(slug):
+    duplicate_slug_pattern = r'-\d+$'
+    if re.search(duplicate_slug_pattern, slug) is not None:
+        suffix = re.findall(duplicate_slug_pattern, slug)[0]
+        original_orga = slug[:-len(suffix)]
+        url_dup = f"https://data.gouv.fr/api/1/organizations/{original_orga}/"
+        test_orga = requests.get(url_dup)
+        # only considering a duplicate if the original slug is taken (not not found or deleted)
+        if test_orga.status_code not in [404, 410]:
+            return True, url_dup
+    return False, None
