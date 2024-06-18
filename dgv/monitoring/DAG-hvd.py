@@ -148,13 +148,19 @@ def publish_mattermost(ti):
     message += "([:arrow_down: télécharger le dernier fichier]"
     message += f"({minio_open.get_file_url('hvd/' + filename, ignore_airflow_env=True)}))\n"
     if len(new):
-        message += f":heavy_plus_sign: {len(new)} par rapport à la semaine dernière\n"
+        message += (
+            f":heavy_plus_sign: {len(new)} JDD (pour {new['hvd_name'].nunique()} HVD) "
+            "par rapport à la semaine dernière\n"
+        )
         for _, row in new.iterrows():
             message += markdown_item(row)
     if len(removed):
         if len(new):
             message += '\n\n'
-        message += f":heavy_minus_sign: {len(removed)} par rapport à la semaine dernière\n"
+        message += (
+            f":heavy_minus_sign: {len(removed)} JDD (pour {removed['hvd_name'].nunique()} HVD) "
+            "par rapport à la semaine dernière\n"
+        )
         for _, row in removed.iterrows():
             message += markdown_item(row)
 
