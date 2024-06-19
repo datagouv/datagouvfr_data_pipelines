@@ -128,7 +128,7 @@ def check_new(ti, **kwargs):
 def check_user_wave():
     start_date = datetime.now() - timedelta(hours=1)
     end_date = datetime.now()
-    items = get_last_items("users", start_date, end_date)
+    items = get_last_items("users", start_date, end_date, date_key="since")
     if len(items) >= 50:
         send_message(
             f":warning: @all {len(items)} utilisateurs créés en 1h",
