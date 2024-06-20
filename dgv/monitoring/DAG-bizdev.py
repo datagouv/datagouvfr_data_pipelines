@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
-from datagouvfr_data_pipelines.utils.grist import df_to_grist
+from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, df_to_grist
 
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -584,7 +584,8 @@ def publish_mattermost():
     if curation:
         print("   - Files for curation:")
         print(curation)
-        message = ":zap: Les rapports bizdev curation sont disponibles :"
+        message = ":zap: Les rapports bizdev curation sont disponibles "
+        message = f"dans [grist]({GRIST_UI_URL + grist_curation}) :"
         for file in curation:
             url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
             if any([k in file for k in ['spam', 'KO']]):
@@ -598,7 +599,8 @@ def publish_mattermost():
     if edito:
         print("   - Files for édito:")
         print(edito)
-        message = ":zap: Les rapports bizdev édito sont disponibles :"
+        message = ":zap: Les rapports bizdev édito sont disponibles "
+        message = f"dans [grist]({GRIST_UI_URL + grist_edito}) :"
         for file in edito:
             url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
             if any([k in file for k in ['spam', 'KO']]):
