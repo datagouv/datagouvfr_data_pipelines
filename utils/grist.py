@@ -15,6 +15,13 @@ headers = {
 }
 
 
+def handle_grist_error(response):
+    try:
+        response.raise_for_status()
+    except Exception:
+        raise Exception(f"Grist error: '{response.json()['error']}'")
+
+
 def erase_table_content(doc_id, table_id, ids=None):
     """Empty some (if specified) or all rows of a table. Doesn't touch the columns"""
     if ids is None:
@@ -27,7 +34,7 @@ def erase_table_content(doc_id, table_id, ids=None):
         headers=headers,
         json=ids or [r["id"] for r in records]
     )
-    r.raise_for_status()
+    handle_grist_error(r)
 
 
 def rename_table_columns(doc_id, table_id, new_columns):
@@ -48,7 +55,7 @@ def rename_table_columns(doc_id, table_id, new_columns):
             GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns/{i}",
             headers=headers,
         )
-        r.raise_for_status()
+        handle_grist_error(r)
     if isinstance(new_columns, list):
         _columns = {"columns": [{
             "id": col,
@@ -65,7 +72,7 @@ def rename_table_columns(doc_id, table_id, new_columns):
         headers=headers,
         json=_columns,
     )
-    r.raise_for_status()
+    handle_grist_error(r)
     return r.json()
 
 
@@ -92,16 +99,19 @@ def recordify(df, returned_columns):
     return {"records": [{"fields": r} for r in records]}
 
 
-def df_to_grist(df, doc_id, table_id):
+def df_to_grist(df, doc_id, table_id, append=False):
     """
     Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
-    If the table(_id) already exists, replace it entirely, otherwise create it
+    If the table(_id) already exists:
+        - if append: append records at the end of the table (only if columns match)
+        - else: replace it entirely
+    Otherwise create it
     """
     tables = requests.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/",
         headers=headers,
     )
-    tables.raise_for_status()
+    handle_grist_error(tables)
     tables = [t["id"] for t in tables.json()['tables']]
     returned_columns = None
     if table_id not in tables:
@@ -123,14 +133,33 @@ def df_to_grist(df, doc_id, table_id):
             headers=headers,
             json=table
         )
-        r.raise_for_status()
+        handle_grist_error(r)
     else:
-        print(f"Updating table '{doc_id}/tables/{table_id}' (already exists) in grist")
-        erase_table_content(doc_id, table_id)
-        # some column names are not accepted by grist (e.g 'id'), so we get the new names
-        # to potentially replace them so that the upload doesn't crash
-        returned_columns = rename_table_columns(doc_id, table_id, df.columns.to_list())["columns"]
-        returned_columns = [c["id"] for c in returned_columns]
+        if append:
+            print(f"Appending records to '{doc_id}/tables/{table_id}' in grist")
+            r = requests.get(
+                GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
+                headers=headers,
+            ).json()
+            returned_columns = {
+                c["fields"]["label"]: c["id"] for c in r["columns"]
+            }
+            if list(returned_columns.keys()) != df.columns.to_list():
+                raise ValueError(
+                    "Columns of the existing table don't match with sent data:\n"
+                    f"- existing: {list(returned_columns.keys())}\n"
+                    f"- sent: {df.columns.to_list()}"
+                )
+            # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
+            # to potentially replace them so that the upload doesn't crash
+            returned_columns = list(returned_columns.values())
+        else:
+            print(f"Erasing and refilling '{doc_id}/tables/{table_id}' in grist")
+            erase_table_content(doc_id, table_id)
+            # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
+            # to potentially replace them so that the upload doesn't crash
+            returned_columns = rename_table_columns(doc_id, table_id, df.columns.to_list())["columns"]
+            returned_columns = [c["id"] for c in returned_columns]
     # fill it up
     res = []
     for chunk in chunkify(df):
@@ -139,6 +168,6 @@ def df_to_grist(df, doc_id, table_id):
             headers=headers,
             json=recordify(chunk, returned_columns)
         )
-        r.raise_for_status()
+        handle_grist_error(r)
         res += r.json()["records"]
     return res
