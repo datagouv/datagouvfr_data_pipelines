@@ -125,17 +125,6 @@ def check_new(ti, **kwargs):
     ti.xcom_push(key=templates_dict["type"], value=arr)
 
 
-def check_user_wave():
-    start_date = datetime.now() - timedelta(hours=1)
-    end_date = datetime.now()
-    items = get_last_items("users", start_date, end_date, date_key="since")
-    if len(items) >= 50:
-        send_message(
-            f":warning: @all {len(items)} utilisateurs créés en 1h",
-            MATTERMOST_MODERATION_NOUVEAUTES
-        )
-
-
 def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     # DAG runs every 5min, we want this to run every Monday at ~10:00
     start, end = dtime(9, 1, 0), dtime(9, 6, 0)
@@ -486,11 +475,6 @@ with DAG(
         python_callable=alert_if_awaiting_spam_comments,
     )
 
-    check_user_wave = PythonOperator(
-        task_id="check_user_wave",
-        python_callable=check_user_wave,
-    )
-
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
     publish_mattermost.set_upstream(check_new_orgas)
@@ -499,4 +483,3 @@ with DAG(
 
     get_inactive_orgas
     alert_if_awaiting_spam_comments
-    check_user_wave
