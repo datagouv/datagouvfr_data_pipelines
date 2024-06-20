@@ -7,6 +7,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_GRIST_API_KEY,
 )
 
+GRIST_UI_URL = GRIST_API_URL.replace("api", "o/datagouv")
 headers = {
     "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
     'Content-Type': 'application/json',
@@ -32,7 +33,7 @@ def erase_table_content(doc_id, table_id, ids=None):
 def rename_table_columns(doc_id, table_id, new_columns):
     """
     Delete and recreate columns in the table
-    Intended to be used when the table is empty prevent unwanted behaviour
+    Intended to be used when the table is empty to prevent unwanted behaviour
     'new_columns' can be a list or a dict:
         - list: ids and labels are set to the same values
         - dict: the exact grist pattern is expected (see how it's constructed for the list case)

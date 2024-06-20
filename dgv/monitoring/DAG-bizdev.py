@@ -19,11 +19,14 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
+from datagouvfr_data_pipelines.utils.grist import df_to_grist
 
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
+grist_edito = "4MdJUBsdSgjE"
+grist_curation = "muvJRZ9cTGep"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 ignored_reuses = [
     '5cc31646634f415773630550',
@@ -122,7 +125,7 @@ def get_unavailable_reuses():
     reuses = [r for r in reuses if r['id'] not in ignored_reuses]
     # gather on the whole reuse list is inconsistent (some unavailable reuses do not
     # appear), having a smaller batch size provides better results and keeps the duration
-    # acceptable (compared to synchronous process) 
+    # acceptable (compared to synchronous process)
     batch_size = 50
     print(f"Checking {len(reuses)} reuses with batch size of", batch_size)
     unavailable_reuses = []
@@ -219,6 +222,7 @@ def create_all_tables():
         }
         df = pd.DataFrame(orgas_of_interest.values(), index=orgas_of_interest.keys())
         df[:50].to_csv(DATADIR + 'top50_orgas_most_publications_30_days.csv', index=False)
+        df_to_grist(df, grist_edito, "Top50_organisations_publications_1mois")
 
         # Top 50 des orga les plus visitées et avec le plus de ressources téléchargées
         # aka le plus de visites sur tous les datasets de l'orga
@@ -253,6 +257,7 @@ def create_all_tables():
             orga_visited[k].update({'name': r.get('name', None), 'url': r.get('page', None)})
         df = pd.DataFrame(orga_visited.values(), index=orga_visited.keys())
         df.to_csv(DATADIR + 'top50_orgas_most_visits_last_month.csv', index=False)
+        df_to_grist(df, grist_edito, "Top50_organisations_visites_1mois")
 
         # Top 50 des JDD les plus visités
         print('Top 50 des JDD les plus visités')
@@ -279,6 +284,7 @@ def create_all_tables():
             })
         df = pd.DataFrame(datasets_visited.values(), index=datasets_visited.keys())
         df.to_csv(DATADIR + 'top50_datasets_most_visits_last_month.csv', index=False)
+        df_to_grist(df, grist_edito, "Top50_datasets_visites_1mois")
 
         # Top 50 des ressources les plus téléchargées
         print('Top 50 des ressources les plus téléchargées')
@@ -338,6 +344,7 @@ def create_all_tables():
             float_format="%.0f",
             index=False
         )
+        df_to_grist(df, grist_edito, "Top50_ressources_telechargees_1mois")
 
         # Top 50 des réutilisations les plus visitées
         print('Top 50 des réutilisations les plus visitées')
@@ -368,6 +375,7 @@ def create_all_tables():
             })
         df = pd.DataFrame(reuses_visited.values(), index=reuses_visited.keys())
         df.to_csv(DATADIR + 'top50_reuses_most_visits_last_month.csv', index=False)
+        df_to_grist(df, grist_edito, "Top50_reutilisations_visites_1mois")
 
         # Top 50 des JDD les plus discutés
         print('Top 50 des JDD les plus discutés')
@@ -403,6 +411,7 @@ def create_all_tables():
         }
         df = pd.DataFrame(discussions_of_interest.values(), index=discussions_of_interest.keys())
         df.to_csv(DATADIR + 'top50_orgas_most_discussions_30_days.csv', index=False)
+        df_to_grist(df, grist_edito, "Top50_orgas_discutees_30jours")
 
     # Reuses down, JDD vides et spams tous les lundis
     if today.weekday() == 0:
@@ -437,6 +446,7 @@ def create_all_tables():
         df = pd.DataFrame(restr_reuses.values(), index=restr_reuses.keys())
         df = df.sort_values('monthly_visit', ascending=False)
         df.to_csv(DATADIR + 'all_reuses_most_visits_KO_last_month.csv', float_format="%.0f", index=False)
+        df_to_grist(df, grist_curation, "Reutilisations_down")
 
         # Datasets sans ressources
         print('Datasets sans ressources')
@@ -478,6 +488,7 @@ def create_all_tables():
         df = pd.DataFrame(empty_datasets.values(), index=empty_datasets.keys())
         df = df.sort_values('last_month_visits', ascending=False)
         df.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
+        df_to_grist(df, grist_curation, "Datasets_vides")
 
         # Spam
         print('Spam')
@@ -535,6 +546,7 @@ def create_all_tables():
         spam.extend([u for u in suspect_users if u])
         df = pd.DataFrame(spam).drop_duplicates(subset='url')
         df.to_csv(DATADIR + 'objects_with_spam_word.csv', index=False)
+        df_to_grist(df, grist_curation, "Spam")
 
 
 def send_tables_to_minio():
