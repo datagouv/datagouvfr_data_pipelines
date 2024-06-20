@@ -127,7 +127,7 @@ def df_to_grist(df, doc_id, table_id, append=False):
                 } for col in df.columns]
             }
         ]}
-        # creating table
+        # create the table
         r = requests.post(
             GRIST_API_URL + "docs/" + doc_id + "/tables",
             headers=headers,
