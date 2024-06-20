@@ -18,15 +18,18 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
+from datagouvfr_data_pipelines.utils.grist import df_to_grist
 import requests
 from langdetect import detect, LangDetectException
 from unidecode import unidecode
 from time import sleep
+import pandas as pd
 
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"minutes": 5}
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
+grist_curation = "muvJRZ9cTGep"
 
 
 def detect_spam(name, description):
@@ -118,6 +121,8 @@ def check_new(ti, **kwargs):
                 mydict['first_publication'] = False
         else:
             mydict['spam'] = detect_spam(item['name'], item['description'])
+            if mydict['spam']:
+                mydict['description'] = item['description']
             mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
             # checking for potential duplicates in organization creation
             mydict['duplicated'], _ = check_duplicated_orga(item["slug"])
@@ -313,6 +318,29 @@ def check_schema(ti):
                 pass
 
 
+def send_spam_to_grist(ti):
+    records = []
+    for _type in [
+        "datasets",
+        "reuses",
+        "organizations",
+    ]:
+        arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
+        print(arr)
+        if not arr:
+            continue
+        for obj in arr:
+            if obj.get("spam"):
+                obj["type"] = _type
+                # standardize title and name for clarity
+                if obj.get("title"):
+                    obj["name"] = obj["title"]
+                    del obj["title"]
+                records.append(obj)
+    df = pd.DataFrame(records)
+    df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append=True)
+
+
 def publish_item(item, item_type):
     if item_type == "dataset":
         message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
@@ -358,14 +386,15 @@ def publish_mattermost(ti):
     datasets = ti.xcom_pull(key="datasets", task_ids="check_new_datasets")
     nb_reuses = float(ti.xcom_pull(key="nb", task_ids="check_new_reuses"))
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
-    nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
-    orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
+    nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_organizations"))
+    orgas = ti.xcom_pull(key="organizations", task_ids="check_new_organizations")
     # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:
             if item['spam']:
-                message = ':warning: @all Spam potentiel\n'
+                # message = ':warning: @all Spam potentiel\n'
+                pass
             else:
                 message = ''
             if item['duplicated']:
@@ -444,8 +473,8 @@ with DAG(
         templates_dict={"type": "reuses"},
     )
 
-    check_new_orgas = PythonOperator(
-        task_id="check_new_orgas",
+    check_new_organizations = PythonOperator(
+        task_id="check_new_organizations",
         python_callable=check_new,
         templates_dict={"type": "organizations"},
     )
@@ -454,6 +483,11 @@ with DAG(
     #     task_id="check_new_comments",
     #     python_callable=check_new_comments,
     # )
+
+    send_spam_to_grist = PythonOperator(
+        task_id="send_spam_to_grist",
+        python_callable=send_spam_to_grist,
+    )
 
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
@@ -477,9 +511,13 @@ with DAG(
 
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
-    publish_mattermost.set_upstream(check_new_orgas)
+    publish_mattermost.set_upstream(check_new_organizations)
 
     check_schema.set_upstream(publish_mattermost)
+
+    send_spam_to_grist.set_upstream(check_new_datasets)
+    send_spam_to_grist.set_upstream(check_new_reuses)
+    send_spam_to_grist.set_upstream(check_new_organizations)
 
     get_inactive_orgas
     alert_if_awaiting_spam_comments
