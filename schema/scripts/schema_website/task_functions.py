@@ -785,20 +785,17 @@ def check_and_save_schemas(ti):
         print("_______________________________")
         print("Starting with ", repertoire_slug)
         print(conf)
-        try:
-            if conf['type'] != 'datapackage':
-                print(f"Recognized as a simple {conf['type']}")
-                schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
-                SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
-            else:
-                print('Recognized as a datapackage')
-                schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
-                for schema in schemas_to_add_to_catalog:
-                    SCHEMA_CATALOG['schemas'].append(schema)
-            # Append info to SCHEMA_CATALOG
-            print(f'--- {repertoire_slug} processed')
-        except git.exc.GitCommandError:
-            print(f'--- {repertoire_slug} failed to process due to git error')
+        if conf['type'] != 'datapackage':
+            print(f"Recognized as a simple {conf['type']}")
+            schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
+            SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
+        else:
+            print('Recognized as a datapackage')
+            schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
+            for schema in schemas_to_add_to_catalog:
+                SCHEMA_CATALOG['schemas'].append(schema)
+        # Append info to SCHEMA_CATALOG
+        print(f'--- {repertoire_slug} processed')
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
     schemas_tableschema = SCHEMA_CATALOG.copy()
