@@ -6,6 +6,7 @@ from typing import List, TypedDict, Optional
 import os
 import io
 import json
+import magic
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_URL,
@@ -68,11 +69,17 @@ class MinIOClient:
                     dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
                 print("Sending " + file["source_path"] + file["source_name"])
                 print(f"to {self.bucket}/{dest_path}")
+                print(magic.from_file(os.path.join(file["source_path"], file["source_name"]), mime=True))
                 self.client.fput_object(
                     self.bucket,
                     dest_path,
                     os.path.join(file["source_path"], file["source_name"]),
-                    content_type=file['content_type'] if 'content_type' in file else None
+                    content_type=(
+                        file.get('content_type') or magic.from_file(
+                            os.path.join(file["source_path"], file["source_name"]),
+                            mime=True
+                        )
+                    )
                 )
             else:
                 raise Exception(
