@@ -69,7 +69,6 @@ class MinIOClient:
                     dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
                 print("Sending " + file["source_path"] + file["source_name"])
                 print(f"to {self.bucket}/{dest_path}")
-                print(magic.from_file(os.path.join(file["source_path"], file["source_name"]), mime=True))
                 self.client.fput_object(
                     self.bucket,
                     dest_path,
