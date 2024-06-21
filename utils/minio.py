@@ -73,11 +73,9 @@ class MinIOClient:
                     self.bucket,
                     dest_path,
                     os.path.join(file["source_path"], file["source_name"]),
-                    content_type=(
-                        file.get('content_type') or magic.from_file(
-                            os.path.join(file["source_path"], file["source_name"]),
-                            mime=True
-                        )
+                    content_type=file.get('content_type') or magic.from_file(
+                        os.path.join(file["source_path"], file["source_name"]),
+                        mime=True
                     )
                 )
             else:
