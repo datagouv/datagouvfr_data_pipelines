@@ -339,6 +339,7 @@ def send_spam_to_grist(ti):
                 records.append(obj)
     if records:
         df = pd.DataFrame(records)
+        df['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append="lazy")
 
 
