@@ -585,7 +585,7 @@ def publish_mattermost():
         print("   - Files for curation:")
         print(curation)
         message = ":zap: Les rapports bizdev curation sont disponibles "
-        message = f"dans [grist]({GRIST_UI_URL + grist_curation}) :"
+        message += f"dans [grist]({GRIST_UI_URL + grist_curation}) :"
         for file in curation:
             url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
             if any([k in file for k in ['spam', 'KO']]):
@@ -600,7 +600,7 @@ def publish_mattermost():
         print("   - Files for édito:")
         print(edito)
         message = ":zap: Les rapports bizdev édito sont disponibles "
-        message = f"dans [grist]({GRIST_UI_URL + grist_edito}) :"
+        message += f"dans [grist]({GRIST_UI_URL + grist_edito}) :"
         for file in edito:
             url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
             if any([k in file for k in ['spam', 'KO']]):
