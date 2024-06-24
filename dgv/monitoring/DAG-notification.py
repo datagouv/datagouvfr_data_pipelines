@@ -500,10 +500,10 @@ with DAG(
         python_callable=check_schema,
     )
 
-    get_inactive_orgas = PythonOperator(
-        task_id="get_inactive_orgas",
-        python_callable=get_inactive_orgas,
-    )
+    # get_inactive_orgas = PythonOperator(
+    #     task_id="get_inactive_orgas",
+    #     python_callable=get_inactive_orgas,
+    # )
 
     alert_if_awaiting_spam_comments = PythonOperator(
         task_id="alert_if_awaiting_spam_comments",
@@ -520,5 +520,5 @@ with DAG(
     send_spam_to_grist.set_upstream(check_new_reuses)
     send_spam_to_grist.set_upstream(check_new_organizations)
 
-    get_inactive_orgas
+    # get_inactive_orgas
     alert_if_awaiting_spam_comments
