@@ -99,6 +99,25 @@ def recordify(df, returned_columns):
     return {"records": [{"fields": r} for r in records]}
 
 
+def get_real_columns(doc_id, table_id, df):
+    r = requests.get(
+        GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
+        headers=headers,
+    ).json()
+    returned_columns = {
+        c["fields"]["label"]: c["id"] for c in r["columns"]
+    }
+    if list(returned_columns.keys()) != df.columns.to_list():
+        raise ValueError(
+            "Columns of the existing table don't match with sent data:\n"
+            f"- existing: {list(returned_columns.keys())}\n"
+            f"- sent: {df.columns.to_list()}"
+        )
+    # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
+    # to potentially replace them so that the upload doesn't crash
+    return list(returned_columns.values())
+
+
 def df_to_grist(df, doc_id, table_id, append=False):
     """
     Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
@@ -134,25 +153,11 @@ def df_to_grist(df, doc_id, table_id, append=False):
             json=table
         )
         handle_grist_error(r)
+        returned_columns = get_real_columns(doc_id, table_id, df)
     else:
         if append:
             print(f"Appending records to '{doc_id}/tables/{table_id}' in grist")
-            r = requests.get(
-                GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
-                headers=headers,
-            ).json()
-            returned_columns = {
-                c["fields"]["label"]: c["id"] for c in r["columns"]
-            }
-            if list(returned_columns.keys()) != df.columns.to_list():
-                raise ValueError(
-                    "Columns of the existing table don't match with sent data:\n"
-                    f"- existing: {list(returned_columns.keys())}\n"
-                    f"- sent: {df.columns.to_list()}"
-                )
-            # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
-            # to potentially replace them so that the upload doesn't crash
-            returned_columns = list(returned_columns.values())
+            returned_columns = get_real_columns(doc_id, table_id, df)
         else:
             print(f"Erasing and refilling '{doc_id}/tables/{table_id}' in grist")
             erase_table_content(doc_id, table_id)
