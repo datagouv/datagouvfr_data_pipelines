@@ -339,7 +339,7 @@ def send_spam_to_grist(ti):
                 records.append(obj)
     if records:
         df = pd.DataFrame(records)
-        df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append=True)
+        df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append="lazy")
 
 
 def publish_item(item, item_type):
