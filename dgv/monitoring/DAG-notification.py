@@ -33,20 +33,19 @@ grist_curation = "muvJRZ9cTGep"
 
 
 def detect_spam(name, description):
-    for spam in SPAM_WORDS:
-        for field in [name, description]:
-            if field and unidecode(spam) in unidecode(field.lower()):
-                return unidecode(spam)
+    contains_spam_word = any([
+        unidecode(spam) in unidecode(field.lower()) if field else False
+        for spam in SPAM_WORDS
+        for field in [name, description]
+    ])
     if not description or len(description) < 30:
-        return
+        doesnt_look_french = False
     else:
         try:
-            lang = detect(description.lower())
-            if lang != 'fr':
-                return 'language:' + lang
+            doesnt_look_french = detect(description.lower()) != 'fr'
         except LangDetectException:
-            return
-    return
+            doesnt_look_french = False
+    return contains_spam_word or doesnt_look_french
 
 
 def detect_potential_certif(siret):
@@ -362,7 +361,7 @@ def publish_item(item, item_type):
 
     if item['first_publication']:
         if item['spam']:
-            message = f':warning: @all Spam potentiel ({item["spam"]})\n'
+            message = ':warning: @all Spam potentiel\n'
         else:
             message = ''
 
