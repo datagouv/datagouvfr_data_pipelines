@@ -14,6 +14,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_and_upload_reuses_down,
     gather_and_upload,
     get_catalog_stats,
+    get_hvd_dataservices_stats,
 )
 
 DAG_NAME = "dgv_dashboard"
@@ -65,6 +66,11 @@ with DAG(
         python_callable=get_catalog_stats,
     )
 
+    get_hvd_dataservices_stats = PythonOperator(
+        task_id="get_hvd_dataservices_stats",
+        python_callable=get_hvd_dataservices_stats,
+    )
+
     get_and_upload_certification = PythonOperator(
         task_id="get_and_upload_certification",
         python_callable=get_and_upload_certification,
@@ -93,6 +99,7 @@ with DAG(
     get_and_upload_certification.set_upstream(clean_previous_outputs)
     get_and_upload_reuses_down.set_upstream(clean_previous_outputs)
     get_catalog_stats.set_upstream(clean_previous_outputs)
+    get_hvd_dataservices_stats.set_upstream(clean_previous_outputs)
 
     gather_and_upload.set_upstream(get_zammad_tickets)
     gather_and_upload.set_upstream(get_visits)
@@ -101,3 +108,4 @@ with DAG(
     publish_mattermost.set_upstream(get_and_upload_certification)
     publish_mattermost.set_upstream(get_and_upload_reuses_down)
     publish_mattermost.set_upstream(get_catalog_stats)
+    publish_mattermost.set_upstream(get_hvd_dataservices_stats)
