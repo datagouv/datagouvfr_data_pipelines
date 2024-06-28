@@ -87,7 +87,7 @@ def get_files_updated_miom(ti):
         arr, new_max_date = parse_and_max_date(url, arr, max_date, item, new_max_date)
 
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
-        json.dump({ "max_date": max_date }, fp)
+        json.dump({ "max_date": new_max_date }, fp)
     ti.xcom_push(key="miom_files", value=arr)
     ti.xcom_push(key="max_date", value=new_max_date)
 
