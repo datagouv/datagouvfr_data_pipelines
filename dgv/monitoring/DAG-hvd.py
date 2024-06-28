@@ -35,6 +35,22 @@ def get_hvd(ti):
         slugify(cat): cat
         for cat in set(df_ouverture['Thematique'])
     }
+    dfs = []
+    for _type in ['Telechargement', 'API']:
+        tmp = df_ouverture[
+            ['Titre', 'Ensemble_de_donnees', 'Thematique'] +
+            [c for c in df_ouverture.columns if c.endswith(_type)]
+        ]
+        tmp['type'] = 'dataservices' if _type == 'API' else 'datasets'
+        tmp.rename(
+            {c: c.replace(f'_{_type}', '') for c in df_ouverture.columns if c.endswith(_type)},
+            axis=1, inplace=True
+        )
+        dfs.append(tmp)
+    df_ouverture = pd.concat(dfs)
+    df_ouverture.rename({
+        'URL': 'url',
+    }, axis=1, inplace=True)
 
     print("Getting datasets catalog")
     df_datasets = pd.read_csv(
@@ -50,7 +66,7 @@ def get_hvd(ti):
         how='outer',
     )
     df_merge['tagged_hvd'] = df_merge['tags'].str.contains('hvd') | False
-    df_merge['in_ouverture'] = df_merge['Statut'].notna()
+    df_merge['in_ouverture'] = df_merge['type'].notna()
     df_merge['hvd_name'] = df_merge['Ensemble_de_donnees']
     df_merge['hvd_category'] = (
         df_merge['tags'].fillna('').apply(
