@@ -235,6 +235,12 @@ def publish_results_elections(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/miom_mirroring/config/dgv.json") as fp:
         data = json.load(fp)
     for d in data:
+        complement = ' (dernière mise à jour : ' + max_date + ')'
+        if d['format'] == 'csv':
+            df = pd.read_csv(DATADIR + d['filename'])
+            if df.shape[0] <= 1:
+                complement = ' (pas encore disponible)'
+
         filesize = None
         if d["filename"]:
             filesize = os.path.getsize(os.path.join(DATADIR, d["filename"]))
@@ -244,7 +250,7 @@ def publish_results_elections(ti):
             dataset_id=d[AIRFLOW_ENV]["dataset_id"],
             resource_id=d[AIRFLOW_ENV]["resource_id"],
             filesize=filesize,
-            title=d['name'] + ' - (dernière mise à jour : ' + max_date + ')',
+            title=d['name'] + complement,
             format=d['format'],
             description="",
             datagouv_url="https://demo.data.gouv.fr",
