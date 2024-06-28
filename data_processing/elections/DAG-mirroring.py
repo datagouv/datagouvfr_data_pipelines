@@ -11,7 +11,6 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
     get_files_minio_mirroring,
     get_files_updated_miom,
-    compare_minio_miom,
     download_local_files,
     send_to_minio,
 )
