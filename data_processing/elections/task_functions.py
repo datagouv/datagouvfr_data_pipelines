@@ -12,6 +12,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
+from datagouvfr_data_pipelines.utils.download import download_files
+
 import numpy as np
 import os
 import pandas as pd
@@ -19,6 +21,8 @@ import json
 from itertools import chain
 from datetime import datetime
 import math
+import requests
+from bs4 import BeautifulSoup
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
@@ -27,6 +31,8 @@ int_cols = {
     'general': ['Inscrits', 'Abstentions', 'Votants', 'Blancs', 'Nuls', 'Exprimés'],
     'candidats': ['N°Panneau', 'Voix'],
 }
+
+ID_CURRENT_ELECTION = "LG2024"
 
 
 def num_converter(value, _type):
@@ -318,4 +324,77 @@ def send_notification():
             f"- Données référencées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/"
             f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
         )
+    )
+
+
+def get_files_minio_mirroring(ti):
+    minio_files = sorted(minio_open.get_files_from_prefix('elections-mirroring/' + ID_CURRENT_ELECTION + '/', ignore_airflow_env=False, recursive=True))
+    print(minio_files)
+    arr = []
+    for mf in minio_files:
+        arr.append(mf.replace("elections-mirroring/", ""))
+    ti.xcom_push(key="minio_files", value=arr)
+
+
+def parse_http_server(url_source, url, arr):
+    response = requests.get(url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        links = soup.find_all('a')
+        for link in links:
+            href = link.get('href')
+            if href != '../':
+                if href.endswith('/'):
+                    new_url = url + href
+                    arr = parse_http_server(url_source, new_url, arr)
+                else:
+                    # C'est un fichier, on le télécharge si pas présent localement
+                    file_url = url + href
+                    arr.append(file_url.replace(url_source, ''))
+    return arr
+
+
+def get_all_files_miom(ti):
+    url = "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/"
+    arr = []
+    arr = parse_http_server(url, url, arr)
+    ti.xcom_push(key="miom_files", value=arr)
+
+
+def compare_minio_miom(ti):
+    minio_files = ti.xcom_pull(key="minio_files", task_ids="get_files_minio_mirroring")
+    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_all_files_miom")
+    compare_files = list(set(miom_files) - set(minio_files))
+    ti.xcom_push(key="compare_files", value=compare_files)
+
+
+def download_local_files(ti):
+    compare_files = ti.xcom_pull(key="compare_files", task_ids="compare_minio_miom")
+    arr = []
+    for cf in compare_files:
+        arr.append(
+            {
+                "url": "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/" + cf,
+                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + '/'.join(cf.split("/")[:-1]) + "/",
+                "dest_name": cf.split("/")[-1]
+            }
+        )
+    download_files(arr)
+
+   
+def send_to_minio(ti):
+    compare_files = ti.xcom_pull(key="compare_files", task_ids="compare_minio_miom")
+    arr = []
+    for cf in compare_files:
+        arr.append(
+            {
+                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/'.join(cf.split("/")[:-1]) + "/",
+                "source_name": cf.split("/")[-1],
+                "dest_path": "elections-mirroring/" + '/'.join(cf.split("/")[:-1]) + "/",
+                "dest_name": cf.split("/")[-1],
+            }
+        )
+
+    minio_open.send_files(
+        list_files=arr
     )
