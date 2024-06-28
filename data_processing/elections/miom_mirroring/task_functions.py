@@ -64,6 +64,14 @@ def parse_http_server(url_source, url, arr, max_date, subfolder):
     return arr, max_date
 
 
+def parse_and_max_date(url, arr, max_date, item, new_max_date):
+    arr, item_max_date = parse_http_server(f"{url}{item}/", url, arr, max_date, "{item}")
+    if new_max_date < item_max_date:
+        new_max_date = item_max_date
+    return arr, new_max_date
+
+
+
 def get_files_updated_miom(ti):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     r = requests.get(
@@ -73,16 +81,15 @@ def get_files_updated_miom(ti):
         "/elections-mirroring/max_date.json"
     )
     max_date = r.json()["max_date"]
+    new_max_date = max_date
     arr = []
-    arr, max_date = parse_http_server(f"{url}nuances/", url, arr, max_date, "nuances")
-    arr, max_date = parse_http_server(f"{url}candidatsT1/", url, arr, max_date, "candidatsT1")
-    arr, max_date = parse_http_server(f"{url}candidatsT2/", url, arr, max_date, "candidatsT2")
-    arr, max_date = parse_http_server(f"{url}resultatsT1/", url, arr, max_date, "resultatsT1")
-    arr, max_date = parse_http_server(f"{url}resultatsT2/", url, arr, max_date, "resultatsT2")
+    for item in ['nuances', 'candidatsT1', 'candidatsT2', 'resultatsT1', 'resultatsT2']:
+        arr, new_max_date = parse_and_max_date(url, arr, max_date, "nuances", new_max_date)
+
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
         json.dump({ "max_date": max_date }, fp)
     ti.xcom_push(key="miom_files", value=arr)
-    ti.xcom_push(key="max_date", value=max_date)
+    ti.xcom_push(key="max_date", value=new_max_date)
 
 
 def download_local_files(ti):
