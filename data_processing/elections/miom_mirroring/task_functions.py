@@ -177,6 +177,17 @@ def send_exports_to_minio():
                     "dest_name": f"{typeCandidat}.csv",
                 }
             )
+    for typeResultat in ['resultatsT1', 'resultatsT2']:
+        for typeResultatFile in ['general', 'candidats']:
+            if os.path.exists(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{typeResultatFile}.csv"):
+                list_files.append(
+                    {
+                        "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+                        "source_name": f"{typeCandidat}_{typeResultatFile}.csv",
+                        "dest_path": "elections-mirroring/",
+                        "dest_name": f"{typeCandidat}_{typeResultatFile}.csv",
+                    }
+                )
     minio_open.send_files(
         list_files=list_files
     )
@@ -267,3 +278,140 @@ def publish_results_elections(ti):
             description="",
             datagouv_url="https://demo.data.gouv.fr",
         )
+
+
+def process_xml_general(xml_data):
+    soup = BeautifulSoup(xml_data, 'xml')
+    general_results = []
+
+    election_type = soup.find('Type').text
+    election_year = soup.find('Annee').text
+
+    for department in soup.find_all('Departement'):
+        department_code = department.find('CodDpt').text
+        department_name = department.find('LibDpt').text
+
+        for commune in department.find_all('Commune'):
+            commune_code = commune.find('CodSubCom').text
+            commune_name = commune.find('LibSubCom').text
+            circonscription_code = commune.find('CodCirLg').text
+            circonscription_name = commune.find('LibFraSubCom').text
+
+            for tour in commune.find_all('Tour'):
+                tour_number = tour.find('NumTour').text
+                inscrits = tour.find('Inscrits').find('Nombre').text
+                abstentions = tour.find('Abstentions').find('Nombre').text
+                abstentions_ratio = tour.find('Abstentions').find('RapportInscrit').text
+                votants = tour.find('Votants').find('Nombre').text
+                votants_ratio = tour.find('Votants').find('RapportInscrit').text
+                blancs = tour.find('Blancs').find('Nombre').text
+                blancs_ratio_inscrit = tour.find('Blancs').find('RapportInscrit').text
+                blancs_ratio_votant = tour.find('Blancs').find('RapportVotant').text
+                nuls = tour.find('Nuls').find('Nombre').text
+                nuls_ratio_inscrit = tour.find('Nuls').find('RapportInscrit').text
+                nuls_ratio_votant = tour.find('Nuls').find('RapportVotant').text
+                exprimes = tour.find('Exprimes').find('Nombre').text
+                exprimes_ratio_inscrit = tour.find('Exprimes').find('RapportInscrit').text
+                exprimes_ratio_votant = tour.find('Exprimes').find('RapportVotant').text
+
+                general_results.append({
+                    'Type': election_type,
+                    'Annee': election_year,
+                    'CodDpt': department_code,
+                    'LibDpt': department_name,
+                    'CodSubCom': commune_code,
+                    'LibSubCom': commune_name,
+                    'CodCirLg': circonscription_code,
+                    'LibFraSubCom': circonscription_name,
+                    'NumTour': tour_number,
+                    'Inscrits': inscrits,
+                    'Abstentions': abstentions,
+                    'Abstentions_RapportInscrit': abstentions_ratio,
+                    'Votants': votants,
+                    'Votants_RapportInscrit': votants_ratio,
+                    'Blancs': blancs,
+                    'Blancs_RapportInscrit': blancs_ratio_inscrit,
+                    'Blancs_RapportVotant': blancs_ratio_votant,
+                    'Nuls': nuls,
+                    'Nuls_RapportInscrit': nuls_ratio_inscrit,
+                    'Nuls_RapportVotant': nuls_ratio_votant,
+                    'Exprimes': exprimes,
+                    'Exprimes_RapportInscrit': exprimes_ratio_inscrit,
+                    'Exprimes_RapportVotant': exprimes_ratio_votant
+                })
+
+    return pd.DataFrame(general_results)
+
+
+def process_xml_candidats(xml_data):
+    soup = BeautifulSoup(xml_data, 'xml')
+    candidate_results = []
+
+    election_type = soup.find('Type').text
+    election_year = soup.find('Annee').text
+
+    for department in soup.find_all('Departement'):
+        department_code = department.find('CodDpt').text
+        department_name = department.find('LibDpt').text
+
+        for commune in department.find_all('Commune'):
+            commune_code = commune.find('CodSubCom').text
+            commune_name = commune.find('LibSubCom').text
+            circonscription_code = commune.find('CodCirLg').text
+            circonscription_name = commune.find('LibFraSubCom').text
+
+            for tour in commune.find_all('Tour'):
+                tour_number = tour.find('NumTour').text
+
+                for candidat in tour.find_all('Candidat'):
+                    candidate_results.append({
+                        'Type': election_type,
+                        'Annee': election_year,
+                        'CodDpt': department_code,
+                        'LibDpt': department_name,
+                        'CodSubCom': commune_code,
+                        'LibSubCom': commune_name,
+                        'CodCirLg': circonscription_code,
+                        'LibFraSubCom': circonscription_name,
+                        'NumTour': tour_number,
+                        'NumPanneauCand': candidat.find('NumPanneauCand').text,
+                        'NomPsn': candidat.find('NomPsn').text,
+                        'PrenomPsn': candidat.find('PrenomPsn').text,
+                        'CivilitePsn': candidat.find('CivilitePsn').text,
+                        'CodNua': candidat.find('CodNua').text,
+                        'LibNua': candidat.find('LibNua').text,
+                        'NbVoix': candidat.find('NbVoix').text,
+                        'RapportExprime': candidat.find('RapportExprime').text,
+                        'RapportInscrit': candidat.find('RapportInscrit').text
+                    })
+
+    return pd.DataFrame(candidate_results)
+
+
+def create_resultats_files():
+    files = glob.glob(f"{AIRFLOW_DAG_TMP}elections-mirroring/export/**", recursive=True)
+    for typeResultat in ['resultatsT1', 'resultatsT2']:
+        df1 = pd.DataFrame()
+        df2 = pd.DataFrame()
+        for f in files:
+            if typeResultat in f and 'com.xml' in f:
+                print(f)
+                with open(f, 'r', encoding='utf-8') as file:
+                    xml_data = file.read()
+                dfinter1 = process_xml_general(xml_data)
+                dfinter2 = process_xml_candidats(xml_data)
+                df1 = pd.concat([df1, dfinter1])
+                df2 = pd.concat([df2, dfinter2])
+        if df1.shape[0] > 0:
+            df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_general.csv", index=False)
+        else:
+            data = {'Données': ['Non disponibles']}
+            df1 = pd.DataFrame(data)
+            df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_general.csv", index=False)
+        
+        if df2.shape[0] > 0:
+            df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_candidats.csv", index=False)
+        else:
+            data = {'Données': ['Non disponibles']}
+            df2 = pd.DataFrame(data)
+            df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_candidats.csv", index=False)
