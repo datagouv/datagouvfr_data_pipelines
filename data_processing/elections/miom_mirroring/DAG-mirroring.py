@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 
-from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
+from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (
     get_files_updated_miom,
     download_local_files,
     send_to_minio,
