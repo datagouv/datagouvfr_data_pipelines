@@ -402,7 +402,8 @@ def parse_http_server(url_source, url, arr, max_date):
             if (i == 2 and not root_folder):
                 new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
                 mydict["date"] = new_date
-                arr.append(mydict)
+                if 'link' in mydict:
+                    arr.append(mydict)
                 if new_date > max_date:
                     max_date = new_date
     return arr, max_date
