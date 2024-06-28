@@ -47,7 +47,7 @@ with DAG(
         task_id='download_elections_data',
         bash_command=(
             f"bash {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"elections/scripts/script_dl_elections.sh {DATADIR} "
+            f"elections/aggregation/scripts/script_dl_elections.sh {DATADIR} "
         )
     )
 
