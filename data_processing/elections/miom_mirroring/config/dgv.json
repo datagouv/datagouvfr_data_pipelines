@@ -1,50 +1,42 @@
-{
-    "general": {
-        "name": "elections_resultats_generaux",
-        "file": "general_results.csv",
-        "dev": {
-            "dataset_id": "645cfef7d766788fc6310dc7",
-            "resource_id": "e03c8787-c4bf-4588-bc45-38fd89ca9f63"
-        },
+[
+    {
+        "name": "Fichier d'archive des données brutes",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024.zip",
+        "filename": "LG2024.zip",
         "prod": {
-            "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": "b8703c69-a18f-46ab-9e7f-3a8368dcb891"
-        }
+            "dataset_id": "667ec0954796359409e6a983",
+            "resource_id": "0065d2f8-ba56-4920-98bb-7d941858c4c4"
+        },
+        "format": "zip"
     },
-    "candidats": {
-        "name": "elections_resultats_candidats",
-        "file": "candidats_results.csv",
-        "dev": {
-            "dataset_id": "645cfef7d766788fc6310dc7",
-            "resource_id": "91dfb40a-b72f-45ca-a91a-d0dc788a0b0e"
-        },
+    {
+        "name": "Données brutes - Arborescence",
+        "url": "https://object.infra.data.gouv.fr/browser/data-pipeline-open/cHJvZC9lbGVjdGlvbnMtbWlycm9yaW5nL0xHMjAyNC8=",
+        "filename": null,
         "prod": {
-            "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": "52a11762-45b4-414f-b6a2-eaa290217dc6"
-        }
+            "dataset_id": "667ec0954796359409e6a983",
+            "resource_id": "f47b3104-8806-4887-a683-76be654b9398"
+        },
+        "format": "html"
     },
-    "general_parquet": {
-        "name": "elections_resultats_generaux_parquet",
-        "file": "general_results.parquet",
-        "dev": {
-            "dataset_id": "645cfef7d766788fc6310dc7",
-            "resource_id": "283617c3-b1b5-448f-979d-519feec9f918"
-        },
+    {
+        "name": "Candidats Tour 1",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/candidatsT1.csv",
+        "filename": "candidatsT1.csv",
         "prod": {
-            "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": "ff16d511-10c0-405e-9b35-511723948fce"
-        }
+            "dataset_id": "667ec0954796359409e6a983",
+            "resource_id": "659ab45b-a8bd-43fb-b7ff-07d952436744"
+        },
+        "format": "csv"
     },
-    "candidats_parquet": {
-        "name": "elections_resultats_candidats_parquet",
-        "file": "candidats_results.parquet",
-        "dev": {
-            "dataset_id": "645cfef7d766788fc6310dc7",
-            "resource_id": "be7be3d8-d7ec-42a3-85c0-85822be621fc"
-        },
+    {
+        "name": "Candidats Tour 2",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/candidatsT2.csv",
+        "filename": "candidatsT2.csv",
         "prod": {
-            "dataset_id": "6481e741d4cf002ec0efec9d",
-            "resource_id": "4d3b35f6-0b22-4415-a24c-419a676312e2"
-        }
+            "dataset_id": "667ec0954796359409e6a983",
+            "resource_id": "b11ca1de-7ee7-4ae3-86bb-556dad9418d4"
+        },
+        "format": "csv"
     }
-}
+]
