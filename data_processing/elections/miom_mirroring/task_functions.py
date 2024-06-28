@@ -26,7 +26,7 @@ ID_CURRENT_ELECTION = "LG2024"
 URL_ELECTIONS_HTTP_SERVER = "https://www.resultats-elections.interieur.gouv.fr/telechargements/"
 
 
-def parse_http_server(url_source, url, arr, max_date, subfolder):
+def parse_http_server(url, arr, max_date, subfolder):
     response = requests.get(url)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -50,7 +50,7 @@ def parse_http_server(url_source, url, arr, max_date, subfolder):
                             mydict["link"] = url + str(href)
                             mydict["name"] = str(href)
                         else:
-                            arr, max_date = parse_http_server(url_source, url + href, arr, max_date, subfolder)
+                            arr, max_date = parse_http_server(url + str(href), arr, max_date, subfolder)
                     else:
                         root_folder = True
             if (i == 2 and not root_folder):
@@ -65,7 +65,7 @@ def parse_http_server(url_source, url, arr, max_date, subfolder):
 
 
 def parse_and_max_date(url, arr, max_date, item, new_max_date):
-    arr, item_max_date = parse_http_server(f"{url}{item}/", url, arr, max_date, "{item}")
+    arr, item_max_date = parse_http_server(f"{url}{item}/", arr, max_date, "{item}")
     if new_max_date < item_max_date:
         new_max_date = item_max_date
     return arr, new_max_date
