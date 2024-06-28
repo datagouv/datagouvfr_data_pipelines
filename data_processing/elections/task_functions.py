@@ -427,7 +427,9 @@ def send_to_minio(ti):
 def download_from_minio(ti):
     prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/"
     minio_files = minio_open.get_files_from_prefix(
-        prefix=prefix
+        prefix=prefix,
+        ignore_airflow_env=False,
+        recursive=True,
     )
     print(minio_files)
     os.makedirs(f"{AIRFLOW_DAG_TMP}elections-mirroring/export", exist_ok=True)
@@ -435,9 +437,9 @@ def download_from_minio(ti):
     for mf in minio_files:
         list_files.append(
             {
-                "source_path": "/".join(mf.split("/")[:-1]),
+                "source_path": "/".join(mf.split("/")[:-1]) + "/",
                 "source_name": mf.split("/")[-1],
-                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/export/" + "/".join(mf.split(prefix)[1].split("/")[:-1]),
+                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/export/" + "/".join(mf.split(prefix)[1].split("/")[:-1]) + "/",
                 "dest_name": mf.split("/")[-1],
             }
         )

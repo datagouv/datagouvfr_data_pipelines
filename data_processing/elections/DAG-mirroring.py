@@ -67,7 +67,7 @@ with DAG(
 
     zip_folder = BashOperator(
         task_id="zip_folder",
-        bash_command=f"cd {AIRFLOW_DAG_TMP}elections-mirroring/ && zip -r {ID_CURRENT_ELECTION}.zip {AIRFLOW_DAG_TMP}elections-mirroring/export/ ",
+        bash_command=f"cd {AIRFLOW_DAG_TMP}elections-mirroring/ && zip -r {ID_CURRENT_ELECTION}.zip ./export/ ",
     )
 
     send_export_to_minio = PythonOperator(
