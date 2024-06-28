@@ -33,7 +33,7 @@ int_cols = {
 }
 
 ID_CURRENT_ELECTION = "LG2024"
-
+URL_ELECTIONS_HTTP_SERVER = "https://www.resultats-elections.interieur.gouv.fr/telechargements/"
 
 def num_converter(value, _type):
     if not isinstance(value, str) and math.isnan(value):
@@ -365,7 +365,7 @@ def parse_http_server(url_source, url, arr, max_date):
 
 
 def get_files_updated_miom(ti):
-    url = "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/"
+    url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     r = requests.get(
         "https://object.data.gouv.fr/" + \
         MINIO_BUCKET_DATA_PIPELINE_OPEN + \
@@ -388,7 +388,7 @@ def download_local_files(ti):
         arr.append(
             {
                 "url": cf["link"],
-                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace("https://www.resultats-elections.interieur.gouv.fr/telechargements/", "").split("/"))[:-1] + "/",
+                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/"))[:-1] + "/",
                 "dest_name": cf["name"]
             }
         )
@@ -401,10 +401,10 @@ def send_to_minio(ti):
     for cf in miom_files:
         arr.append(
             {
-                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
-                "source_name": cf.split("/")[-1],
-                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
-                "dest_name": cf.split("/")[-1],
+                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/"))[:-1] + "/",
+                "source_name": cf["name"],
+                "dest_path": "elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/"))[:-1] + "/",
+                "dest_name": cf["name"],
             }
         )
 
