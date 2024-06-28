@@ -71,7 +71,6 @@ def parse_and_max_date(url, arr, max_date, item, new_max_date):
     return arr, new_max_date
 
 
-
 def get_files_updated_miom(ti):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     r = requests.get(
@@ -84,7 +83,7 @@ def get_files_updated_miom(ti):
     new_max_date = max_date
     arr = []
     for item in ['nuances', 'candidatsT1', 'candidatsT2', 'resultatsT1', 'resultatsT2']:
-        arr, new_max_date = parse_and_max_date(url, arr, max_date, "nuances", new_max_date)
+        arr, new_max_date = parse_and_max_date(url, arr, max_date, item, new_max_date)
 
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
         json.dump({ "max_date": max_date }, fp)
