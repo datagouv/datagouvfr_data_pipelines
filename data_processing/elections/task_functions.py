@@ -390,7 +390,7 @@ def send_to_minio(ti):
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
                 "source_name": cf.split("/")[-1],
-                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + '/'.join(cf.split("/")[:-1]) + "/",
+                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
                 "dest_name": cf.split("/")[-1],
             }
         )
