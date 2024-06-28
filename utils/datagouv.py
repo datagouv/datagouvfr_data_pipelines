@@ -175,6 +175,7 @@ def post_remote_resource(
     schema: dict = {},
     description: str = "",
     resource_id: Optional[str] = None,
+    datagouv_url: Optional[str] = None,
 ):
     """Create a post in data.gouv.fr
 
@@ -192,6 +193,9 @@ def post_remote_resource(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
+    if not datagouv_url:
+        datagouv_url = DATAGOUV_URL
+
     payload = {
         'title': title,
         'description': description,
@@ -203,14 +207,14 @@ def post_remote_resource(
         'filesize': filesize
     }
     if resource_id:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
         print(f"Putting '{title}' at {url}")
         r = datagouv_session.put(
             url,
             json=payload,
         )
     else:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
         print(f"Posting '{title}' at {url}")
         r = datagouv_session.post(
             url,
