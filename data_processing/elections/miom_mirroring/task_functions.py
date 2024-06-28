@@ -78,7 +78,7 @@ def get_files_updated_miom(ti):
         "https://object.data.gouv.fr/" + \
         MINIO_BUCKET_DATA_PIPELINE_OPEN + \
         "/" + AIRFLOW_ENV + \
-        "/elections-mirroring/max_date.json"
+        "/elections-mirroring/" + ID_CURRENT_ELECTION + "/max_date.json"
     )
     max_date = r.json()["max_date"]
     new_max_date = max_date
@@ -128,7 +128,7 @@ def send_to_minio(ti):
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
                 "source_name": "max_date.json",
-                "dest_path": "elections-mirroring/",
+                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
                 "dest_name": "max_date.json",
             }
         ]
