@@ -336,35 +336,103 @@ def get_files_minio_mirroring(ti):
     ti.xcom_push(key="minio_files", value=arr)
 
 
-def parse_http_server(url_source, url, arr):
+def coucou(max_date, url, arr):
     response = requests.get(url)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
-        links = soup.find_all('a')
-        for link in links:
-            href = link.get('href')
-            if href != '../':
-                if href.endswith('/'):
-                    new_url = url + href
-                    arr = parse_http_server(url_source, new_url, arr)
+        tds = soup.find_all('td')
+    i = 0
+    mydict = {}
+    root_folder = False
+    for td in tds:
+        if (i == 4):
+            i = 0
+            mydict = {}
+            root_folder = False
+        i += 1
+
+        if (i == 1):
+            soup2 = BeautifulSoup(str(td), 'html.parser')
+            links = soup2.find_all('a')
+            for link in links:
+                href = link.get('href')
+                if href != '../':
+                    if not href.endswith('/'):
+                        mydict["link"] = url + str(href)
+                        mydict["name"] = str(href)
+                    else:
+                        arr, max_date = coucou(max_date, url + href, arr)
                 else:
-                    # C'est un fichier, on le télécharge si pas présent localement
-                    file_url = url + href
-                    arr.append(file_url.replace(url_source, ''))
-    return arr
+                    root_folder = True
+        if (i == 2 and not root_folder):
+            new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
+            mydict["date"] = new_date
+            arr.append(mydict)
+            if new_date > max_date:
+                max_date = new_date
+    return arr, max_date
+
+def parse_http_server(url_source, url, arr, max_date):
+    response = requests.get(url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        tds = soup.find_all('td')
+        i = 0
+        mydict = {}
+        root_folder = False
+        for td in tds:
+            if (i == 4):
+                i = 0
+                mydict = {}
+                root_folder = False
+            i += 1
+            if (i == 1):
+                soup2 = BeautifulSoup(str(td), 'html.parser')
+                links = soup2.find_all('a')
+                for link in links:
+                    href = link.get('href')
+                    if href != '../':
+                        if not href.endswith('/'):
+                            mydict["link"] = url + str(href)
+                            mydict["name"] = str(href)
+                        else:
+                            arr, max_date = parse_http_server(url_source, url + href, arr, max_date)
+                    else:
+                        root_folder = True
+            if (i == 2 and not root_folder):
+                new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
+                mydict["date"] = new_date
+                arr.append(mydict)
+                if new_date > max_date:
+                    max_date = new_date
+    return arr, max_date
 
 
 def get_all_files_miom(ti):
     url = "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/"
+    r = requests.get(
+        "https://object.data.gouv.fr/" + \
+        MINIO_BUCKET_DATA_PIPELINE_OPEN + \
+        "/" + AIRFLOW_ENV + \
+        "/elections-mirroring/max_date.json"
+    )
+    max_date = r.json()["max_date"]
+    with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
+        json.dump({ "max_date": max_date }, fp)
+
     arr = []
-    arr = parse_http_server(url, url, arr)
+    arr, max_date = parse_http_server(url, url, arr, max_date)
     ti.xcom_push(key="miom_files", value=arr)
+    ti.xcom_push(key="max_date", value=max_date)
 
 
 def compare_minio_miom(ti):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_files_minio_mirroring")
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_all_files_miom")
-    compare_files = list(set(miom_files) - set(minio_files))
+    
+    miom_files_path = [mf.replace("https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/", "") for mf in miom_files]
+
+    compare_files = list(set(miom_files_path) - set(minio_files))
     ti.xcom_push(key="compare_files", value=compare_files)
 
 
@@ -398,3 +466,16 @@ def send_to_minio(ti):
     minio_open.send_files(
         list_files=arr
     )
+
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+                "source_name": "max_date.json",
+                "dest_path": "elections-mirroring/",
+                "dest_name": "max_date.json",
+            }
+        ]
+    )
+
+    
