@@ -53,11 +53,6 @@ with DAG(
         python_callable=get_files_updated_miom,
     )
 
-    compare_minio_miom = PythonOperator(
-        task_id='compare_minio_miom',
-        python_callable=compare_minio_miom,
-    )
-
     download_local_files = PythonOperator(
         task_id='download_local_files',
         python_callable=download_local_files,
@@ -69,6 +64,6 @@ with DAG(
     )
 
     get_files_minio_mirroring.set_upstream(clean_previous_outputs)
-    get_all_files_miom.set_upstream(get_files_minio_mirroring)
+    get_files_updated_miom.set_upstream(get_files_minio_mirroring)
     download_local_files.set_upstream(get_files_updated_miom)
     send_to_minio.set_upstream(download_local_files)
