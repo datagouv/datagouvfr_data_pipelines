@@ -327,15 +327,6 @@ def send_notification():
     )
 
 
-def get_files_minio_mirroring(ti):
-    minio_files = sorted(minio_open.get_files_from_prefix('elections-mirroring/' + ID_CURRENT_ELECTION + '/', ignore_airflow_env=False, recursive=True))
-    print(minio_files)
-    arr = []
-    for mf in minio_files:
-        arr.append(mf.replace("elections-mirroring/", ""))
-    ti.xcom_push(key="minio_files", value=arr)
-
-
 def parse_http_server(url_source, url, arr, max_date):
     response = requests.get(url)
     if response.status_code == 200:
@@ -396,9 +387,9 @@ def download_local_files(ti):
     for cf in miom_files:
         arr.append(
             {
-                "url": "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/" + cf,
-                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
-                "dest_name": cf.split("/")[-1]
+                "url": cf["link"],
+                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace("https://www.resultats-elections.interieur.gouv.fr/telechargements/", "").split("/"))[:-1] + "/",
+                "dest_name": cf["name"]
             }
         )
     download_files(arr)
