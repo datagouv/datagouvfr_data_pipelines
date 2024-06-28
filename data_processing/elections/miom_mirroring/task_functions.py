@@ -56,7 +56,6 @@ def parse_http_server(url, arr, max_date, subfolder):
             if (i == 2 and not root_folder):
                 new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
                 if new_date > max_date:
-                    max_date = new_date
                     mydict["date"] = new_date
                     if 'link' in mydict:
                         if 'resultatsT' not in subfolder or ('com.xml' in mydict['link'] and 'resultatsT' in subfolder):
