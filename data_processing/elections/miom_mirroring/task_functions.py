@@ -281,7 +281,7 @@ def publish_results_elections(ti):
         )
 
 
-def process_xml_general(xml_data):
+def process_xml_res_general(xml_data):
     soup = BeautifulSoup(xml_data, 'xml')
     general_results = []
 
@@ -344,7 +344,7 @@ def process_xml_general(xml_data):
     return pd.DataFrame(general_results)
 
 
-def process_xml_candidats(xml_data):
+def process_xml_res_candidats(xml_data):
     soup = BeautifulSoup(xml_data, 'xml')
     candidate_results = []
 
@@ -399,8 +399,8 @@ def create_resultats_files():
                 print(f)
                 with open(f, 'r', encoding='utf-8') as file:
                     xml_data = file.read()
-                dfinter1 = process_xml_general(xml_data)
-                dfinter2 = process_xml_candidats(xml_data)
+                dfinter1 = process_xml_res_general(xml_data)
+                dfinter2 = process_xml_res_candidats(xml_data)
                 df1 = pd.concat([df1, dfinter1])
                 df2 = pd.concat([df2, dfinter2])
         if df1.shape[0] > 0:
