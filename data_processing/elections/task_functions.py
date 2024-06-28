@@ -375,7 +375,7 @@ def download_local_files(ti):
         arr.append(
             {
                 "url": "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/" + cf,
-                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + '/'.join(cf.split("/")[:-1]) + "/",
+                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
                 "dest_name": cf.split("/")[-1]
             }
         )
@@ -388,9 +388,9 @@ def send_to_minio(ti):
     for cf in compare_files:
         arr.append(
             {
-                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/'.join(cf.split("/")[:-1]) + "/",
+                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
                 "source_name": cf.split("/")[-1],
-                "dest_path": "elections-mirroring/" + '/'.join(cf.split("/")[:-1]) + "/",
+                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + '/'.join(cf.split("/")[:-1]) + "/",
                 "dest_name": cf.split("/")[-1],
             }
         )
