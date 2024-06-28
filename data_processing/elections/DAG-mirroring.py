@@ -12,12 +12,15 @@ from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
     get_files_updated_miom,
     download_local_files,
     send_to_minio,
+    send_export_to_minio,
+    download_from_minio,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
 DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_mirroring_elections'
 DATADIR = f"{AIRFLOW_DAG_TMP}elections-mirroring/data"
+ID_CURRENT_ELECTION = "LG2024"
 
 default_args = {
     'email': [
@@ -57,6 +60,25 @@ with DAG(
         python_callable=send_to_minio,
     )
 
+    download_from_minio = PythonOperator(
+        task_id='download_from_minio',
+        python_callable=download_from_minio,
+    )
+
+    zip_folder = BashOperator(
+        task_id="zip_folder",
+        bash_command=f"cd {AIRFLOW_DAG_TMP}elections-mirroring/ && zip -r {ID_CURRENT_ELECTION}.zip {AIRFLOW_DAG_TMP}elections-mirroring/export/ ",
+    )
+
+    send_export_to_minio = PythonOperator(
+        task_id='send_export_to_minio',
+        python_callable=send_export_to_minio,
+    )
+
     get_files_updated_miom.set_upstream(clean_previous_outputs)
     download_local_files.set_upstream(get_files_updated_miom)
     send_to_minio.set_upstream(download_local_files)
+    download_from_minio.set_upstream(send_to_minio)
+    zip_folder.set_upstream(download_from_minio)
+    send_export_to_minio.set_upstream(zip_folder)
+
