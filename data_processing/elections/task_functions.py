@@ -336,42 +336,6 @@ def get_files_minio_mirroring(ti):
     ti.xcom_push(key="minio_files", value=arr)
 
 
-def coucou(max_date, url, arr):
-    response = requests.get(url)
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        tds = soup.find_all('td')
-    i = 0
-    mydict = {}
-    root_folder = False
-    for td in tds:
-        if (i == 4):
-            i = 0
-            mydict = {}
-            root_folder = False
-        i += 1
-
-        if (i == 1):
-            soup2 = BeautifulSoup(str(td), 'html.parser')
-            links = soup2.find_all('a')
-            for link in links:
-                href = link.get('href')
-                if href != '../':
-                    if not href.endswith('/'):
-                        mydict["link"] = url + str(href)
-                        mydict["name"] = str(href)
-                    else:
-                        arr, max_date = coucou(max_date, url + href, arr)
-                else:
-                    root_folder = True
-        if (i == 2 and not root_folder):
-            new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
-            mydict["date"] = new_date
-            arr.append(mydict)
-            if new_date > max_date:
-                max_date = new_date
-    return arr, max_date
-
 def parse_http_server(url_source, url, arr, max_date):
     response = requests.get(url)
     if response.status_code == 200:
@@ -401,11 +365,11 @@ def parse_http_server(url_source, url, arr, max_date):
                         root_folder = True
             if (i == 2 and not root_folder):
                 new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
-                mydict["date"] = new_date
-                if 'link' in mydict:
-                    arr.append(mydict)
                 if new_date > max_date:
                     max_date = new_date
+                    mydict["date"] = new_date
+                    if 'link' in mydict:
+                        arr.append(mydict)
     return arr, max_date
 
 
