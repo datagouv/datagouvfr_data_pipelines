@@ -213,8 +213,8 @@ def process_xml_candidats(xml_data):
 
 def create_candidats_files():
     files = glob.glob(f"{AIRFLOW_DAG_TMP}elections-mirroring/export/**", recursive=True)
-    df = pd.DataFrame()
     for typeCandidat in ['candidatsT1', 'candidatsT2']:
+        df = pd.DataFrame()
         for f in files:
             if typeCandidat in f and '.xml' in f:
                 print(f)

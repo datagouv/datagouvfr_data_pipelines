@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_fun
     download_from_minio,
     check_if_continue,
     create_candidats_files,
+    publish_results_elections,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
@@ -86,6 +87,11 @@ with DAG(
         python_callable=send_exports_to_minio,
     )
 
+    publish_results_elections = PythonOperator(
+        task_id='publish_results_elections',
+        python_callable=publish_results_elections,
+    )
+
     get_files_updated_miom.set_upstream(clean_previous_outputs)
     check_if_continue.set_upstream(get_files_updated_miom)
     download_local_files.set_upstream(check_if_continue)
@@ -94,4 +100,5 @@ with DAG(
     zip_folder.set_upstream(download_from_minio)
     create_candidats_files.set_upstream(zip_folder)
     send_exports_to_minio.set_upstream(create_candidats_files)
+    publish_results_elections.set_upstream(send_exports_to_minio)
 
