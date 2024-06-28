@@ -430,7 +430,7 @@ def compare_minio_miom(ti):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_files_minio_mirroring")
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_all_files_miom")
     
-    miom_files_path = [mf.replace("https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/", "") for mf in miom_files]
+    miom_files_path = [mf["link"].replace("https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/", "") for mf in miom_files]
 
     compare_files = list(set(miom_files_path) - set(minio_files))
     ti.xcom_push(key="compare_files", value=compare_files)
