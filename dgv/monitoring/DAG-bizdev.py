@@ -32,6 +32,12 @@ api_metrics_url = "https://metric-api.data.gouv.fr/"
 grist_edito = "4MdJUBsdSgjE"
 grist_curation = "muvJRZ9cTGep"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+
+today = datetime.today()
+first_day_of_current_month = today.replace(day=1)
+last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
+last_month = last_day_of_last_month.strftime("%Y-%m")
+
 ignored_reuses = [
     '5cc31646634f415773630550',
     '6551ad5de16abd15501bb229',
@@ -194,11 +200,6 @@ async def get_suspect_users():
 
 
 def create_curation_tables():
-    today = datetime.today()
-    first_day_of_current_month = today.replace(day=1)
-    last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
-    last_month = last_day_of_last_month.strftime("%Y-%m")
-
     # Reuses inaccessibles
     print('Reuses inaccessibles')
     unavailable_reuses = get_unavailable_reuses()
@@ -334,11 +335,6 @@ def create_curation_tables():
 
 
 def create_edito_tables():
-    today = datetime.today()
-    first_day_of_current_month = today.replace(day=1)
-    last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
-    last_month = last_day_of_last_month.strftime("%Y-%m")
-
     # Top 50 des orga qui ont publié le plus de jeux de données
     print('Top 50 des orga qui ont publié le plus de jeux de données')
     data = get_all_from_api_query(
@@ -564,7 +560,7 @@ def send_tables_to_minio():
             {
                 "source_path": f"{DATADIR}/",
                 "source_name": file,
-                "dest_path": f"bizdev/{datetime.today().strftime('%Y-%m-%d')}/",
+                "dest_path": f"bizdev/{today.strftime('%Y-%m-%d')}/",
                 "dest_name": file,
             } for file in os.listdir(DATADIR)
             if not any([k in file for k in ['spam', 'KO']])
