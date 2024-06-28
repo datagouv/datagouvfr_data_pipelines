@@ -26,8 +26,8 @@ ID_CURRENT_ELECTION = "LG2024"
 URL_ELECTIONS_HTTP_SERVER = "https://www.resultats-elections.interieur.gouv.fr/telechargements/"
 
 
-def parse_http_server(url_source, url, arr, max_date):
-    response = requests.get(url)
+def parse_http_server(url_source, url, arr, max_date, subfolder):
+    response = requests.get(url + subfolder)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
         tds = soup.find_all('td')
@@ -47,10 +47,10 @@ def parse_http_server(url_source, url, arr, max_date):
                     href = link.get('href')
                     if href != '../':
                         if not href.endswith('/'):
-                            mydict["link"] = url + str(href)
+                            mydict["link"] = url + subfolder + str(href)
                             mydict["name"] = str(href)
                         else:
-                            arr, max_date = parse_http_server(url_source, url + href, arr, max_date)
+                            arr, max_date = parse_http_server(url_source, url + subfolder + href, arr, max_date, subfolder)
                     else:
                         root_folder = True
             if (i == 2 and not root_folder):
@@ -59,7 +59,8 @@ def parse_http_server(url_source, url, arr, max_date):
                     max_date = new_date
                     mydict["date"] = new_date
                     if 'link' in mydict:
-                        arr.append(mydict)
+                        if 'resultatsT' not in subfolder or ('com.xml' in mydict['link'] and 'resultatsT' in subfolder):
+                            arr.append(mydict)
     return arr, max_date
 
 
@@ -73,7 +74,11 @@ def get_files_updated_miom(ti):
     )
     max_date = r.json()["max_date"]
     arr = []
-    arr, max_date = parse_http_server(url, url, arr, max_date)
+    arr, max_date = parse_http_server(url, url, arr, max_date, "nuances/")
+    arr, max_date = parse_http_server(url, url, arr, max_date, "candidatsT1/")
+    arr, max_date = parse_http_server(url, url, arr, max_date, "candidatsT2/")
+    arr, max_date = parse_http_server(url, url, arr, max_date, "resultatsT1/")
+    arr, max_date = parse_http_server(url, url, arr, max_date, "resultatsT2/")
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
         json.dump({ "max_date": max_date }, fp)
     ti.xcom_push(key="miom_files", value=arr)
