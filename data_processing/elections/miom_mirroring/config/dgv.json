@@ -1,7 +1,7 @@
 [
     {
         "name": "Fichier d'archive des données brutes",
-        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024.zip",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/LG2024.zip",
         "filename": "LG2024.zip",
         "prod": {
             "dataset_id": "667edfc14867f24a6ac86007",
@@ -11,7 +11,7 @@
     },
     {
         "name": "Données brutes - Arborescence",
-        "url": "https://object.infra.data.gouv.fr/browser/data-pipeline-open/cHJvZC9lbGVjdGlvbnMtbWlycm9yaW5nL0xHMjAyNC8=",
+        "url": "https://object.infra.data.gouv.fr/browser/data-pipeline-open/cHJvZC9lbGVjdGlvbnMtbWlycm9yaW5nL0xHMjAyNC9kYXRhLw==",
         "filename": null,
         "prod": {
             "dataset_id": "667edfc14867f24a6ac86007",
@@ -21,21 +21,11 @@
     },
     {
         "name": "Candidats Tour 1",
-        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/candidatsT1.csv",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/candidatsT1.csv",
         "filename": "candidatsT1.csv",
         "prod": {
             "dataset_id": "667edfc14867f24a6ac86007",
             "resource_id": "f7589ecb-9c5d-4c89-becc-befe6631002e"
-        },
-        "format": "csv"
-    },
-    {
-        "name": "Candidats Tour 2",
-        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/candidatsT2.csv",
-        "filename": "candidatsT2.csv",
-        "prod": {
-            "dataset_id": "667edfc14867f24a6ac86007",
-            "resource_id": "e6671c29-8648-48a5-994e-3a0a3fbdec84"
         },
         "format": "csv"
     }
