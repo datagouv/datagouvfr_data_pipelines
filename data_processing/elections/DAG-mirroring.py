@@ -10,6 +10,10 @@ from datagouvfr_data_pipelines.config import (
 
 from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
     get_files_minio_mirroring,
+    get_all_files_miom,
+    compare_minio_miom,
+    download_local_files,
+    send_to_minio,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
@@ -45,4 +49,28 @@ with DAG(
         python_callable=get_files_minio_mirroring,
     )
 
+    get_all_files_miom = PythonOperator(
+        task_id='get_all_files_miom',
+        python_callable=get_all_files_miom,
+    )
+
+    compare_minio_miom = PythonOperator(
+        task_id='compare_minio_miom',
+        python_callable=compare_minio_miom,
+    )
+
+    download_local_files = PythonOperator(
+        task_id='download_local_files',
+        python_callable=download_local_files,
+    )
+
+    send_to_minio = PythonOperator(
+        task_id='send_to_minio',
+        python_callable=send_to_minio,
+    )
+
     get_files_minio_mirroring.set_upstream(clean_previous_outputs)
+    get_all_files_miom.set_upstream(get_files_minio_mirroring)
+    compare_minio_miom.set_upstream(get_all_files_miom)
+    download_local_files.set_upstream(compare_minio_miom)
+    send_to_minio.set_upstream(download_local_files)
