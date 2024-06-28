@@ -136,7 +136,7 @@ def send_to_minio(ti):
 
     
 def download_from_minio(ti):
-    prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/"
+    prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/" 
     minio_files = minio_open.get_files_from_prefix(
         prefix=prefix,
         ignore_airflow_env=False,
@@ -163,7 +163,7 @@ def send_exports_to_minio():
         {
             "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
             "source_name": ID_CURRENT_ELECTION + ".zip",
-            "dest_path": "elections-mirroring/",
+            "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
             "dest_name": ID_CURRENT_ELECTION + ".zip",
         }
     ]
@@ -173,19 +173,20 @@ def send_exports_to_minio():
                 {
                     "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
                     "source_name": f"{typeCandidat}.csv",
-                    "dest_path": "elections-mirroring/",
+                    "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
                     "dest_name": f"{typeCandidat}.csv",
                 }
             )
+
     for typeResultat in ['resultatsT1', 'resultatsT2']:
         for typeResultatFile in ['general', 'candidats']:
             if os.path.exists(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{typeResultatFile}.csv"):
                 list_files.append(
                     {
                         "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-                        "source_name": f"{typeCandidat}_{typeResultatFile}.csv",
-                        "dest_path": "elections-mirroring/",
-                        "dest_name": f"{typeCandidat}_{typeResultatFile}.csv",
+                        "source_name": f"{typeResultat}_{typeResultatFile}.csv",
+                        "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+                        "dest_name": f"{typeResultat}_{typeResultatFile}.csv",
                     }
                 )
     minio_open.send_files(
