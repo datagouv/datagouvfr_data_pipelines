@@ -373,7 +373,7 @@ def parse_http_server(url_source, url, arr, max_date):
     return arr, max_date
 
 
-def get_all_files_miom(ti):
+def get_files_updated_miom(ti):
     url = "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/"
     r = requests.get(
         "https://object.data.gouv.fr/" + \
@@ -390,20 +390,10 @@ def get_all_files_miom(ti):
     ti.xcom_push(key="max_date", value=max_date)
 
 
-def compare_minio_miom(ti):
-    minio_files = ti.xcom_pull(key="minio_files", task_ids="get_files_minio_mirroring")
-    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_all_files_miom")
-    
-    miom_files_path = [mf["link"].replace("https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/", "") for mf in miom_files]
-
-    compare_files = list(set(miom_files_path) - set(minio_files))
-    ti.xcom_push(key="compare_files", value=compare_files)
-
-
 def download_local_files(ti):
-    compare_files = ti.xcom_pull(key="compare_files", task_ids="compare_minio_miom")
+    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
     arr = []
-    for cf in compare_files:
+    for cf in miom_files:
         arr.append(
             {
                 "url": "https://www.resultats-elections.interieur.gouv.fr/telechargements/" + ID_CURRENT_ELECTION + "/" + cf,
@@ -415,9 +405,9 @@ def download_local_files(ti):
 
    
 def send_to_minio(ti):
-    compare_files = ti.xcom_pull(key="compare_files", task_ids="compare_minio_miom")
+    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
     arr = []
-    for cf in compare_files:
+    for cf in miom_files:
         arr.append(
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + '/'.join(cf.split("/")[:-1]) + "/",
