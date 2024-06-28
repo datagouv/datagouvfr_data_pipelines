@@ -418,11 +418,10 @@ def get_all_files_miom(ti):
         "/elections-mirroring/max_date.json"
     )
     max_date = r.json()["max_date"]
-    with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
-        json.dump({ "max_date": max_date }, fp)
-
     arr = []
     arr, max_date = parse_http_server(url, url, arr, max_date)
+    with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
+        json.dump({ "max_date": max_date }, fp)
     ti.xcom_push(key="miom_files", value=arr)
     ti.xcom_push(key="max_date", value=max_date)
 
