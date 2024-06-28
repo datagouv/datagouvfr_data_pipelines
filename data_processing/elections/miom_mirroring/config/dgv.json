@@ -4,8 +4,8 @@
         "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024.zip",
         "filename": "LG2024.zip",
         "prod": {
-            "dataset_id": "667ec0954796359409e6a983",
-            "resource_id": "0065d2f8-ba56-4920-98bb-7d941858c4c4"
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "5e0db157-ad5e-49c9-9b93-5ac975c36841"
         },
         "format": "zip"
     },
@@ -14,8 +14,8 @@
         "url": "https://object.infra.data.gouv.fr/browser/data-pipeline-open/cHJvZC9lbGVjdGlvbnMtbWlycm9yaW5nL0xHMjAyNC8=",
         "filename": null,
         "prod": {
-            "dataset_id": "667ec0954796359409e6a983",
-            "resource_id": "f47b3104-8806-4887-a683-76be654b9398"
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "db680fbf-f154-43c4-ab96-90b317d7c956"
         },
         "format": "html"
     },
@@ -24,8 +24,8 @@
         "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/candidatsT1.csv",
         "filename": "candidatsT1.csv",
         "prod": {
-            "dataset_id": "667ec0954796359409e6a983",
-            "resource_id": "659ab45b-a8bd-43fb-b7ff-07d952436744"
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "f7589ecb-9c5d-4c89-becc-befe6631002e"
         },
         "format": "csv"
     },
@@ -34,8 +34,8 @@
         "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/candidatsT2.csv",
         "filename": "candidatsT2.csv",
         "prod": {
-            "dataset_id": "667ec0954796359409e6a983",
-            "resource_id": "b11ca1de-7ee7-4ae3-86bb-556dad9418d4"
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "e6671c29-8648-48a5-994e-3a0a3fbdec84"
         },
         "format": "csv"
     }
