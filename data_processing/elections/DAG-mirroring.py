@@ -9,7 +9,6 @@ from datagouvfr_data_pipelines.config import (
 )
 
 from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
-    get_files_minio_mirroring,
     get_files_updated_miom,
     download_local_files,
     send_to_minio,
@@ -43,11 +42,6 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
-    get_files_minio_mirroring = PythonOperator(
-        task_id='get_files_minio_mirroring',
-        python_callable=get_files_minio_mirroring,
-    )
-
     get_files_updated_miom = PythonOperator(
         task_id='get_files_updated_miom',
         python_callable=get_files_updated_miom,
@@ -63,7 +57,6 @@ with DAG(
         python_callable=send_to_minio,
     )
 
-    get_files_minio_mirroring.set_upstream(clean_previous_outputs)
-    get_files_updated_miom.set_upstream(get_files_minio_mirroring)
+    get_files_updated_miom.set_upstream(clean_previous_outputs)
     download_local_files.set_upstream(get_files_updated_miom)
     send_to_minio.set_upstream(download_local_files)
