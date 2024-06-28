@@ -112,7 +112,7 @@ def send_to_minio(ti):
     for cf in miom_files:
         arr.append(
             {
-                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + ID_CURRENT_ELECTION + '/' + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/",
+                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + '/' + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/",
                 "source_name": cf["name"],
                 "dest_path": "elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/",
                 "dest_name": cf["name"],
