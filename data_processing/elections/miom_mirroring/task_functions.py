@@ -148,3 +148,10 @@ def send_export_to_minio():
             }
         ]
     )
+
+
+def check_if_continue(ti):
+    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+    if len(miom_files) == 0:
+        return False
+    return True

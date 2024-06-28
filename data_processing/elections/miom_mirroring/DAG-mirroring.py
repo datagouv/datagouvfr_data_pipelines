@@ -1,6 +1,6 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -14,6 +14,7 @@ from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_fun
     send_to_minio,
     send_export_to_minio,
     download_from_minio,
+    check_if_continue,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
@@ -50,6 +51,10 @@ with DAG(
         python_callable=get_files_updated_miom,
     )
 
+    check_if_continue = ShortCircuitOperator(
+        task_id="check_if_continue", python_callable=check_if_continue,
+    )
+
     download_local_files = PythonOperator(
         task_id='download_local_files',
         python_callable=download_local_files,
@@ -76,7 +81,8 @@ with DAG(
     )
 
     get_files_updated_miom.set_upstream(clean_previous_outputs)
-    download_local_files.set_upstream(get_files_updated_miom)
+    check_if_continue.set_upstream(get_files_updated_miom)
+    download_local_files.set_upstream(check_if_continue)
     send_to_minio.set_upstream(download_local_files)
     download_from_minio.set_upstream(send_to_minio)
     zip_folder.set_upstream(download_from_minio)
