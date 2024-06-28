@@ -1,7 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 from typing import List, Optional, TypedDict
-
+import os
 
 class Url(TypedDict):
     url: str
@@ -30,6 +30,7 @@ def download_files(
         auth = None
 
     for url in list_urls:
+        os.makedirs(url['dest_path'], exist_ok=True)
         with requests.get(
             url["url"],
             auth=auth,
