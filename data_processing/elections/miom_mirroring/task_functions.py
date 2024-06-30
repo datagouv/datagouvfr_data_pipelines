@@ -395,7 +395,7 @@ def create_resultats_files():
         df1 = pd.DataFrame()
         df2 = pd.DataFrame()
         for f in files:
-            if typeResultat in f and 'com.xml' in f:
+            if typeResultat in f and ('com.xml' in f or 'COM.xml' in f):
                 print(f)
                 with open(f, 'r', encoding='utf-8') as file:
                     xml_data = file.read()
