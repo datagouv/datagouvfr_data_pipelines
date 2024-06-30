@@ -293,8 +293,8 @@ def process_xml_res_general(xml_data):
         department_name = department.find('LibDpt').text
 
         for commune in department.find_all('Commune'):
-            commune_code = commune.find('CodSubCom').text
-            commune_name = commune.find('LibSubCom').text
+            commune_code = commune.find('CodCom').text
+            commune_name = commune.find('LibCom').text
             circonscription_code = commune.find('CodCirLg').text
             circonscription_name = commune.find('LibFraSubCom').text
 
@@ -344,9 +344,9 @@ def process_xml_res_general(xml_data):
     return pd.DataFrame(general_results)
 
 
-def process_xml_res_candidats(xml_data):
+def process_xml_res_general(xml_data):
     soup = BeautifulSoup(xml_data, 'xml')
-    candidate_results = []
+    general_results = []
 
     election_type = soup.find('Type').text
     election_year = soup.find('Annee').text
@@ -355,38 +355,58 @@ def process_xml_res_candidats(xml_data):
         department_code = department.find('CodDpt').text
         department_name = department.find('LibDpt').text
 
-        for commune in department.find_all('Commune'):
-            commune_code = commune.find('CodSubCom').text
-            commune_name = commune.find('LibSubCom').text
-            circonscription_code = commune.find('CodCirLg').text
-            circonscription_name = commune.find('LibFraSubCom').text
+        for circonscription in department.find_all('Circonscription'):
+            circonscription_code = circonscription.find('CodCirElec').text
+            circonscription_name = circonscription.find('LibCirElec').text
 
-            for tour in commune.find_all('Tour'):
-                tour_number = tour.find('NumTour').text
+            for commune in circonscription.find_all('Commune'):
+                commune_code = commune.find('CodCom').text
+                commune_name = commune.find('LibCom').text
 
-                for candidat in tour.find_all('Candidat'):
-                    candidate_results.append({
+                for tour in commune.find_all('Tour'):
+                    tour_number = tour.find('NumTour').text
+                    inscrits = tour.find('Inscrits').find('Nombre').text
+                    abstentions = tour.find('Abstentions').find('Nombre').text
+                    abstentions_ratio = tour.find('Abstentions').find('RapportInscrits').text
+                    votants = tour.find('Votants').find('Nombre').text
+                    votants_ratio = tour.find('Votants').find('RapportInscrits').text
+                    blancs = tour.find('Blancs').find('Nombre').text
+                    blancs_ratio_inscrit = tour.find('Blancs').find('RapportInscrits').text
+                    blancs_ratio_votant = tour.find('Blancs').find('RapportVotants').text
+                    nuls = tour.find('Nuls').find('Nombre').text
+                    nuls_ratio_inscrit = tour.find('Nuls').find('RapportInscrits').text
+                    nuls_ratio_votant = tour.find('Nuls').find('RapportVotants').text
+                    exprimes = tour.find('Exprimes').find('Nombre').text
+                    exprimes_ratio_inscrit = tour.find('Exprimes').find('RapportInscrits').text
+                    exprimes_ratio_votant = tour.find('Exprimes').find('RapportVotants').text
+
+                    general_results.append({
                         'Type': election_type,
                         'Annee': election_year,
                         'CodDpt': department_code,
                         'LibDpt': department_name,
-                        'CodSubCom': commune_code,
-                        'LibSubCom': commune_name,
-                        'CodCirLg': circonscription_code,
-                        'LibFraSubCom': circonscription_name,
+                        'CodCom': commune_code,
+                        'LibCom': commune_name,
+                        'CodCirElec': circonscription_code,
+                        'LibCirElec': circonscription_name,
                         'NumTour': tour_number,
-                        'NumPanneauCand': candidat.find('NumPanneauCand').text,
-                        'NomPsn': candidat.find('NomPsn').text,
-                        'PrenomPsn': candidat.find('PrenomPsn').text,
-                        'CivilitePsn': candidat.find('CivilitePsn').text,
-                        'CodNua': candidat.find('CodNua').text,
-                        'LibNua': candidat.find('LibNua').text,
-                        'NbVoix': candidat.find('NbVoix').text,
-                        'RapportExprime': candidat.find('RapportExprime').text,
-                        'RapportInscrit': candidat.find('RapportInscrit').text
+                        'Inscrits': inscrits,
+                        'Abstentions': abstentions,
+                        'Abstentions_RapportInscrit': abstentions_ratio,
+                        'Votants': votants,
+                        'Votants_RapportInscrit': votants_ratio,
+                        'Blancs': blancs,
+                        'Blancs_RapportInscrit': blancs_ratio_inscrit,
+                        'Blancs_RapportVotant': blancs_ratio_votant,
+                        'Nuls': nuls,
+                        'Nuls_RapportInscrit': nuls_ratio_inscrit,
+                        'Nuls_RapportVotant': nuls_ratio_votant,
+                        'Exprimes': exprimes,
+                        'Exprimes_RapportInscrit': exprimes_ratio_inscrit,
+                        'Exprimes_RapportVotant': exprimes_ratio_votant
                     })
 
-    return pd.DataFrame(candidate_results)
+    return pd.DataFrame(general_results)
 
 
 def create_resultats_files():
