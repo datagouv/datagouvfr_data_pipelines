@@ -58,7 +58,7 @@ def parse_http_server(url, arr, max_date, item_max_date, subfolder):
                 if new_date > max_date:
                     mydict["date"] = new_date
                     if 'link' in mydict:
-                        if 'resultatsT' not in subfolder or ('com.xml' in mydict['link'] and 'resultatsT' in subfolder):
+                        if 'resultatsT' not in subfolder or ('COM.xml' in mydict['link'] and 'resultatsT' in subfolder):
                             arr.append(mydict)
                 if new_date > item_max_date:
                     item_max_date = new_date
@@ -399,7 +399,7 @@ def create_resultats_files():
         df1 = pd.DataFrame()
         df2 = pd.DataFrame()
         for f in files:
-            if typeResultat in f and ('com.xml' in f or 'COM.xml' in f):
+            if typeResultat in f and ('COM.xml' in f):
                 print(f)
                 with open(f, 'r', encoding='utf-8') as file:
                     xml_data = file.read()
