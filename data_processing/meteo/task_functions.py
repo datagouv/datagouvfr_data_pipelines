@@ -284,7 +284,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
 
 
 def get_file_extention(file):
-    return ".".join(file.split(".")[1:])
+    return ".".join(file.split("_")[-1].split(".")[1:])
 
 
 def upload_new_files(ti, minio_folder):
