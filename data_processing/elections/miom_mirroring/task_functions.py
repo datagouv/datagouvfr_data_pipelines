@@ -96,34 +96,29 @@ def get_files_updated_miom(ti):
 def download_local_files(ti):
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
     arr = []
-    for cf in miom_files:
-        arr.append(
-            {
-                "url": cf["link"],
-                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/",
-                "dest_name": cf["name"]
-            }
-        )
 
-    for url in arr:
+    for cf in miom_files:
+        url = cf["link"]
+        dest_path = f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/"
+        dest_name = cf["name"]
+
         attempts = 3
         for attempt in range(attempts):
             try:
-                os.makedirs(url['dest_path'], exist_ok=True)
-                with requests.get(url['url'], stream=True) as r:
+                os.makedirs(dest_path, exist_ok=True)
+                with requests.get(url, stream=True) as r:
                     r.raise_for_status()
-                    with open(f"{url['dest_path']}{url['dest_name']}", "wb") as f:
+                    with open(f"{dest_path}{dest_name}", "wb") as f:
                         for chunk in r.iter_content(chunk_size=8192):
                             f.write(chunk)
-                print(f"Successfully downloaded {url['dest_name']} on attempt {attempt + 1}")
+                print(f"Successfully downloaded {dest_name} on attempt {attempt + 1}")
                 return True
             except requests.RequestException as e:
                 print(f"Attempt {attempt + 1} failed: {e}")
                 if attempt < attempts - 1:
                     time.sleep(1) 
                 else:
-                    print(f"Failed to download {url['dest_name']} after {attempts} attempts")
-                    return False
+                    print(f"Failed to download {dest_name} after {attempts} attempts")
 
    
 def send_to_minio(ti):
