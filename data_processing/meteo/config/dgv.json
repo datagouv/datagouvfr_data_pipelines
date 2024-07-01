@@ -138,5 +138,15 @@
             "prod": "661d0762109ece6f985e9857",
             "dev": "661d0734eddf136314176ecd"
         }
+    },
+    "REF_CC/ETP_FAO": {
+        "source_pattern": "ETP_Hargreaves_coefficient_0.175_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "ETP_Hargreaves_coefficient_0.175_{PERIOD}",
+        "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
+        "description_template": "Données ETP FAO Hargreaves coefficient 0.175 {PERIOD}",
+        "dataset_id": {
+            "prod": "667eae35510cd549fc7722c1",
+            "dev": "667eb01a32a9caf3576d8d81"
+        }
     }
 }
