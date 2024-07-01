@@ -110,7 +110,7 @@ def download_local_files(ti):
         for attempt in range(attempts):
             try:
                 os.makedirs(url['dest_path'], exist_ok=True)
-                with requests.get(url['dest_path'], stream=True) as r:
+                with requests.get(url['url'], stream=True) as r:
                     r.raise_for_status()
                     with open(f"{url['dest_path']}{url['dest_name']}", "wb") as f:
                         for chunk in r.iter_content(chunk_size=8192):
