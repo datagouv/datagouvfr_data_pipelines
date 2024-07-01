@@ -112,7 +112,6 @@ def download_local_files(ti):
                         for chunk in r.iter_content(chunk_size=8192):
                             f.write(chunk)
                 print(f"Successfully downloaded {dest_name} on attempt {attempt + 1}")
-                return True
             except requests.RequestException as e:
                 print(f"Attempt {attempt + 1} failed: {e}")
                 if attempt < attempts - 1:
