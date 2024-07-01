@@ -105,25 +105,24 @@ def download_local_files(ti):
             }
         )
 
-    for url in arr:
-        attempts = 3
-        for attempt in range(attempts):
-            try:
-                os.makedirs(url['dest_path'], exist_ok=True)
-                with requests.get(url, stream=True) as r:
-                    r.raise_for_status()
-                    with open(f"{url['dest_path']}{url['dest_name']}", "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                print(f"Successfully downloaded {url['dest_name']} on attempt {attempt + 1}")
-                return True
-            except requests.RequestException as e:
-                print(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < attempts - 1:
-                    time.sleep(1) 
-                else:
-                    print(f"Failed to download {url['dest_name']} after {attempts} attempts")
-                    return False
+    attempts = 3
+    for attempt in range(attempts):
+        try:
+            os.makedirs(url['dest_path'], exist_ok=True)
+            with requests.get(url['dest_path'], stream=True) as r:
+                r.raise_for_status()
+                with open(f"{url['dest_path']}{url['dest_name']}", "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+            print(f"Successfully downloaded {url['dest_name']} on attempt {attempt + 1}")
+            return True
+        except requests.RequestException as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < attempts - 1:
+                time.sleep(1) 
+            else:
+                print(f"Failed to download {url['dest_name']} after {attempts} attempts")
+                return False
 
    
 def send_to_minio(ti):
