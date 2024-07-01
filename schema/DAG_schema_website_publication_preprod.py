@@ -5,6 +5,7 @@ from datetime import timedelta, datetime
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions import (
     initialization,
@@ -12,7 +13,8 @@ from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions impo
     update_news_feed,
     sort_folders,
     get_issues_and_labels,
-    final_clean_up
+    publish_schema_dataset,
+    final_clean_up,
 )
 
 DAG_NAME = "schema_website_publication_preprod"
@@ -72,6 +74,15 @@ with DAG(
         python_callable=get_issues_and_labels,
     )
 
+    publish_schema_dataset = PythonOperator(
+        task_id="publish_schema_dataset",
+        python_callable=publish_schema_dataset,
+        op_kwargs={
+            "TMP_FOLDER": TMP_FOLDER,
+            "AIRFLOW_ENV": AIRFLOW_ENV,
+        },
+    )
+
     final_clean_up = PythonOperator(
         task_id="final_clean_up",
         python_callable=final_clean_up,
@@ -112,6 +123,7 @@ with DAG(
     update_news_feed.set_upstream(check_and_save_schemas)
     sort_folders.set_upstream(update_news_feed)
     get_issues_and_labels.set_upstream(sort_folders)
-    final_clean_up.set_upstream(get_issues_and_labels)
+    publish_schema_dataset.set_upstream(get_issues_and_labels)
+    final_clean_up.set_upstream(publish_schema_dataset)
     copy_files.set_upstream(final_clean_up)
     commit_changes.set_upstream(copy_files)
