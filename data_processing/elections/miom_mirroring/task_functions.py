@@ -27,97 +27,103 @@ ID_CURRENT_ELECTION = "LG2024"
 URL_ELECTIONS_HTTP_SERVER = "https://www.resultats-elections.interieur.gouv.fr/telechargements/"
 
 
-def parse_http_server(url, arr, max_date, item_max_date, subfolder):
+def parse_http_server(url, max_dates, new_max_dates, arr, filename):
     response = requests.get(url)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
         tds = soup.find_all('td')
         i = 0
         mydict = {}
-        root_folder = False
+        found = False
         for td in tds:
             if (i == 4):
                 i = 0
                 mydict = {}
-                root_folder = False
             i += 1
             if (i == 1):
                 soup2 = BeautifulSoup(str(td), 'html.parser')
                 links = soup2.find_all('a')
                 for link in links:
                     href = link.get('href')
-                    if href != '../':
-                        if not href.endswith('/'):
+                    for complement in [".xml", "COM.xml", "CIR.xml"]:
+                        if str(href) == filename + complement:
                             mydict["link"] = url + str(href)
                             mydict["name"] = str(href)
-                        else:
-                            arr, item_max_date = parse_http_server(url + str(href), arr, max_date, item_max_date, subfolder)
-                    else:
-                        root_folder = True
-            if (i == 2 and not root_folder):
+                            found = True
+            if (i == 2 and found):
                 new_date = datetime.strptime(td.text, '%Y-%b-%d %H:%M:%S').isoformat()
-                if new_date > max_date:
+                found = False
+                if filename not in max_dates or (filename in max_dates and max_dates[filename] < new_date):
                     mydict["date"] = new_date
-                    if 'link' in mydict:
-                        if 'resultatsT' not in subfolder or ('COM.xml' in mydict['link'] and 'resultatsT' in subfolder):
-                            arr.append(mydict)
-                if new_date > item_max_date:
-                    item_max_date = new_date
-    return arr, item_max_date
+                    arr.append(mydict)
+                    new_max_dates[mydict["name"]] = new_date
+    return arr, new_max_dates
 
 
-def parse_and_max_date(url, arr, max_date, item, new_max_date):
-    arr, item_max_date = parse_http_server(f"{url}{item}/", arr, max_date, max_date, "{item}")
-    if new_max_date < item_max_date:
-        new_max_date = item_max_date
-    return arr, new_max_date
+def get_dpt_list():
+    #department_list = ["01", "02"]
+    department_list = [f'{i:02}' for i in range(1, 96) if i != 20]
+    department_list += [str(i) for i in range(971, 979)]
+    additional_departments = ['2A', '2B', 'ZZ', 'ZX', '986', '987', '988']
+    department_list += additional_departments
+    return department_list
 
 
 def get_files_updated_miom(ti):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
-    r = requests.get(
+    url_max_date = (
         "https://object.data.gouv.fr/" + \
         MINIO_BUCKET_DATA_PIPELINE_OPEN + \
         "/" + AIRFLOW_ENV + \
         "/elections-mirroring/" + ID_CURRENT_ELECTION + "/max_date.json"
     )
-    max_date = r.json()["max_date"]
-    new_max_date = max_date
+    r = requests.get(url_max_date)
+    max_dates = r.json()
+    new_max_dates = {}
     arr = []
-    for item in ['nuances', 'candidatsT1', 'candidatsT2', 'resultatsT1', 'resultatsT2']:
-        arr, new_max_date = parse_and_max_date(url, arr, max_date, item, new_max_date)
+
+    for dep in get_dpt_list():
+        for tour in ["1", "2"]:
+            for file in ["candidatsT", "resultatsT"]:
+                print(url)
+                url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/" + file + tour + "/" + dep + "/"
+                arr, new_max_dates = parse_http_server(url, max_dates, new_max_dates, arr, file[0].upper() + tour + dep)
 
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
-        json.dump({ "max_date": new_max_date }, fp)
+        json.dump(new_max_dates, fp)
+
     ti.xcom_push(key="miom_files", value=arr)
-    ti.xcom_push(key="max_date", value=new_max_date)
+    ti.xcom_push(key="max_date", value=new_max_dates)
 
 
 def download_local_files(ti):
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
     arr = []
-
     for cf in miom_files:
         url = cf["link"]
         dest_path = f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/"
         dest_name = cf["name"]
 
-        attempts = 3
-        for attempt in range(attempts):
-            try:
-                os.makedirs(dest_path, exist_ok=True)
-                with requests.get(url, stream=True) as r:
-                    r.raise_for_status()
-                    with open(f"{dest_path}{dest_name}", "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                print(f"Successfully downloaded {dest_name} on attempt {attempt + 1}")
-            except requests.RequestException as e:
-                print(f"Attempt {attempt + 1} failed: {e}")
-                if attempt < attempts - 1:
-                    time.sleep(1) 
-                else:
-                    print(f"Failed to download {dest_name} after {attempts} attempts")
+        if ("resultatsT" in url and ('COM.xml' in dest_name or 'CIR.xml' in dest_name)) or ("resultatsT" not in url):
+
+            attempt = 0
+            isNotDownload = True
+            os.makedirs(dest_path, exist_ok=True)
+            while isNotDownload:
+                attempt += 1
+                if attempt == 3:
+                    isNotDownload = False
+                try:
+                    with requests.get(url, stream=True) as r:
+                        r.raise_for_status()
+                        with open(f"{dest_path}{dest_name}", "wb") as f:
+                            for chunk in r.iter_content(chunk_size=8192):
+                                f.write(chunk)
+                    isNotDownload = False
+                    print(f"Successfully downloaded {dest_name} on attempt {attempt}")
+                except requests.RequestException as e:
+                    print(f"Attempt {attempt} failed: {e}")
+                    time.sleep(1)
 
    
 def send_to_minio(ti):
@@ -193,16 +199,17 @@ def send_exports_to_minio():
             )
 
     for typeResultat in ['resultatsT1', 'resultatsT2']:
-        for typeResultatFile in ['general', 'candidats']:
-            if os.path.exists(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{typeResultatFile}.csv"):
-                list_files.append(
-                    {
-                        "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-                        "source_name": f"{typeResultat}_{typeResultatFile}.csv",
-                        "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
-                        "dest_name": f"{typeResultat}_{typeResultatFile}.csv",
-                    }
-                )
+        for levelResultat in ['communes', 'circos']:
+            for typeResultatFile in ['general', 'candidats']:
+                if os.path.exists(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{levelResultat}_{typeResultatFile}.csv"):
+                    list_files.append(
+                        {
+                            "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+                            "source_name": f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
+                            "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+                            "dest_name": f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
+                        }
+                    )
     minio_open.send_files(
         list_files=list_files
     )
@@ -269,7 +276,11 @@ def create_candidats_files():
 
 
 def publish_results_elections(ti):
-    max_date = ti.xcom_pull(key="max_date", task_ids="get_files_updated_miom")
+    max_dates = ti.xcom_pull(key="max_date", task_ids="get_files_updated_miom")
+    max_date = "1970-01-01"
+    for md in max_dates:
+        if max_dates[md] > max_date:
+            max_date = max_dates[md]
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/miom_mirroring/config/dgv.json") as fp:
         data = json.load(fp)
     for d in data:
@@ -295,142 +306,135 @@ def publish_results_elections(ti):
         )
 
 
-def process_xml_res_general(xml_data):
+
+def manage_data(item, level, typefile, mydict_general, mydict_com, candidat):
+    mydict = {}
+    mydict = mydict_general.copy()
+    for tour in item.find_all('Tour'):
+        if level == "communes":
+            mydict["CodCom"] = mydict_com["CodCom"]
+            mydict["LibCom"] = mydict_com["LibCom"]
+
+        if typefile == "general":
+            mydict["NumTour"] = tour.find('NumTour').text
+            mydict["Inscrits"] = tour.find('Inscrits').find('Nombre').text
+            mydict["Abstentions"] = tour.find('Abstentions').find('Nombre').text
+            mydict["Abstentions_RapportInscrit"] = tour.find('Abstentions').find('RapportInscrits').text
+            mydict["Votants"] = tour.find('Votants').find('Nombre').text
+            mydict["Votants_RapportInscrit"] = tour.find('Votants').find('RapportInscrits').text
+            mydict["Blancs"] = tour.find('Blancs').find('Nombre').text
+            mydict["Blancs_RapportInscrit"] = tour.find('Blancs').find('RapportInscrits').text
+            mydict["Blancs_RapportVotant"] = tour.find('Blancs').find('RapportVotants').text
+            mydict["Nuls"] = tour.find('Nuls').find('Nombre').text
+            mydict["Nuls_RapportInscrit"] = tour.find('Nuls').find('RapportInscrits').text
+            mydict["Nuls_RapportVotant"] = tour.find('Nuls').find('RapportVotants').text
+            mydict["Exprimes"] = tour.find('Exprimes').find('Nombre').text
+            mydict["Exprimes_RapportInscrit"] = tour.find('Exprimes').find('RapportInscrits').text
+            mydict["Exprimes_RapportVotant"] = tour.find('Exprimes').find('RapportVotants').text
+
+        if typefile == "candidats":
+            mydict["NumTour"] = tour.find('NumTour').text
+            mydict["NumPanneauCand"] = candidat.find('NumPanneauCand').text
+            mydict["NomPsn"] = candidat.find('NomPsn').text
+            mydict["PrenomPsn"] = candidat.find('PrenomPsn').text
+            mydict["CivilitePsn"] = candidat.find('CivilitePsn').text
+            mydict["CodNuaCand"] = candidat.find('CodNuaCand').text
+            mydict["LibNuaCand"] = candidat.find('LibNuaCand').text
+            mydict["NbVoix"] = candidat.find('NbVoix').text
+            mydict["RapportExprimes"] = candidat.find('RapportExprimes').text
+            mydict["RapportInscrits"] = candidat.find('RapportInscrits').text
+
+    return mydict
+
+def manage_cases(xml_data, level):
     soup = BeautifulSoup(xml_data, 'xml')
     general_results = []
+    candidats_results = []
 
-    election_type = soup.find('Type').text
-    election_year = soup.find('Annee').text
-
-    for department in soup.find_all('Departement'):
-        department_code = department.find('CodDpt').text
-        department_name = department.find('LibDpt').text
-
-        for circonscription in department.find_all('Circonscription'):
-            circonscription_code = circonscription.find('CodCirElec').text
-            circonscription_name = circonscription.find('LibCirElec').text
-
-            for commune in circonscription.find_all('Commune'):
-                commune_code = commune.find('CodCom').text
-                commune_name = commune.find('LibCom').text
-
-                for tour in commune.find_all('Tour'):
-                    tour_number = tour.find('NumTour').text
-                    inscrits = tour.find('Inscrits').find('Nombre').text
-                    abstentions = tour.find('Abstentions').find('Nombre').text
-                    abstentions_ratio = tour.find('Abstentions').find('RapportInscrits').text
-                    votants = tour.find('Votants').find('Nombre').text
-                    votants_ratio = tour.find('Votants').find('RapportInscrits').text
-                    blancs = tour.find('Blancs').find('Nombre').text
-                    blancs_ratio_inscrit = tour.find('Blancs').find('RapportInscrits').text
-                    blancs_ratio_votant = tour.find('Blancs').find('RapportVotants').text
-                    nuls = tour.find('Nuls').find('Nombre').text
-                    nuls_ratio_inscrit = tour.find('Nuls').find('RapportInscrits').text
-                    nuls_ratio_votant = tour.find('Nuls').find('RapportVotants').text
-                    exprimes = tour.find('Exprimes').find('Nombre').text
-                    exprimes_ratio_inscrit = tour.find('Exprimes').find('RapportInscrits').text
-                    exprimes_ratio_votant = tour.find('Exprimes').find('RapportVotants').text
-
-                    general_results.append({
-                        'Type': election_type,
-                        'Annee': election_year,
-                        'CodDpt': department_code,
-                        'LibDpt': department_name,
-                        'CodCom': commune_code,
-                        'LibCom': commune_name,
-                        'CodCirElec': circonscription_code,
-                        'LibCirElec': circonscription_name,
-                        'NumTour': tour_number,
-                        'Inscrits': inscrits,
-                        'Abstentions': abstentions,
-                        'Abstentions_RapportInscrit': abstentions_ratio,
-                        'Votants': votants,
-                        'Votants_RapportInscrit': votants_ratio,
-                        'Blancs': blancs,
-                        'Blancs_RapportInscrit': blancs_ratio_inscrit,
-                        'Blancs_RapportVotant': blancs_ratio_votant,
-                        'Nuls': nuls,
-                        'Nuls_RapportInscrit': nuls_ratio_inscrit,
-                        'Nuls_RapportVotant': nuls_ratio_votant,
-                        'Exprimes': exprimes,
-                        'Exprimes_RapportInscrit': exprimes_ratio_inscrit,
-                        'Exprimes_RapportVotant': exprimes_ratio_votant
-                    })
-
-    return pd.DataFrame(general_results)
-
-
-def process_xml_res_candidats(xml_data):
-    soup = BeautifulSoup(xml_data, 'xml')
-    candidate_results = []
-
-    election_type = soup.find('Type').text
-    election_year = soup.find('Annee').text
+    base_dict = {
+        "Type": soup.find('Type').text,
+        "Annee": soup.find('Annee').text
+    }
 
     for department in soup.find_all('Departement'):
-        department_code = department.find('CodDpt').text
-        department_name = department.find('LibDpt').text
+        department_dict = base_dict.copy()
+        department_dict["CodDpt"] = department.find('CodDpt').text
+        department_dict["LibDpt"] = department.find('LibDpt').text
 
         for circonscription in department.find_all('Circonscription'):
-            circonscription_code = circonscription.find('CodCirElec').text
-            circonscription_name = circonscription.find('LibCirElec').text
+            circonscription_dict = department_dict.copy()
+            circonscription_dict["CodCirElec"] = circonscription.find('CodCirElec').text
+            circonscription_dict["LibCirElec"] = circonscription.find('LibCirElec').text
 
-            for commune in circonscription.find_all('Commune'):
-                commune_code = commune.find('CodCom').text
-                commune_name = commune.find('LibCom').text
+            if level == "communes":
+                for commune in circonscription.find_all('Commune'):
+                    mydict_com = {
+                        "CodCom": commune.find('CodCom').text,
+                        "LibCom": commune.find('LibCom').text
+                    }
 
-                for tour in commune.find_all('Tour'):
-                    tour_number = tour.find('NumTour').text
+                    general_result = manage_data(commune, level, "general", circonscription_dict, mydict_com, None)
+                    general_results.append(general_result)
 
-                    for candidat in tour.find_all('Candidat'):
-                        candidate_results.append({
-                            'Type': election_type,
-                            'Annee': election_year,
-                            'CodDpt': department_code,
-                            'LibDpt': department_name,
-                            'CodCom': commune_code,
-                            'LibCom': commune_name,
-                            'CodCirElec': circonscription_code,
-                            'LibCirElec': circonscription_name,
-                            'NumTour': tour_number,
-                            'NumPanneauCand': candidat.find('NumPanneauCand').text,
-                            'NomPsn': candidat.find('NomPsn').text,
-                            'PrenomPsn': candidat.find('PrenomPsn').text,
-                            'CivilitePsn': candidat.find('CivilitePsn').text,
-                            'CodNuaCand': candidat.find('CodNuaCand').text,
-                            'LibNuaCand': candidat.find('LibNuaCand').text,
-                            'NbVoix': candidat.find('NbVoix').text,
-                            'RapportExprimes': candidat.find('RapportExprimes').text,
-                            'RapportInscrits': candidat.find('RapportInscrits').text
-                        })
+                    for candidat in commune.find_all('Candidat'):
+                        candidat_dict = circonscription_dict.copy()
+                        candidats_result = manage_data(commune, level, "candidats", candidat_dict, mydict_com, candidat)
+                        candidats_results.append(candidats_result)
 
-    return pd.DataFrame(candidate_results)
+            else:
+                general_result = manage_data(circonscription, level, "general", circonscription_dict, None, None)
+                general_results.append(general_result)
+
+                for candidat in circonscription.find_all('Candidat'):
+                    candidat_dict = circonscription_dict.copy()
+                    candidats_result = manage_data(circonscription, level, "candidats", candidat_dict, None, candidat)
+                    candidats_results.append(candidats_result)
+
+    return pd.DataFrame(general_results), pd.DataFrame(candidats_results)
+
+
+def process_xml_resultats(xml_data, level):
+    dfinter1, dfinter2 = manage_cases(xml_data, level)
+    return dfinter1, dfinter2
 
 
 def create_resultats_files():
     files = glob.glob(f"{AIRFLOW_DAG_TMP}elections-mirroring/export/**", recursive=True)
-    for typeResultat in ['resultatsT1', 'resultatsT2']:
-        df1 = pd.DataFrame()
-        df2 = pd.DataFrame()
-        for f in files:
-            if typeResultat in f and ('COM.xml' in f):
-                print(f)
-                with open(f, 'r', encoding='utf-8') as file:
-                    xml_data = file.read()
-                dfinter1 = process_xml_res_general(xml_data)
-                dfinter2 = process_xml_res_candidats(xml_data)
-                df1 = pd.concat([df1, dfinter1])
-                df2 = pd.concat([df2, dfinter2])
-        if df1.shape[0] > 0:
-            df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_general.csv", index=False)
-        else:
-            data = {'Données': ['Non disponibles']}
-            df1 = pd.DataFrame(data)
-            df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_general.csv", index=False)
-        
-        if df2.shape[0] > 0:
-            df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_candidats.csv", index=False)
-        else:
-            data = {'Données': ['Non disponibles']}
-            df2 = pd.DataFrame(data)
-            df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_candidats.csv", index=False)
+    
+    typeFiles = [
+        {
+            "level": "communes",
+            "code": "COM.xml"
+        },
+        {
+            "level": "circos",
+            "code": "CIR.xml"
+        }
+    ]
+    for tf in typeFiles:
+        print("-----", tf["level"])
+        for typeResultat in ['resultatsT1', 'resultatsT2']:
+            print("--------", typeResultat)
+            df1 = pd.DataFrame()
+            df2 = pd.DataFrame()
+            for f in files:
+                if typeResultat in f and (tf["code"] in f):
+                    print(f)
+                    with open(f, 'r', encoding='utf-8') as file:
+                        xml_data = file.read()
+                    dfinter1, dfinter2 = process_xml_resultats(xml_data, tf["level"])
+                    df1 = pd.concat([df1, dfinter1])
+                    df2 = pd.concat([df2, dfinter2])
+            if df1.shape[0] > 0:
+                df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_general.csv", index=False)
+            else:
+                data = {'Données': ['Non disponibles']}
+                df1 = pd.DataFrame(data)
+                df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_general.csv", index=False)
+            
+            if df2.shape[0] > 0:
+                df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_candidats.csv", index=False)
+            else:
+                data = {'Données': ['Non disponibles']}
+                df2 = pd.DataFrame(data)
+                df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_candidats.csv", index=False)
