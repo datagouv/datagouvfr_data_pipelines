@@ -5,7 +5,6 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
 )
@@ -61,7 +60,7 @@ def parse_http_server(url, max_dates, new_max_dates, arr, filename):
 
 
 def get_dpt_list():
-    #department_list = ["01", "02"]
+    # department_list = ["01", "02"]
     department_list = [f'{i:02}' for i in range(1, 96) if i != 20]
     department_list += [str(i) for i in range(971, 979)]
     additional_departments = ['2A', '2B', 'ZZ', 'ZX', '986', '987', '988']
@@ -72,10 +71,8 @@ def get_dpt_list():
 def get_files_updated_miom(ti):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     url_max_date = (
-        "https://object.data.gouv.fr/" + \
-        MINIO_BUCKET_DATA_PIPELINE_OPEN + \
-        "/" + AIRFLOW_ENV + \
-        "/elections-mirroring/" + ID_CURRENT_ELECTION + "/max_date.json"
+        f"https://object.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/" +
+        f"{AIRFLOW_ENV}/elections-mirroring/{ID_CURRENT_ELECTION}/max_date.json"
     )
     r = requests.get(url_max_date)
     max_dates = r.json()
@@ -87,7 +84,13 @@ def get_files_updated_miom(ti):
             for file in ["candidatsT", "resultatsT"]:
                 print(url)
                 url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/" + file + tour + "/" + dep + "/"
-                arr, new_max_dates = parse_http_server(url, max_dates, new_max_dates, arr, file[0].upper() + tour + dep)
+                arr, new_max_dates = parse_http_server(
+                    url,
+                    max_dates,
+                    new_max_dates,
+                    arr,
+                    file[0].upper() + tour + dep
+                )
 
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
         json.dump(new_max_dates, fp)
@@ -98,14 +101,17 @@ def get_files_updated_miom(ti):
 
 def download_local_files(ti):
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
-    arr = []
     for cf in miom_files:
         url = cf["link"]
-        dest_path = f"{AIRFLOW_DAG_TMP}elections-mirroring/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/"
+        dest_path = (
+            f"{AIRFLOW_DAG_TMP}elections-mirroring/" +
+            "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/"
+        )
         dest_name = cf["name"]
 
-        if ("resultatsT" in url and ('COM.xml' in dest_name or 'CIR.xml' in dest_name)) or ("resultatsT" not in url):
-
+        if (
+            "resultatsT" in url and ('COM.xml' in dest_name or 'CIR.xml' in dest_name)
+        ) or ("resultatsT" not in url):
             attempt = 0
             isNotDownload = True
             os.makedirs(dest_path, exist_ok=True)
@@ -125,16 +131,25 @@ def download_local_files(ti):
                     print(f"Attempt {attempt} failed: {e}")
                     time.sleep(1)
 
-   
+
 def send_to_minio(ti):
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
     arr = []
     for cf in miom_files:
         arr.append(
             {
-                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/" + '/' + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/",
+                "source_path": (
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/" +
+                    "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/"
+                ),
                 "source_name": cf["name"],
-                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/" + "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/", "").split("/")[:-1]) + "/",
+                "dest_path": (
+                    f"elections-mirroring/{ID_CURRENT_ELECTION}/data/" +
+                    "/".join(
+                        cf["link"].replace(URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/", "")
+                        .split("/")[:-1]
+                    ) + "/"
+                ),
                 "dest_name": cf["name"],
             }
         )
@@ -170,11 +185,14 @@ def download_from_minio(ti):
             {
                 "source_path": "/".join(mf.split("/")[:-1]) + "/",
                 "source_name": mf.split("/")[-1],
-                "dest_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/export/" + "/".join(mf.split(prefix)[1].split("/")[:-1]) + "/",
+                "dest_path": (
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/export/" +
+                    "/".join(mf.split(prefix)[1].split("/")[:-1]) + "/"
+                ),
                 "dest_name": mf.split("/")[-1],
             }
         )
-    
+
     minio_open.download_files(list_files=list_files)
 
 
@@ -201,7 +219,10 @@ def send_exports_to_minio():
     for typeResultat in ['resultatsT1', 'resultatsT2']:
         for levelResultat in ['communes', 'circos']:
             for typeResultatFile in ['general', 'candidats']:
-                if os.path.exists(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{levelResultat}_{typeResultatFile}.csv"):
+                if os.path.exists(
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/"
+                    f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv"
+                ):
                     list_files.append(
                         {
                             "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
@@ -306,7 +327,6 @@ def publish_results_elections(ti):
         )
 
 
-
 def manage_data(item, level, typefile, mydict_general, mydict_com, candidat):
     mydict = {}
     mydict = mydict_general.copy()
@@ -346,6 +366,7 @@ def manage_data(item, level, typefile, mydict_general, mydict_com, candidat):
 
     return mydict
 
+
 def manage_cases(xml_data, level):
     soup = BeautifulSoup(xml_data, 'xml')
     general_results = []
@@ -373,21 +394,48 @@ def manage_cases(xml_data, level):
                         "LibCom": commune.find('LibCom').text
                     }
 
-                    general_result = manage_data(commune, level, "general", circonscription_dict, mydict_com, None)
+                    general_result = manage_data(
+                        commune, level,
+                        "general",
+                        circonscription_dict,
+                        mydict_com,
+                        None
+                    )
                     general_results.append(general_result)
 
                     for candidat in commune.find_all('Candidat'):
                         candidat_dict = circonscription_dict.copy()
-                        candidats_result = manage_data(commune, level, "candidats", candidat_dict, mydict_com, candidat)
+                        candidats_result = manage_data(
+                            commune,
+                            level,
+                            "candidats",
+                            candidat_dict,
+                            mydict_com,
+                            candidat
+                        )
                         candidats_results.append(candidats_result)
 
             else:
-                general_result = manage_data(circonscription, level, "general", circonscription_dict, None, None)
+                general_result = manage_data(
+                    circonscription,
+                    level,
+                    "general",
+                    circonscription_dict,
+                    None,
+                    None
+                )
                 general_results.append(general_result)
 
                 for candidat in circonscription.find_all('Candidat'):
                     candidat_dict = circonscription_dict.copy()
-                    candidats_result = manage_data(circonscription, level, "candidats", candidat_dict, None, candidat)
+                    candidats_result = manage_data(
+                        circonscription,
+                        level,
+                        "candidats",
+                        candidat_dict,
+                        None,
+                        candidat
+                    )
                     candidats_results.append(candidats_result)
 
     return pd.DataFrame(general_results), pd.DataFrame(candidats_results)
@@ -400,7 +448,7 @@ def process_xml_resultats(xml_data, level):
 
 def create_resultats_files():
     files = glob.glob(f"{AIRFLOW_DAG_TMP}elections-mirroring/export/**", recursive=True)
-    
+
     typeFiles = [
         {
             "level": "communes",
@@ -426,15 +474,27 @@ def create_resultats_files():
                     df1 = pd.concat([df1, dfinter1])
                     df2 = pd.concat([df2, dfinter2])
             if df1.shape[0] > 0:
-                df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_general.csv", index=False)
+                df1.to_csv(
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_general.csv",
+                    index=False
+                )
             else:
                 data = {'Données': ['Non disponibles']}
                 df1 = pd.DataFrame(data)
-                df1.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_general.csv", index=False)
-            
+                df1.to_csv(
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_general.csv",
+                    index=False
+                )
+
             if df2.shape[0] > 0:
-                df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_candidats.csv", index=False)
+                df2.to_csv(
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_candidats.csv",
+                    index=False
+                )
             else:
                 data = {'Données': ['Non disponibles']}
                 df2 = pd.DataFrame(data)
-                df2.to_csv(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_candidats.csv", index=False)
+                df2.to_csv(
+                    f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeResultat}_{tf['level']}_candidats.csv",
+                    index=False
+                )
