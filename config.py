@@ -8,6 +8,8 @@ AIRFLOW_URL = Variable.get("AIRFLOW_URL", "")
 
 # Datagouv
 DATAGOUV_SECRET_API_KEY = Variable.get("DATAGOUV_SECRET_API_KEY", "")
+DEMO_DATAGOUV_SECRET_API_KEY = Variable.get("DEMO_DATAGOUV_SECRET_API_KEY", "")
+DEMO_DATAGOUV_URL = Variable.get("DEMO_DATAGOUV_URL", "")
 FILES_BASE_URL = Variable.get("FILES_BASE_URL", "")
 
 # Mattermost
