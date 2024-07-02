@@ -1284,6 +1284,7 @@ def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
         resource_payload={
             "title": f"Catalogue des schémas de données ({datetime.now().strftime('%Y-%m-%d')})"
         },
+        on_demo=branch == "preprod",
     )
 
 
