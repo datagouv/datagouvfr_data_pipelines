@@ -8,10 +8,12 @@ import re
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_URL,
+    DEMO_DATAGOUV_SECRET_API_KEY,
 )
 
 if AIRFLOW_ENV == "dev":
-    DATAGOUV_URL = "https://demo.data.gouv.fr"
+    DATAGOUV_URL = DEMO_DATAGOUV_URL
     ORGA_REFERENCE = "63e3ae4082ddaa6c806b8417"
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
@@ -175,7 +177,7 @@ def post_remote_resource(
     schema: dict = {},
     description: str = "",
     resource_id: Optional[str] = None,
-    datagouv_url: Optional[str] = None,
+    on_demo: bool = False,
 ):
     """Create a post in data.gouv.fr
 
@@ -193,7 +195,10 @@ def post_remote_resource(
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    if not datagouv_url:
+    if on_demo or AIRFLOW_ENV == "dev":
+        datagouv_url = "https://demo.data.gouv.fr"
+        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
+    else:
         datagouv_url = DATAGOUV_URL
 
     payload = {
