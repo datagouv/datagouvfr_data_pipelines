@@ -127,6 +127,7 @@ def post_resource(
     dataset_id: str,
     resource_id: Optional[str] = None,
     resource_payload: Optional[dict] = None,
+    on_demo: bool = False,
 ):
     """Upload a resource in data.gouv.fr
 
@@ -143,6 +144,12 @@ def post_resource(
     Returns:
         json: return API result in a dictionnary
     """
+    if on_demo or AIRFLOW_ENV == "dev":
+        datagouv_url = "https://demo.data.gouv.fr"
+        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
+    else:
+        datagouv_url = DATAGOUV_URL
+
     if not file_to_upload['dest_path'].endswith('/'):
         file_to_upload['dest_path'] += '/'
     files = {
@@ -152,15 +159,15 @@ def post_resource(
         )
     }
     if resource_id:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     else:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/upload/"
     r = datagouv_session.post(url, files=files)
     r.raise_for_status()
     if not resource_id:
         resource_id = r.json()['id']
         print("Resource was given this id:", resource_id)
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and resource_payload:
         r_put = datagouv_session.put(url.replace('upload/', ''), json=resource_payload)
         r_put.raise_for_status()
