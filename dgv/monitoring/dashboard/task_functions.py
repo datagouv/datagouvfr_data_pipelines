@@ -378,7 +378,11 @@ def get_hvd_dataservices_stats():
     for c in crawler:
         count += 1
         for i in of_interest:
-            of_interest[i] += c[i] is not None
+            if i != 'license':
+                of_interest[i] += c[i] is not None
+            # for now, as license is not None when not specified
+            else:
+                of_interest[i] += c[i] != "notspecified"
 
     dataservices_stats = {
         datetime.now().strftime('%Y-%m-%d'): {
