@@ -396,7 +396,7 @@ def publish_mattermost(ti):
     if nb_orgas > 0:
         for item in orgas:
             if item['spam']:
-                message = ':warning: @all Spam potentiel\n'
+                message = f':warning: @all Spam potentiel ({item["spam"]})\n'
             else:
                 message = ''
             if item['duplicated']:
