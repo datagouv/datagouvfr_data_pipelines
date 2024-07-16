@@ -270,25 +270,29 @@ def reformat_prix(local_path, dest_path, dest_name):
         {"name": "ruptures", "fieldnames": ["id", "nom", "debut", "fin", "station_id"]},
         {"name": "fermetures", "fieldnames": ["debut", "fin", "type", "station_id"]},
     ]
-    configs = [
-        conf for conf in configs if conf.get("name") in csv_output_content.keys()
-    ]
-    # import ipdb;ipdb.set_trace()
+
+    # Filter configs to match existing keys in csv_output_content
+    configs = [conf for conf in configs if any(conf["name"] in content for content in contents)]
 
     for config in configs:
-        with open(f'{config.get("name")}.csv', "w", newline="") as csvfile:
-            all_content = [i.get(f'{config.get("name")}') for i in contents]
+        with open(f'{config["name"]}.csv', "w", newline="") as csvfile:
+            all_content = [i[config["name"]] for i in contents if config["name"] in i]
             all_content = list(chain(*all_content))
-            writer = csv.DictWriter(csvfile, fieldnames=config.get("fieldnames"))
+            writer = csv.DictWriter(csvfile, fieldnames=config["fieldnames"])
             writer.writeheader()
-            writer.writerows(all_content)
 
-    # import ipdb;ipdb.set_trace()
-    with open(f"stations.csv", "w", newline="") as csvfile:
-        all_content = [i.get(f"stations") for i in contents]
+            # Filter dictionaries to match the fieldnames
+            filtered_content = [
+                {key: item[key] for key in config["fieldnames"] if key in item}
+                for item in all_content
+            ]
+            writer.writerows(filtered_content)
+
+    with open("stations.csv", "w", newline="") as csvfile:
+        all_content = [i["stations"] for i in contents]
         writer = csv.DictWriter(
             csvfile,
-            fieldnames=["id", "latitude", "longitude", "cp", "pop", "adresse", "ville"],
+            fieldnames=["id", "latitude", "longitude", "cp", "pop", "adresse", "ville"]
         )
         writer.writeheader()
         writer.writerows(all_content)
