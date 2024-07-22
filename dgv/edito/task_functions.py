@@ -1,7 +1,6 @@
 import pandas as pd
 from datetime import date
 from dateutil.relativedelta import relativedelta
-from io import StringIO
 import requests
 # import tweepy
 from datagouvfr_data_pipelines.config import (
@@ -132,7 +131,7 @@ def create_edito_post(**kwargs):
         ids = recent["id"].to_list()
         visits = []
         for i in ids:
-            r = r = requests.get(
+            r = requests.get(
                 f"https://metric-api.data.gouv.fr/api/{object_type}/data/"
                 f"?metric_month__exact={LAST_MONTH_DATE_FMT}"
                 f"&{object_type[:-1]}_id__exact={i}"
