@@ -319,10 +319,12 @@ def publish_results_elections(ti):
             remote_url=d['url'],
             dataset_id=d[AIRFLOW_ENV]["dataset_id"],
             resource_id=d[AIRFLOW_ENV]["resource_id"],
-            filesize=filesize,
-            title=d['name'] + complement,
-            format=d['format'],
-            description="",
+            payload={
+                "filesize": filesize,
+                "title": d['name'] + complement,
+                "format": d['format'],
+                "description": "",
+            },
             on_demo=True,
         )
 

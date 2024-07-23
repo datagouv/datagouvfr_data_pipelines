@@ -3,6 +3,7 @@ from requests.auth import HTTPBasicAuth
 from typing import List, Optional, TypedDict
 import os
 
+
 class Url(TypedDict):
     url: str
     dest_path: str

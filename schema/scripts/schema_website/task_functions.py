@@ -1281,7 +1281,7 @@ def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
             "31ed3bb3-cab4-48c2-b9b1-cb7095e8a548" if not is_demo
             else "f03f3dcb-1b23-4565-b02e-6985cb3d2959"
         ),
-        resource_payload={
+        payload={
             "title": f"Catalogue des schémas de données ({datetime.now().strftime('%Y-%m-%d')})"
         },
         on_demo=branch == "preprod",

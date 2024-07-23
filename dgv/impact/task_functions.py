@@ -314,10 +314,12 @@ def publish_datagouv(DAG_FOLDER):
         ),
         dataset_id=data[AIRFLOW_ENV]['dataset_id'],
         resource_id=data[AIRFLOW_ENV]['resource_id'],
-        filesize=os.path.getsize(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")),
-        title="Indicateurs d'impact de data.gouv.fr",
-        format="csv",
-        description=f"Dernière modification : {datetime.today()})",
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")),
+            "title": "Indicateurs d'impact de data.gouv.fr",
+            "format": "csv",
+            "description": f"Dernière modification : {datetime.today()})",
+        },
     )
     update_dataset_or_resource_metadata(
         payload={"temporal_coverage": {
