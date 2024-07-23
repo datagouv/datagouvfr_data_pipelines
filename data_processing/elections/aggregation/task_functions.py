@@ -246,14 +246,16 @@ def publish_results_elections():
         ),
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
-        title="Résultats généraux",
-        format="csv",
-        description=(
-            f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
+            "title": "Résultats généraux",
+            "format": "csv",
+            "description": (
+                f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print('Done with general results')
     post_remote_resource(
@@ -263,14 +265,16 @@ def publish_results_elections():
         ),
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
-        title="Résultats par candidat",
-        format="csv",
-        description=(
-            f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
+            "title": "Résultats par candidat",
+            "format": "csv",
+            "description": (
+                f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print('Done with candidats results')
     post_remote_resource(
@@ -280,14 +284,16 @@ def publish_results_elections():
         ),
         dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
-        title="Résultats généraux (format parquet)",
-        format="parquet",
-        description=(
-            f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
+            "title": "Résultats généraux (format parquet)",
+            "format": "parquet",
+            "description": (
+                f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print('Done with general results parquet')
     post_remote_resource(
@@ -297,14 +303,16 @@ def publish_results_elections():
         ),
         dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
-        title="Résultats par candidat (format parquet)",
-        format="parquet",
-        description=(
-            f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
+            "title": "Résultats par candidat (format parquet)",
+            "format": "parquet",
+            "description": (
+                f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
 
 

@@ -221,7 +221,7 @@ def post_geozones():
         file_to_upload=geozones_file,
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
-        resource_payload=payload
+        payload=payload
     )
 
     countries_file = {
@@ -242,7 +242,7 @@ def post_geozones():
         file_to_upload=countries_file,
         dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
-        resource_payload=payload
+        payload=payload
     )
 
     levels_file = {
@@ -259,7 +259,7 @@ def post_geozones():
         file_to_upload=levels_file,
         dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),
-        resource_payload=payload
+        payload=payload
     )
 
 

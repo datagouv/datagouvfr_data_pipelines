@@ -1260,7 +1260,7 @@ def upload_geojson(
         },
         dataset_id=consolidated_dataset_id,
         resource_id=r_id,
-        resource_payload=obj
+        payload=obj
     )
 
     if response.status_code != expected_status_code:
@@ -1377,7 +1377,7 @@ def upload_consolidated(
                     },
                     dataset_id=consolidated_dataset_id,
                     resource_id=r_id,
-                    resource_payload=obj,
+                    payload=obj,
                 )
                 if response.status_code == expected_status_code:
                     if r_to_create:
@@ -1807,7 +1807,7 @@ def update_consolidation_documentation_report(
                     },
                     dataset_id=consolidated_dataset_id,
                     resource_id=doc_r_id,
-                    resource_payload=obj,
+                    payload=obj,
                 )
 
                 if response.status_code == expected_status_code:

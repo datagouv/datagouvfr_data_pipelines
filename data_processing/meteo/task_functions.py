@@ -333,11 +333,13 @@ def upload_new_files(ti, minio_folder):
             post_remote_resource(
                 remote_url=url,
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                filesize=minio_files[minio_folder + file_path],
-                title=resource_name if not is_doc else file_with_ext,
-                type="main" if not is_doc else "documentation",
-                format=get_file_extention(file_with_ext),
-                description=description,
+                payload={
+                    "filesize": minio_files[minio_folder + file_path],
+                    "title": resource_name if not is_doc else file_with_ext,
+                    "type": "main" if not is_doc else "documentation",
+                    "format": get_file_extention(file_with_ext),
+                    "description": description,
+                },
             )
             new_files_datasets.add(path)
             updated_datasets.add(path)
