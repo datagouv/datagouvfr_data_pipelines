@@ -9,7 +9,6 @@ from datagouvfr_data_pipelines.config import (
     DEMO_DATAGOUV_URL,
     DEMO_DATAGOUV_SECRET_API_KEY,
 )
-from datagouvfr_data_pipelines.utils.download import download_files
 
 if AIRFLOW_ENV == "dev":
     DATAGOUV_URL = DEMO_DATAGOUV_URL
@@ -95,23 +94,6 @@ def create_dataset(
     )
     r.raise_for_status()
     return r.json()
-
-
-def get_resource(
-    resource_id: str,
-    file_to_store: File,
-) -> None:
-    """Download a resource from data.gouv.fr
-
-    Args:
-        resource_id: ID of the resource
-        file_to_store: Dictionnary containing `dest_path` and
-        `dest_name` where to store downloaded resource
-    """
-    download_files([{
-        "url": f"{DATAGOUV_URL}/fr/datasets/r/{resource_id}",
-        **file_to_store,
-    }])
 
 
 def post_resource(
