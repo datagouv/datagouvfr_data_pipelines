@@ -158,7 +158,7 @@ def post_resource(
         print("Resource was given this id:", resource_id)
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and payload:
-        r = update_dataset_or_resource_extras(
+        r = update_dataset_or_resource_metadata(
             payload=payload,
             dataset_id=dataset_id,
             resource_id=resource_id,
@@ -197,6 +197,7 @@ def post_remote_resource(
             payload=payload,
             dataset_id=dataset_id,
             resource_id=resource_id,
+            on_demo=on_demo,
         )
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
