@@ -148,5 +148,15 @@
             "prod": "667eae35510cd549fc7722c1",
             "dev": "667eb01a32a9caf3576d8d81"
         }
+    },
+    "REANALYSES/COMEPHORE": {
+        "source_pattern": "H_COMEPHORE_(?P<PERIOD>[^_]+).tar",
+        "name_template": "H_COMEPHORE_{PERIOD}",
+        "doc_pattern": "^(?:(?!tar$).)*$",
+        "description_template": "Données Coméphore pour le mois {PERIOD}",
+        "dataset_id": {
+            "prod": "669e23a7ce052a9e8521b75e",
+            "dev": "669e2657a07290f6dc4eec77"
+        }
     }
 }
