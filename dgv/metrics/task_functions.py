@@ -9,7 +9,6 @@ import requests
 import tarfile
 from tqdm import tqdm
 
-from datagouvfr_data_pipelines.utils.datagouv import get_resource
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.postgres import (
