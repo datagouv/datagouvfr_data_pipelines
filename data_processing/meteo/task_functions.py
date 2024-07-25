@@ -542,7 +542,9 @@ def notification_mattermost(ti):
     if issues:
         message += "\n:alert: Des ressources semblent mal placées :\n"
         for path in issues:
-            message += f"- [{path}]({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) :\n"
+            message += (
+                f"- [{path}]({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) :\n"
+            )
             for rid in issues[path]:
                 message += (
                     f"   - [{issues[path][rid]}]({DATAGOUV_URL}/fr/datasets/"
