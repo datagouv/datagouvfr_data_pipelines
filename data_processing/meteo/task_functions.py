@@ -478,6 +478,7 @@ def log_modified_files(ti):
         k: v for k, v in log_file.items()
         if not re.match(r'\d+-\d{2}-\d{2}', k) or k >= threshold
     }
+    print(f"{len(log_file)} clés dans le fichier :", list(log_file.keys()))
     with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
         json.dump(log_file, f)
     minio_meteo.send_files(
