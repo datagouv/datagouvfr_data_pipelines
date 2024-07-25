@@ -346,7 +346,7 @@ def upload_new_files(ti, minio_folder):
         except KeyError:
             print("⚠️ no config for this file")
             # the file was not uploaded, removing it from the list of new files
-            new_files.remove(new_files)
+            new_files.remove(file_path)
     ti.xcom_push(key="new_files_datasets", value=new_files_datasets)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
     ti.xcom_push(key="new_files", value=new_files)
