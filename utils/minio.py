@@ -6,6 +6,7 @@ from typing import List, TypedDict, Optional
 import os
 import io
 import json
+import magic
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_URL,
@@ -72,7 +73,10 @@ class MinIOClient:
                     self.bucket,
                     dest_path,
                     os.path.join(file["source_path"], file["source_name"]),
-                    content_type=file['content_type'] if 'content_type' in file else None
+                    content_type=file.get('content_type') or magic.from_file(
+                        os.path.join(file["source_path"], file["source_name"]),
+                        mime=True
+                    )
                 )
             else:
                 raise Exception(
@@ -166,6 +170,7 @@ class MinIOClient:
         self,
         prefix: str,
         ignore_airflow_env=False,
+        recursive=False,
     ):
         """Retrieve only the list of files in a Minio pattern
 
@@ -180,7 +185,7 @@ class MinIOClient:
         list_objects = []
         if not ignore_airflow_env:
             prefix = f"{AIRFLOW_ENV}/{prefix}"
-        objects = self.client.list_objects(self.bucket, prefix=prefix)
+        objects = self.client.list_objects(self.bucket, prefix=prefix, recursive=recursive)
         for obj in objects:
             # print(obj.object_name)
             list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))

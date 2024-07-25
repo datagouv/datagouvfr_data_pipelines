@@ -14,35 +14,39 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_latest_comments,
     get_all_from_api_query,
     get_awaiting_spam_comments,
+    check_duplicated_orga,
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
+from datagouvfr_data_pipelines.utils.grist import df_to_grist
 import requests
-import re
 from langdetect import detect, LangDetectException
+from unidecode import unidecode
 from time import sleep
+import pandas as pd
 
 DAG_NAME = "dgv_notification_activite"
 
 TIME_PERIOD = {"minutes": 5}
-duplicate_slug_pattern = r'-\d+$'
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
+grist_curation = "muvJRZ9cTGep"
 
 
 def detect_spam(name, description):
-    contains_spam_word = any([
-        spam in field.lower() if field else False
-        for spam in SPAM_WORDS
-        for field in [name, description]
-    ])
+    for spam in SPAM_WORDS:
+        for field in [name, description]:
+            if field and unidecode(spam) in unidecode(field.lower()):
+                return unidecode(spam)
     if not description or len(description) < 30:
-        doesnt_look_french = False
+        return
     else:
         try:
-            doesnt_look_french = detect(description.lower()) != 'fr'
+            lang = detect(description.lower())
+            if lang != 'fr':
+                return 'language:' + lang
         except LangDetectException:
-            doesnt_look_french = False
-    return contains_spam_word or doesnt_look_french
+            return
+    return
 
 
 def detect_potential_certif(siret):
@@ -104,6 +108,7 @@ def check_new(ti, **kwargs):
                 mydict['owner_type'] = None
             if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
+                # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
                     templates_dict["type"] == 'datasets'
                     and any([r['schema'] for r in item['resources']])
@@ -117,16 +122,11 @@ def check_new(ti, **kwargs):
                 mydict['first_publication'] = False
         else:
             mydict['spam'] = detect_spam(item['name'], item['description'])
+            if mydict['spam']:
+                mydict['description'] = item['description']
             mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
             # checking for potential duplicates in organization creation
-            slug = item["slug"]
-            if re.search(duplicate_slug_pattern, slug) is not None:
-                suffix = re.findall(duplicate_slug_pattern, slug)[0]
-                original_orga = slug[:-len(suffix)]
-                test_orga = requests.get(f"https://data.gouv.fr/api/1/organizations/{original_orga}/")
-                # only considering a duplicate if the original slug is taken (not not found or deleted)
-                if test_orga.status_code not in [404, 410]:
-                    mydict['duplicated'] = True
+            mydict['duplicated'], _ = check_duplicated_orga(item["slug"])
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
 
@@ -319,6 +319,31 @@ def check_schema(ti):
                 pass
 
 
+def send_spam_to_grist(ti):
+    records = []
+    for _type in [
+        "datasets",
+        "reuses",
+        "organizations",
+    ]:
+        arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
+        print(arr)
+        if not arr:
+            continue
+        for obj in arr:
+            if obj.get("spam"):
+                obj["type"] = _type
+                # standardize title and name for clarity
+                if obj.get("title"):
+                    obj["name"] = obj["title"]
+                    del obj["title"]
+                records.append(obj)
+    if records:
+        df = pd.DataFrame(records)
+        df['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append="lazy")
+
+
 def publish_item(item, item_type):
     if item_type == "dataset":
         message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
@@ -338,7 +363,7 @@ def publish_item(item, item_type):
 
     if item['first_publication']:
         if item['spam']:
-            message = ':warning: @all Spam potentiel\n'
+            message = f':warning: @all Spam potentiel ({item["spam"]})\n'
         else:
             message = ''
 
@@ -364,14 +389,14 @@ def publish_mattermost(ti):
     datasets = ti.xcom_pull(key="datasets", task_ids="check_new_datasets")
     nb_reuses = float(ti.xcom_pull(key="nb", task_ids="check_new_reuses"))
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
-    nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_orgas"))
-    orgas = ti.xcom_pull(key="organizations", task_ids="check_new_orgas")
+    nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_organizations"))
+    orgas = ti.xcom_pull(key="organizations", task_ids="check_new_organizations")
     # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:
             if item['spam']:
-                message = ':warning: @all Spam potentiel\n'
+                message = f':warning: @all Spam potentiel ({item["spam"]})\n'
             else:
                 message = ''
             if item['duplicated']:
@@ -450,8 +475,8 @@ with DAG(
         templates_dict={"type": "reuses"},
     )
 
-    check_new_orgas = PythonOperator(
-        task_id="check_new_orgas",
+    check_new_organizations = PythonOperator(
+        task_id="check_new_organizations",
         python_callable=check_new,
         templates_dict={"type": "organizations"},
     )
@@ -460,6 +485,11 @@ with DAG(
     #     task_id="check_new_comments",
     #     python_callable=check_new_comments,
     # )
+
+    send_spam_to_grist = PythonOperator(
+        task_id="send_spam_to_grist",
+        python_callable=send_spam_to_grist,
+    )
 
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
@@ -471,10 +501,10 @@ with DAG(
         python_callable=check_schema,
     )
 
-    get_inactive_orgas = PythonOperator(
-        task_id="get_inactive_orgas",
-        python_callable=get_inactive_orgas,
-    )
+    # get_inactive_orgas = PythonOperator(
+    #     task_id="get_inactive_orgas",
+    #     python_callable=get_inactive_orgas,
+    # )
 
     alert_if_awaiting_spam_comments = PythonOperator(
         task_id="alert_if_awaiting_spam_comments",
@@ -483,9 +513,13 @@ with DAG(
 
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
-    publish_mattermost.set_upstream(check_new_orgas)
+    publish_mattermost.set_upstream(check_new_organizations)
 
     check_schema.set_upstream(publish_mattermost)
 
-    get_inactive_orgas
+    send_spam_to_grist.set_upstream(check_new_datasets)
+    send_spam_to_grist.set_upstream(check_new_reuses)
+    send_spam_to_grist.set_upstream(check_new_organizations)
+
+    # get_inactive_orgas
     alert_if_awaiting_spam_comments

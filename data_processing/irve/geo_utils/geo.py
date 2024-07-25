@@ -4,7 +4,6 @@ import json
 import os
 import pandas as pd
 import requests
-from unidecode import unidecode
 from shapely.geometry import Point, shape
 from shapely.geometry.polygon import Polygon
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
@@ -27,7 +26,7 @@ def is_point_in_polygon(x: float, y: float, polygon: List[List[float]]) -> bool:
 
 def is_point_in_france(coordonnees_xy: List[float]) -> bool:
     p = Point(*coordonnees_xy)
-    return any([p.within(poly) for poly in polys])
+    return any(p.within(poly) for poly in polys)
 
 
 def fix_coordinates_order(
@@ -159,20 +158,21 @@ def fix_code_insee( # noqa
                 enrich_row_address.code_insee_is_postcode_in_address += 1
                 return row
 
-        # Check if postcode is in address
-        response = session.get(
-            url=f"https://geo.api.gouv.fr/communes?code={row[code_insee_col]}&fields=codesPostaux,nom"
-        )
-        commune_results = json.loads(response.content)
-        if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
-            commune = commune_results[0]
-            for postcode in commune["codesPostaux"]:
-                if postcode in row[address_col]:
-                    row["consolidated_code_postal"] = postcode
-                    row["consolidated_commune"] = commune["nom"]
-                    row["consolidated_is_code_insee_verified"] = True
-                    enrich_row_address.code_insee_has_postcode_in_address += 1
-                    return row
+        if isinstance(row[code_insee_col], str) and row[code_insee_col]:
+            # Check if postcode is in address
+            response = session.get(
+                url=f"https://geo.api.gouv.fr/communes?code={row[code_insee_col]}&fields=codesPostaux,nom"
+            )
+            commune_results = json.loads(response.content)
+            if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
+                commune = commune_results[0]
+                for postcode in commune["codesPostaux"]:
+                    if postcode in row[address_col]:
+                        row["consolidated_code_postal"] = postcode
+                        row["consolidated_commune"] = commune["nom"]
+                        row["consolidated_is_code_insee_verified"] = True
+                        enrich_row_address.code_insee_has_postcode_in_address += 1
+                        return row
 
         # None of the above checks succeeded. Code INSEE validity cannot be checked.
         # Geo data is not enriched using code INSEE due to risk of introducing fake data

@@ -1,16 +1,17 @@
 import dateutil
-from typing import List, Optional, TypedDict
+from typing import TypedDict, Iterator, Optional
 import requests
-import os
-import numpy as np
 from datetime import datetime
+import re
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_URL,
+    DEMO_DATAGOUV_SECRET_API_KEY,
 )
 
 if AIRFLOW_ENV == "dev":
-    DATAGOUV_URL = "https://demo.data.gouv.fr"
+    DATAGOUV_URL = DEMO_DATAGOUV_URL
     ORGA_REFERENCE = "63e3ae4082ddaa6c806b8417"
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
@@ -56,15 +57,16 @@ SPAM_WORDS = [
     'carte grise',
     'passeport',
     'administratif',
-    "répertoire d'entreprises",
+    "repertoire d'entreprises",
     'documents professionnels',
     'immatriculation',
     'greffe',
     'juridique',
     'seo',
-    'démarche',
+    'demarche',
     'B2B',
-    'documents légaux',
+    'documents legaux',
+    'entrepreneur',
 ]
 
 datagouv_session = requests.Session()
@@ -77,12 +79,12 @@ class File(TypedDict):
 
 
 def create_dataset(
-    payload: TypedDict,
-):
+    payload: dict,
+) -> dict:
     """Create a dataset in data.gouv.fr
 
     Args:
-        payload (TypedDict): payload for dataset containing at minimum title
+        payload: payload for dataset containing at minimum title
 
     Returns:
         json: return API result in a dictionnary
@@ -94,51 +96,31 @@ def create_dataset(
     return r.json()
 
 
-def get_resource(
-    resource_id: str,
-    file_to_store: File,
-):
-    """Download a resource in data.gouv.fr
-
-    Args:
-        resource_id (str): ID of the resource
-        file_to_store (File): Dictionnary containing `dest_path` and
-        `dest_name` where to store downloaded resource
-
-    """
-    with datagouv_session.get(
-        f"{DATAGOUV_URL}/fr/datasets/r/{resource_id}", stream=True
-    ) as r:
-        r.raise_for_status()
-        os.makedirs(os.path.dirname(file_to_store["dest_path"]), exist_ok=True)
-        with open(
-            f"{file_to_store['dest_path']}{file_to_store['dest_name']}", "wb"
-        ) as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-
 def post_resource(
     file_to_upload: File,
     dataset_id: str,
     resource_id: Optional[str] = None,
-    resource_payload: Optional[dict] = None,
-):
+    payload: Optional[dict] = None,
+    on_demo: bool = False,
+) -> requests.Response:
     """Upload a resource in data.gouv.fr
 
     Args:
-        file_to_upload (File): Dictionnary containing `dest_path` and
-        `dest_name` where resource to upload is stored
-        dataset_id (str): ID of the dataset where to store resource
-        resource_id (Optional[str], optional): ID of the resource where
-        to upload file. If it is a new resource, let it to None.
-        Defaults to None.
-        resource_payload (Optional[dict], optional): payload to update the resource's metadata
-        Defaults to None (then the id is retrieved when the resource is created)
+        file_to_upload: Dictionnary containing `dest_path` and `dest_name` where resource to upload is stored
+        dataset_id: ID of the dataset where to store resource
+        resource_id: ID of the resource where to upload file. If it is a new resource, leave it to None
+        payload: payload to update the resource's metadata (if resource_id is specified)
+        on_demo: force publication on demo
 
     Returns:
         json: return API result in a dictionnary
     """
+    if on_demo or AIRFLOW_ENV == "dev":
+        datagouv_url = "https://demo.data.gouv.fr"
+        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
+    else:
+        datagouv_url = DATAGOUV_URL
+
     if not file_to_upload['dest_path'].endswith('/'):
         file_to_upload['dest_path'] += '/'
     files = {
@@ -148,68 +130,60 @@ def post_resource(
         )
     }
     if resource_id:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     else:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/upload/"
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/upload/"
     r = datagouv_session.post(url, files=files)
     r.raise_for_status()
     if not resource_id:
         resource_id = r.json()['id']
         print("Resource was given this id:", resource_id)
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
-    if resource_id and resource_payload:
-        r_put = datagouv_session.put(url.replace('upload/', ''), json=resource_payload)
-        r_put.raise_for_status()
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
+    if resource_id and payload:
+        r = update_dataset_or_resource_metadata(
+            payload=payload,
+            dataset_id=dataset_id,
+            resource_id=resource_id,
+            on_demo=on_demo,
+        )
     return r
 
 
 def post_remote_resource(
     dataset_id: str,
-    title: str,
-    format: str,
-    remote_url: str,
-    filesize: int,
-    type: str = "main",
-    schema: dict = {},
-    description: str = "",
+    payload: dict,
     resource_id: Optional[str] = None,
-):
+    on_demo: bool = False,
+) -> dict:
     """Create a post in data.gouv.fr
 
     Args:
-        dataset_id (str): id of the dataset
-        title (str): resource title
-        format (str): resource format
-        remote_url (str): resource distant URL
-        filesize (int): resource size (bytes)
-        type (str): type of resource
-        schema (str): schema of the resource (if relevant)
-        description (str): resource description
-        resource_id (str): resource id (if modifying an existing resource)
+        dataset_id: id of the dataset
+        payload: payload of metadata
+        resource_id: resource id (if modifying an existing resource)
+        on_demo: force publication on demo
 
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    payload = {
-        'title': title,
-        'description': description,
-        'url': remote_url,
-        'type': type,
-        'filetype': 'remote',
-        'format': format,
-        'schema': schema,
-        'filesize': filesize
-    }
+    if on_demo or AIRFLOW_ENV == "dev":
+        datagouv_url = "https://demo.data.gouv.fr"
+        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
+    else:
+        datagouv_url = DATAGOUV_URL
+
     if resource_id:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
-        print(f"Putting '{title}' at {url}")
-        r = datagouv_session.put(
-            url,
-            json=payload,
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+        print(f"Putting '{payload['title']}' at {url}")
+        r = update_dataset_or_resource_metadata(
+            payload=payload,
+            dataset_id=dataset_id,
+            resource_id=resource_id,
+            on_demo=on_demo,
         )
     else:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/"
-        print(f"Posting '{title}' at {url}")
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
+        print(f"Posting '{payload['title']}' at {url}")
         r = datagouv_session.post(
             url,
             json=payload,
@@ -221,12 +195,12 @@ def post_remote_resource(
 def delete_dataset_or_resource(
     dataset_id: str,
     resource_id: Optional[str] = None,
-):
+) -> dict:
     """Delete a dataset or a resource in data.gouv.fr
 
     Args:
-        dataset_id (str): ID of the dataset
-        resource_id (Optional[str], optional): ID of the resource.
+        dataset_id: ID of the dataset
+        resource_id: ID of the resource.
         If resource is None, the dataset will be deleted. Else only the resource.
         Defaults to None.
 
@@ -239,21 +213,19 @@ def delete_dataset_or_resource(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
 
     r = datagouv_session.delete(url)
-    if r.status_code == 204:
-        return {"message": "ok"}
-    else:
-        return r.json()
+    r.raise_for_status()
+    return r.json()
 
 
 def get_dataset_or_resource_metadata(
     dataset_id: str,
     resource_id: Optional[str] = None,
-):
+) -> dict:
     """Retrieve dataset or resource metadata from data.gouv.fr
 
     Args:
-        dataset_id (str): ID ot the dataset
-        resource_id (Optional[str], optional): ID of the resource.
+        dataset_id: ID ot the dataset
+        resource_id: ID of the resource.
         If resource_id is None, it will be dataset metadata which will be
         returned. Else it will be resouce_id's ones. Defaults to None.
 
@@ -265,22 +237,20 @@ def get_dataset_or_resource_metadata(
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}"
     r = datagouv_session.get(url)
-    if r.status_code == 200:
-        return r.json()
-    else:
-        return {"message": "error", "status": r.status_code}
+    r.raise_for_status()
+    return r.json()
 
 
 def get_dataset_from_resource_id(
     resource_id: str,
-):
+) -> str:
     """Return dataset ID from resource ID from data.gouv.fr
 
     Args:
-        resource_id (str): ID of a resource
+        resource_id: ID of a resource
 
     Returns:
-       json: return API result in a dictionnary containing metadatas
+       str: the dataset id
     """
     url = f"{DATAGOUV_URL}/api/2/datasets/resources/{resource_id}/"
     r = datagouv_session.get(url)
@@ -289,26 +259,33 @@ def get_dataset_from_resource_id(
 
 
 def update_dataset_or_resource_metadata(
-    payload: TypedDict,
+    payload: dict,
     dataset_id: str,
     resource_id: Optional[str] = None,
-):
+    on_demo: bool = False,
+) -> requests.Response:
     """Update metadata to dataset or resource in data.gouv.fr
 
     Args:
-        payload (TypedDict): metadata to upload.
-        dataset_id (str): ID of the dataset
-        resource_id (Optional[str], optional): ID of the resource.
+        payload: metadata to upload.
+        dataset_id: ID of the dataset
+        resource_id: ID of the resource.
         If resource_id is None, it will be dataset metadata which will be
         updated. Else it will be resouce_id's ones. Defaults to None.
+        on_demo: force publication on demo
 
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
-    if resource_id:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+    if on_demo or AIRFLOW_ENV == "dev":
+        datagouv_url = "https://demo.data.gouv.fr"
+        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
     else:
-        url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
+        datagouv_url = DATAGOUV_URL
+    if resource_id:
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+    else:
+        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/"
 
     r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
@@ -316,16 +293,16 @@ def update_dataset_or_resource_metadata(
 
 
 def update_dataset_or_resource_extras(
-    payload: TypedDict,
+    payload: dict,
     dataset_id: str,
     resource_id: Optional[str] = None,
-):
+) -> requests.Response:
     """Update specific extras to a dataset or resource in data.gouv.fr
 
     Args:
-        payload (TypedDict): Payload contaning extra and its value
-        dataset_id (str): ID of the dataset.
-        resource_id (Optional[str], optional): ID of the resource.
+        payload: Payload contaning extra and its value
+        dataset_id: ID of the dataset.
+        resource_id: ID of the resource.
         If resource_id is None, it will be dataset extras which will be
         updated. Else it will be resouce_id's ones. Defaults to None.
 
@@ -342,16 +319,16 @@ def update_dataset_or_resource_extras(
 
 
 def delete_dataset_or_resource_extras(
-    extras: List,
+    extras: list,
     dataset_id: str,
     resource_id: Optional[str] = None,
 ):
     """Delete extras from a dataset or resoruce in data.gouv.fr
 
     Args:
-        extras (List): List of extras to delete.
-        dataset_id (str): ID of the dataset.
-        resource_id (Optional[str], optional): ID of the resource.
+        extras: List of extras to delete.
+        dataset_id: ID of the dataset.
+        resource_id: ID of the resource.
         If resource_id is None, it will be dataset extras which will be
         deleted. Else it will be resouce_id's ones. Defaults to None.
 
@@ -374,15 +351,15 @@ def create_post(
     headline: str,
     content: str,
     body_type: str,
-    tags: Optional[List] = [],
-):
+    tags: Optional[list] = [],
+) -> dict:
     """Create a post in data.gouv.fr
 
     Args:
-        name (str): name of post.
-        headline (str): headline of post
-        content (str) : content of post
-        body_type (str) : body type of post (html or markdown)
+        name: name of post.
+        headline: headline of post
+        content: content of post
+        body_type: body type of post (html or markdown)
         tags: Option list of tags for post
 
     Returns:
@@ -403,7 +380,7 @@ def create_post(
     return r.json()
 
 
-def get_created_date(data, date_key):
+def get_created_date(data: dict, date_key: str) -> datetime:
     # Helper to get created date based on a date_key that could be nested, using . as a separator
     for key in date_key.split('.'):
         data = data.get(key)
@@ -411,10 +388,18 @@ def get_created_date(data, date_key):
     return created
 
 
-def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', sort_key='-created'):
+def get_last_items(
+    endpoint: str,
+    start_date: datetime,
+    end_date=None,
+    date_key='created_at',
+    sort_key='-created'
+) -> list:
     results = []
     data = get_all_from_api_query(
-        f"https://www.data.gouv.fr/api/1/{endpoint}/?sort={sort_key}"
+        f"https://www.data.gouv.fr/api/1/{endpoint}/?sort={sort_key}",
+        # this WILL fail locally  for users because of token mismath (demo/prod)
+        auth=endpoint == "users",
     )
     for d in data:
         created = get_created_date(d, date_key)
@@ -426,7 +411,7 @@ def get_last_items(endpoint, start_date, end_date=None, date_key='created_at', s
     return results
 
 
-def get_latest_comments(start_date, end_date=None):
+def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list:
     """
     Get latest comments posted on discussions, stored as a list of tuples:
     ("discussion_id:comment_timestamp", subject, comment)
@@ -458,73 +443,33 @@ def get_latest_comments(start_date, end_date=None):
 
 def post_remote_communautary_resource(
     dataset_id: str,
-    title: str,
-    format: str,
-    remote_url: str,
-    organisation_publication_id: str,
-    filesize: int,
-    type: str = "main",
-    schema: dict = {},
-    description: str = ""
-):
+    payload: dict,
+    resource_id: Optional[str] = None,
+) -> dict:
     """Post a remote communautary resource on data.gouv.fr
 
     Args:
-        dataset_id (str): id of the dataset
-        title (str): resource title
-        format (str): resource format
-        remote_url (str): resource distant URL
-        organisation_publication_id (str): organization with which to publish
-        filesize (int): resource size (bytes)
-        type (str): type of resource
-        schema (str): schema of the resource (if relevant)
-        description (str): resource description
-
+        dataset_id: id of the dataset
+        payload: payload of metadata
+        resource_id: id of the resource to modify if the resource already exists
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
     community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
     dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
 
-    # Check if resource already exists
-    data = datagouv_session.get(
-        community_resource_url,
-        {"dataset": dataset_id}
-    ).json()["data"]
-    resource_exists = remote_url in [d.get('url', '') for d in data]
-    payload = {
-        "dataset": {
-            "id": dataset_id
-        },
-        "description": description,
-        "filetype": "remote",
-        "filesize": filesize,
-        "format": format,
-        "organization": {
-            "id": organisation_publication_id
-        },
-        "schema": schema,
-        "title": title,
-        "type": type,
-        "url": remote_url
-    }
     print("Payload content:\n", payload)
-    if resource_exists:
-        print(f"Updating resource at {dataset_link} from {remote_url}")
+    if resource_id:
+        print(f"Updating resource at {dataset_link} from {payload['remote_url']}")
         # Update resource
-        idx = np.argwhere(
-            np.array([d.get('url', '') for d in data]) == remote_url
-        )[0][0]
-        resource_id = data[idx]['id']
         refined_url = community_resource_url + f"/{resource_id}"
-
         r = datagouv_session.put(
             refined_url,
             json=payload,
         )
 
     else:
-        print(f"Creating resource at {dataset_link} from {remote_url}")
+        print(f"Creating resource at {dataset_link} from {payload['remote_url']}")
         # Create resource
         r = datagouv_session.post(
             community_resource_url,
@@ -535,18 +480,23 @@ def post_remote_communautary_resource(
 
 
 def get_all_from_api_query(
-    base_query,
-    next_page='next_page',
-    ignore_errors=False,
-    mask=None,
-):
-    def get_link_next_page(elem, separated_keys):
+    base_query: str,
+    next_page: str = 'next_page',
+    ignore_errors: bool = False,
+    mask: Optional[str] = None,
+    auth: bool = False,
+) -> Iterator[dict]:
+    """/!\ only for paginated endpoints"""
+    def get_link_next_page(elem: dict, separated_keys: str):
         result = elem
         for k in separated_keys.split('.'):
             result = result[k]
         return result
-    # /!\ only for paginated endpoints
-    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
+    # certain endpoints require authentification but otherwise we're not using it
+    # when running locally this can trigger 401 (if you use your dev/demo token in prod)
+    # to prevent, overwrite the API key with a valid prod key down here
+    # DATAGOUV_SECRET_API_KEY = ""
+    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
     if mask is not None:
         headers["X-fields"] = mask + f",{next_page}"
     r = requests.get(base_query, headers=headers)
@@ -563,7 +513,7 @@ def get_all_from_api_query(
 
 
 # Function to post a comment on a dataset
-def post_comment_on_dataset(dataset_id, title, comment):
+def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> requests.Response:
     post_object = {
         "title": title,
         "comment": comment,
@@ -577,7 +527,20 @@ def post_comment_on_dataset(dataset_id, title, comment):
     return r
 
 
-def get_awaiting_spam_comments():
+def get_awaiting_spam_comments() -> dict:
     r = datagouv_session.get("https://www.data.gouv.fr/api/1/spam/")
     r.raise_for_status()
     return r.json()
+
+
+def check_duplicated_orga(slug: str) -> tuple[bool, Optional[str]]:
+    duplicate_slug_pattern = r'-\d+$'
+    if re.search(duplicate_slug_pattern, slug) is not None:
+        suffix = re.findall(duplicate_slug_pattern, slug)[0]
+        original_orga = slug[:-len(suffix)]
+        url_dup = f"https://data.gouv.fr/api/1/organizations/{original_orga}/"
+        test_orga = requests.get(url_dup)
+        # only considering a duplicate if the original slug is taken (not not found or deleted)
+        if test_orga.status_code not in [404, 410]:
+            return True, url_dup
+    return False, None

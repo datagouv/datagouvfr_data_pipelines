@@ -127,18 +127,21 @@ def publish_rna_communautaire():
     file_size = os.path.getsize(os.path.join(DATADIR, "base_rna.csv"))
     post_remote_communautary_resource(
         dataset_id="58e53811c751df03df38f42d",
-        title="RNA agrégé",
-        format="csv",
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/rna/base_rna.csv"
-        ),
-        organisation_publication_id=ORGA_REFERENCE,
-        filesize=file_size,
-        description=(
-            f"Répertoire National des Associations en un seul fichier,"
-            f" agrégé à partir des données brutes ({datetime.now()})"
-        ),
+        payload={
+            "title": "RNA agrégé",
+            "format": "csv",
+            "remote_url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/rna/base_rna.csv"
+            ),
+            "organisation_publication_id": ORGA_REFERENCE,
+            "filesize": file_size,
+            "description": (
+                f"Répertoire National des Associations en un seul fichier,"
+                f" agrégé à partir des données brutes ({datetime.now()})"
+            ),
+        },
+        resource_id="15949cee-8e45-4614-9b82-cfea44fe2fa0",
     )
 
 

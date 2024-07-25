@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
+
 import numpy as np
 import os
 import pandas as pd
@@ -27,7 +28,6 @@ int_cols = {
     'general': ['Inscrits', 'Abstentions', 'Votants', 'Blancs', 'Nuls', 'Exprimés'],
     'candidats': ['N°Panneau', 'Voix'],
 }
-
 
 def num_converter(value, _type):
     if not isinstance(value, str) and math.isnan(value):
@@ -237,7 +237,7 @@ def send_results_to_minio():
 
 
 def publish_results_elections():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
         remote_url=(
@@ -246,14 +246,16 @@ def publish_results_elections():
         ),
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
-        title="Résultats généraux",
-        format="csv",
-        description=(
-            f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
+            "title": "Résultats généraux",
+            "format": "csv",
+            "description": (
+                f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print('Done with general results')
     post_remote_resource(
@@ -263,14 +265,16 @@ def publish_results_elections():
         ),
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
-        title="Résultats par candidat",
-        format="csv",
-        description=(
-            f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
+            "title": "Résultats par candidat",
+            "format": "csv",
+            "description": (
+                f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print('Done with candidats results')
     post_remote_resource(
@@ -280,14 +284,16 @@ def publish_results_elections():
         ),
         dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
-        title="Résultats généraux (format parquet)",
-        format="parquet",
-        description=(
-            f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
+            "title": "Résultats généraux (format parquet)",
+            "format": "parquet",
+            "description": (
+                f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print('Done with general results parquet')
     post_remote_resource(
@@ -297,24 +303,26 @@ def publish_results_elections():
         ),
         dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
-        title="Résultats par candidat (format parquet)",
-        format="parquet",
-        description=(
-            f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-            " créés à partir des données du Ministère de l'Intérieur"
-            f" (dernière modification : {datetime.today()})"
-        ),
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
+            "title": "Résultats par candidat (format parquet)",
+            "format": "parquet",
+            "description": (
+                f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+                " créés à partir des données du Ministère de l'Intérieur"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
 
 
 def send_notification():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json") as fp:
         data = json.load(fp)
     send_message(
         text=(
             ":mega: Données élections mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données référencées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/"
             f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
         )

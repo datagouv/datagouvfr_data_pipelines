@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.data_processing.elections.task_functions import (
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.task_functions import (
     format_election_files,
     process_election_data,
     send_results_to_minio,
@@ -47,7 +47,7 @@ with DAG(
         task_id='download_elections_data',
         bash_command=(
             f"bash {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"elections/scripts/script_dl_elections.sh {DATADIR} "
+            f"elections/aggregation/scripts/script_dl_elections.sh {DATADIR} "
         )
     )
 

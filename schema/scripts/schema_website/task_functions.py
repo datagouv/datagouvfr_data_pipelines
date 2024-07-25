@@ -16,8 +16,10 @@ from datetime import datetime
 from feedgen.feed import FeedGenerator
 import xml.etree.ElementTree as ET
 import pytz
+import pandas as pd
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
+from datagouvfr_data_pipelines.utils.datagouv import post_resource
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
@@ -785,20 +787,17 @@ def check_and_save_schemas(ti):
         print("_______________________________")
         print("Starting with ", repertoire_slug)
         print(conf)
-        try:
-            if conf['type'] != 'datapackage':
-                print(f"Recognized as a simple {conf['type']}")
-                schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
-                SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
-            else:
-                print('Recognized as a datapackage')
-                schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
-                for schema in schemas_to_add_to_catalog:
-                    SCHEMA_CATALOG['schemas'].append(schema)
-            # Append info to SCHEMA_CATALOG
-            print(f'--- {repertoire_slug} processed')
-        except git.exc.GitCommandError:
-            print(f'--- {repertoire_slug} failed to process due to git error')
+        if conf['type'] != 'datapackage':
+            print(f"Recognized as a simple {conf['type']}")
+            schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
+            SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
+        else:
+            print('Recognized as a datapackage')
+            schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
+            for schema in schemas_to_add_to_catalog:
+                SCHEMA_CATALOG['schemas'].append(schema)
+        # Append info to SCHEMA_CATALOG
+        print(f'--- {repertoire_slug} processed')
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
     schemas_tableschema = SCHEMA_CATALOG.copy()
@@ -1244,6 +1243,49 @@ def get_issues_and_labels(ti):
     # Save stats infos to stats.json file
     with open(folders['DATA_FOLDER2'] + '/stats.json', 'w') as fp:
         json.dump(mydict, fp, indent=4)
+
+
+def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
+    schemas = ti.xcom_pull(key='SCHEMA_INFOS', task_ids='check_and_save_schemas')
+    folders = ti.xcom_pull(key='folders', task_ids='initialization')
+    branch = ti.xcom_pull(key='branch', task_ids='initialization')
+    with open(folders['DATA_FOLDER2'] + '/stats.json', 'r') as f:
+        references = json.load(f)['references']
+    df = pd.DataFrame(
+        {'name': n, **v} for n, v in schemas.items()
+    ).drop('email', axis=1)
+    df['versions'] = df['versions'].apply(lambda d: list(d.keys()))
+    df['nb_versions'] = df['versions'].apply(lambda versions: len(versions))
+    stats = pd.DataFrame([
+        {'name': r, **references[r]} for r in references
+    ])[['name', 'dgv_resources']]
+    stats.rename({"dgv_resources": "datagouv_resources"}, axis=1, inplace=True)
+    merged = pd.merge(
+        df,
+        stats,
+        on='name',
+        how='outer',
+    )
+    merged.to_csv(TMP_FOLDER + "schemas_catalog_table.csv", index=False)
+    is_demo = branch == "preprod" or AIRFLOW_ENV == "dev"
+    post_resource(
+        file_to_upload={
+            "dest_path": TMP_FOLDER,
+            "dest_name": "schemas_catalog_table.csv",
+        },
+        dataset_id=(
+            "668282444f9d3f48f2702fcd" if not is_demo
+            else "6682b2f35a23814365024994"
+        ),
+        resource_id=(
+            "31ed3bb3-cab4-48c2-b9b1-cb7095e8a548" if not is_demo
+            else "f03f3dcb-1b23-4565-b02e-6985cb3d2959"
+        ),
+        payload={
+            "title": f"Catalogue des schémas de données ({datetime.now().strftime('%Y-%m-%d')})"
+        },
+        on_demo=branch == "preprod",
+    )
 
 
 def remove_all_files_extension(folder, extension):

@@ -41,7 +41,10 @@ API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 
 with DAG(

@@ -1198,12 +1198,15 @@ def publish_stats_dvf(ti):
         ),
         dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
-        title="Statistiques mensuelles DVF",
-        format="csv",
-        description=f"""Statistiques mensuelles sur les données DVF (dernière modification : {
-                datetime.today()
-            })""",
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
+            "title": "Statistiques mensuelles DVF",
+            "format": "csv",
+            "description": (
+                "Statistiques mensuelles sur les données DVF"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     print("Done with stats mensuelles")
     post_remote_resource(
@@ -1213,12 +1216,15 @@ def publish_stats_dvf(ti):
         ),
         dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
-        filesize=os.path.getsize(os.path.join(DATADIR, "stats_whole_period.csv")),
-        title="Statistiques totales DVF",
-        format="csv",
-        description=f"""Statistiques sur 5 ans sur les données DVF (dernière modification : {
-                datetime.today()
-            })""",
+        payload={
+            "filesize": os.path.getsize(os.path.join(DATADIR, "stats_whole_period.csv")),
+            "title": "Statistiques totales DVF",
+            "format": "csv",
+            "description": (
+                "Statistiques sur 5 ans sur les données DVF"
+                f" (dernière modification : {datetime.today()})"
+            ),
+        },
     )
     ti.xcom_push(key="dataset_id", value=data['mensuelles'][AIRFLOW_ENV]["dataset_id"])
 

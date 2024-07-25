@@ -37,11 +37,8 @@ GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False,
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
     'provide_context': True,
 }
 

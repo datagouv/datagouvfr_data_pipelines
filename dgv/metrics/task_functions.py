@@ -9,8 +9,8 @@ import requests
 import tarfile
 from tqdm import tqdm
 
-from datagouvfr_data_pipelines.utils.datagouv import get_resource
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.postgres import (
     copy_file,
     execute_sql_file,
@@ -80,34 +80,28 @@ def copy_log_to_processed_folder(ti):
 
 
 def download_catalog():
-    get_resource(
-        resource_id="f868cca6-8da1-4369-a78d-47463f19a9a3",
-        file_to_store={
+    download_files([
+        {
+            "url": "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
             "dest_path": TMP_FOLDER,
             "dest_name": "catalog_datasets.csv",
-        }
-    )
-    get_resource(
-        resource_id="b7bbfedc-2448-4135-a6c7-104548d396e7",
-        file_to_store={
+        },
+        {
+            "url": "https://www.data.gouv.fr/fr/datasets/r/b7bbfedc-2448-4135-a6c7-104548d396e7",
             "dest_path": TMP_FOLDER,
             "dest_name": "catalog_organizations.csv",
-        }
-    )
-    get_resource(
-        resource_id="970aafa0-3778-4d8b-b9d1-de937525e379",
-        file_to_store={
+        },
+        {
+            "url": "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
             "dest_path": TMP_FOLDER,
             "dest_name": "catalog_reuses.csv",
-        }
-    )
-    get_resource(
-        resource_id="4babf5f2-6a9c-45b5-9144-ca5eae6a7a6d",
-        file_to_store={
+        },
+        {
+            "url": "https://www.data.gouv.fr/fr/datasets/r/4babf5f2-6a9c-45b5-9144-ca5eae6a7a6d",
             "dest_path": TMP_FOLDER,
             "dest_name": "catalog_resources.csv",
-        }
-    )
+        },
+    ])
 
 
 def remove_files_if_exists(folder):

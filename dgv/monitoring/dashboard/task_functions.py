@@ -278,13 +278,15 @@ def get_catalog_stats():
     resources = []
     crawler = get_all_from_api_query(
         'https://www.data.gouv.fr/api/1/datasets/',
-        mask='data{id,harvest,quality,resources{id,format,type}}'
+        mask='data{id,harvest,quality,tags,resources{id,format,type}}'
     )
     processed = 0
     for c in crawler:
-        datasets.append([c['id'], bool(c['harvest']), c['quality']])
+        datasets.append([c['id'], bool(c['harvest']), c['quality'], c['tags']])
         for r in c['resources']:
-            resources.append({k: r[k] for k in ['id', 'format', 'type']})
+            tmp = {k: r[k] for k in ['id', 'format', 'type']}
+            tmp['hvd'] = 'hvd' in c['tags']
+            resources.append(tmp)
         processed += 1
         if processed % 1000 == 0:
             print(f'> {processed} datasets processed')
@@ -292,26 +294,34 @@ def get_catalog_stats():
     # getting datasets quality and count
     cats = list(max(datasets, key=lambda x: len(x[2]))[2].keys())
     dataset_quality = {
-        k: {c: [] for c in cats} for k in ['all', 'harvested', 'local']
+        k: {c: [] for c in cats} for k in ['all', 'harvested', 'local', 'hvd']
     }
-    dataset_quality.update({'count': {k: 0 for k in ['all', 'harvested', 'local']}})
+    dataset_quality.update({'count': {k: 0 for k in ['all', 'harvested', 'local', 'hvd']}})
     for d in datasets:
         dataset_quality['count']['all'] += 1
         dataset_quality['count']['harvested' if d[1] else 'local'] += 1
+        if 'hvd' in d[3]:
+            dataset_quality['count']['hvd'] += 1
         for c in cats:
             dataset_quality['all'][c].append(d[2].get(c, False) or False)
             dataset_quality['harvested' if d[1] else 'local'][c].append(d[2].get(c, False) or False)
+            if 'hvd' in d[3]:
+                dataset_quality['hvd'][c].append(d[2].get(c, False) or False)
     for k in dataset_quality.keys():
         for c in dataset_quality[k]:
             dataset_quality[k][c] = np.mean(dataset_quality[k][c])
     dataset_quality = {datetime.now().strftime('%Y-%m-%d'): dataset_quality}
 
     # getting resources types and formats
-    resources_stats = {'all': {}}
+    resources_stats = {'all': {}, 'hvd': {}}
     for r in resources:
         if r['format'] not in resources_stats['all']:
             resources_stats['all'][r['format']] = 0
         resources_stats['all'][r['format']] += 1
+        if r['hvd']:
+            if r['format'] not in resources_stats['hvd']:
+                resources_stats['hvd'][r['format']] = 0
+            resources_stats['hvd'][r['format']] += 1
 
         if r['type'] not in resources_stats:
             resources_stats[r['type']] = {}
@@ -347,6 +357,55 @@ def get_catalog_stats():
                 'resources_stats.json',
                 'datasets_quality.json'
             ]
+        ],
+        ignore_airflow_env=True,
+    )
+
+
+def get_hvd_dataservices_stats():
+    crawler = get_all_from_api_query(
+        'https://www.data.gouv.fr/api/1/dataservices/?tags=hvd'
+    )
+    count = 0
+    # we can add more fields to monitor later
+    of_interest = {
+        'base_api_url': 0,
+        'contact_point': 0,
+        'description': 0,
+        'endpoint_description_url': 0,
+        'license': 0,
+    }
+    for c in crawler:
+        count += 1
+        for i in of_interest:
+            if i != 'license':
+                of_interest[i] += c[i] is not None
+            # for now, as license is not None when not specified
+            else:
+                of_interest[i] += c[i] != "notspecified"
+
+    dataservices_stats = {
+        datetime.now().strftime('%Y-%m-%d'): {
+            "metrics": of_interest,
+            "count": count,
+        },
+    }
+
+    hist_ds = json.loads(
+        minio_open.get_file_content(minio_destination_folder + 'hvd_dataservices_quality.json')
+    )
+    hist_ds.update(dataservices_stats)
+    with open(DATADIR + 'hvd_dataservices_quality.json', 'w') as f:
+        json.dump(hist_ds, f, indent=4)
+
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": DATADIR,
+                "source_name": 'hvd_dataservices_quality.json',
+                "dest_path": minio_destination_folder,
+                "dest_name": 'hvd_dataservices_quality.json',
+            }
         ],
         ignore_airflow_env=True,
     )
