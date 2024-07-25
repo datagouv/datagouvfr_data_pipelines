@@ -345,8 +345,11 @@ def upload_new_files(ti, minio_folder):
             updated_datasets.add(path)
         except KeyError:
             print("⚠️ no config for this file")
+            # the file was not uploaded, removing it from the list of new files
+            new_files.remove(new_files)
     ti.xcom_push(key="new_files_datasets", value=new_files_datasets)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
+    ti.xcom_push(key="new_files", value=new_files)
 
 
 def handle_updated_files_same_name(ti, minio_folder):
@@ -447,6 +450,47 @@ def update_temporal_coverages(ti):
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV]
             )
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
+
+
+def log_modified_files(ti):
+    new_files = ti.xcom_pull(key="new_files", task_ids="upload_new_files")
+    files_to_update_new_name = ti.xcom_pull(
+        key="files_to_update_new_name",
+        task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    files_to_update_same_name = ti.xcom_pull(
+        key="files_to_update_same_name",
+        task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    log_file_path = "data/updated_files.json"
+    log_file = json.loads(minio_meteo.get_file_content(
+        log_file_path
+    ))
+    today = datetime.now().strftime("%Y-%m-%d")
+    log_file["latest_update"] = today
+    log_file[today] = [
+        k.split('/')[-1] for k in
+        new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
+    ]
+    # keeping logs for the last month only, and all keys that are not dates
+    threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+    log_file = {
+        k: v for k, v in log_file.items()
+        if not re.match(r'\d+-\d{2}-\d{2}', k) or k >= threshold
+    }
+    with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
+        json.dump(log_file, f)
+    minio_meteo.send_files(
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": log_file_path.split('/')[-1],
+                "dest_path": log_file_path.split('/')[:-1] + "/",
+                "dest_name": log_file_path.split('/')[-1],
+            }
+        ],
+        ignore_airflow_env=True
+    )
 
 
 def delete_replaced_minio_files(ti, minio_folder):
