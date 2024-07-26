@@ -7,8 +7,7 @@
         "dataset_id": {
             "prod": "6569b3d7d193b4daf2b43edc",
             "dev": "654c962a3b8186a2b5bbc995"
-        },
-        "table_name": "base_mens"
+        }
     },
     "BASE/DECAD": {
         "source_pattern": "DECADQ_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -18,8 +17,7 @@
         "dataset_id": {
             "prod": "6569b4a48a4161faec6b2779",
             "dev": "653a68f2c52ecb6d2e96fe3e"
-        },
-        "table_name": "base_decad"
+        }
     },
     "BASE/HOR": {
         "source_pattern": "H_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -29,8 +27,7 @@
         "dataset_id": {
             "prod": "6569b4473bedf2e7abad3b72",
             "dev": "653a68f2c52ecb6d2e96fe3f"
-        },
-        "table_name": "base_hor"
+        }
     },
     "BASE/QUOT": {
         "source_pattern": "Q_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+)_(?P<PARAMETRES>\\S+).csv.gz",
@@ -40,8 +37,7 @@
         "dataset_id": {
             "prod": "6569b51ae64326786e4e8e1a",
             "dev": "653a68f2ba54993957fa00af"
-        },
-        "table_name": "base_quot"
+        }
     },
     "BASE/MIN": {
         "source_pattern": "MN_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -51,8 +47,7 @@
         "dataset_id": {
             "prod": "6569ad61106d1679c93cdf77",
             "dev": "65649a720baab9dbf8f36731"
-        },
-        "table_name": "base_min"
+        }
     },
     "BASE/DECADAGRO": {
         "source_pattern": "DECADAGRO_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -62,8 +57,7 @@
         "dataset_id": {
             "prod": "6569af36ba0c3d2f9d4bf98c",
             "dev": "65649a1b0baab9dbf8f36730"
-        },
-        "table_name": "base_decadagro"
+        }
     },
     "REF_CC/SQR": {
         "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
@@ -73,8 +67,7 @@
         "dataset_id": {
             "prod": "6569b00fe24fc9e1e482f74e",
             "dev": "653a6afa18f9f98d2ffdadee"
-        },
-        "table_name": "refcc_sqr"
+        }
     },
     "REF_CC/SIM": {
         "source_pattern": "QUOT_SIM2_(?P<PERIOD>[^_]+).csv.gz",
@@ -84,8 +77,7 @@
         "dataset_id": {
             "prod": "6569b27598256cc583c917a7",
             "dev": "653a6afa18f9f98d2ffdaded"
-        },
-        "table_name": "refcc_sim"
+        }
     },
     "REF_CC/SIM/Shapefile": {
         "source_pattern": null,
@@ -105,8 +97,7 @@
         "dataset_id": {
             "prod": "6569b2c4f1937611d4c8b1a3",
             "dev": "653a6af9d161b2243d487e04"
-        },
-        "table_name": "refcc_lsh"
+        }
     },
     "REF_CC/SIM_DECAD": {
         "source_pattern": "DECAD_SIM2_(?P<PERIOD>[^_]+).csv.gz",
@@ -116,8 +107,7 @@
         "dataset_id": {
             "prod": "65e04035010927c797072b29",
             "dev": "65e04239afffd240dae81853"
-        },
-        "table_name": "refcc_simdecad"
+        }
     },
     "REF_CC/SIM_MENS": {
         "source_pattern": "MENS_SIM2_(?P<PERIOD>[^_]+).csv.gz",
@@ -127,8 +117,7 @@
         "dataset_id": {
             "prod": "65e040c50a5c6872ebebc711",
             "dev": "65e04268afffd240dae81854"
-        },
-        "table_name": "refcc_simmens"
+        }
     },
     "REF_CC/ETP_QUOT": {
         "source_pattern": "QUOT_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
@@ -138,8 +127,7 @@
         "dataset_id": {
             "prod": "661d079b6357625e12013241",
             "dev": "661d06b9852e185c7b180db0"
-        },
-        "table_name": "refcc_etpquot"
+        }
     },
     "REF_CC/ETP_DECAD": {
         "source_pattern": "DECAD_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
@@ -149,8 +137,7 @@
         "dataset_id": {
             "prod": "661d0762109ece6f985e9857",
             "dev": "661d0734eddf136314176ecd"
-        },
-        "table_name": "refcc_etpdecad"
+        }
     },
     "REF_CC/ETP_FAO": {
         "source_pattern": "ETP_Hargreaves_coefficient_0.175_(?P<PERIOD>[^_]+).csv.gz",
@@ -160,8 +147,7 @@
         "dataset_id": {
             "prod": "667eae35510cd549fc7722c1",
             "dev": "667eb01a32a9caf3576d8d81"
-        },
-        "table_name": "refcc_etpfao"
+        }
     },
     "REANALYSES/COMEPHORE": {
         "source_pattern": "H_COMEPHORE_(?P<PERIOD>[^_]+).tar",
@@ -171,7 +157,6 @@
         "dataset_id": {
             "prod": "669e23a7ce052a9e8521b75e",
             "dev": "669e2657a07290f6dc4eec77"
-        },
-        "table_name": "reanalyses_comephore"
+        }
     }
 }
