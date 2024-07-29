@@ -470,7 +470,10 @@ def log_modified_files(ti):
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
     log_file[today] = [
-        k.split('/')[-1] for k in
+        {
+            "folder": '/'.join(k.split('/')[:-1]),
+            "name": k.split('/')[-1],
+        } for k in
         new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
     ]
     # keeping logs for the last month only, and all keys that are not dates
