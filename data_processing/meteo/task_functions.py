@@ -486,7 +486,7 @@ def log_modified_files(ti):
             {
                 "source_path": f"{DATADIR}/",
                 "source_name": log_file_path.split('/')[-1],
-                "dest_path": log_file_path.split('/')[:-1] + "/",
+                "dest_path": "/".join(log_file_path.split('/')[:-1]) + "/",
                 "dest_name": log_file_path.split('/')[-1],
             }
         ],
