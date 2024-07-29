@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
     handle_updated_files_same_name,
     handle_updated_files_new_name,
     update_temporal_coverages,
+    log_modified_files,
     delete_replaced_minio_files,
     notification_mattermost,
 )
@@ -111,6 +112,11 @@ with DAG(
         },
     )
 
+    log_modified_files = PythonOperator(
+        task_id='log_modified_files',
+        python_callable=log_modified_files,
+    )
+
     update_temporal_coverages = PythonOperator(
         task_id='update_temporal_coverages',
         python_callable=update_temporal_coverages,
@@ -137,5 +143,10 @@ with DAG(
     update_temporal_coverages.set_upstream(handle_updated_files_same_name)
     update_temporal_coverages.set_upstream(handle_updated_files_new_name)
 
+    log_modified_files.set_upstream(upload_new_files)
+    log_modified_files.set_upstream(handle_updated_files_same_name)
+    log_modified_files.set_upstream(handle_updated_files_new_name)
+
     notification_mattermost.set_upstream(delete_replaced_minio_files)
     notification_mattermost.set_upstream(update_temporal_coverages)
+    notification_mattermost.set_upstream(log_modified_files)
