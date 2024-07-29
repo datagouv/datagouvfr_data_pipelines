@@ -320,6 +320,7 @@ def upload_new_files(ti, minio_folder):
             new_files.append(clean_file_path)
 
     new_files_datasets = set()
+    went_wrong = []
     for file_path in new_files:
         file_with_ext, path, resource_name, description, url, is_doc = build_resource(
             file_path,
@@ -346,10 +347,10 @@ def upload_new_files(ti, minio_folder):
         except KeyError:
             print("⚠️ no config for this file")
             # the file was not uploaded, removing it from the list of new files
-            new_files.remove(file_path)
+            went_wrong.append(file_path)
     ti.xcom_push(key="new_files_datasets", value=new_files_datasets)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
-    ti.xcom_push(key="new_files", value=new_files)
+    ti.xcom_push(key="new_files", value=[f for f in new_files if f not in went_wrong])
 
 
 def handle_updated_files_same_name(ti, minio_folder):
