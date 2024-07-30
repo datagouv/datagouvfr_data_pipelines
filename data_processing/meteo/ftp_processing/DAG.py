@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functio
     notification_mattermost,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
 DAG_NAME = 'data_processing_meteo'
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
 minio_folder = "data/synchro_ftp/"
@@ -41,7 +41,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='30 7,10 * * *',
+    schedule_interval='30 8,11 * * *',
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=900),

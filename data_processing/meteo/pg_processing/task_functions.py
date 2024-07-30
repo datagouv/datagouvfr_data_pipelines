@@ -31,11 +31,11 @@ conn = BaseHook.get_connection("POSTGRES_METEO")
 
 SCHEMA_NAME = 'meteo'
 DATASETS_TO_PROCESS = [
-    # "BASE/MENS",
-    # "BASE/QUOT",
-    # "BASE/DECAD",
-    # "BASE/HOR",
-    # "BASE/DECADAGRO",
+    "BASE/MENS",
+    "BASE/QUOT",
+    "BASE/DECAD",
+    "BASE/HOR",
+    "BASE/DECADAGRO",
     "BASE/MIN",
 ]
 
@@ -79,7 +79,11 @@ def get_latest_ftp_processing(ti):
 
 def fetch_resources(dataset):
     url = f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}"
-    response = requests.get(url)
+    response = requests.get(
+        url,
+       headers={"X-fields": "resources"},
+    )
+
     response.raise_for_status()  # Ensure we notice bad responses
     return response.json()["resources"]
 
@@ -100,36 +104,46 @@ def download_resource(res, dataset):
     return file_path
 
 
+def get_regex_infos(pattern, filename, params):
+    match = re.match(pattern, filename)
+    mydict = {}
+    if match:
+        for item in params:
+            mydict[params[item]] = match.group(item)
+    return mydict
+
+
 def process_resources(resources, dataset, latest_ftp_processing, dates=None):
     mydict = {}
+    file_path = ""
     for res in resources:
-        if res["type"] == "main":
-            if dates:
-                for d in dates:
-                    files = [item["name"] for item in latest_ftp_processing[d]]
-                    if d in latest_ftp_processing and res["url"].replace(f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset}/", "") in files:
-                        file_path = download_resource(res, dataset)
-                        regex_infos = get_regex_infos(config[dataset]["source_pattern"], res["url"].split("/")[-1], config[dataset]["params"])
-                        if dataset == "BASE/QUOT":
-                            if "_Vent" in file_path.name:
-                                table_name = "base_quot_vent"
-                            else:
-                                table_name = "base_quot_autres"
-                        else:
-                            table_name = config[dataset]["table_name"]
-                        mydict[str(DATADIR  + table_name + "/" + res["title"] + ".csv")] = {"name": file_path.name, "regex_infos": regex_infos}
-            else:
-                file_path = download_resource(res, dataset)
-                regex_infos = get_regex_infos(config[dataset]["source_pattern"], res["url"].split("/")[-1], config[dataset]["params"])
-                if dataset == "BASE/QUOT":
-                    if "_autres" in file_path.name:
-                        table_name = "base_quot_autres"
-                    else:
-                        table_name = "base_quot_vent"
+        if res["type"] != "main":
+           continue
+        if dates:
+            for d in dates:
+                files = [item["name"] for item in latest_ftp_processing[d] if d in latest_ftp_processing]
+                if (
+                    res["url"].replace(f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset}/", "") in files
+                ):
+                    file_path = download_resource(res, dataset)
+        else:
+            file_path = download_resource(res, dataset)
+        if file_path != "":
+            regex_infos = get_regex_infos(
+                config[dataset]["source_pattern"],
+                res["url"].split("/")[-1],
+                config[dataset]["params"],
+            )
+            if dataset == "BASE/QUOT":
+                if "_autres" in file_path.name:
+                    table_name = "base_quot_autres"
                 else:
-                    table_name = config[dataset]["table_name"]
-                mydict[DATADIR  + table_name + "/" + res["title"] + ".csv"] = {"name": file_path.name, "regex_infos": regex_infos}
+                    table_name = "base_quot_vent"
+            else:
+                table_name = config[dataset]["table_name"]
+            mydict[str(DATADIR  + table_name + "/" + res["title"] + ".csv")] = {"name": file_path.name, "regex_infos": regex_infos}
     return mydict
+
 
 def download_data(ti):
     latest_processed_date = ti.xcom_pull(key="latest_processed_date", task_ids="retrieve_latest_processed_date")
@@ -137,20 +151,17 @@ def download_data(ti):
     mydict = {}
     if not latest_processed_date:
         # Process everything
-        for dataset in DATASETS_TO_PROCESS:
-            print(f"getting all batch for {dataset}")
-            resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources[:4], dataset, latest_ftp_processing))
-        yesterday = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-        ti.xcom_push(key="latest_processed_date", value=yesterday)
+        dates = None
+        new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     else:
+        # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
-        for dataset in DATASETS_TO_PROCESS:
-            resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates))
-        ti.xcom_push(key="latest_processed_date", value=max(dates))
-
+        new_latest_date = max(dates)
+    for dataset in DATASETS_TO_PROCESS:
+        resources = fetch_resources(dataset)
+        mydict.update(process_resources(resources[:4], dataset, latest_ftp_processing, dates=dates))
+    ti.xcom_push(key="latest_processed_date", value=new_latest_date)
     ti.xcom_push(key="regex_infos", value=mydict)
 
 
@@ -173,6 +184,7 @@ def unzip_csv_gz():
                 with gzip.open(file_path, 'rb') as f_in:
                     with open(output_file_path, 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
+                os.remove(file_path)
                 print(f'Unzipped {file_path} to {output_file_path}')
 
 
@@ -276,11 +288,3 @@ def insert_latest_date_pg(ti):
         f"INSERT INTO dag_processed (processed) VALUES ('{latest_processed_date}');",
         SCHEMA_NAME,
     )
-
-def get_regex_infos(pattern, filename, params):
-    match = re.match(pattern, filename)
-    mydict = {}
-    if match:
-        for item in params:
-            mydict[params[item]] = match.group(item)
-    return mydict
