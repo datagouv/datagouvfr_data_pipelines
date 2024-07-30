@@ -24,7 +24,6 @@ from langdetect import detect, LangDetectException
 from unidecode import unidecode
 from time import sleep
 import pandas as pd
-from dateutil.parser import parse
 
 DAG_NAME = "dgv_notification_activite"
 
