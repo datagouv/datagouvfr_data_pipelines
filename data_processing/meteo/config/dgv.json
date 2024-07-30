@@ -8,7 +8,11 @@
             "prod": "6569b3d7d193b4daf2b43edc",
             "dev": "654c962a3b8186a2b5bbc995"
         },
-        "table_name": "base_mens"
+        "table_name": "base_mens",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMM"
+        }
     },
     "BASE/DECAD": {
         "source_pattern": "DECADQ_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -19,7 +23,11 @@
             "prod": "6569b4a48a4161faec6b2779",
             "dev": "653a68f2c52ecb6d2e96fe3e"
         },
-        "table_name": "base_decad"
+        "table_name": "base_decad",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMM"
+        }
     },
     "BASE/HOR": {
         "source_pattern": "H_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -30,7 +38,11 @@
             "prod": "6569b4473bedf2e7abad3b72",
             "dev": "653a68f2c52ecb6d2e96fe3f"
         },
-        "table_name": "base_hor"
+        "table_name": "base_hor",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMMJJHH"
+        }
     },
     "BASE/QUOT": {
         "source_pattern": "Q_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+)_(?P<PARAMETRES>\\S+).csv.gz",
@@ -41,7 +53,11 @@
             "prod": "6569b51ae64326786e4e8e1a",
             "dev": "653a68f2ba54993957fa00af"
         },
-        "table_name": "base_quot"
+        "table_name": "base_quot",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMMJJ"
+        }
     },
     "BASE/MIN": {
         "source_pattern": "MN_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -52,7 +68,11 @@
             "prod": "6569ad61106d1679c93cdf77",
             "dev": "65649a720baab9dbf8f36731"
         },
-        "table_name": "base_min"
+        "table_name": "base_min",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMMJJHHMN"
+        }
     },
     "BASE/DECADAGRO": {
         "source_pattern": "DECADAGRO_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -63,7 +83,11 @@
             "prod": "6569af36ba0c3d2f9d4bf98c",
             "dev": "65649a1b0baab9dbf8f36730"
         },
-        "table_name": "base_decadagro"
+        "table_name": "base_decadagro",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMM"
+        }
     },
     "REF_CC/SQR": {
         "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",

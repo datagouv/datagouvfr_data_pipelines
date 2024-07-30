@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_FTP_METEO_PASSWORD,
     SECRET_FTP_METEO_ADDRESS
 )
-from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
+from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functions import (
     get_current_files_on_ftp,
     get_current_files_on_minio,
     get_and_upload_file_diff_ftp_minio,
@@ -23,8 +23,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
     notification_mattermost,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
-DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo"
 DAG_NAME = 'data_processing_meteo'
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
 minio_folder = "data/synchro_ftp/"
