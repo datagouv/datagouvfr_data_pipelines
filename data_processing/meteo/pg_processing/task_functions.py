@@ -160,7 +160,7 @@ def download_data(ti):
         new_latest_date = max(dates)
     for dataset in DATASETS_TO_PROCESS:
         resources = fetch_resources(dataset)
-        mydict.update(process_resources(resources[:4], dataset, latest_ftp_processing, dates=dates))
+        mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates=dates))
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
     ti.xcom_push(key="regex_infos", value=mydict)
 
