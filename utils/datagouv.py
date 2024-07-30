@@ -184,6 +184,8 @@ def post_remote_resource(
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
         print(f"Posting '{payload['title']}' at {url}")
+        if "filetype" not in payload:
+            payload.update({"filetype": "remote"})
         r = datagouv_session.post(
             url,
             json=payload,
