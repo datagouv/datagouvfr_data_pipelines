@@ -188,7 +188,7 @@ def alert_if_new_reports():
     # DAG runs every 5min but if it fails we catch up with this variable
     previous_report_check = Variable.get(
         "previous_report_check",
-        (datetime.now(datetime.UTC) - timedelta(minutes=5)).isoformat()
+        (datetime.now(datetime.UTC) - timedelta(**TIME_PERIOD)).isoformat()
     )
     reports = requests.get("https://www.data.gouv.fr/api/1/reports/")
     reports.raise_for_status()
