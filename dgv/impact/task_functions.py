@@ -308,13 +308,13 @@ def publish_datagouv(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
-            "dgv/impact/statistiques_impact_datagouvfr.csv"
-        ),
         dataset_id=data[AIRFLOW_ENV]['dataset_id'],
         resource_id=data[AIRFLOW_ENV]['resource_id'],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
+                "dgv/impact/statistiques_impact_datagouvfr.csv"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")),
             "title": "Indicateurs d'impact de data.gouv.fr",
             "format": "csv",
