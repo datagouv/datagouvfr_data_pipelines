@@ -18,9 +18,9 @@ import re
 import requests
 from dateutil import parser
 
-DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
+ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
-with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}meteo/config/dgv.json") as fp:
+with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
 minio_meteo = MinIOClient(bucket='meteofrance')

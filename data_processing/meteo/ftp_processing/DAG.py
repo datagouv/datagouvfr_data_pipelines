@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_FTP_METEO_PASSWORD,
     SECRET_FTP_METEO_ADDRESS
 )
-from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
+from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functions import (
     get_current_files_on_ftp,
     get_current_files_on_minio,
     get_and_upload_file_diff_ftp_minio,
@@ -24,7 +24,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.task_functions import (
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
-DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
 DAG_NAME = 'data_processing_meteo'
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
 minio_folder = "data/synchro_ftp/"
@@ -42,7 +41,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='30 7,10 * * *',
+    schedule_interval='30 8,11 * * *',
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=900),

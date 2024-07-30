@@ -1,0 +1,89 @@
+from airflow.models import DAG
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago
+from datetime import timedelta
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_TMP,
+)
+from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_functions import (
+    create_tables_if_not_exists,
+    retrieve_latest_processed_date,
+    get_latest_ftp_processing,
+    download_data,
+    unzip_csv_gz,
+    delete_and_insert_into_pg,
+    insert_latest_date_pg,
+)
+
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg"
+DAG_NAME = 'postgres_meteo'
+DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
+
+
+default_args = {
+    'email': [
+        'pierlou.ramade@data.gouv.fr',
+        'geoffrey.aldebert@data.gouv.fr'
+    ],
+    'email_on_failure': False
+}
+
+with DAG(
+    dag_id=DAG_NAME,
+    schedule_interval='30 7,10 * * *',
+    start_date=days_ago(1),
+    catchup=False,
+    dagrun_timeout=timedelta(minutes=600),
+    tags=["data_processing", "meteo"],
+    default_args=default_args,
+) as dag:
+
+    clean_previous_outputs = BashOperator(
+        task_id="clean_previous_outputs",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {DATADIR}",
+    )
+
+    create_tables_if_not_exists = PythonOperator(
+        task_id='create_tables_if_not_exists',
+        python_callable=create_tables_if_not_exists,
+    )
+
+    retrieve_latest_processed_date = PythonOperator(
+        task_id='retrieve_latest_processed_date',
+        python_callable=retrieve_latest_processed_date,
+    )
+
+    get_latest_ftp_processing = PythonOperator(
+        task_id='get_latest_ftp_processing',
+        python_callable=get_latest_ftp_processing,
+    )
+
+    download_data = PythonOperator(
+        task_id='download_data',
+        python_callable=download_data,
+    )
+
+    unzip_csv_gz = PythonOperator(
+        task_id='unzip_csv_gz',
+        python_callable=unzip_csv_gz,
+    )
+
+    delete_and_insert_into_pg = PythonOperator(
+        task_id='delete_and_insert_into_pg',
+        python_callable=delete_and_insert_into_pg,
+    )
+
+    insert_latest_date_pg = PythonOperator(
+        task_id='insert_latest_date_pg',
+        python_callable=insert_latest_date_pg,
+    )
+
+
+    create_tables_if_not_exists.set_upstream(clean_previous_outputs)
+    retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
+    get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
+    download_data.set_upstream(get_latest_ftp_processing)
+    unzip_csv_gz.set_upstream(download_data)
+    delete_and_insert_into_pg.set_upstream(unzip_csv_gz)
+    insert_latest_date_pg.set_upstream(delete_and_insert_into_pg)
