@@ -32,7 +32,7 @@ with DAG(
     schedule_interval='30 7,10 * * *',
     start_date=days_ago(1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=600),
+    dagrun_timeout=timedelta(minutes=1000),
     tags=["data_processing", "meteo"],
     default_args=default_args,
 ) as dag:
