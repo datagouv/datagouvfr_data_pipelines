@@ -1,7 +1,7 @@
-from airflow.models import DAG
+from airflow.models import DAG, Variable
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta, datetime, time as dtime
+from datetime import timedelta, datetime, time as dtime, timezone
 from difflib import SequenceMatcher
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
@@ -181,6 +181,44 @@ def alert_if_awaiting_spam_comments():
             "de validation (voir [ici](https://www.data.gouv.fr/api/1/spam/))"
         )
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+
+def alert_if_new_reports():
+    # DAG runs every 5min but if it fails we catch up with this variable
+    previous_report_check = Variable.get(
+        "previous_report_check",
+        (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
+    )
+    reports = requests.get("https://www.data.gouv.fr/api/1/reports/")
+    reports.raise_for_status()
+    unseen_reports = [
+        r for r in reports.json()["data"]
+        if r["reported_at"] >= previous_report_check
+    ]
+    if not unseen_reports:
+        return
+    Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
+    message = ":triangular_flag_on_post: De nouveaux signalements ont été faits :"
+    for r in unseen_reports:
+        if r["by"]:
+            by = f"[{r['by']['slug']}]({r['by']['page']})"
+        else:
+            by = "un utilisateur non connecté"
+        subject = (
+            f"https://www.data.gouv.fr/api/1/{r['subject']['class'].lower()}s/"
+            f"{r['subject']['id']}/"
+        )
+        _ = requests.get(subject)
+        _.raise_for_status()
+        _ = _.json()
+        subject = (
+            f"[cet objet]({subject.replace('api/1', 'fr')}) : "
+            f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
+        )
+        message += (
+            f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject}"
+        )
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 def check_new_comments(ti):
@@ -511,6 +549,11 @@ with DAG(
         python_callable=alert_if_awaiting_spam_comments,
     )
 
+    alert_if_new_reports = PythonOperator(
+        task_id="alert_if_new_reports",
+        python_callable=alert_if_new_reports,
+    )
+
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
     publish_mattermost.set_upstream(check_new_organizations)
@@ -523,3 +566,4 @@ with DAG(
 
     # get_inactive_orgas
     alert_if_awaiting_spam_comments
+    alert_if_new_reports
