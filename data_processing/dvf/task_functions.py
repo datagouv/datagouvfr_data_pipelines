@@ -1192,13 +1192,13 @@ def publish_stats_dvf(ti):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
-        ),
         dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
             "title": "Statistiques mensuelles DVF",
             "format": "csv",
@@ -1210,13 +1210,13 @@ def publish_stats_dvf(ti):
     )
     print("Done with stats mensuelles")
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
-        ),
         dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "stats_whole_period.csv")),
             "title": "Statistiques totales DVF",
             "format": "csv",

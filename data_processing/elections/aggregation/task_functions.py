@@ -240,13 +240,13 @@ def publish_results_elections():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/elections/general_results.csv"
-        ),
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/elections/general_results.csv"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
             "title": "Résultats généraux",
             "format": "csv",
@@ -259,13 +259,13 @@ def publish_results_elections():
     )
     print('Done with general results')
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/elections/candidats_results.csv"
-        ),
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/elections/candidats_results.csv"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
             "title": "Résultats par candidat",
             "format": "csv",
@@ -278,13 +278,13 @@ def publish_results_elections():
     )
     print('Done with candidats results')
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/elections/general_results.parquet"
-        ),
         dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/elections/general_results.parquet"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.parquet")),
             "title": "Résultats généraux (format parquet)",
             "format": "parquet",
@@ -297,13 +297,13 @@ def publish_results_elections():
     )
     print('Done with general results parquet')
     post_remote_resource(
-        remote_url=(
-            f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/{AIRFLOW_ENV}/elections/candidats_results.parquet"
-        ),
         dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
         payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/{AIRFLOW_ENV}/elections/candidats_results.parquet"
+            ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.parquet")),
             "title": "Résultats par candidat (format parquet)",
             "format": "parquet",

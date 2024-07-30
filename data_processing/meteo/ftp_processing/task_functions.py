@@ -332,9 +332,9 @@ def upload_new_files(ti, minio_folder):
         )
         try:
             post_remote_resource(
-                remote_url=url,
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
                 payload={
+                    "url": url,
                     "filesize": minio_files[minio_folder + file_path],
                     "title": resource_name if not is_doc else file_with_ext,
                     "type": "main" if not is_doc else "documentation",

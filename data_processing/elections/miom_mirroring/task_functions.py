@@ -316,10 +316,10 @@ def publish_results_elections(ti):
             filesize = os.path.getsize(os.path.join(DATADIR, d["filename"]))
 
         post_remote_resource(
-            remote_url=d['url'],
             dataset_id=d[AIRFLOW_ENV]["dataset_id"],
             resource_id=d[AIRFLOW_ENV]["resource_id"],
             payload={
+                "url": d['url'],
                 "filesize": filesize,
                 "title": d['name'] + complement,
                 "format": d['format'],
