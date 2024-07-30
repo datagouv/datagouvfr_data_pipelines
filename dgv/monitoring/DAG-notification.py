@@ -1,7 +1,7 @@
 from airflow.models import DAG, Variable
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta, datetime, time as dtime
+from datetime import timedelta, datetime, time as dtime, timezone
 from difflib import SequenceMatcher
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
@@ -187,7 +187,7 @@ def alert_if_new_reports():
     # DAG runs every 5min but if it fails we catch up with this variable
     previous_report_check = Variable.get(
         "previous_report_check",
-        (datetime.now(datetime.UTC) - timedelta(**TIME_PERIOD)).isoformat()
+        (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
     )
     reports = requests.get("https://www.data.gouv.fr/api/1/reports/")
     reports.raise_for_status()
@@ -195,7 +195,7 @@ def alert_if_new_reports():
         r for r in reports.json()["data"]
         if r["reported_at"] >= previous_report_check
     ]
-    Variable.set("previous_report_check", datetime.now(datetime.UTC).isoformat())
+    Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
     if not unseen_reports:
         return
     message = ":triangular_flag_on_post: De nouveaux signalements ont été faits :"
@@ -548,9 +548,9 @@ with DAG(
         python_callable=alert_if_awaiting_spam_comments,
     )
 
-    alert_if_awaiting_spam_comments = PythonOperator(
-        task_id="alert_if_awaiting_spam_comments",
-        python_callable=alert_if_awaiting_spam_comments,
+    alert_if_new_reports = PythonOperator(
+        task_id="alert_if_new_reports",
+        python_callable=alert_if_new_reports,
     )
 
     publish_mattermost.set_upstream(check_new_datasets)
