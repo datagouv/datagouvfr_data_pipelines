@@ -157,7 +157,7 @@ def download_data(ti):
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         for dataset in DATASETS_TO_PROCESS:
             resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources[:10], dataset, latest_ftp_processing, dates=dates))
+            mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates=dates))
     else:
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
