@@ -101,7 +101,7 @@ def download_resource(res, dataset):
     with file_path.open('wb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
-    return file_path
+    return Path(file_path)
 
 
 def get_regex_infos(pattern, filename, params):
@@ -115,33 +115,35 @@ def get_regex_infos(pattern, filename, params):
 
 def process_resources(resources, dataset, latest_ftp_processing, dates=None):
     mydict = {}
-    file_path = ""
     for res in resources:
-        if res["type"] != "main":
-           continue
-        if dates:
-            for d in dates:
-                files = [item["name"] for item in latest_ftp_processing[d] if d in latest_ftp_processing]
-                if (
-                    res["url"].replace(f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset}/", "") in files
-                ):
-                    file_path = download_resource(res, dataset)
-        else:
-            file_path = download_resource(res, dataset)
-        if file_path != "":
-            regex_infos = get_regex_infos(
-                config[dataset]["source_pattern"],
-                res["url"].split("/")[-1],
-                config[dataset]["params"],
-            )
-            if dataset == "BASE/QUOT":
-                if "_autres" in file_path.name:
-                    table_name = "base_quot_autres"
-                else:
-                    table_name = "base_quot_vent"
+        if res["type"] == "main":
+            file_path = ""
+            if dates:
+                for d in dates:
+                    files = [item["name"] for item in latest_ftp_processing[d] if d in latest_ftp_processing]
+                    if (
+                        res["url"].replace(f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset}/", "") in files
+                    ):
+                        file_path = download_resource(res, dataset)
             else:
-                table_name = config[dataset]["table_name"]
-            mydict[str(DATADIR  + table_name + "/" + res["title"] + ".csv")] = {"name": file_path.name, "regex_infos": regex_infos}
+                file_path = download_resource(res, dataset)
+            if file_path != "":
+                regex_infos = get_regex_infos(
+                    config[dataset]["source_pattern"],
+                    res["url"].split("/")[-1],
+                    config[dataset]["params"],
+                )
+                if dataset == "BASE/QUOT":
+                    if "_autres" in file_path.name:
+                        table_name = "base_quot_autres"
+                    else:
+                        table_name = "base_quot_vent"
+                else:
+                    table_name = config[dataset]["table_name"]
+                data = {"name": file_path.name, "regex_infos": regex_infos}
+                print(file_path)
+                csv_path = unzip_csv_gz(file_path)
+                delete_and_insert_into_pg(data, table_name, csv_path)
     return mydict
 
 
@@ -155,7 +157,7 @@ def download_data(ti):
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         for dataset in DATASETS_TO_PROCESS:
             resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates=dates))
+            mydict.update(process_resources(resources[:10], dataset, latest_ftp_processing, dates=dates))
     else:
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
@@ -163,76 +165,49 @@ def download_data(ti):
         new_latest_date = max(dates)
         for dataset in DATASETS_TO_PROCESS:
             resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources[:10], dataset, latest_ftp_processing, dates=dates))
+            mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates=dates))
+            
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
     ti.xcom_push(key="regex_infos", value=mydict)
 
 
+def unzip_csv_gz(file_path):
+    output_file_path = str(file_path)[:-3]
 
-def unzip_csv_gz():
-    for dataset in DATASETS_TO_PROCESS:
-        patterns = []
-        if dataset == "BASE/QUOT":
-            pattern_vent = os.path.join(DATADIR, config[dataset]["table_name"] + "_vent", '*.csv.gz')
-            pattern_autres = os.path.join(DATADIR, config[dataset]["table_name"] + "_autres", '*.csv.gz')
-            patterns.extend([pattern_vent, pattern_autres])
-        else:
-            pattern = os.path.join(DATADIR, config[dataset]["table_name"], '*.csv.gz')
-            patterns.append(pattern)
-
-        for pattern in patterns:
-            for file_path in glob.glob(pattern):
-                output_file_path = file_path[:-3]
-
-                with gzip.open(file_path, 'rb') as f_in:
-                    with open(output_file_path, 'wb') as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                os.remove(file_path)
-                print(f'Unzipped {file_path} to {output_file_path}')
+    with gzip.open(file_path, 'rb') as f_in:
+        with open(output_file_path, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    os.remove(file_path)
+    return output_file_path
 
 
-def delete_and_insert_into_pg(ti):
-    regex_infos = ti.xcom_pull(key="regex_infos", task_ids="download_data")
-    for dataset in DATASETS_TO_PROCESS:
-        tables = []
-        if dataset == "BASE/QUOT":
-            tables.append("base_quot_vent")
-            tables.append("base_quot_autres")
-        else:
-            tables.append(config[dataset]["table_name"])
-        for table in tables:
-            print(table)
-            csv_paths = glob.glob(DATADIR + table + "/*.csv")
+def delete_and_insert_into_pg(regex_infos, table, csv_path):
+    db_params = {
+        'dbname': conn.schema,
+        'user': conn.login,
+        'password': conn.password,
+        'host': conn.host,
+        'port': conn.port,
+    }
+    try:
+        conn2 = psycopg2.connect(**db_params)
+        conn2.autocommit = False  # Disable autocommit to start a transaction
+        delete_old_data(conn2, table, regex_infos)
+        load_csv_to_postgres(conn2, csv_path, table, regex_infos)
+        # Commit the transaction
+        conn2.commit()
+        print("Transaction committed successfully.")
 
-            db_params = {
-                'dbname': conn.schema,
-                'user': conn.login,
-                'password': conn.password,
-                'host': conn.host,
-                'port': conn.port,
-            }
+    except Exception as e:
+        # Rollback the transaction in case of error
+        conn2.rollback()
+        print(f"An error occurred: {e}")
+        print("Transaction rolled back.")
+        raise
 
-            try:
-                conn2 = psycopg2.connect(**db_params)
-                conn2.autocommit = False  # Disable autocommit to start a transaction
-                delete_old_data(conn2, table, regex_infos)
-                for csv_path in csv_paths:
-                    print(csv_path)
-                    load_csv_to_postgres(conn2, csv_path, table, regex_infos)
+    finally:
+        conn2.close()
 
-                # Commit the transaction
-                conn2.commit()
-                print("Transaction committed successfully.")
-
-            except Exception as e:
-                # Rollback the transaction in case of error
-                conn2.rollback()
-                print(f"An error occurred: {e}")
-                print("Transaction rolled back.")
-                raise
-
-            finally:
-                conn2.close()
 
 def load_csv_to_postgres(conn, csv_path, table_name, regex_infos):
     cursor = conn.cursor()
@@ -248,35 +223,34 @@ def load_csv_to_postgres(conn, csv_path, table_name, regex_infos):
             writer.writerow(columns)  # Write the column headers to the temp file
             for row in reader:
                 row = [None if val == '' else val for val in row]
-                row.append(regex_infos[csv_path]["regex_infos"]["DEP"])
+                row.append(regex_infos["regex_infos"]["DEP"])
                 writer.writerow(row)
         
         # Use COPY to load the data into PostgreSQL
         with open(temp_csv_path, 'r') as temp_f:
             cursor.copy_expert(f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'", temp_f)
-    
-    cursor.close()
-    conn.commit()
-    print(f"Data from {csv_path} has been loaded into {table_name}.")
 
+        os.remove(temp_csv_path)
+        os.remove(csv_path)
+
+    cursor.close()
+    print(f"Data from {csv_path} has been loaded into {table_name}.")
 
 
 def delete_old_data(conn, table_name, regex_infos):
     cursor = conn.cursor()
-    for item in regex_infos:
-        if f"/{table_name}/" in item:
-            query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 "
-            for param in regex_infos[item]["regex_infos"]:
-                param_value = regex_infos[item]["regex_infos"][param]
-                split_pv = param_value.replace("latest-", "").replace("previous-", "").split("-")
-                if len(split_pv) > 1:
-                    lowest_period = split_pv[0]
-                    highest_period = str(int(split_pv[1])+1)
-                    query += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
-                else:
-                    query += f"AND {param} = '{param_value}' "
-            print(query)
-            cursor.execute(query)
+    query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 "
+    for param in regex_infos["regex_infos"]:
+        param_value = regex_infos["regex_infos"][param]
+        split_pv = param_value.replace("latest-", "").replace("previous-", "").split("-")
+        if len(split_pv) > 1:
+            lowest_period = split_pv[0]
+            highest_period = str(int(split_pv[1])+1)
+            query += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
+        else:
+            query += f"AND {param} = '{param_value}' "
+    print(query)
+    cursor.execute(query)
     cursor.close()
 
 

@@ -11,8 +11,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
     retrieve_latest_processed_date,
     get_latest_ftp_processing,
     download_data,
-    unzip_csv_gz,
-    delete_and_insert_into_pg,
     insert_latest_date_pg,
 )
 
@@ -64,16 +62,6 @@ with DAG(
         python_callable=download_data,
     )
 
-    unzip_csv_gz = PythonOperator(
-        task_id='unzip_csv_gz',
-        python_callable=unzip_csv_gz,
-    )
-
-    delete_and_insert_into_pg = PythonOperator(
-        task_id='delete_and_insert_into_pg',
-        python_callable=delete_and_insert_into_pg,
-    )
-
     insert_latest_date_pg = PythonOperator(
         task_id='insert_latest_date_pg',
         python_callable=insert_latest_date_pg,
@@ -84,6 +72,4 @@ with DAG(
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
     get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
     download_data.set_upstream(get_latest_ftp_processing)
-    unzip_csv_gz.set_upstream(download_data)
-    delete_and_insert_into_pg.set_upstream(unzip_csv_gz)
-    insert_latest_date_pg.set_upstream(delete_and_insert_into_pg)
+    insert_latest_date_pg.set_upstream(download_data)
