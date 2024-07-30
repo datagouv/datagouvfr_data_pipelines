@@ -195,9 +195,9 @@ def alert_if_new_reports():
         r for r in reports.json()["data"]
         if r["reported_at"] >= previous_report_check
     ]
-    Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
     if not unseen_reports:
         return
+    Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
     message = ":triangular_flag_on_post: De nouveaux signalements ont été faits :"
     for r in unseen_reports:
         if r["by"]:
@@ -212,7 +212,8 @@ def alert_if_new_reports():
         _.raise_for_status()
         _ = _.json()
         subject = (
-            f"[cet objet]({subject.replace('api/1', 'fr')}) : {r['subject']['class']} `{_.get('title') or _.get('name')}`"
+            f"[cet objet]({subject.replace('api/1', 'fr')}) : "
+            f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
         )
         message += (
             f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject}"
