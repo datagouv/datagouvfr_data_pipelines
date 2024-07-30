@@ -32,10 +32,10 @@ conn = BaseHook.get_connection("POSTGRES_METEO")
 SCHEMA_NAME = 'meteo'
 DATASETS_TO_PROCESS = [
     "BASE/MENS",
-    "BASE/QUOT",
     "BASE/DECAD",
-    "BASE/HOR",
     "BASE/DECADAGRO",
+    "BASE/QUOT",
+    "BASE/HOR",
     "BASE/MIN",
 ]
 
