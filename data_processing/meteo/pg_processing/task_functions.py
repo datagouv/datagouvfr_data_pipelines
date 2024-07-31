@@ -231,7 +231,7 @@ def load_csv_to_postgres(conn, csv_path, table_name, regex_infos):
             writer = csv.writer(temp_f, delimiter=';')
             writer.writerow(columns)  # Write the column headers to the temp file
             for row in reader:
-                row = [None if val == '' else val for val in row]
+                row = [None if val == '' else re.sub(r'\s+', '', val) for val in row]
                 row.append(regex_infos["regex_infos"]["DEP"])
                 writer.writerow(row)
         
