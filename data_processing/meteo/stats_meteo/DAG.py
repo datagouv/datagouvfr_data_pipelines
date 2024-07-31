@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.data_processing.stats_meteo.task_functions import (
+from datagouvfr_data_pipelines.data_processing.meteo.stats_meteo.task_functions import (
     gather_meteo_stats,
     send_to_minio,
     send_notification,
