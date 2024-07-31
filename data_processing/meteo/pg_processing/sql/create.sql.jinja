@@ -1,7 +1,8 @@
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_mens' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_mens (
+    {% for depid in depids %}
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_mens_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_mens_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -169,8 +170,8 @@ BEGIN
     END IF;
 
 
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_quot_vent' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_quot_vent (
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_quot_vent_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_quot_vent_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -233,8 +234,8 @@ BEGIN
         );
     END IF;
 
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_quot_autres' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_quot_autres (
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_quot_autres_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_quot_autres_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT NULL,
@@ -327,8 +328,8 @@ BEGIN
         );
     END IF;
 
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_decad' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_decad (
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_decad_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_decad_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT NULL,
@@ -491,8 +492,8 @@ BEGIN
         );
     END IF;
 
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_hor' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_hor (
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_hor_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_hor_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT NULL,
@@ -701,8 +702,8 @@ BEGIN
         );
     END IF;
 
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_min' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_min (
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_min_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_min_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT NULL,
@@ -715,8 +716,8 @@ BEGIN
         );
     END IF;
 
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_decadagro' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_decadagro (
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_decadagro_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
+        CREATE UNLOGGED TABLE meteo.base_decadagro_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT NULL,
@@ -742,6 +743,7 @@ BEGIN
             DEP VARCHAR
         );
     END IF;
+    {% endfor %}
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'dag_processed' AND TABLE_SCHEMA = 'meteo') THEN
         CREATE UNLOGGED TABLE meteo.dag_processed (
@@ -750,44 +752,46 @@ BEGIN
     END IF;
 END $$;
 
+{% for depid in depids %}
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMM
-CREATE INDEX IF NOT EXISTS idx_base_mens_dep ON meteo.base_mens (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_mens_num_poste ON meteo.base_mens (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_mens_nom_usuel ON meteo.base_mens (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_mens_year ON meteo.base_mens (substring(AAAAMM::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_dep ON meteo.base_mens_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_num_poste ON meteo.base_mens_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_nom_usuel ON meteo.base_mens_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_year ON meteo.base_mens_{{ depid }} (substring(AAAAMM::text, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJ
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_dep ON meteo.base_quot_vent (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_num_poste ON meteo.base_quot_vent (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_nom_usuel ON meteo.base_quot_vent (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_year ON meteo.base_quot_vent (substring(AAAAMMJJ::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_dep ON meteo.base_quot_vent_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_num_poste ON meteo.base_quot_vent_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_nom_usuel ON meteo.base_quot_vent_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_year ON meteo.base_quot_vent_{{ depid }} (substring(AAAAMMJJ::text, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJ
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_dep ON meteo.base_quot_autres (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_num_poste ON meteo.base_quot_autres (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_nom_usuel ON meteo.base_quot_autres (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_year ON meteo.base_quot_autres (substring(AAAAMMJJ::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_dep ON meteo.base_quot_autres_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_num_poste ON meteo.base_quot_autres_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_nom_usuel ON meteo.base_quot_autres_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_year ON meteo.base_quot_autres_{{ depid }} (substring(AAAAMMJJ::text, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMM
-CREATE INDEX IF NOT EXISTS idx_base_decad_dep ON meteo.base_decad (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_decad_num_poste ON meteo.base_decad (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_decad_nom_usuel ON meteo.base_decad (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_decad_year ON meteo.base_decad (substring(AAAAMM::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_dep ON meteo.base_decad_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_num_poste ON meteo.base_decad_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_nom_usuel ON meteo.base_decad_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_year ON meteo.base_decad_{{ depid }} (substring(AAAAMM::text, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJHH
-CREATE INDEX IF NOT EXISTS idx_base_hor_dep ON meteo.base_hor (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_hor_num_poste ON meteo.base_hor (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_hor_nom_usuel ON meteo.base_hor (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_hor_year ON meteo.base_hor (substring(AAAAMMJJHH::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_dep ON meteo.base_hor_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_num_poste ON meteo.base_hor_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_nom_usuel ON meteo.base_hor_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_year ON meteo.base_hor_{{ depid }} (substring(AAAAMMJJHH::text, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJHHMN
-CREATE INDEX IF NOT EXISTS idx_base_min_dep ON meteo.base_min (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_min_num_poste ON meteo.base_min (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_min_nom_usuel ON meteo.base_min (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_min_year ON meteo.base_min (substring(AAAAMMJJHHMN::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_dep ON meteo.base_min_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_num_poste ON meteo.base_min_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_nom_usuel ON meteo.base_min_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_year ON meteo.base_min_{{ depid }} (substring(AAAAMMJJHHMN::text, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMM
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_dep ON meteo.base_decadagro (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_num_poste ON meteo.base_decadagro (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_nom_usuel ON meteo.base_decadagro (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_year ON meteo.base_decadagro (substring(AAAAMM::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_dep ON meteo.base_decadagro_{{ depid }} (DEP);
+CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_num_poste ON meteo.base_decadagro_{{ depid }} (NUM_POSTE);
+CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_nom_usuel ON meteo.base_decadagro_{{ depid }} (NOM_USUEL);
+CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_year ON meteo.base_decadagro_{{ depid }} (substring(AAAAMM::text, 1, 4));
+{% endfor %}

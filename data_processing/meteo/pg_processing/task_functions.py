@@ -16,10 +16,10 @@ import glob
 import gzip
 import shutil
 import psycopg2
-from psycopg2 import extras
 import csv
 from datetime import datetime, timedelta
 import re
+from jinja2 import Environment, FileSystemLoader
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
@@ -39,8 +39,17 @@ DATASETS_TO_PROCESS = [
     "BASE/MIN",
 ]
 
+DEPIDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '971', '972', '973', '974', '975', '984', '985', '986', '987', '988', '99']
+
 
 def create_tables_if_not_exists():
+    file_loader = FileSystemLoader(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/")
+    env = Environment(loader=file_loader)
+    template = env.get_template('create.sql.jinja')
+    output = template.render(depids=DEPIDS)
+    with open(f"{DATADIR}create.sql", 'w') as file:
+        file.write(output)
+
     execute_sql_file(
         conn.host,
         conn.port,
@@ -49,7 +58,7 @@ def create_tables_if_not_exists():
         conn.password,
         [
             {
-                "source_path": f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/",
+                "source_path": DATADIR,
                 "source_name": "create.sql",
             }
         ],
@@ -192,8 +201,8 @@ def delete_and_insert_into_pg(regex_infos, table, csv_path):
     try:
         conn2 = psycopg2.connect(**db_params)
         conn2.autocommit = False  # Disable autocommit to start a transaction
-        delete_old_data(conn2, table, regex_infos)
-        load_csv_to_postgres(conn2, csv_path, table, regex_infos)
+        delete_old_data(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
+        load_csv_to_postgres(conn2, csv_path, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
         # Commit the transaction
         conn2.commit()
         print("Transaction committed successfully.")
