@@ -663,6 +663,7 @@ with DAG(
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
         python_callable=publish_mattermost,
+        trigger_rule='none_failed',
     )
 
     check_if_monday.set_upstream(clean_previous_outputs)
