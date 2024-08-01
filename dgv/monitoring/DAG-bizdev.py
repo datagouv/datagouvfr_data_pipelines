@@ -657,7 +657,8 @@ with DAG(
 
     send_tables_to_minio = PythonOperator(
         task_id="send_tables_to_minio",
-        python_callable=send_tables_to_minio
+        python_callable=send_tables_to_minio,
+        trigger_rule='none_failed',
     )
 
     publish_mattermost = PythonOperator(
