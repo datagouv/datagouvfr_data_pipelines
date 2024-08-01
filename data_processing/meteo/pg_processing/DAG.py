@@ -29,7 +29,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='30 15 * * *',
+    schedule_interval='30 23 * * *',
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=2000),
