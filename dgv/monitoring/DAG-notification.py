@@ -198,7 +198,7 @@ def alert_if_new_reports():
     if not unseen_reports:
         return
     Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
-    message = ":triangular_flag_on_post: De nouveaux signalements ont été faits :"
+    message = ":triangular_flag_on_post: @all De nouveaux signalements ont été faits :"
     for r in unseen_reports:
         if r["by"]:
             by = f"[{r['by']['slug']}]({r['by']['page']})"
