@@ -437,6 +437,9 @@ def create_edito_tables():
     while len(resources_downloaded) < 50:
         d = next(data)
         if d['monthly_download_resource']:
+            if not requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").ok:
+                print("This dataset seems to have disappeared:", d['dataset_id'])
+                continue
             r = requests.get(
                 f"https://www.data.gouv.fr/api/2/datasets/resources/{d['resource_id']}/"
             ).json()
