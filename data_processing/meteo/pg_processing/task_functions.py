@@ -122,10 +122,10 @@ def get_regex_infos(pattern, filename, params):
     return mydict
 
 
-def process_resources(resources, dataset, latest_ftp_processing, depid, dates=None):
+def process_resources(resources, dataset, latest_ftp_processing, dates=None):
     mydict = {}
     for res in resources:
-        if res["type"] == "main" and f"departement_{depid}" in res["title"]:
+        if res["type"] == "main":
             file_path = ""
             if dates:
                 for d in dates:
@@ -156,7 +156,7 @@ def process_resources(resources, dataset, latest_ftp_processing, depid, dates=No
     return mydict
 
 
-def download_data(ti, depid):
+def download_data(ti, DATASET_ID):
     latest_processed_date = ti.xcom_pull(key="latest_processed_date", task_ids="retrieve_latest_processed_date")
     latest_ftp_processing = ti.xcom_pull(key="latest_ftp_processing", task_ids="get_latest_ftp_processing")
     mydict = {}
@@ -164,17 +164,16 @@ def download_data(ti, depid):
         # Process everything
         dates = None
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-        for dataset in DATASETS_TO_PROCESS:
-            resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources[:2], dataset, latest_ftp_processing, depid, dates=dates))
+        resources = fetch_resources(DATASET_ID)
+        mydict.update(process_resources(resources, DATASET_ID, latest_ftp_processing, dates=dates))
     else:
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
         new_latest_date = max(dates)
-        for dataset in DATASETS_TO_PROCESS:
-            resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources, dataset, latest_ftp_processing, depid, dates=dates))
+    
+        resources = fetch_resources(DATASET_ID)
+        mydict.update(process_resources(resources, DATASET_ID, latest_ftp_processing, dates=dates))
             
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
     ti.xcom_push(key="regex_infos", value=mydict)
