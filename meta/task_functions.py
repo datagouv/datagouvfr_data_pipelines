@@ -93,14 +93,16 @@ def notification_mattermost(ti):
             start_time = start_time.astimezone(local_timezone)
             message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
             message += f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
-            message += f"(status : {last_failure['status']}), tâches en échec :"
+            message += f"(status : {last_failure['status']}), "
             if not last_failure['failed_tasks']:
-                message += "\n   - Timeout"
-            for ft in last_failure['failed_tasks']:
-                url_log = last_failure['failed_tasks'][ft]
-                if AIRFLOW_ENV == 'prod':
-                    url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
-                message += f"\n   - {ft} ([voir log]({url_log}))"
+                message += "timeout :hourglass:"
+            else:
+                message += "tâches en échec :"
+                for ft in last_failure['failed_tasks']:
+                    url_log = last_failure['failed_tasks'][ft]
+                    if AIRFLOW_ENV == 'prod':
+                        url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
+                    message += f"\n   - {ft} ([voir log]({url_log}))"
             if dag_ids_to_monitor.get(dag, False):
                 message += "\ncc @geoffrey.aldebert @hajar.aitelkadi @pierlou_ramade"
     send_message(message)
