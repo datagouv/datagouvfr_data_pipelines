@@ -6,7 +6,8 @@ from difflib import SequenceMatcher
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    MATTERMOST_MODERATION_NOUVEAUTES
+    MATTERMOST_MODERATION_NOUVEAUTES,
+    DATAGOUV_SECRET_API_KEY,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -189,7 +190,10 @@ def alert_if_new_reports():
         "previous_report_check",
         (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
     )
-    reports = requests.get("https://www.data.gouv.fr/api/1/reports/")
+    reports = requests.get(
+        "https://www.data.gouv.fr/api/1/reports/",
+        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY}
+    )
     reports.raise_for_status()
     unseen_reports = [
         r for r in reports.json()["data"]
