@@ -95,7 +95,7 @@ def notification_mattermost(ti):
             message += f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
             message += f"(status : {last_failure['status']}), tâches en échec :"
             if not last_failure['failed_tasks']:
-                message += "\n   - Erreur après retries"
+                message += "\n   - Timeout"
             for ft in last_failure['failed_tasks']:
                 url_log = last_failure['failed_tasks'][ft]
                 if AIRFLOW_ENV == 'prod':
