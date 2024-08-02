@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
     create_tables_if_not_exists,
     retrieve_latest_processed_date,
     get_latest_ftp_processing,
-    process_data,
+    download_data,
     insert_latest_date_pg,
 )
 
@@ -64,7 +64,7 @@ with DAG(
         process_data.append(
             PythonOperator(
                 task_id=f'process_data_{depid}',
-                python_callable=process_data,
+                python_callable=download_data,
                 op_kwargs={
                     "depid": depid,
                 },

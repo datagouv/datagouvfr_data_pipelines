@@ -156,7 +156,7 @@ def process_resources(resources, dataset, latest_ftp_processing, depid, dates=No
     return mydict
 
 
-def process_data(ti, depid):
+def download_data(ti, depid):
     latest_processed_date = ti.xcom_pull(key="latest_processed_date", task_ids="retrieve_latest_processed_date")
     latest_ftp_processing = ti.xcom_pull(key="latest_ftp_processing", task_ids="get_latest_ftp_processing")
     mydict = {}
@@ -166,7 +166,7 @@ def process_data(ti, depid):
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         for dataset in DATASETS_TO_PROCESS:
             resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources, dataset, latest_ftp_processing, depid, dates=dates))
+            mydict.update(process_resources(resources[:2], dataset, latest_ftp_processing, depid, dates=dates))
     else:
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
