@@ -122,10 +122,10 @@ def get_regex_infos(pattern, filename, params):
     return mydict
 
 
-def process_resources(resources, dataset, latest_ftp_processing, dates=None):
+def process_resources(resources, dataset, latest_ftp_processing, depid, dates=None):
     mydict = {}
     for res in resources:
-        if res["type"] == "main":
+        if res["type"] == "main" and f"departement_{depid}" in res["title"]:
             file_path = ""
             if dates:
                 for d in dates:
@@ -156,7 +156,7 @@ def process_resources(resources, dataset, latest_ftp_processing, dates=None):
     return mydict
 
 
-def download_data(ti):
+def process_data(ti, depid):
     latest_processed_date = ti.xcom_pull(key="latest_processed_date", task_ids="retrieve_latest_processed_date")
     latest_ftp_processing = ti.xcom_pull(key="latest_ftp_processing", task_ids="get_latest_ftp_processing")
     mydict = {}
@@ -166,7 +166,7 @@ def download_data(ti):
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         for dataset in DATASETS_TO_PROCESS:
             resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates=dates))
+            mydict.update(process_resources(resources, dataset, latest_ftp_processing, depid, dates=dates))
     else:
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
@@ -174,7 +174,7 @@ def download_data(ti):
         new_latest_date = max(dates)
         for dataset in DATASETS_TO_PROCESS:
             resources = fetch_resources(dataset)
-            mydict.update(process_resources(resources, dataset, latest_ftp_processing, dates=dates))
+            mydict.update(process_resources(resources, dataset, latest_ftp_processing, depid, dates=dates))
             
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
     ti.xcom_push(key="regex_infos", value=mydict)

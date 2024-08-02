@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
     create_tables_if_not_exists,
     retrieve_latest_processed_date,
     get_latest_ftp_processing,
-    download_data,
+    process_data,
     insert_latest_date_pg,
 )
 
@@ -26,6 +26,8 @@ default_args = {
     ],
     'email_on_failure': False
 }
+
+DEPIDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '971', '972', '973', '974', '975', '984', '985', '986', '987', '988', '99']
 
 with DAG(
     dag_id=DAG_NAME,
@@ -57,19 +59,27 @@ with DAG(
         python_callable=get_latest_ftp_processing,
     )
 
-    download_data = PythonOperator(
-        task_id='download_data',
-        python_callable=download_data,
-    )
+    process_data = []
+    for depid in DEPIDS:
+        process_data.append(
+            PythonOperator(
+                task_id=f'process_data_{depid}',
+                python_callable=process_data,
+                op_kwargs={
+                    "depid": depid,
+                },
+            )
+        )
 
     insert_latest_date_pg = PythonOperator(
         task_id='insert_latest_date_pg',
         python_callable=insert_latest_date_pg,
     )
 
-
     create_tables_if_not_exists.set_upstream(clean_previous_outputs)
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
     get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
-    download_data.set_upstream(get_latest_ftp_processing)
-    insert_latest_date_pg.set_upstream(download_data)
+
+    for i in range(0,len(process_data)):
+        process_data[i].set_upstream(get_latest_ftp_processing)
+        insert_latest_date_pg.set_upstream(process_data[i])
