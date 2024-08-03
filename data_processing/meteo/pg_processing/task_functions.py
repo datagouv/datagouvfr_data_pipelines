@@ -229,8 +229,8 @@ def delete_and_insert_into_pg(regex_infos, table, csv_path, period):
     try:
         conn2 = psycopg2.connect(**db_params)
         conn2.autocommit = False  # Disable autocommit to start a transaction
-        drop_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"])
         delete_old_data(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
+        drop_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"])
         load_csv_to_postgres(conn2, csv_path, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
         create_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], period)
         # Commit the transaction
