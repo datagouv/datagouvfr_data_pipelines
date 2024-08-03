@@ -189,6 +189,34 @@ def unzip_csv_gz(file_path):
     return output_file_path
 
 
+def drop_indexes(conn, table_name):
+    cursor = conn.cursor()
+    query = f"DROP INDEX IF EXISTS idx_{table_name}_dep"
+    cursor.execute(query)
+    query = f"DROP INDEX IF EXISTS idx_{table_name}_num_poste"
+    cursor.execute(query)
+    query = f"DROP INDEX IF EXISTS idx_{table_name}_nom_usuel"
+    cursor.execute(query)
+    query = f"DROP INDEX IF EXISTS idx_{table_name}_year"
+    cursor.execute(query)
+    print("DROP INDEXES OK")
+    cursor.close()
+
+
+def create_indexes(conn, table_name, period):
+    cursor = conn.cursor()
+    query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_dep ON meteo.{table_name} (DEP)"
+    cursor.execute(query)
+    query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_num_poste ON meteo.{table_name} (NUM_POSTE)"
+    cursor.execute(query)
+    query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_nom_usuel ON meteo.{table_name} (NOM_USUEL)"
+    cursor.execute(query)
+    query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_year ON meteo.{table_name} (substring({period}::text, 1, 4))"
+    cursor.execute(query)
+    print("CREATE INDEXES OK")
+    cursor.close()
+
+
 def delete_and_insert_into_pg(regex_infos, table, csv_path):
     db_params = {
         'dbname': conn.schema,
@@ -200,8 +228,10 @@ def delete_and_insert_into_pg(regex_infos, table, csv_path):
     try:
         conn2 = psycopg2.connect(**db_params)
         conn2.autocommit = False  # Disable autocommit to start a transaction
+        drop_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"])
         delete_old_data(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
         load_csv_to_postgres(conn2, csv_path, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
+        create_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos["regex_infos"]["PERIOD"])
         # Commit the transaction
         conn2.commit()
         print("Transaction committed successfully.")
