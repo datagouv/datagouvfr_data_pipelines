@@ -149,10 +149,11 @@ def process_resources(resources, dataset, latest_ftp_processing, dates=None):
                         table_name = "base_quot_vent"
                 else:
                     table_name = config[dataset]["table_name"]
+                period = config[dataset]["params"]["PERIOD"]
                 data = {"name": file_path.name, "regex_infos": regex_infos}
                 print(file_path)
                 csv_path = unzip_csv_gz(file_path)
-                delete_and_insert_into_pg(data, table_name, csv_path)
+                delete_and_insert_into_pg(data, table_name, csv_path, period)
     return mydict
 
 
@@ -217,7 +218,7 @@ def create_indexes(conn, table_name, period):
     cursor.close()
 
 
-def delete_and_insert_into_pg(regex_infos, table, csv_path):
+def delete_and_insert_into_pg(regex_infos, table, csv_path, period):
     db_params = {
         'dbname': conn.schema,
         'user': conn.login,
@@ -231,7 +232,7 @@ def delete_and_insert_into_pg(regex_infos, table, csv_path):
         drop_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"])
         delete_old_data(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
         load_csv_to_postgres(conn2, csv_path, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
-        create_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos["regex_infos"]["PERIOD"])
+        create_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], period)
         # Commit the transaction
         conn2.commit()
         print("Transaction committed successfully.")
