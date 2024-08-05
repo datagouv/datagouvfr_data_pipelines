@@ -32,11 +32,8 @@ ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
 ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
 }
 
 with DAG(

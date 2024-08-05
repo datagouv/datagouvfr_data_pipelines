@@ -186,7 +186,10 @@ def publish_mattermost(ti):
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
-default_args = {}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 with DAG(
     dag_id=DAG_NAME,

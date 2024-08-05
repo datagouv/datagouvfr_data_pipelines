@@ -22,7 +22,10 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 # GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 
 with DAG(

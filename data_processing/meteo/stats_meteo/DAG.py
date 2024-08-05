@@ -15,7 +15,10 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}stats_meteo/"
 DAG_NAME = "data_processing_stats_meteo"
 DATADIR = f"{TMP_FOLDER}data"
 
-default_args = {}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 with DAG(
     dag_id=DAG_NAME,
