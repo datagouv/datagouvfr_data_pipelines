@@ -146,7 +146,7 @@ def get_real_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union
             )
             handle_grist_error(r)
         # re-getting the columns post potential update
-        _get_columns_mapping(doc_id, table_id, id_to_label=False)
+        returned_columns = _get_columns_mapping(doc_id, table_id, id_to_label=False)
     return returned_columns
 
 
