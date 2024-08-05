@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.mattermost import send_message, MAX_MESSAGE_LENGTH
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DAG_NAME = "dgv_hvd"
@@ -183,6 +183,17 @@ def publish_mattermost(ti):
     if not (len(new) or len(removed)):
         # could also delete the latest file
         message += "Pas de changement par rapport à la semaine dernière"
+
+    issues = this_week.loc[
+        this_week['hvd_category'].isna()
+        & ~this_week['title'].isna()
+    ]
+    if len(issues):
+        message += "\n\n :small_red_triangle: Les jeux de données suivants ne sont pas 100% renseignés\n"
+        for _, row in issues.iterrows():
+            message += markdown_item(row)
+            if len(message) > round(MAX_MESSAGE_LENGTH * 0.95):
+                break
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
