@@ -1,3 +1,4 @@
+from typing import Optional, Union
 import requests
 import json
 import pandas as pd
@@ -15,14 +16,14 @@ headers = {
 }
 
 
-def handle_grist_error(response):
+def handle_grist_error(response: requests.Response):
     try:
         response.raise_for_status()
     except Exception:
         raise Exception(f"Grist error: '{response.json()['error']}'")
 
 
-def erase_table_content(doc_id, table_id, ids=None):
+def erase_table_content(doc_id: str, table_id: str, ids: Optional[list] = None):
     """Empty some (if specified) or all rows of a table. Doesn't touch the columns"""
     if ids is None:
         records = requests.get(
@@ -37,7 +38,7 @@ def erase_table_content(doc_id, table_id, ids=None):
     handle_grist_error(r)
 
 
-def rename_table_columns(doc_id, table_id, new_columns):
+def rename_table_columns(doc_id: str, table_id: str, new_columns: Union[list, dict]):
     """
     Delete and recreate columns in the table
     Intended to be used when the table is empty to prevent unwanted behaviour
@@ -89,7 +90,7 @@ def chunkify(df: pd.DataFrame, chunk_size: int = 100):
         yield df[start:]
 
 
-def recordify(df, returned_columns):
+def recordify(df: pd.DataFrame, returned_columns: Optional[dict]):
     """Renames columns (if ids have been changed by grist) and wraps the content as expected"""
     if returned_columns:
         df = df.rename(returned_columns, axis=1)
@@ -97,24 +98,31 @@ def recordify(df, returned_columns):
     return {"records": [{"fields": r} for r in records]}
 
 
-def get_real_columns(doc_id, table_id, df, append):
+def _get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
+    # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
+    # to potentially replace them so that the upload doesn't crash
+    r = requests.get(
+        GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
+        headers=headers,
+    )
+    handle_grist_error(r)
+    if id_to_label:
+        return {
+            c["id"]: c["fields"]["label"] for c in r.json()["columns"]
+        }
+    else:
+        return {
+            c["fields"]["label"]: c["id"] for c in r.json()["columns"]
+        }
+
+
+def get_real_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union[bool, str]):
     """
     Handles cases where the df has more/less columns than the table:
         - more: add missing columns (empty) for the records to be uploaded
         - less: grist handles it (but adds default values to rows)
     """
-    def _get_columns(doc_id, table_id):
-        # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
-        # to potentially replace them so that the upload doesn't crash
-        r = requests.get(
-            GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
-            headers=headers,
-        ).json()
-        return {
-            c["fields"]["label"]: c["id"] for c in r["columns"]
-        }
-
-    returned_columns = _get_columns(doc_id, table_id)
+    returned_columns = _get_columns_mapping(doc_id, table_id, id_to_label=False)
     if append == 'exact' and sorted(list(returned_columns.keys())) != sorted(df.columns.to_list()):
         raise ValueError(
             "Columns of the existing table don't match with sent data:\n"
@@ -138,11 +146,11 @@ def get_real_columns(doc_id, table_id, df, append):
             )
             handle_grist_error(r)
         # re-getting the columns post potential update
-        returned_columns = _get_columns(doc_id, table_id)
+        returned_columns = _get_columns_mapping(doc_id, table_id, id_to_label=False)
     return returned_columns
 
 
-def df_to_grist(df, doc_id, table_id, append=False):
+def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool, str] = False):
     """
     Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
     If the table(_id) already exists:
@@ -202,3 +210,19 @@ def df_to_grist(df, doc_id, table_id, append=False):
         handle_grist_error(r)
         res += r.json()["records"]
     return res
+
+
+def get_table_as_df(doc_id: str, table_id: str, columns_labels: bool = True):
+    """
+    Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
+    """
+    r = requests.get(
+        GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
+        headers=headers
+    )
+    handle_grist_error(r)
+    df = pd.DataFrame([k["fields"] for k in r.json()["records"]])
+    if not columns_labels:
+        return df
+    column_mapping = _get_columns_mapping(doc_id, table_id, id_to_label=True)
+    return df.rename(column_mapping, axis=1)
