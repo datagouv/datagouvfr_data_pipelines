@@ -10,11 +10,8 @@ from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions 
 DAG_NAME = 'data_processing_pnt_monitor'
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
 }
 
 with DAG(

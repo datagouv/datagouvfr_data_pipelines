@@ -85,8 +85,6 @@ def send_email_report_period(ti, **kwargs):
 
 
 default_args = {
-    # "email": ["geoffrey.aldebert@data.gouv.fr"],
-    "email_on_failure": False,
     'retries': 3,
     'retry_delay': timedelta(minutes=2),
 }

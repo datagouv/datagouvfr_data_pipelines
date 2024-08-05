@@ -59,8 +59,6 @@ def send_email_report(ti):
 
 
 default_args = {
-    "email": ["geoffrey.aldebert@data.gouv.fr"],
-    "email_on_failure": True,
     'retries': 3,
     'retry_delay': timedelta(minutes=2),
 }

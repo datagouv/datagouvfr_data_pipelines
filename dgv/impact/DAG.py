@@ -22,11 +22,8 @@ DAG_NAME = 'dgv_impact'
 DATADIR = f"{TMP_FOLDER}data"
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
 }
 
 with DAG(

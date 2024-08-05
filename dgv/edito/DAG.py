@@ -9,7 +9,10 @@ from datagouvfr_data_pipelines.dgv.edito.task_functions import (
 
 DAG_NAME = "dgv_edito_post_and_tweet"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
+default_args = {
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
+}
 
 with DAG(
     dag_id=DAG_NAME,

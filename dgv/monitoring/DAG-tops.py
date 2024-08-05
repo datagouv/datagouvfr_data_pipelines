@@ -240,8 +240,6 @@ def send_stats_to_minio(ti, **kwargs):
 
 
 default_args = {
-    "email": ["geoffrey.aldebert@data.gouv.fr"],
-    "email_on_failure": True,
     'retries': 3,
     'retry_delay': timedelta(minutes=2),
 }
