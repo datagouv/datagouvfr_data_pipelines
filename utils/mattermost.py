@@ -6,11 +6,14 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_DATAENG_TEST,
 )
 
+MAX_MESSAGE_LENGTH = 60000
+
 
 def send_message(
     text: str,
     endpoint_url: Optional[str] = None,
     image_url: Optional[str] = None,
+    force_send: bool = False,
 ):
     """Send a message to a mattermost channel
 
@@ -20,6 +23,9 @@ def send_message(
         image_url (Optional[str], optional): Url of an image to link
         with your text. Defaults to None.
     """
+    if not force_send and len(text) > MAX_MESSAGE_LENGTH:
+        raise ValueError(f"This message is too long (max {MAX_MESSAGE_LENGTH}), consider reducing")
+    text = text[:MAX_MESSAGE_LENGTH]
     if not endpoint_url:
         if AIRFLOW_ENV == "dev":
             endpoint_url = MATTERMOST_DATAGOUV_DATAENG_TEST
