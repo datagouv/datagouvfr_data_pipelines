@@ -5,6 +5,7 @@
         "data_processing_elections": true,
         "data_processing_geozones": true,
         "data_processing_meteo": true,
+        "data_processing_meteo_hydra_and_previz": true,
         "data_processing_pnt_monitor": true,
         "data_processing_rna": true,
         "data_processing_sirene_geocodage": true,
