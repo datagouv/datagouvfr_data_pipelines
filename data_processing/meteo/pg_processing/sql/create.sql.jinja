@@ -754,44 +754,23 @@ END $$;
 
 {% for depid in depids %}
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMM
-CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_dep ON meteo.base_mens_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_num_poste ON meteo.base_mens_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_nom_usuel ON meteo.base_mens_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_year ON meteo.base_mens_{{ depid }} (substring(AAAAMM::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_mens_{{ depid }}_query ON meteo.base_mens_{{ depid }} (num_poste, substring(AAAAMM, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJ
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_dep ON meteo.base_quot_vent_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_num_poste ON meteo.base_quot_vent_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_nom_usuel ON meteo.base_quot_vent_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_year ON meteo.base_quot_vent_{{ depid }} (substring(AAAAMMJJ::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_quot_vent_{{ depid }}_query ON meteo.base_quot_vent_{{ depid }} (num_poste, substring(AAAAMMJJ, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJ
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_dep ON meteo.base_quot_autres_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_num_poste ON meteo.base_quot_autres_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_nom_usuel ON meteo.base_quot_autres_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_year ON meteo.base_quot_autres_{{ depid }} (substring(AAAAMMJJ::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_quot_autres_{{ depid }}_query ON meteo.base_quot_autres_{{ depid }} (num_poste, substring(AAAAMMJJ, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMM
-CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_dep ON meteo.base_decad_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_num_poste ON meteo.base_decad_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_nom_usuel ON meteo.base_decad_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_year ON meteo.base_decad_{{ depid }} (substring(AAAAMM::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_decad_{{ depid }}_query ON meteo.base_decad_{{ depid }} (num_poste, substring(AAAAMM, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJHH
-CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_dep ON meteo.base_hor_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_num_poste ON meteo.base_hor_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_nom_usuel ON meteo.base_hor_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_year ON meteo.base_hor_{{ depid }} (substring(AAAAMMJJHH::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_hor_{{ depid }}_query ON meteo.base_hor_{{ depid }} (num_poste, substring(AAAAMMJJHH, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMMJJHHMN
-CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_dep ON meteo.base_min_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_num_poste ON meteo.base_min_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_nom_usuel ON meteo.base_min_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_year ON meteo.base_min_{{ depid }} (substring(AAAAMMJJHHMN::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_min_{{ depid }}_query ON meteo.base_min_{{ depid }} (num_poste, substring(AAAAMMJJHHMN, 1, 4));
 
 -- Create indexes on DEP, NUM_POSTE, NOM_USUEL, and AAAAMM
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_dep ON meteo.base_decadagro_{{ depid }} (DEP);
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_num_poste ON meteo.base_decadagro_{{ depid }} (NUM_POSTE);
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_nom_usuel ON meteo.base_decadagro_{{ depid }} (NOM_USUEL);
-CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_year ON meteo.base_decadagro_{{ depid }} (substring(AAAAMM::text, 1, 4));
+CREATE INDEX IF NOT EXISTS idx_base_decadagro_{{ depid }}_query ON meteo.base_decadagro_{{ depid }} (num_poste, substring(AAAAMM, 1, 4));
 {% endfor %}
