@@ -81,3 +81,7 @@ SECRET_ZAMMAD_API_TOKEN = Variable.get("SECRET_ZAMMAD_API_TOKEN", "")
 # grist
 GRIST_API_URL = Variable.get("GRIST_API_URL", "")
 SECRET_GRIST_API_KEY = Variable.get("SECRET_GRIST_API_KEY", "")
+
+# sentry
+SECRET_SENTRY_API_TOKEN = Variable.get("SECRET_SENTRY_API_TOKEN", "")
+SENTRY_BASE_URL = Variable.get("SENTRY_BASE_URL", "")
