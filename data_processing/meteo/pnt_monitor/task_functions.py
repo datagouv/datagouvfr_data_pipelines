@@ -136,6 +136,6 @@ def notification_mattermost(ti):
 
     if message:
         message = "##### :crystal_ball: :sun_behind_rain_cloud: Données PNT\n" + message
-        if len(message) > 60000:
-            message = message[:60000] + "\n\nEt plus encore !"
+        if len(message) > 55000:
+            message = message[:55000] + "\n\nEt plus encore !"
         send_message(message)
