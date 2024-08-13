@@ -27,8 +27,10 @@ def is_first_content(publisher_id, publisher_type, content_type):
     r = requests.get(
         f"https://www.data.gouv.fr/api/1/{publisher_type}/{publisher_id}/",
         headers={"X-fields": "metrics"},
-    ).json()
-    return r["metrics"][content_type] < 2
+    )
+    if not r.ok:
+        return False
+    return r.json()["metrics"][content_type] < 2
 
 
 def show_users(start_date, end_date=None):
