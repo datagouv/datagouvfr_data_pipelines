@@ -138,7 +138,7 @@ def update_dataset_data_gouv(ti, **kwargs):
 
     hashs = ti.xcom_pull(key="sha256", task_ids="get_files")
     Mois = [
-        m.title() for m in MOIS_FR
+        m.title() for m in MOIS_FR.values()
     ]
     dat = datetime.now()
     mois = dat.date().month
