@@ -137,7 +137,7 @@ def send_to_minio():
 def publish_on_datagouv(ti):
     min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
     max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}deces/config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
         data = json.load(fp)
     for _ext in ["csv", "parquet"]:
         post_remote_resource(
@@ -163,7 +163,7 @@ def publish_on_datagouv(ti):
 
 
 def notification_mattermost():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}deces/config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
         data = json.load(fp)
     dataset_id = data["deces_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(

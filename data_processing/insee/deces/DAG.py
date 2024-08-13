@@ -6,7 +6,7 @@ from datetime import timedelta, datetime
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.data_processing.deces.task_functions import (
+from datagouvfr_data_pipelines.data_processing.insee.deces.task_functions import (
     check_if_new_file,
     gather_data,
     send_to_minio,
