@@ -1,6 +1,7 @@
 {
     "dag_list": {
         "data_processing_prix_carburants": true,
+        "data_processing_deces_consolidation": true,
         "data_processing_dvf": true,
         "data_processing_elections": true,
         "data_processing_geozones": true,

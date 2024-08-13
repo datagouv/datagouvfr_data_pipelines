@@ -1,0 +1,22 @@
+{
+    "deces_csv": {
+        "dev": {
+            "dataset_id": "66ba02e01af9c6b5cb8eb958",
+            "resource_id": "4675ccca-f67f-4a7e-bf81-066b1c517b8f"
+        },
+        "prod": {
+            "dataset_id": "",
+            "resource_id": ""
+        }
+    },
+    "deces_parquet": {
+        "dev": {
+            "dataset_id": "66ba02e01af9c6b5cb8eb958",
+            "resource_id": "2cc21fbb-f77e-4956-abe2-08c5c0441612"
+        },
+        "prod": {
+            "dataset_id": "",
+            "resource_id": ""
+        }
+    }
+}
