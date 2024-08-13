@@ -400,7 +400,7 @@ def get_last_items(
     results = []
     data = get_all_from_api_query(
         f"https://www.data.gouv.fr/api/1/{endpoint}/?sort={sort_key}",
-        # this WILL fail locally  for users because of token mismath (demo/prod)
+        # this WILL fail locally for users because of token mismath (demo/prod)
         auth=endpoint == "users",
     )
     for d in data:
