@@ -11,9 +11,10 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
+from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource
+from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}deces"
@@ -26,7 +27,6 @@ def check_if_new_file():
         headers={"X-fields": "resources{created_at}"}
     ).json()['resources']
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    return True
     return any(
         r["created_at"] >= yesterday for r in resources
     )
@@ -34,6 +34,14 @@ def check_if_new_file():
 
 def clean_period(file_name):
     return file_name.replace('deces-', '').replace('.txt', '')
+
+
+def build_year_month(period):
+    if "m" not in period:
+        return period
+    year, month = period.split('-')
+    month = MOIS_FR[month.replace('m', '')]
+    return f"{month} {year}"
 
 
 def get_fields(row):
@@ -96,19 +104,15 @@ def gather_data(ti):
             index=False,
             mode="w" if idx == 0 else "a",
         )
-        for c in df.columns:
-            if c not in columns:
-                columns[c] = max(df[c].str.len())
-            else:
-                columns[c] = max(max(df[c].str.len()), columns[c])
+        if idx == 0:
+            columns = df.columns
         del df
     print(f"> {len(errors)} erreur(s)")
     # conversion to parquet, all columns are considered strings by default which is fine
     csv_to_parquet(
         DATADIR + '/deces.csv',
         sep=',',
-        # ICI à comparer avec notepad
-        columns={c: f"VARCHAR({v})" for c, v in columns.items()}
+        columns=columns,
     )
 
     ti.xcom_push(key="min_date", value=min(ids.keys()))
@@ -133,7 +137,6 @@ def send_to_minio():
 def publish_on_datagouv(ti):
     min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
     max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
-    # ICI better names
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}deces/config/dgv.json") as fp:
         data = json.load(fp)
     for _ext in ["csv", "parquet"]:
@@ -146,7 +149,9 @@ def publish_on_datagouv(ti):
                     f"/{AIRFLOW_ENV}/deces/deces.{_ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/deces.{_ext}"),
-                "title": f"Décès de français.es entre {min_date} et {max_date} (format {_ext})",
+                "title": (
+                    f"Décès de français.es entre {min_date} et {build_year_month(max_date)} (format {_ext})"
+                ),
                 "format": _ext,
                 "description": (
                     f"Décès de français.es entre {min_date} et {max_date} (format {_ext})"
@@ -155,3 +160,15 @@ def publish_on_datagouv(ti):
                 ),
             },
         )
+
+
+def notification_mattermost():
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}deces/config/dgv.json") as fp:
+        data = json.load(fp)
+    dataset_id = data["deces_csv"][AIRFLOW_ENV]["dataset_id"]
+    send_message(
+        f"Données décès agrégées :"
+        f"\n- uploadées sur Minio"
+        f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
+        f"({DATAGOUV_URL}/fr/datasets/{dataset_id}/)"
+    )

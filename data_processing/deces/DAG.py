@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.data_processing.deces.task_functions import (
     gather_data,
     send_to_minio,
     publish_on_datagouv,
+    notification_mattermost,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}deces/"
@@ -57,7 +58,13 @@ with DAG(
         python_callable=publish_on_datagouv,
     )
 
+    notification_mattermost = PythonOperator(
+        task_id="notification_mattermost",
+        python_callable=notification_mattermost,
+    )
+
     check_if_new_file.set_upstream(clean_previous_outputs)
     gather_data.set_upstream(check_if_new_file)
     send_to_minio.set_upstream(gather_data)
     publish_on_datagouv.set_upstream(send_to_minio)
+    notification_mattermost.set_upstream(publish_on_datagouv)

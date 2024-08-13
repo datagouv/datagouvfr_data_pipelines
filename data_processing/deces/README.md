@@ -1,12 +1,12 @@
 # Documentation
 
-## data_processing_irve
+## data_processing_deces_consolidation
 
 | Information | Valeur |
 | -------- | -------- |
 | Fichier source     | `DAG.py`     |
-| Description | Ce traitement permet de consolider toutes les données conformes au [schéma IRVE statique](https://schema.data.gouv.fr/etalab/schema-irve-statique/) présentes sur data.gouv.fr. |
-| Fréquence de mise à jour | Quotidienne |
-| Données sources | Toutes les données conformes au schéma IRVE|
-| Données de sorties | [Dataset consolidé des IRVE](https://www.data.gouv.fr/fr/datasets/fichier-consolide-des-bornes-de-recharge-pour-vehicules-electriques/) |
-| Channel Mattermost d'information | ~datagouv-schema-activites |
+| Description | Ce traitement permet de consolider tous les millésimes des [fichiers des personnes décédées produits par l'INSEE](https://www.data.gouv.fr/fr/datasets/fichier-des-personnes-decedees/)  |
+| Fréquence de mise à jour | Mensuelle |
+| Données sources | [Fichiers des personnes décédées produits par l'INSEE](https://www.data.gouv.fr/fr/datasets/fichier-des-personnes-decedees/) |
+| Données de sorties | TBD |
+| Channel Mattermost d'information | ~startup-datagouv-dataeng |
