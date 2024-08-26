@@ -220,7 +220,7 @@ def alert_if_new_reports():
             f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
         )
         message += (
-            f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject}"
+            f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{r['message']}`"
         )
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
