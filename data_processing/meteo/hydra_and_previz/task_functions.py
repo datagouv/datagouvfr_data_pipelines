@@ -41,7 +41,7 @@ def get_delay_seconds(start, end):
 
 
 def build_resource_url(dataset_id, resource_id):
-    return f"https://www.data.gouv.fr/fr/datasets/{dataset_id}/#/resources/{resource_id}/"
+    return f"https://www.data.gouv.fr/fr/datasets/{dataset_id}/#/resources/{resource_id}"
 
 
 def get_and_send_errors():
