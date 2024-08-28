@@ -80,7 +80,7 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                 title = spec.get('title')
                 md += indent * indent_char + f"#### {title + ' - ' if title else ''}Propriété {prop}\n"
                 if spec.get('description'):
-                    md += indent * indent_char + f"> *Description : {spec['description'].strip().replace('\n', ' ')}*<br>\n"
+                    md += indent * indent_char + "> *Description : {}*<br>\n".format(spec["description"].strip().replace("\n", " "))
                 if spec.get('exemple') or spec.get('examples'):
                     example = spec.get('exemple') or spec.get('examples')
                     if isinstance(example, list):
