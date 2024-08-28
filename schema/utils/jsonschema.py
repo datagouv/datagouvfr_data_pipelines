@@ -76,7 +76,7 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                     {'properties': {prop: inner}, 'definitions': jsonschema['definitions']},
                     indent=indent, parent=parent + '.' + prop
                 )
-            elif 'title' in spec or 'description' in spec:
+            elif 'title' in spec or 'description' in spec or 'uri' in spec:
                 title = spec.get('title')
                 md += indent * indent_char + f"#### {title + ' - ' if title else ''}Propriété {prop}\n"
                 if spec.get('description'):
@@ -86,6 +86,8 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                     if isinstance(example, list):
                         example = example[0]
                     md += indent * indent_char + f"> *Exemple : {example}*\n"
+                if spec.get('uri'):
+                    md += indent * indent_char + f"> *URI : {spec['uri']}*<br>\n"
                 if prop in required:
                     md += indent * indent_char + "- Valeur obligatoire\n"
                 else:
