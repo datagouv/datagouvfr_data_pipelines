@@ -123,7 +123,7 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                     " les champs suivants :</summary>\n\n"
                 )
                 md += _process(
-                    {'properties': spec['properties'], 'definitions': jsonschema['definitions']},
+                    {'properties': spec['properties'], 'definitions': jsonschema.get('definitions', {})},
                     indent=indent + 1, parent=parent + '.' + prop
                 )
                 md += accordion("close", indent, indent_char)
@@ -153,7 +153,7 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                         " d'éléments parmi les suivants :</summary>\n\n"
                     )
                     md += _process(
-                        {'properties': {k: inner}, 'definitions': jsonschema.get('definitions')},
+                        {'properties': {k: inner}, 'definitions': jsonschema.get('definitions', {})},
                         indent=indent + 1, parent=parent + '.' + prop
                     )
                     md += accordion("close", indent, indent_char)
@@ -180,13 +180,13 @@ def jsonschema_to_markdown(jsonschema, indent=0, parent='', indent_char=''):
                         for k in ref:
                             inner = inner[k]
                         md += _process(
-                            {'properties': {k: inner}, 'definitions': jsonschema['definitions']},
+                            {'properties': {k: inner}, 'definitions': jsonschema.get('definitions', {})},
                             indent=indent + 1, parent=parent + '.' + prop
                         )
                     md += accordion("close", indent, indent_char)
                 elif 'properties' in items:
                     md += _process(
-                        {'properties': items['properties'], 'definitions': jsonschema.get('definitions')},
+                        {'properties': items['properties'], 'definitions': jsonschema.get('definitions', {})},
                         indent=indent + 1, parent=parent + '.' + prop
                     )
             if 'enum' in spec and not processed:
