@@ -376,6 +376,9 @@ def save_validata_report(
 ):
     _report = full_report.get("report", {})
 
+    if not _report:
+        return
+
     save_report = {}
     save_report["validation-report:schema_name"] = schema_name
     save_report["validation-report:schema_version"] = version
