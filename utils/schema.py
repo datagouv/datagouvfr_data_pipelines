@@ -367,61 +367,59 @@ def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALI
 
 def save_validata_report(
     res,
-    report,
+    full_report,
     version,
     schema_name,
     dataset_id,
     resource_id,
     validata_reports_path,
 ):
-    if not report.get('report', {}).get('hydra:unavailable', False):
-        save_report = {}
-        save_report["validation-report:schema_name"] = schema_name
-        save_report["validation-report:schema_version"] = version
-        save_report["validation-report:schema_type"] = "tableschema"
-        save_report["validation-report:validator"] = "validata"
-        save_report["validation-report:valid_resource"] = res
-        if report.get("report", {}).get("from_metadata"):
-            save_report["from_metadata"] = True
-        try:
-            nb_errors = (
-                report["report"]["stats"]["errors"]
-                if report["report"]["stats"]["errors"] < 100
-                else 100
-            )
-        except:
-            nb_errors = None
-        save_report["validation-report:nb_errors"] = nb_errors
-        try:
-            keys = ["cells"]
-            errors = [
-                {y: x[y] for y in x if y not in keys}
-                for x in report["report"]["tasks"][0]["errors"][:100]
-            ]
+    _report = full_report.get("report", {})
 
-        except:
-            errors = None
-        save_report["validation-report:errors"] = errors
-        if 'date' in report.get('report', {}).keys():
-            save_report["validation-report:validation_date"] = report['report']['date']
-        else:
-            # progressively switching to timezone-aware dates
-            save_report["validation-report:validation_date"] = str(datetime.now(local_timezone))
+    save_report = {}
+    save_report["validation-report:schema_name"] = schema_name
+    save_report["validation-report:schema_version"] = version
+    save_report["validation-report:schema_type"] = "tableschema"
+    save_report["validation-report:validator"] = "validata"
+    save_report["validation-report:valid_resource"] = res
 
-        with open(
-            build_report_prefix(
-                validata_reports_path,
-                schema_name,
-                dataset_id,
-                resource_id,
-            )
-            + version
-            + ".json",
-            "w",
-        ) as f:
-            json.dump(save_report, f)
+    if _report.get("from_metadata"):
+        save_report["from_metadata"] = True
+
+    try:
+        nb_errors = (
+            _report["stats"]["errors"] if _report["stats"]["errors"] < 100 else 100
+        )
+    except KeyError:
+        nb_errors = None
+    save_report["validation-report:nb_errors"] = nb_errors
+
+    try:
+        errors = _report["errors"][:100]
+    except KeyError:
+        errors = None
+    save_report["validation-report:errors"] = errors
+
+    if "date" in full_report.keys():
+        save_report["validation-report:validation_date"] = full_report["date"]
     else:
-        pass
+        # progressively switching to timezone-aware dates
+        save_report["validation-report:validation_date"] = str(
+            datetime.now(local_timezone)
+        )
+
+    with open(
+        build_report_prefix(
+            validata_reports_path,
+            schema_name,
+            dataset_id,
+            resource_id,
+        )
+        + version
+        + ".json",
+        "w",
+    ) as f:
+        json.dump(save_report, f)
 
 
 # Returns if a resource is valid based on its "ref_table" row
