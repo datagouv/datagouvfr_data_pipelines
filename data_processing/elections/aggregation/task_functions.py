@@ -29,6 +29,7 @@ int_cols = {
     'candidats': ['N°Panneau', 'Voix'],
 }
 
+
 def num_converter(value, _type):
     if not isinstance(value, str) and math.isnan(value):
         return value
