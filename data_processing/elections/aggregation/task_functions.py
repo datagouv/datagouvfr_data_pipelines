@@ -47,6 +47,9 @@ def process(df, int_cols):
         elif any(c == k for k in int_cols):
             # these are numbers
             df[c] = df[c].apply(lambda x: num_converter(x, int))
+        elif "Libellé" in c:
+            # standardize labels
+            df[c] = df[c].apply(lambda x: x.title() if isinstance(x, str) else x)
 
 
 def format_election_files():
