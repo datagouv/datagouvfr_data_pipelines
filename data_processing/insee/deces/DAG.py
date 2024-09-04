@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.insee.deces.task_functions import (
-    check_if_new_file,
+    check_if_modif,
     gather_data,
     send_to_minio,
     publish_on_datagouv,
@@ -38,9 +38,9 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
-    check_if_new_file = ShortCircuitOperator(
-        task_id="check_if_new_file",
-        python_callable=check_if_new_file,
+    check_if_modif = ShortCircuitOperator(
+        task_id="check_if_modif",
+        python_callable=check_if_modif,
     )
 
     gather_data = PythonOperator(
@@ -63,8 +63,8 @@ with DAG(
         python_callable=notification_mattermost,
     )
 
-    check_if_new_file.set_upstream(clean_previous_outputs)
-    gather_data.set_upstream(check_if_new_file)
+    check_if_modif.set_upstream(clean_previous_outputs)
+    gather_data.set_upstream(check_if_modif)
     send_to_minio.set_upstream(gather_data)
     publish_on_datagouv.set_upstream(send_to_minio)
     notification_mattermost.set_upstream(publish_on_datagouv)
