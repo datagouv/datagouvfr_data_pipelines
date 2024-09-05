@@ -5,8 +5,8 @@
             "resource_id": "4675ccca-f67f-4a7e-bf81-066b1c517b8f"
         },
         "prod": {
-            "dataset_id": "",
-            "resource_id": ""
+            "dataset_id": "66d997ba09e4429d7f846249",
+            "resource_id": "c75fc1d6-a6ab-496b-962d-e12b9480ed41"
         }
     },
     "deces_parquet": {
@@ -15,8 +15,8 @@
             "resource_id": "2cc21fbb-f77e-4956-abe2-08c5c0441612"
         },
         "prod": {
-            "dataset_id": "",
-            "resource_id": ""
+            "dataset_id": "66d997ba09e4429d7f846249",
+            "resource_id": "d7aed239-8dc1-46dd-bc66-3d18097cb7ea"
         }
     }
 }
