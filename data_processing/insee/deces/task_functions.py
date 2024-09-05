@@ -27,9 +27,10 @@ def check_if_modif():
         headers={"X-fields": "resources{internal{last_modified_internal}}"}
     ).json()['resources']
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    return any(
-        r["internal"]["last_modified_internal"] >= yesterday for r in resources
-    )
+    return True
+    # return any(
+    #     r["internal"]["last_modified_internal"] >= yesterday for r in resources
+    # )
 
 
 def clean_period(file_name):
@@ -67,28 +68,47 @@ def gather_data(ti):
     print("Getting resources list")
     resources = requests.get(
         "https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5/",
-        headers={"X-fields": "resources{id,title}"},
+        headers={"X-fields": "resources{url,title}"},
     ).json()["resources"]
     year_regex = r'deces-\d{4}.txt'
     month_regex = r'deces-\d{4}-m\d{2}.txt'
     full_years = []
-    ids = {}
+    urls = {}
     for r in resources:
         if re.match(year_regex, r['title']):
-            ids[clean_period(r['title'])] = r['id']
+            urls[clean_period(r['title'])] = r['url']
             full_years.append(r['title'][6:10])
     print(full_years)
     for r in resources:
         if re.match(month_regex, r['title']) and r['title'][6:10] not in full_years:
             print(r['title'])
-            ids[clean_period(r['title'])] = r['id']
+            urls[clean_period(r['title'])] = r['url']
+
+    opposition_url = [r["url"] for r in resources if "opposition" in r["title"]]
+    if len(opposition_url) != 1:
+        raise ValueError(f"There should be exactly one opposition file, {len(opposition_url)} found")
+    df_opposition = pd.read_csv(
+        opposition_url[0],
+        sep=';',
+        dtype=str,
+    )
+    df_opposition.rename(
+        {
+            "Date de décès": "date_deces",
+            "Code du lieu de décès": "code_insee_deces",
+            "Numéro d'acte de décès": "numero_acte_deces",
+        },
+        axis=1,
+        inplace=True,
+    )
+    df_opposition["opposition"] = True
 
     errors = []
     columns = {}
-    for idx, (origin, rid) in enumerate(ids.items()):
+    for idx, (origin, rurl) in enumerate(urls.items()):
         data = []
         print(f'Proccessing {origin}')
-        rows = requests.get(f'https://www.data.gouv.fr/fr/datasets/r/{rid}').text.split('\n')
+        rows = requests.get(rurl).text.split('\n')
         for r in rows:
             if not r:
                 continue
@@ -99,12 +119,19 @@ def gather_data(ti):
                 print(r)
                 errors.append(r)
         # can't have the whole dataframe in RAM, so saving in batches
-        df = pd.DataFrame(data)
+        df = pd.merge(
+            pd.DataFrame(data),
+            df_opposition,
+            how="left",
+            on=["date_deces", "code_insee_deces", "numero_acte_deces"]
+        )
+        df["opposition"] = df["opposition"].fillna(False)
         del data
         df.to_csv(
             DATADIR + '/deces.csv',
             index=False,
             mode="w" if idx == 0 else "a",
+            header=idx == 0,
         )
         if idx == 0:
             columns = df.columns
@@ -117,8 +144,8 @@ def gather_data(ti):
         columns=columns,
     )
 
-    ti.xcom_push(key="min_date", value=min(ids.keys()))
-    ti.xcom_push(key="max_date", value=max(ids.keys()))
+    ti.xcom_push(key="min_date", value=min(urls.keys()))
+    ti.xcom_push(key="max_date", value=max(urls.keys()))
 
 
 def send_to_minio():
@@ -148,7 +175,7 @@ def publish_on_datagouv(ti):
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/{AIRFLOW_ENV}/deces/deces.{_ext}"
+                    f"/deces/deces.{_ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/deces.{_ext}"),
                 "title": (
