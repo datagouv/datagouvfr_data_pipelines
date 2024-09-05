@@ -13,7 +13,11 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import (
+    post_remote_resource,
+    update_dataset_or_resource_metadata,
+    DATAGOUV_URL,
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -27,14 +31,23 @@ def check_if_modif():
         headers={"X-fields": "resources{internal{last_modified_internal}}"}
     ).json()['resources']
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    return True
-    # return any(
-    #     r["internal"]["last_modified_internal"] >= yesterday for r in resources
-    # )
+    return any(
+        r["internal"]["last_modified_internal"] >= yesterday for r in resources
+    )
 
 
 def clean_period(file_name):
     return file_name.replace('deces-', '').replace('.txt', '')
+
+
+def build_temporal_coverage(min_date, max_date):
+    # min_date is just a year
+    min_iso = f"{min_date}-01-01T00:00:00.000000Z"
+    # max_date looks like YYYY-mMM, we're setting the end to the end of the month
+    tmp_max = datetime.strptime(f"{max_date.replace('m', '')}-01", "%Y-%m-%d")
+    tmp_max = (tmp_max.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    max_iso = f"{tmp_max.strftime('%Y-%m-%d')}T00:00:00.000000Z"
+    return min_iso, max_iso
 
 
 def build_year_month(period):
@@ -106,6 +119,8 @@ def gather_data(ti):
     errors = []
     columns = {}
     for idx, (origin, rurl) in enumerate(urls.items()):
+        if idx > 5:
+            break
         data = []
         print(f'Proccessing {origin}')
         rows = requests.get(rurl).text.split('\n')
@@ -167,11 +182,11 @@ def publish_on_datagouv(ti):
     min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
     max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
-        data = json.load(fp)
+        config = json.load(fp)
     for _ext in ["csv", "parquet"]:
         post_remote_resource(
-            dataset_id=data[f"deces_{_ext}"][AIRFLOW_ENV]["dataset_id"],
-            resource_id=data[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
+            dataset_id=config[f"deces_{_ext}"][AIRFLOW_ENV]["dataset_id"],
+            resource_id=config[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -183,12 +198,22 @@ def publish_on_datagouv(ti):
                 ),
                 "format": _ext,
                 "description": (
-                    f"Décès de français.es entre {min_date} et {max_date} (format {_ext})"
+                    f"Décès de français.es entre {min_date} et {build_year_month(max_date)} (format {_ext})"
                     " (créé à partir des [fichiers de l'INSEE]"
                     "(https://www.data.gouv.fr/fr/datasets/5de8f397634f4164071119c5/))"
                 ),
             },
         )
+    min_iso, max_iso = build_temporal_coverage(min_date, max_date)
+    update_dataset_or_resource_metadata(
+        payload={
+            "temporal_coverage": {
+                "start": min_iso,
+                "end": max_iso,
+            },
+        },
+        dataset_id=config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
+    )
 
 
 def notification_mattermost():
