@@ -194,11 +194,11 @@ def publish_on_datagouv(ti):
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/deces.{_ext}"),
                 "title": (
-                    f"Décès de français.es entre {min_date} et {build_year_month(max_date)} (format {_ext})"
+                    f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"
                 ),
                 "format": _ext,
                 "description": (
-                    f"Décès de français.es entre {min_date} et {build_year_month(max_date)} (format {_ext})"
+                    f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"
                     " (créé à partir des [fichiers de l'INSEE]"
                     "(https://www.data.gouv.fr/fr/datasets/5de8f397634f4164071119c5/))"
                 ),
