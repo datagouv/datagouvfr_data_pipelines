@@ -43,7 +43,7 @@ def detect_spam(name, description):
     else:
         try:
             lang = detect(description.lower())
-            if lang != 'fr':
+            if lang not in ['fr', 'ca']:
                 return 'language:' + lang
         except LangDetectException:
             return
