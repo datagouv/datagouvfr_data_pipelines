@@ -74,7 +74,7 @@ with DAG(
                 task_id=f'process_data_{dataset.replace("/","_").lower()}',
                 python_callable=download_data,
                 op_kwargs={
-                    "DATASET_ID": dataset,
+                    "dataset_name": dataset,
                 },
             )
         )
@@ -88,6 +88,6 @@ with DAG(
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
     get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
 
-    for i in range(0,len(process_data)):
+    for i in range(0, len(process_data)):
         process_data[i].set_upstream(get_latest_ftp_processing)
         insert_latest_date_pg.set_upstream(process_data[i])

@@ -1,7 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 from typing import List, Optional, TypedDict
-import os
+from pathlib import Path
 
 
 class Url(TypedDict):
@@ -31,7 +31,9 @@ def download_files(
         auth = None
 
     for url in list_urls:
-        os.makedirs(url['dest_path'], exist_ok=True)
+        if not url["dest_path"].endswith("/"):
+            url["dest_path"] = url["dest_path"] + "/"
+        Path(url["dest_path"]).mkdir(parents=True, exist_ok=True)
         with requests.get(
             url["url"],
             auth=auth,
