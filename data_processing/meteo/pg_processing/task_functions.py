@@ -9,6 +9,8 @@ import csv
 from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
+import aiohttp
+import asyncio
 from typing import Optional
 
 from airflow.hooks.base import BaseHook
@@ -94,13 +96,14 @@ def get_latest_ftp_processing(ti):
     ti.xcom_push(key="latest_ftp_processing", value=r.json())
 
 
-def fetch_resources(dataset):
-    response = requests.get(
-        f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}",
-        headers={"X-fields": "resources"},
-    )
-    response.raise_for_status()  # Ensure we notice bad responses
-    return response.json()["resources"]
+async def fetch_resources(dataset):
+    async with aiohttp.ClientSession(raise_for_status=True) as session:
+        async with session.get(
+            f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}",
+            headers={"X-fields": "resources"},
+        ) as response:
+            r = await response.json()
+            return r["resources"]
 
 
 def download_resource(res, dataset):
@@ -138,23 +141,27 @@ def get_regex_infos(pattern, filename, params):
     return mydict
 
 
-def process_resources(
+async def process_resources(
     resources: list[dict],
     dataset_name: str,
     latest_ftp_processing: list,
     dates: Optional[list] = None,
 ):
-    mydict = {}
-    for res in resources:
+    async def _process_ressource(
+        res: dict,
+        dataset_name: str,
+        latest_ftp_processing: list,
+        dates: Optional[list] = None,
+    ):
         if res["type"] != "main":
-            continue
+            return
         regex_infos = get_regex_infos(
             config[dataset_name]["source_pattern"],
             res["url"].split("/")[-1],
             config[dataset_name]["params"],
         )
         if regex_infos["DEP"] not in DEPIDS:
-            continue
+            return
         if dates:
             for d in dates:
                 files = [
@@ -182,7 +189,16 @@ def process_resources(
         print(file_path)
         csv_path = unzip_csv_gz(file_path)
         delete_and_insert_into_pg(data, table_name, csv_path)
-    return mydict
+
+    await asyncio.gather(*[
+        _process_ressource(
+            res=resource,
+            dataset_name=dataset_name,
+            latest_ftp_processing=latest_ftp_processing,
+            dates=dates
+        )
+        for resource in resources
+    ])
 
 
 def download_data(ti, dataset_name):
@@ -194,9 +210,9 @@ def download_data(ti, dataset_name):
         key="latest_ftp_processing",
         task_ids="get_latest_ftp_processing"
     )
-    mydict = {}
     dates = None
-    if not latest_processed_date:
+    # ugly but that's how it comes out of postgres
+    if latest_processed_date == "None":
         # Process everything
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     else:
@@ -204,11 +220,12 @@ def download_data(ti, dataset_name):
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
         new_latest_date = max(dates)
-    resources = fetch_resources(dataset_name)
-    mydict.update(process_resources(resources, dataset_name, latest_ftp_processing, dates=dates))
-
+    loop = asyncio.get_event_loop()
+    resources = loop.run_until_complete(fetch_resources(dataset_name))
+    loop.run_until_complete(
+        process_resources(resources, dataset_name, latest_ftp_processing, dates=dates)
+    )
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
-    ti.xcom_push(key="regex_infos", value=mydict)
 
 
 def unzip_csv_gz(file_path):
