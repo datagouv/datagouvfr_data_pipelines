@@ -313,7 +313,10 @@ def load_csv_to_postgres(conn, csv_path, table_name, regex_infos):
 
         # Use COPY to load the data into PostgreSQL
         with open(temp_csv_path, 'r') as temp_f:
-            cursor.copy_expert(f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'", temp_f)
+            cursor.copy_expert(
+                f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+                temp_f
+            )
 
         os.remove(temp_csv_path)
         os.remove(csv_path)
