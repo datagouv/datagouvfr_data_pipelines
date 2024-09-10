@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     execute_query,
 )
-from datagouvfr_data_pipelines.utils.download import download_files
+from datagouvfr_data_pipelines.utils.download import async_download_files
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
@@ -106,7 +106,7 @@ async def fetch_resources(dataset):
             return r["resources"]
 
 
-def download_resource(res, dataset):
+async def download_resource(res, dataset):
     if dataset == "BASE/QUOT":
         if "Vent" in res['title']:
             file_path = (
@@ -124,7 +124,7 @@ def download_resource(res, dataset):
             f"/{res['title']}.{res['format']}"
         )
     file_path = Path(file_path)
-    download_files([{
+    await async_download_files([{
         "url": res["url"],
         "dest_path": file_path.parent.as_posix(),
         "dest_name": file_path.name,
@@ -174,9 +174,9 @@ async def process_resources(
                         ""
                     ) in files
                 ):
-                    file_path = download_resource(res, dataset_name)
+                    file_path = await download_resource(res, dataset_name)
         else:
-            file_path = download_resource(res, dataset_name)
+            file_path = await download_resource(res, dataset_name)
 
         if dataset_name == "BASE/QUOT":
             if "_autres" in file_path.name:
