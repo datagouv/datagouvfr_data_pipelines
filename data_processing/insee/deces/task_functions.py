@@ -119,8 +119,6 @@ def gather_data(ti):
     errors = []
     columns = {}
     for idx, (origin, rurl) in enumerate(urls.items()):
-        if idx > 5:
-            break
         data = []
         print(f'Proccessing {origin}')
         rows = requests.get(rurl).text.split('\n')
