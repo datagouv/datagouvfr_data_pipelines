@@ -27,6 +27,8 @@ default_args = {
     'email_on_failure': False
 }
 
+# to be on the safe side, it's actually 100
+MAX_CONNECTIONS = 90
 DATASETS_TO_PROCESS = [
     "BASE/MENS",
     "BASE/DECAD",
@@ -75,6 +77,7 @@ with DAG(
                 python_callable=download_data,
                 op_kwargs={
                     "dataset_name": dataset,
+                    "max_size": MAX_CONNECTIONS // len(DATASETS_TO_PROCESS)
                 },
             )
         )

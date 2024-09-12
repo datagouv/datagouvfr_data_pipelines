@@ -4,13 +4,13 @@ import os
 from pathlib import Path
 import gzip
 import shutil
-import psycopg2
 import csv
 from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
 import aiohttp
 import asyncio
+import asyncpg
 from typing import Optional
 
 from airflow.hooks.base import BaseHook
@@ -34,6 +34,7 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
 conn = BaseHook.get_connection("POSTGRES_METEO")
 
 SCHEMA_NAME = 'meteo'
+TIMEOUT = 60 * 60 * 2
 
 DEPIDS = [
     '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
@@ -128,7 +129,7 @@ async def download_resource(res, dataset):
         "url": res["url"],
         "dest_path": file_path.parent.as_posix(),
         "dest_name": file_path.name,
-    }])
+    }], timeout=TIMEOUT)
     return file_path
 
 
@@ -145,9 +146,11 @@ async def process_resources(
     resources: list[dict],
     dataset_name: str,
     latest_ftp_processing: list,
+    max_size: int,
     dates: Optional[list] = None,
 ):
     async def _process_ressource(
+        pool,
         res: dict,
         dataset_name: str,
         latest_ftp_processing: list,
@@ -166,7 +169,6 @@ async def process_resources(
             for d in dates:
                 files = [
                     item["name"] for item in latest_ftp_processing[d]
-                    if d in latest_ftp_processing
                 ]
                 if (
                     res["url"].replace(
@@ -175,6 +177,8 @@ async def process_resources(
                     ) in files
                 ):
                     file_path = await download_resource(res, dataset_name)
+                else:
+                    return
         else:
             file_path = await download_resource(res, dataset_name)
 
@@ -186,12 +190,21 @@ async def process_resources(
         else:
             table_name = config[dataset_name]["table_name"]
         data = {"name": file_path.name, "regex_infos": regex_infos}
-        print(file_path)
+        print("Starting with", file_path.name)
         csv_path = unzip_csv_gz(file_path)
-        delete_and_insert_into_pg(data, table_name, csv_path)
+        await delete_and_insert_into_pg(pool, data, table_name, csv_path)
 
+    db_params = {
+        'database': conn.schema,
+        'user': conn.login,
+        'password': conn.password,
+        'host': conn.host,
+        'port': conn.port,
+    }
+    pool = await asyncpg.create_pool(**db_params, max_size=max_size)
     await asyncio.gather(*[
         _process_ressource(
+            pool=pool,
             res=resource,
             dataset_name=dataset_name,
             latest_ftp_processing=latest_ftp_processing,
@@ -201,7 +214,8 @@ async def process_resources(
     ])
 
 
-def download_data(ti, dataset_name):
+def download_data(ti, dataset_name, max_size):
+    print('MAX_SIZE:', max_size)
     latest_processed_date = ti.xcom_pull(
         key="latest_processed_date",
         task_ids="retrieve_latest_processed_date"
@@ -211,11 +225,14 @@ def download_data(ti, dataset_name):
         task_ids="get_latest_ftp_processing"
     )
     dates = None
-    # ugly but that's how it comes out of postgres
-    if latest_processed_date == "None":
+    if not latest_processed_date:
         # Process everything
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     else:
+        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
+            raise ValueError(
+                "You may want to check what is in the 'dag_processed' table"
+            )
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
@@ -223,12 +240,19 @@ def download_data(ti, dataset_name):
     loop = asyncio.get_event_loop()
     resources = loop.run_until_complete(fetch_resources(dataset_name))
     loop.run_until_complete(
-        process_resources(resources, dataset_name, latest_ftp_processing, dates=dates)
+        process_resources(
+            resources=resources,
+            dataset_name=dataset_name,
+            latest_ftp_processing=latest_ftp_processing,
+            max_size=max_size,
+            dates=dates
+        )
     )
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
 
 
 def unzip_csv_gz(file_path):
+    # gzip decompression doesn't seem to be easily made async
     output_file_path = str(file_path)[:-3]
     with gzip.open(file_path, 'rb') as f_in:
         with open(output_file_path, 'wb') as f_out:
@@ -237,109 +261,101 @@ def unzip_csv_gz(file_path):
     return output_file_path
 
 
-def drop_indexes(conn, table_name):
-    cursor = conn.cursor()
+async def drop_indexes(conn, table_name):
     for col in ["dep", "num_poste", "nom_usuel", "year"]:
         query = f"DROP INDEX IF EXISTS idx_{table_name}_{col}"
-        cursor.execute(query)
+        await conn.execute(query)
     print("DROP INDEXES OK")
-    cursor.close()
 
 
-def create_indexes(conn, table_name, period):
-    cursor = conn.cursor()
+async def create_indexes(conn, table_name, period):
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_dep ON meteo.{table_name} (DEP)"
-    cursor.execute(query)
+    await conn.execute(query)
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_num_poste ON meteo.{table_name} (NUM_POSTE)"
-    cursor.execute(query)
+    await conn.execute(query)
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_nom_usuel ON meteo.{table_name} (NOM_USUEL)"
-    cursor.execute(query)
+    await conn.execute(query)
     query = (
         f"CREATE INDEX IF NOT EXISTS idx_{table_name}_year ON meteo.{table_name}"
         f" (substring({period}::text, 1, 4))"
     )
-    cursor.execute(query)
+    await conn.execute(query)
     print("CREATE INDEXES OK")
-    cursor.close()
 
 
-def delete_and_insert_into_pg(regex_infos, table, csv_path):
-    db_params = {
-        'dbname': conn.schema,
-        'user': conn.login,
-        'password': conn.password,
-        'host': conn.host,
-        'port': conn.port,
-    }
-    try:
-        conn2 = psycopg2.connect(**db_params)
-        table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-        conn2.autocommit = False  # Disable autocommit to start a transaction
-        delete_old_data(conn2, table_name, regex_infos)
-        # drop_indexes(conn2, table_name)
-        load_csv_to_postgres(conn2, csv_path, table_name, regex_infos)
-        # create_indexes(conn2, table_name, period)
-        # Commit the transaction
-        conn2.commit()
-        print("Transaction committed successfully.")
-
-    except Exception as e:
-        # Rollback the transaction in case of error
-        conn2.rollback()
-        print(f"An error occurred: {e}")
-        print("Transaction rolled back.")
-        raise
-
-    finally:
-        conn2.close()
+async def delete_and_insert_into_pg(pool, regex_infos, table, csv_path):
+    table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
+    await delete_old_data(pool, table_name, regex_infos)
+    # await drop_indexes(conn2, table_name)
+    await load_csv_to_postgres(pool, csv_path, table_name, regex_infos)
+    # await create_indexes(conn2, table_name, period)
 
 
-def load_csv_to_postgres(conn, csv_path, table_name, regex_infos):
-    cursor = conn.cursor()
+async def load_csv_to_postgres(pool, csv_path, table_name, regex_infos):
     with open(csv_path, 'r') as f:
         reader = csv.reader(f, delimiter=';')
-        columns = next(reader)  # Read the column names from the first row of the CSV
+        columns = next(reader)
         columns.append('DEP')
 
         # Temporary file to hold the modified CSV data
         temp_csv_path = csv_path + '.temp'
         with open(temp_csv_path, 'w', newline='') as temp_f:
             writer = csv.writer(temp_f, delimiter=';')
-            writer.writerow(columns)  # Write the column headers to the temp file
+            # not writing the header, we only insert the content
+            # writer.writerow(columns)
             for row in reader:
                 row = [None if val == '' else re.sub(r'\s+', '', val) for val in row]
                 row.append(regex_infos["regex_infos"]["DEP"])
                 writer.writerow(row)
 
-        # Use COPY to load the data into PostgreSQL
-        with open(temp_csv_path, 'r') as temp_f:
-            cursor.copy_expert(
-                f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
-                temp_f
-            )
+    async with pool.acquire(timeout=TIMEOUT) as _conn:
+        try:
+            async with _conn.transaction():
+                await _conn.copy_to_table(
+                    table_name=table_name,
+                    schema_name=SCHEMA_NAME,
+                    source=temp_csv_path,
+                    columns=None,
+                    format='csv',
+                    delimiter=';',
+                )
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            print("Transaction rolled back.")
+            raise
 
-        os.remove(temp_csv_path)
-        os.remove(csv_path)
+        finally:
+            await _conn.close()
+    os.remove(temp_csv_path)
+    os.remove(csv_path)
 
-    cursor.close()
-    print(f"Data from {csv_path} has been loaded into {table_name}.")
+    print(f"-> {csv_path.split('/')[-1]} loaded into {table_name}.")
 
 
-def delete_old_data(conn, table_name, regex_infos):
-    cursor = conn.cursor()
-    query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 "
-    for param in regex_infos["regex_infos"]:
-        param_value = regex_infos["regex_infos"][param]
-        split_pv = param_value.replace("latest-", "").replace("previous-", "").split("-")
-        if len(split_pv) > 1:
-            lowest_period = split_pv[0]
-            highest_period = str(int(split_pv[1]) + 1)
-            query += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
-        else:
-            query += f"AND {param} = '{param_value}' "
-    print(query)
-    cursor.execute(query)
-    cursor.close()
+async def delete_old_data(pool, table_name, regex_infos):
+    async with pool.acquire(timeout=TIMEOUT) as _conn:
+        try:
+            async with _conn.transaction():
+                query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 "
+                for param in regex_infos["regex_infos"]:
+                    param_value = regex_infos["regex_infos"][param]
+                    split_pv = param_value.replace("latest-", "").replace("previous-", "").split("-")
+                    if len(split_pv) > 1:
+                        lowest_period = split_pv[0]
+                        highest_period = str(int(split_pv[1]) + 1)
+                        query += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
+                    else:
+                        query += f"AND {param} = '{param_value}' "
+                # print(query)
+                await _conn.execute(query)
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            print("Transaction rolled back.")
+            raise
+
+        finally:
+            await _conn.close()
 
 
 def insert_latest_date_pg(ti):
