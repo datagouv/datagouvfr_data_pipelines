@@ -1,5 +1,5 @@
-import requests
-from requests.auth import HTTPBasicAuth
+# import requests
+# from requests.auth import HTTPBasicAuth
 from typing import List, Optional, TypedDict
 from pathlib import Path
 import aiohttp
@@ -12,22 +12,36 @@ class File(TypedDict):
     dest_name: str
 
 
-async def download_file(session, url, dest_path, dest_name, auth=None):
+async def download_file(session, url, dest_path, dest_name, auth=None, _remain_retries=5):
     if not dest_path.endswith("/"):
         dest_path = dest_path + "/"
     Path(dest_path).mkdir(parents=True, exist_ok=True)
-
-    async with session.get(url, auth=auth) as response:
-        response.raise_for_status()
-        with open(f"{dest_path}{dest_name}", "wb") as f:
-            async for chunk in response.content.iter_chunked(8192):
-                f.write(chunk)
+    try:
+        async with session.get(url, auth=auth) as response:
+            response.raise_for_status()
+            with open(f"{dest_path}{dest_name}", "wb") as f:
+                async for chunk in response.content.iter_chunked(8192):
+                    f.write(chunk)
+    except aiohttp.client_exceptions.ClientPayloadError:
+        await asyncio.sleep(1)
+        if _remain_retries > 0:
+            await download_file(
+                session,
+                url,
+                dest_path,
+                dest_name,
+                auth, 
+                _remain_retries=_remain_retries - 1
+            )
+        else:
+            raise Exception('After 5 attemps, could not download:', url)
 
 
 async def async_download_files(
     list_urls: List[File],
     auth_user: Optional[str] = None,
     auth_password: Optional[str] = None,
+    timeout: int = 300,
 ):
     """Retrieve list of files from urls
 
@@ -43,7 +57,8 @@ async def async_download_files(
     if auth_user and auth_password:
         auth = aiohttp.BasicAuth(auth_user, auth_password)
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=timeout)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         tasks = []
         for url in list_urls:
             task = download_file(session, url["url"], url["dest_path"], url["dest_name"], auth)
@@ -56,9 +71,10 @@ def download_files(
     list_urls: List[File],
     auth_user: Optional[str] = None,
     auth_password: Optional[str] = None,
+    timeout: int = 300,
 ):
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(async_download_files(list_urls, auth_user, auth_password))
+    loop.run_until_complete(async_download_files(list_urls, auth_user, auth_password, timeout))
 
 
 # def download_files(
