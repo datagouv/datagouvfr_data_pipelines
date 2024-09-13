@@ -257,6 +257,7 @@ def build_query_filters(regex_infos: dict):
 async def get_diff(pool, csv_path: Path, regex_infos: dict, table: str):
 
     def run_diff(_go, csv_path: str):
+        # cf https://github.com/aswinkarthik/csvdiff
         subprocess.run([
             f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
             f'-o json > {csv_path.replace(".csv", ".json")}'
