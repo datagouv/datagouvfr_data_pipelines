@@ -26,13 +26,21 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def check_if_modif():
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
+        config = json.load(fp)
     resources = requests.get(
         'https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5/',
         headers={"X-fields": "resources{internal{last_modified_internal}}"}
     ).json()['resources']
-    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    lastest_update = requests.get(
+        (
+            f'https://www.data.gouv.fr/api/1/datasets/{config["deces_csv"][AIRFLOW_ENV]["dataset_id"]}/'
+            f'resources/{config["deces_csv"][AIRFLOW_ENV]["resource_id"]}/'
+        ),
+        headers={"X-fields": "internal{last_modified_internal}"}
+    ).json()["internal"]["last_modified_internal"]
     return any(
-        r["internal"]["last_modified_internal"] >= yesterday for r in resources
+        r["internal"]["last_modified_internal"] > lastest_update for r in resources
     )
 
 
