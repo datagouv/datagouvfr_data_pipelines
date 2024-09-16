@@ -20,11 +20,8 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False
+    'retries': 5,
+    'retry_delay': timedelta(minutes=5),
 }
 
 # to be on the safe side, it's actually 100
