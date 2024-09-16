@@ -31,7 +31,7 @@ pd.set_option('display.max_columns', None)
 # DATAGOUV_URL = 'https://www.data.gouv.fr'
 
 VALIDATA_BASE_URL = (
-    "https://api.validata.etalab.studio/validate?schema={schema_url}&url={rurl}"
+    "https://preprod-api-validata.dataeng.etalab.studio/validate?schema={schema_url}&url={rurl}"
 )
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"
@@ -2034,7 +2034,7 @@ def notification_synthese(
                 df["schema_name"] = s["title"]
                 df["schema_id"] = s["name"]
                 df["validata_report"] = (
-                    "https://validata.etalab.studio/table-schema?input=url&url="
+                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
