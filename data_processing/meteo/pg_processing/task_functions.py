@@ -1,3 +1,20 @@
+import json
+import requests
+import os
+from pathlib import Path
+import gzip
+import shutil
+import csv
+from datetime import datetime, timedelta
+import re
+from jinja2 import Environment, FileSystemLoader
+import aiohttp
+import asyncio
+import asyncpg
+import psycopg2
+import subprocess
+from typing import Optional
+
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
@@ -8,18 +25,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
     execute_query,
 )
-import json
-import requests
-import os
-from pathlib import Path
-import glob
-import gzip
-import shutil
-import psycopg2
-import csv
-from datetime import datetime, timedelta
-import re
-from jinja2 import Environment, FileSystemLoader
+from datagouvfr_data_pipelines.utils.download import async_download_files
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
@@ -28,18 +34,50 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
 
 
 conn = BaseHook.get_connection("POSTGRES_METEO")
+db_params = {
+    'database': conn.schema,
+    'user': conn.login,
+    'password': conn.password,
+    'host': conn.host,
+    'port': conn.port,
+}
 
 SCHEMA_NAME = 'meteo'
-DATASETS_TO_PROCESS = [
-    "BASE/MENS",
-    "BASE/DECAD",
-    "BASE/DECADAGRO",
-    "BASE/QUOT",
-    "BASE/HOR",
-    "BASE/MIN",
+TIMEOUT = 60 * 60 * 2
+
+
+def smart_cast(value, _type):
+    try:
+        return _type(value)
+    except:
+        return None
+
+
+type_mapping = {
+    'character varying': str,
+    'double precision': lambda x: smart_cast(x, float),
+    'integer': lambda x: smart_cast(x, int),
+}
+
+DEPIDS = [
+    '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+    '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+    '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
+    '31', '32', '33', '34', '35', '36', '37', '38', '39', '40',
+    '41', '42', '43', '44', '45', '46', '47', '48', '49', '50',
+    '51', '52', '53', '54', '55', '56', '57', '58', '59', '60',
+    '61', '62', '63', '64', '65', '66', '67', '68', '69', '70',
+    '71', '72', '73', '74', '75', '76', '77', '78', '79', '80',
+    '81', '82', '83', '84', '85', '86', '87', '88', '89', '90',
+    '91', '92', '93', '94', '95',
+    '971', '972', '973', '974', '975',
+    '984', '985', '986', '987', '988',
+    '99',
 ]
 
-DEPIDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '971', '972', '973', '974', '975', '984', '985', '986', '987', '988', '99']
+
+def clean_hooks(value):
+    return value.replace("latest-", "").replace("previous-", "")
 
 
 def create_tables_if_not_exists():
@@ -82,35 +120,44 @@ def retrieve_latest_processed_date(ti):
 
 def get_latest_ftp_processing(ti):
     r = requests.get("https://object.data.gouv.fr/meteofrance/data/updated_files.json")
-    data = r.json()
-    ti.xcom_push(key="latest_ftp_processing", value=data)
+    r.raise_for_status()
+    ti.xcom_push(key="latest_ftp_processing", value=r.json())
 
 
-def fetch_resources(dataset):
-    url = f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}"
-    response = requests.get(
-        url,
-       headers={"X-fields": "resources"},
-    )
+async def fetch_resources(dataset):
+    async with aiohttp.ClientSession(raise_for_status=True) as session:
+        async with session.get(
+            f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}",
+            headers={"X-fields": "resources"},
+        ) as response:
+            r = await response.json()
+            return r["resources"]
 
-    response.raise_for_status()  # Ensure we notice bad responses
-    return response.json()["resources"]
 
-
-def download_resource(res, dataset):
-    response = requests.get(res["url"], stream=True)
+async def download_resource(res, dataset):
     if dataset == "BASE/QUOT":
         if "Vent" in res['title']:
-            file_path = Path(DATADIR) / (config[dataset]["table_name"] + "_vent") / f"{res['title']}.{res['format']}"
+            file_path = (
+                f"{DATADIR}{config[dataset]['table_name'] + '_vent'}"
+                f"/{res['title']}.{res['format']}"
+            )
         else:
-            file_path = Path(DATADIR) / (config[dataset]["table_name"] + "_autres") / f"{res['title']}.{res['format']}"
+            file_path = (
+                f"{DATADIR}{config[dataset]['table_name'] + '_autres'}"
+                f"/{res['title']}.{res['format']}"
+            )
     else:
-        file_path = Path(DATADIR) / config[dataset]["table_name"] / f"{res['title']}.{res['format']}"
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    with file_path.open('wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-    return Path(file_path)
+        file_path = (
+            f"{DATADIR}{config[dataset]['table_name']}"
+            f"/{res['title']}.{res['format']}"
+        )
+    file_path = Path(file_path)
+    await async_download_files([{
+        "url": res["url"],
+        "dest_path": file_path.parent.as_posix(),
+        "dest_name": file_path.name,
+    }], timeout=TIMEOUT)
+    return file_path
 
 
 def get_regex_infos(pattern, filename, params):
@@ -122,67 +169,217 @@ def get_regex_infos(pattern, filename, params):
     return mydict
 
 
-def process_resources(resources, dataset, latest_ftp_processing, dates=None):
-    mydict = {}
-    for res in resources:
-        if res["type"] == "main":
-            file_path = ""
-            if dates:
-                for d in dates:
-                    files = [item["name"] for item in latest_ftp_processing[d] if d in latest_ftp_processing]
-                    if (
-                        res["url"].replace(f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset}/", "") in files
-                    ):
-                        file_path = download_resource(res, dataset)
-            else:
-                file_path = download_resource(res, dataset)
-            if file_path != "":
-                regex_infos = get_regex_infos(
-                    config[dataset]["source_pattern"],
-                    res["url"].split("/")[-1],
-                    config[dataset]["params"],
-                )
-                if dataset == "BASE/QUOT":
-                    if "_autres" in file_path.name:
-                        table_name = "base_quot_autres"
-                    else:
-                        table_name = "base_quot_vent"
+async def process_resources(
+    resources: list[dict],
+    dataset_name: str,
+    latest_ftp_processing: list,
+    max_size: int,
+    dates: Optional[list] = None,
+):
+    async def _process_ressource(
+        pool,
+        res: dict,
+        dataset_name: str,
+        latest_ftp_processing: list,
+        dates: Optional[list] = None,
+    ):
+        if res["type"] != "main":
+            return
+        regex_infos = get_regex_infos(
+            config[dataset_name]["source_pattern"],
+            res["url"].split("/")[-1],
+            config[dataset_name]["params"],
+        )
+        if regex_infos["DEP"] not in DEPIDS:
+            return
+        if dates:
+            for d in dates:
+                files = [
+                    item["name"] for item in latest_ftp_processing[d]
+                ]
+                if (
+                    res["url"].replace(
+                        f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset_name}/",
+                        ""
+                    ) in files
+                ):
+                    file_path = await download_resource(res, dataset_name)
                 else:
-                    table_name = config[dataset]["table_name"]
-                period = config[dataset]["params"]["PERIOD"]
-                data = {"name": file_path.name, "regex_infos": regex_infos}
-                print(file_path)
-                csv_path = unzip_csv_gz(file_path)
-                delete_and_insert_into_pg(data, table_name, csv_path, period)
-    return mydict
+                    return
+        else:
+            file_path = await download_resource(res, dataset_name)
+
+        if dataset_name == "BASE/QUOT":
+            if "_autres" in file_path.name:
+                table_name = "base_quot_autres"
+            else:
+                table_name = "base_quot_vent"
+        else:
+            table_name = config[dataset_name]["table_name"]
+        regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
+        print("Starting with", file_path.name)
+        csv_path = unzip_csv_gz(file_path)
+        diff = await get_diff(
+            pool=pool,
+            csv_path=csv_path,
+            regex_infos=regex_infos,
+            table=table_name,
+        )
+        await delete_and_insert_into_pg(
+            pool=pool,
+            diff=diff,
+            regex_infos=regex_infos,
+            table=table_name,
+            csv_path=csv_path,
+        )
+        os.remove(csv_path)
+
+    pool = await asyncpg.create_pool(**db_params, max_size=max_size, timeout=TIMEOUT)
+    await asyncio.gather(*[
+        _process_ressource(
+            pool=pool,
+            res=resource,
+            dataset_name=dataset_name,
+            latest_ftp_processing=latest_ftp_processing,
+            dates=dates
+        )
+        for resource in resources
+    ])
 
 
-def download_data(ti, DATASET_ID):
-    latest_processed_date = ti.xcom_pull(key="latest_processed_date", task_ids="retrieve_latest_processed_date")
-    latest_ftp_processing = ti.xcom_pull(key="latest_ftp_processing", task_ids="get_latest_ftp_processing")
-    mydict = {}
+def build_query_filters(regex_infos: dict):
+    filters = ""
+    for param, value in regex_infos["regex_infos"].items():
+        split_pv = clean_hooks(value).split("-")
+        if len(split_pv) > 1:
+            lowest_period = split_pv[0]
+            highest_period = str(int(split_pv[1]) + 1)
+            filters += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
+        else:
+            filters += f"AND {param} = '{value}' "
+    return filters
+
+
+async def get_diff(pool, csv_path: Path, regex_infos: dict, table: str):
+
+    def run_diff(_go, csv_path: str):
+        # cf https://github.com/aswinkarthik/csvdiff
+        subprocess.run([
+            f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
+            f'-o json > {csv_path.replace(".csv", ".json")}'
+        ], shell=True)
+        os.remove(csv_path.replace(".csv", "._old.csv"))
+
+    def _build_additions(diff, columns, dep):
+        # additions need to have the right type
+        for row in diff['Additions']:
+            cells = row.split(';')
+            # skipping the header, still looking for a more elegant way
+            if cells[0].lower() == list(columns.keys())[0].lower():
+                continue
+            cells.append(dep)
+            yield tuple(
+                _type(value) for (_type, value) in zip(columns.values(), cells)
+            )
+
+    def _build_deletions(diff, columns):
+        for row in diff['Deletions']:
+            cells = row.split(';')
+            yield [
+                (name, _type(value)) for name, value, _type in zip(columns.keys(), cells, columns.values())
+                if _type(value)
+            ]
+
+    async def build_modifs(pool, csv_path: str, table_name: str, dep: str):
+        async with pool.acquire(timeout=TIMEOUT) as _conn:
+            async with _conn.transaction():
+                columns = await _conn.fetch(
+                    "SELECT column_name, data_type FROM information_schema.columns "
+                    f"WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
+                )
+                nb_rows = await _conn.fetch(f"SELECT COUNT(*) FROM {SCHEMA_NAME}.{table_name};")
+        # if the table is currently empty, we'll insert the whole file instead of row by row
+        if not nb_rows[0]["count"]:
+            return None, None
+        columns = {
+            c['column_name']: type_mapping[c['data_type']] for c in columns
+        }
+        with open(csv_path.replace(".csv", ".json"), "r") as f:
+            diff = json.load(f)
+        if diff['Modifications']:
+            raise NotImplementedError("We should handle row modifications")
+        additions = _build_additions(diff, columns, dep)
+        # we'll delete based on every cell in the row that is not empty, could be refined if not optimal
+        deletions = _build_deletions(diff, columns)
+        os.remove(csv_path.replace(".csv", ".json"))
+        # print("add", len(additions))
+        # print("del", len(deletions))
+        return additions, deletions
+
+    # getting columns for the query, as we can't SELECT * EXCEPT(dep)
+    with open(csv_path, 'r') as f:
+        reader = csv.reader(f, delimiter=';')
+        columns = next(reader)
+    table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
+    # getting potentially impacted rows
+    async with pool.acquire(timeout=TIMEOUT) as _conn:
+        async with _conn.transaction():
+            query = (
+                f"SELECT {', '.join(columns)} FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 " +
+                build_query_filters(regex_infos)
+            )
+            _ = await _conn.copy_from_query(
+                query,
+                output=csv_path.replace(".csv", "_old.csv"),
+                format='csv',
+                header=True,
+                delimiter=";",
+            )
+    # run csvdiff on old VS new file (order matters)
+    run_diff(_, csv_path=csv_path)
+    return await build_modifs(pool, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
+
+
+def download_data(ti, dataset_name, max_size):
+    print('MAX_SIZE:', max_size)
+    latest_processed_date = ti.xcom_pull(
+        key="latest_processed_date",
+        task_ids="retrieve_latest_processed_date"
+    )
+    latest_ftp_processing = ti.xcom_pull(
+        key="latest_ftp_processing",
+        task_ids="get_latest_ftp_processing"
+    )
+    dates = None
     if not latest_processed_date:
         # Process everything
-        dates = None
         new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-        resources = fetch_resources(DATASET_ID)
-        mydict.update(process_resources(resources, DATASET_ID, latest_ftp_processing, dates=dates))
     else:
+        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
+            raise ValueError(
+                "You may want to check what is in the 'dag_processed' table"
+            )
         # Process subset
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
         new_latest_date = max(dates)
-    
-        resources = fetch_resources(DATASET_ID)
-        mydict.update(process_resources(resources, DATASET_ID, latest_ftp_processing, dates=dates))
-            
+    loop = asyncio.get_event_loop()
+    resources = loop.run_until_complete(fetch_resources(dataset_name))
+    loop.run_until_complete(
+        process_resources(
+            resources=resources,
+            dataset_name=dataset_name,
+            latest_ftp_processing=latest_ftp_processing,
+            max_size=max_size,
+            dates=dates
+        )
+    )
     ti.xcom_push(key="latest_processed_date", value=new_latest_date)
-    ti.xcom_push(key="regex_infos", value=mydict)
 
 
 def unzip_csv_gz(file_path):
+    # gzip decompression doesn't seem to be easily made async
     output_file_path = str(file_path)[:-3]
-
     with gzip.open(file_path, 'rb') as f_in:
         with open(output_file_path, 'wb') as f_out:
             shutil.copyfileobj(f_in, f_out)
@@ -190,107 +387,123 @@ def unzip_csv_gz(file_path):
     return output_file_path
 
 
-def drop_indexes(conn, table_name):
-    cursor = conn.cursor()
-    query = f"DROP INDEX IF EXISTS idx_{table_name}_dep"
-    cursor.execute(query)
-    query = f"DROP INDEX IF EXISTS idx_{table_name}_num_poste"
-    cursor.execute(query)
-    query = f"DROP INDEX IF EXISTS idx_{table_name}_nom_usuel"
-    cursor.execute(query)
-    query = f"DROP INDEX IF EXISTS idx_{table_name}_year"
-    cursor.execute(query)
+async def drop_indexes(conn, table_name):
+    for col in ["dep", "num_poste", "nom_usuel", "year"]:
+        query = f"DROP INDEX IF EXISTS idx_{table_name}_{col}"
+        await conn.execute(query)
     print("DROP INDEXES OK")
-    cursor.close()
 
 
-def create_indexes(conn, table_name, period):
-    cursor = conn.cursor()
+async def create_indexes(conn, table_name, period):
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_dep ON meteo.{table_name} (DEP)"
-    cursor.execute(query)
+    await conn.execute(query)
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_num_poste ON meteo.{table_name} (NUM_POSTE)"
-    cursor.execute(query)
+    await conn.execute(query)
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_nom_usuel ON meteo.{table_name} (NOM_USUEL)"
-    cursor.execute(query)
-    query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_year ON meteo.{table_name} (substring({period}::text, 1, 4))"
-    cursor.execute(query)
+    await conn.execute(query)
+    query = (
+        f"CREATE INDEX IF NOT EXISTS idx_{table_name}_year ON meteo.{table_name}"
+        f" (substring({period}::text, 1, 4))"
+    )
+    await conn.execute(query)
     print("CREATE INDEXES OK")
-    cursor.close()
 
 
-def delete_and_insert_into_pg(regex_infos, table, csv_path, period):
-    db_params = {
-        'dbname': conn.schema,
-        'user': conn.login,
-        'password': conn.password,
-        'host': conn.host,
-        'port': conn.port,
-    }
+async def delete_and_insert_into_pg(pool, diff, regex_infos, table, csv_path):
+    table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
+    additions, deletions = diff
+    if additions is None:
+        print("-> Inserting whole file into", table_name)
+        load_whole_file(table_name, csv_path, regex_infos)
+        return
     try:
-        conn2 = psycopg2.connect(**db_params)
-        conn2.autocommit = False  # Disable autocommit to start a transaction
-        delete_old_data(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
-        # drop_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"])
-        load_csv_to_postgres(conn2, csv_path, table + "_" + regex_infos["regex_infos"]["DEP"], regex_infos)
-        # create_indexes(conn2, table + "_" + regex_infos["regex_infos"]["DEP"], period)
-        # Commit the transaction
-        conn2.commit()
-        print("Transaction committed successfully.")
-
+        async with pool.acquire(timeout=TIMEOUT) as _conn:
+            try:
+                async with _conn.transaction():
+                    await delete_old_data(_conn, table_name, deletions)
+                    # await drop_indexes(conn2, table_name)
+                    await load_new_data(_conn, table_name, additions)
+                    # await create_indexes(conn2, table_name, period)
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                print("Transaction rolled back.")
+                raise
+            finally:
+                await _conn.close()
+                print("=> Completed work for:", regex_infos["name"])
     except Exception as e:
-        # Rollback the transaction in case of error
-        conn2.rollback()
-        print(f"An error occurred: {e}")
+        print(f"/!\ An error occurred: {e}\nfor {table_name}")
         print("Transaction rolled back.")
         raise
 
-    finally:
-        conn2.close()
 
-
-def load_csv_to_postgres(conn, csv_path, table_name, regex_infos):
-    cursor = conn.cursor()
+def load_whole_file(table_name, csv_path, regex_infos):
     with open(csv_path, 'r') as f:
         reader = csv.reader(f, delimiter=';')
-        columns = next(reader)  # Read the column names from the first row of the CSV
+        columns = next(reader)
         columns.append('DEP')
-        
-        # Temporary file to hold the modified CSV data
+        # Temporary file to hold the modified CSV data (we're adding departement column)
         temp_csv_path = csv_path + '.temp'
         with open(temp_csv_path, 'w', newline='') as temp_f:
             writer = csv.writer(temp_f, delimiter=';')
             writer.writerow(columns)  # Write the column headers to the temp file
+            # not writing the header, we only insert the content
+            # writer.writerow(columns)
             for row in reader:
                 row = [None if val == '' else re.sub(r'\s+', '', val) for val in row]
                 row.append(regex_infos["regex_infos"]["DEP"])
                 writer.writerow(row)
-        
-        # Use COPY to load the data into PostgreSQL
+    # using sync connection, async has stability issues
+    _conn = psycopg2.connect(**db_params)
+    _conn.autocommit = False
+    try:
+        cursor = _conn.cursor()
         with open(temp_csv_path, 'r') as temp_f:
-            cursor.copy_expert(f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'", temp_f)
+            cursor.copy_expert(
+                f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+                temp_f
+            )
+        cursor.close()
+        _conn.commit()
+    except Exception as e:
+        _conn.rollback()
+        print(f"An error occurred: {e}")
+        print("Transaction rolled back.")
+        raise
+    finally:
+        _conn.close()
+        print("=> Completed work for:", regex_infos["name"])
 
-        os.remove(temp_csv_path)
-        os.remove(csv_path)
 
-    cursor.close()
-    print(f"Data from {csv_path} has been loaded into {table_name}.")
+async def load_new_data(_conn, table_name, additions):
+    # additions is a list of typed tuples
+    await _conn.copy_records_to_table(
+        table_name=table_name,
+        records=additions,
+        schema_name=SCHEMA_NAME,
+    )
+    # print("-> LOAD OK:", table_name)
 
 
-def delete_old_data(conn, table_name, regex_infos):
-    cursor = conn.cursor()
-    query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 "
-    for param in regex_infos["regex_infos"]:
-        param_value = regex_infos["regex_infos"][param]
-        split_pv = param_value.replace("latest-", "").replace("previous-", "").split("-")
-        if len(split_pv) > 1:
-            lowest_period = split_pv[0]
-            highest_period = str(int(split_pv[1])+1)
-            query += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
-        else:
-            query += f"AND {param} = '{param_value}' "
-    print(query)
-    cursor.execute(query)
-    cursor.close()
+async def delete_old_data(_conn, table_name, deletions):
+    # deletions is a list of lists of tuples (column_name, typed value)
+    for row in deletions:
+        filters = []
+        for name, value in row:
+            if isinstance(value, str):
+                # getting rid of names having an apostrophe, the num_poste col will filter anyway
+                if "'" in value:
+                    continue
+                filters.append(f"{name}='{value}'")
+            else:
+                filters.append(f"{name}={value}")
+        query = (
+            f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE " +
+            " AND ".join(filters)
+        )
+        # print(query)
+        await _conn.execute(query)
+    # print("-> DEL OK:", table_name)
 
 
 def insert_latest_date_pg(ti):
