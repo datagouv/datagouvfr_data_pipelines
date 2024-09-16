@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 import aiohttp
 import asyncio
 import asyncpg
+import psycopg2
 import subprocess
 from typing import Optional
 
@@ -33,6 +34,13 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
 
 
 conn = BaseHook.get_connection("POSTGRES_METEO")
+db_params = {
+    'database': conn.schema,
+    'user': conn.login,
+    'password': conn.password,
+    'host': conn.host,
+    'port': conn.port,
+}
 
 SCHEMA_NAME = 'meteo'
 TIMEOUT = 60 * 60 * 2
@@ -66,6 +74,10 @@ DEPIDS = [
     '984', '985', '986', '987', '988',
     '99',
 ]
+
+
+def clean_hooks(value):
+    return value.replace("latest-", "").replace("previous-", "")
 
 
 def create_tables_if_not_exists():
@@ -218,16 +230,11 @@ async def process_resources(
             diff=diff,
             regex_infos=regex_infos,
             table=table_name,
+            csv_path=csv_path,
         )
+        os.remove(csv_path)
 
-    db_params = {
-        'database': conn.schema,
-        'user': conn.login,
-        'password': conn.password,
-        'host': conn.host,
-        'port': conn.port,
-    }
-    pool = await asyncpg.create_pool(**db_params, max_size=max_size)
+    pool = await asyncpg.create_pool(**db_params, max_size=max_size, timeout=TIMEOUT)
     await asyncio.gather(*[
         _process_ressource(
             pool=pool,
@@ -242,15 +249,14 @@ async def process_resources(
 
 def build_query_filters(regex_infos: dict):
     filters = ""
-    for param in regex_infos["regex_infos"]:
-        param_value = regex_infos["regex_infos"][param]
-        split_pv = param_value.replace("latest-", "").replace("previous-", "").split("-")
+    for param, value in regex_infos["regex_infos"].items():
+        split_pv = clean_hooks(value).split("-")
         if len(split_pv) > 1:
             lowest_period = split_pv[0]
             highest_period = str(int(split_pv[1]) + 1)
             filters += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
         else:
-            filters += f"AND {param} = '{param_value}' "
+            filters += f"AND {param} = '{value}' "
     return filters
 
 
@@ -262,6 +268,27 @@ async def get_diff(pool, csv_path: Path, regex_infos: dict, table: str):
             f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
             f'-o json > {csv_path.replace(".csv", ".json")}'
         ], shell=True)
+        os.remove(csv_path.replace(".csv", "._old.csv"))
+
+    def _build_additions(diff, columns, dep):
+        # additions need to have the right type
+        for row in diff['Additions']:
+            cells = row.split(';')
+            # skipping the header, still looking for a more elegant way
+            if cells[0].lower() == list(columns.keys())[0].lower():
+                continue
+            cells.append(dep)
+            yield tuple(
+                _type(value) for (_type, value) in zip(columns.values(), cells)
+            )
+
+    def _build_deletions(diff, columns):
+        for row in diff['Deletions']:
+            cells = row.split(';')
+            yield [
+                (name, _type(value)) for name, value, _type in zip(columns.keys(), cells, columns.values())
+                if _type(value)
+            ]
 
     async def build_modifs(pool, csv_path: str, table_name: str, dep: str):
         async with pool.acquire(timeout=TIMEOUT) as _conn:
@@ -270,33 +297,23 @@ async def get_diff(pool, csv_path: Path, regex_infos: dict, table: str):
                     "SELECT column_name, data_type FROM information_schema.columns "
                     f"WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
                 )
+                nb_rows = await _conn.fetch(f"SELECT COUNT(*) FROM {SCHEMA_NAME}.{table_name};")
+        # if the table is currently empty, we'll insert the whole file instead of row by row
+        if not nb_rows[0]["count"]:
+            return None, None
         columns = {
             c['column_name']: type_mapping[c['data_type']] for c in columns
         }
         with open(csv_path.replace(".csv", ".json"), "r") as f:
             diff = json.load(f)
-        # additions need to have the right type
-        additions = []
-        for row in diff['Additions']:
-            cells = row.split(';')
-            if cells[0].lower() == list(columns.keys())[0].lower():
-                continue
-            cells.append(dep)
-            additions.append(tuple(
-                _type(value) for (_type, value) in zip(columns.values(), cells)
-            ))
-        # we'll delete based on filters on pivot columns, they are strings
-        deletions = []
-        for row in diff['Deletions']:
-            cells = row.split(';')
-            deletions.append([
-                (name, _type(value)) for name, value, _type in zip(columns.keys(), cells, columns.values())
-                if _type(value)
-            ])
         if diff['Modifications']:
             raise NotImplementedError("We should handle row modifications")
-        # print("add", additions)
-        # print("del", deletions)
+        additions = _build_additions(diff, columns, dep)
+        # we'll delete based on every cell in the row that is not empty, could be refined if not optimal
+        deletions = _build_deletions(diff, columns)
+        os.remove(csv_path.replace(".csv", ".json"))
+        # print("add", len(additions))
+        # print("del", len(deletions))
         return additions, deletions
 
     # getting columns for the query, as we can't SELECT * EXCEPT(dep)
@@ -373,7 +390,7 @@ def unzip_csv_gz(file_path):
 async def drop_indexes(conn, table_name):
     for col in ["dep", "num_poste", "nom_usuel", "year"]:
         query = f"DROP INDEX IF EXISTS idx_{table_name}_{col}"
-        await conn.execute(query + ";")
+        await conn.execute(query)
     print("DROP INDEXES OK")
 
 
@@ -388,13 +405,17 @@ async def create_indexes(conn, table_name, period):
         f"CREATE INDEX IF NOT EXISTS idx_{table_name}_year ON meteo.{table_name}"
         f" (substring({period}::text, 1, 4))"
     )
-    await conn.execute(query + ";")
+    await conn.execute(query)
     print("CREATE INDEXES OK")
 
 
-async def delete_and_insert_into_pg(pool, diff, regex_infos, table):
+async def delete_and_insert_into_pg(pool, diff, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     additions, deletions = diff
+    if additions is None:
+        print("-> Inserting whole file into", table_name)
+        load_whole_file(table_name, csv_path, regex_infos)
+        return
     try:
         async with pool.acquire(timeout=TIMEOUT) as _conn:
             try:
@@ -409,10 +430,51 @@ async def delete_and_insert_into_pg(pool, diff, regex_infos, table):
                 raise
             finally:
                 await _conn.close()
-                print("=> Completed work for:", table_name, regex_infos["regex_infos"]["PERIOD"])
+                period = [k for k in regex_infos["regex_infos"] if k.startswith('AAAA')][0]
+                print("=> Completed work for:", table_name, clean_hooks(regex_infos["regex_infos"][period]))
     except Exception as e:
         print(f"/!\ An error occurred: {e}\nfor {table_name}")
         print("Transaction rolled back.")
+        raise
+
+
+def load_whole_file(table_name, csv_path, regex_infos):
+    with open(csv_path, 'r') as f:
+        reader = csv.reader(f, delimiter=';')
+        columns = next(reader)
+        columns.append('DEP')
+        # Temporary file to hold the modified CSV data (we're adding departement column)
+        temp_csv_path = csv_path + '.temp'
+        with open(temp_csv_path, 'w', newline='') as temp_f:
+            writer = csv.writer(temp_f, delimiter=';')
+            writer.writerow(columns)  # Write the column headers to the temp file
+            # not writing the header, we only insert the content
+            # writer.writerow(columns)
+            for row in reader:
+                row = [None if val == '' else re.sub(r'\s+', '', val) for val in row]
+                row.append(regex_infos["regex_infos"]["DEP"])
+                writer.writerow(row)
+    # using sync connection, async has stability issues
+    _conn = psycopg2.connect(**db_params)
+    _conn.autocommit = False
+    try:
+        cursor = _conn.cursor()
+        with open(temp_csv_path, 'r') as temp_f:
+            cursor.copy_expert(
+                f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+                temp_f
+            )
+        cursor.close()
+        _conn.commit()
+    except Exception as e:
+        _conn.rollback()
+        print(f"An error occurred: {e}")
+        print("Transaction rolled back.")
+        raise
+    finally:
+        _conn.close()
+        period = [k for k in regex_infos["regex_infos"] if k.startswith('AAAA')][0]
+        print("=> Completed work for:", table_name, clean_hooks(regex_infos["regex_infos"][period]))
 
 
 async def load_new_data(_conn, table_name, additions):
@@ -442,7 +504,7 @@ async def delete_old_data(_conn, table_name, deletions):
             " AND ".join(filters)
         )
         # print(query)
-        await _conn.execute(query + ";")
+        await _conn.execute(query)
     # print("-> DEL OK:", table_name)
 
 
