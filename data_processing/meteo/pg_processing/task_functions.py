@@ -430,8 +430,7 @@ async def delete_and_insert_into_pg(pool, diff, regex_infos, table, csv_path):
                 raise
             finally:
                 await _conn.close()
-                period = [k for k in regex_infos["regex_infos"] if k.startswith('AAAA')][0]
-                print("=> Completed work for:", table_name, clean_hooks(regex_infos["regex_infos"][period]))
+                print("=> Completed work for:", regex_infos["name"])
     except Exception as e:
         print(f"/!\ An error occurred: {e}\nfor {table_name}")
         print("Transaction rolled back.")
@@ -473,8 +472,7 @@ def load_whole_file(table_name, csv_path, regex_infos):
         raise
     finally:
         _conn.close()
-        period = [k for k in regex_infos["regex_infos"] if k.startswith('AAAA')][0]
-        print("=> Completed work for:", table_name, clean_hooks(regex_infos["regex_infos"][period]))
+        print("=> Completed work for:", regex_infos["name"])
 
 
 async def load_new_data(_conn, table_name, additions):
