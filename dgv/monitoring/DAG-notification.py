@@ -279,13 +279,13 @@ def parse_schema_catalog(
         if schema["schema_type"] == "tableschema":
             schema_type = "tableschema"
             result2 = requests.get(
-                "https://api.validata.etalab.studio/validate?schema="
+                "https://preprod-api-validata.dataeng.etalab.studio/validate?schema="
                 f"{schema['schema_url']}&url={resource['url']}"
             )
             try:
                 res = result2.json()["report"]["valid"]
                 validata_url = (
-                    "https://validata.fr/table-schema?input=url&url="
+                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
                     f"{resource['url']}&schema_url={schema['schema_url']}"
                 )
             except:
