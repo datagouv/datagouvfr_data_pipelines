@@ -364,7 +364,7 @@ def download_data(ti, dataset_name, max_size):
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
         new_latest_date = max(dates)
-    resources = uvloop.run((fetch_resources(dataset_name))
+    resources = uvloop.run(fetch_resources(dataset_name))
     uvloop.run(
         process_resources(
             resources=resources,
