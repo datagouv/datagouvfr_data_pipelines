@@ -269,7 +269,7 @@ async def get_diff(pool, csv_path: Path, regex_infos: dict, table: str):
             f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
             f'-o json > {csv_path.replace(".csv", ".json")}'
         ], shell=True)
-        os.remove(csv_path.replace(".csv", "._old.csv"))
+        os.remove(csv_path.replace(".csv", "_old.csv"))
 
     def _build_additions(diff, columns, dep):
         # additions need to have the right type
