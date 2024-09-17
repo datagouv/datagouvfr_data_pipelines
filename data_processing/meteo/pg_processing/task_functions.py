@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 import aiohttp
 import asyncio
 import asyncpg
+import uvloop
 import psycopg2
 import subprocess
 from typing import Optional
@@ -363,9 +364,8 @@ def download_data(ti, dataset_name, max_size):
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item > latest_processed_date]
         new_latest_date = max(dates)
-    loop = asyncio.get_event_loop()
-    resources = loop.run_until_complete(fetch_resources(dataset_name))
-    loop.run_until_complete(
+    resources = uvloop.run((fetch_resources(dataset_name))
+    uvloop.run(
         process_resources(
             resources=resources,
             dataset_name=dataset_name,
