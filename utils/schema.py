@@ -1298,22 +1298,17 @@ def upload_consolidated(
                 response = create_schema_consolidation_dataset(
                     schema_name, schemas_catalogue_list,
                 )
-                if response.status_code == 201:
-                    consolidated_dataset_id = response.json()["id"]
-                    update_config_file(
-                        schema_name,
-                        "consolidated_dataset_id",
-                        consolidated_dataset_id,
-                        config_path,
-                    )
-                    print(
-                        "-- 🟢 No consolidation dataset for this schema"
-                        f" - Successfully created (id: {consolidated_dataset_id})"
-                    )
-                else:
-                    print(
-                        "-- 🔴 No consolidation dataset for this schema - Failed to create one"
-                    )
+                consolidated_dataset_id = response["id"]
+                update_config_file(
+                    schema_name,
+                    "consolidated_dataset_id",
+                    consolidated_dataset_id,
+                    config_path,
+                )
+                print(
+                    "-- 🟢 No consolidation dataset for this schema"
+                    f" - Successfully created (id: {consolidated_dataset_id})"
+                )
             else:
                 consolidated_dataset_id = schema_config["consolidated_dataset_id"]
 
