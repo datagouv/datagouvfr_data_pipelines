@@ -1071,7 +1071,6 @@ def create_schema_consolidation_dataset(
             "license": "lov2",
         },
     )
-    response.raise_for_status()
 
     return response
 
