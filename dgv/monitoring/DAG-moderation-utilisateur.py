@@ -3,7 +3,7 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta, datetime
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_DATAGOUV_ACTIVITES,
+    MATTERMOST_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
@@ -41,7 +41,7 @@ def publish_mattermost(ti):
         f":warning: Attention, {nb_users} utilisateurs ont été créés "
         "sur data.gouv.fr dans la dernière heure."
     )
-    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 def send_email_report(ti):
