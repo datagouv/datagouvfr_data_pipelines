@@ -98,7 +98,7 @@
             "prod": "66ebf2cb9dd6916802ae90a1",
             "dev": "66ebf3bdf39617f668f995e5"
         },
-        "table_name": "base_postes",
+        "table_name": "base_postes"
     },
     "REF_CC/SQR": {
         "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
