@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg"
-DAG_NAME = 'postgres_meteo'
+DAG_NAME = 'data_processing_postgres_meteo'
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 
 
@@ -24,8 +24,6 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# to be on the safe side, it's actually 100
-MAX_CONNECTIONS = 90
 DATASETS_TO_PROCESS = [
     "BASE/MENS",
     "BASE/DECAD",
@@ -74,7 +72,6 @@ with DAG(
                 python_callable=download_data,
                 op_kwargs={
                     "dataset_name": dataset,
-                    "max_size": MAX_CONNECTIONS // len(DATASETS_TO_PROCESS)
                 },
             )
         )
