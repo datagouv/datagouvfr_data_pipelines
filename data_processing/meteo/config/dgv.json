@@ -92,7 +92,7 @@
     "BASE/POSTES": {
         "source_pattern": "POSTES_MF.csv",
         "name_template": "Postes",
-        "doc_pattern": "^(?:(?!csv$).)*",
+        "doc_pattern": "POSTES_descriptif_champs.csv",
         "description_template": "Liste de tous les postes ayant des données publiques",
         "dataset_id": {
             "prod": "66ebf2cb9dd6916802ae90a1",
