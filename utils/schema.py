@@ -1,6 +1,7 @@
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
     DATAGOUV_URL,
+    ORGA_REFERENCE,
     post_resource,
     create_dataset,
     update_dataset_or_resource_metadata,
@@ -1067,11 +1068,10 @@ def create_schema_consolidation_dataset(
             "description": datasets_description_template.format(
                 schema_name=schema_name
             ),
-            "organization": "534fff75a3a7292c64a77de4",
+            "organization": ORGA_REFERENCE,
             "license": "lov2",
         },
     )
-    response.raise_for_status()
 
     return response
 
@@ -1299,22 +1299,17 @@ def upload_consolidated(
                 response = create_schema_consolidation_dataset(
                     schema_name, schemas_catalogue_list,
                 )
-                if response.status_code == 201:
-                    consolidated_dataset_id = response.json()["id"]
-                    update_config_file(
-                        schema_name,
-                        "consolidated_dataset_id",
-                        consolidated_dataset_id,
-                        config_path,
-                    )
-                    print(
-                        "-- 🟢 No consolidation dataset for this schema"
-                        f" - Successfully created (id: {consolidated_dataset_id})"
-                    )
-                else:
-                    print(
-                        "-- 🔴 No consolidation dataset for this schema - Failed to create one"
-                    )
+                consolidated_dataset_id = response["id"]
+                update_config_file(
+                    schema_name,
+                    "consolidated_dataset_id",
+                    consolidated_dataset_id,
+                    config_path,
+                )
+                print(
+                    "-- 🟢 No consolidation dataset for this schema"
+                    f" - Successfully created (id: {consolidated_dataset_id})"
+                )
             else:
                 consolidated_dataset_id = schema_config["consolidated_dataset_id"]
 
@@ -1359,12 +1354,10 @@ def upload_consolidated(
                         version_name
                     ]
                     r_to_create = False
-                    expected_status_code = 200
 
                 except KeyError:
                     r_id = None
                     r_to_create = True
-                    expected_status_code = 201
 
                 response = post_resource(
                     file_to_upload={
@@ -1379,35 +1372,26 @@ def upload_consolidated(
                     resource_id=r_id,
                     payload=obj,
                 )
-                if response.status_code == expected_status_code:
-                    if r_to_create:
-                        r_id = response.json()["id"]
-                        update_config_version_resource_id(
-                            schema_name, version_name, r_id, config_path
-                        )
-                        print(
-                            "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
-                                schema_name,
-                                version_name,
-                                r_id,
-                            )
-                        )
-                    else:
-                        print(
-                            "--- ✅ Updated consolidation for {} v{} (id: {})".format(
-                                schema_name,
-                                version_name,
-                                r_id,
-                            )
-                        )
-                else:
-                    r_id = None
-                    print(
-                        f"--- ⚠️ Version {version_name}: file could not be uploaded."
+                if r_to_create:
+                    r_id = response.json()["id"]
+                    update_config_version_resource_id(
+                        schema_name, version_name, r_id, config_path
                     )
-                    print(response.text)
-                    if should_succeed:
-                        return False
+                    print(
+                        "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
+                            schema_name,
+                            version_name,
+                            r_id,
+                        )
+                    )
+                else:
+                    print(
+                        "--- ✅ Updated consolidation for {} v{} (id: {})".format(
+                            schema_name,
+                            version_name,
+                            r_id,
+                        )
+                    )
 
             # Upload GeoJSON file (e.g IRVE)
             if bool_upload_geojson:
