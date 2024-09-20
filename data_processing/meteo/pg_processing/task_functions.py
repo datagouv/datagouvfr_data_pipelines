@@ -241,9 +241,12 @@ def process_resources(
             )
             _conn.commit()
             # deleting if everything was successful, so that we can check content otherwise
-            os.remove(csv_path.replace(".csv", "_old.csv"))
-            os.remove(csv_path.replace(".csv", ".json"))
             os.remove(csv_path)
+            try:
+                os.remove(csv_path.replace(".csv", "_old.csv"))
+                os.remove(csv_path.replace(".csv", ".json"))
+            except FileNotFoundError:
+                pass
             print("=> Completed work for:", regex_infos["name"])
         except Exception as e:
             _conn.rollback()
