@@ -380,7 +380,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         np.argwhere(np.array(column_names) == 'LON')[0][0]
     )
     rr_idx = None
-    if csv_path.startswith("MN_"):
+    if csv_path.startswith("MIN_"):
         rr_idx = np.argwhere(np.array(column_names) == 'RR')[0][0]
     cursor.close()
     with open(csv_path.replace(".csv", "_old.csv"), 'w', newline='') as csvfile:
