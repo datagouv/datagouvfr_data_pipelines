@@ -243,6 +243,7 @@ def process_resources(
             # deleting if everything was successful, so that we can check content otherwise
             os.remove(csv_path)
             try:
+                os.remove(csv_path + '.temp')
                 os.remove(csv_path.replace(".csv", "_old.csv"))
                 os.remove(csv_path.replace(".csv", ".json"))
             except FileNotFoundError:
