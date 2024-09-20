@@ -317,7 +317,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         print(f"-> inserting {len(diff['Additions'])} rows")
         return StringIO('\n'.join(
             row + f";{dep}" for row in diff['Additions']
-        ))
+        )) if diff['Additions'] else None
 
     def _build_deletions(diff, columns, nb_rows):
         # deletions will be a list of lists of tuples (column_name, typed value)
@@ -466,6 +466,8 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
 
 
 def load_new_data(_conn, table_name, additions):
+    if additions is None:
+        return
     cursor = _conn.cursor()
     cursor.copy_expert(
         f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
@@ -478,12 +480,16 @@ def load_new_data(_conn, table_name, additions):
 def delete_old_data(_conn, table_name, deletions):
     # deletions is a list of lists of tuples (column_name, typed value)
     query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 2"
+    skip = True
     for row in deletions:
+        skip = False
         filters = []
         for name, value in row:
             filters.append(f"{name}='{value}'")
         query += f' OR ({" AND ".join(filters)})'
     # print(query)
+    if skip:
+        return
     cursor = _conn.cursor()
     cursor.execute(query)
     cursor.close()
