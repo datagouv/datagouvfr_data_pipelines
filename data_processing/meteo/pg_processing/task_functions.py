@@ -241,13 +241,9 @@ def process_resources(
             )
             _conn.commit()
             # deleting if everything was successful, so that we can check content otherwise
-            os.remove(csv_path)
-            try:
-                os.remove(csv_path + '.temp')
-                os.remove(csv_path.replace(".csv", "_old.csv"))
-                os.remove(csv_path.replace(".csv", ".json"))
-            except FileNotFoundError:
-                pass
+            parent = file_path.parent.as_posix()
+            for file in os.listdir(parent):
+                os.remove(f"{parent}/{file}")
             print("=> Completed work for:", regex_infos["name"])
         except Exception as e:
             _conn.rollback()
@@ -380,7 +376,8 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         np.argwhere(np.array(column_names) == 'LON')[0][0]
     )
     rr_idx = None
-    if csv_path.startswith("MIN_"):
+
+    if "MIN_" in csv_path:
         rr_idx = np.argwhere(np.array(column_names) == 'RR')[0][0]
     cursor.close()
     with open(csv_path.replace(".csv", "_old.csv"), 'w', newline='') as csvfile:
