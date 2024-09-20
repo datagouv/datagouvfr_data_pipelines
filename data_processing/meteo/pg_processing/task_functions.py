@@ -433,7 +433,7 @@ def build_query_filters(regex_infos: dict):
 def delete_and_insert_into_pg(_conn, diff, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     additions, deletions = diff
-    if additions is None:
+    if additions is None and deletions is None:
         print("-> Inserting whole file into", table_name)
         load_whole_file(_conn, table_name, csv_path, regex_infos)
         return
