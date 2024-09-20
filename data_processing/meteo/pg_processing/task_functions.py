@@ -240,7 +240,7 @@ def process_resources(
                 csv_path=csv_path,
             )
             _conn.commit()
-            # deleting it everything was successful, so that we can check content otherwise
+            # deleting if everything was successful, so that we can check content otherwise
             os.remove(csv_path.replace(".csv", "_old.csv"))
             os.remove(csv_path.replace(".csv", ".json"))
             os.remove(csv_path)
