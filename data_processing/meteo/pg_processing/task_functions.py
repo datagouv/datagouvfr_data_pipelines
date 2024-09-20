@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 import psycopg2
 from io import StringIO
 import subprocess
+import numpy as np
 from typing import Optional
 
 from airflow.hooks.base import BaseHook
@@ -239,6 +240,10 @@ def process_resources(
                 csv_path=csv_path,
             )
             _conn.commit()
+            # deleting it everything was successful, so that we can check content otherwise
+            os.remove(csv_path.replace(".csv", "_old.csv"))
+            os.remove(csv_path.replace(".csv", ".json"))
+            os.remove(csv_path)
             print("=> Completed work for:", regex_infos["name"])
         except Exception as e:
             _conn.rollback()
@@ -247,7 +252,6 @@ def process_resources(
             raise
         finally:
             _conn.close()
-            os.remove(csv_path)
 
 
 def get_regex_infos(pattern, filename, params):
@@ -304,20 +308,21 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         ], shell=True)
         if status.returncode != 0:
             raise Exception("The csvdiff command wasn't successful:", status.stderr)
-        os.remove(csv_path.replace(".csv", "_old.csv"))
 
-    def _build_additions(diff, columns, dep):
-        # we'll copy_expert the additions, so we handle it as and open csv content
+    def _build_additions(diff, dep):
+        # we'll copy_expert the additions, so we handle it as an open csv content
         print(f"-> inserting {len(diff['Additions'])} rows")
         return StringIO('\n'.join(
             row + f";{dep}" for row in diff['Additions']
-            if not row.lower().startswith(list(columns.keys())[0].lower())
         ))
 
-    def _build_deletions(diff, columns):
+    def _build_deletions(diff, columns, nb_rows):
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
-        print(f"-> deleting {len(diff['Deletions'])} rows")
+        nb_deletions = len(diff['Deletions'])
+        print(f"-> deleting {nb_deletions} rows")
+        if (nb_deletions - nb_rows) / nb_rows > 0.5:
+            raise ValueError("Was going to delete more than half of the table, aborting")
         for row in diff['Deletions']:
             cells = row.split(';')
             yield [
@@ -335,9 +340,6 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         cursor.execute(f"SELECT COUNT(*) FROM {SCHEMA_NAME}.{table_name};")
         nb_rows = cursor.fetchall()[0][0]
         cursor.close()
-        # if the table is currently empty, we'll insert the whole file instead of row by row
-        if not nb_rows:
-            return None, None
         columns = {
             c[0]: type_mapping[c[1]] for c in columns
         }
@@ -345,10 +347,8 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             diff = json.load(f)
         if diff['Modifications']:
             raise NotImplementedError("We should handle row modifications")
-        additions = _build_additions(diff, columns, dep)
-        # we'll delete based on every cell in the row that is not empty, could be refined if not optimal
-        deletions = _build_deletions(diff, columns)
-        os.remove(csv_path.replace(".csv", ".json"))
+        additions = _build_additions(diff, dep)
+        deletions = _build_deletions(diff, columns, nb_rows)
         # print("add", len(additions))
         # print("del", len(deletions))
         return additions, deletions
@@ -370,16 +370,47 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
     # if no previous rows, we're uploading the whole file
     if not rows:
         return None, None
-    column_names = [desc[0] for desc in cursor.description]
+    column_names = [desc[0].upper() for desc in cursor.description]
+    lat_lon_idx = (
+        np.argwhere(np.array(column_names) == 'LAT')[0][0],
+        np.argwhere(np.array(column_names) == 'LON')[0][0]
+    )
+    rr_idx = None
+    if csv_path.startswith("MN_"):
+        rr_idx = np.argwhere(np.array(column_names) == 'RR')[0][0]
     cursor.close()
     with open(csv_path.replace(".csv", "_old.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
         writer.writerow(column_names)
         for row in rows:
-            writer.writerow(row)
+            _row = fix_lat_lon(row, lat_lon_idx)
+            if rr_idx:
+                _row = fix_rr(_row, rr_idx)
+            writer.writerow(_row)
     # run csvdiff on old VS new file (order matters)
     run_diff(csv_path=csv_path)
     return build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
+
+
+def fix_lat_lon(row, lat_lon_idx):
+    # latitude and longitude always have 6 decimal digits in source files, even if last ones are zeros
+    # in this case they are truncated when returned from postgres, e.g: 5.669000 => 5.669
+    # but the rows should be considered identical
+    return [
+        v if idx not in lat_lon_idx
+        else str(v) + "0" * (6 - len(str(v).split(".")[-1]))
+        for idx, v in enumerate(row)
+    ]
+
+
+def fix_rr(row, rr_idx):
+    # similarly, RR in minute data should have 3 decimal digits but only has one (and zeros)
+    return [
+        v if idx != rr_idx
+        else v if v is None
+        else str(v) + "0" * (3 - len(str(v).split(".")[-1]))
+        for idx, v in enumerate(row)
+    ]
 
 
 def build_query_filters(regex_infos: dict):
@@ -417,11 +448,9 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
         temp_csv_path = csv_path + '.temp'
         with open(temp_csv_path, 'w', newline='') as temp_f:
             writer = csv.writer(temp_f, delimiter=';')
-            writer.writerow(columns)  # Write the column headers to the temp file
-            # not writing the header, we only insert the content
-            # writer.writerow(columns)
+            writer.writerow(columns)
             for row in reader:
-                row = [None if val == '' else re.sub(r'\s+', '', val) for val in row]
+                row = [None if val == '' else val for val in row]
                 row.append(regex_infos["regex_infos"]["DEP"])
                 writer.writerow(row)
     cursor = _conn.cursor()
@@ -486,7 +515,10 @@ def create_indexes(conn, table_name, period):
 
 # %%
 def insert_latest_date_pg(ti):
-    latest_processed_date = ti.xcom_pull(key="latest_processed_date", task_ids="retrieve_latest_processed_date")
+    latest_processed_date = ti.xcom_pull(
+        key="latest_processed_date",
+        task_ids="retrieve_latest_processed_date"
+    )
     print(latest_processed_date)
     execute_query(
         conn.host,
