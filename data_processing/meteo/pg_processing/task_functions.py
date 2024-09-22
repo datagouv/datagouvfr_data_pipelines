@@ -13,6 +13,7 @@ from io import StringIO
 import subprocess
 import numpy as np
 from typing import Optional
+import pandas as pd
 
 from airflow.hooks.base import BaseHook
 
@@ -301,34 +302,64 @@ def unzip_csv_gz(file_path):
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
     def run_diff(csv_path: str):
-        # cf https://github.com/aswinkarthik/csvdiff
-        status = subprocess.run([
-            f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
-            f'-o json > {csv_path.replace(".csv", ".json")}'
-        ], shell=True)
-        if status.returncode != 0:
-            raise Exception("The csvdiff command wasn't successful:", status.stderr)
+        df1 = pd.read_csv(csv_path, sep=";", dtype=str)
+        df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
+        diff = df1.merge(df2, how='left', indicator=True)
+        dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
+        dff.to_csv(csv_path.replace(".csv", "_additions.csv"), index=False)
+        if dff.shape[0] > 0:
+            is_additions = True
+        else:
+            is_additions = False
+        diff = df2.merge(df1, how='left', indicator=True)
+        dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
+        dff.to_csv(csv_path.replace(".csv", "_deletions.csv"), index=False)
+        return is_additions
+    
 
-    def _build_additions(diff, dep):
-        # we'll copy_expert the additions, so we handle it as an open csv content
-        print(f"-> inserting {len(diff['Additions'])} rows")
-        return StringIO('\n'.join(
-            row + f";{dep}" for row in diff['Additions']
-        )) if diff['Additions'] else None
-
-    def _build_deletions(diff, columns, nb_rows):
+    def _build_deletions(csv_path, nb_rows):
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
-        nb_deletions = len(diff['Deletions'])
+        df = pd.read_csv(csv_path.replace(".csv", "_deletions.csv"))
+        nb_deletions = df.shape[0]
         print(f"-> deleting {nb_deletions} rows")
         if (nb_deletions - nb_rows) / nb_rows > 0.5:
             raise ValueError("Was going to delete more than half of the table, aborting")
-        for row in diff['Deletions']:
-            cells = row.split(';')
+        for index, row in df.iterrows():
             yield [
-                (name, _type(value)) for name, value, _type in zip(columns.keys(), cells, columns.values())
-                if _type(value) and (name.lower() == "num_poste" or name.lower().startswith("aaaa"))
+                (item, row[item]) for item in row if item.lower() == "num_poste" or item.lower().startswith("aaaa")
             ]
+
+
+    # def run_diff(csv_path: str):
+    #     # cf https://github.com/aswinkarthik/csvdiff
+    #     status = subprocess.run([
+    #         f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
+    #         f'-o json > {csv_path.replace(".csv", ".json")}'
+    #     ], shell=True)
+    #     if status.returncode != 0:
+    #         raise Exception("The csvdiff command wasn't successful:", status.stderr)
+
+    # def _build_additions(diff, dep):
+    #     # we'll copy_expert the additions, so we handle it as an open csv content
+    #     print(f"-> inserting {len(diff['Additions'])} rows")
+    #     return StringIO('\n'.join(
+    #         row + f";{dep}" for row in diff['Additions']
+    #     )) if diff['Additions'] else None
+
+    # def _build_deletions(diff, columns, nb_rows):
+    #     # deletions will be a list of lists of tuples (column_name, typed value)
+    #     # we are only keep primary keys: NUM_POSTE and period (AAAA...)
+    #     nb_deletions = len(diff['Deletions'])
+    #     print(f"-> deleting {nb_deletions} rows")
+    #     if (nb_deletions - nb_rows) / nb_rows > 0.5:
+    #         raise ValueError("Was going to delete more than half of the table, aborting")
+    #     for row in diff['Deletions']:
+    #         cells = row.split(';')
+    #         yield [
+    #             (name, _type(value)) for name, value, _type in zip(columns.keys(), cells, columns.values())
+    #             if _type(value) and (name.lower() == "num_poste" or name.lower().startswith("aaaa"))
+    #         ]
 
     def build_modifs(_conn, csv_path: str, table_name: str, dep: str):
         cursor = _conn.cursor()
@@ -347,11 +378,11 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             diff = json.load(f)
         if diff['Modifications']:
             raise NotImplementedError("We should handle row modifications")
-        additions = _build_additions(diff, dep)
+        #additions = _build_additions(diff, dep)
         deletions = _build_deletions(diff, columns, nb_rows)
         # print("add", len(additions))
         # print("del", len(deletions))
-        return additions, deletions
+        return deletions
 
     # getting columns for the query, as we can't SELECT * EXCEPT(dep)
     with open(csv_path, 'r') as f:
@@ -389,8 +420,8 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 _row = fix_rr(_row, rr_idx)
             writer.writerow(_row)
     # run csvdiff on old VS new file (order matters)
-    run_diff(csv_path=csv_path)
-    return build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
+    is_additions = run_diff(csv_path=csv_path)
+    return is_additions, build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
 
 
 def fix_lat_lon(row, lat_lon_idx):
@@ -429,14 +460,14 @@ def build_query_filters(regex_infos: dict):
 
 def delete_and_insert_into_pg(_conn, diff, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-    additions, deletions = diff
-    if additions is None and deletions is None:
+    is_additions, deletions = diff
+    if is_additions is False and deletions is None:
         print("-> Inserting whole file into", table_name)
         load_whole_file(_conn, table_name, csv_path, regex_infos)
         return
     delete_old_data(_conn, table_name, deletions)
     # drop_indexes(conn2, table_name)
-    load_new_data(_conn, table_name, additions)
+    if is_additions: load_new_data(_conn, table_name, csv_path)
     # create_indexes(conn2, table_name, period)
 
 
@@ -463,14 +494,13 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
     cursor.close()
 
 
-def load_new_data(_conn, table_name, additions):
-    if additions is None:
-        return
+def load_new_data(_conn, table_name, csv_path):
     cursor = _conn.cursor()
-    cursor.copy_expert(
-        f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
-        additions
-    )
+    with open(csv_path.replace(".csv.gz", "_additions.csv.gz"), 'r') as f:
+        cursor.copy_expert(
+            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+            f
+        )
     cursor.close()
     # print("-> LOAD OK:", table_name)
 
