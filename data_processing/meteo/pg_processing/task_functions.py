@@ -374,12 +374,12 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         columns = {
             c[0]: type_mapping[c[1]] for c in columns
         }
-        with open(csv_path.replace(".csv", ".json"), "r") as f:
-            diff = json.load(f)
-        if diff['Modifications']:
-            raise NotImplementedError("We should handle row modifications")
+        # with open(csv_path.replace(".csv", ".json"), "r") as f:
+        #     diff = json.load(f)
+        # if diff['Modifications']:
+        #     raise NotImplementedError("We should handle row modifications")
         #additions = _build_additions(diff, dep)
-        deletions = _build_deletions(diff, columns, nb_rows)
+        deletions = _build_deletions(csv_path, nb_rows)
         # print("add", len(additions))
         # print("del", len(deletions))
         return deletions
