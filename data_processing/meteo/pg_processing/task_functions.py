@@ -129,27 +129,15 @@ def get_latest_ftp_processing(ti):
 
 # %%
 def download_data(ti, dataset_name):
-    latest_processed_date = ti.xcom_pull(
-        key="latest_processed_date",
-        task_ids="retrieve_latest_processed_date"
-    )
     latest_ftp_processing = ti.xcom_pull(
         key="latest_ftp_processing",
         task_ids="get_latest_ftp_processing"
     )
-    dates = None
-    if not latest_processed_date:
-        # Process everything
-        new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    else:
-        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
-            raise ValueError(
-                "You may want to check what is in the 'dag_processed' table"
-            )
-        # Process subset
-        dates = [item for item in latest_ftp_processing if item != 'latest_update']
-        dates = [item for item in dates if item >= latest_processed_date]
-        new_latest_date = max(dates)
+    dates = ti.xcom_pull(
+        key="dates",
+        task_ids="set_max_date"
+    )
+
     resources = fetch_resources(dataset_name)
     process_resources(
         resources=resources,
@@ -157,7 +145,6 @@ def download_data(ti, dataset_name):
         latest_ftp_processing=latest_ftp_processing,
         dates=dates,
     )
-    ti.xcom_push(key="latest_processed_date", value=new_latest_date)
 
 
 def fetch_resources(dataset):
@@ -555,17 +542,44 @@ def create_indexes(conn, table_name, period):
 
 # %%
 def insert_latest_date_pg(ti):
-    latest_processed_date = ti.xcom_pull(
-        key="latest_processed_date",
-        task_ids="retrieve_latest_processed_date"
+    new_latest_date = ti.xcom_pull(
+        key="new_latest_date",
+        task_ids="set_max_date"
     )
-    print(latest_processed_date)
+    print(new_latest_date)
     execute_query(
         conn.host,
         conn.port,
         conn.schema,
         conn.login,
         conn.password,
-        f"INSERT INTO dag_processed (processed) VALUES ('{latest_processed_date}');",
+        f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
         SCHEMA_NAME,
     )
+
+
+def set_max_date(ti):
+    latest_processed_date = ti.xcom_pull(
+        key="latest_processed_date",
+        task_ids="retrieve_latest_processed_date"
+    )
+    latest_ftp_processing = ti.xcom_pull(
+        key="latest_ftp_processing",
+        task_ids="get_latest_ftp_processing"
+    )
+    dates = None
+    if not latest_processed_date:
+        # Process everything
+        new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    else:
+        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
+            raise ValueError(
+                "You may want to check what is in the 'dag_processed' table"
+            )
+        # Process subset
+        dates = [item for item in latest_ftp_processing if item != 'latest_update']
+        dates = [item for item in dates if item >= latest_processed_date]
+        new_latest_date = max(dates)
+    
+    ti.xcom_push(key="new_latest_date", value=new_latest_date)
+    ti.xcom_push(key="dates", value=dates)
