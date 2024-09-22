@@ -301,11 +301,12 @@ def unzip_csv_gz(file_path):
 
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
-    def run_diff(csv_path: str):
+    def run_diff(csv_path: str, regex_infos):
         df1 = pd.read_csv(csv_path, sep=";", dtype=str)
         df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
         diff = df1.merge(df2, how='left', indicator=True)
         dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
+        dff["DEP"] = regex_infos["regex_infos"]["DEP"]
         dff.to_csv(csv_path.replace(".csv", "_additions.csv"), index=False)
         if dff.shape[0] > 0:
             is_additions = True
@@ -420,7 +421,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 _row = fix_rr(_row, rr_idx)
             writer.writerow(_row)
     # run csvdiff on old VS new file (order matters)
-    is_additions = run_diff(csv_path=csv_path)
+    is_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
     return is_additions, build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
 
 
@@ -496,7 +497,7 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
 
 def load_new_data(_conn, table_name, csv_path):
     cursor = _conn.cursor()
-    with open(csv_path.replace(".csv.gz", "_additions.csv.gz"), 'r') as f:
+    with open(csv_path.replace(".csv.gz", "_additions.csv"), 'r') as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
             f
