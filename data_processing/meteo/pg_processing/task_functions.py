@@ -309,8 +309,10 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         dff["DEP"] = regex_infos["regex_infos"]["DEP"]
         dff.to_csv(csv_path.replace(".csv", "_additions.csv"), index=False)
         if dff.shape[0] > 0:
+            print(f"-> inserting {dff.shape[0]} rows")
             is_additions = True
         else:
+            print(f"-> no additions to insert")
             is_additions = False
         diff = df2.merge(df1, how='left', indicator=True)
         dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
@@ -328,7 +330,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             raise ValueError("Was going to delete more than half of the table, aborting")
         for index, row in df.iterrows():
             yield [
-                (item, row[item]) for item in row if item.lower() == "num_poste" or item.lower().startswith("aaaa")
+                (item, row[item]) for item in row.to_dict() if item.lower() == "num_poste" or item.lower().startswith("aaaa")
             ]
 
 
@@ -497,9 +499,9 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
 
 def load_new_data(_conn, table_name, csv_path):
     cursor = _conn.cursor()
-    with open(csv_path.replace(".csv.gz", "_additions.csv"), 'r') as f:
+    with open(csv_path.replace(".csv", "_additions.csv"), 'r') as f:
         cursor.copy_expert(
-            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ','",
             f
         )
     cursor.close()
