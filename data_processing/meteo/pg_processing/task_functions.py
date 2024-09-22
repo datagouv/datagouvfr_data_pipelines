@@ -26,11 +26,14 @@ from datagouvfr_data_pipelines.utils.postgres import (
     execute_query,
 )
 from datagouvfr_data_pipelines.utils.download import download_files
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
+
+minio_meteo = MinIOClient(bucket='meteofrance')
 
 
 conn = BaseHook.get_connection("POSTGRES_METEO")
@@ -211,6 +214,8 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
         csv_path = unzip_csv_gz(file_path)
+        unzip_csv_gz(file_path.replace(".csv", "_old.csv"))
+
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
         try:
@@ -228,6 +233,19 @@ def process_resources(
                 csv_path=csv_path,
             )
             _conn.commit()
+
+            minio_meteo.send_files(
+                list_files=[
+                    {
+                        "source_path": file_path.parent.as_posix(),
+                        "source_name": file_path.name,
+                        "dest_path": "synchro_pg/",
+                        "dest_name": file_path.name,
+                    }
+                ],
+                ignore_airflow_env=True
+            )
+
             # deleting if everything was successful, so that we can check content otherwise
             parent = file_path.parent.as_posix()
             for file in os.listdir(parent):
@@ -274,6 +292,17 @@ def download_resource(res, dataset):
         "dest_path": file_path.parent.as_posix(),
         "dest_name": file_path.name,
     }], timeout=TIMEOUT)
+    try:    
+        download_files([{
+            "url": res["url"].replace("data/synchro_ftp/", "synchro_pg/"),
+            "dest_path": file_path.parent.as_posix(),
+            "dest_name": file_path.name.replace(".csv", "_old.csv"),
+        }], timeout=TIMEOUT)
+    except:
+        print("not existing file in postgres mirror, creating one empty")
+        with open(file_path, 'r') as source, open(file_path.replace(".csv", "_old.csv"), 'w') as destination:
+            first_line = source.readline()
+            destination.write(first_line)
     return file_path
 
 
@@ -380,35 +409,38 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         columns = next(reader)
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     # getting potentially impacted rows
-    query = (
-        f"SELECT {', '.join(columns)} FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 " +
-        build_query_filters(regex_infos)
-    )
-    # print("QUERY:", query)
-    cursor = _conn.cursor()
-    cursor.execute(query)
-    rows = cursor.fetchall()
-    # if no previous rows, we're uploading the whole file
-    if not rows:
-        return None, None
-    column_names = [desc[0].upper() for desc in cursor.description]
-    lat_lon_idx = (
-        np.argwhere(np.array(column_names) == 'LAT')[0][0],
-        np.argwhere(np.array(column_names) == 'LON')[0][0]
-    )
-    rr_idx = None
+    
+    
+    # query = (
+    #     f"SELECT {', '.join(columns)} FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 " +
+    #     build_query_filters(regex_infos)
+    # )
+    # # print("QUERY:", query)
+    # cursor = _conn.cursor()
+    # cursor.execute(query)
+    # rows = cursor.fetchall()
+    # # if no previous rows, we're uploading the whole file
+    # if not rows:
+    #     return None, None
+    # column_names = [desc[0].upper() for desc in cursor.description]
+    # lat_lon_idx = (
+    #     np.argwhere(np.array(column_names) == 'LAT')[0][0],
+    #     np.argwhere(np.array(column_names) == 'LON')[0][0]
+    # )
+    # rr_idx = None
 
-    if "MIN_" in csv_path:
-        rr_idx = np.argwhere(np.array(column_names) == 'RR')[0][0]
-    cursor.close()
-    with open(csv_path.replace(".csv", "_old.csv"), 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=';')
-        writer.writerow(column_names)
-        for row in rows:
-            _row = fix_lat_lon(row, lat_lon_idx)
-            if rr_idx:
-                _row = fix_rr(_row, rr_idx)
-            writer.writerow(_row)
+    # if "MIN_" in csv_path:
+    #     rr_idx = np.argwhere(np.array(column_names) == 'RR')[0][0]
+    # cursor.close()
+    # with open(csv_path.replace(".csv", "_old.csv"), 'w', newline='') as csvfile:
+    #     writer = csv.writer(csvfile, delimiter=';')
+    #     writer.writerow(column_names)
+    #     for row in rows:
+    #         _row = fix_lat_lon(row, lat_lon_idx)
+    #         if rr_idx:
+    #             _row = fix_rr(_row, rr_idx)
+    #         writer.writerow(_row)
+    
     # run csvdiff on old VS new file (order matters)
     is_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
     return is_additions, build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
