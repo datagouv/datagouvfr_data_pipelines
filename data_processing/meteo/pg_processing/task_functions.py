@@ -322,6 +322,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         old_file = csv_path.replace(".csv", "_old.csv")
         additions_file = csv_path.replace(".csv", "_additions.csv")
         deletions_file = csv_path.replace(".csv", "_deletions.csv")
+        is_additions = False
 
         with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
             new_header = new_file.readline()
@@ -334,6 +335,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             outFile.write(new_header.strip() + ";DEP\n")
             for line in new_lines:
                 if line not in old_lines:
+                    is_additions = True
                     outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
 
         with open(deletions_file, 'w') as outFile:
@@ -341,6 +343,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             for line in old_lines:
                 if line not in new_lines:
                     outFile.write(line)
+        return is_additions
     
 
     def _build_deletions(csv_path, nb_rows):
