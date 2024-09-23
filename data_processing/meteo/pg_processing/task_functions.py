@@ -467,7 +467,7 @@ def load_new_data(_conn, table_name, csv_path):
     cursor = _conn.cursor()
     with open(csv_path.replace(".csv", "_additions.csv"), 'r') as f:
         cursor.copy_expert(
-            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ','",
+            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
             f
         )
     cursor.close()
