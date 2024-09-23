@@ -362,6 +362,13 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
 
     def build_modifs(_conn, csv_path: str, table_name: str, dep: str):
+        cursor = _conn.cursor()
+        cursor.execute(
+            "SELECT column_name, data_type FROM information_schema.columns "
+            f"WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
+        )
+        columns = cursor.fetchall()
+        cursor.close()
         columns = {
             c[0]: type_mapping[c[1]] for c in columns
         }
