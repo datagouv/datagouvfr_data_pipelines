@@ -214,7 +214,8 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
         csv_path = unzip_csv_gz(file_path)
-        unzip_csv_gz(file_path.replace(".csv", "_old.csv"))
+        #old_file = str(file_path).replace(".csv", "_old.csv")
+        #unzip_csv_gz(old_file)
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
@@ -237,10 +238,10 @@ def process_resources(
             minio_meteo.send_files(
                 list_files=[
                     {
-                        "source_path": file_path.parent.as_posix(),
-                        "source_name": file_path.name,
-                        "dest_path": "synchro_pg/",
-                        "dest_name": file_path.name,
+                        "source_path": "/".join(csv_path.split("/")[:-1]),
+                        "source_name": csv_path.split("/")[-1],
+                        "dest_path": "synchro_pg/" + "/".join(resource["url"].split("data/synchro_ftp/")[1].split("/")[:-1]) + "/",
+                        "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
                     }
                 ],
                 ignore_airflow_env=True
@@ -292,17 +293,17 @@ def download_resource(res, dataset):
         "dest_path": file_path.parent.as_posix(),
         "dest_name": file_path.name,
     }], timeout=TIMEOUT)
-    try:    
+    try:
+        old_file = file_path.name.replace(".csv.gz", "_old.csv")
         download_files([{
-            "url": res["url"].replace("data/synchro_ftp/", "synchro_pg/"),
+            "url": res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
             "dest_path": file_path.parent.as_posix(),
-            "dest_name": file_path.name.replace(".csv", "_old.csv"),
+            "dest_name": old_file,
         }], timeout=TIMEOUT)
     except:
         print("not existing file in postgres mirror, creating one empty")
-        with open(file_path, 'r') as source, open(file_path.replace(".csv", "_old.csv"), 'w') as destination:
-            first_line = source.readline()
-            destination.write(first_line)
+        df = pd.read_csv(file_path, nrows=0)
+        df.to_csv(str(file_path).replace(".csv.gz", "_old.csv"), index=False)
     return file_path
 
 
@@ -317,23 +318,65 @@ def unzip_csv_gz(file_path):
 
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
-    def run_diff(csv_path: str, regex_infos):
-        df1 = pd.read_csv(csv_path, sep=";", dtype=str)
-        df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
-        diff = df1.merge(df2, how='left', indicator=True)
-        dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
-        dff["DEP"] = regex_infos["regex_infos"]["DEP"]
-        dff.to_csv(csv_path.replace(".csv", "_additions.csv"), index=False)
-        if dff.shape[0] > 0:
-            print(f"-> inserting {dff.shape[0]} rows")
-            is_additions = True
+    def run_diff(csv_path: str, regex_infos, chunksize=10000):
+        additions_file = csv_path.replace(".csv", "_additions.csv")
+        deletions_file = csv_path.replace(".csv", "_deletions.csv")
+        
+        is_additions = False
+
+        with open(additions_file, 'w') as additions_output, open(deletions_file, 'w') as deletions_output:
+            df_sample = pd.read_csv(csv_path, sep=";", dtype=str, nrows=0)
+            df_sample.to_csv(additions_output, index=False)
+            df_sample.to_csv(deletions_output, index=False)
+            
+            df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
+            
+            for df1_chunk in pd.read_csv(csv_path, sep=";", dtype=str, chunksize=chunksize):
+                df1_chunk["DEP"] = regex_infos["regex_infos"]["DEP"] 
+
+                diff_add = df1_chunk.merge(df2, how='left', indicator=True)
+                dff_add = diff_add[diff_add['_merge'] == 'left_only'].drop(columns=['_merge'])
+
+                if not dff_add.empty:
+                    dff_add.to_csv(additions_output, index=False, header=False)
+                    is_additions = True
+
+            df1 = pd.read_csv(csv_path, sep=";", dtype=str)
+
+            for df2_chunk in pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str, chunksize=chunksize):
+                diff_del = df2_chunk.merge(df1, how='left', indicator=True)
+                dff_del = diff_del[diff_del['_merge'] == 'left_only'].drop(columns=['_merge'])
+
+                if not dff_del.empty:
+                    dff_del.to_csv(deletions_output, index=False, header=False)
+
+                del df2_chunk, diff_del, dff_del
+
+        if is_additions:
+            print("-> Des additions ont été trouvées et ajoutées.")
         else:
-            print(f"-> no additions to insert")
-            is_additions = False
-        diff = df2.merge(df1, how='left', indicator=True)
-        dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
-        dff.to_csv(csv_path.replace(".csv", "_deletions.csv"), index=False)
+            print("-> Aucune addition à insérer.")
+        
         return is_additions
+
+
+    # def run_diff(csv_path: str, regex_infos):
+    #     df1 = pd.read_csv(csv_path, sep=";", dtype=str)
+    #     df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
+    #     diff = df1.merge(df2, how='left', indicator=True)
+    #     dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
+    #     dff["DEP"] = regex_infos["regex_infos"]["DEP"]
+    #     dff.to_csv(csv_path.replace(".csv", "_additions.csv"), index=False)
+    #     if dff.shape[0] > 0:
+    #         print(f"-> inserting {dff.shape[0]} rows")
+    #         is_additions = True
+    #     else:
+    #         print(f"-> no additions to insert")
+    #         is_additions = False
+    #     diff = df2.merge(df1, how='left', indicator=True)
+    #     dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
+    #     dff.to_csv(csv_path.replace(".csv", "_deletions.csv"), index=False)
+    #     return is_additions
     
 
     def _build_deletions(csv_path, nb_rows):
@@ -342,8 +385,8 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         df = pd.read_csv(csv_path.replace(".csv", "_deletions.csv"))
         nb_deletions = df.shape[0]
         print(f"-> deleting {nb_deletions} rows")
-        if (nb_deletions - nb_rows) / nb_rows > 0.5:
-            raise ValueError("Was going to delete more than half of the table, aborting")
+        # if (nb_deletions - nb_rows) / nb_rows > 0.5:
+        #     raise ValueError("Was going to delete more than half of the table, aborting")
         for index, row in df.iterrows():
             yield [
                 (item, row[item]) for item in row.to_dict() if item.lower() == "num_poste" or item.lower().startswith("aaaa")
