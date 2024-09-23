@@ -21,7 +21,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 
 
 default_args = {
-    'retries': 5,
+    'retries': 0,
     'retry_delay': timedelta(minutes=5),
 }
 

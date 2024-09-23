@@ -318,65 +318,29 @@ def unzip_csv_gz(file_path):
 
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
-    def run_diff(csv_path: str, regex_infos, chunksize=10000):
+    def run_diff(csv_path: str, regex_infos):
+        old_file = csv_path.replace(".csv", "_old.csv")
         additions_file = csv_path.replace(".csv", "_additions.csv")
         deletions_file = csv_path.replace(".csv", "_deletions.csv")
-        
-        is_additions = False
 
-        with open(additions_file, 'w') as additions_output, open(deletions_file, 'w') as deletions_output:
-            df_sample = pd.read_csv(csv_path, sep=";", dtype=str, nrows=0)
-            df_sample.to_csv(additions_output, index=False)
-            df_sample.to_csv(deletions_output, index=False)
-            
-            df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
-            
-            for df1_chunk in pd.read_csv(csv_path, sep=";", dtype=str, chunksize=chunksize):
-                df1_chunk["DEP"] = regex_infos["regex_infos"]["DEP"] 
+        with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
+            new_header = new_file.readline()
+            old_header = old_file.readline()
 
-                diff_add = df1_chunk.merge(df2, how='left', indicator=True)
-                dff_add = diff_add[diff_add['_merge'] == 'left_only'].drop(columns=['_merge'])
+            new_lines = set(new_file)
+            old_lines = set(old_file)
 
-                if not dff_add.empty:
-                    dff_add.to_csv(additions_output, index=False, header=False)
-                    is_additions = True
+        with open(additions_file, 'w') as outFile:
+            outFile.write(new_header.strip() + ";DEP\n")
+            for line in new_lines:
+                if line not in old_lines:
+                    outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
 
-            df1 = pd.read_csv(csv_path, sep=";", dtype=str)
-
-            for df2_chunk in pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str, chunksize=chunksize):
-                diff_del = df2_chunk.merge(df1, how='left', indicator=True)
-                dff_del = diff_del[diff_del['_merge'] == 'left_only'].drop(columns=['_merge'])
-
-                if not dff_del.empty:
-                    dff_del.to_csv(deletions_output, index=False, header=False)
-
-                del df2_chunk, diff_del, dff_del
-
-        if is_additions:
-            print("-> Des additions ont été trouvées et ajoutées.")
-        else:
-            print("-> Aucune addition à insérer.")
-        
-        return is_additions
-
-
-    # def run_diff(csv_path: str, regex_infos):
-    #     df1 = pd.read_csv(csv_path, sep=";", dtype=str)
-    #     df2 = pd.read_csv(csv_path.replace(".csv", "_old.csv"), sep=";", dtype=str)
-    #     diff = df1.merge(df2, how='left', indicator=True)
-    #     dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
-    #     dff["DEP"] = regex_infos["regex_infos"]["DEP"]
-    #     dff.to_csv(csv_path.replace(".csv", "_additions.csv"), index=False)
-    #     if dff.shape[0] > 0:
-    #         print(f"-> inserting {dff.shape[0]} rows")
-    #         is_additions = True
-    #     else:
-    #         print(f"-> no additions to insert")
-    #         is_additions = False
-    #     diff = df2.merge(df1, how='left', indicator=True)
-    #     dff = diff[diff['_merge'] == 'left_only'].drop(columns=['_merge'])
-    #     dff.to_csv(csv_path.replace(".csv", "_deletions.csv"), index=False)
-    #     return is_additions
+        with open(deletions_file, 'w') as outFile:
+            outFile.write(old_header)
+            for line in old_lines:
+                if line not in new_lines:
+                    outFile.write(line)
     
 
     def _build_deletions(csv_path, nb_rows):
@@ -392,36 +356,6 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 (item, row[item]) for item in row.to_dict() if item.lower() == "num_poste" or item.lower().startswith("aaaa")
             ]
 
-
-    # def run_diff(csv_path: str):
-    #     # cf https://github.com/aswinkarthik/csvdiff
-    #     status = subprocess.run([
-    #         f'csvdiff {csv_path.replace(".csv", "_old.csv")} {csv_path} '
-    #         f'-o json > {csv_path.replace(".csv", ".json")}'
-    #     ], shell=True)
-    #     if status.returncode != 0:
-    #         raise Exception("The csvdiff command wasn't successful:", status.stderr)
-
-    # def _build_additions(diff, dep):
-    #     # we'll copy_expert the additions, so we handle it as an open csv content
-    #     print(f"-> inserting {len(diff['Additions'])} rows")
-    #     return StringIO('\n'.join(
-    #         row + f";{dep}" for row in diff['Additions']
-    #     )) if diff['Additions'] else None
-
-    # def _build_deletions(diff, columns, nb_rows):
-    #     # deletions will be a list of lists of tuples (column_name, typed value)
-    #     # we are only keep primary keys: NUM_POSTE and period (AAAA...)
-    #     nb_deletions = len(diff['Deletions'])
-    #     print(f"-> deleting {nb_deletions} rows")
-    #     if (nb_deletions - nb_rows) / nb_rows > 0.5:
-    #         raise ValueError("Was going to delete more than half of the table, aborting")
-    #     for row in diff['Deletions']:
-    #         cells = row.split(';')
-    #         yield [
-    #             (name, _type(value)) for name, value, _type in zip(columns.keys(), cells, columns.values())
-    #             if _type(value) and (name.lower() == "num_poste" or name.lower().startswith("aaaa"))
-    #         ]
 
     def build_modifs(_conn, csv_path: str, table_name: str, dep: str):
         cursor = _conn.cursor()
@@ -451,40 +385,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         reader = csv.reader(f, delimiter=';')
         columns = next(reader)
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-    # getting potentially impacted rows
     
-    
-    # query = (
-    #     f"SELECT {', '.join(columns)} FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 1 " +
-    #     build_query_filters(regex_infos)
-    # )
-    # # print("QUERY:", query)
-    # cursor = _conn.cursor()
-    # cursor.execute(query)
-    # rows = cursor.fetchall()
-    # # if no previous rows, we're uploading the whole file
-    # if not rows:
-    #     return None, None
-    # column_names = [desc[0].upper() for desc in cursor.description]
-    # lat_lon_idx = (
-    #     np.argwhere(np.array(column_names) == 'LAT')[0][0],
-    #     np.argwhere(np.array(column_names) == 'LON')[0][0]
-    # )
-    # rr_idx = None
-
-    # if "MIN_" in csv_path:
-    #     rr_idx = np.argwhere(np.array(column_names) == 'RR')[0][0]
-    # cursor.close()
-    # with open(csv_path.replace(".csv", "_old.csv"), 'w', newline='') as csvfile:
-    #     writer = csv.writer(csvfile, delimiter=';')
-    #     writer.writerow(column_names)
-    #     for row in rows:
-    #         _row = fix_lat_lon(row, lat_lon_idx)
-    #         if rr_idx:
-    #             _row = fix_rr(_row, rr_idx)
-    #         writer.writerow(_row)
-    
-    # run csvdiff on old VS new file (order matters)
     is_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
     return is_additions, build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
 
