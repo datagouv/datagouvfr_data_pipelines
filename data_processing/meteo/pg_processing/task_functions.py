@@ -337,6 +337,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 if line not in old_lines:
                     is_additions = True
                     outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
+                
 
         with open(deletions_file, 'w') as outFile:
             outFile.write(old_header)
@@ -346,7 +347,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         return is_additions
     
 
-    def _build_deletions(csv_path, nb_rows):
+    def _build_deletions(csv_path):
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
         df = pd.read_csv(csv_path.replace(".csv", "_deletions.csv"))
@@ -361,26 +362,10 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
 
     def build_modifs(_conn, csv_path: str, table_name: str, dep: str):
-        cursor = _conn.cursor()
-        cursor.execute(
-            "SELECT column_name, data_type FROM information_schema.columns "
-            f"WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
-        )
-        columns = cursor.fetchall()
-        cursor.execute(f"SELECT COUNT(*) FROM {SCHEMA_NAME}.{table_name};")
-        nb_rows = cursor.fetchall()[0][0]
-        cursor.close()
         columns = {
             c[0]: type_mapping[c[1]] for c in columns
         }
-        # with open(csv_path.replace(".csv", ".json"), "r") as f:
-        #     diff = json.load(f)
-        # if diff['Modifications']:
-        #     raise NotImplementedError("We should handle row modifications")
-        #additions = _build_additions(diff, dep)
-        deletions = _build_deletions(csv_path, nb_rows)
-        # print("add", len(additions))
-        # print("del", len(deletions))
+        deletions = _build_deletions(csv_path)
         return deletions
 
     # getting columns for the query, as we can't SELECT * EXCEPT(dep)
@@ -430,14 +415,10 @@ def build_query_filters(regex_infos: dict):
 def delete_and_insert_into_pg(_conn, diff, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     is_additions, deletions = diff
-    if is_additions is False and deletions is None:
-        print("-> Inserting whole file into", table_name)
-        load_whole_file(_conn, table_name, csv_path, regex_infos)
-        return
     delete_old_data(_conn, table_name, deletions)
-    # drop_indexes(conn2, table_name)
-    if is_additions: load_new_data(_conn, table_name, csv_path)
-    # create_indexes(conn2, table_name, period)
+
+    if is_additions: 
+        load_new_data(_conn, table_name, csv_path)
 
 
 def load_whole_file(_conn, table_name, csv_path, regex_infos):
@@ -462,6 +443,11 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
         )
     cursor.close()
 
+def count_lines_in_file(file_path):
+    with open(file_path, 'r') as file:
+        line_count = sum(1 for _ in file)
+    return line_count
+
 
 def load_new_data(_conn, table_name, csv_path):
     cursor = _conn.cursor()
@@ -471,7 +457,7 @@ def load_new_data(_conn, table_name, csv_path):
             f
         )
     cursor.close()
-    # print("-> LOAD OK:", table_name)
+    print("-> LOAD OK:", table_name, count_lines_in_file(csv_path.replace(".csv", "_additions.csv")), " rows")
 
 
 def delete_old_data(_conn, table_name, deletions):
