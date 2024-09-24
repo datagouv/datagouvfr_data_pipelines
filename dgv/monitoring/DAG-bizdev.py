@@ -661,13 +661,13 @@ with DAG(
     send_tables_to_minio = PythonOperator(
         task_id="send_tables_to_minio",
         python_callable=send_tables_to_minio,
-        trigger_rule='none_failed',
+        trigger_rule='all_done',
     )
 
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
         python_callable=publish_mattermost,
-        trigger_rule='none_failed',
+        trigger_rule='all_done',
     )
 
     check_if_monday.set_upstream(clean_previous_outputs)
