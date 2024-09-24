@@ -152,10 +152,10 @@ def download_data(ti, dataset_name):
 def excluded_files(csv_path):
     is_excluded = False
     excluded_files = [
-        "MN_974_2000-2009.csv.gz",
-        "MN_974_2010-2019.csv.gz",
-        "MN_988_2000-2009.csv.gz",
-        "MN_988_2010-2019.csv.gz"
+        "MIN_departement_974_periode_2000-2009.csv",
+        "MIN_departement_974_periode_2010-2019.csv",
+        "MIN_departement_988_periode_2000-2009.csv",
+        "MIN_departement_988_periode_2010-2019.csv",
     ]
     for item in excluded_files:
         if item in csv_path:
