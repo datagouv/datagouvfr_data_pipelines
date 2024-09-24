@@ -319,32 +319,67 @@ def unzip_csv_gz(file_path):
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
     def run_diff(csv_path: str, regex_infos):
-        old_file = csv_path.replace(".csv", "_old.csv")
+        old_file_path = csv_path.replace(".csv", "_old.csv")
         additions_file = csv_path.replace(".csv", "_additions.csv")
         deletions_file = csv_path.replace(".csv", "_deletions.csv")
         is_additions = False
 
-        with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
+        with open(csv_path, 'r') as new_file, open(old_file_path, 'r') as old_file:
             new_header = new_file.readline()
-            old_header = old_file.readline()
-
-            new_lines = set(new_file)
             old_lines = set(old_file)
 
-        with open(additions_file, 'w') as outFile:
-            outFile.write(new_header.strip() + ";DEP\n")
-            for line in new_lines:
-                if line not in old_lines:
-                    is_additions = True
-                    outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
+            with open(additions_file, 'w') as outFile:
+                outFile.write(new_header.strip() + ";DEP\n")
+                line = new_file.readline()
+                while line:
+                    if line not in old_lines:
+                        is_additions = True
+                        outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
+                    line = new_file.readline()
+            old_lines = None
+        
+        with open(csv_path, 'r') as new_file, open(old_file_path, 'r') as old_file:
+            old_header = old_file.readline()
+            new_lines = set(new_file) 
+
+            with open(deletions_file, 'w') as outFile:
+                outFile.write(old_header)
+                line = old_file.readline()
+                while line:
+                    if line not in new_lines:
+                        outFile.write(line)
+                    line = old_file.readline()
+            new_lines = None 
+          
+        return is_additions
+
+    # def run_diff(csv_path: str, regex_infos):
+    #     old_file = csv_path.replace(".csv", "_old.csv")
+    #     additions_file = csv_path.replace(".csv", "_additions.csv")
+    #     deletions_file = csv_path.replace(".csv", "_deletions.csv")
+    #     is_additions = False
+
+    #     with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
+    #         new_header = new_file.readline()
+    #         old_header = old_file.readline()
+
+    #         new_lines = set(new_file)
+    #         old_lines = set(old_file)
+
+    #     with open(additions_file, 'w') as outFile:
+    #         outFile.write(new_header.strip() + ";DEP\n")
+    #         for line in new_lines:
+    #             if line not in old_lines:
+    #                 is_additions = True
+    #                 outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
                 
 
-        with open(deletions_file, 'w') as outFile:
-            outFile.write(old_header)
-            for line in old_lines:
-                if line not in new_lines:
-                    outFile.write(line)
-        return is_additions
+    #     with open(deletions_file, 'w') as outFile:
+    #         outFile.write(old_header)
+    #         for line in old_lines:
+    #             if line not in new_lines:
+    #                 outFile.write(line)
+    #     return is_additions
     
 
     def _build_deletions(csv_path):
