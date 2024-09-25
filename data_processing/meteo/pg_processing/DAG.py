@@ -1,6 +1,8 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+from airflow.operators.dummy import DummyOperator
+from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -38,13 +40,25 @@ DATASETS_TO_PROCESS = [
 with DAG(
     dag_id=DAG_NAME,
     # a better scheduling would be "after the second run of ftp_processing is done", will investigate
-    schedule_interval='0 14 * * *',
+    schedule_interval='0 12 * * *',
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=2000),
     tags=["data_processing", "meteo"],
     default_args=default_args,
 ) as dag:
+
+    # ftp_waiting_room = ExternalTaskSensor(
+    #     task_id="ftp_waiting_room",
+    #     external_dag_id="data_processing_meteo",
+    #     external_task_id="notification_mattermost",
+    #     execution_date_fn=second_run_execution_date,
+    #     timeout=600,
+    #     poke_interval=60,
+    #     mode='poke',
+    # )
+
+    # ftp_waiting_room = DummyOperator(task_id='ftp_waiting_room')
 
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
@@ -88,6 +102,7 @@ with DAG(
         python_callable=insert_latest_date_pg,
     )
 
+    # clean_previous_outputs.set_upstream(ftp_waiting_room)
     create_tables_if_not_exists.set_upstream(clean_previous_outputs)
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
     get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
