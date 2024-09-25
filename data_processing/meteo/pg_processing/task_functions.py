@@ -9,11 +9,7 @@ from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
 import psycopg2
-from io import StringIO
-import subprocess
-import numpy as np
 from typing import Optional
-import pandas as pd
 
 from airflow.hooks.base import BaseHook
 
@@ -79,8 +75,14 @@ DEPIDS = [
 ]
 
 
-def clean_hooks(value):
-    return value.replace("latest-", "").replace("previous-", "")
+def get_hooked_name(file_name):
+    # hooked files will change name, we have to consider the unchanged version
+    # see DAG ftp_processing for more insight
+    for hook in ['latest', 'previous']:
+        hooked = re.findall(f"{hook}-\d+-\d+", file_name)
+        if hooked:
+            return file_name.replace(hooked[0], hook)
+    return file_name
 
 
 # %%
@@ -131,6 +133,34 @@ def get_latest_ftp_processing(ti):
 
 
 # %%
+def set_max_date(ti):
+    latest_processed_date = ti.xcom_pull(
+        key="latest_processed_date",
+        task_ids="retrieve_latest_processed_date"
+    )
+    latest_ftp_processing = ti.xcom_pull(
+        key="latest_ftp_processing",
+        task_ids="get_latest_ftp_processing"
+    )
+    dates = None
+    if not latest_processed_date:
+        # Process everything
+        new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    else:
+        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
+            raise ValueError(
+                "You may want to check what is in the 'dag_processed' table"
+            )
+        # Process subset
+        dates = [item for item in latest_ftp_processing if item != 'latest_update']
+        dates = [item for item in dates if item >= latest_processed_date]
+        new_latest_date = max(dates)
+
+    ti.xcom_push(key="new_latest_date", value=new_latest_date)
+    ti.xcom_push(key="dates", value=dates)
+
+
+# %%
 def download_data(ti, dataset_name):
     latest_ftp_processing = ti.xcom_pull(
         key="latest_ftp_processing",
@@ -150,18 +180,16 @@ def download_data(ti, dataset_name):
     )
 
 
-def excluded_files(csv_path):
-    is_excluded = False
+def is_excluded(csv_path):
     excluded_files = [
         "MIN_departement_974_periode_2000-2009.csv",
         "MIN_departement_974_periode_2010-2019.csv",
         "MIN_departement_988_periode_2000-2009.csv",
         "MIN_departement_988_periode_2010-2019.csv",
     ]
-    for item in excluded_files:
-        if item in csv_path:
-            print("exluded - ", item)
-            is_excluded = True
+    is_excluded = any(item in csv_path for item in excluded_files)
+    if is_excluded:
+        print("> excluded:", csv_path.split('/')[-1])
     return is_excluded
 
 
@@ -184,7 +212,7 @@ def process_resources(
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
-            return
+            continue
         # regex_infos looks like this: {'DEP': '07', 'AAAAMM': 'latest-2023-2024'} (for BASE/MENS)
         regex_infos = get_regex_infos(
             config[dataset_name]["source_pattern"],
@@ -229,48 +257,53 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
         csv_path = unzip_csv_gz(file_path)
-        #old_file = str(file_path).replace(".csv", "_old.csv")
-        #unzip_csv_gz(old_file)
+        if is_excluded(csv_path):
+            return
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
         try:
-            if not excluded_files(csv_path):
-                diff = get_diff(
-                    _conn=_conn,
-                    csv_path=csv_path,
-                    regex_infos=regex_infos,
-                    table=table_name,
-                )
-                delete_and_insert_into_pg(
-                    _conn=_conn,
-                    diff=diff,
-                    regex_infos=regex_infos,
-                    table=table_name,
-                    csv_path=csv_path,
-                )
-                _conn.commit()
+            diff = get_diff(
+                _conn=_conn,
+                csv_path=csv_path,
+                regex_infos=regex_infos,
+                table=table_name,
+            )
+            delete_and_insert_into_pg(
+                _conn=_conn,
+                diff=diff,
+                regex_infos=regex_infos,
+                table=table_name,
+                csv_path=csv_path,
+            )
 
-                minio_meteo.send_files(
-                    list_files=[
-                        {
-                            "source_path": "/".join(csv_path.split("/")[:-1]),
-                            "source_name": csv_path.split("/")[-1],
-                            "dest_path": "synchro_pg/" + "/".join(resource["url"].split("data/synchro_ftp/")[1].split("/")[:-1]) + "/",
-                            "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
-                        }
-                    ],
-                    ignore_airflow_env=True
-                )
+            minio_meteo.send_files(
+                list_files=[
+                    {
+                        # source can be hooked file name
+                        "source_path": "/".join(csv_path.split("/")[:-1]),
+                        "source_name": csv_path.split("/")[-1],
+                        # but destination has to be the real file name
+                        "dest_path": (
+                            "synchro_pg/"
+                            + "/".join(resource["url"].split("synchro_ftp/")[1].split("/")[:-1])
+                            + "/"
+                        ),
+                        "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
+                    }
+                ],
+                ignore_airflow_env=True
+            )
 
-                # deleting if everything was successful, so that we can check content otherwise
-                parent = file_path.parent.as_posix()
-                for file in os.listdir(parent):
-                    os.remove(f"{parent}/{file}")
-                print("=> Completed work for:", regex_infos["name"])
+            # deleting if everything was successful, so that we can check content otherwise
+            parent = file_path.parent.as_posix()
+            for file in os.listdir(parent):
+                os.remove(f"{parent}/{file}")
+            print("=> Completed work for:", regex_infos["name"])
+            _conn.commit()
         except Exception as e:
             _conn.rollback()
-            print(f"An error occurred: {e}")
+            print(f"/!\ An error occurred: {e}")
             print("Transaction rolled back.")
             raise
         finally:
@@ -289,21 +322,13 @@ def get_regex_infos(pattern, filename, params):
 def download_resource(res, dataset):
     if dataset == "BASE/QUOT":
         if "Vent" in res['title']:
-            file_path = (
-                f"{DATADIR}{config[dataset]['table_name'] + '_vent'}"
-                f"/{res['title']}.{res['format']}"
-            )
+            file_path = f"{DATADIR}{config[dataset]['table_name'] + '_vent'}/"
         else:
-            file_path = (
-                f"{DATADIR}{config[dataset]['table_name'] + '_autres'}"
-                f"/{res['title']}.{res['format']}"
-            )
+            file_path = f"{DATADIR}{config[dataset]['table_name'] + '_autres'}/"
     else:
-        file_path = (
-            f"{DATADIR}{config[dataset]['table_name']}"
-            f"/{res['title']}.{res['format']}"
-        )
-    file_path = Path(file_path)
+        file_path = f"{DATADIR}{config[dataset]['table_name']}/"
+    file_name = get_hooked_name(res["url"].split('/')[-1])
+    file_path = Path(file_path + file_name)
     download_files([{
         "url": res["url"],
         "dest_path": file_path.parent.as_posix(),
@@ -317,9 +342,11 @@ def download_resource(res, dataset):
             "dest_name": old_file,
         }], timeout=TIMEOUT)
     except:
-        print("not existing file in postgres mirror, creating one empty")
-        df = pd.read_csv(file_path, nrows=0)
-        df.to_csv(str(file_path).replace(".csv.gz", "_old.csv"), index=False)
+        print("> This file is not in postgres mirror, creating an empty one for diff")
+        with open(file_path, "r") as f:
+            columns = f.readline()
+        with open(str(file_path).replace(".csv", "_old.csv"), "w") as f:
+            f.write(columns)
     return file_path
 
 
@@ -338,44 +365,46 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         old_file = csv_path.replace(".csv", "_old.csv")
         additions_file = csv_path.replace(".csv", "_additions.csv")
         deletions_file = csv_path.replace(".csv", "_deletions.csv")
-        is_additions = False
+        has_additions = False
 
         with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
             new_header = new_file.readline()
             old_header = old_file.readline()
 
-            new_lines = set(new_file)
-            old_lines = set(old_file)
+            # removing carriage return so that if the last row doesn't have one
+            # it'll not be considered new when data is appended
+            new_lines = set(r.replace("\n", "") for r in new_file)
+            old_lines = set(r.replace("\n", "") for r in old_file)
 
         with open(additions_file, 'w') as outFile:
             outFile.write(new_header.strip() + ";DEP\n")
             for line in new_lines:
                 if line not in old_lines:
-                    is_additions = True
+                    has_additions = True
                     outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
 
         with open(deletions_file, 'w') as outFile:
-            outFile.write(old_header)
+            outFile.write(old_header + "\n")
             for line in old_lines:
                 if line not in new_lines:
-                    outFile.write(line)
-        return is_additions
+                    outFile.write(line + "\n")
+        return has_additions
 
-    def _build_deletions(csv_path):
+    def _build_deletions(csv_path, column_types: dict):
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
-        df = pd.read_csv(csv_path.replace(".csv", "_deletions.csv"))
-        nb_deletions = df.shape[0]
-        print(f"-> deleting {nb_deletions} rows")
-        # if (nb_deletions - nb_rows) / nb_rows > 0.5:
-        #     raise ValueError("Was going to delete more than half of the table, aborting")
-        for index, row in df.iterrows():
-            yield [
-                (item, row[item]) for item in row.to_dict()
-                if item.lower() == "num_poste" or item.lower().startswith("aaaa")
-            ]
+        print(f'> Deleting {count_lines_in_file(csv_path.replace(".csv", "_deletions.csv"))} rows...')
+        with open(csv_path.replace(".csv", "_deletions.csv"), "r") as f:
+            reader = csv.reader(f, delimiter=";")
+            column_names = next(reader)
+            for row in reader:
+                yield [
+                    (col_name, column_types[col_name.lower()](value))
+                    for value, col_name in zip(row, column_names)
+                    if col_name.lower() == "num_poste" or col_name.lower().startswith("aaaa")
+                ]
 
-    def build_modifs(_conn, csv_path: str, table_name: str, dep: str):
+    def build_modifs(_conn, csv_path: str, table_name: str):
         cursor = _conn.cursor()
         cursor.execute(
             "SELECT column_name, data_type FROM information_schema.columns "
@@ -386,92 +415,32 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         columns = {
             c[0]: type_mapping[c[1]] for c in columns
         }
-        deletions = _build_deletions(csv_path)
+        deletions = _build_deletions(csv_path, columns)
         return deletions
 
-    # getting columns for the query, as we can't SELECT * EXCEPT(dep)
-    with open(csv_path, 'r') as f:
-        reader = csv.reader(f, delimiter=';')
-        columns = next(reader)
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-
-    is_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
-    return is_additions, build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
-
-
-def fix_lat_lon(row, lat_lon_idx):
-    # latitude and longitude always have 6 decimal digits in source files, even if last ones are zeros
-    # in this case they are truncated when returned from postgres, e.g: 5.669000 => 5.669
-    # but the rows should be considered identical
-    return [
-        v if idx not in lat_lon_idx
-        else str(v) + "0" * (6 - len(str(v).split(".")[-1]))
-        for idx, v in enumerate(row)
-    ]
-
-
-def fix_rr(row, rr_idx):
-    # similarly, RR in minute data should have 3 decimal digits but only has one (and zeros)
-    return [
-        v if idx != rr_idx
-        else v if v is None
-        else str(v) + "0" * (3 - len(str(v).split(".")[-1]))
-        for idx, v in enumerate(row)
-    ]
-
-
-def build_query_filters(regex_infos: dict):
-    filters = ""
-    for param, value in regex_infos["regex_infos"].items():
-        split_pv = clean_hooks(value).split("-")
-        if len(split_pv) > 1:
-            lowest_period = split_pv[0]
-            highest_period = str(int(split_pv[1]) + 1)
-            filters += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
-        else:
-            filters += f"AND {param} = '{value}' "
-    return filters
+    has_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
+    return has_additions, build_modifs(_conn, csv_path, table_name)
 
 
 def delete_and_insert_into_pg(_conn, diff, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-    is_additions, deletions = diff
+    has_additions, deletions = diff
     delete_old_data(_conn, table_name, deletions)
-
-    if is_additions: 
+    if has_additions:
         load_new_data(_conn, table_name, csv_path)
-
-
-def load_whole_file(_conn, table_name, csv_path, regex_infos):
-    with open(csv_path, 'r') as f:
-        reader = csv.reader(f, delimiter=';')
-        columns = next(reader)
-        columns.append('DEP')
-        # Temporary file to hold the modified CSV data (we're adding departement column)
-        temp_csv_path = csv_path + '.temp'
-        with open(temp_csv_path, 'w', newline='') as temp_f:
-            writer = csv.writer(temp_f, delimiter=';')
-            writer.writerow(columns)
-            for row in reader:
-                row = [None if val == '' else val for val in row]
-                row.append(regex_infos["regex_infos"]["DEP"])
-                writer.writerow(row)
-    cursor = _conn.cursor()
-    with open(temp_csv_path, 'r') as f:
-        cursor.copy_expert(
-            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
-            f
-        )
-    cursor.close()
 
 
 def count_lines_in_file(file_path):
     with open(file_path, 'r') as file:
-        line_count = sum(1 for _ in file)
+        # skip header
+        file.readline()
+        line_count = sum(1 for _ in file if _ and _ != "\n")
     return line_count
 
 
 def load_new_data(_conn, table_name, csv_path):
+    print(f'> Inserting {count_lines_in_file(csv_path.replace(".csv", "_additions.csv"))} rows...')
     cursor = _conn.cursor()
     with open(csv_path.replace(".csv", "_additions.csv"), 'r') as f:
         cursor.copy_expert(
@@ -479,7 +448,6 @@ def load_new_data(_conn, table_name, csv_path):
             f
         )
     cursor.close()
-    print("-> LOAD OK:", table_name, count_lines_in_file(csv_path.replace(".csv", "_additions.csv")), " rows")
 
 
 def delete_old_data(_conn, table_name, deletions):
@@ -487,18 +455,18 @@ def delete_old_data(_conn, table_name, deletions):
     query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 2"
     skip = True
     for row in deletions:
-        skip = False
-        filters = []
-        for name, value in row:
-            filters.append(f"{name}='{value}'")
-        query += f' OR ({" AND ".join(filters)})'
+        if row:
+            skip = False
+            filters = []
+            for name, value in row:
+                filters.append(f"{name}='{value}'")
+            query += f' OR ({" AND ".join(filters)})'
     # print(query)
     if skip:
         return
     cursor = _conn.cursor()
     cursor.execute(query)
     cursor.close()
-    # print("-> DEL OK:", table_name)
 
 
 def drop_indexes(conn, table_name):
@@ -543,30 +511,3 @@ def insert_latest_date_pg(ti):
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
         SCHEMA_NAME,
     )
-
-
-def set_max_date(ti):
-    latest_processed_date = ti.xcom_pull(
-        key="latest_processed_date",
-        task_ids="retrieve_latest_processed_date"
-    )
-    latest_ftp_processing = ti.xcom_pull(
-        key="latest_ftp_processing",
-        task_ids="get_latest_ftp_processing"
-    )
-    dates = None
-    if not latest_processed_date:
-        # Process everything
-        new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    else:
-        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
-            raise ValueError(
-                "You may want to check what is in the 'dag_processed' table"
-            )
-        # Process subset
-        dates = [item for item in latest_ftp_processing if item != 'latest_update']
-        dates = [item for item in dates if item >= latest_processed_date]
-        new_latest_date = max(dates)
-
-    ti.xcom_push(key="new_latest_date", value=new_latest_date)
-    ti.xcom_push(key="dates", value=dates)
