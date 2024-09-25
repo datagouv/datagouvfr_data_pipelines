@@ -149,6 +149,7 @@ def download_data(ti, dataset_name):
         dates=dates,
     )
 
+
 def excluded_files(csv_path):
     is_excluded = False
     excluded_files = [
@@ -352,7 +353,6 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 if line not in old_lines:
                     is_additions = True
                     outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
-                
 
         with open(deletions_file, 'w') as outFile:
             outFile.write(old_header)
@@ -360,7 +360,6 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 if line not in new_lines:
                     outFile.write(line)
         return is_additions
-    
 
     def _build_deletions(csv_path):
         # deletions will be a list of lists of tuples (column_name, typed value)
@@ -372,9 +371,9 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         #     raise ValueError("Was going to delete more than half of the table, aborting")
         for index, row in df.iterrows():
             yield [
-                (item, row[item]) for item in row.to_dict() if item.lower() == "num_poste" or item.lower().startswith("aaaa")
+                (item, row[item]) for item in row.to_dict()
+                if item.lower() == "num_poste" or item.lower().startswith("aaaa")
             ]
-
 
     def build_modifs(_conn, csv_path: str, table_name: str, dep: str):
         cursor = _conn.cursor()
@@ -395,7 +394,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         reader = csv.reader(f, delimiter=';')
         columns = next(reader)
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-    
+
     is_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
     return is_additions, build_modifs(_conn, csv_path, table_name, regex_infos["regex_infos"]["DEP"])
 
@@ -464,6 +463,7 @@ def load_whole_file(_conn, table_name, csv_path, regex_infos):
             f
         )
     cursor.close()
+
 
 def count_lines_in_file(file_path):
     with open(file_path, 'r') as file:
@@ -567,6 +567,6 @@ def set_max_date(ti):
         dates = [item for item in latest_ftp_processing if item != 'latest_update']
         dates = [item for item in dates if item >= latest_processed_date]
         new_latest_date = max(dates)
-    
+
     ti.xcom_push(key="new_latest_date", value=new_latest_date)
     ti.xcom_push(key="dates", value=dates)
