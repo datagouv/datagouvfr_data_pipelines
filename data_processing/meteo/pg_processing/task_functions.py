@@ -16,6 +16,7 @@ from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
@@ -280,23 +281,24 @@ def process_resources(
                 csv_path=csv_path,
             )
 
-            minio_meteo.send_files(
-                list_files=[
-                    {
-                        # source can be hooked file name
-                        "source_path": "/".join(csv_path.split("/")[:-1]),
-                        "source_name": csv_path.split("/")[-1],
-                        # but destination has to be the real file name
-                        "dest_path": (
-                            "synchro_pg/"
-                            + "/".join(resource["url"].split("synchro_ftp/")[1].split("/")[:-1])
-                            + "/"
-                        ),
-                        "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
-                    }
-                ],
-                ignore_airflow_env=True
-            )
+            if AIRFLOW_ENV == "prod":
+                minio_meteo.send_files(
+                    list_files=[
+                        {
+                            # source can be hooked file name
+                            "source_path": "/".join(csv_path.split("/")[:-1]),
+                            "source_name": csv_path.split("/")[-1],
+                            # but destination has to be the real file name
+                            "dest_path": (
+                                "synchro_pg/"
+                                + "/".join(resource["url"].split("synchro_ftp/")[1].split("/")[:-1])
+                                + "/"
+                            ),
+                            "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
+                        }
+                    ],
+                    ignore_airflow_env=True
+                )
 
             # deleting if everything was successful, so that we can check content otherwise
             parent = file_path.parent.as_posix()
