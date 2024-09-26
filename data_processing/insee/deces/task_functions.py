@@ -66,19 +66,26 @@ def build_year_month(period):
     return f"{month} {year}"
 
 
+def reshape_date(date_no_dash):
+    year = date_no_dash[:4]
+    month = date_no_dash[4:6]
+    day = date_no_dash[6:8]
+    return f"{year}-{month}-{day}"
+
+
 def get_fields(row):
     nom_prenom = row[:80].strip()
     d = {
         "nom": nom_prenom.split("*")[0],
         "prenoms": nom_prenom.split("*")[1].replace('/', '').replace(' ', ','),
         "sexe": row[80].replace('1', 'M').replace('2', 'F'),
-        "date_naissance": row[81:89],
+        "date_naissance": reshape_date(row[81:89]),
         "code_insee_naissance": row[89:94],
         "commune_naissance": row[94:124].strip(),
         # quite some issues in the countries, maybe a cleaning func?
         # or do we want to stick to the original?
         "pays_naissance": row[124:154].strip() or 'FRANCE METROPOLITAINE',
-        "date_deces": row[154:162],
+        "date_deces": reshape_date(row[154:162]),
         "code_insee_deces": row[162:167],
         "numero_acte_deces": row[167:176].strip(),
     }
@@ -125,7 +132,6 @@ def gather_data(ti):
     df_opposition["opposition"] = True
 
     errors = []
-    columns = {}
     for idx, (origin, rurl) in enumerate(urls.items()):
         data = []
         print(f'Proccessing {origin}')
@@ -154,15 +160,27 @@ def gather_data(ti):
             mode="w" if idx == 0 else "a",
             header=idx == 0,
         )
-        if idx == 0:
-            columns = df.columns
         del df
     print(f"> {len(errors)} erreur(s)")
     # conversion to parquet, all columns are considered strings by default which is fine
+    dtype = {
+        "nom": "VARCHAR",
+        "prenoms": "VARCHAR",
+        "sexe": "VARCHAR",
+        "date_naissance": "DATE",
+        "code_insee_naissance": "VARCHAR",
+        "commune_naissance": "VARCHAR",
+        "pays_naissance": "VARCHAR",
+        "date_deces": "DATE",
+        "code_insee_deces": "VARCHAR",
+        "numero_acte_deces": "VARCHAR",
+        "fichier_origine": "VARCHAR",
+        "opposition": "BOOLEAN",
+    }
     csv_to_parquet(
         DATADIR + '/deces.csv',
         sep=',',
-        columns=columns,
+        dtype=dtype,
     )
 
     ti.xcom_push(key="min_date", value=min(urls.keys()))
