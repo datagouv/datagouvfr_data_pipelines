@@ -79,13 +79,13 @@ def get_fields(row):
         "nom": nom_prenom.split("*")[0],
         "prenoms": nom_prenom.split("*")[1].replace('/', '').replace(' ', ','),
         "sexe": row[80].replace('1', 'M').replace('2', 'F'),
-        "date_naissance": reshape_date(row[81:89]),
+        "date_naissance": row[81:89],
         "code_insee_naissance": row[89:94],
         "commune_naissance": row[94:124].strip(),
         # quite some issues in the countries, maybe a cleaning func?
         # or do we want to stick to the original?
         "pays_naissance": row[124:154].strip() or 'FRANCE METROPOLITAINE',
-        "date_deces": reshape_date(row[154:162]),
+        "date_deces": row[154:162],
         "code_insee_deces": row[162:167],
         "numero_acte_deces": row[167:176].strip(),
     }
@@ -162,16 +162,17 @@ def gather_data(ti):
         )
         del df
     print(f"> {len(errors)} erreur(s)")
-    # conversion to parquet, all columns are considered strings by default which is fine
+    # conversion to parquet, opposition is a boolean, dates should be dates but
+    # partially missing ones are uncastable (e.g 1950-00-12)
     dtype = {
         "nom": "VARCHAR",
         "prenoms": "VARCHAR",
         "sexe": "VARCHAR",
-        "date_naissance": "DATE",
+        "date_naissance": "VARCHAR",
         "code_insee_naissance": "VARCHAR",
         "commune_naissance": "VARCHAR",
         "pays_naissance": "VARCHAR",
-        "date_deces": "DATE",
+        "date_deces": "VARCHAR",
         "code_insee_deces": "VARCHAR",
         "numero_acte_deces": "VARCHAR",
         "fichier_origine": "VARCHAR",
