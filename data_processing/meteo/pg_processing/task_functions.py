@@ -271,7 +271,7 @@ def process_resources(
                 count_lines_in_file(build_deletions_file_name(csv_path)) == 0
                 and count_lines_in_file(build_additions_file_name(csv_path)) == 0
             ):
-                return
+                continue
             delete_and_insert_into_pg(
                 _conn=_conn,
                 deletions=deletions,
@@ -375,14 +375,14 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             old_file.readline()
             # removing carriage return so that if the last row doesn't have one
             # it'll not be considered new when data is appended
-            new_lines = set()
-            for r in new_file:
-                if _filter is None or r.startswith(dep + _filter):
-                    new_lines.add(r.replace("\n", ""))
-            old_lines = set()
-            for r in new_file:
-                if _filter is None or r.startswith(dep + _filter):
-                    old_lines.add(r.replace("\n", ""))
+            new_lines = set(
+                r.replace("\n", "") for r in new_file
+                if _filter is None or r.startswith(dep + _filter)
+            )
+            old_lines = set(
+                r.replace("\n", "") for r in old_file
+                if _filter is None or r.startswith(dep + _filter)
+            )
 
         with open(additions_file, 'a') as outFile:
             for line in new_lines:
