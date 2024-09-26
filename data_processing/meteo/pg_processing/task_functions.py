@@ -390,7 +390,17 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                     outFile.write(line + "\n")
         return has_additions
 
-    def _build_deletions(csv_path, column_types: dict):
+    def _build_deletions(_conn, csv_path: str, table_name: str):
+        cursor = _conn.cursor()
+        cursor.execute(
+            "SELECT column_name, data_type FROM information_schema.columns "
+            f"WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
+        )
+        columns = cursor.fetchall()
+        cursor.close()
+        column_types = {
+            c[0]: type_mapping[c[1]] for c in columns
+        }
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
         print(f'> Deleting {count_lines_in_file(csv_path.replace(".csv", "_deletions.csv"))} rows...')
@@ -404,23 +414,9 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                     if col_name.lower() == "num_poste" or col_name.lower().startswith("aaaa")
                 ]
 
-    def build_modifs(_conn, csv_path: str, table_name: str):
-        cursor = _conn.cursor()
-        cursor.execute(
-            "SELECT column_name, data_type FROM information_schema.columns "
-            f"WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
-        )
-        columns = cursor.fetchall()
-        cursor.close()
-        columns = {
-            c[0]: type_mapping[c[1]] for c in columns
-        }
-        deletions = _build_deletions(csv_path, columns)
-        return deletions
-
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     has_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
-    return has_additions, build_modifs(_conn, csv_path, table_name)
+    return has_additions, _build_deletions(_conn, csv_path, table_name)
 
 
 def delete_and_insert_into_pg(_conn, diff, regex_infos, table, csv_path):
