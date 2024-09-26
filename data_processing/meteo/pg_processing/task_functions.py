@@ -269,6 +269,12 @@ def process_resources(
                 regex_infos=regex_infos,
                 table=table_name,
             )
+            # skipping if no diff
+            if (
+                count_lines_in_file(csv_path.replace(".csv", "_deletions.csv")) == 0
+                and count_lines_in_file(csv_path.replace(".csv", "_additions.csv")) == 0
+            ):
+                return
             delete_and_insert_into_pg(
                 _conn=_conn,
                 diff=diff,
