@@ -59,19 +59,20 @@ type_mapping = {
 }
 
 DEPIDS = [
-    '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
-    '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-    '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
-    '31', '32', '33', '34', '35', '36', '37', '38', '39', '40',
-    '41', '42', '43', '44', '45', '46', '47', '48', '49', '50',
-    '51', '52', '53', '54', '55', '56', '57', '58', '59', '60',
-    '61', '62', '63', '64', '65', '66', '67', '68', '69', '70',
-    '71', '72', '73', '74', '75', '76', '77', '78', '79', '80',
-    '81', '82', '83', '84', '85', '86', '87', '88', '89', '90',
-    '91', '92', '93', '94', '95',
-    '971', '972', '973', '974', '975',
-    '984', '985', '986', '987', '988',
-    '99',
+    '01', '02', '03', '04', '05', 
+    # '06', '07', '08', '09', '10',
+    # '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+    # '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
+    # '31', '32', '33', '34', '35', '36', '37', '38', '39', '40',
+    # '41', '42', '43', '44', '45', '46', '47', '48', '49', '50',
+    # '51', '52', '53', '54', '55', '56', '57', '58', '59', '60',
+    # '61', '62', '63', '64', '65', '66', '67', '68', '69', '70',
+    # '71', '72', '73', '74', '75', '76', '77', '78', '79', '80',
+    # '81', '82', '83', '84', '85', '86', '87', '88', '89', '90',
+    # '91', '92', '93', '94', '95',
+    # '971', '972', '973', '974', '975',
+    # '984', '985', '986', '987', '988',
+    # '99',
 ]
 
 
@@ -83,6 +84,18 @@ def get_hooked_name(file_name):
         if hooked:
             return file_name.replace(hooked[0], hook)
     return file_name
+
+
+def build_old_file_name(file_name):
+    return file_name.replace(".csv", "_old.csv")
+
+
+def build_additions_file_name(file_name):
+    return file_name.replace(".csv", "_additions.csv")
+
+
+def build_deletions_file_name(file_name):
+    return file_name.replace(".csv", "_deletions.csv")
 
 
 # %%
@@ -121,6 +134,7 @@ def retrieve_latest_processed_date(ti):
         "SELECT MAX(processed) FROM dag_processed;",
         SCHEMA_NAME,
     )
+    data = [{'max': '2024-09-25'}]
     print(data)
     ti.xcom_push(key="latest_processed_date", value=data[0]["max"])
 
@@ -178,19 +192,6 @@ def download_data(ti, dataset_name):
         latest_ftp_processing=latest_ftp_processing,
         dates=dates,
     )
-
-
-def is_excluded(csv_path):
-    excluded_files = [
-        "MIN_departement_974_periode_2000-2009.csv",
-        "MIN_departement_974_periode_2010-2019.csv",
-        "MIN_departement_988_periode_2000-2009.csv",
-        "MIN_departement_988_periode_2010-2019.csv",
-    ]
-    is_excluded = any(item in csv_path for item in excluded_files)
-    if is_excluded:
-        print("> excluded:", csv_path.split('/')[-1])
-    return is_excluded
 
 
 def fetch_resources(dataset):
@@ -257,13 +258,11 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
         csv_path = unzip_csv_gz(file_path)
-        if is_excluded(csv_path):
-            return
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
         try:
-            diff = get_diff(
+            deletions = get_diff(
                 _conn=_conn,
                 csv_path=csv_path,
                 regex_infos=regex_infos,
@@ -271,13 +270,13 @@ def process_resources(
             )
             # skipping if no diff
             if (
-                count_lines_in_file(csv_path.replace(".csv", "_deletions.csv")) == 0
-                and count_lines_in_file(csv_path.replace(".csv", "_additions.csv")) == 0
+                count_lines_in_file(build_deletions_file_name(csv_path)) == 0
+                and count_lines_in_file(build_additions_file_name(csv_path)) == 0
             ):
                 return
             delete_and_insert_into_pg(
                 _conn=_conn,
-                diff=diff,
+                deletions=deletions,
                 regex_infos=regex_infos,
                 table=table_name,
                 csv_path=csv_path,
@@ -351,7 +350,7 @@ def download_resource(res, dataset):
         print("> This file is not in postgres mirror, creating an empty one for diff")
         with open(file_path, "r") as f:
             columns = f.readline()
-        with open(str(file_path).replace(".csv", "_old.csv"), "w") as f:
+        with open(build_old_file_name(str(file_path)), "w") as f:
             f.write(columns)
     return file_path
 
@@ -367,34 +366,35 @@ def unzip_csv_gz(file_path):
 
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
-    def run_diff(csv_path: str, regex_infos):
-        old_file = csv_path.replace(".csv", "_old.csv")
-        additions_file = csv_path.replace(".csv", "_additions.csv")
-        deletions_file = csv_path.replace(".csv", "_deletions.csv")
-        has_additions = False
+    def run_diff(csv_path: str, dep: str, _filter=None):
+        old_file = build_old_file_name(csv_path)
+        additions_file = build_additions_file_name(csv_path)
+        deletions_file = build_deletions_file_name(csv_path)
 
         with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
-            new_header = new_file.readline()
-            old_header = old_file.readline()
-
+            # skipping headers
+            new_file.readline()
+            old_file.readline()
             # removing carriage return so that if the last row doesn't have one
             # it'll not be considered new when data is appended
-            new_lines = set(r.replace("\n", "") for r in new_file)
-            old_lines = set(r.replace("\n", "") for r in old_file)
+            new_lines = set()
+            for r in new_file:
+                if _filter is None or r.startswith(dep + _filter):
+                    new_lines.add(r.replace("\n", ""))
+            old_lines = set()
+            for r in new_file:
+                if _filter is None or r.startswith(dep + _filter):
+                    old_lines.add(r.replace("\n", ""))
 
-        with open(additions_file, 'w') as outFile:
-            outFile.write(new_header.strip() + ";DEP\n")
+        with open(additions_file, 'a') as outFile:
             for line in new_lines:
                 if line not in old_lines:
-                    has_additions = True
-                    outFile.write(line.strip() + ";" + regex_infos["regex_infos"]["DEP"] + "\n")
+                    outFile.write(line.strip() + f";{dep}\n")
 
-        with open(deletions_file, 'w') as outFile:
-            outFile.write(old_header + "\n")
+        with open(deletions_file, 'a') as outFile:
             for line in old_lines:
                 if line not in new_lines:
                     outFile.write(line + "\n")
-        return has_additions
 
     def _build_deletions(_conn, csv_path: str, table_name: str):
         cursor = _conn.cursor()
@@ -409,8 +409,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         }
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
-        print(f'> Deleting {count_lines_in_file(csv_path.replace(".csv", "_deletions.csv"))} rows...')
-        with open(csv_path.replace(".csv", "_deletions.csv"), "r") as f:
+        with open(build_deletions_file_name(csv_path), "r") as f:
             reader = csv.reader(f, delimiter=";")
             column_names = next(reader)
             for row in reader:
@@ -421,15 +420,41 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 ]
 
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-    has_additions = run_diff(csv_path=csv_path, regex_infos=regex_infos)
-    return has_additions, _build_deletions(_conn, csv_path, table_name)
+    # creating empty additions and deletions files, we'll fill them up
+    old_file = build_old_file_name(csv_path)
+    additions_file = build_additions_file_name(csv_path)
+    deletions_file = build_deletions_file_name(csv_path)
+    with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
+        header = new_file.readline()
+        old_header = old_file.readline()
+        # if header != old_header:
+        #     raise ValueError("New and old headers differ:", header, "vs", old_header)
+        with open(additions_file, 'w') as outFile:
+            outFile.write(header.strip() + ";DEP\n")
+        with open(deletions_file, 'w') as outFile:
+            outFile.write(header.strip() + "\n")
+
+    # if MIN or HOR: files are too big to be handled at once, we build the diff iteratively
+    if any(_ in csv_path for _ in ['MN_', 'H_']):
+        print("> Building diff in batches...")
+        for k in range(0, 10):
+            run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=str(k))
+    # for other files it's fine to build diff on the whole file
+    else:
+        run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"])
+
+    return _build_deletions(_conn, csv_path, table_name)
 
 
-def delete_and_insert_into_pg(_conn, diff, regex_infos, table, csv_path):
+def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
-    has_additions, deletions = diff
-    delete_old_data(_conn, table_name, deletions)
-    if has_additions:
+    nb_add = count_lines_in_file(build_additions_file_name(csv_path))
+    nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
+    if nb_del:
+        print(f'> Deleting {nb_del} rows...')
+        delete_old_data(_conn, table_name, deletions)
+    if nb_add:
+        print(f'> Inserting {nb_add} rows...')
         load_new_data(_conn, table_name, csv_path)
 
 
@@ -442,9 +467,8 @@ def count_lines_in_file(file_path):
 
 
 def load_new_data(_conn, table_name, csv_path):
-    print(f'> Inserting {count_lines_in_file(csv_path.replace(".csv", "_additions.csv"))} rows...')
     cursor = _conn.cursor()
-    with open(csv_path.replace(".csv", "_additions.csv"), 'r') as f:
+    with open(build_additions_file_name(csv_path), 'r') as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
             f
