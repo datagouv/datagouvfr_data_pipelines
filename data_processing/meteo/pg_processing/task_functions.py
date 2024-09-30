@@ -235,7 +235,7 @@ def process_resources(
                         ""
                     ) in files
                 ):
-                    file_path = download_resource(resource, dataset_name)
+                    file_path, csv_path = download_resource(resource, dataset_name)
                     # this file has been updated at least once since last check, it will be processd
                     # no need to check other dates
                     break
@@ -245,7 +245,7 @@ def process_resources(
                 continue
         else:
             # no latest processing date => processing every file
-            file_path = download_resource(resource, dataset_name)
+            file_path, csv_path = download_resource(resource, dataset_name)
 
         if dataset_name == "BASE/QUOT":
             if "_autres" in file_path.name:
@@ -256,7 +256,7 @@ def process_resources(
             table_name = config[dataset_name]["table_name"]
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
-        csv_path = unzip_csv_gz(file_path)
+        #csv_path = unzip_csv_gz(file_path)
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
@@ -339,6 +339,7 @@ def download_resource(res, dataset):
         "dest_path": file_path.parent.as_posix(),
         "dest_name": file_path.name,
     }], timeout=TIMEOUT)
+    csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
         download_files([{
@@ -352,7 +353,7 @@ def download_resource(res, dataset):
             columns = f.readline()
         with open(build_old_file_name(str(file_path)), "w") as f:
             f.write(columns)
-    return file_path
+    return file_path, csv_path
 
 
 def unzip_csv_gz(file_path):
