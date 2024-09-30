@@ -351,7 +351,7 @@ def download_resource(res, dataset):
         print("> This file is not in postgres mirror, creating an empty one for diff")
         with open(csv_path, "r") as f:
             columns = f.readline()
-        with open(build_old_file_name(str(file_path)), "w") as f:
+        with open(build_old_file_name(str(csv_path)), "w") as f:
             f.write(columns)
     return file_path, csv_path
 
