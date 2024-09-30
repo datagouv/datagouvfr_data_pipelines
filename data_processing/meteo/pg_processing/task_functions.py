@@ -349,7 +349,7 @@ def download_resource(res, dataset):
         }], timeout=TIMEOUT)
     except:
         print("> This file is not in postgres mirror, creating an empty one for diff")
-        with open(file_path, "r") as f:
+        with open(csv_path, "r") as f:
             columns = f.readline()
         with open(build_old_file_name(str(file_path)), "w") as f:
             f.write(columns)
@@ -451,6 +451,8 @@ def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     nb_add = count_lines_in_file(build_additions_file_name(csv_path))
     nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
+    if nb_del > 150000:
+        raise ValueError(f"Was about to delete {str(nb_del)} rows... aborting")
     if nb_del:
         print(f'> Deleting {nb_del} rows...')
         delete_old_data(_conn, table_name, deletions)
