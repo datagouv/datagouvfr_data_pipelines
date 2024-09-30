@@ -256,10 +256,10 @@ def process_resources(
             table_name = config[dataset_name]["table_name"]
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
-        #csv_path = unzip_csv_gz(file_path)
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
+        _failed = False
         try:
             deletions = get_diff(
                 _conn=_conn,
@@ -299,19 +299,20 @@ def process_resources(
                     ],
                     ignore_airflow_env=True
                 )
-
-            # deleting if everything was successful, so that we can check content otherwise
-            parent = file_path.parent.as_posix()
-            for file in os.listdir(parent):
-                os.remove(f"{parent}/{file}")
             print("=> Completed work for:", regex_infos["name"])
             _conn.commit()
         except Exception as e:
+            _failed = True
             _conn.rollback()
             print(f"/!\ An error occurred: {e}")
             print("Transaction rolled back.")
             raise
         finally:
+            # deleting if everything was successful, so that we can check content otherwise
+            if not _failed:
+                parent = file_path.parent.as_posix()
+                for file in os.listdir(parent):
+                    os.remove(f"{parent}/{file}")
             _conn.close()
 
 
