@@ -192,7 +192,7 @@ def populate_copro_table():
         "Numéro d'immatriculation": "numero_immatriculation",
         "Type de syndic : bénévole / professionnel / non connu": "type_syndic",
         "Identification du représentant légal  (raison sociale et le numéro SIRET du syndic professionnel ou Civilité/prénom/ nom du syndic bénévole ou coopératif)": "identification_representant_legal",
-        "Siret représentant légal (si existe)": "siret_representant_legal",
+        "SIRET du représentant légal": "siret_representant_legal",
         "Code APE": "code_ape",
         "Commune du représentant légal": "commune_representant_legal",
         "Mandat en cours dans la copropriété": "mandat_en_cours_copropriete",
