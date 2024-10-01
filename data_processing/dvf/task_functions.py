@@ -239,18 +239,9 @@ def populate_copro_table():
         "Période de construction": "periode_construction",
         "Référence Cadastrale 1": "reference_cadastrale_1",
         "Code INSEE commune 1": "code_insee_commune_1",
-        "Préfixe 1": "prefixe_1",
-        "Section 1": "section_1",
-        "Numéro parcelle 1": "numero_parcelle_1",
         "Référence Cadastrale 2": "reference_cadastrale_2",
-        "Code INSEE commune 2": "code_insee_commune_2",
-        "Préfixe 2": "prefixe_2",
-        "Section 2": "section_2",
         "Numéro parcelle 2": "numero_parcelle_2",
         "Référence Cadastrale 3": "reference_cadastrale_3",
-        "Code INSEE commune 3": "code_insee_commune_3",
-        "Préfixe 3": "prefixe_3",
-        "Section 3": "section_3",
         "Numéro parcelle 3": "numero_parcelle_3",
         "Nombre de parcelles cadastrales": "nombre_parcelles_cadastrales",
         "nom_qp_2024": "nom_qp",
@@ -264,20 +255,6 @@ def populate_copro_table():
         usecols=mapping.keys()
     )
     copro = copro.rename(mapping, axis=1)
-    copro = copro.drop(columns=[
-        "code_insee_commune_1",
-        "prefixe_1",
-        "section_1",
-        "numero_parcelle_1",
-        "code_insee_commune_2",
-        "prefixe_2",
-        "section_2",
-        "numero_parcelle_2",
-        "code_insee_commune_3",
-        "prefixe_3",
-        "section_3",
-        "numero_parcelle_3",
-    ])
     mask = copro['commune'].str.len() == 5
     copro = copro.loc[mask]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
