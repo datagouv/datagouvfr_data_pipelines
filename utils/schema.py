@@ -928,8 +928,13 @@ def consolidate_data(
                             print(e)
 
                         try:
-                            # Remove potential blanks in column names
-                            df_r.columns = [c.replace(' ', '') for c in df_r.columns]
+                            # Remove potential blanks in column names, assert there's no duplicate
+                            df_r.columns = [
+                                c.replace(' ', '')
+                                if c.replace(' ', '') not in df_r.columns
+                                else c
+                                for c in df_r.columns
+                            ]
                             # Remove potential unwanted characters
                             # (eg https://www.data.gouv.fr/fr/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
                             for c in df_r.columns:
@@ -974,6 +979,11 @@ def consolidate_data(
                                     df_r_list += [df_r]
                                 else:
                                     print('This file is missing required columns: ', file_path)
+                                    print(">", [
+                                        rq_col
+                                        for rq_col in version_required_cols_list
+                                        if rq_col not in df_r.columns
+                                    ])
                                     df_ref.loc[
                                         (df_ref["resource_id"] == row["resource_id"]),
                                         "columns_issue",
