@@ -67,6 +67,7 @@ SPAM_WORDS = [
     'B2B',
     'documents legaux',
     'entrepreneur',
+    'visa',
 ]
 
 datagouv_session = requests.Session()
