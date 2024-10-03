@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MATTERMOST_DATAGOUV_DATAENG_TEST
+    MATTERMOST_TMPAPIGOUV
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}migration_apigouv"
@@ -23,7 +23,7 @@ GRIST_TOKEN = Variable.get("GRIST_APIGOUV_TOKEN", "metric")
 DATAGOUV_TOKEN = Variable.get("DEMO_DATAGOUV_SECRET_API_KEY")
 DATAGOUV_URL = "https://demo.data.gouv.fr"
 property_grist = "lien_datagouv_demo"
-doc_id = "2CDZb8Q41ZZE"
+doc_id = "fKtVwXxfqNfw"
 
 headers_grist = {
     'Authorization': 'Bearer ' + GRIST_TOKEN
@@ -241,7 +241,7 @@ def import_api_to_grist(ti):
             print(records)
             r2 = requests.post(api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records", headers=headers, json=records)
             print(r2.json())
-    
+    list_sources = [item for item in list_sources if item != "API XXX"]
     ti.xcom_push(key="list_sources", value=list_sources)
 
 def publish_api_to_datagouv():
@@ -363,8 +363,8 @@ def publish_mattermost(ti):
         list_sources_str += "- " + ls + "\n"
     if len(list_sources) > 0:
         send_message(
-            ":mega: Nouvelles APIs ajoutées au Grist \n - " + list_sources_str,
-            MATTERMOST_DATAGOUV_DATAENG_TEST
+            ":mega: @magali.bouvat Nouvelles APIs ajoutées au Grist (à la fin du tableur) \n" + list_sources_str,
+            MATTERMOST_TMPAPIGOUV
         )
         
 def is_valid_email(email):
