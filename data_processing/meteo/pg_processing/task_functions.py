@@ -454,10 +454,11 @@ def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     nb_add = count_lines_in_file(build_additions_file_name(csv_path))
     nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
-    if nb_del > 500000 :
-        nb_rows = count_lines_in_file(csv_path)
-        percent_del = (nb_rows - nb_del) / nb_rows * 100
-        raise ValueError(f"Was about to delete {str(nb_del)} rows ({percent_del}% of the table)... aborting")
+    threshold = 20000
+    if nb_del > threshold:
+        print(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole table...")
+        replace_whole_table(_conn, table_name, csv_path)
+        return
     if nb_del:
         print(f'> Deleting {nb_del} rows...')
         delete_old_data(_conn, table_name, deletions)
@@ -472,6 +473,22 @@ def count_lines_in_file(file_path):
         file.readline()
         line_count = sum(1 for _ in file if _ and _ != "\n")
     return line_count
+
+
+def replace_whole_table(_conn, table_name, csv_path):
+    print("> Truncating table...")
+    cursor = _conn.cursor()
+    cursor.execute(f"TRUNCATE TABLE {table_name}")
+    cursor.close()
+    nb_rows = count_lines_in_file(csv_path)
+    print(f"> Inserting whole file ({nb_rows} rows)...")
+    cursor = _conn.cursor()
+    with open(csv_path, 'r') as f:
+        cursor.copy_expert(
+            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+            f
+        )
+    cursor.close()
 
 
 def load_new_data(_conn, table_name, csv_path):
