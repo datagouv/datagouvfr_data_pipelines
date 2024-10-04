@@ -1,8 +1,8 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.operators.dummy import DummyOperator
-from airflow.sensors.external_task import ExternalTaskSensor
+# from airflow.operators.dummy import DummyOperator
+# from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
     set_max_date,
     download_data,
     insert_latest_date_pg,
+    send_notification,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg"
@@ -23,8 +24,8 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 
 
 default_args = {
-    'retries': 0,
-    'retry_delay': timedelta(minutes=5),
+    'retries': 1,
+    'retry_delay': timedelta(minutes=2),
 }
 
 DATASETS_TO_PROCESS = [
@@ -40,7 +41,7 @@ DATASETS_TO_PROCESS = [
 with DAG(
     dag_id=DAG_NAME,
     # a better scheduling would be "after the second run of ftp_processing is done", will investigate
-    schedule_interval=None,
+    schedule_interval="0 12 * * *",
     start_date=days_ago(1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=2000),
@@ -102,6 +103,11 @@ with DAG(
         python_callable=insert_latest_date_pg,
     )
 
+    send_notification = PythonOperator(
+        task_id='send_notification',
+        python_callable=send_notification,
+    )
+
     # clean_previous_outputs.set_upstream(ftp_waiting_room)
     create_tables_if_not_exists.set_upstream(clean_previous_outputs)
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
@@ -111,3 +117,5 @@ with DAG(
     for i in range(0, len(process_data)):
         process_data[i].set_upstream(set_max_date)
         insert_latest_date_pg.set_upstream(process_data[i])
+
+    send_notification.set_upstream(insert_latest_date_pg)

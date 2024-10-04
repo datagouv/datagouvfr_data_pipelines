@@ -24,6 +24,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
@@ -99,7 +100,8 @@ def build_deletions_file_name(file_name):
 
 
 # %%
-def create_tables_if_not_exists():
+def create_tables_if_not_exists(ti):
+    ti.xcom_push(key="start", value=datetime.now())
     file_loader = FileSystemLoader(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/")
     env = Environment(loader=file_loader)
     template = env.get_template('create.sql.jinja')
@@ -552,4 +554,13 @@ def insert_latest_date_pg(ti):
         conn.password,
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
         SCHEMA_NAME,
+    )
+
+
+# %%
+def send_notification(ti):
+    start = ti.xcom_pull(key="start", task_ids="create_tables_if_not_exists")
+    duration = timedelta(seconds=int((datetime.now() - start).total_seconds()))
+    send_message(
+        text=f"##### 🌦️ Données météo mises à jour dans postgres en {duration}"
     )
