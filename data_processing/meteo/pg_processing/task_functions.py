@@ -486,6 +486,8 @@ def delete_old_data(_conn, table_name, deletions):
     # deletions is a list of lists of tuples (column_name, typed value)
     query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 2"
     skip = True
+    batch_size = 50
+    batch = 0
     for row in deletions:
         if row:
             skip = False
@@ -493,9 +495,19 @@ def delete_old_data(_conn, table_name, deletions):
             for name, value in row:
                 filters.append(f"{name}='{value}'")
             query += f' OR ({" AND ".join(filters)})'
+            batch += 1
+        # executing deletions in batches for safety
+        if batch == batch_size:
+            # print(query)
+            cursor = _conn.cursor()
+            cursor.execute(query)
+            cursor.close()
+            query = f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1 = 2"
+            batch = 0
     # print(query)
     if skip:
         return
+    # deleting the last batch
     cursor = _conn.cursor()
     cursor.execute(query)
     cursor.close()
