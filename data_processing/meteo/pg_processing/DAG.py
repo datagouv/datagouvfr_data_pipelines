@@ -4,7 +4,7 @@ from airflow.operators.python import PythonOperator
 # from airflow.operators.dummy import DummyOperator
 # from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.utils.dates import days_ago
-from datetime import timedelta
+from datetime import datetime, timedelta
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
@@ -41,8 +41,8 @@ DATASETS_TO_PROCESS = [
 with DAG(
     dag_id=DAG_NAME,
     # a better scheduling would be "after the second run of ftp_processing is done", will investigate
-    schedule_interval="0 12 * * *",
-    start_date=days_ago(1),
+    schedule_interval=None,
+    start_date=datetime(2024, 10, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=2000),
     tags=["data_processing", "meteo"],
