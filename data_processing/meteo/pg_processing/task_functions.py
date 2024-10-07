@@ -24,6 +24,7 @@ from datagouvfr_data_pipelines.utils.postgres import (
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
@@ -99,7 +100,8 @@ def build_deletions_file_name(file_name):
 
 
 # %%
-def create_tables_if_not_exists():
+def create_tables_if_not_exists(ti):
+    ti.xcom_push(key="start", value=datetime.now())
     file_loader = FileSystemLoader(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/")
     env = Environment(loader=file_loader)
     template = env.get_template('create.sql.jinja')
@@ -452,10 +454,11 @@ def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
     table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
     nb_add = count_lines_in_file(build_additions_file_name(csv_path))
     nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
-    if nb_del > 500000 :
-        nb_rows = count_lines_in_file(csv_path)
-        percent_del = (nb_rows - nb_del) / nb_rows * 100
-        raise ValueError(f"Was about to delete {str(nb_del)} rows ({percent_del}% of the table)... aborting")
+    threshold = 20000
+    if nb_del > threshold:
+        print(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole period...")
+        replace_whole_period(_conn, table_name, csv_path, regex_infos)
+        return
     if nb_del:
         print(f'> Deleting {nb_del} rows...')
         delete_old_data(_conn, table_name, deletions)
@@ -470,6 +473,37 @@ def count_lines_in_file(file_path):
         file.readline()
         line_count = sum(1 for _ in file if _ and _ != "\n")
     return line_count
+
+
+def clean_hooks(value: str):
+    return value.replace("latest-", "").replace("previous-", "")
+
+
+def build_query_filters(regex_infos: dict):
+    filters = ""
+    for param, value in regex_infos["regex_infos"].items():
+        split_pv = clean_hooks(value).split("-")
+        if len(split_pv) > 1:
+            lowest_period = split_pv[0]
+            highest_period = str(int(split_pv[1]) + 1)
+            filters += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
+        else:
+            filters += f"AND {param} = '{value}' "
+    return filters
+
+
+def replace_whole_period(_conn, table_name, csv_path, regex_infos):
+    print("> Deleting period...")
+    cursor = _conn.cursor()
+    cursor.execute(f"DELETE FROM {table_name} WHERE 1=1 " + build_query_filters(regex_infos))
+    nb_rows = count_lines_in_file(csv_path)
+    print(f"> Inserting whole file ({nb_rows} rows)...")
+    with open(csv_path, 'r') as f:
+        cursor.copy_expert(
+            f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
+            f
+        )
+    cursor.close()
 
 
 def load_new_data(_conn, table_name, csv_path):
@@ -554,4 +588,13 @@ def insert_latest_date_pg(ti):
         conn.password,
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
         SCHEMA_NAME,
+    )
+
+
+# %%
+def send_notification(ti):
+    start = ti.xcom_pull(key="start", task_ids="create_tables_if_not_exists")
+    duration = timedelta(seconds=int((datetime.now() - start).total_seconds()))
+    send_message(
+        text=f"##### 🌦️ Données météo mises à jour dans postgres en {duration}"
     )
