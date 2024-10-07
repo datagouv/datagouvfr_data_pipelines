@@ -456,8 +456,8 @@ def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
     nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
     threshold = 20000
     if nb_del > threshold:
-        print(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole table...")
-        replace_whole_table(_conn, table_name, csv_path)
+        print(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole period...")
+        replace_whole_period(_conn, table_name, csv_path, regex_infos)
         return
     if nb_del:
         print(f'> Deleting {nb_del} rows...')
@@ -475,14 +475,29 @@ def count_lines_in_file(file_path):
     return line_count
 
 
-def replace_whole_table(_conn, table_name, csv_path):
-    print("> Truncating table...")
+def clean_hooks(value: str):
+    return value.replace("latest-", "").replace("previous-", "")
+
+
+def build_query_filters(regex_infos: dict):
+    filters = ""
+    for param, value in regex_infos["regex_infos"].items():
+        split_pv = clean_hooks(value).split("-")
+        if len(split_pv) > 1:
+            lowest_period = split_pv[0]
+            highest_period = str(int(split_pv[1]) + 1)
+            filters += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
+        else:
+            filters += f"AND {param} = '{value}' "
+    return filters
+
+
+def replace_whole_period(_conn, table_name, csv_path, regex_infos):
+    print("> Deleting period...")
     cursor = _conn.cursor()
-    cursor.execute(f"TRUNCATE TABLE {table_name}")
-    cursor.close()
+    cursor.execute(f"DELETE FROM {table_name} WHERE 1=1 " + build_query_filters(regex_infos))
     nb_rows = count_lines_in_file(csv_path)
     print(f"> Inserting whole file ({nb_rows} rows)...")
-    cursor = _conn.cursor()
     with open(csv_path, 'r') as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
