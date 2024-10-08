@@ -486,7 +486,10 @@ def build_query_filters(regex_infos: dict):
         if len(split_pv) > 1:
             lowest_period = split_pv[0]
             highest_period = str(int(split_pv[1]) + 1)
-            filters += f"AND {param} >= '{lowest_period}' AND {param} < '{highest_period}'"
+            filters += (
+                f"AND substring({param}, 1, 4) >= '{lowest_period}' "
+                f"AND substring({param}, 1, 4) < '{highest_period}' "
+            )
         else:
             filters += f"AND {param} = '{value}' "
     return filters
