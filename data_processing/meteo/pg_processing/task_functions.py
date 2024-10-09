@@ -597,8 +597,9 @@ def insert_latest_date_pg(ti):
 # %%
 def send_notification(ti):
     start = ti.xcom_pull(key="start", task_ids="create_tables_if_not_exists")
-    print("start:", start)
-    print("now:", datetime.now().timestamp())
+    # weirdly start is pushed as a timestamp (float) but pulled as a datetime
+    if isinstance(start, datetime):
+        start = start.timestamp()
     duration = timedelta(seconds=round(datetime.now().timestamp() - start))
     send_message(
         text=f"##### 🌦️ Données météo mises à jour dans postgres en {duration}"
