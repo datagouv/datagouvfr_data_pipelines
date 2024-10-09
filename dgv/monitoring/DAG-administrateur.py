@@ -4,7 +4,7 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_DATAGOUV_TEAM
+    MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, DATAGOUV_URL
@@ -32,7 +32,7 @@ def publish_mattermost(ti):
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
     print(message)
-    send_message(message, MATTERMOST_DATAGOUV_TEAM)
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 default_args = {
