@@ -101,7 +101,7 @@ def build_deletions_file_name(file_name):
 
 # %%
 def create_tables_if_not_exists(ti):
-    ti.xcom_push(key="start", value=datetime.now())
+    ti.xcom_push(key="start", value=datetime.now().timestamp())
     file_loader = FileSystemLoader(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/")
     env = Environment(loader=file_loader)
     template = env.get_template('create.sql.jinja')
@@ -597,9 +597,7 @@ def insert_latest_date_pg(ti):
 # %%
 def send_notification(ti):
     start = ti.xcom_pull(key="start", task_ids="create_tables_if_not_exists")
-    print(start)
-    print(datetime.now())
-    duration = timedelta(seconds=int((datetime.now() - start).total_seconds()))
+    duration = timedelta(seconds=int(datetime.now().timestamp() - start))
     send_message(
         text=f"##### 🌦️ Données météo mises à jour dans postgres en {duration}"
     )
