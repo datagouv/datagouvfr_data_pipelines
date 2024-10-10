@@ -4,6 +4,7 @@ from typing import List, Optional, TypedDict
 from pathlib import Path
 import aiohttp
 import asyncio
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
 class File(TypedDict):
@@ -12,29 +13,16 @@ class File(TypedDict):
     dest_name: str
 
 
-async def download_file(session, url, dest_path, dest_name, auth=None, _remain_retries=5):
+@simple_connection_retry
+async def download_file(session, url, dest_path, dest_name, auth=None):
     if not dest_path.endswith("/"):
         dest_path = dest_path + "/"
     Path(dest_path).mkdir(parents=True, exist_ok=True)
-    try:
-        async with session.get(url, auth=auth) as response:
-            response.raise_for_status()
-            with open(f"{dest_path}{dest_name}", "wb") as f:
-                async for chunk in response.content.iter_chunked(8192):
-                    f.write(chunk)
-    except aiohttp.client_exceptions.ClientPayloadError:
-        await asyncio.sleep(1)
-        if _remain_retries > 0:
-            await download_file(
-                session,
-                url,
-                dest_path,
-                dest_name,
-                auth, 
-                _remain_retries=_remain_retries - 1
-            )
-        else:
-            raise Exception('After 5 attemps, could not download:', url)
+    async with session.get(url, auth=auth) as response:
+        response.raise_for_status()
+        with open(f"{dest_path}{dest_name}", "wb") as f:
+            async for chunk in response.content.iter_chunked(8192):
+                f.write(chunk)
 
 
 async def async_download_files(
