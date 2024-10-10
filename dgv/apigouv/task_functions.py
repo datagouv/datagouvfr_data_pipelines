@@ -244,7 +244,7 @@ def import_api_to_grist(ti):
     list_sources = [item for item in list_sources if item != "API XXX"]
     ti.xcom_push(key="list_sources", value=list_sources)
 
-def publish_api_to_datagouv():
+def publish_api_to_datagouv(ti):
     df = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records")
     df_tags = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_tags/records")
     df_themes = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_themes/records")
@@ -252,7 +252,10 @@ def publish_api_to_datagouv():
     df_pc = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_publics_cibles/records")
     df_jdd = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_jeu_de_donnees/records")
 
+    apikos = []
+
     for index, row in df[df["Ok_pour_migrer"] == True].iterrows():   
+        try:
             print("----")
             print(row["title"])
             r = requests.get(row["producer_url"].replace("/fr/", "/api/1/"))
@@ -354,10 +357,19 @@ def publish_api_to_datagouv():
                 id_dgv = row[property_grist].split("/")[-2]
                 print("patch " + row["title"] + " in dgv")
                 r = requests.patch(DATAGOUV_URL + "/api/1/dataservices/" + id_dgv + "/", headers=headers_dgv, json=mydict)
+        except:
+            print(f"Problem with - {row['title']}")
+            apikos.append(row['title'])
+            try:
+                print(r.json())
+            except:
+                pass
+        ti.xcom_push(key="apikos", value=apikos)      
 
 
 def publish_mattermost(ti):
     list_sources = ti.xcom_pull(key="list_sources", task_ids="import_api_to_grist")
+    apikos = ti.xcom_pull(key="apikos", task_ids="publish_api_to_datagouv")
     list_sources_str = ""
     for ls in list_sources:
         list_sources_str += "- " + ls + "\n"
@@ -366,6 +378,15 @@ def publish_mattermost(ti):
             ":mega: @magali.bouvat Nouvelles APIs ajoutées au Grist (à la fin du tableur) \n" + list_sources_str,
             MATTERMOST_TMPAPIGOUV
         )
+    apikos_str = ""
+    for apiko in apikos:
+        apikos_str += "\n - " + apiko
+    if len(apikos) > 0:
+        send_message(
+            ":mega: @magali.bouvat Problème avec l'intégration dans demo.data.gouv.fr de certaines apis :" + apikos_str,
+            MATTERMOST_TMPAPIGOUV
+        )
+
         
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
