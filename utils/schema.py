@@ -10,7 +10,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from typing import List, Optional, Dict
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from typing import List, Optional
 import pandas as pd
 import numpy as np
 import requests
@@ -271,6 +272,7 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
 
 # Make the validation report based on the resource url, the resource API-url,
 # the schema url and validation url
+@simple_connection_retry
 def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
     # saves time by not pinging Validata for unchanged resources
     data = requests.get(resource_api_url)
@@ -450,6 +452,7 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
 
 
 # Gets the current metadata of schema version of a resource (based of ref_table row)
+@simple_connection_retry
 def get_resource_schema_version(row: pd.Series, api_url: str):
     url = api_url + f'datasets/{row["dataset_id"]}/resources/{row["resource_id"]}/'
     r = requests.get(url, headers={'X-fields': 'schema'})

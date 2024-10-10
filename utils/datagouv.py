@@ -3,6 +3,7 @@ from typing import TypedDict, Iterator, Optional
 import requests
 from datetime import datetime
 import re
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
@@ -79,6 +80,7 @@ class File(TypedDict):
     dest_name: str
 
 
+@simple_connection_retry
 def create_dataset(
     payload: dict,
 ) -> dict:
@@ -97,6 +99,7 @@ def create_dataset(
     return r.json()
 
 
+@simple_connection_retry
 def post_resource(
     file_to_upload: File,
     dataset_id: str,
@@ -150,6 +153,7 @@ def post_resource(
     return r
 
 
+@simple_connection_retry
 def post_remote_resource(
     dataset_id: str,
     payload: dict,
@@ -195,6 +199,7 @@ def post_remote_resource(
     return r.json()
 
 
+@simple_connection_retry
 def delete_dataset_or_resource(
     dataset_id: str,
     resource_id: Optional[str] = None,
@@ -220,6 +225,7 @@ def delete_dataset_or_resource(
     return r.json()
 
 
+@simple_connection_retry
 def get_dataset_or_resource_metadata(
     dataset_id: str,
     resource_id: Optional[str] = None,
@@ -244,6 +250,7 @@ def get_dataset_or_resource_metadata(
     return r.json()
 
 
+@simple_connection_retry
 def get_dataset_from_resource_id(
     resource_id: str,
 ) -> str:
@@ -261,6 +268,7 @@ def get_dataset_from_resource_id(
     return r.json()['dataset_id']
 
 
+@simple_connection_retry
 def update_dataset_or_resource_metadata(
     payload: dict,
     dataset_id: str,
@@ -295,6 +303,7 @@ def update_dataset_or_resource_metadata(
     return r
 
 
+@simple_connection_retry
 def update_dataset_or_resource_extras(
     payload: dict,
     dataset_id: str,
@@ -321,6 +330,7 @@ def update_dataset_or_resource_extras(
     return r
 
 
+@simple_connection_retry
 def delete_dataset_or_resource_extras(
     extras: list,
     dataset_id: str,
@@ -349,6 +359,7 @@ def delete_dataset_or_resource_extras(
         return r.json()
 
 
+@simple_connection_retry
 def create_post(
     name: str,
     headline: str,
@@ -391,6 +402,7 @@ def get_created_date(data: dict, date_key: str) -> datetime:
     return created
 
 
+@simple_connection_retry
 def get_last_items(
     endpoint: str,
     start_date: datetime,
@@ -414,6 +426,7 @@ def get_last_items(
     return results
 
 
+@simple_connection_retry
 def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list:
     """
     Get latest comments posted on discussions, stored as a list of tuples:
@@ -444,6 +457,7 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
     return results
 
 
+@simple_connection_retry
 def post_remote_communautary_resource(
     dataset_id: str,
     payload: dict,
@@ -482,6 +496,7 @@ def post_remote_communautary_resource(
     return r.json()
 
 
+@simple_connection_retry
 def get_all_from_api_query(
     base_query: str,
     next_page: str = 'next_page',
@@ -515,6 +530,7 @@ def get_all_from_api_query(
             yield data
 
 
+@simple_connection_retry
 # Function to post a comment on a dataset
 def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> requests.Response:
     post_object = {
@@ -530,12 +546,14 @@ def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> reques
     return r
 
 
+@simple_connection_retry
 def get_awaiting_spam_comments() -> dict:
     r = datagouv_session.get("https://www.data.gouv.fr/api/1/spam/")
     r.raise_for_status()
     return r.json()
 
 
+@simple_connection_retry
 def check_duplicated_orga(slug: str) -> tuple[bool, Optional[str]]:
     duplicate_slug_pattern = r'-\d+$'
     if re.search(duplicate_slug_pattern, slug) is not None:
