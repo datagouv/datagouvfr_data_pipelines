@@ -4,7 +4,8 @@ from airflow.utils.dates import days_ago
 
 with DAG(
     dag_id='data_processing_sirene_geocodage',
-    schedule_interval='48 7 1 * *',
+    # Runs at 7:48 AM on the 1st, 5th, and 10th of each month
+    schedule_interval='48 7 1,5,10 * *',
     start_date=days_ago(31),
     catchup=False,
     tags=["data_processing", "sirene", "geocodage", "etalab" 'geocodage'],
