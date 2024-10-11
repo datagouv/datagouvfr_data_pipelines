@@ -383,7 +383,7 @@ def publish_mattermost(ti):
         apikos_str += "\n - " + apiko
     if len(apikos) > 0:
         send_message(
-            ":mega: @magali.bouvat Problème avec l'intégration dans demo.data.gouv.fr de certaines apis :" + apikos_str,
+            ":mega: Problème avec l'intégration dans demo.data.gouv.fr de certaines apis :" + apikos_str,
             MATTERMOST_TMPAPIGOUV
         )
 
