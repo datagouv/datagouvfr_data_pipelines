@@ -103,7 +103,7 @@
     "BASE/MENS_COMP": {
         "source_pattern": "MENSQ-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "MENSQ-COMP_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "MENSQ-COMP_descriptif_champs.csv",
+        "doc_pattern": null,
         "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
             "prod": "6569b3d7d193b4daf2b43edc",
@@ -118,7 +118,7 @@
     "BASE/DECAD_COMP": {
         "source_pattern": "DECADQ-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD-COMP_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "DECADQ-COMP_descriptif_champs.csv",
+        "doc_pattern": null,
         "description_template": "Données décadaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
             "prod": "6569b4a48a4161faec6b2779",
@@ -133,7 +133,7 @@
     "BASE/HOR_COMP": {
         "source_pattern": "H-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "HOR-COMP_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "H-COMP_descriptif_champs.csv",
+        "doc_pattern": null,
         "description_template": "Données horaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
             "prod": "6569b4473bedf2e7abad3b72",
@@ -148,7 +148,7 @@
     "BASE/QUOT_COMP": {
         "source_pattern": "Q-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+)_(?P<PARAMETRES>\\S+).csv.gz",
         "name_template": "QUOT-COMP_departement_{DEP}_periode_{PERIOD}_{PARAMETRES}",
-        "doc_pattern": "Q-COMP_descriptif_champs_.*\\.csv",
+        "doc_pattern": null,
         "description_template": "Données quotidiennes {PARAMETRES} pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
             "prod": "6569b51ae64326786e4e8e1a",
@@ -163,7 +163,7 @@
     "BASE/MIN_COMP": {
         "source_pattern": "MN-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "MIN-COMP_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "MN-COMP_descriptif_champs.csv",
+        "doc_pattern": null,
         "description_template": "Données à la minute pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
             "prod": "6569ad61106d1679c93cdf77",
@@ -178,7 +178,7 @@
     "BASE/DECADAGRO_COMP": {
         "source_pattern": "DECADAGRO-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECADAGRO-COMP_departement_{DEP}_periode_{PERIOD}",
-        "doc_pattern": "DECADAGRO-COMP_descriptif_champs.csv",
+        "doc_pattern": null,
         "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
             "prod": "6569af36ba0c3d2f9d4bf98c",
@@ -191,9 +191,9 @@
         }
     },
     "BASE/POSTES_COMP": {
-        "source_pattern": "POSTES-COMP_MF.csv",
+        "source_pattern": "POSTES-COMP.csv",
         "name_template": "Postes - stations type 5",
-        "doc_pattern": "POSTES-COMP_descriptif_champs.csv",
+        "doc_pattern": null,
         "description_template": "Liste de tous les postes ayant des données publiques pour les stations de type 5",
         "dataset_id": {
             "prod": "66ebf2cb9dd6916802ae90a1",
