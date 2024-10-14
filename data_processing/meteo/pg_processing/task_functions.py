@@ -221,8 +221,9 @@ def process_resources(
             resource["url"].split("/")[-1],
             config[dataset_name]["params"],
         )
-        if regex_infos["DEP"] not in DEPIDS:
-            # for local dev only, to cut processing time
+        # within datasets, we now have "normal" and comp stations, they'll be processed separately
+        if not regex_infos or regex_infos["DEP"] not in DEPIDS:
+            # you can reduce DEPIDS for local dev only, to cut processing time
             continue
         if dates:
             file_path = None
