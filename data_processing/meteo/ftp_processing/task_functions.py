@@ -521,7 +521,7 @@ def notification_mattermost(ti):
         message += "\nAucun changement."
     else:
         for path in updated_datasets:
-            if path in config:
+            if path in config and "COMP" not in path:
                 message += f"\n- [{path}]"
                 message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
                 if path in new_files_datasets:
