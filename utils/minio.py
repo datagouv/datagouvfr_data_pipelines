@@ -25,15 +25,15 @@ class File(TypedDict):
 
 
 class MinIOClient:
-    def __init__(self, bucket=None):
+    def __init__(self, bucket: str = None, login: bool = True):
         self.url = MINIO_URL
         self.user = SECRET_MINIO_DATA_PIPELINE_USER
         self.password = SECRET_MINIO_DATA_PIPELINE_PASSWORD
         self.bucket = bucket
         self.client = Minio(
             self.url,
-            access_key=self.user,
-            secret_key=self.password,
+            access_key=self.user if login else None,
+            secret_key=self.password if login else None,
             secure=True,
         )
         if self.bucket:
