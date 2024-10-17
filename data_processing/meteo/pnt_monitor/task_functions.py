@@ -3,6 +3,7 @@ from datetime import datetime
 from datetime import timedelta
 import json
 import re
+import urllib3
 from minio import Minio, datatypes
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.config import (
@@ -20,6 +21,7 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 minio_pnt = Minio(
     MINIO_URL,
     secure=True,
+    http_client=urllib3.PoolManager(timeout=urllib3.Timeout(connect=30, read=1800)),
 )
 too_old_filename = "too_old.json"
 
