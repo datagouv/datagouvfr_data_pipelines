@@ -2,16 +2,21 @@ import requests
 from datetime import datetime
 from datetime import timedelta
 import json
+import re
+from minio import datatypes
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
+    DATAGOUV_SECRET_API_KEY,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
 api_url = "https://www.data.gouv.fr/api/1/"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_pnt = MinIOClient(bucket="meteofrance-pnt", login=False)
 too_old_filename = "too_old.json"
 
 
@@ -139,3 +144,71 @@ def notification_mattermost(ti):
         if len(message) > 55000:
             message = message[:55000] + "\n\nEt plus encore !"
         send_message(message)
+
+
+def get_files_from_prefix(
+    prefix: str,
+):
+    return minio_pnt.list_objects(
+        "meteofrance-pnt",
+        prefix=prefix,
+        recursive=True
+    )
+
+
+def build_tree(paths: list):
+    reg_datetime = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}'
+    tree = {}
+    oldest = "9999"
+    for i, path in enumerate(paths):
+        if isinstance(path, datatypes.Object):
+            path = path.object_name
+        parts = path.split('/')
+        *dirs, file = parts
+        dt = re.findall(reg_datetime, file)[0]
+        oldest = min(dt, oldest)
+        current_level = tree
+        for idx, part in enumerate(dirs):
+            if idx == len(dirs) - 1:
+                if not current_level.get(part):
+                    current_level[part] = []
+                current_level[part].append(file)
+            elif part not in current_level:
+                current_level[part] = {}
+            current_level = current_level[part]
+    return tree, oldest
+
+
+def dump_and_send_tree() -> None:
+    tree, oldest = build_tree(get_files_from_prefix("pnt/"))
+    with open('./pnt_tree.json', 'w') as f:
+        json.dump(tree, f)
+
+    files = {"file": open("./pnt_tree.json", "rb",)}
+    url = (
+        f"{DATAGOUV_URL}/api/1/datasets/66d02b7174375550d7b10f3f/"
+        "resources/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb/upload/"
+    )
+    r = requests.post(
+        url,
+        files=files,
+        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+    )
+    r.raise_for_status()
+    r = requests.put(
+        url.replace("upload/", ""),
+        json={"title": "Arborescence des dossiers sur le dépôt"},
+        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+    )
+    r.raise_for_status()
+    r = requests.put(
+        f"{DATAGOUV_URL}/api/1/datasets/66d02b7174375550d7b10f3f/",
+        json={
+            "temporal_coverage": {
+                "start": oldest + ".000000+00:00",
+                "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            }
+        },
+        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+    )
+    r.raise_for_status()
