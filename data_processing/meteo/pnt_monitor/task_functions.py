@@ -3,9 +3,10 @@ from datetime import datetime
 from datetime import timedelta
 import json
 import re
-from minio import datatypes
+from minio import Minio, datatypes
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.config import (
+    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
@@ -16,7 +17,10 @@ from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
 api_url = "https://www.data.gouv.fr/api/1/"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_pnt = MinIOClient(bucket="meteofrance-pnt", login=False)
+minio_pnt = Minio(
+    MINIO_URL,
+    secure=True,
+)
 too_old_filename = "too_old.json"
 
 
