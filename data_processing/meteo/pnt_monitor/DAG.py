@@ -19,7 +19,7 @@ with DAG(
     schedule_interval='0 */6 * * *',
     start_date=datetime(2024, 10, 1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=45),
+    dagrun_timeout=timedelta(minutes=120),
     tags=["data_processing", "meteo"],
     default_args=default_args,
 ) as dag:
