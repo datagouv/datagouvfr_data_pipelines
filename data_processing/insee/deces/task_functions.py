@@ -34,7 +34,7 @@ def check_if_modif():
     ).json()['resources']
     lastest_update = requests.get(
         (
-            f'https://www.data.gouv.fr/api/1/datasets/{config["deces_csv"][AIRFLOW_ENV]["dataset_id"]}/'
+            f'{DATAGOUV_URL}/api/1/datasets/{config["deces_csv"][AIRFLOW_ENV]["dataset_id"]}/'
             f'resources/{config["deces_csv"][AIRFLOW_ENV]["resource_id"]}/'
         ),
         headers={"X-fields": "internal{last_modified_internal}"}
