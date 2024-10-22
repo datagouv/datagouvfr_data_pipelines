@@ -73,6 +73,11 @@ with DAG(
             ),
         ]
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     send_notification_mattermost = PythonOperator(
         task_id='send_notification_mattermost',
         python_callable=send_notification_mattermost,
@@ -83,4 +88,5 @@ with DAG(
         type_tasks[file_type][0].set_upstream(clean_previous_outputs)
         type_tasks[file_type][1].set_upstream(type_tasks[file_type][0])
         type_tasks[file_type][2].set_upstream(type_tasks[file_type][1])
-        send_notification_mattermost.set_upstream(type_tasks[file_type][2])
+        clean_up.set_upstream(type_tasks[file_type][2])
+    send_notification_mattermost.set_upstream(clean_up)
