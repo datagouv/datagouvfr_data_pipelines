@@ -37,7 +37,7 @@ with DAG(
     default_args=default_args,
 ) as dag:
 
-    check_if_modif = PythonOperator(  # ShortCircuitOperator
+    check_if_modif = ShortCircuitOperator(
         task_id='check_if_modif',
         python_callable=check_if_modif,
     )
