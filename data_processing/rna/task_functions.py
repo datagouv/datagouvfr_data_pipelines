@@ -144,7 +144,6 @@ def send_notification_mattermost():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
         config = json.load(fp)
     dataset_id = config["import"]["csv"][AIRFLOW_ENV]["dataset_id"]
-    print(non)
     send_message(
         text=(
             ":mega: Données des associations mises à jour.\n"
