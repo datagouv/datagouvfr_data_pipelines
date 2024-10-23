@@ -1255,7 +1255,6 @@ def upload_geojson(
     # Uploading file
     consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
     r_id = config_dict[schema_name]["geojson_resource_id"]
-    expected_status_code = 200
 
     obj = {}
     obj["type"] = "main"
@@ -1276,7 +1275,7 @@ def upload_geojson(
         payload=obj
     )
 
-    if response.status_code != expected_status_code:
+    if not response.ok:
         print("--- ⚠️: GeoJSON file could not be uploaded.")
         print(response.text)
         if should_succeed:
@@ -1790,12 +1789,10 @@ def update_consolidation_documentation_report(
                 try:
                     doc_r_id = config_dict[schema_name]["documentation_resource_id"]
                     doc_r_to_create = False
-                    expected_status_code = 200
 
                 except KeyError:
                     doc_r_id = None
                     doc_r_to_create = True
-                    expected_status_code = 201
 
                 response = post_resource(
                     file_to_upload={
@@ -1807,7 +1804,7 @@ def update_consolidation_documentation_report(
                     payload=obj,
                 )
 
-                if response.status_code == expected_status_code:
+                if response.ok:
                     if doc_r_to_create:
                         doc_r_id = response.json()["id"]
                         update_config_file(
