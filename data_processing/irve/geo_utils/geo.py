@@ -1,47 +1,24 @@
-from typing import Dict, List
-import geojson
+from typing import Dict
 import json
 import os
 import pandas as pd
 import requests
-from shapely.geometry import Point, shape
-from shapely.geometry.polygon import Polygon
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
-
-with open(
-    f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/schema/utils/france_bbox.geojson"
-) as f:
-    FRANCE_BBOXES = geojson.load(f)
-
-# Create a Polygon
-geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
-polys = [shape(geom) for geom in geoms]
-
-
-def is_point_in_polygon(x: float, y: float, polygon: List[List[float]]) -> bool:
-    point = Point(x, y)
-    polygon_shape = Polygon(polygon)
-    return polygon_shape.contains(point)
-
-
-def is_point_in_france(coordonnees_xy: List[float]) -> bool:
-    p = Point(*coordonnees_xy)
-    return any(p.within(poly) for poly in polys)
+from frformat.geo.coordonnees_gps_francaises import CoordonneesGPSFrancaises
 
 
 def fix_coordinates_order(
     df: pd.DataFrame, coordinates_column: str = "coordonneesXY"
 ) -> pd.DataFrame:
     """
-    Cette fonction modifie une dataframe pour placer la longitude avant la latitude
-    dans la colonne qui contient les deux au format "[lon, lat]".
+    Cette fonction modifie un dataframe pour placer la longitude avant la latitude
+    dans la colonne qui contient les deux au format "[lat, lon]".
     """
 
     def fix_coordinates(row: pd.Series) -> pd.Series:
         coordonnees_xy = json.loads(row[coordinates_column])
         reversed_coordonnees = list(reversed(coordonnees_xy))
         row["consolidated_coordinates_reordered"] = False
-        if is_point_in_france(reversed_coordonnees):
+        if CoordonneesGPSFrancaises.is_valid(*reversed_coordonnees):
             # Coordinates are inverted with lat before lon
             row[coordinates_column] = json.dumps(reversed_coordonnees)
             row["consolidated_coordinates_reordered"] = True
