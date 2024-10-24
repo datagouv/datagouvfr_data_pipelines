@@ -163,11 +163,13 @@ def update_tree():
     tree = requests.get('https://www.data.gouv.fr/fr/datasets/r/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb').json()
     # removing runs that have been deleted since last DAG run
     to_delete = [k for k in tree['pnt'] if k not in [r.split('/')[1] for r in current_runs]]
-    for r in to_delete:
-        del tree['pnt'][r]
+    for run in to_delete:
+        print(f"> Deleting {run}")
+        del tree['pnt'][run]
     # getting tree for each new run
     to_add = [r.split('/')[1] for r in current_runs if r.split('/')[1] not in tree['pnt']]
     for run in to_add:
+        print(f"> Adding {run}")
         run_tree = build_tree(minio_pnt.list_objects(
             "meteofrance-pnt",
             prefix=f"pnt/{run}/",
