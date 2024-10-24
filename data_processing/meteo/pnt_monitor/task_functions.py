@@ -152,27 +152,40 @@ def notification_mattermost(ti):
         send_message(message)
 
 
-def get_files_from_prefix(
-    prefix: str,
-):
-    return minio_pnt.list_objects(
+def update_tree():
+    # listing current runs on minio
+    current_runs = sorted([pref.object_name for pref in minio_pnt.list_objects(
         "meteofrance-pnt",
-        prefix=prefix,
-        recursive=True
-    )
+        prefix="pnt/",
+        recursive=False,
+    )])
+    # getting current tree
+    tree = requests.get('https://www.data.gouv.fr/fr/datasets/r/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb').json()
+    # removing runs that have been deleted since last DAG run
+    to_delete = [k for k in tree['pnt'] if k not in [r.split('/')[1] for r in current_runs]]
+    for r in to_delete:
+        del tree['pnt'][r]
+    # getting tree for each new run
+    to_add = [r.split('/')[1] for r in current_runs if r.split('/')[1] not in tree['pnt']]
+    for run in to_add:
+        run_tree = build_tree(minio_pnt.list_objects(
+            "meteofrance-pnt",
+            prefix=f"pnt/{run}/",
+            recursive=True,
+        ))
+        tree['pnt'][run] = run_tree['pnt'][run]
+    # just to make sure
+    assert len(tree["pnt"]) == len(current_runs)
+    return tree
 
 
 def build_tree(paths: list):
-    reg_datetime = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}'
     tree = {}
-    oldest = "9999"
-    for i, path in enumerate(paths):
+    for _, path in enumerate(paths):
         if isinstance(path, datatypes.Object):
             path = path.object_name
         parts = path.split('/')
         *dirs, file = parts
-        dt = re.findall(reg_datetime, file)[0]
-        oldest = min(dt, oldest)
         current_level = tree
         for idx, part in enumerate(dirs):
             if idx == len(dirs) - 1:
@@ -182,11 +195,13 @@ def build_tree(paths: list):
             elif part not in current_level:
                 current_level[part] = {}
             current_level = current_level[part]
-    return tree, oldest
+    return tree
 
 
 def dump_and_send_tree() -> None:
-    tree, oldest = build_tree(get_files_from_prefix("pnt/"))
+    tree = update_tree()
+    # runs look like this 2024-10-09T18:00:00Z
+    oldest = sorted([run[:-1] for run in tree["pnt"]])[0]
     with open('./pnt_tree.json', 'w') as f:
         json.dump(tree, f)
 
