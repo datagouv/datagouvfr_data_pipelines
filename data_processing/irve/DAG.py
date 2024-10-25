@@ -166,6 +166,11 @@ with DAG(
         )
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     notification_synthese_irve = PythonOperator(
         task_id="notification_synthese_irve",
         python_callable=notification_synthese_irve,
@@ -193,4 +198,5 @@ with DAG(
     final_directory_clean_up_irve.set_upstream(create_detailed_report_irve)
     upload_minio_irve.set_upstream(final_directory_clean_up_irve)
     commit_changes.set_upstream(upload_minio_irve)
-    notification_synthese_irve.set_upstream(commit_changes)
+    clean_up.set_upstream(commit_changes)
+    notification_synthese_irve.set_upstream(clean_up)

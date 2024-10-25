@@ -83,6 +83,11 @@ with DAG(
         },
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     send_notification_mattermost = PythonOperator(
         task_id='send_notification_mattermost',
         python_callable=send_notification_mattermost,
@@ -103,4 +108,5 @@ with DAG(
 
     send_stats_to_minio.set_upstream(gather_kpis)
     publish_datagouv.set_upstream(send_stats_to_minio)
-    send_notification_mattermost.set_upstream(publish_datagouv)
+    clean_up.set_upstream(publish_datagouv)
+    send_notification_mattermost.set_upstream(clean_up)
