@@ -58,6 +58,11 @@ with DAG(
         python_callable=publish_on_datagouv,
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     notification_mattermost = PythonOperator(
         task_id="notification_mattermost",
         python_callable=notification_mattermost,
@@ -67,4 +72,5 @@ with DAG(
     gather_data.set_upstream(check_if_modif)
     send_to_minio.set_upstream(gather_data)
     publish_on_datagouv.set_upstream(send_to_minio)
-    notification_mattermost.set_upstream(publish_on_datagouv)
+    clean_up.set_upstream(publish_on_datagouv)
+    notification_mattermost.set_upstream(clean_up)
