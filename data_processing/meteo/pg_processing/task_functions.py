@@ -499,7 +499,7 @@ def build_query_filters(regex_infos: dict):
 def replace_whole_period(_conn, table_name, csv_path, regex_infos):
     print("> Deleting period...")
     cursor = _conn.cursor()
-    cursor.execute(f"DELETE FROM {table_name} WHERE 1=1 " + build_query_filters(regex_infos))
+    cursor.execute(f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1=1 " + build_query_filters(regex_infos))
     nb_rows = count_lines_in_file(csv_path)
     print(f"> Inserting whole file ({nb_rows} rows)...")
     with open(csv_path, 'r') as f:
