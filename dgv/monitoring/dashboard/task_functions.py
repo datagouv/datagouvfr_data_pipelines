@@ -18,7 +18,7 @@ DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
-    k + "@" + ".".join(['data', 'gouv', 'fr'])
+    k + "@data.gouv.fr"
     for k in ['support', 'ouverture', 'moissonnage', 'certification']
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
@@ -77,6 +77,7 @@ def get_zammad_tickets(
 
     all_tickets = []
     hs_tickets = []
+    months = []
     for year, month in month_year_iter(
         start_date.month,
         start_date.year,
@@ -89,8 +90,10 @@ def get_zammad_tickets(
         hs_tickets.append(
             get_monthly_tickets(f"{year}-{'0'*(month<10) + str(month)}", tags=hs_tags)
         )
+        months.append(f"{year}-{'0'*(month<10) + str(month)}")
     ti.xcom_push(key="all_tickets", value=all_tickets)
     ti.xcom_push(key="hs_tickets", value=hs_tickets)
+    ti.xcom_push(key="months", value=months)
 
 
 def fill_url(start, end, site_id, label, **kwargs):
@@ -128,10 +131,8 @@ def get_visits(
             **k
         ))
         df = pd.read_csv(StringIO(r.text))
-        months = df['Date'].to_list()
         vues = df['Vues de page uniques'].to_list()
         ti.xcom_push(key=k['title'], value=vues)
-    ti.xcom_push(key='months', value=months)
 
 
 def gather_and_upload(
@@ -139,9 +140,9 @@ def gather_and_upload(
 ):
     all_tickets = ti.xcom_pull(key="all_tickets", task_ids="get_zammad_tickets")
     hs_ticket = ti.xcom_pull(key="hs_tickets", task_ids="get_zammad_tickets")
+    months = ti.xcom_pull(key="months", task_ids="get_zammad_tickets")
     # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
     support = ti.xcom_pull(key="support", task_ids="get_visits")
-    months = ti.xcom_pull(key="months", task_ids="get_visits")
 
     stats = pd.DataFrame({
         # 'Homepage': homepage,
