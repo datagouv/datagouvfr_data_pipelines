@@ -531,12 +531,14 @@ def notification_mattermost(ti):
 
     issues = {}
     allowed_patterns = {}
+    paths = {}
     for path in config:
         if config[path]['dataset_id'][AIRFLOW_ENV] not in allowed_patterns:
             allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]] = []
         allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]].append(
             config[path]['name_template']
         )
+        paths[config[path]['dataset_id'][AIRFLOW_ENV]] = path
     for dataset_id in allowed_patterns:
         resources = requests.get(
             f'{DATAGOUV_URL}/api/1/datasets/{dataset_id}/',
@@ -558,12 +560,12 @@ def notification_mattermost(ti):
         message += "\n:alert: Des ressources semblent mal placées :\n"
         for dataset_id in issues:
             message += (
-                f"- [dataset/{dataset_id}]"
+                f"- [{paths[dataset_id]}]"
                 f"({DATAGOUV_URL}/fr/datasets/{dataset_id}/) :\n"
             )
             for rid in issues[dataset_id]:
                 message += (
-                    f"   - [{issues[path][rid]}]({DATAGOUV_URL}/fr/datasets/"
+                    f"   - [{issues[dataset_id][rid]}]({DATAGOUV_URL}/fr/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)
