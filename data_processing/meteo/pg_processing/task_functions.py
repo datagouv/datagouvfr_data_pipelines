@@ -500,9 +500,18 @@ def replace_whole_period(_conn, table_name, csv_path, regex_infos):
     print("> Deleting period...")
     cursor = _conn.cursor()
     cursor.execute(f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1=1 " + build_query_filters(regex_infos))
-    nb_rows = count_lines_in_file(csv_path)
+    # this source file is missing the DEP column
+    csv_with_dep = csv_path.replace(".csv", "_with_dep.csv")
+    dep = regex_infos["regex_infos"]["DEP"]
+    with open(csv_with_dep, 'w') as dep_file, open(csv_path, 'r') as file:
+        for idx, line in enumerate(file.readlines()):
+            if idx == 0:
+                dep_file.write(line.strip() + ";DEP\n")
+            else:
+                dep_file.write(line.strip() + f";{dep}\n")
+    nb_rows = count_lines_in_file(csv_with_dep)
     print(f"> Inserting whole file ({nb_rows} rows)...")
-    with open(csv_path, 'r') as f:
+    with open(csv_with_dep, 'r') as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
             f
