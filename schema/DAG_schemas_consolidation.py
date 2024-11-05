@@ -158,11 +158,6 @@ with DAG(
         )
     )
 
-    clean_up = BashOperator(
-        task_id="clean_up",
-        bash_command=f"rm -rf {TMP_FOLDER}",
-    )
-
     notification_synthese = PythonOperator(
         task_id="notification_synthese",
         python_callable=notification_synthese,
@@ -188,5 +183,4 @@ with DAG(
     final_clean_up.set_upstream(create_detailed_reports)
     upload_minio.set_upstream(final_clean_up)
     commit_changes.set_upstream(upload_minio)
-    clean_up.set_upstream(commit_changes)
-    notification_synthese.set_upstream(clean_up)
+    notification_synthese.set_upstream(commit_changes)
