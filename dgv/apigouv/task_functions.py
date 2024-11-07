@@ -305,7 +305,7 @@ def publish_api_to_datagouv(ti):
                 mydict["is_restricted"] = True
             if row["authorization_request_url"] != "": mydict["authorization_request_url"] = row["authorization_request_url"]
             mydict["rate_limiting"] = row["rate_limiting"]
-            if row["endpoint_description_url"] != "": mydict["endpoint_description_url"] = row["swagger_url"]
+            if row["swagger_url"] != "": mydict["endpoint_description_url"] = row["swagger_url"]
             if row["availability"]: mydict["availability"] = float(row["availability"])
             mydict["extras"] = {}
             mydict["extras"]["availability_url"] = row["availability_url"]
