@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import (
+    VALIDATA_BASE_URL,
     get_last_items,
     get_latest_comments,
     get_all_from_api_query,
@@ -279,13 +280,13 @@ def parse_schema_catalog(
         if schema["schema_type"] == "tableschema":
             schema_type = "tableschema"
             result2 = requests.get(
-                "https://preprod-api-validata.dataeng.etalab.studio/validate?schema="
+                f"{VALIDATA_BASE_URL}/validate?schema="
                 f"{schema['schema_url']}&url={resource['url']}"
             )
             try:
                 res = result2.json()["report"]["valid"]
                 validata_url = (
-                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
+                    f"{VALIDATA_BASE_URL}/table-schema?input=url&url="
                     f"{resource['url']}&schema_url={schema['schema_url']}"
                 )
             except:
