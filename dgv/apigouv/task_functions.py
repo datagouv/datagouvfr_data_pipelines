@@ -20,9 +20,9 @@ from datagouvfr_data_pipelines.config import (
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}migration_apigouv"
 GRIST_TOKEN = Variable.get("GRIST_APIGOUV_TOKEN", "metric")
-DATAGOUV_TOKEN = Variable.get("DEMO_DATAGOUV_SECRET_API_KEY")
-DATAGOUV_URL = "https://demo.data.gouv.fr"
-property_grist = "lien_datagouv_demo"
+DATAGOUV_TOKEN = Variable.get("DATAGOUV_SECRET_API_KEY")
+DATAGOUV_URL = "https://www.data.gouv.fr"
+property_grist = "lien_datagouv_prod"
 doc_id = "fKtVwXxfqNfw"
 
 headers_grist = {
@@ -261,17 +261,21 @@ def publish_api_to_datagouv(ti):
             r = requests.get(row["producer_url"].replace("/fr/", "/api/1/"))
             org_id = r.json()["id"]
             r = requests.get(DATAGOUV_URL + "/api/1/organizations/" + org_id + "/contacts")
-            try:
-                contacts = r.json()["data"]
-            except:
-                print(f"org {org_id} not found on {DATAGOUV_URL}, replacing by DINUM")
-                org_id = "57fe2a35c751df21e179df72"
-                r = requests.get(DATAGOUV_URL + "/api/1/organizations/direction-interministerielle-du-numerique/contacts")
-                contacts = r.json()["data"]
+            # try:
+            #     contacts = r.json()["data"]
+            # except:
+            #     print(f"org {org_id} not found on {DATAGOUV_URL}, replacing by DINUM")
+            #     org_id = "57fe2a35c751df21e179df72"
+            #     r = requests.get(DATAGOUV_URL + "/api/1/organizations/direction-interministerielle-du-numerique/contacts")
+            #     contacts = r.json()["data"]
+            contacts = r.json()["data"]
 
             contact_exist = False
             for contact in contacts:
                 if contact["email"] == row["contact_point"]:
+                    contact_id = contact["id"]
+                    contact_exist = True
+                if contact["contact_form"] == row["contact_point"]:
                     contact_id = contact["id"]
                     contact_exist = True
             if not contact_exist:
@@ -279,25 +283,29 @@ def publish_api_to_datagouv(ti):
                     print("post " + row["contact_point"] + " for orga " + org_id)
                     r = requests.post(DATAGOUV_URL + "/api/1/contacts", json={ "name": row["contact_point"], "email": row["contact_point"], "organization": org_id}, headers=headers_dgv)
                     contact_id = r.json()["id"]
-                else:
-                    print("post " + "A CORRIGER" + " for orga " + org_id)
-                    r = requests.post(DATAGOUV_URL + "/api/1/contacts", json={ "name": "A CORRIGER", "email": "test@test.com", "organization": org_id}, headers=headers_dgv)
+                    contact_exist = True
+                elif is_valid_url(row["contact_point"]):
+                    print("post " + row["contact_point"] + " for orga " + org_id)
+                    r = requests.post(DATAGOUV_URL + "/api/1/contacts", json={ "name": "Contact", "contact_form": row["contact_point"], "organization": org_id}, headers=headers_dgv)
                     contact_id = r.json()["id"]
+                    contact_exist = True
+                else:
+                    print("pas de contact valide")
 
             
             mydict = {}
             mydict["title"] = row["title"]
             if row["base_api_url"] != "": 
                 mydict["base_api_url"] = row["base_api_url"]
-            else:
-                mydict["base_api_url"] = "https://www.data.gouv.fr"
+            # else:
+            #     mydict["base_api_url"] = "https://www.data.gouv.fr"
             if row["is_restricted"] == "False":
                 mydict["is_restricted"] = False
             else: 
                 mydict["is_restricted"] = True
             if row["authorization_request_url"] != "": mydict["authorization_request_url"] = row["authorization_request_url"]
             mydict["rate_limiting"] = row["rate_limiting"]
-            if row["endpoint_description_url"] != "": mydict["endpoint_description_url"] = row["swagger_url"]
+            if row["swagger_url"] != "": mydict["endpoint_description_url"] = row["swagger_url"]
             if row["availability"]: mydict["availability"] = float(row["availability"])
             mydict["extras"] = {}
             mydict["extras"]["availability_url"] = row["availability_url"]
@@ -333,7 +341,7 @@ def publish_api_to_datagouv(ti):
                     print(f"dataset {dataset} not found in {DATAGOUV_URL}")
             
             mydict["datasets"] = datasets
-            mydict["contact_point"] = contact_id
+            if contact_exist: mydict["contact_point"] = contact_id
             mydict["organization"] = org_id
             
             if row[property_grist] is None or row[property_grist] == '' or row[property_grist] != row[property_grist]:
@@ -390,5 +398,14 @@ def publish_mattermost(ti):
         
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
+
+
+def is_valid_url(url):
+    motif_url = re.compile(
+        r'^(https?|ftp)://'
+        r'(([A-Za-z0-9-]+\.)+[A-Za-z]{2,6})'
+        r'(/[A-Za-z0-9._~:/?#[@!$&\'()*+,;=%-]*)?$'
+    )
+    return bool(motif_url.match(url))
 
 

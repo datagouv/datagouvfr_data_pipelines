@@ -1,6 +1,7 @@
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
     DATAGOUV_URL,
+    VALIDATA_BASE_URL,
     ORGA_REFERENCE,
     post_resource,
     create_dataset,
@@ -33,7 +34,7 @@ pd.set_option('display.max_columns', None)
 # DATAGOUV_URL = 'https://www.data.gouv.fr'
 
 VALIDATA_BASE_URL = (
-    "https://preprod-api-validata.dataeng.etalab.studio/validate?schema={schema_url}&url={rurl}"
+    VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
 )
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"
@@ -282,12 +283,18 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     # as of today (2023-09-04), hydra processes a check every week and we want a consolidation every day,
     # this condition should be removed when hydra and consolidation follow the same schedule (every day).
     # => not for now
+    extras = data["extras"]
+    if extras.get("analysis:error") == "File too large to download":
+        # too large resources will make validata crash
+        return {'report': {
+            'error': 'ressource is too large',
+            'valid': False
+        }}
     if data['filetype'] == "file":
-        extras = data['extras']
         # check if hydra says the resources is not available, if no check then proceed
         if not extras.get("check:available", True):
             return {'report': {
-                'hydra:unavailable': 'ressource not available',
+                'error': 'ressource not available',
                 'valid': False
             }}
         # once a year we force scan every file, to compensate for potential anomalies
@@ -382,12 +389,13 @@ def save_validata_report(
     if not _report:
         return
 
-    save_report = {}
-    save_report["validation-report:schema_name"] = schema_name
-    save_report["validation-report:schema_version"] = version
-    save_report["validation-report:schema_type"] = "tableschema"
-    save_report["validation-report:validator"] = "validata"
-    save_report["validation-report:valid_resource"] = res
+    save_report = {
+        "validation-report:schema_name": schema_name,
+        "validation-report:schema_version": version,
+        "validation-report:schema_type": "tableschema",
+        "validation-report:validator": "validata",
+        "validation-report:valid_resource": res,
+    }
 
     if _report.get("from_metadata"):
         save_report["from_metadata"] = True
@@ -437,7 +445,7 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
             + f'/api/1/datasets/{row["dataset_id"]}/resources/{row["resource_id"]}'
         )
         res, report = is_validata_valid(rurl, schema_url, resource_api_url)
-        if report and not report.get('report', {}).get('hydra:unavailable', False):
+        if report and not report.get('report', {}).get('error', False):
             save_validata_report(
                 res,
                 report,
