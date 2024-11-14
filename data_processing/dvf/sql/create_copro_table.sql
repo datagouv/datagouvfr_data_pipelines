@@ -26,7 +26,7 @@ BEGIN
             lat DECIMAL(12,10),
             date_reglement_copropriete VARCHAR(11),
             residence_service VARCHAR(20),
-            syndicat_cooperatif VARCHAR(3),
+            syndicat_cooperatif VARCHAR(9),
             syndicat_principal_ou_secondaire VARCHAR(3),
             si_secondaire_numero_immatriculation_principal VARCHAR(10),
             nombre_asl_rattache_syndicat_coproprietaires INT,

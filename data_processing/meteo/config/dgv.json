@@ -89,6 +89,118 @@
             "PERIOD": "AAAAMM"
         }
     },
+    "BASE/POSTES": {
+        "source_pattern": "POSTES_MF.csv",
+        "name_template": "Postes",
+        "doc_pattern": "POSTES_descriptif_champs.csv",
+        "description_template": "Liste de tous les postes ayant des données publiques",
+        "dataset_id": {
+            "prod": "66ebf2cb9dd6916802ae90a1",
+            "dev": "66ebf3bdf39617f668f995e5"
+        },
+        "table_name": "base_postes"
+    },
+    "BASE/MENS_COMP": {
+        "source_pattern": "MENSQ-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "MENSQ-COMP_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
+        "dataset_id": {
+            "prod": "6569b3d7d193b4daf2b43edc",
+            "dev": "654c962a3b8186a2b5bbc995"
+        },
+        "table_name": "base_mens",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMM"
+        }
+    },
+    "BASE/DECAD_COMP": {
+        "source_pattern": "DECADQ-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "DECAD-COMP_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données décadaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
+        "dataset_id": {
+            "prod": "6569b4a48a4161faec6b2779",
+            "dev": "653a68f2c52ecb6d2e96fe3e"
+        },
+        "table_name": "base_decad",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMM"
+        }
+    },
+    "BASE/HOR_COMP": {
+        "source_pattern": "H-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "HOR-COMP_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données horaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
+        "dataset_id": {
+            "prod": "6569b4473bedf2e7abad3b72",
+            "dev": "653a68f2c52ecb6d2e96fe3f"
+        },
+        "table_name": "base_hor",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMMJJHH"
+        }
+    },
+    "BASE/QUOT_COMP": {
+        "source_pattern": "Q-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+)_(?P<PARAMETRES>\\S+).csv.gz",
+        "name_template": "QUOT-COMP_departement_{DEP}_periode_{PERIOD}_{PARAMETRES}",
+        "doc_pattern": null,
+        "description_template": "Données quotidiennes {PARAMETRES} pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
+        "dataset_id": {
+            "prod": "6569b51ae64326786e4e8e1a",
+            "dev": "653a68f2ba54993957fa00af"
+        },
+        "table_name": "base_quot",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMMJJ"
+        }
+    },
+    "BASE/MIN_COMP": {
+        "source_pattern": "MN-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "MIN-COMP_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données à la minute pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
+        "dataset_id": {
+            "prod": "6569ad61106d1679c93cdf77",
+            "dev": "65649a720baab9dbf8f36731"
+        },
+        "table_name": "base_min",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMMJJHHMN"
+        }
+    },
+    "BASE/DECADAGRO_COMP": {
+        "source_pattern": "DECADAGRO-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "DECADAGRO-COMP_departement_{DEP}_periode_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
+        "dataset_id": {
+            "prod": "6569af36ba0c3d2f9d4bf98c",
+            "dev": "65649a1b0baab9dbf8f36730"
+        },
+        "table_name": "base_decadagro",
+        "params": {
+            "DEP": "DEP",
+            "PERIOD": "AAAAMM"
+        }
+    },
+    "BASE/POSTES_COMP": {
+        "source_pattern": "POSTES-COMP.csv",
+        "name_template": "Postes - stations type 5",
+        "doc_pattern": null,
+        "description_template": "Liste de tous les postes ayant des données publiques pour les stations de type 5",
+        "dataset_id": {
+            "prod": "66ebf2cb9dd6916802ae90a1",
+            "dev": "66ebf3bdf39617f668f995e5"
+        },
+        "table_name": "base_postes"
+    },
     "REF_CC/SQR": {
         "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
         "name_template": "SQR_{TYPE}_{GEO}",

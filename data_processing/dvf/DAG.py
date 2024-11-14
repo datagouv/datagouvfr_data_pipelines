@@ -1,7 +1,6 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
@@ -199,6 +198,11 @@ with DAG(
         python_callable=publish_stats_dvf,
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     notification_mattermost = PythonOperator(
         task_id="notification_mattermost",
         python_callable=notification_mattermost,
@@ -240,11 +244,13 @@ with DAG(
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
 
-    notification_mattermost.set_upstream(publish_stats_dvf)
-    notification_mattermost.set_upstream(populate_copro_table)
-    notification_mattermost.set_upstream(index_dpe_table)
-    notification_mattermost.set_upstream(populate_stats_dvf_table)
-    notification_mattermost.set_upstream(index_dvf_table)
-    notification_mattermost.set_upstream(send_distribution_to_minio)
-    notification_mattermost.set_upstream(populate_distribution_table)
-    notification_mattermost.set_upstream(populate_whole_period_table)
+    clean_up.set_upstream(publish_stats_dvf)
+    clean_up.set_upstream(populate_copro_table)
+    clean_up.set_upstream(index_dpe_table)
+    clean_up.set_upstream(populate_stats_dvf_table)
+    clean_up.set_upstream(index_dvf_table)
+    clean_up.set_upstream(send_distribution_to_minio)
+    clean_up.set_upstream(populate_distribution_table)
+    clean_up.set_upstream(populate_whole_period_table)
+
+    notification_mattermost.set_upstream(clean_up)

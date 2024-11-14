@@ -43,7 +43,7 @@ def detect_spam(name, description):
     else:
         try:
             lang = detect(description.lower())
-            if lang != 'fr':
+            if lang not in ['fr', 'ca']:
                 return 'language:' + lang
         except LangDetectException:
             return
@@ -91,14 +91,14 @@ def check_new(ti, **kwargs):
             badges = item['organization'].get('badges', []) if item.get('organization', None) else []
             if 'certified' not in [badge['kind'] for badge in badges]:
                 mydict['spam'] = detect_spam(item['title'], item['description'])
-            if item['organization']:
+            if item.get('organization'):
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
                 ).json()
                 mydict['owner_type'] = "organization"
                 mydict['owner_name'] = owner['name']
                 mydict['owner_id'] = owner['id']
-            elif item['owner']:
+            elif item.get('owner'):
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/users/{item['owner']['id']}/"
                 ).json()
@@ -112,7 +112,7 @@ def check_new(ti, **kwargs):
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
                     templates_dict["type"] == 'datasets'
-                    and any([r['schema'] for r in item['resources']])
+                    and any([r['schema'] for r in item.get('resources')])
                     and not mydict['spam']
                 ):
                     print("This dataset has a schema:", item)
@@ -122,9 +122,9 @@ def check_new(ti, **kwargs):
             else:
                 mydict['first_publication'] = False
         else:
-            mydict['spam'] = detect_spam(item['name'], item['description'])
+            mydict['spam'] = detect_spam(item.get('name'), item.get('description'))
             if mydict['spam']:
-                mydict['description'] = item['description']
+                mydict['description'] = item.get('description')
             mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
             # checking for potential duplicates in organization creation
             mydict['duplicated'], _ = check_duplicated_orga(item["slug"])
@@ -241,10 +241,10 @@ def similar(a, b):
 
 def get_organization(data):
     orga = ""
-    if data["organization"] is not None:
+    if data.get("organization") is not None:
         if "name" in data["organization"]:
             orga = f"(Organisation {data['organization']['name']})"
-    if data["owner"] is not None:
+    if data.get("owner") is not None:
         if "first_name" in data["owner"]:
             orga = f"(Utilisateur {data['owner']['first_name']} {data['owner']['last_name']})"
     return orga
@@ -279,13 +279,13 @@ def parse_schema_catalog(
         if schema["schema_type"] == "tableschema":
             schema_type = "tableschema"
             result2 = requests.get(
-                "https://api.validata.etalab.studio/validate?schema="
+                "https://preprod-api-validata.dataeng.etalab.studio/validate?schema="
                 f"{schema['schema_url']}&url={resource['url']}"
             )
             try:
                 res = result2.json()["report"]["valid"]
                 validata_url = (
-                    "https://validata.fr/table-schema?input=url&url="
+                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
                     f"{resource['url']}&schema_url={schema['schema_url']}"
                 )
             except:

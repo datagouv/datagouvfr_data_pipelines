@@ -1,8 +1,10 @@
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
+# from airflow.operators.dummy import DummyOperator
+# from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.utils.dates import days_ago
-from datetime import timedelta
+from datetime import datetime, timedelta
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
@@ -10,21 +12,20 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
     create_tables_if_not_exists,
     retrieve_latest_processed_date,
     get_latest_ftp_processing,
+    set_max_date,
     download_data,
     insert_latest_date_pg,
+    send_notification,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg"
-DAG_NAME = 'postgres_meteo'
+DAG_NAME = 'data_processing_postgres_meteo'
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False
+    'retries': 1,
+    'retry_delay': timedelta(minutes=2),
 }
 
 DATASETS_TO_PROCESS = [
@@ -39,13 +40,26 @@ DATASETS_TO_PROCESS = [
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval=None,
-    start_date=days_ago(1),
+    # a better scheduling would be "after the second run of ftp_processing is done", will investigate
+    schedule_interval='0 12 * * *',
+    start_date=datetime(2024, 10, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=2000),
     tags=["data_processing", "meteo"],
     default_args=default_args,
 ) as dag:
+
+    # ftp_waiting_room = ExternalTaskSensor(
+    #     task_id="ftp_waiting_room",
+    #     external_dag_id="data_processing_meteo",
+    #     external_task_id="notification_mattermost",
+    #     execution_date_fn=second_run_execution_date,
+    #     timeout=600,
+    #     poke_interval=60,
+    #     mode='poke',
+    # )
+
+    # ftp_waiting_room = DummyOperator(task_id='ftp_waiting_room')
 
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
@@ -67,6 +81,11 @@ with DAG(
         python_callable=get_latest_ftp_processing,
     )
 
+    set_max_date = PythonOperator(
+        task_id='set_max_date',
+        python_callable=set_max_date,
+    )
+
     process_data = []
     for dataset in DATASETS_TO_PROCESS:
         process_data.append(
@@ -74,7 +93,7 @@ with DAG(
                 task_id=f'process_data_{dataset.replace("/","_").lower()}',
                 python_callable=download_data,
                 op_kwargs={
-                    "DATASET_ID": dataset,
+                    "dataset_name": dataset,
                 },
             )
         )
@@ -84,10 +103,19 @@ with DAG(
         python_callable=insert_latest_date_pg,
     )
 
+    send_notification = PythonOperator(
+        task_id='send_notification',
+        python_callable=send_notification,
+    )
+
+    # clean_previous_outputs.set_upstream(ftp_waiting_room)
     create_tables_if_not_exists.set_upstream(clean_previous_outputs)
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
     get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
+    set_max_date.set_upstream(get_latest_ftp_processing)
 
-    for i in range(0,len(process_data)):
-        process_data[i].set_upstream(get_latest_ftp_processing)
+    for i in range(0, len(process_data)):
+        process_data[i].set_upstream(set_max_date)
         insert_latest_date_pg.set_upstream(process_data[i])
+
+    send_notification.set_upstream(insert_latest_date_pg)

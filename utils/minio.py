@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
 class File(TypedDict):
@@ -24,15 +25,15 @@ class File(TypedDict):
 
 
 class MinIOClient:
-    def __init__(self, bucket=None):
+    def __init__(self, bucket: str = None, login: bool = True):
         self.url = MINIO_URL
         self.user = SECRET_MINIO_DATA_PIPELINE_USER
         self.password = SECRET_MINIO_DATA_PIPELINE_PASSWORD
         self.bucket = bucket
         self.client = Minio(
             self.url,
-            access_key=self.user,
-            secret_key=self.password,
+            access_key=self.user if login else None,
+            secret_key=self.password if login else None,
             secure=True,
         )
         if self.bucket:
@@ -40,6 +41,7 @@ class MinIOClient:
             if not self.bucket_exists:
                 raise ValueError(f"Bucket '{self.bucket}' does not exist.")
 
+    @simple_connection_retry
     def send_files(
         self,
         list_files: List[File],
@@ -84,6 +86,7 @@ class MinIOClient:
                     "does not exists"
                 )
 
+    @simple_connection_retry
     def download_files(
         self,
         list_files: List[File],
@@ -112,6 +115,7 @@ class MinIOClient:
                 f"{file['dest_path']}{file['dest_name']}",
             )
 
+    @simple_connection_retry
     def get_file_content(
         self,
         file_path,
@@ -125,6 +129,7 @@ class MinIOClient:
         r = self.client.get_object(self.bucket, file_path)
         return r.read().decode(encoding)
 
+    @simple_connection_retry
     def compare_files(
         self,
         file_path_1: str,
@@ -166,6 +171,7 @@ class MinIOClient:
             print('Error loading files:', e)
             return None
 
+    @simple_connection_retry
     def get_files_from_prefix(
         self,
         prefix: str,
@@ -191,6 +197,7 @@ class MinIOClient:
             list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
         return list_objects
 
+    @simple_connection_retry
     def copy_object(
         self,
         MINIO_BUCKET_SOURCE: str,
@@ -228,6 +235,7 @@ class MinIOClient:
         else:
             raise Exception("One Bucket does not exists")
 
+    @simple_connection_retry
     def get_all_files_names_and_sizes_from_parent_folder(
         self,
         folder: str,
@@ -246,6 +254,7 @@ class MinIOClient:
             ))
         return files
 
+    @simple_connection_retry
     def delete_file(
         self,
         file_path: str,
@@ -260,6 +269,7 @@ class MinIOClient:
         except S3Error as e:
             print(e)
 
+    @simple_connection_retry
     def dict_to_bytes_to_minio(
         self,
         dict_top,

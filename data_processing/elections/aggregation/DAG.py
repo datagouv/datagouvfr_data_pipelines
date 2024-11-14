@@ -71,6 +71,11 @@ with DAG(
         python_callable=publish_results_elections,
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     send_notification = PythonOperator(
         task_id='send_notification',
         python_callable=send_notification,
@@ -81,4 +86,5 @@ with DAG(
     process_election_data.set_upstream(format_election_files)
     send_results_to_minio.set_upstream(process_election_data)
     publish_results_elections.set_upstream(send_results_to_minio)
-    send_notification.set_upstream(publish_results_elections)
+    clean_up.set_upstream(publish_results_elections)
+    send_notification.set_upstream(clean_up)

@@ -7,6 +7,7 @@ from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from datagouvfr_data_pipelines.config import (
     FILES_BASE_URL,
     INSEE_BASE_URL,
@@ -137,18 +138,7 @@ def update_dataset_data_gouv(ti, **kwargs):
 
     hashs = ti.xcom_pull(key="sha256", task_ids="get_files")
     Mois = [
-        "Janvier",
-        "Fevrier",
-        "Mars",
-        "Avril",
-        "Mai",
-        "Juin",
-        "Juillet",
-        "Aout",
-        "Septembre",
-        "Octobre",
-        "Novembre",
-        "Decembre",
+        m.title() for m in MOIS_FR.values()
     ]
     dat = datetime.now()
     mois = dat.date().month

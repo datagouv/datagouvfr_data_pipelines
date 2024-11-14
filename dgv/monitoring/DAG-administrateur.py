@@ -1,10 +1,10 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_DATAGOUV_TEAM
+    MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, DATAGOUV_URL
@@ -32,7 +32,7 @@ def publish_mattermost(ti):
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
     print(message)
-    send_message(message, MATTERMOST_DATAGOUV_TEAM)
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
 default_args = {
@@ -43,7 +43,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 0 1 1/3 *",
-    start_date=days_ago(0, hour=1),
+    start_date=datetime(2023, 10, 15),
     dagrun_timeout=timedelta(minutes=60),
     tags=["curation", "datagouv"],
     default_args=default_args,

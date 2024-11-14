@@ -521,7 +521,7 @@ def notification_mattermost(ti):
         message += "\nAucun changement."
     else:
         for path in updated_datasets:
-            if path in config:
+            if path in config and "COMP" not in path:
                 message += f"\n- [{path}]"
                 message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
                 if path in new_files_datasets:
@@ -530,29 +530,42 @@ def notification_mattermost(ti):
                     message += "mise à jour des métadonnées"
 
     issues = {}
+    allowed_patterns = {}
+    paths = {}
     for path in config:
+        if config[path]['dataset_id'][AIRFLOW_ENV] not in allowed_patterns:
+            allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]] = []
+        allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]].append(
+            config[path]['name_template']
+        )
+        paths[config[path]['dataset_id'][AIRFLOW_ENV]] = path
+    for dataset_id in allowed_patterns:
         resources = requests.get(
-            f'{DATAGOUV_URL}/api/1/datasets/{config[path]["dataset_id"][AIRFLOW_ENV]}/',
+            f'{DATAGOUV_URL}/api/1/datasets/{dataset_id}/',
             headers={'X-fields': 'resources{title,id,type}'}
         ).json()['resources']
         for r in resources:
             if (
                 r['type'] == 'main'
-                and config[path]['name_template']
-                and not r['title'].startswith(config[path]['name_template'].split('_')[0])
+                and any(k for k in allowed_patterns[dataset_id])
+                and not any(
+                    r['title'].startswith(template.split('_')[0])
+                    for template in allowed_patterns[dataset_id]
+                )
             ):
-                if path not in issues:
-                    issues[path] = {}
-                issues[path][r['id']] = r['title']
+                if dataset_id not in issues:
+                    issues[dataset_id] = {}
+                issues[dataset_id][r['id']] = r['title']
     if issues:
         message += "\n:alert: Des ressources semblent mal placées :\n"
-        for path in issues:
+        for dataset_id in issues:
             message += (
-                f"- [{path}]({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) :\n"
+                f"- [{paths[dataset_id]}]"
+                f"({DATAGOUV_URL}/fr/datasets/{dataset_id}/) :\n"
             )
-            for rid in issues[path]:
+            for rid in issues[dataset_id]:
                 message += (
-                    f"   - [{issues[path][rid]}]({DATAGOUV_URL}/fr/datasets/"
-                    f"{config[path]['dataset_id'][AIRFLOW_ENV]}/#/resources/{rid})\n"
+                    f"   - [{issues[dataset_id][rid]}]({DATAGOUV_URL}/fr/datasets/"
+                    f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)

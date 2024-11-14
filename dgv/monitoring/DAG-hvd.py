@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
+    GRIST_API_URL,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message, MAX_MESSAGE_LENGTH
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -26,7 +27,7 @@ def slugify(s):
 
 def get_hvd(ti):
     print("Getting suivi ouverture")
-    ouverture_hvd_api = 'https://grist.incubateur.net/api/docs/eJxok2H2va3E/tables/Hvd/records'
+    ouverture_hvd_api = GRIST_API_URL + 'docs/eJxok2H2va3E/tables/Hvd/records'
     r = requests.get(ouverture_hvd_api).json()
     df_ouverture = pd.DataFrame([k['fields'] for k in r['records']])
     goal = df_ouverture['Ensemble_de_donnees'].nunique()

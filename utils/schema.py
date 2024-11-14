@@ -1,6 +1,7 @@
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
     DATAGOUV_URL,
+    ORGA_REFERENCE,
     post_resource,
     create_dataset,
     update_dataset_or_resource_metadata,
@@ -9,7 +10,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from typing import List, Optional, Dict
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from typing import List, Optional
 import pandas as pd
 import numpy as np
 import requests
@@ -31,7 +33,7 @@ pd.set_option('display.max_columns', None)
 # DATAGOUV_URL = 'https://www.data.gouv.fr'
 
 VALIDATA_BASE_URL = (
-    "https://api.validata.etalab.studio/validate?schema={schema_url}&url={rurl}"
+    "https://preprod-api-validata.dataeng.etalab.studio/validate?schema={schema_url}&url={rurl}"
 )
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"
@@ -270,6 +272,7 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
 
 # Make the validation report based on the resource url, the resource API-url,
 # the schema url and validation url
+@simple_connection_retry
 def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
     # saves time by not pinging Validata for unchanged resources
     data = requests.get(resource_api_url)
@@ -450,6 +453,7 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
 
 
 # Gets the current metadata of schema version of a resource (based of ref_table row)
+@simple_connection_retry
 def get_resource_schema_version(row: pd.Series, api_url: str):
     url = api_url + f'datasets/{row["dataset_id"]}/resources/{row["resource_id"]}/'
     r = requests.get(url, headers={'X-fields': 'schema'})
@@ -928,8 +932,13 @@ def consolidate_data(
                             print(e)
 
                         try:
-                            # Remove potential blanks in column names
-                            df_r.columns = [c.replace(' ', '') for c in df_r.columns]
+                            # Remove potential blanks in column names, assert there's no duplicate
+                            df_r.columns = [
+                                c.replace(' ', '')
+                                if c.replace(' ', '') not in df_r.columns
+                                else c
+                                for c in df_r.columns
+                            ]
                             # Remove potential unwanted characters
                             # (eg https://www.data.gouv.fr/fr/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
                             for c in df_r.columns:
@@ -974,6 +983,11 @@ def consolidate_data(
                                     df_r_list += [df_r]
                                 else:
                                     print('This file is missing required columns: ', file_path)
+                                    print(">", [
+                                        rq_col
+                                        for rq_col in version_required_cols_list
+                                        if rq_col not in df_r.columns
+                                    ])
                                     df_ref.loc[
                                         (df_ref["resource_id"] == row["resource_id"]),
                                         "columns_issue",
@@ -1068,11 +1082,10 @@ def create_schema_consolidation_dataset(
             "description": datasets_description_template.format(
                 schema_name=schema_name
             ),
-            "organization": "534fff75a3a7292c64a77de4",
+            "organization": ORGA_REFERENCE,
             "license": "lov2",
         },
     )
-    response.raise_for_status()
 
     return response
 
@@ -1243,7 +1256,6 @@ def upload_geojson(
     # Uploading file
     consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
     r_id = config_dict[schema_name]["geojson_resource_id"]
-    expected_status_code = 200
 
     obj = {}
     obj["type"] = "main"
@@ -1264,7 +1276,7 @@ def upload_geojson(
         payload=obj
     )
 
-    if response.status_code != expected_status_code:
+    if not response.ok:
         print("--- ⚠️: GeoJSON file could not be uploaded.")
         print(response.text)
         if should_succeed:
@@ -1300,22 +1312,17 @@ def upload_consolidated(
                 response = create_schema_consolidation_dataset(
                     schema_name, schemas_catalogue_list,
                 )
-                if response.status_code == 201:
-                    consolidated_dataset_id = response.json()["id"]
-                    update_config_file(
-                        schema_name,
-                        "consolidated_dataset_id",
-                        consolidated_dataset_id,
-                        config_path,
-                    )
-                    print(
-                        "-- 🟢 No consolidation dataset for this schema"
-                        f" - Successfully created (id: {consolidated_dataset_id})"
-                    )
-                else:
-                    print(
-                        "-- 🔴 No consolidation dataset for this schema - Failed to create one"
-                    )
+                consolidated_dataset_id = response["id"]
+                update_config_file(
+                    schema_name,
+                    "consolidated_dataset_id",
+                    consolidated_dataset_id,
+                    config_path,
+                )
+                print(
+                    "-- 🟢 No consolidation dataset for this schema"
+                    f" - Successfully created (id: {consolidated_dataset_id})"
+                )
             else:
                 consolidated_dataset_id = schema_config["consolidated_dataset_id"]
 
@@ -1360,12 +1367,10 @@ def upload_consolidated(
                         version_name
                     ]
                     r_to_create = False
-                    expected_status_code = 200
 
                 except KeyError:
                     r_id = None
                     r_to_create = True
-                    expected_status_code = 201
 
                 response = post_resource(
                     file_to_upload={
@@ -1380,35 +1385,26 @@ def upload_consolidated(
                     resource_id=r_id,
                     payload=obj,
                 )
-                if response.status_code == expected_status_code:
-                    if r_to_create:
-                        r_id = response.json()["id"]
-                        update_config_version_resource_id(
-                            schema_name, version_name, r_id, config_path
-                        )
-                        print(
-                            "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
-                                schema_name,
-                                version_name,
-                                r_id,
-                            )
-                        )
-                    else:
-                        print(
-                            "--- ✅ Updated consolidation for {} v{} (id: {})".format(
-                                schema_name,
-                                version_name,
-                                r_id,
-                            )
-                        )
-                else:
-                    r_id = None
-                    print(
-                        f"--- ⚠️ Version {version_name}: file could not be uploaded."
+                if r_to_create:
+                    r_id = response.json()["id"]
+                    update_config_version_resource_id(
+                        schema_name, version_name, r_id, config_path
                     )
-                    print(response.text)
-                    if should_succeed:
-                        return False
+                    print(
+                        "--- ➕ New latest resource ID created for {} v{} (id: {})".format(
+                            schema_name,
+                            version_name,
+                            r_id,
+                        )
+                    )
+                else:
+                    print(
+                        "--- ✅ Updated consolidation for {} v{} (id: {})".format(
+                            schema_name,
+                            version_name,
+                            r_id,
+                        )
+                    )
 
             # Upload GeoJSON file (e.g IRVE)
             if bool_upload_geojson:
@@ -1794,12 +1790,10 @@ def update_consolidation_documentation_report(
                 try:
                     doc_r_id = config_dict[schema_name]["documentation_resource_id"]
                     doc_r_to_create = False
-                    expected_status_code = 200
 
                 except KeyError:
                     doc_r_id = None
                     doc_r_to_create = True
-                    expected_status_code = 201
 
                 response = post_resource(
                     file_to_upload={
@@ -1811,7 +1805,7 @@ def update_consolidation_documentation_report(
                     payload=obj,
                 )
 
-                if response.status_code == expected_status_code:
+                if response.ok:
                     if doc_r_to_create:
                         doc_r_id = response.json()["id"]
                         update_config_file(
@@ -2035,7 +2029,7 @@ def notification_synthese(
                 df["schema_name"] = s["title"]
                 df["schema_id"] = s["name"]
                 df["validata_report"] = (
-                    "https://validata.etalab.studio/table-schema?input=url&url="
+                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
