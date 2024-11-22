@@ -45,6 +45,12 @@ with DAG(
         templates_dict={"type": "organizations"},
     )
 
+    check_new_dataservices = PythonOperator(
+        task_id="check_new_dataservices",
+        python_callable=check_new,
+        templates_dict={"type": "dataservices"},
+    )
+
     # check_new_comments = PythonOperator(
     #     task_id="check_new_comments",
     #     python_callable=check_new_comments,
@@ -83,12 +89,14 @@ with DAG(
     publish_mattermost.set_upstream(check_new_datasets)
     publish_mattermost.set_upstream(check_new_reuses)
     publish_mattermost.set_upstream(check_new_organizations)
+    publish_mattermost.set_upstream(check_new_dataservices)
 
     check_schema.set_upstream(publish_mattermost)
 
     send_spam_to_grist.set_upstream(check_new_datasets)
     send_spam_to_grist.set_upstream(check_new_reuses)
     send_spam_to_grist.set_upstream(check_new_organizations)
+    publish_mattermost.set_upstream(check_new_dataservices)
 
     # get_inactive_orgas
     alert_if_awaiting_spam_comments

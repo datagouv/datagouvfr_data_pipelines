@@ -34,6 +34,8 @@ grist_curation = "muvJRZ9cTGep"
 
 
 def detect_spam(name, description):
+    if not (name or description):
+        return
     for spam in SPAM_WORDS:
         for field in [name, description]:
             if field and unidecode(spam) in unidecode(field.lower()):
@@ -78,9 +80,10 @@ def check_new(ti, **kwargs):
     arr = []
     for item in items:
         mydict = {}
-        for k in ["name", "title", "page"]:
+        # when dataservices' metadata are harmonized we can change this back
+        for k in ["name", "title", "page", "self_web_url"]:
             if k in item:
-                mydict[k] = item[k]
+                mydict[k.replace("self_web_url", "page")] = item[k]
         # add field to check if it's the first publication of this type
         # for this organization/user, and check for potential spam
         mydict['duplicated'] = False
@@ -107,7 +110,8 @@ def check_new(ti, **kwargs):
                 mydict['owner_id'] = owner['id']
             else:
                 mydict['owner_type'] = None
-            if mydict['owner_type'] and owner['metrics'][templates_dict["type"]] < 2:
+            # when dataservices are exposed in the metrics we can change this back
+            if mydict['owner_type'] and owner['metrics'].get(templates_dict["type"], 99) < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
@@ -367,6 +371,7 @@ def send_spam_to_grist(ti):
         "datasets",
         "reuses",
         "organizations",
+        "dataservices",
     ]:
         arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
         print(arr)
@@ -389,8 +394,10 @@ def send_spam_to_grist(ti):
 def publish_item(item, item_type):
     if item_type == "dataset":
         message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
-    else:
+    elif item_type == "reuse":
         message = ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
+    else:
+        message = ":loudspeaker: :robot_face: Nouvelle **API** : \n"
 
     if item['owner_type'] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
@@ -411,8 +418,10 @@ def publish_item(item, item_type):
 
         if item_type == "dataset":
             message += ":loudspeaker: :one: Premier jeu de données "
-        else:
+        elif item_type == "reuse":
             message += ":loudspeaker: :one: Première réutilisation "
+        else:
+            message += ":loudspeaker: :one: Première API "
 
         if item['owner_type'] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
@@ -433,6 +442,8 @@ def publish_mattermost(ti):
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_organizations"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_organizations")
+    nb_dataservices = float(ti.xcom_pull(key="nb", task_ids="check_new_dataservices"))
+    dataservices = ti.xcom_pull(key="dataservices", task_ids="check_new_dataservices")
     # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
@@ -462,6 +473,10 @@ def publish_mattermost(ti):
     if nb_reuses > 0:
         for item in reuses:
             publish_item(item, "reuse")
+
+    if nb_dataservices > 0:
+        for item in dataservices:
+            publish_item(item, "dataservice")
 
     # removing notifications for discussions due to https://github.com/opendatateam/udata/pull/2954
     # if spam_comments:
