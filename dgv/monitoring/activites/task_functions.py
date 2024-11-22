@@ -371,7 +371,7 @@ def send_spam_to_grist(ti):
         "datasets",
         "reuses",
         "organizations",
-        "dataservices",
+        # "dataservices",
     ]:
         arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
         print(arr)
@@ -442,8 +442,8 @@ def publish_mattermost(ti):
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_organizations"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_organizations")
-    nb_dataservices = float(ti.xcom_pull(key="nb", task_ids="check_new_dataservices"))
-    dataservices = ti.xcom_pull(key="dataservices", task_ids="check_new_dataservices")
+    # nb_dataservices = float(ti.xcom_pull(key="nb", task_ids="check_new_dataservices"))
+    # dataservices = ti.xcom_pull(key="dataservices", task_ids="check_new_dataservices")
     # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
@@ -474,9 +474,9 @@ def publish_mattermost(ti):
         for item in reuses:
             publish_item(item, "reuse")
 
-    if nb_dataservices > 0:
-        for item in dataservices:
-            publish_item(item, "dataservice")
+    # if nb_dataservices > 0:
+    #     for item in dataservices:
+    #         publish_item(item, "dataservice")
 
     # removing notifications for discussions due to https://github.com/opendatateam/udata/pull/2954
     # if spam_comments:
