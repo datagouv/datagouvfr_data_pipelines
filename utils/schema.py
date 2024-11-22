@@ -2065,8 +2065,8 @@ def notification_synthese(
 
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
-                    f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/"
-                    f"schemas_consolidation/liste_erreurs/{erreurs_file_name}\n"
+                    f"(https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/"
+                    f"schemas_consolidation/liste_erreurs/{erreurs_file_name})\n"
                 )
             except Exception as e:
                 print(s["name"], "erreur :", e)
