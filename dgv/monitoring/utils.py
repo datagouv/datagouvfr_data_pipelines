@@ -1,3 +1,5 @@
+import re
+
 import requests
 from IPython.core.display import display, HTML
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -5,6 +7,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_latest_comments,
     check_duplicated_orga,
 )
+
+INLINE_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
 
 
 def show_html(html):
@@ -33,6 +37,14 @@ def is_first_content(publisher_id, publisher_type, content_type):
     return r.json()["metrics"][content_type] < 2
 
 
+def get_first_url_in_markdown(markdown):
+    if not markdown:
+        return
+    search = re.search(INLINE_LINK_RE, markdown)
+    if search:
+        return search.group(2)
+
+
 def show_users(start_date, end_date=None):
     users = get_last_items("users", start_date, end_date, date_key="since",)
 
@@ -43,9 +55,10 @@ def show_users(start_date, end_date=None):
 
     for user in users:
         html = make_link(fullname(user), user["page"])
-        if user["website"]:
+        site = user["website"] or get_first_url_in_markdown(user["about"])
+        if site:
             html += " avec comme site "
-            html += make_link(user["website"], user["website"])
+            html += make_link(site, site)
         show_html(html)
     return len(users), users
 
