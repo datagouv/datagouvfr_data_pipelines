@@ -5,6 +5,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions 
     scan_pnt_files,
     notification_mattermost,
     dump_and_send_tree,
+    consolidate_logs,
 )
 
 DAG_NAME = 'data_processing_pnt_monitor'
@@ -39,5 +40,11 @@ with DAG(
         python_callable=dump_and_send_tree,
     )
 
+    consolidate_logs = PythonOperator(
+        task_id='consolidate_logs',
+        python_callable=consolidate_logs,
+    )
+
     notification_mattermost.set_upstream(scan_pnt_files)
     dump_and_send_tree
+    consolidate_logs

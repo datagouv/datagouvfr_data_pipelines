@@ -1,14 +1,16 @@
 import requests
+from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 import json
-import re
 import urllib3
-from minio import Minio, datatypes
+from minio import datatypes
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.config import (
-    MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    MINIO_BUCKET_PNT,
+    SECRET_MINIO_PNT_USER,
+    SECRET_MINIO_PNT_PASSWORD,
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
@@ -18,9 +20,10 @@ from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
 api_url = "https://www.data.gouv.fr/api/1/"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_pnt = Minio(
-    MINIO_URL,
-    secure=True,
+minio_pnt = MinIOClient(
+    bucket=MINIO_BUCKET_PNT,
+    user=SECRET_MINIO_PNT_USER,
+    pwd=SECRET_MINIO_PNT_PASSWORD,
     http_client=urllib3.PoolManager(timeout=urllib3.Timeout(connect=30, read=1800)),
 )
 too_old_filename = "too_old.json"
@@ -154,9 +157,9 @@ def notification_mattermost(ti):
 
 def update_tree():
     # listing current runs on minio
-    current_runs = sorted([pref.object_name for pref in minio_pnt.list_objects(
-        "meteofrance-pnt",
+    current_runs = sorted([pref for pref in minio_pnt.get_files_from_prefix(
         prefix="pnt/",
+        ignore_airflow_env=True,
         recursive=False,
     )])
     # getting current tree
@@ -170,9 +173,9 @@ def update_tree():
     to_add = [r.split('/')[1] for r in current_runs if r.split('/')[1] not in tree['pnt']]
     for run in to_add:
         print(f"> Adding {run}")
-        run_tree = build_tree(minio_pnt.list_objects(
-            "meteofrance-pnt",
+        run_tree = build_tree(minio_pnt.get_files_from_prefix(
             prefix=f"pnt/{run}/",
+            ignore_airflow_env=True,
             recursive=True,
         ))
         tree['pnt'][run] = run_tree['pnt'][run]
@@ -235,3 +238,53 @@ def dump_and_send_tree() -> None:
         headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
     )
     r.raise_for_status()
+
+
+def consolidate_logs():
+    logs, csvs = [], []
+    for o in minio_pnt.get_files_from_prefix(
+        prefix="logs/",
+        ignore_airflow_env=True,
+        recursive=False,
+    ):
+        if o.endswith(".log"):
+            logs.append(o)
+        elif o.endswith(".csv"):
+            csvs.append(o.replace("logs/", "").replace(".csv", ""))
+        else:
+            raise ValueError(f"Unexpected file here: {o}")
+    print(len(logs), "new logs")
+    print(len(csvs), "existing csv files")
+    dates = defaultdict(list)
+    for log_file in logs:
+        content = minio_pnt.get_file_content(log_file)
+        date = content.split(";")[1].split(" ")[0]
+        dates[date].append(content + "\n")
+    for date in dates:
+        print(f"> Processing {date}")
+        existing = None
+        if date in csvs:
+            existing = minio_pnt.get_file_content(f"logs/{date}.csv")
+            with open(AIRFLOW_DAG_TMP + f"{date}.csv", "w") as f:
+                f.write(existing)
+            print("Updating existing file")
+        with open(AIRFLOW_DAG_TMP + f"{date}.csv", "a" if existing else "w") as f:
+            if not existing:
+                print("Creating new file")
+                f.write("file;error_datetime\n")
+            for row in dates[date]:
+                f.write(row)
+        minio_pnt.send_files(
+            list_files=[
+                {
+                    "source_path": AIRFLOW_DAG_TMP,
+                    "source_name": f"{date}.csv",
+                    "dest_path": "logs/",
+                    "dest_name": f"{date}.csv",
+                },
+            ],
+            ignore_airflow_env=True,
+            burn_after_sending=True,
+        )
+    for log_file in logs:
+        minio_pnt.delete_file(log_file)
