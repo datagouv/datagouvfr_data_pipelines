@@ -194,13 +194,12 @@ def alert_if_new_reports():
         "previous_report_check",
         (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
     )
-    reports = requests.get(
+    reports = get_all_from_api_query(
         "https://www.data.gouv.fr/api/1/reports/",
-        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY}
+        auth=True,
     )
-    reports.raise_for_status()
     unseen_reports = [
-        r for r in reports.json()["data"]
+        r for r in reports
         if r["reported_at"] >= previous_report_check
     ]
     if not unseen_reports:
