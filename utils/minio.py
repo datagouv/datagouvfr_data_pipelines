@@ -25,15 +25,23 @@ class File(TypedDict):
 
 
 class MinIOClient:
-    def __init__(self, bucket: str = None, login: bool = True):
+    def __init__(
+        self,
+        bucket: str = None,
+        user: str = None,
+        pwd: str = None,
+        login: bool = True,
+        http_client=None,
+    ):
         self.url = MINIO_URL
-        self.user = SECRET_MINIO_DATA_PIPELINE_USER
-        self.password = SECRET_MINIO_DATA_PIPELINE_PASSWORD
+        self.user = user or SECRET_MINIO_DATA_PIPELINE_USER
+        self.password = pwd or SECRET_MINIO_DATA_PIPELINE_PASSWORD
         self.bucket = bucket
         self.client = Minio(
             self.url,
             access_key=self.user if login else None,
             secret_key=self.password if login else None,
+            http_client=http_client,
             secure=True,
         )
         if self.bucket:
@@ -45,7 +53,8 @@ class MinIOClient:
     def send_files(
         self,
         list_files: List[File],
-        ignore_airflow_env=False
+        ignore_airflow_env: bool = False,
+        burn_after_sending: bool = False,
     ):
         """Send list of file to Minio bucket
 
@@ -80,6 +89,8 @@ class MinIOClient:
                         mime=True
                     )
                 )
+                if burn_after_sending:
+                    os.remove(os.path.join(file["source_path"], file["source_name"]))
             else:
                 raise Exception(
                     f"file {file['source_path']}{file['source_name']} "
