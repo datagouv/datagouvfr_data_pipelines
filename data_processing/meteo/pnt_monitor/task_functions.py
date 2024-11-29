@@ -63,7 +63,7 @@ def scan_pnt_files(ti):
 
     time_slots = {}
     unavailable_resources = {}
-    too_old = {}
+    too_old = defaultdict(list)
     for d in pnt_datasets:
         print(d)
         resources = requests.get(
@@ -74,8 +74,6 @@ def scan_pnt_files(ti):
             if 'object.data.gouv.fr' in r['url']:
                 ts, pq = get_timeslot_and_paquet(r['url'])
                 if ts < threshold:
-                    if d['title'] not in too_old:
-                        too_old[d['title']] = []
                     too_old[d['title']].append([r['title'], d['id'], r['id']])
                 if ts not in time_slots:
                     time_slots[ts] = {}

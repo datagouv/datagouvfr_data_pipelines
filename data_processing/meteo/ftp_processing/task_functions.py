@@ -1,3 +1,12 @@
+import ftplib
+import os
+import json
+from datetime import datetime, timedelta, timezone
+import re
+import requests
+from dateutil import parser
+from collections import defaultdict
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -10,13 +19,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-import ftplib
-import os
-import json
-from datetime import datetime, timedelta, timezone
-import re
-import requests
-from dateutil import parser
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
@@ -530,11 +532,9 @@ def notification_mattermost(ti):
                     message += "mise à jour des métadonnées"
 
     issues = {}
-    allowed_patterns = {}
+    allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
-        if config[path]['dataset_id'][AIRFLOW_ENV] not in allowed_patterns:
-            allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]] = []
         allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]].append(
             config[path]['name_template']
         )
