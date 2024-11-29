@@ -1,13 +1,11 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
-from minio import Minio
-import io
-import json
 from dateutil.relativedelta import relativedelta
 from datetime import timedelta, datetime, date
 import requests
 import pandas as pd
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_REPORTING,

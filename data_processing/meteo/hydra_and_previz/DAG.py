@@ -1,6 +1,7 @@
+from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from datetime import timedelta, datetime
+
 from datagouvfr_data_pipelines.data_processing.meteo.hydra_and_previz.task_functions import (
     get_and_send_errors,
 )

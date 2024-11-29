@@ -1,10 +1,3 @@
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
-    AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
-)
-from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 import os
 import pandas as pd
 import json
@@ -12,6 +5,14 @@ from datetime import datetime
 import requests
 from io import BytesIO
 from urllib.parse import quote_plus, urlencode
+
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
+)
+from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}geozones/data"

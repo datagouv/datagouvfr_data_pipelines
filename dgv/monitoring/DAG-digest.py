@@ -1,11 +1,12 @@
+from datetime import datetime, timedelta
+import json
 from airflow.models import DAG
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
-from datetime import datetime, timedelta
-import json
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,

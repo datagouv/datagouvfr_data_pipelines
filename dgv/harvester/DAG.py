@@ -1,12 +1,13 @@
+from datetime import timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
+
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
     datagouv_session,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_MOISSONNAGE,
 )

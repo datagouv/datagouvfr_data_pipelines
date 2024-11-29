@@ -1,11 +1,12 @@
-from airflow.operators.python_operator import PythonOperator
-from airflow.models import DAG
 from datetime import datetime, timedelta, timezone
-from airflow.models.dagrun import DagRun
-from airflow.settings import Session
 import os
 import logging
 import shutil
+from airflow.operators.python_operator import PythonOperator
+from airflow.models import DAG
+from airflow.models.dagrun import DagRun
+from airflow.settings import Session
+
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 nb_days_to_keep = 60

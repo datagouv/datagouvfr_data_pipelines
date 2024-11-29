@@ -5,6 +5,7 @@ from datetime import timedelta
 import json
 import urllib3
 from minio import datatypes
+
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,

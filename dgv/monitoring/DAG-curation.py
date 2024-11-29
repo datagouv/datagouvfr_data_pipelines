@@ -1,10 +1,10 @@
 from datetime import timedelta
-
 import aiohttp
 import asyncio
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
+
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES
 )

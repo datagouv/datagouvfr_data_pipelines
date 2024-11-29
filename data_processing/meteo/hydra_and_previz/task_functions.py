@@ -1,12 +1,13 @@
+from datetime import datetime, timedelta
+from dateutil.parser import parse
+import requests
+import pandas as pd
+
 from datagouvfr_data_pipelines.config import (
     SECRET_SENTRY_API_TOKEN,
     SENTRY_BASE_URL,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datetime import datetime, timedelta
-from dateutil.parser import parse
-import requests
-import pandas as pd
 
 max_csvgz_size = 104857600
 organization_slug = 'sentry'

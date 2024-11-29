@@ -4,9 +4,9 @@ import json
 import os
 import pandas as pd
 import requests
-from unidecode import unidecode
 from shapely.geometry import Point, shape
 from shapely.geometry.polygon import Polygon
+
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 
 with open(

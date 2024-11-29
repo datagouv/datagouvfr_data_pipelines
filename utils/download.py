@@ -4,6 +4,7 @@ from typing import List, Optional, TypedDict
 from pathlib import Path
 import aiohttp
 import asyncio
+
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 

@@ -1,5 +1,4 @@
 import yaml
-import git
 from git import Repo, Git
 import os
 import shutil
@@ -17,6 +16,7 @@ from feedgen.feed import FeedGenerator
 import xml.etree.ElementTree as ET
 import pytz
 import pandas as pd
+
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import post_resource

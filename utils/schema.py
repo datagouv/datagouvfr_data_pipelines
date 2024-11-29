@@ -1,17 +1,3 @@
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-    DATAGOUV_URL,
-    VALIDATA_BASE_URL,
-    ORGA_REFERENCE,
-    post_resource,
-    create_dataset,
-    update_dataset_or_resource_metadata,
-    post_comment_on_dataset,
-    update_dataset_or_resource_extras,
-)
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from typing import List, Optional
 import pandas as pd
 import numpy as np
@@ -28,6 +14,22 @@ import pickle
 import emails
 import shutil
 import pytz
+
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    DATAGOUV_URL,
+    VALIDATA_BASE_URL,
+    ORGA_REFERENCE,
+    post_resource,
+    create_dataset,
+    update_dataset_or_resource_metadata,
+    post_comment_on_dataset,
+    update_dataset_or_resource_extras,
+)
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+
 pd.set_option('display.max_columns', None)
 
 # DEV : for local dev in order not to mess up with production

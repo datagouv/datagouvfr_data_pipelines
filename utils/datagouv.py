@@ -3,6 +3,7 @@ from typing import TypedDict, Iterator, Optional
 import requests
 from datetime import datetime
 import re
+
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,

@@ -2,6 +2,7 @@ from datetime import timedelta
 from airflow.models import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
+
 from datagouvfr_data_pipelines.dgv.edito.task_functions import (
     create_edito_post,
     publish_mattermost,

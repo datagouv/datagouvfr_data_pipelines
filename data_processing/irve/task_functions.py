@@ -1,3 +1,10 @@
+from ast import literal_eval
+import pandas as pd
+import os
+from pathlib import Path
+from datetime import datetime
+import re
+
 from datagouvfr_data_pipelines.utils.schema import (
     load_config,
     remove_old_schemas,
@@ -19,12 +26,6 @@ from datagouvfr_data_pipelines.utils.schema import (
 from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
     improve_geo_data_quality,
 )
-from ast import literal_eval
-import pandas as pd
-import os
-from pathlib import Path
-from datetime import datetime
-import re
 
 schema_name = "etalab/schema-irve-statique"
 
@@ -241,7 +242,6 @@ def improve_irve_geo_data_quality(
     improve_geo_data_quality({
         os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols
     })
-
 
 
 def upload_consolidated_irve(

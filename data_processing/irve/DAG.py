@@ -1,10 +1,9 @@
+from datetime import timedelta, datetime
+from pathlib import Path
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta, datetime
-from pathlib import Path
-import os
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,

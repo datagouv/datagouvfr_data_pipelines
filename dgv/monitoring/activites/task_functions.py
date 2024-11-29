@@ -6,11 +6,11 @@ from unidecode import unidecode
 from time import sleep
 from datetime import timedelta, datetime, time as dtime, timezone
 import pandas as pd
+
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     MATTERMOST_MODERATION_NOUVEAUTES,
-    DATAGOUV_SECRET_API_KEY,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import (

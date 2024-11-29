@@ -1,3 +1,12 @@
+import os
+import json
+from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import glob
+import time
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
@@ -8,15 +17,6 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
 )
-
-import os
-import json
-from datetime import datetime
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
-import glob
-import time
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
@@ -169,9 +169,9 @@ def send_to_minio(ti):
         ]
     )
 
-    
+
 def download_from_minio(ti):
-    prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/" 
+    prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/"
     minio_files = minio_open.get_files_from_prefix(
         prefix=prefix,
         ignore_airflow_env=False,

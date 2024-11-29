@@ -1,14 +1,15 @@
+from datetime import datetime
+import requests
+import pandas as pd
+import json
+from io import StringIO
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datetime import datetime
-import requests
-import pandas as pd
-import json
-from io import StringIO
 
 DATADIR = f"{AIRFLOW_DAG_TMP}stats_meteo/data"
 minio_meteo = MinIOClient(bucket='meteofrance')

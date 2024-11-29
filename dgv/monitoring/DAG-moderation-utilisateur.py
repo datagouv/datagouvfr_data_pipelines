@@ -1,7 +1,8 @@
+from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta, datetime
+
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_USER,

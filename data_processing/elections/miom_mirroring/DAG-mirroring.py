@@ -1,13 +1,10 @@
+from datetime import timedelta
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.dates import days_ago
-from datetime import timedelta
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
-    AIRFLOW_DAG_TMP,
-)
 
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (
     get_files_updated_miom,
     download_local_files,

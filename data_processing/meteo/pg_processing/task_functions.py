@@ -10,7 +10,6 @@ import re
 from jinja2 import Environment, FileSystemLoader
 import psycopg2
 from typing import Optional
-
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (

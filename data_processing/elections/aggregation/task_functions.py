@@ -1,3 +1,11 @@
+import numpy as np
+import os
+import pandas as pd
+import json
+from itertools import chain
+from datetime import datetime
+import math
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -12,14 +20,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
-
-import numpy as np
-import os
-import pandas as pd
-import json
-from itertools import chain
-from datetime import datetime
-import math
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
