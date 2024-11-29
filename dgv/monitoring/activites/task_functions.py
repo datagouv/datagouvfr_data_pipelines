@@ -216,12 +216,17 @@ def alert_if_new_reports():
             f"{r['subject']['id']}/"
         )
         _ = requests.get(subject)
-        _.raise_for_status()
-        _ = _.json()
-        subject = (
-            f"[cet objet]({subject.replace('api/1', 'fr')}) : "
-            f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
-        )
+        try:
+            _.raise_for_status()
+            _ = _.json()
+            subject = (
+                f"[cet objet]({subject.replace('api/1', 'fr')}) : "
+                f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
+            )
+        except requests.exceptions.HTTPError:
+            subject = (
+                f"[cet objet qui a été supprimé depuis]({subject})"
+            )
         message += (
             f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{r['message']}`"
         )
