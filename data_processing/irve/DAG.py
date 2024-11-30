@@ -34,6 +34,8 @@ TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
+# DEV : for local dev without SSH enabled
+# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
@@ -59,8 +61,6 @@ with DAG(
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
         bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
-        # DEV : for local dev without SSH enabled
-        # bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
     )
 
     get_all_irve_resources = PythonOperator(
