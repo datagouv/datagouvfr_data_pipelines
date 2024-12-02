@@ -3,7 +3,6 @@ from pathlib import Path
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -45,7 +44,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 5 * * *",
-    start_date=days_ago(1),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
     tags=["schemas", "irve", "consolidation", "datagouv"],
     default_args=default_args,

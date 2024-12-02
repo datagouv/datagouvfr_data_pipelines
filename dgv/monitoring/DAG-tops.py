@@ -1,6 +1,5 @@
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from airflow.utils.dates import days_ago
 from dateutil.relativedelta import relativedelta
 from datetime import timedelta, datetime, date
 import requests
@@ -245,7 +244,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="15 6 * * *",
-    start_date=days_ago(1),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["tops", "datagouv", "piwik"],
     default_args=default_args,

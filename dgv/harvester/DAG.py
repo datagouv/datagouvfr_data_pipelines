@@ -1,7 +1,6 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
@@ -142,7 +141,7 @@ def publish_mattermost_harvester(ti):
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 9 * * WED",
-    start_date=days_ago(8),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["weekly", "harvester", "mattermost", "notification"],
     default_args=default_args,

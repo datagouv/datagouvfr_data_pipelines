@@ -1,9 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import aiohttp
 import asyncio
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES
@@ -68,7 +67,7 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval=None,
-    start_date=days_ago(0, hour=1),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["curation", "monthly", "datagouv"],
     default_args=default_args,

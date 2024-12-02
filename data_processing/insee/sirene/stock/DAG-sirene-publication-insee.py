@@ -1,9 +1,7 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
-
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions import (
     get_files,
@@ -24,7 +22,7 @@ MINIO_NEW = "insee/sirene/sirene_publication/new/"
 with DAG(
     dag_id="data_processing_sirene_publication",
     schedule_interval="5 6,8,10 1-3 * *",
-    start_date=days_ago(31),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=120),
     tags=["data_processing", "sirene", "publication"],
     params={},

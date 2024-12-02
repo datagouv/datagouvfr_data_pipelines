@@ -5,7 +5,6 @@ from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -93,7 +92,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 6 * * *",
-    start_date=days_ago(1),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["digest", "daily", "weekly", "monthly", "yearly", "datagouv"],
     default_args=default_args,

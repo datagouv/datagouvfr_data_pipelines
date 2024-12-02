@@ -1,9 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import ftplib
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -40,7 +39,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval='30 7,10 * * *',
-    start_date=days_ago(1),
+    start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=900),
     tags=["data_processing", "meteo"],

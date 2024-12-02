@@ -2,7 +2,6 @@ from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -32,7 +31,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 2 * * *",
-    start_date=days_ago(1),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["schemas", "backend", "prod", "schema.data.gouv.fr"],
     default_args=default_args,
