@@ -227,8 +227,9 @@ def alert_if_new_reports():
             subject = (
                 f"[cet objet qui a été supprimé depuis]({subject})"
             )
+        user_message = r['message'].replace('\n', ' ')
         message += (
-            f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{r['message'].replace('\n', ' ')}`"
+            f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{user_message}`"
         )
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
