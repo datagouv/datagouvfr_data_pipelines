@@ -3,10 +3,10 @@ import pandas as pd
 import requests
 from unidecode import unidecode
 from io import StringIO
-
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,

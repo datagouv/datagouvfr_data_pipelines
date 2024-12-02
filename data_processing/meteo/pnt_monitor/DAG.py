@@ -1,6 +1,7 @@
+from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from datetime import timedelta, datetime
+
 from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions import (
     scan_pnt_files,
     notification_mattermost,

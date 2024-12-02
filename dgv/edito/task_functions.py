@@ -3,6 +3,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 import requests
 # import tweepy
+
 from datagouvfr_data_pipelines.config import (
     # TWITTER_CONSUMER_KEY,
     # TWITTER_CONSUMER_KEY_SECRET,

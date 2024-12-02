@@ -1,8 +1,9 @@
 import os
 import json
-from airflow.providers.sftp.operators.sftp import SFTPOperator
 from datetime import datetime
 import hashlib
+from airflow.providers.sftp.operators.sftp import SFTPOperator
+
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata

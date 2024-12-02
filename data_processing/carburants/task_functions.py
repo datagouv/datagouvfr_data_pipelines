@@ -1,8 +1,9 @@
-from airflow.operators.bash import BashOperator
 from datetime import date
 import glob
 import os
 import zipfile
+from airflow.operators.bash import BashOperator
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,

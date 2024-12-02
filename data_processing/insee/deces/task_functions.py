@@ -3,7 +3,7 @@ import re
 import requests
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,

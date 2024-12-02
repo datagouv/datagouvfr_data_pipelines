@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from airflow.models import DAG
-from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+
 from datagouvfr_data_pipelines.dgv.apigouv.task_functions import (
     import_api_to_grist,
     publish_api_to_datagouv,

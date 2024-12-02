@@ -2,6 +2,7 @@ import json
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME
 )

@@ -1,8 +1,8 @@
+from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
@@ -32,7 +32,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval='15 6 * * *',
-    start_date=days_ago(1),
+    start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=60 * 8),
     tags=["dgv", "metrics"],

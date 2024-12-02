@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES
 )

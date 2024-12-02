@@ -16,8 +16,9 @@ def parseCP(val):
     else:
         return val[:2]
 
+
 def generate_kpis(path):
-    
+
     with open(f"{path}quotidien.geojson") as fp:
         data = json.load(fp)
 
@@ -44,7 +45,7 @@ def generate_kpis(path):
                 mydict["properties"][r["nom"]] = "R"
             else:
                 mydict["properties"][r["nom"]] = "N"
-                
+
             mydict["properties"][r["nom"] + "_s"] = r["debut"]
             mydict["properties"][r["nom"] + "_m"] = None
 
@@ -52,7 +53,7 @@ def generate_kpis(path):
             mydict["properties"][p["nom"]] = p["valeur"]
             mydict["properties"][p["nom"] + "_s"] = None
             mydict["properties"][p["nom"] + "_m"] = p["maj"]
-        
+
         for fuel in list_fuels:
             if fuel not in mydict["properties"]:
                 mydict["properties"][fuel] = "N"
@@ -63,7 +64,6 @@ def generate_kpis(path):
         obj["features"].append(mydict)
 
     arr = []
-    geometries = {}
     for d in obj["features"]:
         mydict = d["properties"]
         arr.append(mydict)
@@ -91,7 +91,7 @@ def generate_kpis(path):
             mydict["properties"] = {}
         mydict["geometry"] = d["geometry"]
         final["features"].append(mydict)
-            
+
     tab = {
         "SP95": 0,
         "SP95r": 0,
@@ -124,7 +124,7 @@ def generate_kpis(path):
 
     final["properties"] = {}
     for fuel in list_fuels:
-        
+
         final["properties"][fuel] = [
             np.min(tab[fuel + "v"]),
             round(np.quantile(tab[fuel + "v"], .333333),2),
@@ -166,7 +166,6 @@ def generate_kpis(path):
                     d["properties"][fuel + "_color"] = getColor(float(d["properties"][fuel]), fuel)
 
     final["properties"]["maj"] = datetime.now().isoformat(' ')
-
 
     with open(f"{path}latest_france.geojson", "w") as fp:
         json.dump(final, fp)

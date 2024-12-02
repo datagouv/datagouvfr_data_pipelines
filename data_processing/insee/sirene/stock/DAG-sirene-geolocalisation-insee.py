@@ -1,9 +1,8 @@
+from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
 
-from airflow.utils.dates import days_ago
-from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
@@ -23,7 +22,7 @@ MINIO_NEW = "insee/sirene/sirene_geolocalisation_insee/new/"
 with DAG(
     dag_id="data_processing_sirene_geolocalisation",
     schedule_interval="5 6,7,8,9,10 21-23 * *",
-    start_date=days_ago(31),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["data_processing", "sirene", "geolocalisation"],
     params={},

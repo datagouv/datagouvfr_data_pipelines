@@ -3,16 +3,11 @@ from airflow.models import Variable
 import frontmatter
 import glob
 import requests
-from dotenv import load_dotenv
-import os
 import random
-import ast
-import shutil
 import pandas as pd
 import re
+
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MATTERMOST_TMPAPIGOUV
@@ -32,6 +27,7 @@ headers_grist = {
 headers_dgv = {
     "X-API-KEY": DATAGOUV_TOKEN
 }
+
 
 def get_df(url):
     r = requests.get(url, headers=headers_grist)
@@ -116,7 +112,7 @@ def import_api_to_grist(ti):
         "Authorization": "Bearer " +  apikey
     }
 
-    df = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id +  "/tables/Api_all/records")
+    df = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records")
 
     list_sources = [item["title"] for item in apis]
     list_grist = df["title"].to_list()
@@ -136,32 +132,31 @@ def import_api_to_grist(ti):
         },
         {
             "table": "Api_partners",
-            "cols": [ "api_id", "title", "partners"],
+            "cols": ["api_id", "title", "partners"],
         },
         {
             "table": "Api_tags",
-            "cols": [ "api_id", "title", "tags"],
+            "cols": ["api_id", "title", "tags"],
         },
         {
             "table": "Api_themes",
-            "cols": [ "api_id", "title", "themes"],
+            "cols": ["api_id", "title", "themes"],
         },
         {
             "table": "Api_description",
-            "cols": [ "api_id", "title", "description"],
+            "cols": ["api_id", "title", "description"],
         },
     ]
 
     for cti in cols_tables_ids:
         print(cti)
         table = {
-        "tables": [
-            {
-            "id": cti["table"],
-            "columns": [
+            "tables": [
+                {
+                    "id": cti["table"],
+                    "columns": []
+                }
             ]
-            }
-        ]
         }
         for col in cti["cols"]:
             table["tables"][0]["columns"].append(
@@ -175,7 +170,7 @@ def import_api_to_grist(ti):
         records = {
             "records": []
         }
-        
+
         if cti["table"] in ["Api_partners", "Api_tags", "Api_themes"]:
             for a in apis:
                 records = {
@@ -190,12 +185,15 @@ def import_api_to_grist(ti):
                         mydict["partners"] = item
                         records["records"].append(
                             {
-                            "fields": mydict
+                                "fields": mydict
                             }
                         )
                         print(mydict)
-                    r2 = requests.post(api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records", headers=headers, json=records)
-
+                    r2 = requests.post(
+                        api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records",
+                        headers=headers,
+                        json=records
+                    )
 
                 if cti["table"] == "Api_tags" and "tags" in a and a["tags"] == a["tags"] and a["tags"] is not None:
                     for item in a["tags"]:
@@ -205,10 +203,14 @@ def import_api_to_grist(ti):
                         mydict["tags"] = item
                         records["records"].append(
                             {
-                            "fields": mydict
+                                "fields": mydict
                             }
                         )
-                    r2 = requests.post(api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records", headers=headers, json=records)
+                    r2 = requests.post(
+                        api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records",
+                        headers=headers,
+                        json=records
+                    )
 
                 if cti["table"] == "Api_themes" and "themes" in a and a["themes"] == a["themes"] and a["themes"] is not None:
                     for item in a["themes"]:
@@ -218,10 +220,14 @@ def import_api_to_grist(ti):
                         mydict["themes"] = item
                         records["records"].append(
                             {
-                            "fields": mydict
+                                "fields": mydict
                             }
-                        )                            
-                    r2 = requests.post(api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records", headers=headers, json=records)
+                        )
+                    r2 = requests.post(
+                        api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records",
+                        headers=headers,
+                        json=records
+                    )
 
         print(cti["table"])
         if cti["table"] in ["Api_all", "Api_description"]:
@@ -232,17 +238,22 @@ def import_api_to_grist(ti):
                 mydict = {}
                 for item in a:
                     if item in cti["cols"]:
-                        mydict[item] = a[item]       
+                        mydict[item] = a[item]
                 records["records"].append(
                     {
-                    "fields": mydict
+                        "fields": mydict
                     }
                 )
             print(records)
-            r2 = requests.post(api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records", headers=headers, json=records)
+            r2 = requests.post(
+                api_url + "docs/" + doc_id + "/tables/" + cti["table"] + "/records",
+                headers=headers,
+                json=records
+            )
             print(r2.json())
     list_sources = [item for item in list_sources if item != "API XXX"]
     ti.xcom_push(key="list_sources", value=list_sources)
+
 
 def publish_api_to_datagouv(ti):
     df = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records")
@@ -254,7 +265,7 @@ def publish_api_to_datagouv(ti):
 
     apikos = []
 
-    for index, row in df[df["Ok_pour_migrer"] == True].iterrows():   
+    for _, row in df[df["Ok_pour_migrer"] == True].iterrows():   
         try:
             print("----")
             print(row["title"])
@@ -281,21 +292,36 @@ def publish_api_to_datagouv(ti):
             if not contact_exist:
                 if is_valid_email(row["contact_point"]):
                     print("post " + row["contact_point"] + " for orga " + org_id)
-                    r = requests.post(DATAGOUV_URL + "/api/1/contacts", json={ "name": row["contact_point"], "email": row["contact_point"], "organization": org_id}, headers=headers_dgv)
+                    r = requests.post(
+                        DATAGOUV_URL + "/api/1/contacts",
+                        json={
+                            "name": row["contact_point"],
+                            "email": row["contact_point"],
+                            "organization": org_id
+                        },
+                        headers=headers_dgv
+                    )
                     contact_id = r.json()["id"]
                     contact_exist = True
                 elif is_valid_url(row["contact_point"]):
                     print("post " + row["contact_point"] + " for orga " + org_id)
-                    r = requests.post(DATAGOUV_URL + "/api/1/contacts", json={ "name": "Contact", "contact_form": row["contact_point"], "organization": org_id}, headers=headers_dgv)
+                    r = requests.post(
+                        DATAGOUV_URL + "/api/1/contacts",
+                        json={
+                            "name": "Contact",
+                            "contact_form": row["contact_point"],
+                            "organization": org_id
+                        },
+                        headers=headers_dgv
+                    )
                     contact_id = r.json()["id"]
                     contact_exist = True
                 else:
                     print("pas de contact valide")
 
-            
             mydict = {}
             mydict["title"] = row["title"]
-            if row["base_api_url"] != "": 
+            if row["base_api_url"] != "":
                 mydict["base_api_url"] = row["base_api_url"]
             # else:
             #     mydict["base_api_url"] = "https://www.data.gouv.fr"
@@ -303,11 +329,15 @@ def publish_api_to_datagouv(ti):
                 mydict["is_restricted"] = False
             else: 
                 mydict["is_restricted"] = True
-            if row["authorization_request_url"] != "": mydict["authorization_request_url"] = row["authorization_request_url"]
-            if row["documentation_metier"] != "": mydict["business_documentation_url"] = row["documentation_metier"]
+            if row["authorization_request_url"] != "":
+                mydict["authorization_request_url"] = row["authorization_request_url"]
+            if row["documentation_metier"] != "":
+                mydict["business_documentation_url"] = row["documentation_metier"]
             mydict["rate_limiting"] = row["rate_limiting"]
-            if row["swagger_url"] != "": mydict["endpoint_description_url"] = row["swagger_url"]
-            if row["availability"]: mydict["availability"] = float(row["availability"])
+            if row["swagger_url"] != "":
+                mydict["endpoint_description_url"] = row["swagger_url"]
+            if row["availability"]:
+                mydict["availability"] = float(row["availability"])
             mydict["extras"] = {}
             mydict["extras"]["availability_url"] = row["availability_url"]
             mydict["extras"]["is_franceconnect"] = row["is_FC"]
@@ -321,10 +351,12 @@ def publish_api_to_datagouv(ti):
                     if row2["themes"]:
                         tags.append(row2["themes"])
             mydict["tags"] = tags
-            mydict["description"] = df_desc[df_desc["api_id"] == row["api_id"]].iloc[0]["description_sans_tagline_result"]
+            mydict["description"] = df_desc[df_desc["api_id"] == row["api_id"]].iloc[0][
+                "description_sans_tagline_result"
+            ]
             pc = []
-            for index2, row2 in df_pc[df_pc["api_id"] == row["api_id"]].iterrows():
-                if row2 != None:
+            for _, row2 in df_pc[df_pc["api_id"] == row["api_id"]].iterrows():
+                if row2 is not None:
                     mydict2 = {}
                     mydict2["name"] = row2["Public_Cible"]
                     mydict2["has_access"] = row2["Eligible"]
@@ -332,40 +364,49 @@ def publish_api_to_datagouv(ti):
                     pc.append(mydict2)
             mydict["extras"]["public_cible"] = pc
             datasets = []
-            for index2, row2 in df_jdd[df_jdd["api_id"] == row["api_id"]].iterrows():
+            for _, row2 in df_jdd[df_jdd["api_id"] == row["api_id"]].iterrows():
                 datasets.append(row2["Jeu_de_donnees_data_gouv_fr"])
-            
+
             for dataset in datasets:
                 r = requests.get(DATAGOUV_URL + "/api/1/datasets/" + dataset)
                 if r.status_code == 404:
                     datasets = []
                     print(f"dataset {dataset} not found in {DATAGOUV_URL}")
-            
+
             mydict["datasets"] = datasets
-            if contact_exist: mydict["contact_point"] = contact_id
+            if contact_exist:
+                mydict["contact_point"] = contact_id
             mydict["organization"] = org_id
-            
+
             if row[property_grist] is None or row[property_grist] == '' or row[property_grist] != row[property_grist]:
                 print("post " + row["title"] + " in dgv")
                 r = requests.post(DATAGOUV_URL + "/api/1/dataservices/", headers=headers_dgv, json=mydict)
-        
+
                 payload = {
-                "records": [
-                    {
-                    "id": row["id"],
-                    "fields": {}
-                    }
-                ]
+                    "records": [
+                        {
+                            "id": row["id"],
+                            "fields": {}
+                        }
+                    ]
                 }
                 payload["records"][0]["fields"][property_grist] = r.json()["self_web_url"]
                 print("patch " + row["title"] + " in grist")
-                r = requests.patch("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records", json=payload, headers=headers_grist)
-                
+                r = requests.patch(
+                    "https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records",
+                    json=payload,
+                    headers=headers_grist
+                )
+
             else:
                 print("link existing")
                 id_dgv = row[property_grist].split("/")[-2]
                 print("patch " + row["title"] + " in dgv")
-                r = requests.patch(DATAGOUV_URL + "/api/1/dataservices/" + id_dgv + "/", headers=headers_dgv, json=mydict)
+                r = requests.patch(
+                    DATAGOUV_URL + "/api/1/dataservices/" + id_dgv + "/",
+                    headers=headers_dgv,
+                    json=mydict,
+                )
         except:
             print(f"Problem with - {row['title']}")
             apikos.append(row['title'])
@@ -373,7 +414,7 @@ def publish_api_to_datagouv(ti):
                 print(r.json())
             except:
                 pass
-        ti.xcom_push(key="apikos", value=apikos)      
+        ti.xcom_push(key="apikos", value=apikos)
 
 
 def publish_mattermost(ti):
@@ -396,7 +437,7 @@ def publish_mattermost(ti):
             MATTERMOST_TMPAPIGOUV
         )
 
-        
+
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
 
@@ -408,5 +449,3 @@ def is_valid_url(url):
         r'(/[A-Za-z0-9._~:/?#[@!$&\'()*+,;=%-]*)?$'
     )
     return bool(motif_url.match(url))
-
-

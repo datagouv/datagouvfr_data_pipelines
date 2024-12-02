@@ -1,6 +1,3 @@
-
-from airflow.hooks.base import BaseHook
-from airflow.models import Variable
 from datetime import datetime, date, timedelta
 import glob
 import os
@@ -8,6 +5,8 @@ import pandas as pd
 import requests
 import tarfile
 from tqdm import tqdm
+from airflow.hooks.base import BaseHook
+from airflow.models import Variable
 
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.download import download_files

@@ -1,5 +1,6 @@
 import requests
 from typing import Optional
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_DATAENG,

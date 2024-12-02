@@ -1,3 +1,12 @@
+import pandas as pd
+import os
+from datetime import date, datetime
+from dateutil.relativedelta import relativedelta
+import numpy as np
+import requests
+import json
+from io import StringIO
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
@@ -13,14 +22,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     update_dataset_or_resource_metadata,
     DATAGOUV_URL
 )
-import pandas as pd
-import os
-from datetime import date, datetime
-from dateutil.relativedelta import relativedelta
-import numpy as np
-import requests
-import json
-from io import StringIO
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"

@@ -1,3 +1,8 @@
+import pandas as pd
+import os
+from datetime import datetime
+from ast import literal_eval
+
 from datagouvfr_data_pipelines.utils.schema import (
     remove_old_schemas,
     get_schema_report,
@@ -13,10 +18,6 @@ from datagouvfr_data_pipelines.utils.schema import (
     create_detailed_report,
     final_directory_clean_up,
 )
-import pandas as pd
-import os
-from datetime import datetime
-from ast import literal_eval
 pd.set_option('display.max_columns', None)
 
 

@@ -1,7 +1,7 @@
+from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta, datetime
+
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_USER,
@@ -66,7 +66,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     schedule_interval="45 * * * *",
-    start_date=days_ago(0, hour=1),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["moderation", "hourly", "datagouv"],
     default_args=default_args,

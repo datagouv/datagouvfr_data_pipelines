@@ -5,6 +5,7 @@ from io import StringIO
 from time import sleep
 import json
 import numpy as np
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     SECRET_ZAMMAD_API_URL,

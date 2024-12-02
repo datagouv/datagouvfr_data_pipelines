@@ -1,12 +1,12 @@
+from datetime import datetime
 from airflow import DAG
 from airflow.contrib.operators.ssh_operator import SSHOperator
-from airflow.utils.dates import days_ago
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
     # Runs at 7:48 AM on the 1st, 5th, and 10th of each month
     schedule_interval="48 7 1,5,10 * *",
-    start_date=days_ago(31),
+    start_date=datetime(2024, 8, 10),
     catchup=False,
     tags=["data_processing", "sirene", "geocodage", "etalab" "geocodage"],
     params={},

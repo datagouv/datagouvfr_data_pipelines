@@ -1,7 +1,8 @@
+from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
-from datetime import datetime, timedelta
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )

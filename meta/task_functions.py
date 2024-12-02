@@ -1,9 +1,9 @@
-from airflow.models import DagRun
-from airflow.utils.state import State
 import json
 from datetime import datetime, timedelta
 import numpy as np
 import pytz
+from airflow.models import DagRun
+from airflow.utils.state import State
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,

@@ -1,9 +1,8 @@
+from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
 
-from airflow.utils.dates import days_ago
-from datetime import timedelta
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
@@ -20,7 +19,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
 with DAG(
     dag_id="data_processing_formation_qualiopi",
     schedule_interval="0 3 * * MON",
-    start_date=days_ago(8),
+    start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=15),
     tags=["formation", "qualiopi", "certification"],
     params={},
