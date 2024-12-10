@@ -109,7 +109,7 @@ def check_new(ti, **kwargs):
                 mydict['owner_id'] = owner['id']
             else:
                 mydict['owner_type'] = None
-            if mydict['owner_type'] and owner['metrics'].get(templates_dict["type"]) < 2:
+            if mydict['owner_type'] and owner['metrics'].get(templates_dict["type"], 0) < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
