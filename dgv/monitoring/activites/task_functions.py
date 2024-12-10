@@ -10,7 +10,6 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     MATTERMOST_MODERATION_NOUVEAUTES,
-    DATAGOUV_SECRET_API_KEY,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -110,8 +109,7 @@ def check_new(ti, **kwargs):
                 mydict['owner_id'] = owner['id']
             else:
                 mydict['owner_type'] = None
-            # when dataservices are exposed in the metrics we can change this back
-            if mydict['owner_type'] and owner['metrics'].get(templates_dict["type"], 99) < 2:
+            if mydict['owner_type'] and owner['metrics'].get(templates_dict["type"]) < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
@@ -375,7 +373,7 @@ def send_spam_to_grist(ti):
         "datasets",
         "reuses",
         "organizations",
-        # "dataservices",
+        "dataservices",
     ]:
         arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
         print(arr)
@@ -446,8 +444,8 @@ def publish_mattermost(ti):
     reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
     nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_organizations"))
     orgas = ti.xcom_pull(key="organizations", task_ids="check_new_organizations")
-    # nb_dataservices = float(ti.xcom_pull(key="nb", task_ids="check_new_dataservices"))
-    # dataservices = ti.xcom_pull(key="dataservices", task_ids="check_new_dataservices")
+    nb_dataservices = float(ti.xcom_pull(key="nb", task_ids="check_new_dataservices"))
+    dataservices = ti.xcom_pull(key="dataservices", task_ids="check_new_dataservices")
     # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
@@ -478,9 +476,9 @@ def publish_mattermost(ti):
         for item in reuses:
             publish_item(item, "reuse")
 
-    # if nb_dataservices > 0:
-    #     for item in dataservices:
-    #         publish_item(item, "dataservice")
+    if nb_dataservices > 0:
+        for item in dataservices:
+            publish_item(item, "dataservice")
 
     # removing notifications for discussions due to https://github.com/opendatateam/udata/pull/2954
     # if spam_comments:
