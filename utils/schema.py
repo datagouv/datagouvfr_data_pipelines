@@ -1574,8 +1574,11 @@ def update_resource_send_mail_producer(
                 update_version = True
             # Else, check if declarative version ; not setting the version in metadata
             else:
-                # If so, put validation report from it
-                if isinstance(row["initial_version_name"], str):
+                # If so, put validation report from it, if it exists
+                if (
+                    isinstance(row["initial_version_name"], str)
+                    and os.path.isfile(validata_report_path + row["initial_version_name"] + ".json")
+                ):
                     validata_report_path += row["initial_version_name"] + ".json"
                 # If not, put validation report from latest version
                 else:
