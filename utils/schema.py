@@ -1175,12 +1175,11 @@ def update_resource_metadata(
             schema metadata and the corresponding report in extras
             > if the resource is not valid for any version, we don't touch anything
     """
+    print("_____________________________")
     if os.path.isfile(validata_report_path):
         schema_from_consolidation = {"name": schema_name, "version": version_name}
         with open(validata_report_path) as out:
             validation_report = json.load(out)
-
-        print("_____________________________")
         print(f"Updating metadata for {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
         if validation_report.get("from_metadata"):
             print("report is made from metadata and unchanged, passing")
@@ -1238,6 +1237,11 @@ def update_resource_metadata(
             print("Not updating schema metadata")
 
         return reponse_extras.status_code == 200
+    else:
+        print(
+            f"Validation report for v{version_name} doesn't exist for "
+            f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+        )
     return True
 
 
@@ -1574,8 +1578,11 @@ def update_resource_send_mail_producer(
                 update_version = True
             # Else, check if declarative version ; not setting the version in metadata
             else:
-                # If so, put validation report from it
-                if isinstance(row["initial_version_name"], str):
+                # If so, put validation report from it, if it exists
+                if (
+                    isinstance(row["initial_version_name"], str)
+                    and os.path.isfile(validata_report_path + row["initial_version_name"] + ".json")
+                ):
                     validata_report_path += row["initial_version_name"] + ".json"
                 # If not, put validation report from latest version
                 else:
