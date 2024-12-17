@@ -232,7 +232,8 @@ def dump_and_send_tree() -> None:
             "temporal_coverage": {
                 "start": oldest + ".000000+00:00",
                 "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            }
+            },
+            "tags": ["hvd", "meteorologiques"],
         },
         headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
     )
