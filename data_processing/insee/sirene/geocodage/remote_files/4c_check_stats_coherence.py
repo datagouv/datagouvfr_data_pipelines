@@ -137,10 +137,7 @@ def check_stats_coherence(file_prev: str, file_next: str) -> None:
     else:
         print("Stats are coherent.")
 
-    # TODO: After running at least once in production
-    # Change the print code to:
-    # exit(error_code)
-    print(f"Error Code: {error_code}")
+    exit(error_code)
 
 
 if __name__ == "__main__":
