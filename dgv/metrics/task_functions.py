@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import tarfile
+import time
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Tuple, Optional
 
@@ -528,7 +529,14 @@ def get_matomo_outlinks(model, slug, target, metric_date):
         "period": "day",
         "date": metric_date.isoformat(),
     }
-    matomo_res = requests.get(matomo_url, params=params)
+    tries = 5
+    while tries > 0:
+        matomo_res = requests.get(matomo_url, params=params)
+        # The Matomo API is sometimes unstable and required a few retries
+        if matomo_res.status_code in ["502"]:
+            time.sleep(0.5)
+            tries-=1
+        break
     matomo_res.raise_for_status()
     return sum(
         outlink["nb_hits"]
@@ -549,6 +557,10 @@ def process_matomo():
     """
     Fetch matomo metrics for external links for datasets, reuses and sum these by orga
     """
+
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_rows', None)
+
     if not os.path.exists(f"{TMP_FOLDER}matomo-outputs/"):
         os.makedirs(f"{TMP_FOLDER}matomo-outputs/")
 
@@ -583,19 +595,16 @@ def process_matomo():
         )
 
         df_orga = sum_outlinks_by_orga(df_orga, df_catalog, obj_type)
-        logging.info(f"MATOMO DF ORGA FROM RESUSES:\n\n{df_orga.head()}")
 
     df_orga["date_metric"] = yesterday.isoformat()
-    df_orga = df_orga.rename(columns={"reuses_outlinks": "outlinks"})
-    df_orga = df_orga.rename(columns={"organization_id": "id"})
+    # df_orga = df_orga.rename(columns={"reuses_outlinks": "outlinks"})
+    # df_orga = df_orga.rename(columns={"organization_id": "id"})
     df_orga.to_csv(
         f"{TMP_FOLDER}matomo-outputs/organizations-outlinks.csv",
-        columns=["date_metric", "id", "outlinks"],
+        columns=["date_metric", "organization_id", "reuses_outlinks"],
         index=False,
         header=False,
     )
-    logging.info(f"MATOMO DF ORGA:\n\n{df_orga.head()}")
-    logging.info("Done")
 
 
 def save_metrics_to_postgres(ti):
