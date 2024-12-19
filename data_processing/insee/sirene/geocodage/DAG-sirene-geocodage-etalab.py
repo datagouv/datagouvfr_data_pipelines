@@ -4,8 +4,7 @@ from airflow.contrib.operators.ssh_operator import SSHOperator
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
-    # Runs at 7:48 AM on the 1st, 5th, and 10th of each month
-    schedule_interval="48 7 1,5,10 * *",
+    schedule_interval="48 16 1,5,10 * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     tags=["data_processing", "sirene", "geocodage", "etalab" "geocodage"],
@@ -147,6 +146,6 @@ with DAG(
     prepare_to_rsync.set_upstream(national_files_agregation)
     prepare_to_rsync.set_upstream(split_by_locality)
     check_stats_coherence.set_upstream(get_geocode_stats)
-    prepare_to_rsync.set_upstream(get_geocode_stats)
+    prepare_to_rsync.set_upstream(check_stats_coherence)
     rsync_to_files_data_gouv.set_upstream(prepare_to_rsync)
     mkdir_last_and_symbolic_links.set_upstream(rsync_to_files_data_gouv)
