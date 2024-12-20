@@ -409,7 +409,7 @@ def get_last_items(
     start_date: datetime,
     end_date=None,
     date_key='created_at',
-    sort_key='-created'
+    sort_key='-created',
 ) -> list:
     results = []
     data = get_all_from_api_query(
