@@ -53,7 +53,7 @@ def get_stats_period(TODAY, period, scope):
         recap += (
             f'- {res["stats"]["nb_orgas"]} orgas créées\n'
             f'- {res["stats"]["nb_discussions"]} discussions créées\n'
-            # f'- {res["stats"]["nb_users"]} utilisateurs créés'
+            f'- {res["stats"]["nb_users"]} utilisateurs créés'
         )
     return recap
 
