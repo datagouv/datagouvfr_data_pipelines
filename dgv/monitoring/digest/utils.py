@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     check_duplicated_orga,
 )
 
-INLINE_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+URL_PATTERN = "https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/[^ \n]*)?"
 
 
 def show_html(html):
@@ -37,12 +37,13 @@ def is_first_content(publisher_id, publisher_type, content_type):
     return r.json()["metrics"][content_type] < 2
 
 
-def get_first_url_in_markdown(markdown):
-    if not markdown:
+def get_url(about):
+    if not about:
         return
-    search = re.search(INLINE_LINK_RE, markdown)
-    if search:
-        return search.group(2)
+    searched = re.search(URL_PATTERN, about)
+    if not searched:
+        return
+    return searched.group(0)
 
 
 def show_users(start_date, end_date=None):
@@ -55,7 +56,7 @@ def show_users(start_date, end_date=None):
 
     for user in users:
         html = make_link(fullname(user), user["page"])
-        site = user["website"] or get_first_url_in_markdown(user["about"])
+        site = user["website"] or get_url(user["about"])
         if site:
             html += " avec comme site "
             html += make_link(site, site)
@@ -63,69 +64,96 @@ def show_users(start_date, end_date=None):
     return len(users), users
 
 
-def show_datasets(start_date, end_date=None):
-    datasets = get_last_items(
-        "datasets",
+params = {
+    "datasets": {
+        "date_key": "internal.created_at_internal",
+        "label_singular": "jeu de données",
+        "label_plural": "jeux de données",
+    },
+    "reuses": {
+        "date_key": "created_at",
+        "label_singular": "réutilisation",
+        "label_plural": "réutilisations",
+    },
+    "dataservices": {
+        "date_key": "created_at",
+        "label_singular": "API",
+        "label_plural": "APIs",
+    },
+}
+
+
+def accorde(object_class, nb):
+    return (
+        params[object_class]["label_plural"]
+        if nb > 1
+        else params[object_class]['label_singular']
+    )
+
+
+def show_objects(object_class, start_date, end_date=None):
+    feminin = "e" if object_class in ["reuses", "dataservices"] else ""
+    objects = get_last_items(
+        object_class,
         start_date,
         end_date,
-        date_key="internal.created_at_internal"
+        date_key=params[object_class]["date_key"],
     )
 
     show_html(
-        f"<h3>{len(datasets)} jeu{'x' if len(datasets) > 1 else ''} "
-        f"de données créé{'s' if len(datasets) > 1 else ''}</h3>"
+        f"<h3>{len(objects)} {accorde(object_class, len(objects))} "
+        f"créé{feminin}{'s' if len(objects) > 1 else ''}</h3>"
     )
-    first_datasets = []
-    other_datasets = []
+    first_objects = []
+    other_objects = []
 
-    for dataset in datasets:
+    for obj in objects:
         is_first = None
-        if not dataset["organization"] and not dataset["owner"]:
+        if not obj["organization"] and not obj["owner"]:
             owner = "- orphan -"
             owner_url = "#"
+        elif obj["organization"]:
+            owner = obj["organization"]["name"]
+            owner_url = obj["organization"]["page"]
+            is_first = is_first_content(
+                obj["organization"]["id"],
+                "organizations",
+                "datasets",
+            )
         else:
-            if dataset["organization"]:
-                owner = dataset["organization"]["name"]
-                owner_url = dataset["organization"]["page"]
-                is_first = is_first_content(
-                    dataset["organization"]["id"],
-                    "organizations",
-                    "datasets",
-                )
-            else:
-                owner = fullname(dataset["owner"])
-                owner_url = dataset["owner"]["page"]
-                is_first = is_first_content(
-                    dataset["owner"]["id"],
-                    "users",
-                    "datasets",
-                )
-        html = make_link(dataset["title"], dataset["page"])
+            owner = fullname(obj["owner"])
+            owner_url = obj["owner"]["page"]
+            is_first = is_first_content(
+                obj["owner"]["id"],
+                "users",
+                "datasets",
+            )
+        html = make_link(obj["title"], obj["page"])
         html += " par "
         html += make_link(owner, owner_url)
         if is_first:
-            first_datasets.append(html)
+            first_objects.append(html)
         else:
-            other_datasets.append(html)
-    if first_datasets:
+            other_objects.append(html)
+    if first_objects:
         show_html(
-            f"<h4>Dont {len(first_datasets)} "
-            f"premier{'s' if len(first_datasets) > 1 else ''} "
-            f"jeu{'x' if len(first_datasets) > 1 else ''} de données :</h4>"
+            f"<h4>Dont {len(first_objects)} "
+            f"premier{feminin}{'s' if len(first_objects) > 1 else ''} "
+            f"{accorde(object_class, len(first_objects))} :</h4>"
         )
-        for d in first_datasets:
+        for d in first_objects:
             show_html(d)
-        if other_datasets:
+        if other_objects:
             show_html(
-                f"<h4>Et {len(other_datasets)} autre{'s' if len(other_datasets) > 1 else ''} "
-                f"jeu{'x' if len(other_datasets) > 1 else ''} de données :</h4>"
+                f"<h4>Et {len(other_objects)} autre{'s' if len(other_objects) > 1 else ''} "
+                f"{accorde(object_class, len(other_objects))} :</h4>"
             )
-            for d in other_datasets:
+            for d in other_objects:
                 show_html(d)
     else:
-        for d in other_datasets:
+        for d in other_objects:
             show_html(d)
-    return len(datasets), datasets
+    return len(objects), objects
 
 
 def show_orgas(start_date, end_date=None):
@@ -164,63 +192,6 @@ def show_orgas(start_date, end_date=None):
         for o in other_orgas:
             show_html(o)
     return len(orgs), orgs
-
-
-def show_reuses(start_date, end_date=None):
-    reuses = get_last_items("reuses", start_date, end_date)
-
-    show_html(
-        f"<h3>{len(reuses)} réutilisation{'s' if len(reuses) > 1 else ''} "
-        f"créée{'s' if len(reuses) > 1 else ''}</h3>"
-    )
-    first_reuses = []
-    other_reuses = []
-
-    for reuse in reuses:
-        owner = None
-        owner_url = "#"
-        is_first = None
-        if reuse["organization"]:
-            owner = reuse["organization"]["name"]
-            owner_url = reuse["organization"]["page"]
-            is_first = is_first_content(
-                reuse["organization"]["id"],
-                "organizations",
-                "reuses",
-            )
-        elif reuse["owner"]:
-            owner = fullname(reuse["owner"])
-            owner_url = reuse["owner"]["page"]
-            is_first = is_first_content(
-                reuse["owner"]["id"],
-                "users",
-                "reuses",
-            )
-        html = make_link(reuse['title'], reuse['page'])
-        html += " par "
-        html += make_link(owner, owner_url)
-        if is_first:
-            first_reuses.append(html)
-        else:
-            other_reuses.append(html)
-    if first_reuses:
-        show_html(
-            f"<h4>Dont {len(first_reuses)} "
-            f"première{'s' if len(first_reuses) > 1 else ''} "
-            f"réutilisation{'s' if len(first_reuses) > 1 else ''} :</h4>"
-        )
-        for r in first_reuses:
-            show_html(r)
-        if other_reuses:
-            show_html(
-                f"<h4>Et {len(other_reuses)} autre{'s' if len(other_reuses) > 1 else ''} "
-                f"réutilisation{'s' if len(other_reuses) > 1 else ''} :</h4>")
-            for r in other_reuses:
-                show_html(r)
-    else:
-        for r in other_reuses:
-            show_html(r)
-    return len(reuses), reuses
 
 
 def show_discussions(start_date, end_date=None):

@@ -1,0 +1,166 @@
+from datetime import datetime, timedelta
+import json
+from airflow.models import DAG
+from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
+from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator, ShortCircuitOperator
+
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
+    MATTERMOST_DATAGOUV_ACTIVITES,
+    SECRET_MAIL_DATAGOUV_BOT_USER,
+    SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
+    SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
+    MINIO_URL,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_MINIO_DATA_PIPELINE_USER,
+    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+)
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.utils import (
+    check_if_monday,
+    check_if_first_day_of_month,
+    check_if_first_day_of_year,
+)
+
+DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
+DAG_NAME = "dgv_digests"
+TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME
+MINIO_PATH = "dgv/"
+today = datetime.today().strftime('%Y-%m-%d')
+
+
+def get_stats_period(TODAY, period):
+    with open(
+        AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{period}/{TODAY}/output/stats.json"
+    ) as json_file:
+        res = json.load(json_file)
+    recap = (
+        f'- {res["stats"]["nb_datasets"]} datasets créés\n'
+        f'- {res["stats"]["nb_reuses"]} reuses créées\n'
+        f'- {res["stats"]["nb_dataservices"]} dataservices créés\n'
+    )
+    if period == "daily":
+        recap += (
+            f'- {res["stats"]["nb_orgas"]} orgas créées\n'
+            f'- {res["stats"]["nb_discussions"]} discussions créées\n'
+            f'- {res["stats"]["nb_users"]} utilisateurs créés'
+        )
+    return recap
+
+
+def publish_mattermost_period(ti, **kwargs):
+    templates_dict = kwargs.get("templates_dict")
+    period = templates_dict["period"]
+    report_url = ti.xcom_pull(
+        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{period}"
+    )
+    stats = get_stats_period(templates_dict["TODAY"], period)
+    message = f"{period.title()} Digest : {report_url} \n{stats}"
+    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+
+
+def send_email_report_period(ti, **kwargs):
+    templates_dict = kwargs.get("templates_dict")
+    period = templates_dict["period"]
+    report_url = ti.xcom_pull(
+        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{period}"
+    )
+    message = get_stats_period(templates_dict["TODAY"], period) + "<br/><br/>" + report_url
+    send_mail_datagouv(
+        email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
+        email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
+        email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
+        subject=f"{period.title()} digest of " + templates_dict["TODAY"],
+        message=message,
+    )
+
+
+default_args = {
+    'retries': 3,
+    'retry_delay': timedelta(minutes=2),
+}
+
+with DAG(
+    dag_id=DAG_NAME,
+    schedule_interval="0 6 * * *",
+    start_date=datetime(2024, 8, 10),
+    dagrun_timeout=timedelta(minutes=60),
+    tags=["digest", "daily", "weekly", "monthly", "yearly", "datagouv"],
+    default_args=default_args,
+    catchup=False,
+) as dag:
+    clean_previous_output = BashOperator(
+        task_id="clean_previous_outputs",
+        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
+    )
+
+    tasks = {}
+    freqs = ["daily", "weekly", "monthly", "yearly"]
+    for freq in freqs:
+        tasks[freq] = [
+            PythonOperator(
+                task_id=f'run_notebook_and_save_to_minio_{freq}',
+                python_callable=execute_and_upload_notebook,
+                op_kwargs={
+                    "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
+                    "output_nb": today + ".ipynb",
+                    "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{freq}/{today}/",
+                    "minio_url": MINIO_URL,
+                    "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+                    "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+                    "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+                    "minio_output_filepath": MINIO_PATH + f"digest_{freq}/{today}/",
+                    "parameters": {
+                        "WORKING_DIR": AIRFLOW_DAG_HOME,
+                        "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
+                        + DAG_FOLDER
+                        + f"digest_{freq}/{today}/output/",
+                        "DATE_AIRFLOW": today,
+                        "PERIOD_DIGEST": freq,
+                    },
+                },
+            ),
+            PythonOperator(
+                task_id=f"publish_mattermost_{freq}",
+                python_callable=publish_mattermost_period,
+                templates_dict={
+                    "TODAY": today,
+                    "period": freq,
+                },
+            ),
+            PythonOperator(
+                task_id=f"send_email_report_{freq}",
+                python_callable=send_email_report_period,
+                templates_dict={
+                    "TODAY": today,
+                    "period": freq,
+                },
+            ),
+        ]
+
+    short_circuits = {
+        "weekly": ShortCircuitOperator(
+            task_id="check_if_monday",
+            python_callable=check_if_monday
+        ),
+        "monthly": ShortCircuitOperator(
+            task_id="check_if_first_day_of_month",
+            python_callable=check_if_first_day_of_month,
+        ),
+        "yearly": ShortCircuitOperator(
+            task_id="check_if_first_day_of_year",
+            python_callable=check_if_first_day_of_year,
+        ),
+    }
+
+    for freq in freqs:
+        if freq in short_circuits:
+            short_circuits[freq].set_upstream(clean_previous_output)
+            tasks[freq][0].set_upstream(short_circuits[freq])
+        else:
+            tasks[freq][0].set_upstream(clean_previous_output)
+        for k in range(2):
+            tasks[freq][k + 1].set_upstream(tasks[freq][k])
