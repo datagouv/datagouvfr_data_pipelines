@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import json
+from collections import defaultdict
 from airflow.models import DAG
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
@@ -59,7 +60,7 @@ def publish_mattermost_period(ti, **kwargs):
     )
     stats = get_stats_period(templates_dict["TODAY"], period)
     message = f"{period.title()} Digest : {report_url} \n{stats}"
-    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+    send_message(message, templates_dict["channel"])
 
 
 def send_email_report_period(ti, **kwargs):
@@ -97,49 +98,59 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
-    tasks = {}
+    tasks = defaultdict(dict)
+    scopes = ["general", "api"]
     freqs = ["daily", "weekly", "monthly", "yearly"]
-    for freq in freqs:
-        tasks[freq] = [
-            PythonOperator(
-                task_id=f'run_notebook_and_save_to_minio_{freq}',
-                python_callable=execute_and_upload_notebook,
-                op_kwargs={
-                    "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + "digest.ipynb",
-                    "output_nb": today + ".ipynb",
-                    "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{freq}/{today}/",
-                    "minio_url": MINIO_URL,
-                    "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-                    "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
-                    "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-                    "minio_output_filepath": MINIO_PATH + f"digest_{freq}/{today}/",
-                    "parameters": {
-                        "WORKING_DIR": AIRFLOW_DAG_HOME,
-                        "OUTPUT_DATA_FOLDER": AIRFLOW_DAG_TMP
-                        + DAG_FOLDER
-                        + f"digest_{freq}/{today}/output/",
-                        "DATE_AIRFLOW": today,
-                        "PERIOD_DIGEST": freq,
+    for scope in scopes:
+        for freq in freqs:
+            tasks[scope][freq] = [
+                PythonOperator(
+                    task_id=f'run_notebook_and_save_to_minio_{scope}_{freq}',
+                    python_callable=execute_and_upload_notebook,
+                    op_kwargs={
+                        "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + (
+                            "digest.ipynb" if scope == "general" else "digest-api.ipynb"
+                        ),
+                        "output_nb": today + ("" if scope == "general" else "-api") + ".ipynb",
+                        "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{freq}/{today}/",
+                        "minio_url": MINIO_URL,
+                        "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+                        "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
+                        "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+                        "minio_output_filepath": MINIO_PATH + f"digest_{freq}/{today}/",
+                        "parameters": {
+                            "WORKING_DIR": AIRFLOW_DAG_HOME,
+                            "OUTPUT_DATA_FOLDER": (
+                                AIRFLOW_DAG_TMP
+                                + DAG_FOLDER
+                                + f"digest_{freq}/{today}/output/"
+                            ),
+                            "DATE_AIRFLOW": today,
+                            "PERIOD_DIGEST": freq,
+                        },
                     },
-                },
-            ),
-            PythonOperator(
-                task_id=f"publish_mattermost_{freq}",
-                python_callable=publish_mattermost_period,
-                templates_dict={
-                    "TODAY": today,
-                    "period": freq,
-                },
-            ),
-            PythonOperator(
-                task_id=f"send_email_report_{freq}",
-                python_callable=send_email_report_period,
-                templates_dict={
-                    "TODAY": today,
-                    "period": freq,
-                },
-            ),
-        ]
+                ),
+                PythonOperator(
+                    task_id=f"publish_mattermost_{scope}_{freq}",
+                    python_callable=publish_mattermost_period,
+                    templates_dict={
+                        "TODAY": today,
+                        "period": freq,
+                        "channel": (
+                            MATTERMOST_DATAGOUV_ACTIVITES if scope == "general"
+                            else ""
+                        ),
+                    },
+                ),
+                PythonOperator(
+                    task_id=f"send_email_report_{scope}_{freq}",
+                    python_callable=send_email_report_period,
+                    templates_dict={
+                        "TODAY": today,
+                        "period": freq,
+                    },
+                ) if scope == "general" else None,
+            ]
 
     short_circuits = {
         "weekly": ShortCircuitOperator(
@@ -156,11 +167,13 @@ with DAG(
         ),
     }
 
-    for freq in freqs:
-        if freq in short_circuits:
-            short_circuits[freq].set_upstream(clean_previous_output)
-            tasks[freq][0].set_upstream(short_circuits[freq])
-        else:
-            tasks[freq][0].set_upstream(clean_previous_output)
-        for k in range(2):
-            tasks[freq][k + 1].set_upstream(tasks[freq][k])
+    for scope in scopes:
+        for freq in freqs:
+            if freq in short_circuits:
+                short_circuits[freq].set_upstream(clean_previous_output)
+                tasks[scope][freq][0].set_upstream(short_circuits[freq])
+            else:
+                tasks[scope][freq][0].set_upstream(clean_previous_output)
+            for k in range(2):
+                if tasks[scope][freq][k + 1]:
+                    tasks[scope][freq][k + 1].set_upstream(tasks[scope][freq][k])
