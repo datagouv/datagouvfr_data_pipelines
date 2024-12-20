@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     MATTERMOST_DATAGOUV_ACTIVITES,
+    MATTERMOST_DATASERVICES_ONLY,
     SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
@@ -33,11 +34,16 @@ MINIO_PATH = "dgv/"
 today = datetime.today().strftime('%Y-%m-%d')
 
 
-def get_stats_period(TODAY, period):
+def get_stats_period(TODAY, period, scope):
     with open(
         AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{period}/{TODAY}/output/stats.json"
     ) as json_file:
         res = json.load(json_file)
+    if scope == "api":
+        if not res["stats"]["nb_dataservices"]:
+            # no message if no new API
+            return
+        return f'- {res["stats"]["nb_dataservices"]} APIs créées\n'
     recap = (
         f'- {res["stats"]["nb_datasets"]} datasets créés\n'
         f'- {res["stats"]["nb_reuses"]} reuses créées\n'
@@ -47,7 +53,7 @@ def get_stats_period(TODAY, period):
         recap += (
             f'- {res["stats"]["nb_orgas"]} orgas créées\n'
             f'- {res["stats"]["nb_discussions"]} discussions créées\n'
-            f'- {res["stats"]["nb_users"]} utilisateurs créés'
+            # f'- {res["stats"]["nb_users"]} utilisateurs créés'
         )
     return recap
 
@@ -55,19 +61,26 @@ def get_stats_period(TODAY, period):
 def publish_mattermost_period(ti, **kwargs):
     templates_dict = kwargs.get("templates_dict")
     period = templates_dict["period"]
+    scope = templates_dict["scope"]
     report_url = ti.xcom_pull(
-        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{period}"
+        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{scope}_{period}"
     )
-    stats = get_stats_period(templates_dict["TODAY"], period)
+    stats = get_stats_period(templates_dict["TODAY"], period, scope)
+    if not stats:
+        return
     message = f"{period.title()} Digest : {report_url} \n{stats}"
-    send_message(message, templates_dict["channel"])
+    channel = (
+        MATTERMOST_DATAGOUV_ACTIVITES if scope == "general"
+        else MATTERMOST_DATASERVICES_ONLY
+    )
+    send_message(message, channel)
 
 
 def send_email_report_period(ti, **kwargs):
     templates_dict = kwargs.get("templates_dict")
     period = templates_dict["period"]
     report_url = ti.xcom_pull(
-        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{period}"
+        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{scope}_{period}"
     )
     message = get_stats_period(templates_dict["TODAY"], period) + "<br/><br/>" + report_url
     send_mail_datagouv(
@@ -136,10 +149,7 @@ with DAG(
                     templates_dict={
                         "TODAY": today,
                         "period": freq,
-                        "channel": (
-                            MATTERMOST_DATAGOUV_ACTIVITES if scope == "general"
-                            else ""
-                        ),
+                        "scope": scope,
                     },
                 ),
                 PythonOperator(
