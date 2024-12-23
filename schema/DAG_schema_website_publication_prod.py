@@ -34,6 +34,7 @@ with DAG(
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["schemas", "backend", "prod", "schema.data.gouv.fr"],
+    catchup=False,
     default_args=default_args,
 ) as dag:
     clean_previous_outputs = BashOperator(
