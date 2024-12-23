@@ -172,6 +172,9 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
                     schema_name,
                     repertoire_slug
                 )
+    if not list_schemas:
+        print("No valid version for this schema")
+        return
     # Find latest valid version and create a specific folder 'latest' copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(schema_name, folders)
     # Indicate in schema_info object name of latest schema
@@ -429,6 +432,10 @@ def manage_tableschema(
                 SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('sources.md')
         # If schema release is not valid, we remove it from DATA_FOLDER1
         else:
+            print(
+                "> invalid version",
+                frictionless_report.errors[0].message if frictionless_report.errors else ""
+            )
             manage_errors(repertoire_slug, version, 'tableschema validation')
             shutil.rmtree(dest_folder)
     # If there is no schema.json, schema release is not valid, we remove it from DATA_FOLDER1
@@ -785,12 +792,13 @@ def check_and_save_schemas(ti):
     # For every schema in repertoires.yml, check it
     for repertoire_slug, conf in config.items():
         print("_______________________________")
-        print("Starting with ", repertoire_slug)
+        print("Starting with", repertoire_slug)
         print(conf)
         if conf['type'] != 'datapackage':
             print(f"Recognized as a simple {conf['type']}")
             schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
-            SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
+            if schema_to_add_to_catalog:
+                SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
         else:
             print('Recognized as a datapackage')
             schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
