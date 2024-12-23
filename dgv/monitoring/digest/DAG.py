@@ -79,10 +79,11 @@ def publish_mattermost_period(ti, **kwargs):
 def send_email_report_period(ti, **kwargs):
     templates_dict = kwargs.get("templates_dict")
     period = templates_dict["period"]
+    scope = templates_dict["scope"]
     report_url = ti.xcom_pull(
         key="report_url", task_ids=f"run_notebook_and_save_to_minio_{scope}_{period}"
     )
-    message = get_stats_period(templates_dict["TODAY"], period) + "<br/><br/>" + report_url
+    message = get_stats_period(templates_dict["TODAY"], period, scope) + "<br/><br/>" + report_url
     send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
@@ -158,6 +159,7 @@ with DAG(
                     templates_dict={
                         "TODAY": today,
                         "period": freq,
+                        "scope": scope,
                     },
                 ) if scope == "general" else None,
             ]
