@@ -255,7 +255,7 @@ def check_datapackage(repertoire_slug, conf, folders):
                 # Validate it with frictionless package
                 frictionless_report = frictionless.validate(src_folder + 'datapackage.json')
                 # If datapackage release is valid, then
-                if frictionless_report['valid']:
+                if frictionless_report.valid:
                     with open(src_folder + 'datapackage.json') as out:
                         dp = json.load(out)
 
@@ -386,9 +386,9 @@ def manage_tableschema(
     # Verify that a file schema.json is present
     if os.path.isfile(src_folder + schema_file):
         # Validate it with frictionless package
-        frictionless_report = frictionless.validate_schema(src_folder + schema_file)
+        frictionless_report = frictionless.validate(src_folder + schema_file)
         # If schema release is valid, then
-        if frictionless_report['valid']:
+        if frictionless_report.valid:
             list_schemas[version] = schema_file
             # We complete info of version
             SCHEMA_INFOS[schema_name]['versions'][version] = {}
