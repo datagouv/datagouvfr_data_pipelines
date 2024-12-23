@@ -460,7 +460,14 @@ def get_matomo_outlinks(model, slug, target, metric_date):
         "period": "day",
         "date": metric_date.isoformat()
     }
-    matomo_res = requests.get(matomo_url, params=params)
+    tries = 5
+    while tries > 0:
+        matomo_res = requests.get(matomo_url, params=params)
+        # The Matomo API is sometimes unstable and required a few retries
+        if matomo_res.status_code in ["502"]:
+            time.sleep(0.5)
+            tries-=1
+        break
     matomo_res.raise_for_status()
     return sum(outlink['nb_hits'] for outlink in matomo_res.json() if outlink["label"] in target)
 
@@ -507,12 +514,13 @@ def process_matomo():
 
         df_orga = sum_outlinks_by_orga(df_orga, df_catalog, model)
 
-    df_orga['date_metric'] = yesterday.isoformat()
-    df_orga = df_orga.rename(columns={"reuses_outlinks": "outlinks"})
-    df_orga = df_orga.rename(columns={"organization_id": "id"})
-    df_orga.to_csv(f'{TMP_FOLDER}matomo-outputs/organizations-outlinks.csv',
-                   columns=['date_metric', 'id', 'outlinks'], index=False, header=False)
-    print("Done")
+    df_orga["date_metric"] = yesterday.isoformat()
+    df_orga.to_csv(
+        f"{TMP_FOLDER}matomo-outputs/organizations-outlinks.csv",
+        columns=["date_metric", "organization_id", "reuses_outlinks"],
+        index=False,
+        header=False,
+    )
 
 
 def save_metrics_to_postgres(ti):
