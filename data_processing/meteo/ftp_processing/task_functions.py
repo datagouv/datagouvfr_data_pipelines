@@ -87,7 +87,7 @@ def build_resource(file_path, minio_folder):
     is_doc = False
     description = ""
     # two known errors:
-    # 1. files that don"t match either pattern
+    # 1. files that don't match either pattern
     # 2. files that are contained in subfolders => creating new paths in config
     if path not in config:
         resource_name = file_with_ext
@@ -127,6 +127,7 @@ def list_ftp_files_recursive(ftp, path="", base_path=""):
             ))
         )
         for item in files:
+            # assuming no folder contains a dot (we'll make sure it doesn't happen)
             if "." not in item[1]:
                 files += list_ftp_files_recursive(ftp, f"{path}/{item[1]}", current_path)
     except ftplib.error_perm:
@@ -140,7 +141,7 @@ def get_current_files_on_ftp(ti, ftp):
     # pour distinguer les nouveaux fichiers (nouvelles décennie révolue, période stock...)
     # des fichiers qui changent de nom lors de mises à jour (QUOT_SIM2_2020-202309.csv.gz
     # qui devient QUOT_SIM2_2020-202310.csv.gz), on utilise des balises afin de cibler ces fichiers
-    # et de remplacer l"ancien par le nouveau au lieu d"ajouter le nouveau fichier
+    # et de remplacer l'ancien par le nouveau au lieu d'ajouter le nouveau fichier
     # et de laisser les deux coexister
     for (path, file, size, date_list) in raw_ftp_files:
         if "." in file:
