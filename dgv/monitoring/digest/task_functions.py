@@ -128,9 +128,10 @@ def show_objects(object_class, start_date, end_date=None):
                 "users",
                 "datasets",
             )
-        html = make_link(obj["title"], obj["page"])
-        html += " par "
-        html += make_link(owner, owner_url)
+        html = (
+            make_link(obj["title"], obj.get("page", obj.get("self_web_url")))
+            + " par " + make_link(owner, owner_url)
+        )
         if is_first:
             first_objects.append(html)
         else:
