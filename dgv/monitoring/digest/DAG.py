@@ -40,10 +40,13 @@ def get_stats_period(TODAY, period, scope):
     ) as json_file:
         res = json.load(json_file)
     if scope == "api":
-        if not res["stats"]["nb_dataservices"]:
-            # no message if no new API
+        if not (res["stats"]["nb_dataservices"] or res["stats"]["nb_discussions_dataservices"]):
+            # no message if no new API and no comment
             return
-        return f'- {res["stats"]["nb_dataservices"]} APIs créées\n'
+        return (
+            f'- {res["stats"]["nb_dataservices"]} APIs créées\n'
+            f'- {res["stats"]["nb_discussions_dataservices"]} discussions sur les APIs\n'
+        )
     recap = (
         f'- {res["stats"]["nb_datasets"]} datasets créés\n'
         f'- {res["stats"]["nb_reuses"]} reuses créées\n'

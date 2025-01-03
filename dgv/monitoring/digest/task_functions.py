@@ -1,4 +1,6 @@
+from datetime import datetime
 import re
+from typing import Optional
 
 import requests
 from IPython.core.display import display, HTML
@@ -15,19 +17,19 @@ def show_html(html):
     display(HTML(html))
 
 
-def make_link(text, link):
+def make_link(text: str, link: str):
     return f"<a href='{link}' target='_blank'>{text}</a>"
 
 
-def show_link(text, link):
+def show_link(text: str, link: str):
     show_html(make_link(text, link))
 
 
-def fullname(user):
+def fullname(user: dict):
     return user["first_name"] + " " + user["last_name"]
 
 
-def is_first_content(publisher_id, publisher_type, content_type):
+def is_first_content(publisher_id: str, publisher_type: str, content_type: str):
     r = requests.get(
         f"https://www.data.gouv.fr/api/1/{publisher_type}/{publisher_id}/",
         headers={"X-fields": "metrics"},
@@ -37,7 +39,7 @@ def is_first_content(publisher_id, publisher_type, content_type):
     return r.json()["metrics"][content_type] < 2
 
 
-def get_url(about):
+def get_url(about: str):
     if not about:
         return
     searched = re.search(URL_PATTERN, about)
@@ -46,7 +48,7 @@ def get_url(about):
     return searched.group(0)
 
 
-def show_users(start_date, end_date=None):
+def show_users(start_date: datetime, end_date: Optional[datetime] = None):
     users = get_last_items("users", start_date, end_date, date_key="since",)
 
     show_html(
@@ -83,7 +85,7 @@ params = {
 }
 
 
-def accorde(object_class, nb):
+def accorde(object_class: str, nb: int):
     return (
         params[object_class]["label_plural"]
         if nb > 1
@@ -91,7 +93,7 @@ def accorde(object_class, nb):
     )
 
 
-def show_objects(object_class, start_date, end_date=None):
+def show_objects(object_class: str, start_date: datetime, end_date: Optional[datetime] = None):
     feminin = "e" if object_class in ["reuses", "dataservices"] else ""
     objects = get_last_items(
         object_class,
@@ -157,7 +159,7 @@ def show_objects(object_class, start_date, end_date=None):
     return len(objects), objects
 
 
-def show_orgas(start_date, end_date=None):
+def show_orgas(start_date: datetime, end_date: Optional[datetime] = None):
     orgs = get_last_items("organizations", start_date, end_date)
 
     show_html(
@@ -195,7 +197,11 @@ def show_orgas(start_date, end_date=None):
     return len(orgs), orgs
 
 
-def show_discussions(start_date, end_date=None):
+def show_discussions(
+    start_date: datetime,
+    end_date: Optional[datetime] = None,
+    subjects_of_interest: Optional[list] = None,
+):
     discussions = get_latest_comments(start_date, end_date)
 
     show_html(
@@ -205,6 +211,8 @@ def show_discussions(start_date, end_date=None):
 
     for d in discussions:
         subject = d['discussion_subject']
+        if subjects_of_interest and subject["class"] not in subjects_of_interest:
+            continue
         comment = d['comment']
         try:
             object_title = requests.get(
