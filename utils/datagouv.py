@@ -478,7 +478,7 @@ def post_remote_communautary_resource(
 
     print("Payload content:\n", payload)
     if resource_id:
-        print(f"Updating resource at {dataset_link} from {payload['remote_url']}")
+        print(f"Updating resource at {dataset_link} from {payload['url']}")
         # Update resource
         refined_url = community_resource_url + f"/{resource_id}"
         r = datagouv_session.put(
@@ -487,7 +487,7 @@ def post_remote_communautary_resource(
         )
 
     else:
-        print(f"Creating resource at {dataset_link} from {payload['remote_url']}")
+        print(f"Creating resource at {dataset_link} from {payload['url']}")
         # Create resource
         r = datagouv_session.post(
             community_resource_url,
