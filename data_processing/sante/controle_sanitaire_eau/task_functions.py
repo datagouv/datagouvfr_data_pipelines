@@ -133,13 +133,14 @@ def publish_on_datagouv(file_type):
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
                 "title": (
-                    f"Données {file_type} au {date} (format {ext})"
+                    f"Données {file_type} (format {ext})"
                 ),
                 "format": ext,
                 "description": (
-                    f"{file_type} au {date} (format {ext})"
+                    f"{file_type} (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
                     f"({DATAGOUV_URL}/fr/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f" (dernière mise à jour le {date})"
                 ),
             },
         )
