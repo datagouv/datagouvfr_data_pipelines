@@ -42,7 +42,7 @@ def check_if_modif():
     lastest_update = requests.get(
         (
             f"{DATAGOUV_URL}/api/1/datasets/community_resources/"
-            + config["RESULT"]["csv"][AIRFLOW_ENV]["resource_id"] + "/"
+            + config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"] + "/"
         ),
         headers={"X-fields": "internal{last_modified_internal}"}
     ).json()["internal"]["last_modified_internal"]
