@@ -82,7 +82,7 @@ def csv_to_csvgz(
     chunk_size: int = 1024 * 1024,
 ):
     if output_name is None:
-        output_name = csv_file_path.split('/')[-1].replace('.csv', '.csvgz')
+        output_name = csv_file_path.split('/')[-1].replace('.csv', '.csv.gz')
     if output_path is None:
         output_path = '/'.join(csv_file_path.split('/')[:-1]) + '/'
     print(f"Converting {csv_file_path}")
