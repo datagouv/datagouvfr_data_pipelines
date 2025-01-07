@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_communautary_resource,
+    check_if_recent_update,
     DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -34,20 +35,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dg
 
 
 def check_if_modif():
-    resources = requests.get(
-        'https://www.data.gouv.fr/api/1/datasets/5cf8d9ed8b4c4110294c841d/',
-        headers={"X-fields": "resources{internal{last_modified_internal}}"}
-    ).json()['resources']
-    # we consider one arbitrary resource of the target dataset
-    lastest_update = requests.get(
-        (
-            f"{DATAGOUV_URL}/api/1/datasets/community_resources/"
-            + config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"] + "/"
-        ),
-        headers={"X-fields": "internal{last_modified_internal}"}
-    ).json()["internal"]["last_modified_internal"]
-    return any(
-        r["internal"]["last_modified_internal"] > lastest_update for r in resources
+    return check_if_recent_update(
+        reference_resource_id=config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"],
+        dataset_id="5cf8d9ed8b4c4110294c841d",
     )
 
 
