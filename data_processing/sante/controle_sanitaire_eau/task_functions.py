@@ -1,10 +1,12 @@
-import pandas as pd
-import os
-import requests
-import json
+from datetime import datetime
 from io import BytesIO
+import json
+import os
 from zipfile import ZipFile
+
+import pandas as pd
 import re
+import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -13,12 +15,15 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
+    post_remote_communautary_resource,
     DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
+from datagouvfr_data_pipelines.utils.utils import (
+    csv_to_parquet,
+    csv_to_csvgz,
+)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau"
@@ -41,7 +46,6 @@ def check_if_modif():
         ),
         headers={"X-fields": "internal{last_modified_internal}"}
     ).json()["internal"]["last_modified_internal"]
-    return True
     return any(
         r["internal"]["last_modified_internal"] > lastest_update for r in resources
     )
@@ -56,8 +60,6 @@ def process_data():
     resources = [r for r in resources if re.search(r"dis-\d{4}.zip", r["title"])]
     columns = {file_type: [] for file_type in config.keys()}
     for idx, resource in enumerate(resources):
-        if idx > 3:
-            break
         print(resource["title"])
         year = int(resource["title"].split(".")[0].split("-")[1])
         r = requests.get(resource["url"])
@@ -92,8 +94,15 @@ def process_data():
         csv_to_parquet(
             f"{DATADIR}/{file_type}.csv",
             sep=',',
-            columns=columns[file_type],
+            dtype={
+                # specific dtypes are listed in the config, default to str
+                c: config[file_type]["dtype"].get(c, "VARCHAR")
+                for c in columns[file_type]
+            },
         )
+        if file_type == "RESULT":
+            # this one is too big for classic csv
+            csv_to_csvgz(f"{DATADIR}/{file_type}.csv")
 
 
 def send_to_minio(file_type):
@@ -105,50 +114,43 @@ def send_to_minio(file_type):
                 "dest_path": "controle_sanitaire_eau/",
                 "dest_name": f"{file_type}.{ext}",
             }
-            for ext in ["csv", "parquet"]
+            for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]
         ],
         ignore_airflow_env=True,
     )
-    print(non)
 
 
-def publish_on_datagouv(ti, file_type):
-    latest = ti.xcom_pull(key="latest", task_ids=f"process_rna_{file_type}")
-    y, m, d = latest[:4], latest[4:6], latest[6:]
-    date = f"{d} {MOIS_FR[m]} {y}"
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
-        config = json.load(fp)
-    for ext in ["csv", "parquet"]:
-        post_remote_resource(
+def publish_on_datagouv(file_type):
+    date = datetime.today().strftime("%d-%m-%Y")
+    for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]:
+        post_remote_communautary_resource(
             dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
             resource_id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/rna/{file_type}.{ext}"
+                    f"/controle_sanitaire_eau/{file_type}.{ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
                 "title": (
-                    f"Données {file_type.title()} au {date} (format {ext})"
+                    f"Données {file_type} au {date} (format {ext})"
                 ),
                 "format": ext,
                 "description": (
-                    f"RNA {file_type.title()} au {date} (format {ext})"
-                    " (créé à partir des [fichiers du Ministère de l'intérieur]"
-                    "(https://www.data.gouv.fr/fr/datasets/58e53811c751df03df38f42d/))"
+                    f"{file_type} au {date} (format {ext})"
+                    " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
+                    f"({DATAGOUV_URL}/fr/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
                 ),
             },
         )
 
 
 def send_notification_mattermost():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
-        config = json.load(fp)
-    dataset_id = config["import"]["csv"][AIRFLOW_ENV]["dataset_id"]
+    dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
-            ":mega: Données des associations mises à jour.\n"
+            ":mega: Données du contrôle sanitaire de l'eau mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id})"
+            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources)"
         )
     )
