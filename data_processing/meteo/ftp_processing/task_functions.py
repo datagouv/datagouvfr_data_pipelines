@@ -14,6 +14,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
+    sort_resources,
     update_dataset_or_resource_metadata,
     DATAGOUV_URL
 )
@@ -423,7 +424,24 @@ def handle_updated_files_new_name(ti, minio_folder):
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
-def update_temporal_coverages(ti):
+def meteo_sort(resources, path):
+    keys = [
+        {
+            'keys': (
+                r['title'].split('_')[2],
+                r['title'].split('_')[4],
+                r['title'].split('_')[5] if "QUOT" in path else 0,
+                r['title'].split('_')[0],
+            ),
+            'title': r['title'],
+            'id': r['id']
+        }
+        for r in resources
+    ]
+    return [{'id': r['id']} for r in sorted(keys, key=lambda k: k['keys'])]
+
+
+def update_temporal_coverages_and_sort_resources(ti):
     period_starts = ti.xcom_pull(key="period_starts", task_ids="get_current_files_on_minio")
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
@@ -436,9 +454,11 @@ def update_temporal_coverages(ti):
             key="updated_datasets",
             task_ids=task
         )
-    print("Updating datasets temporal_coverage")
+    should_sort = ti.xcom_pull(key="updated_datasets", task_ids="upload_new_files")
     for path in updated_datasets:
         if path in period_starts:
+            print(config[path]['dataset_id'][AIRFLOW_ENV])
+            print("> Updating temporal_coverage")
             # for now the tags are erased when touching the metadata so we save them and put them back
             tags = requests.get(
                 f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
@@ -453,6 +473,12 @@ def update_temporal_coverages(ti):
                 },
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV]
             )
+            if path in should_sort:
+                print("> Sorting resources")
+                sort_resources(
+                    dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+                    sort_func=meteo_sort,
+                )
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
