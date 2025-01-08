@@ -477,7 +477,7 @@ def update_temporal_coverages_and_sort_resources(ti):
                 print("> Sorting resources")
                 sort_resources(
                     dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                    sort_func=meteo_sort,
+                    sort_func=lambda resources: meteo_sort(resources, path=path),
                 )
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
