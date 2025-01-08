@@ -561,7 +561,9 @@ def sort_resources(
     resources = datagouv_session.get(
         f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/",
     ).json()['resources']
-    sorted_ids = sort_func([r for r in resources if r['type'] == 'main'])
+    sorted_ids = sort_func(resources)
+    if len(sorted_ids) != len(resources):
+        raise ValueError("The sorted list has a different number of elements, aborting")
     r = datagouv_session.put(
         f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/",
         json=sorted_ids,
