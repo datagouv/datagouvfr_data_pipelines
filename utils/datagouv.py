@@ -564,6 +564,8 @@ def sort_resources(
     sorted_ids = sort_func(resources)
     if len(sorted_ids) != len(resources):
         raise ValueError("The sorted list has a different number of elements, aborting")
+    if len(sorted_ids) != len(set(r["id"] for r in sorted_ids)):
+        raise ValueError("An id has been duplicated in the sort process", resources, "vs", sorted_ids)
     r = datagouv_session.put(
         f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/",
         json=sorted_ids,
