@@ -1,5 +1,5 @@
 import dateutil
-from typing import TypedDict, Iterator, Optional
+from typing import TypedDict, Iterator, Optional, Callable
 import requests
 from datetime import datetime
 import re
@@ -545,6 +545,29 @@ def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> reques
     )
     r.raise_for_status()
     return r
+
+
+def title_sort(resources: list[dict]) -> list[dict]:
+    return [{'id': r['id']} for r in sorted(resources, key=lambda r: r['title'])]
+
+
+@simple_connection_retry
+def sort_resources(
+    dataset_id: str,
+    sort_func: Callable = title_sort,
+) -> dict:
+    # sort_func is required to take a list of resources and
+    # return a list of dicts [{'id': resource_id}, ...] in the desired order
+    resources = datagouv_session.get(
+        f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/",
+    ).json()['resources']
+    sorted_ids = sort_func([r for r in resources if r['type'] == 'main'])
+    r = datagouv_session.put(
+        f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/",
+        json=sorted_ids,
+    )
+    r.raise_for_status()
+    return r.json()
 
 
 @simple_connection_retry
