@@ -104,5 +104,5 @@ def notification_mattermost(ti):
                         url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
                     message += f"\n   - {ft} ([voir log]({url_log}))"
             if dag_ids_to_monitor.get(dag, False):
-                message += "\ncc @geoffrey.aldebert @pierlou_ramade"
+                message += "\ncc @geoffrey.aldebert @pierlou_ramade @hadrien_bossard"
     send_message(message)
