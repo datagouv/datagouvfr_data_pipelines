@@ -299,10 +299,6 @@ def upload_new_files(ti, minio_folder):
         key="files_to_update_new_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
-    )
     resources_lists = get_resource_lists()
 
     # adding files that are on minio, not updated from FTP in this batch,
@@ -315,14 +311,12 @@ def upload_new_files(ti, minio_folder):
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list, and
         # if it's not an updated file that has been renamed (keys of new_name),
-        # and if it's not an old file that has been renamed (values of new_name),
-        # and if it's not an existing file
+        # and if it's not an old file that has been renamed (values of new_name)
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
             and clean_file_path not in files_to_update_new_name.keys()
             and clean_file_path not in files_to_update_new_name.values()
-            and clean_file_path not in files_to_update_same_name
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
