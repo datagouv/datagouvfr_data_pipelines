@@ -31,7 +31,6 @@ with DAG(
         task_id="clean_previous_outputs",
         bash_command=(
             f"rm -rf {TMP_FOLDER} && "
-            f"mkdir -p {TMP_FOLDER} && "
             f"mkdir -p {DATADIR}"
         ),
     )
