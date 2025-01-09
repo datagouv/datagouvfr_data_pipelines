@@ -866,7 +866,10 @@ def get_template_github_issues():
                     break
                 page += 1
             else:
-                raise Exception("This shouldn't fail, maybe consider adding a token in the headers, or wait a couple of minutes and retry")
+                raise Exception(
+                    "This shouldn't fail, maybe consider adding a token "
+                    "in the headers, or wait a couple of minutes and retry"
+                )
         return issues
 
     print("Getting issues from repo")

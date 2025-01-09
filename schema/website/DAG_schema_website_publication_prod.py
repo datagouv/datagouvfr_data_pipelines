@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions import (
+from datagouvfr_data_pipelines.schema.website.task_functions import (
     initialization,
     check_and_save_schemas,
     update_news_feed,
@@ -17,7 +17,7 @@ from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions impo
     final_clean_up,
 )
 
-DAG_NAME = "schema_website_publication_preprod"
+DAG_NAME = "schema_website_publication_prod"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 # GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
@@ -44,7 +44,7 @@ with DAG(
 
     clone_schema_repo = BashOperator(
         task_id="clone_schema_repo",
-        bash_command=f"cd {TMP_FOLDER} && git clone --depth 1 {GIT_REPO} -b preprod ",
+        bash_command=f"cd {TMP_FOLDER} && git clone --depth 1 {GIT_REPO} ",
     )
 
     initialization = PythonOperator(
@@ -117,7 +117,7 @@ with DAG(
             ' && git commit -m "Update Website '
             f'{datetime.today().strftime("%Y-%m-%d")}'
             '" || echo "No changes to commit"'
-            " && git push origin preprod"
+            " && git push origin main"
         ),
     )
 

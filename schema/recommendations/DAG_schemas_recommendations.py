@@ -1,9 +1,9 @@
 from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from airflow.operators.bash import BashOperator
 
+from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -44,7 +44,7 @@ with DAG(
         op_kwargs={
             "input_nb": (
                 f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/"
-                "notebooks/schemas_recommendations.ipynb"
+                "recommendations/schemas_recommendations.ipynb"
             ),
             "output_nb": "{{ ds }}.ipynb",
             "tmp_path": f"{TMP_FOLDER}",
