@@ -46,14 +46,13 @@ def create_current_year_if_missing():
 
 
 def get_months(site_id, year):
-    today = datetime.today().strftime("%Y-%m-%d")
     params = {
         "idSite": site_id,
         "module": "API",
         "method": "API.get",
         "format": "json",
         "period": "day",
-        "date": f"{year}-01-01,{today}",
+        "date": f"{year}-01-01,today",
     }
     r = requests.get("https://stats.data.gouv.fr/", params=params)
     r.raise_for_status()
