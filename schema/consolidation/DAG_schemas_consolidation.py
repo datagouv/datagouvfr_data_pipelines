@@ -53,7 +53,7 @@ with DAG(
     schedule_interval="0 5 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
-    tags=["schemas", "irve", "consolidation", "datagouv"],
+    tags=["schemas", "consolidation", "datagouv"],
     default_args=default_args,
 ) as dag:
     clean_previous_outputs = BashOperator(
