@@ -554,7 +554,7 @@ def notification_mattermost(ti):
                 message += f"\n- [{path}]"
                 message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
                 if path in new_files_datasets:
-                    message += "nouvelles données"
+                    message += "nouvelles données :new:"
                 else:
                     message += "mise à jour des métadonnées"
 
