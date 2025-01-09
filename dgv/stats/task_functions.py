@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
+    DATAGOUV_MATOMO_ID,
     DATAGOUV_URL,
     post_resource,
 )
@@ -71,7 +72,7 @@ def update_current_year():
     if not current_year_resource_id:
         # this should not happen by construction but we never know
         raise ValueError("Missing current year resource")
-    df = get_months(109, current_year)
+    df = get_months(DATAGOUV_MATOMO_ID, current_year)
     df.index.name = ("date")
     df.to_csv(DATADIR + f"/{current_year}-days.csv")
     post_resource(
