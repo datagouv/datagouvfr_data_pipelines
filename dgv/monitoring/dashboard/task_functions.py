@@ -20,7 +20,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
     k + "@data.gouv.fr"
-    for k in ['support', 'ouverture', 'moissonnage', 'certification']
+    for k in ['support', 'ouverture', 'moissonnage', 'certification', 'geo']
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 # rate limiting of 7 requests/second
