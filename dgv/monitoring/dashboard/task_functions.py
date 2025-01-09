@@ -13,7 +13,10 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import month_year_iter
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    # DATAGOUV_MATOMO_ID,
+)
 
 DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -112,7 +115,7 @@ def get_visits(
     end_date=datetime.today(),
 ):
     # url_stats_home_dgv = {
-    #     "site_id": 109,
+    #     "site_id": DATAGOUV_MATOMO_ID,
     #     "label": "fr",
     #     "title": "Homepage",
     # }

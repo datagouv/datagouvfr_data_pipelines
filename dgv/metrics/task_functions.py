@@ -8,6 +8,7 @@ from tqdm import tqdm
 from airflow.hooks.base import BaseHook
 from airflow.models import Variable
 
+from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.postgres import (
@@ -456,7 +457,7 @@ def get_matomo_outlinks(model, slug, target, metric_date):
         "segment": f"actionUrl==https://www.data.gouv.fr/fr/{model}/{slug}/",
         "format": "JSON",
         "token_auth": "anonymous",
-        "idSite": 109,
+        "idSite": DATAGOUV_MATOMO_ID,
         "period": "day",
         "date": metric_date.isoformat()
     }

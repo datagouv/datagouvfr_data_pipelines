@@ -10,6 +10,7 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_REPORTING,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_first_day_of_month,
@@ -25,7 +26,7 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 PARAMS_TOPS = {
     "module": "API",
-    "idSite": 109,
+    "idSite": DATAGOUV_MATOMO_ID,
     "date": "yesterday",
     "period": "day",
     "format": "json",
@@ -38,7 +39,7 @@ PARAMS_TOPS = {
 
 PARAMS_GENERAL = {
     "module": "API",
-    "idSite": 109,
+    "idSite": DATAGOUV_MATOMO_ID,
     "date": "2021-11-01,2021-12-01",
     "period": "range",
     "format": "json",
