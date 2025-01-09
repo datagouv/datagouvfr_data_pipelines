@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
-from datagouvfr_data_pipelines.schema.scripts.schemas_consolidation.task_functions import (
+from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
     get_resources,
     download_resources,
     consolidate_resources,
@@ -38,6 +38,8 @@ TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 API_URL = f"{DATAGOUV_URL}/api/1/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
+# for local dev without SSH enabled
+# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
@@ -51,7 +53,7 @@ with DAG(
     schedule_interval="0 5 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
-    tags=["schemas", "irve", "consolidation", "datagouv"],
+    tags=["schemas", "consolidation", "datagouv"],
     default_args=default_args,
 ) as dag:
     clean_previous_outputs = BashOperator(
@@ -62,8 +64,6 @@ with DAG(
     clone_dag_schema_repo = BashOperator(
         task_id="clone_dag_schema_repo",
         bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
-        # for local dev without SSH enabled
-        # bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/etalab/schema.data.gouv.fr.git --depth 1 ",
     )
 
     working_dir = f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/schema/scripts/"
