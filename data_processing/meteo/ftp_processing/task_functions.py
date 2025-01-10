@@ -595,5 +595,6 @@ def get_duplicates():
         usecols=["url", "id", "dataset.id"],
     )
     dups = catalog["id"].value_counts().reset_index()
+    print(dups)
     dups = dups.loc[dups["id"] > 1]
     return dups["index"].to_list()
