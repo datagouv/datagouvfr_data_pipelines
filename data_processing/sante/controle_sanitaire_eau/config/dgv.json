@@ -7,7 +7,7 @@
             },
             "prod": {
                 "dataset_id": "5cf8d9ed8b4c4110294c841d",
-                "resource_id": ""
+                "resource_id": "fee50ac3-df62-4b38-aaf5-4831c6ba65c7"
             }
         },
         "parquet" : {
@@ -17,7 +17,7 @@
             },
             "prod": {
                 "dataset_id": "5cf8d9ed8b4c4110294c841d",
-                "resource_id": ""
+                "resource_id": "50f3cd73-4ce5-4c04-a45c-f883aae389be"
             }
         },
         "dtype": {
@@ -32,7 +32,7 @@
             },
             "prod": {
                 "dataset_id": "5cf8d9ed8b4c4110294c841d",
-                "resource_id": ""
+                "resource_id": "457da169-3c92-47e1-8822-e727665f3ac2"
             }
         },
         "parquet": {
@@ -42,7 +42,7 @@
             },
             "prod": {
                 "dataset_id": "5cf8d9ed8b4c4110294c841d",
-                "resource_id": ""
+                "resource_id": "211c23ea-60eb-4b3f-9000-ae319c16cfc9"
             }
         },
         "dtype": {
@@ -57,7 +57,7 @@
             },
             "prod": {
                 "dataset_id": "5cf8d9ed8b4c4110294c841d",
-                "resource_id": ""
+                "resource_id": "1f284e4f-bcc1-47aa-a00e-38da45b0c3b2"
             }
         },
         "parquet": {
@@ -67,7 +67,7 @@
             },
             "prod": {
                 "dataset_id": "5cf8d9ed8b4c4110294c841d",
-                "resource_id": ""
+                "resource_id": "dd0f0c3a-49dc-4627-8d13-65b463041500"
             }
         },
         "dtype": {
