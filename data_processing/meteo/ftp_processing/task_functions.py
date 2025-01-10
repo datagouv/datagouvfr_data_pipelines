@@ -589,6 +589,7 @@ def notification_mattermost(ti):
 
 import pandas as pd
 def get_duplicates():
+    print(pd.__version__)
     catalog = pd.read_csv(
         "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
         sep=";",
