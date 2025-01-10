@@ -589,11 +589,13 @@ def notification_mattermost(ti):
 
 import pandas as pd
 def get_duplicates():
+    print(pd.__version__)
     catalog = pd.read_csv(
         "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
         sep=";",
         usecols=["url", "id", "dataset.id"],
     )
     dups = catalog["id"].value_counts().reset_index()
+    print(dups)
     dups = dups.loc[dups["id"] > 1]
     return dups["index"].to_list()
