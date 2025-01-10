@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions import (
+from datagouvfr_data_pipelines.schema.website.task_functions import (
     initialization,
     check_and_save_schemas,
     update_news_feed,

@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.schema.scripts.schema_website.task_functions import (
+from datagouvfr_data_pipelines.schema.website.task_functions import (
     initialization,
     check_and_save_schemas,
     update_news_feed,
@@ -33,7 +33,7 @@ with DAG(
     schedule_interval="0 2 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["schemas", "backend", "prod", "schema.data.gouv.fr"],
+    tags=["schemas", "backend", "preprod", "schema.data.gouv.fr"],
     catchup=False,
     default_args=default_args,
 ) as dag:
