@@ -298,10 +298,6 @@ def upload_new_files(ti, minio_folder):
         key="files_to_update_new_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
-    )
     resources_lists = get_resource_lists()
 
     # adding files that are on minio, not updated from FTP in this batch,
@@ -312,16 +308,12 @@ def upload_new_files(ti, minio_folder):
         file_with_ext = file_path.split("/")[-1]
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
-        # it is supposed to be in, and if it's not already in the list, and
-        # if it's not an updated file that has been renamed (keys of new_name),
-        # and if it's not an old file that has been renamed (values of new_name),
-        # and if it's not an existing file
+        # it is supposed to be in, and if it's not already in the list,
+        # and if it's not an old file that has been renamed (values of new_name)
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
-            and clean_file_path not in files_to_update_new_name.keys()
             and clean_file_path not in files_to_update_new_name.values()
-            and clean_file_path not in files_to_update_same_name
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
@@ -330,7 +322,7 @@ def upload_new_files(ti, minio_folder):
 
     new_files_datasets = set()
     went_wrong = []
-    for file_path in new_files:
+    for idx, file_path in enumerate(new_files):
         file_with_ext, path, resource_name, description, url, is_doc = build_resource(
             file_path,
             minio_folder
@@ -351,9 +343,7 @@ def upload_new_files(ti, minio_folder):
                     "description": description,
                 },
             )
-            dups = get_duplicates()
-            if dups:
-                raise Exception("Duplicates:", dups)
+            raise_if_duplicates(idx)
             new_files_datasets.add(path)
             updated_datasets.add(path)
         except KeyError:
@@ -374,27 +364,25 @@ def handle_updated_files_same_name(ti, minio_folder):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
     resources_lists = get_resource_lists()
 
-    for file_path in files_to_update_same_name:
+    for idx, file_path in enumerate(files_to_update_same_name):
         path = "/".join(file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
         url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + file_path}"
         print("Resource already exists and name unchanged:", file_with_ext)
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
-        try:
-            update_dataset_or_resource_metadata(
-                payload={
-                    "filesize": minio_files[minio_folder + file_path],
-                },
-                dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
-                resource_id=resources_lists[path][url],
-            )
-            dups = get_duplicates()
-            if dups:
-                raise Exception("Duplicates:", dups)
-            updated_datasets.add(path)
-        except KeyError:
-            print("⚠️ no config for this file")
+        if not resources_lists[path].get(url):
+            print("⚠️ this file is not on data.gouv yet, it should be added as a new file")
+            continue
+        update_dataset_or_resource_metadata(
+            payload={
+                "filesize": minio_files[minio_folder + file_path],
+            },
+            dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
+            resource_id=resources_lists[path][url],
+        )
+        raise_if_duplicates(idx)
+        updated_datasets.add(path)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
@@ -407,7 +395,7 @@ def handle_updated_files_new_name(ti, minio_folder):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
     resources_lists = get_resource_lists()
 
-    for file_path in files_to_update_new_name:
+    for idx, file_path in enumerate(files_to_update_new_name):
         file_with_ext, path, resource_name, description, url, is_doc = build_resource(
             file_path,
             minio_folder
@@ -418,23 +406,21 @@ def handle_updated_files_new_name(ti, minio_folder):
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
         old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
-        try:
-            update_dataset_or_resource_metadata(
-                payload={
-                    "url": url,
-                    "title": resource_name if not is_doc else file_with_ext,
-                    "description": description,
-                    "filesize": minio_files[minio_folder + file_path],
-                },
-                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                resource_id=resources_lists[path][old_url],
-            )
-            dups = get_duplicates()
-            if dups:
-                raise Exception("Duplicates:", dups)
-            updated_datasets.add(path)
-        except KeyError:
-            print("⚠️ no config for this file")
+        if not resources_lists[path].get(old_url):
+            print("⚠️ this file is not on data.gouv yet, it should be added as a new file")
+            continue
+        update_dataset_or_resource_metadata(
+            payload={
+                "url": url,
+                "title": resource_name if not is_doc else file_with_ext,
+                "description": description,
+                "filesize": minio_files[minio_folder + file_path],
+            },
+            dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+            resource_id=resources_lists[path][old_url],
+        )
+        raise_if_duplicates(idx)
+        updated_datasets.add(path)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
@@ -588,12 +574,17 @@ def notification_mattermost(ti):
 
 
 import pandas as pd
-def get_duplicates():
+def raise_if_duplicates(idx):
+    if idx > 9 and idx % 10 != 0:
+        # checking for duplicates if not many cases (new data or new name)
+        # or every 10 files processed
+        return
     catalog = pd.read_csv(
         "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
         sep=";",
         usecols=["url", "id", "dataset.id"],
     )
     dups = catalog["id"].value_counts().reset_index()
-    dups = dups.loc[dups["count"] > 1]
-    return dups["id"].to_list()
+    dups = dups.loc[dups["count"] > 1, "id"].to_list()
+    if dups:
+        raise Exception("Duplicates:", dups)
