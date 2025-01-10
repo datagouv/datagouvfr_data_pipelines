@@ -209,7 +209,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
-        or ftp_files[f]["modif_date"] > datetime.now(timezone.utc) - timedelta(days=1)
+        or ftp_files[f]["modif_date"] > (datetime.now(timezone.utc) - timedelta(days=1))
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
@@ -351,6 +351,9 @@ def upload_new_files(ti, minio_folder):
                     "description": description,
                 },
             )
+            dups = get_duplicates()
+            if dups:
+                raise Exception("Duplicates:", dups)
             new_files_datasets.add(path)
             updated_datasets.add(path)
         except KeyError:
@@ -386,6 +389,9 @@ def handle_updated_files_same_name(ti, minio_folder):
                 dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
                 resource_id=resources_lists[path][url],
             )
+            dups = get_duplicates()
+            if dups:
+                raise Exception("Duplicates:", dups)
             updated_datasets.add(path)
         except KeyError:
             print("⚠️ no config for this file")
@@ -423,6 +429,9 @@ def handle_updated_files_new_name(ti, minio_folder):
                 dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
                 resource_id=resources_lists[path][old_url],
             )
+            dups = get_duplicates()
+            if dups:
+                raise Exception("Duplicates:", dups)
             updated_datasets.add(path)
         except KeyError:
             print("⚠️ no config for this file")
@@ -576,3 +585,15 @@ def notification_mattermost(ti):
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)
+
+
+import pandas as pd
+def get_duplicates():
+    catalog = pd.read_csv(
+        "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
+        sep=";",
+        usecols=["url", "id", "dataset.id"],
+    )
+    dups = catalog["id"].value_counts().reset_index()
+    dups = dups.loc[dups["id"] > 1]
+    return dups["index"].to_list()
