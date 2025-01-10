@@ -590,7 +590,7 @@ def notification_mattermost(ti):
 import pandas as pd
 def get_duplicates():
     catalog = pd.read_csv(
-        "https://demo.data.gouv.fr/fr/organizations/653a5bdcc52ecb6d2e96fe3b/datasets-resources.csv",
+        "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
         sep=";",
         usecols=["url", "id", "dataset.id"],
     )
