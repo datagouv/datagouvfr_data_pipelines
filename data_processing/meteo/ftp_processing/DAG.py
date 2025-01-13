@@ -129,11 +129,13 @@ with DAG(
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_ftp)
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
 
-    upload_new_files.set_upstream(get_and_upload_file_diff_ftp_minio)
     handle_updated_files_same_name.set_upstream(get_and_upload_file_diff_ftp_minio)
     handle_updated_files_new_name.set_upstream(get_and_upload_file_diff_ftp_minio)
 
     delete_replaced_minio_files.set_upstream(handle_updated_files_new_name)
+
+    upload_new_files.set_upstream(handle_updated_files_same_name)
+    upload_new_files.set_upstream(delete_replaced_minio_files)
 
     update_temporal_coverages_and_sort_resources.set_upstream(upload_new_files)
     update_temporal_coverages_and_sort_resources.set_upstream(handle_updated_files_same_name)

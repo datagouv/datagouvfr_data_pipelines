@@ -210,7 +210,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
-        or ftp_files[f]["modif_date"] > datetime.now(timezone.utc) - timedelta(days=1)
+        or ftp_files[f]["modif_date"] > (datetime.now(timezone.utc) - timedelta(days=1))
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
@@ -299,11 +299,13 @@ def upload_new_files(ti, minio_folder):
         key="files_to_update_new_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+    # adding files that have been spotted as new files in other processings
+    spotted_new_files = (
+        ti.xcom_pull(key="new_files", task_ids="handle_updated_files_same_name")
+        + ti.xcom_pull(key="new_files", task_ids="handle_updated_files_new_name")
     )
     resources_lists = get_resource_lists()
+    new_files += spotted_new_files
 
     # adding files that are on minio, not updated from FTP in this batch,
     # but that are missing on data.gouv
@@ -313,25 +315,22 @@ def upload_new_files(ti, minio_folder):
         file_with_ext = file_path.split("/")[-1]
         url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
-        # it is supposed to be in, and if it's not already in the list, and
-        # if it's not an updated file that has been renamed (keys of new_name),
-        # and if it's not an old file that has been renamed (values of new_name),
-        # and if it's not an existing file
+        # it is supposed to be in, and if it's not already in the list,
+        # and if it's not an old file that has been renamed (values of new_name)
+        # though they should have been deleted by now, but just in case
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
-            and clean_file_path not in files_to_update_new_name.keys()
             and clean_file_path not in files_to_update_new_name.values()
-            and clean_file_path not in files_to_update_same_name
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
-            print("This file is not on data.gouv, uploading:", file_with_ext)
+            print("This file is not on data.gouv, uploading:", clean_file_path)
             new_files.append(clean_file_path)
 
     new_files_datasets = set()
     went_wrong = []
-    for file_path in new_files:
+    for idx, file_path in enumerate(new_files):
         file_with_ext, path, resource_name, description, url, is_doc = build_resource(
             file_path,
             minio_folder
@@ -352,6 +351,7 @@ def upload_new_files(ti, minio_folder):
                     "description": description,
                 },
             )
+            raise_if_duplicates(idx)
             new_files_datasets.add(path)
             updated_datasets.add(path)
         except KeyError:
@@ -372,25 +372,29 @@ def handle_updated_files_same_name(ti, minio_folder):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
     resources_lists = get_resource_lists()
 
-    for file_path in files_to_update_same_name:
+    new_files = []
+    for idx, file_path in enumerate(files_to_update_same_name):
         path = "/".join(file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
         url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + file_path}"
         print("Resource already exists and name unchanged:", file_with_ext)
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
-        try:
-            update_dataset_or_resource_metadata(
-                payload={
-                    "filesize": minio_files[minio_folder + file_path],
-                },
-                dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
-                resource_id=resources_lists[path][url],
-            )
-            updated_datasets.add(path)
-        except KeyError:
-            print("⚠️ no config for this file")
+        if not resources_lists[path].get(url):
+            print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
+            new_files.append(file_path)
+            continue
+        update_dataset_or_resource_metadata(
+            payload={
+                "filesize": minio_files[minio_folder + file_path],
+            },
+            dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
+            resource_id=resources_lists[path][url],
+        )
+        raise_if_duplicates(idx)
+        updated_datasets.add(path)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
+    ti.xcom_push(key="new_files", value=new_files)
 
 
 def handle_updated_files_new_name(ti, minio_folder):
@@ -402,7 +406,8 @@ def handle_updated_files_new_name(ti, minio_folder):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
     resources_lists = get_resource_lists()
 
-    for file_path in files_to_update_new_name:
+    new_files = []
+    for idx, file_path in enumerate(files_to_update_new_name):
         file_with_ext, path, resource_name, description, url, is_doc = build_resource(
             file_path,
             minio_folder
@@ -413,21 +418,24 @@ def handle_updated_files_new_name(ti, minio_folder):
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
         old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
-        try:
-            update_dataset_or_resource_metadata(
-                payload={
-                    "url": url,
-                    "title": resource_name if not is_doc else file_with_ext,
-                    "description": description,
-                    "filesize": minio_files[minio_folder + file_path],
-                },
-                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-                resource_id=resources_lists[path][old_url],
-            )
-            updated_datasets.add(path)
-        except KeyError:
-            print("⚠️ no config for this file")
+        if not resources_lists[path].get(old_url):
+            print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
+            new_files.append(file_path)
+            continue
+        update_dataset_or_resource_metadata(
+            payload={
+                "url": url,
+                "title": resource_name if not is_doc else file_with_ext,
+                "description": description,
+                "filesize": minio_files[minio_folder + file_path],
+            },
+            dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
+            resource_id=resources_lists[path][old_url],
+        )
+        raise_if_duplicates(idx)
+        updated_datasets.add(path)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
+    ti.xcom_push(key="new_files", value=new_files)
 
 
 def meteo_sort(resources, path):
@@ -564,7 +572,7 @@ def notification_mattermost(ti):
                 else:
                     message += "mise à jour des métadonnées"
 
-    issues = {}
+    issues = defaultdict(dict)
     allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
@@ -586,8 +594,6 @@ def notification_mattermost(ti):
                     for template in allowed_patterns[dataset_id]
                 )
             ):
-                if dataset_id not in issues:
-                    issues[dataset_id] = {}
                 issues[dataset_id][r['id']] = r['title']
     if issues:
         message += "\n:alert: Des ressources semblent mal placées :\n"
@@ -602,3 +608,23 @@ def notification_mattermost(ti):
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)
+
+
+# %% TO BE REMOVED SOMEWHEN
+import pandas as pd
+
+
+def raise_if_duplicates(idx):
+    if idx > 9 and idx % 10 != 0:
+        # checking for duplicates if not many cases (new file or new name)
+        # or every 10 files processed
+        return
+    catalog = pd.read_csv(
+        "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
+        sep=";",
+        usecols=["url", "id", "dataset.id"],
+    )
+    dups = catalog["id"].value_counts().reset_index()
+    dups = dups.loc[dups["count"] > 1, "id"].to_list()
+    if dups:
+        raise Exception("Duplicates:", dups)
