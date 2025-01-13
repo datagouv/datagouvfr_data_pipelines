@@ -468,7 +468,7 @@ def update_temporal_coverages_and_sort_resources(ti):
             key="updated_datasets",
             task_ids=task
         )
-    should_sort = ti.xcom_pull(key="updated_datasets", task_ids="upload_new_files")
+    should_sort = ti.xcom_pull(key="new_files_datasets", task_ids="upload_new_files")
     for path in updated_datasets:
         if path in period_starts:
             print(config[path]['dataset_id'][AIRFLOW_ENV])
