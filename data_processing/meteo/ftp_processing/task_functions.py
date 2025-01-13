@@ -546,7 +546,7 @@ def notification_mattermost(ti):
                 else:
                     message += "mise à jour des métadonnées"
 
-    issues = {}
+    issues = defaultdict(dict)
     allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
@@ -568,8 +568,6 @@ def notification_mattermost(ti):
                     for template in allowed_patterns[dataset_id]
                 )
             ):
-                if dataset_id not in issues:
-                    issues[dataset_id] = {}
                 issues[dataset_id][r['id']] = r['title']
     if issues:
         message += "\n:alert: Des ressources semblent mal placées :\n"
@@ -586,10 +584,13 @@ def notification_mattermost(ti):
     send_message(message)
 
 
+# %% TO BE REMOVED SOMEWHEN
 import pandas as pd
+
+
 def raise_if_duplicates(idx):
     if idx > 9 and idx % 10 != 0:
-        # checking for duplicates if not many cases (new data or new name)
+        # checking for duplicates if not many cases (new file or new name)
         # or every 10 files processed
         return
     catalog = pd.read_csv(
