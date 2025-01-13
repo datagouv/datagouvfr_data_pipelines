@@ -298,7 +298,13 @@ def upload_new_files(ti, minio_folder):
         key="files_to_update_new_name",
         task_ids="get_and_upload_file_diff_ftp_minio"
     )
+    # adding files that have been spotted as new files in other processings
+    spotted_new_files = (
+        ti.xcom_pull(key="new_files", task_ids="handle_updated_files_same_name")
+        + ti.xcom_pull(key="new_files", task_ids="handle_updated_files_new_name")
+    )
     resources_lists = get_resource_lists()
+    new_files += spotted_new_files
 
     # adding files that are on minio, not updated from FTP in this batch,
     # but that are missing on data.gouv
@@ -310,6 +316,7 @@ def upload_new_files(ti, minio_folder):
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list,
         # and if it's not an old file that has been renamed (values of new_name)
+        # though they should have been deleted by now, but just in case
         if (
             url not in resources_lists.get(path, [])
             and clean_file_path not in new_files
@@ -317,7 +324,7 @@ def upload_new_files(ti, minio_folder):
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
-            print("This file is not on data.gouv, uploading:", file_with_ext)
+            print("This file is not on data.gouv, uploading:", clean_file_path)
             new_files.append(clean_file_path)
 
     new_files_datasets = set()
@@ -364,6 +371,7 @@ def handle_updated_files_same_name(ti, minio_folder):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
     resources_lists = get_resource_lists()
 
+    new_files = []
     for idx, file_path in enumerate(files_to_update_same_name):
         path = "/".join(file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
@@ -372,7 +380,8 @@ def handle_updated_files_same_name(ti, minio_folder):
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
         if not resources_lists[path].get(url):
-            print("⚠️ this file is not on data.gouv yet, it should be added as a new file")
+            print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
+            new_files.append(file_path)
             continue
         update_dataset_or_resource_metadata(
             payload={
@@ -384,6 +393,7 @@ def handle_updated_files_same_name(ti, minio_folder):
         raise_if_duplicates(idx)
         updated_datasets.add(path)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
+    ti.xcom_push(key="new_files", value=new_files)
 
 
 def handle_updated_files_new_name(ti, minio_folder):
@@ -395,6 +405,7 @@ def handle_updated_files_new_name(ti, minio_folder):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
     resources_lists = get_resource_lists()
 
+    new_files = []
     for idx, file_path in enumerate(files_to_update_new_name):
         file_with_ext, path, resource_name, description, url, is_doc = build_resource(
             file_path,
@@ -407,7 +418,8 @@ def handle_updated_files_new_name(ti, minio_folder):
         old_file_path = files_to_update_new_name[file_path]
         old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
         if not resources_lists[path].get(old_url):
-            print("⚠️ this file is not on data.gouv yet, it should be added as a new file")
+            print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
+            new_files.append(file_path)
             continue
         update_dataset_or_resource_metadata(
             payload={
@@ -422,6 +434,7 @@ def handle_updated_files_new_name(ti, minio_folder):
         raise_if_duplicates(idx)
         updated_datasets.add(path)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
+    ti.xcom_push(key="new_files", value=new_files)
 
 
 def update_temporal_coverages(ti):
