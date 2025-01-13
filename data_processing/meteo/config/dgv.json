@@ -216,7 +216,7 @@
         "source_pattern": "QUOT_SIM2_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "QUOT_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données quotidiennes SIM entre {PERIOD}",
+        "description_template": "Données quotidiennes SIM sur la période {PERIOD}",
         "dataset_id": {
             "prod": "6569b27598256cc583c917a7",
             "dev": "653a6afa18f9f98d2ffdaded"
@@ -248,7 +248,7 @@
         "source_pattern": "DECAD_SIM2_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données décadaires SIM entre {PERIOD}",
+        "description_template": "Données décadaires SIM sur la période {PERIOD}",
         "dataset_id": {
             "prod": "65e04035010927c797072b29",
             "dev": "65e04239afffd240dae81853"
@@ -259,7 +259,7 @@
         "source_pattern": "MENS_SIM2_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "MENS_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données mensuelles SIM entre {PERIOD}",
+        "description_template": "Données mensuelles SIM sur la période {PERIOD}",
         "dataset_id": {
             "prod": "65e040c50a5c6872ebebc711",
             "dev": "65e04268afffd240dae81854"
@@ -270,7 +270,7 @@
         "source_pattern": "QUOT_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "QUOT_ETPgrille_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP spatialisées quotidiennes {PERIOD}",
+        "description_template": "Données ETP spatialisées quotidiennes sur l'année {PERIOD}",
         "dataset_id": {
             "prod": "661d079b6357625e12013241",
             "dev": "661d06b9852e185c7b180db0"
@@ -281,7 +281,7 @@
         "source_pattern": "DECAD_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD_ETPgrille_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP spatialisées décadaires {PERIOD}",
+        "description_template": "Données ETP spatialisées décadaires sur l'année {PERIOD}",
         "dataset_id": {
             "prod": "661d0762109ece6f985e9857",
             "dev": "661d0734eddf136314176ecd"
@@ -292,7 +292,7 @@
         "source_pattern": "ETP_Hargreaves_coefficient_0.175_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "ETP_Hargreaves_coefficient_0.175_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP FAO Hargreaves coefficient 0.175 {PERIOD}",
+        "description_template": "Données ETP FAO Hargreaves coefficient 0.175 sur la période {PERIOD}",
         "dataset_id": {
             "prod": "667eae35510cd549fc7722c1",
             "dev": "667eb01a32a9caf3576d8d81"
