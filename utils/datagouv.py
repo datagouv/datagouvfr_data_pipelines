@@ -552,7 +552,6 @@ def title_sort(resources: list[dict]) -> list[dict]:
     return [{'id': r['id']} for r in sorted(resources, key=lambda r: r['title'])]
 
 
-@simple_connection_retry
 def sort_resources(
     dataset_id: str,
     sort_func: Callable = title_sort,
