@@ -464,7 +464,7 @@ def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
         sep=";",
         dtype=str,
         usecols=["NUM_POSTE"],
-    )["NUM_POSTES"]
+    )["NUM_POSTE"]
     maxes = defaultdict(int)
     k = 0
     while True:
