@@ -204,10 +204,11 @@ def show_discussions(
 ):
     discussions = get_latest_comments(start_date, end_date)
 
-    show_html(
-        f"<h3>{len(discussions)} commentaire{'s' if len(discussions) > 1 else ''} "
-        f"créée{'s' if len(discussions) > 1 else ''}</h3>"
-    )
+    if not subjects_of_interest:
+        show_html(
+            f"<h3>{len(discussions)} commentaire{'s' if len(discussions) > 1 else ''} "
+            f"créée{'s' if len(discussions) > 1 else ''}</h3>"
+        )
 
     for d in discussions:
         subject = d['discussion_subject']
@@ -221,7 +222,7 @@ def show_discussions(
         except:
             object_title = None
         url = "#"
-        if subject["class"] in ["Dataset", "Reuse"]:
+        if subject["class"] in ["Dataset", "Reuse", "Dataservice"]:
             url = f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
         user = make_link(fullname(comment["posted_by"]), comment["posted_by"]["page"])
         to_be_shown = object_title + f" ({subject['class']})" if object_title else subject['class']
