@@ -443,8 +443,11 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
     # if MIN or HOR: files are too big to be handled at once, we build the diff iteratively
     if any(_ in csv_path for _ in ['MN_', 'H_']):
         print("> Building diff in batches...")
-        for k in range(0, 10):
-            run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=str(k))
+        # files are too big to be handled in one go, so we process them in batches
+        # using the fact that the first column (NUM_POSTE) always starts with the dep number and then numbers
+        filters = ['0' * (k < 10) + str(k) for k in range(0, 100)]
+        for _filter in filters:
+            run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=_filter)
     # for other files it's fine to build diff on the whole file
     else:
         run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"])
