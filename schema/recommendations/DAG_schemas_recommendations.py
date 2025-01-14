@@ -6,15 +6,16 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
-    AIRFLOW_DAG_TMP,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD
 )
+from datagouvfr_data_pipelines.schema.recommendations.task_functions import (
+    DAG_NAME,
+    TMP_FOLDER,
+)
 
-DAG_NAME = "schema_recommendations"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 # GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
 
