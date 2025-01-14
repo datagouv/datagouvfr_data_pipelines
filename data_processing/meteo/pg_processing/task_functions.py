@@ -1,6 +1,7 @@
 import json
 import requests
 import os
+from collections import defaultdict
 from pathlib import Path
 import gzip
 import shutil
@@ -10,6 +11,7 @@ import re
 from jinja2 import Environment, FileSystemLoader
 import psycopg2
 from typing import Optional
+import pandas as pd
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
@@ -444,15 +446,36 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
     if any(_ in csv_path for _ in ['MN_', 'H_']):
         print("> Building diff in batches...")
         # files are too big to be handled in one go, so we process them in batches
-        # using the fact that the first column (NUM_POSTE) always starts with the dep number and then numbers
-        filters = ['0' * (k < 10) + str(k) for k in range(0, 100)]
-        for _filter in filters:
+        # using the fact that the first column (NUM_POSTE) always starts with dep + numbers
+        for _filter in create_filters(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"]):
             run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=_filter)
     # for other files it's fine to build diff on the whole file
     else:
         run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"])
 
     return _build_deletions(_conn, csv_path, table_name)
+
+
+def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
+    # returns a list of prefixes to filter the rows
+    # once we know the batches will be of a reasonable size
+    postes = pd.read_csv(
+        csv_path,
+        compression="gzip",
+        sep=";",
+        dtype=str,
+        usecols=["NUM_POSTE"],
+    )["NUM_POSTES"]
+    maxes = defaultdict(int)
+    k = 0
+    while True:
+        k += 1
+        counts = postes.str.slice(len(dep), k + len(dep)).value_counts()
+        maxes[max(counts)] += 1
+        if max(counts) < threshold or max(maxes.values()) == 3:
+            break
+    print(f"> built filters of length {k} (max occurences: {max(counts)})")
+    return [dep + suffix for suffix in counts.index]
 
 
 def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
