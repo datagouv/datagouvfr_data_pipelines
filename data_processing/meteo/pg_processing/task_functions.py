@@ -461,7 +461,6 @@ def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
     # once we know the batches will be of a reasonable size
     postes = pd.read_csv(
         csv_path,
-        compression="gzip",
         sep=";",
         dtype=str,
         usecols=["NUM_POSTE"],
