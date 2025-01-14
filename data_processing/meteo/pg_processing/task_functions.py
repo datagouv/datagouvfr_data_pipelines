@@ -387,11 +387,11 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             # it'll not be considered new when data is appended
             new_lines = set(
                 r.replace("\n", "") for r in new_file
-                if _filter is None or r.startswith(dep + _filter)
+                if _filter is None or r.startswith(_filter)
             )
             old_lines = set(
                 r.replace("\n", "") for r in old_file
-                if _filter is None or r.startswith(dep + _filter)
+                if _filter is None or r.startswith(_filter)
             )
 
         with open(additions_file, 'a') as outFile:
