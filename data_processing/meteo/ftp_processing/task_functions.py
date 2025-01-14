@@ -444,9 +444,9 @@ def meteo_sort(resources, path):
             'keys': (
                 r['title'].split('_')[2],
                 r['title'].split('_')[4],
-                r['title'].split('_')[5] if "QUOT" in path else 0,
+                r['title'].split('_')[5] if "QUOT" in path else "0",
                 r['title'].split('_')[0],
-            ),
+            ) if r['type'] == "main" else ("0", "0", "0", "0"),
             'title': r['title'],
             'id': r['id']
         }
