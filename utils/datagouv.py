@@ -586,7 +586,7 @@ def check_if_recent_update(
     lastest_update = datagouv_session.get(
         f"https://{prefix}.data.gouv.fr/api/2/datasets/resources/{reference_resource_id}/",
         headers={"X-fields": "resource{internal{last_modified_internal}}"}
-    ).json()["internal"]["last_modified_internal"]
+    ).json()["resource"]["internal"]["last_modified_internal"]
     return any(
-        r["resource"]["internal"]["last_modified_internal"] > lastest_update for r in resources
+        r["internal"]["last_modified_internal"] > lastest_update for r in resources
     )
