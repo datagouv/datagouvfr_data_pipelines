@@ -27,8 +27,8 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 PARAMS_TOPS = {
     "module": "API",
     "idSite": DATAGOUV_MATOMO_ID,
-    "date": "yesterday",
-    "period": "day",
+    # "date": "yesterday",
+    # "period": "day",
     "format": "json",
     "method": "Actions.getPageUrls",
     "expanded": 1,
@@ -40,8 +40,8 @@ PARAMS_TOPS = {
 PARAMS_GENERAL = {
     "module": "API",
     "idSite": DATAGOUV_MATOMO_ID,
-    "date": "2021-11-01,2021-12-01",
-    "period": "range",
+    # "date": "2021-11-01,2021-12-01",
+    # "period": "range",
     "format": "json",
     "method": "Actions.get",
     "expanded": 1,
@@ -49,9 +49,9 @@ PARAMS_GENERAL = {
 }
 
 
-def compute_top(pattern, period, date, title):
+def compute_top(pattern, date, title):
     textTop = ""
-    PARAMS_TOPS["period"] = period
+    PARAMS_TOPS["period"] = "range"
     PARAMS_TOPS["date"] = date
     PARAMS_TOPS["filter_pattern"] = f"/fr/{pattern}/"
     print(PARAMS_TOPS)
@@ -59,9 +59,10 @@ def compute_top(pattern, period, date, title):
     arr = []
     for data in r.json():
         if "url" in data:
-            if (data["url"] != "https://www.data.gouv.fr/fr/datasets/") & (
-                data["url"] != "https://www.data.gouv.fr/fr/reuses/"
-            ):
+            if data["url"] not in [
+                "https://www.data.gouv.fr/fr/datasets/",
+                "https://www.data.gouv.fr/fr/reuses/",
+            ]:
                 r2 = requests.get(
                     data["url"].replace(
                         "https://www.data.gouv.fr/fr/",
@@ -69,56 +70,47 @@ def compute_top(pattern, period, date, title):
                     )
                 )
                 print(data)
-                mydict = {}
-                mydict["value"] = data["nb_visits"]
-                mydict["url"] = data["url"]
-                try:
-                    mydict["name"] = r2.json()["title"]
-                except:
-                    mydict["name"] = data["url"]
-                arr.append(mydict)
+                arr.append({
+                    "value": data["nb_visits"],
+                    "url": data["url"],
+                    "name": r2.json().get("title", data["url"])
+                })
                 textTop = (
                     textTop
-                    + str("`" + str(data["nb_visits"]) + "`").ljust(10)
+                    + f"`{data['nb_visits']}`".ljust(10)
                     + data["url"]
                     + "\n"
                 )
-    mydict = {}
-    mydict["nom"] = title
-    mydict["unite"] = "visites"
-    mydict["values"] = arr[:10]
-    mydict["date_maj"] = datetime.today().strftime("%Y-%m-%d")
-
+    mydict = {
+        "nom": title,
+        "unite": "visites",
+        "values": arr[:10],
+        "date_maj": datetime.today().strftime("%Y-%m-%d"),
+    }
     return textTop, mydict
 
 
 def compute_general(date, start, pageviews, uniq_pageviews, downloads):
     print(date)
     PARAMS_GENERAL["date"] = date
-
-    if "," in date:
-        PARAMS_GENERAL["period"] = "range"
-    else:
-        PARAMS_GENERAL["period"] = "day"
-
+    PARAMS_GENERAL["period"] = "range" if "," in date else "day"
     print(PARAMS_GENERAL)
     r = requests.get(BASE_URL, params=PARAMS_GENERAL)
     print(r.json())
     for data in r.json():
         print(data)
-        mydict = {}
-        mydict["date"] = start
-        mydict["value"] = data["nb_pageviews"]
-        pageviews.append(mydict)
-        mydict = {}
-        mydict["date"] = start
-        mydict["value"] = data["nb_uniq_pageviews"]
-        uniq_pageviews.append(mydict)
-        mydict = {}
-        mydict["date"] = start
-        mydict["value"] = data["nb_downloads"]
-        downloads.append(mydict)
-
+        pageviews.append({
+            "date": start,
+            "value": data["nb_pageviews"],
+        })
+        uniq_pageviews.append({
+            "date": start,
+            "value": data["nb_uniq_pageviews"],
+        })
+        downloads.append({
+            "date": start,
+            "value": data["nb_downloads"],
+        })
     return pageviews, uniq_pageviews, downloads
 
 
@@ -134,7 +126,6 @@ def get_top(ti, **kwargs):
 
     textTop, mydict = compute_top(
         piwik_info["type"],
-        "range",
         start.strftime("%Y-%m-%d") + "," + end.strftime("%Y-%m-%d"),
         piwik_info["title"],
     )
