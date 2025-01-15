@@ -88,7 +88,7 @@ def process_data():
                 # specific dtypes are listed in the config, default to str
                 c: config[file_type]["dtype"].get(c, "VARCHAR")
                 for c in columns[file_type]
-            },
+            } | {"annee": "INT32"},
         )
         if file_type == "RESULT":
             # this one is too big for classic csv
