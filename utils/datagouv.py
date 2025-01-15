@@ -574,7 +574,7 @@ def check_if_recent_update(
     on_demo: bool = False,
 ) -> bool:
     """
-    Checks whether any resource of the specified dataset has been update more recently
+    Checks whether any resource of the specified dataset has been updated more recently
     than the specified resource
     """
     prefix = "demo" if on_demo else "www"
