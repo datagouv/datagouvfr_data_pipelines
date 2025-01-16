@@ -9,10 +9,10 @@ from datagouvfr_data_pipelines.schema.recommendations.task_functions import (
     create_and_export_recommendations,
 )
 
-GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
-# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
+GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
+# GIT_REPO = "https://github.com/datagouv/schema.data.gouv.fr.git"
 
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": True}
+default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
 with DAG(
     dag_id=DAG_NAME,

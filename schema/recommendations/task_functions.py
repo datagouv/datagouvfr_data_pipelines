@@ -62,16 +62,9 @@ def create_and_export_recommendations():
         )
         dataset_ids = datasets_for_schema(schema_id)
         print(f"Found {len(dataset_ids)} associated with schema {schema_id}")
-        recommendations.extend([
+        recommendations += [
             build_recommendation(consolidated_slug, d) for d in dataset_ids
-        ])
-    # to make sure that there is not more than one recommendation per dataset (do we want this?)
-    ids = []
-    recommendations_clean = []
-    for r in recommendations:
-        if r["id"] not in ids:
-            ids.append(r["id"])
-            recommendations_clean.append(r)
-    validate_recommendations(recommendations_clean)
+        ]
+    validate_recommendations(recommendations)
     with open(TMP_FOLDER + '/recommendations.json', 'w') as fp:
-        json.dump(recommendations_clean, fp, indent=2)
+        json.dump(recommendations, fp, indent=2)
