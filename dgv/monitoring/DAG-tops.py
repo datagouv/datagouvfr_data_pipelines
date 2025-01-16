@@ -157,74 +157,69 @@ def getstats(dates, period):
 def publish_top_mattermost(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
     print(publish_info)
-    top_datasets = ti.xcom_pull(
-        key="top_datasets", task_ids="get_top_datasets_" + publish_info["period"]
-    )
-    top_reuses = ti.xcom_pull(
-        key="top_reuses", task_ids="get_top_reuses_" + publish_info["period"]
-    )
-
-    message = (
-        ":rolled_up_newspaper: **Top 10 jeux de données** - "
-        f"{publish_info['periode']} (visites)\n\n{top_datasets}"
-    )
-    send_message(message, MATTERMOST_DATAGOUV_REPORTING)
-
-    message = (
-        ":artist: **Top 10 réutilisations** - "
-        f"{publish_info['periode']} (visites)\n\n{top_reuses}"
-    )
-    send_message(message, MATTERMOST_DATAGOUV_REPORTING)
+    for _class in ["datasets", "reuses"]:
+        top = ti.xcom_pull(
+            key=f"top_{_class}", task_ids=f"get_top_{_class}_" + publish_info["period"]
+        )
+        header = (
+            ":rolled_up_newspaper: **Top 10 jeux de données** - "
+            if _class == "datasets"
+            else ":artist: **Top 10 réutilisations** - "
+        )
+        message = (
+            header
+            + f"{publish_info['periode']} (visites)\n\n{top}"
+        )
+        send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
 
 def send_tops_to_minio(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
-    top_datasets = ti.xcom_pull(
-        key="top_datasets_dict", task_ids="get_top_datasets_" + publish_info["period"]
-    )
-    top_reuses = ti.xcom_pull(
-        key="top_reuses_dict", task_ids="get_top_reuses_" + publish_info["period"]
-    )
-    minio_open.dict_to_bytes_to_minio(top_datasets, publish_info["minio"] + "top_datasets.json")
-    minio_open.dict_to_bytes_to_minio(top_reuses, publish_info["minio"] + "top_reuses.json")
+    for _class in ["datasets", "reuses"]:
+        top = ti.xcom_pull(
+            key=f"top_{_class}_dict", task_ids=f"get_top_{_class}_" + publish_info["period"]
+        )
+        minio_open.dict_to_bytes_to_minio(top, publish_info["minio"] + f"top_{_class}.json")
 
 
 def send_stats_to_minio(ti, **kwargs):
     piwik_info = kwargs.get("templates_dict")
+    end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
     if piwik_info["period"] == "day":
-        end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
         start = end + relativedelta(days=-7)
         dates = pd.date_range(start, end, freq="D")
     elif piwik_info["period"] == "week":
-        end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
         start = end + relativedelta(months=-1)
         dates = pd.date_range(start, end, freq="D")
         print("----")
         print(dates)
     elif piwik_info["period"] == "month":
-        end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
         start = end + relativedelta(months=-12)
         dates = pd.date_range(start, end, freq="MS")
     pageviews, uniq_pageviews, downloads = getstats(dates, piwik_info["period"])
-    mydict = {}
-    mydict["nom"] = "Nombre de visites"
-    mydict["unite"] = "visites"
-    mydict["values"] = pageviews
-    mydict["date_maj"] = datetime.strftime(date.today(), "%Y-%m-%d")
+    today = date.today().strftime("%Y-%m-%d")
+    mydict = {
+        "nom": "Nombre de visites",
+        "unite": "visites",
+        "values": pageviews,
+        "date_maj": today,
+    }
     minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "visits.json")
 
-    mydict = {}
-    mydict["nom"] = "Nombre de visiteurs uniques"
-    mydict["unite"] = "visiteurs"
-    mydict["values"] = uniq_pageviews
-    mydict["date_maj"] = datetime.strftime(date.today(), "%Y-%m-%d")
+    mydict = {
+        "nom": "Nombre de visiteurs uniques",
+        "unite": "visiteurs",
+        "values": uniq_pageviews,
+        "date_maj": today,
+    }
     minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "uniq_visits.json")
 
-    mydict = {}
-    mydict["nom"] = "Nombre de téléchargements"
-    mydict["unite"] = "téléchargements"
-    mydict["values"] = downloads
-    mydict["date_maj"] = datetime.strftime(date.today(), "%Y-%m-%d")
+    mydict = {
+        "nom": "Nombre de téléchargements",
+        "unite": "téléchargements",
+        "values": downloads,
+        "date_maj": today,
+    }
     minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "downloads.json")
 
 
