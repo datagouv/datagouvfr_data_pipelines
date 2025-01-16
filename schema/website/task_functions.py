@@ -329,8 +329,8 @@ def check_datapackage(repertoire_slug, conf, folders):
                         # Create sources file
                         with open(schema_dest_folder + schema.split('/')[-1], 'r') as f:
                             schema_content = json.load(f)
-                        sources_md = sources_to_markdown(schema_content)
-                        if sources_md:
+                        if schema_content.get("sources"):
+                            sources_md = sources_to_markdown(schema_content)
                             with open(schema_dest_folder + '/' + 'sources.md', "w") as out:
                                 out.write(sources_md)
                             SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append(
