@@ -242,13 +242,19 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     for idx, row in dataset_resources.iterrows():
         # We return the first one matching
         url = row["url"]
-        if "request=getcapabilities" in url.lower() or url.endswith(("wms", "wfs")) or row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
+        if (
+            "request=getcapabilities" in url.lower()
+            or url.endswith(("wms", "wfs"))
+            or row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]
+        ):
             # "fake" resources that are actually dataservices
-            contact_point = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/").json()["contact_point"]  or {}
+            contact_point = requests.get(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
+            ).json()["contact_point"] or {}
             return (
                 row["title"],
-                row["url"],
-                row["url"],
+                url,
+                url,
                 row["dataset.url"] + "#/resources/" + row["id"],
                 contact_point.get("name"),
             )
