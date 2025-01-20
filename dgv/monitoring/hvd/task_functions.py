@@ -12,12 +12,14 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message, MAX_MESSAGE_LENGTH
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.grist import get_table_as_df
 
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
+# %% Recap HVD
 def slugify(s):
     return unidecode(s.lower().replace(" ", "-").replace("'", "-"))
 
@@ -193,3 +195,111 @@ def publish_mattermost(ti):
             if len(message) > round(MAX_MESSAGE_LENGTH * 0.95):
                 break
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+
+# %% Grist
+HVD_CATEGORIES = [
+    "meteorologiques",
+    "entreprises-et-propriete-dentreprises",
+    "geospatiales",
+    "mobilite",
+    "observation-de-la-terre-et-environnement",
+    "statistiques",
+]
+API_TABULAIRE_ID = '673b0e6774a23d9eac2af8ce'
+
+
+def get_hvd_ouverture(df_ouverture, url):
+    df_res = df_ouverture.loc[df_ouverture["URL_Telechargement"] == url]
+    if len(df_res):
+        return df_res.iloc[0]["Ensemble_de_donnees"]
+
+
+def get_hvd_category_from_tags(tags):
+    tags = tags.split(",")
+    for tag in tags:
+        if tag in HVD_CATEGORIES:
+            return tag
+
+
+def dataservice_information(dataset_id, df_dataservices, df_resources):
+    dataservices = df_dataservices.loc[df_dataservices["datasets"].str.contains(dataset_id)]
+    # Skip tabular for now
+    if len(dataservices.loc[dataservices["id"] != API_TABULAIRE_ID]):
+        contact_point = requests.get(
+            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
+        ).json()["contact_point"] or {}
+        return (
+            dataservices.iloc[0]["title"],
+            dataservices.iloc[0]["base_api_url"],
+            dataservices.iloc[0]["endpoint_description_url"],
+            dataservices.iloc[0]["url"],
+            contact_point.get("name")
+        )
+    # coming here means no dataservice is linked to this dataset
+    dataset_resources = df_resources.loc[df_resources["dataset.id"] == dataset_id]
+    for idx, row in dataset_resources.iterrows():
+        # We return the first one matching
+        url = row["url"]
+        if "request=getcapabilities" in url.lower() or url.endswith(("wms", "wfs")) or row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
+            # "fake" resources that are actually dataservices
+            contact_point = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/").json()["contact_point"]  or {}
+            return (
+                row["title"],
+                row["url"],
+                row["url"],
+                row["dataset.url"] + "#/resources/" + row["id"],
+                contact_point.get("name"),
+            )
+    # Fallback on tabular if available
+    if len(dataservices):
+        contact_point = requests.get(
+            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
+        ).json()["contact_point"] or {}
+        return (
+            dataservices.iloc[0]["title"],
+            dataservices.iloc[0]["base_api_url"],
+            dataservices.iloc[0]["endpoint_description_url"],
+            dataservices.iloc[0]["url"],
+            contact_point.get("name")
+        )
+    return None, None, None, None, None
+
+
+def build_df_for_grist():
+    df_datasets = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
+        delimiter=";",
+        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license"],
+    )
+    df_resources = pd.read_csv(
+        "https://www.data.gouv.fr/fr/resources.csv?tag=hvd",
+        delimiter=";",
+        usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"]
+    )
+    df_dataservices = pd.read_csv(
+        "https://www.data.gouv.fr/fr/dataservices.csv",
+        delimiter=";",
+        usecols=["id", "datasets", "endpoint_description_url", "base_api_url", "url", "title"],
+    ).dropna(subset="datasets")
+    df_ouverture = get_table_as_df(
+        doc_id="eJxok2H2va3E",
+        table_id="Hvd",
+        columns_labels=True,
+    )
+    df_datasets['in_ouverture'] = df_datasets["url"].isin(df_ouverture["URL_Telechargement"])
+    df_datasets['hvd_ouverture'] = df_datasets["url"].apply(
+        lambda url: get_hvd_ouverture(df_ouverture=df_ouverture, url=url),
+        axis=1,
+    )
+    df_datasets['hvd_category_datagouv'] = df_datasets.tags.apply(get_hvd_category_from_tags)
+    df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)
+    (
+        df_datasets['api_title_datagouv'],
+        df_datasets['endpoint_url_datagouv'],
+        df_datasets['endpoint_description_datagouv'],
+        df_datasets['api_web_datagouv'],
+        df_datasets['contact_point_datagouv']
+    ) = zip(*df_datasets["id"].apply(
+        lambda _id: dataservice_information(_id, df_dataservices=df_dataservices, df_resources=df_resources)
+    ))
