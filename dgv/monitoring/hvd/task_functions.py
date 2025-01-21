@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import isnan
 import pandas as pd
 import requests
 from unidecode import unidecode
@@ -11,14 +12,19 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message, MAX_MESSAGE_LENGTH
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.grist import get_table_as_df
+from datagouvfr_data_pipelines.utils.grist import (
+    get_table_as_df,
+    update_records,
+    df_to_grist,
+)
 
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
+DOC_ID = "eJxok2H2va3E"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
-# %% Recap HVD
+# %% Recap HVD mattermost
 def slugify(s):
     return unidecode(s.lower().replace(" ", "-").replace("'", "-"))
 
@@ -26,7 +32,7 @@ def slugify(s):
 def get_hvd(ti):
     print("Getting suivi ouverture")
     df_ouverture = get_table_as_df(
-        doc_id="eJxok2H2va3E",
+        doc_id=DOC_ID,
         table_id="Hvd",
         columns_labels=True,
     )
@@ -239,7 +245,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         )
     # coming here means no dataservice is linked to this dataset
     dataset_resources = df_resources.loc[df_resources["dataset.id"] == dataset_id]
-    for idx, row in dataset_resources.iterrows():
+    for _, row in dataset_resources.iterrows():
         # We return the first one matching
         url = row["url"]
         if (
@@ -274,33 +280,37 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
 
 
 def build_df_for_grist():
+    print("Getting datasets")
     df_datasets = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
         delimiter=";",
         usecols=["id", "url", "title", "organization", "resources_count", "tags", "license"],
     )
+    print("Getting resources")
     df_resources = pd.read_csv(
         "https://www.data.gouv.fr/fr/resources.csv?tag=hvd",
         delimiter=";",
         usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"]
     )
+    print("Getting dataservices")
     df_dataservices = pd.read_csv(
         "https://www.data.gouv.fr/fr/dataservices.csv",
         delimiter=";",
         usecols=["id", "datasets", "endpoint_description_url", "base_api_url", "url", "title"],
     ).dropna(subset="datasets")
+    print("Getting ouverture HVD")
     df_ouverture = get_table_as_df(
-        doc_id="eJxok2H2va3E",
+        doc_id=DOC_ID,
         table_id="Hvd",
-        columns_labels=True,
+        columns_labels=False,
     )
     df_datasets['in_ouverture'] = df_datasets["url"].isin(df_ouverture["URL_Telechargement"])
     df_datasets['hvd_ouverture'] = df_datasets["url"].apply(
         lambda url: get_hvd_ouverture(df_ouverture=df_ouverture, url=url),
-        axis=1,
     )
-    df_datasets['hvd_category_datagouv'] = df_datasets.tags.apply(get_hvd_category_from_tags)
+    df_datasets['hvd_category_datagouv'] = df_datasets["tags"].apply(get_hvd_category_from_tags)
     df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)
+    print("Processing...")
     (
         df_datasets['api_title_datagouv'],
         df_datasets['endpoint_url_datagouv'],
@@ -310,3 +320,76 @@ def build_df_for_grist():
     ) = zip(*df_datasets["id"].apply(
         lambda _id: dataservice_information(_id, df_dataservices=df_dataservices, df_resources=df_resources)
     ))
+    df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False)
+
+
+def update_grist():
+    old_hvd_metadata = get_table_as_df(
+        doc_id=DOC_ID,
+        table_id="Hvd_metadata_res",
+        columns_labels=False,
+    )
+    if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
+        raise ValueError("Grist table has duplicated dataset ids")
+    fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv").rename(
+        # because the "id" column in grist has the identifier "id2"
+        {"id": "id2"},
+        axis=1
+    )
+    if fresh_hvd_metadata["id2"].nunique() != len(fresh_hvd_metadata):
+        raise ValueError("New table has duplicated dataset ids")
+    removed_hvd = (set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"]))
+    for hvd_id in removed_hvd:
+        send_message(
+            f":alert: [Ce jeu de données](https://www.data.gouv.fr/fr/datasets/{hvd_id}/)"
+            " a perdu son tag HVD @clarisse",
+            MATTERMOST_MODERATION_NOUVEAUTES
+        )
+    columns_to_update = [
+        "resources_count",
+        "in_ouverture",
+        "hvd_ouverture",
+        "hvd_category_datagouv",
+        "api_title_datagouv",
+        "endpoint_url_datagouv",
+        "endpoint_description_datagouv",
+        "api_web_datagouv",
+    ]
+    # updating existing rows
+    updates = 0
+    for dataset_id in old_hvd_metadata["id2"]:
+        row_old = old_hvd_metadata.loc[old_hvd_metadata["id2"] == dataset_id].iloc[0]
+        row_new = fresh_hvd_metadata.loc[fresh_hvd_metadata["id2"] == dataset_id].iloc[0]
+        new_values = {}
+        for col in columns_to_update:
+            if (
+                (isinstance(row_new[col], str) and row_new[col])
+                or (isinstance(row_new[col], float) and not isnan(row_new[col]))
+            ) and row_old[col] != row_new[col]:
+                print(f"dataset {dataset_id} changing column '{col}':", row_old[col], "for", row_new[col])
+                new_values[col] = row_new[col]
+        if new_values:
+            updates += 1
+            update_records(
+                doc_id=DOC_ID,
+                table_id="Hvd_metadata_res",
+                conditions={"id2": dataset_id},
+                new_values=new_values,
+            )
+    print(f"Updated {updates} rows")
+    # adding new rows
+    new_rows = []
+    for dataset_id in (set(fresh_hvd_metadata["id2"]) - set(old_hvd_metadata["id2"])):
+        new_rows.append(fresh_hvd_metadata.loc[
+            fresh_hvd_metadata["id2"] == dataset_id,
+            ["id2", "url", "title"] + columns_to_update,
+        ].iloc[0])
+    if not new_rows:
+        return
+    print(f"Adding {len(new_rows)} rows")
+    df_to_grist(
+        df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
+        doc_id=DOC_ID,
+        table_id="Hvd_metadata_res",
+        append="lazy",
+    )
