@@ -98,7 +98,7 @@ def recordify(df: pd.DataFrame, returned_columns: Optional[dict]):
     return {"records": [{"fields": r} for r in records]}
 
 
-def _get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
+def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
     # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
     # to potentially replace them so that the upload doesn't crash
     r = requests.get(
@@ -116,13 +116,13 @@ def _get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
         }
 
 
-def get_real_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union[bool, str]):
+def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union[bool, str]):
     """
     Handles cases where the df has more/less columns than the table:
         - more: add missing columns (empty) for the records to be uploaded
         - less: grist handles it (but adds default values to rows)
     """
-    returned_columns = _get_columns_mapping(doc_id, table_id, id_to_label=False)
+    returned_columns = get_columns_mapping(doc_id, table_id, id_to_label=False)
     if append == 'exact' and sorted(list(returned_columns.keys())) != sorted(df.columns.to_list()):
         raise ValueError(
             "Columns of the existing table don't match with sent data:\n"
@@ -146,7 +146,7 @@ def get_real_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union
             )
             handle_grist_error(r)
         # re-getting the columns post potential update
-        returned_columns = _get_columns_mapping(doc_id, table_id, id_to_label=False)
+        returned_columns = get_columns_mapping(doc_id, table_id, id_to_label=False)
     return returned_columns
 
 
@@ -188,11 +188,11 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool
             json=table
         )
         handle_grist_error(r)
-        returned_columns = get_real_columns(doc_id, table_id, df, append)
+        returned_columns = handle_and_return_columns(doc_id, table_id, df, append)
     else:
         if append:
             print(f"Appending records to '{doc_id}/tables/{table_id}' in grist")
-            returned_columns = get_real_columns(doc_id, table_id, df, append)
+            returned_columns = handle_and_return_columns(doc_id, table_id, df, append)
         else:
             print(f"Erasing and refilling '{doc_id}/tables/{table_id}' in grist")
             erase_table_content(doc_id, table_id)
@@ -224,5 +224,32 @@ def get_table_as_df(doc_id: str, table_id: str, columns_labels: bool = True):
     df = pd.DataFrame([k["fields"] for k in r.json()["records"]])
     if not columns_labels:
         return df
-    column_mapping = _get_columns_mapping(doc_id, table_id, id_to_label=True)
+    column_mapping = get_columns_mapping(doc_id, table_id, id_to_label=True)
     return df.rename(column_mapping, axis=1)
+
+
+def update_records(
+    doc_id: str,
+    table_id: str,
+    conditions: dict,
+    new_values: dict,
+    query_params: dict = {"onmany": "all", "noadd": False},
+):
+    # conditions should look like {"col1": "val1", "col2": "val2", ...}, values will be updated where
+    # col1==val1 & col2==val2 & ...
+    # new_values should look like {"col": "new_value", ...}, we update the values of the specified columns
+    # see https://support.getgrist.com/api/#tag/records/operation/replaceRecords for query parameters
+    url_params = "&".join(f"{k}={v}" for k, v in query_params.items())
+    r = requests.put(
+        GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records?{url_params}",
+        headers=headers,
+        json={
+            "records": [
+                {
+                    "require": conditions,
+                    "fields": new_values,
+                },
+            ],
+        },
+    )
+    handle_grist_error(r)
