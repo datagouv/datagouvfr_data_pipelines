@@ -230,6 +230,15 @@ def get_hvd_category_from_tags(tags):
 
 
 def dataservice_information(dataset_id, df_dataservices, df_resources):
+    """
+    Gets:
+        - api_title_datagouv
+        - endpoint_url_datagouv
+        - endpoint_description_datagouv
+        - api_web_datagouv
+        - contact_point_datagouv
+    from a dataset_id
+    """
     dataservices = df_dataservices.loc[df_dataservices["datasets"].str.contains(dataset_id)]
     # Skip tabular for now
     if len(dataservices.loc[dataservices["id"] != API_TABULAIRE_ID]):
