@@ -254,13 +254,14 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         )
     # coming here means no dataservice is linked to this dataset
     dataset_resources = df_resources.loc[df_resources["dataset.id"] == dataset_id]
+    # we loop twice because if we can match the first condition somewhere in the dataset
+    # we like it better than the fallback condition (for the endpoint description)
     for _, row in dataset_resources.iterrows():
         # We return the first one matching
         url = row["url"]
         if (
             "request=getcapabilities" in url.lower()
             or url.endswith(("wms", "wfs"))
-            or row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]
         ):
             # "fake" resources that are actually dataservices
             contact_point = requests.get(
@@ -270,6 +271,19 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
                 row["title"],
                 url,
                 url,
+                row["dataset.url"] + "#/resources/" + row["id"],
+                contact_point.get("name"),
+            )
+    for _, row in dataset_resources.iterrows():
+        url = row["url"]
+        if row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
+            contact_point = requests.get(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
+            ).json()["contact_point"] or {}
+            return (
+                row["title"],
+                url,
+                "",
                 row["dataset.url"] + "#/resources/" + row["id"],
                 contact_point.get("name"),
             )
