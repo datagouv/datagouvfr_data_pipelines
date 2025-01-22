@@ -106,7 +106,7 @@
         "doc_pattern": null,
         "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b3d7d193b4daf2b43edc",
+            "prod": "6791045ba9116b0a49e6a720",
             "dev": "654c962a3b8186a2b5bbc995"
         },
         "table_name": "base_mens",
@@ -121,7 +121,7 @@
         "doc_pattern": null,
         "description_template": "Données décadaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b4a48a4161faec6b2779",
+            "prod": "679105fab4d7bba9aa3fd4be",
             "dev": "653a68f2c52ecb6d2e96fe3e"
         },
         "table_name": "base_decad",
@@ -136,7 +136,7 @@
         "doc_pattern": null,
         "description_template": "Données horaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b4473bedf2e7abad3b72",
+            "prod": "6791055a6d553b689a5e2ba4",
             "dev": "653a68f2c52ecb6d2e96fe3f"
         },
         "table_name": "base_hor",
@@ -151,7 +151,7 @@
         "doc_pattern": null,
         "description_template": "Données quotidiennes {PARAMETRES} pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b51ae64326786e4e8e1a",
+            "prod": "679103e271c55090cfe86871",
             "dev": "653a68f2ba54993957fa00af"
         },
         "table_name": "base_quot",
@@ -166,7 +166,7 @@
         "doc_pattern": null,
         "description_template": "Données à la minute pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569ad61106d1679c93cdf77",
+            "prod": "67910698aae7f4e70034cf7e",
             "dev": "65649a720baab9dbf8f36731"
         },
         "table_name": "base_min",
@@ -181,7 +181,7 @@
         "doc_pattern": null,
         "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569af36ba0c3d2f9d4bf98c",
+            "prod": "67910646543edd2701937075",
             "dev": "65649a1b0baab9dbf8f36730"
         },
         "table_name": "base_decadagro",
