@@ -213,6 +213,8 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
     file_url = f"https://{MINIO_URL}/{bucket}/{ftp_file['file_path']}"
     path = get_path(ftp_file["file_path"])
     last_modified_datagouv = resources_lists.get(path, {}).get(file_url, {}).get("last_modified")
+    if not last_modified_datagouv:
+        return False
     has_been_modified = last_modified_datagouv > ftp_file["modif_date"]
     if has_been_modified:
         print(f"> {ftp_file['file_path']} has already been modified on data.gouv")
@@ -235,10 +237,7 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
-        or (
-            ftp_files[f]["modif_date"] > (datetime.now(timezone.utc) - timedelta(days=1))
-            and not has_file_been_updated_already(ftp_files[f], resources_lists)
-        )
+        or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
