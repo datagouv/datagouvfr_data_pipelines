@@ -346,7 +346,7 @@ def build_df_for_grist():
     df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False)
 
 
-def update_grist():
+def update_grist(ti):
     old_hvd_metadata = get_table_as_df(
         doc_id=DOC_ID,
         table_id="Hvd_metadata_res",
@@ -416,3 +416,15 @@ def update_grist():
         table_id="Hvd_metadata_res",
         append="lazy",
     )
+    ti.xcom_push(key="new_rows", value=[(r["title"], r["url"]) for r in new_rows])
+
+
+def publish_mattermost_grist(ti):
+    new_rows = ti.xcom_pull(key="new_rows", task_ids="update_grist")
+    message = (
+        f"#### {len(new_rows)} nouvelles lignes dans [la table Grist HVD]"
+        "(https://grist.numerique.gouv.fr/o/datagouv/eJxok2H2va3E/suivi-des-ouvertures-CITP-et-HVD/p/4)"
+    )
+    for (title, url) in new_rows:
+        message += f"\n- [{title}]({url})"
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
