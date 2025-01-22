@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     publish_mattermost,
     build_df_for_grist,
     update_grist,
+    publish_mattermost_grist,
 )
 
 default_args = {
@@ -66,10 +67,16 @@ with DAG(
         python_callable=build_df_for_grist,
     )
 
-    update_grist = PythonOperator(
+    update_grist = ShortCircuitOperator(
         task_id="update_grist",
         python_callable=update_grist,
     )
 
+    publish_mattermost_grist = PythonOperator(
+        task_id="publish_mattermost_grist",
+        python_callable=publish_mattermost_grist,
+    )
+
     build_df_for_grist.set_upstream(clean_previous_outputs)
     update_grist.set_upstream(build_df_for_grist)
+    publish_mattermost_grist.set_upstream(update_grist)
