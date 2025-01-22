@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    MINIO_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
@@ -23,10 +24,11 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
 minio_folder = "data/synchro_ftp/"
+bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
-minio_meteo = MinIOClient(bucket='meteofrance')
+minio_meteo = MinIOClient(bucket=bucket)
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
@@ -89,7 +91,7 @@ def build_resource(
     # for files on minio, removing the minio folder upstream is required
     path = "/".join(file_path.split("/")[:-1])
     file_with_ext = file_path.split("/")[-1]
-    url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + file_path}"
+    url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
     # differenciation ressource principale VS documentation
     is_doc = False
     description = ""
@@ -319,7 +321,7 @@ def upload_new_files(ti) -> None:
         clean_file_path = file_path.replace(minio_folder, "")
         path = "/".join(clean_file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
+        url = f"https://{MINIO_URL}/{bucket}/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list,
         # and if it's not an old file that has been renamed (values of new_name)
@@ -382,7 +384,7 @@ def handle_updated_files_same_name(ti) -> None:
     for idx, file_path in enumerate(files_to_update_same_name):
         path = "/".join(file_path.split("/")[:-1])
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + file_path}"
+        url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
         print("Resource already exists and name unchanged:", file_with_ext)
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
@@ -423,7 +425,7 @@ def handle_updated_files_new_name(ti) -> None:
         print("Updating URL and metadata for:", file_with_ext)
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
-        old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
+        old_url = f"https://{MINIO_URL}/{bucket}/{minio_folder + old_file_path}"
         if not resources_lists[path].get(old_url):
             print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
             new_files.append(file_path)
