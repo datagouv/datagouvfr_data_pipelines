@@ -46,6 +46,11 @@ def previous_date_parse(date_string: str) -> datetime:
     return tmp
 
 
+def get_path(full_file_path: str) -> str:
+    # get BASE/DECAD from BASE/DECAD/DECADQ_01_1852-1949.csv.gz
+    return "/".join(full_file_path.split("/")[:-1])
+
+
 def get_resource_lists() -> dict:
     resources_lists = {
         path: {
@@ -89,7 +94,7 @@ def build_resource(
 ) -> tuple[str, str, str, str, str, bool]:
     # file_path has to be the full file path as structured on the FTP
     # for files on minio, removing the minio folder upstream is required
-    path = "/".join(file_path.split("/")[:-1])
+    path = get_path(file_path)
     file_with_ext = file_path.split("/")[-1]
     url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
     # differenciation ressource principale VS documentation
@@ -175,7 +180,7 @@ def get_current_files_on_minio(ti) -> None:
     # getting the start of each time period to update datasets temporal_coverage
     period_starts = {}
     for file in minio_files:
-        path = "/".join(file.replace(minio_folder, "").split("/")[:-1])
+        path = get_path(file.replace(minio_folder, ""))
         file_with_ext = file.split("/")[-1]
         if config.get(path, {}).get("source_pattern"):
             params = re.match(config[path]["source_pattern"], file_with_ext)
@@ -193,7 +198,7 @@ def get_current_files_on_minio(ti) -> None:
     for file_path in minio_files:
         clean_file_path = file_path.replace(minio_folder, "")
         file_name = clean_file_path.split("/")[-1]
-        path = "/".join(clean_file_path.split("/")[:-1])
+        path = get_path(clean_file_path)
         final_minio_files[path + "/" + build_file_id(file_name, path)] = {
             "file_path": clean_file_path,
             "size": minio_files[file_path],
@@ -202,6 +207,16 @@ def get_current_files_on_minio(ti) -> None:
         print(f, ":", final_minio_files[f])
     ti.xcom_push(key="minio_files", value=final_minio_files)
     ti.xcom_push(key="period_starts", value=period_starts)
+
+
+def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
+    file_url = f"https://{MINIO_URL}/{bucket}/{ftp_file['file_path']}"
+    path = get_path(ftp_file["file_path"])
+    last_modified_datagouv = resources_lists.get(path, {}).get(file_url, {}).get("last_modified")
+    has_been_modified = last_modified_datagouv > ftp_file["modif_date"]
+    if has_been_modified:
+        print(f"> {ftp_file['file_path']} has already been modified on data.gouv")
+    return has_been_modified
 
 
 def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
@@ -214,11 +229,16 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     # we also thought about a checksum, but hard to compute on the FTP and downloading
     # all files to compute checksums and compare is inefficient
     # our best try: check the modification date on the FTP and take the file if it has
-    # been changed since the previous day (DAG will run daily)
+    # been changed since the previous day (DAG will run daily), and if the file has not
+    # been updated already
+    resources_lists = get_resource_lists()
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
-        or ftp_files[f]["modif_date"] > (datetime.now(timezone.utc) - timedelta(days=1))
+        or (
+            ftp_files[f]["modif_date"] > (datetime.now(timezone.utc) - timedelta(days=1))
+            and not has_file_been_updated_already(ftp_files[f], resources_lists)
+        )
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
@@ -255,7 +275,7 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
             print("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
         # we are recreating the file structure from FTP to Minio
-        path = "/".join(ftp_files[file_to_transfer]["file_path"].split("/")[:-1])
+        path = get_path(ftp_files[file_to_transfer]["file_path"])
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + path)
         # downloading the file from FTP
@@ -319,7 +339,7 @@ def upload_new_files(ti) -> None:
     # but that are missing on data.gouv
     for file_path in reversed(minio_files.keys()):
         clean_file_path = file_path.replace(minio_folder, "")
-        path = "/".join(clean_file_path.split("/")[:-1])
+        path = get_path(clean_file_path)
         file_with_ext = file_path.split("/")[-1]
         url = f"https://{MINIO_URL}/{bucket}/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
@@ -382,7 +402,7 @@ def handle_updated_files_same_name(ti) -> None:
 
     new_files = []
     for idx, file_path in enumerate(files_to_update_same_name):
-        path = "/".join(file_path.split("/")[:-1])
+        path = get_path(file_path)
         file_with_ext = file_path.split("/")[-1]
         url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
         print("Resource already exists and name unchanged:", file_with_ext)
@@ -516,7 +536,7 @@ def log_modified_files(ti) -> None:
             {
                 "source_path": f"{DATADIR}/",
                 "source_name": log_file_path.split('/')[-1],
-                "dest_path": "/".join(log_file_path.split('/')[:-1]) + "/",
+                "dest_path": get_path(log_file_path) + "/",
                 "dest_name": log_file_path.split('/')[-1],
             }
         ],
