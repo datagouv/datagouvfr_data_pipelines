@@ -29,14 +29,14 @@ hooks = ["latest", "previous"]
 minio_meteo = MinIOClient(bucket='meteofrance')
 
 
-def clean_hooks(string, hooks=hooks):
+def clean_hooks(string: str, hooks: list = hooks) -> str:
     _ = string
     for h in hooks:
         _ = _.replace(f"{h}-", "")
     return _
 
 
-def previous_date_parse(date_string):
+def previous_date_parse(date_string: str) -> datetime:
     # this returns the last occurrence of the date, not a future one
     tmp = parser.parse(date_string)
     if tmp > datetime.today():
@@ -44,7 +44,7 @@ def previous_date_parse(date_string):
     return tmp
 
 
-def get_resource_lists():
+def get_resource_lists() -> dict:
     resources_lists = {
         path: {
             r["url"]: {
@@ -60,7 +60,7 @@ def get_resource_lists():
     return resources_lists
 
 
-def build_file_id(file, path):
+def build_file_id(file: str, path: str) -> str:
     # we are creating ids for files based on their name so that we can
     # match files that have been updated with a name change
     # for instance:
@@ -81,7 +81,10 @@ def build_file_id(file, path):
     return file_id
 
 
-def build_resource(file_path, minio_folder):
+def build_resource(
+    file_path: str,
+    minio_folder: str,
+) -> tuple[str, str, str, str, str, bool]:
     # file_path has to be the full file path as structured on the FTP
     # for files on minio, removing the minio folder upstream is required
     path = "/".join(file_path.split("/")[:-1])
@@ -116,7 +119,7 @@ def build_resource(file_path, minio_folder):
     return file_with_ext, path, resource_name, description, url, is_doc
 
 
-def list_ftp_files_recursive(ftp, path="", base_path=""):
+def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
     files = []
     try:
         ftp.cwd(path)
@@ -139,7 +142,7 @@ def list_ftp_files_recursive(ftp, path="", base_path=""):
     return files
 
 
-def get_current_files_on_ftp(ti, ftp):
+def get_current_files_on_ftp(ti, ftp) -> None:
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelles décennie révolue, période stock...)
@@ -163,7 +166,7 @@ def get_current_files_on_ftp(ti, ftp):
     ti.xcom_push(key="ftp_files", value=ftp_files)
 
 
-def get_current_files_on_minio(ti):
+def get_current_files_on_minio(ti) -> None:
     minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=minio_folder
     )
@@ -199,7 +202,7 @@ def get_current_files_on_minio(ti):
     ti.xcom_push(key="period_starts", value=period_starts)
 
 
-def get_and_upload_file_diff_ftp_minio(ti, ftp):
+def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_current_files_on_minio")
     ftp_files = ti.xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
     # much debated part of the code: how to best get which files to consider here
@@ -290,11 +293,11 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp):
     ti.xcom_push(key="files_to_update_same_name", value=files_to_update_same_name)
 
 
-def get_file_extention(file):
+def get_file_extention(file: str) -> str:
     return ".".join(file.split("_")[-1].split(".")[1:])
 
 
-def upload_new_files(ti):
+def upload_new_files(ti) -> None:
     new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
@@ -366,7 +369,7 @@ def upload_new_files(ti):
     ti.xcom_push(key="new_files", value=[f for f in new_files if f not in went_wrong])
 
 
-def handle_updated_files_same_name(ti):
+def handle_updated_files_same_name(ti) -> None:
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_same_name = ti.xcom_pull(
         key="files_to_update_same_name",
@@ -400,7 +403,7 @@ def handle_updated_files_same_name(ti):
     ti.xcom_push(key="new_files", value=new_files)
 
 
-def handle_updated_files_new_name(ti):
+def handle_updated_files_new_name(ti) -> None:
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -441,7 +444,7 @@ def handle_updated_files_new_name(ti):
     ti.xcom_push(key="new_files", value=new_files)
 
 
-def update_temporal_coverages(ti):
+def update_temporal_coverages(ti) -> None:
     period_starts = ti.xcom_pull(key="period_starts", task_ids="get_current_files_on_minio")
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
@@ -474,7 +477,7 @@ def update_temporal_coverages(ti):
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
-def log_modified_files(ti):
+def log_modified_files(ti) -> None:
     new_files = ti.xcom_pull(key="new_files", task_ids="upload_new_files")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -519,7 +522,7 @@ def log_modified_files(ti):
     )
 
 
-def delete_replaced_minio_files(ti):
+def delete_replaced_minio_files(ti) -> None:
     # files that have been renamed while update will be removed
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -531,7 +534,7 @@ def delete_replaced_minio_files(ti):
         )
 
 
-def notification_mattermost(ti):
+def notification_mattermost(ti) -> None:
     new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_new_files")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="update_temporal_coverages")
     print(new_files_datasets)
@@ -592,7 +595,7 @@ def notification_mattermost(ti):
 import pandas as pd
 
 
-def raise_if_duplicates(idx):
+def raise_if_duplicates(idx: int) -> None:
     if idx > 9 and idx % 10 != 0:
         # checking for duplicates if not many cases (new file or new name)
         # or every 10 files processed
