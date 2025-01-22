@@ -22,6 +22,7 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
+minio_folder = "data/synchro_ftp/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
@@ -46,9 +47,12 @@ def previous_date_parse(date_string):
 def get_resource_lists():
     resources_lists = {
         path: {
-            r["url"]: r["id"] for r in requests.get(
+            r["url"]: {
+                "id": r["id"],
+                "last_modified": parser.parse(r["internal"]["last_modified_internal"][:-6]),
+            } for r in requests.get(
                 f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
-                headers={"X-fields": "resources{id,url}"}
+                headers={"X-fields": "resources{id,url,internal{last_modified_internal}}"}
             ).json()["resources"]
         }
         for path in config.keys()
@@ -159,7 +163,7 @@ def get_current_files_on_ftp(ti, ftp):
     ti.xcom_push(key="ftp_files", value=ftp_files)
 
 
-def get_current_files_on_minio(ti, minio_folder):
+def get_current_files_on_minio(ti):
     minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=minio_folder
     )
@@ -195,7 +199,7 @@ def get_current_files_on_minio(ti, minio_folder):
     ti.xcom_push(key="period_starts", value=period_starts)
 
 
-def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
+def get_and_upload_file_diff_ftp_minio(ti, ftp):
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_current_files_on_minio")
     ftp_files = ti.xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
     # much debated part of the code: how to best get which files to consider here
@@ -290,7 +294,7 @@ def get_file_extention(file):
     return ".".join(file.split("_")[-1].split(".")[1:])
 
 
-def upload_new_files(ti, minio_folder):
+def upload_new_files(ti):
     new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
@@ -362,7 +366,7 @@ def upload_new_files(ti, minio_folder):
     ti.xcom_push(key="new_files", value=[f for f in new_files if f not in went_wrong])
 
 
-def handle_updated_files_same_name(ti, minio_folder):
+def handle_updated_files_same_name(ti):
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_same_name = ti.xcom_pull(
         key="files_to_update_same_name",
@@ -388,7 +392,7 @@ def handle_updated_files_same_name(ti, minio_folder):
                 "filesize": minio_files[minio_folder + file_path],
             },
             dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
-            resource_id=resources_lists[path][url],
+            resource_id=resources_lists[path][url]["id"],
         )
         raise_if_duplicates(idx)
         updated_datasets.add(path)
@@ -396,7 +400,7 @@ def handle_updated_files_same_name(ti, minio_folder):
     ti.xcom_push(key="new_files", value=new_files)
 
 
-def handle_updated_files_new_name(ti, minio_folder):
+def handle_updated_files_new_name(ti):
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -429,7 +433,7 @@ def handle_updated_files_new_name(ti, minio_folder):
                 "filesize": minio_files[minio_folder + file_path],
             },
             dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-            resource_id=resources_lists[path][old_url],
+            resource_id=resources_lists[path][old_url]["id"],
         )
         raise_if_duplicates(idx)
         updated_datasets.add(path)
@@ -515,7 +519,7 @@ def log_modified_files(ti):
     )
 
 
-def delete_replaced_minio_files(ti, minio_folder):
+def delete_replaced_minio_files(ti):
     # files that have been renamed while update will be removed
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
