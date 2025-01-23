@@ -363,8 +363,15 @@ def update_grist(ti):
         raise ValueError("New table has duplicated dataset ids")
     removed_hvd = set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"])
     for hvd_id in removed_hvd:
+        r = requests.get(
+            f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
+            headers={"X-fields": "title,organization{name}"},
+        )
+        r.raise_for_status()
+        r = r.json()
         send_message(
-            f":alert: [Ce jeu de données](https://www.data.gouv.fr/fr/datasets/{hvd_id}/)"
+            f":alert: Le jeu de données [{r['title']}](https://www.data.gouv.fr/fr/datasets/{hvd_id}/)"
+            f" de l'organisation {r['organization']['name']}"
             " a perdu son tag HVD @clarisse",
             MATTERMOST_MODERATION_NOUVEAUTES
         )
