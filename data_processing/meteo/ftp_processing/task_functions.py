@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    MINIO_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
@@ -22,20 +23,22 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
+minio_folder = "data/synchro_ftp/"
+bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
-minio_meteo = MinIOClient(bucket='meteofrance')
+minio_meteo = MinIOClient(bucket=bucket)
 
 
-def clean_hooks(string, hooks=hooks):
+def clean_hooks(string: str, hooks: list = hooks) -> str:
     _ = string
     for h in hooks:
         _ = _.replace(f"{h}-", "")
     return _
 
 
-def previous_date_parse(date_string):
+def previous_date_parse(date_string: str) -> datetime:
     # this returns the last occurrence of the date, not a future one
     tmp = parser.parse(date_string)
     if tmp > datetime.today():
@@ -43,12 +46,20 @@ def previous_date_parse(date_string):
     return tmp
 
 
-def get_resource_lists():
+def get_path(full_file_path: str) -> str:
+    # get BASE/DECAD from BASE/DECAD/DECADQ_01_1852-1949.csv.gz
+    return "/".join(full_file_path.split("/")[:-1])
+
+
+def get_resource_lists() -> dict:
     resources_lists = {
         path: {
-            r["url"]: r["id"] for r in requests.get(
+            r["url"]: {
+                "id": r["id"],
+                "last_modified": parser.parse(r["internal"]["last_modified_internal"][:-6]),
+            } for r in requests.get(
                 f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
-                headers={"X-fields": "resources{id,url}"}
+                headers={"X-fields": "resources{id,url,internal{last_modified_internal}}"}
             ).json()["resources"]
         }
         for path in config.keys()
@@ -56,7 +67,7 @@ def get_resource_lists():
     return resources_lists
 
 
-def build_file_id(file, path):
+def build_file_id(file: str, path: str) -> str:
     # we are creating ids for files based on their name so that we can
     # match files that have been updated with a name change
     # for instance:
@@ -77,12 +88,15 @@ def build_file_id(file, path):
     return file_id
 
 
-def build_resource(file_path, minio_folder):
+def build_resource(
+    file_path: str,
+    minio_folder: str,
+) -> tuple[str, str, str, str, str, bool]:
     # file_path has to be the full file path as structured on the FTP
     # for files on minio, removing the minio folder upstream is required
-    path = "/".join(file_path.split("/")[:-1])
+    path = get_path(file_path)
     file_with_ext = file_path.split("/")[-1]
-    url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + file_path}"
+    url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
     # differenciation ressource principale VS documentation
     is_doc = False
     description = ""
@@ -112,7 +126,7 @@ def build_resource(file_path, minio_folder):
     return file_with_ext, path, resource_name, description, url, is_doc
 
 
-def list_ftp_files_recursive(ftp, path="", base_path=""):
+def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
     files = []
     try:
         ftp.cwd(path)
@@ -135,7 +149,7 @@ def list_ftp_files_recursive(ftp, path="", base_path=""):
     return files
 
 
-def get_current_files_on_ftp(ti, ftp):
+def get_current_files_on_ftp(ti, ftp) -> None:
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelles décennie révolue, période stock...)
@@ -159,14 +173,14 @@ def get_current_files_on_ftp(ti, ftp):
     ti.xcom_push(key="ftp_files", value=ftp_files)
 
 
-def get_current_files_on_minio(ti, minio_folder):
+def get_current_files_on_minio(ti) -> None:
     minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=minio_folder
     )
     # getting the start of each time period to update datasets temporal_coverage
     period_starts = {}
     for file in minio_files:
-        path = "/".join(file.replace(minio_folder, "").split("/")[:-1])
+        path = get_path(file.replace(minio_folder, ""))
         file_with_ext = file.split("/")[-1]
         if config.get(path, {}).get("source_pattern"):
             params = re.match(config[path]["source_pattern"], file_with_ext)
@@ -184,7 +198,7 @@ def get_current_files_on_minio(ti, minio_folder):
     for file_path in minio_files:
         clean_file_path = file_path.replace(minio_folder, "")
         file_name = clean_file_path.split("/")[-1]
-        path = "/".join(clean_file_path.split("/")[:-1])
+        path = get_path(clean_file_path)
         final_minio_files[path + "/" + build_file_id(file_name, path)] = {
             "file_path": clean_file_path,
             "size": minio_files[file_path],
@@ -195,7 +209,19 @@ def get_current_files_on_minio(ti, minio_folder):
     ti.xcom_push(key="period_starts", value=period_starts)
 
 
-def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
+def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
+    file_url = f"https://{MINIO_URL}/{bucket}/{ftp_file['file_path']}"
+    path = get_path(ftp_file["file_path"])
+    last_modified_datagouv = resources_lists.get(path, {}).get(file_url, {}).get("last_modified")
+    if not last_modified_datagouv:
+        return False
+    has_been_modified = last_modified_datagouv > ftp_file["modif_date"]
+    if has_been_modified:
+        print(f"> {ftp_file['file_path']} has already been modified on data.gouv")
+    return has_been_modified
+
+
+def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_current_files_on_minio")
     ftp_files = ti.xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
     # much debated part of the code: how to best get which files to consider here
@@ -205,11 +231,13 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     # we also thought about a checksum, but hard to compute on the FTP and downloading
     # all files to compute checksums and compare is inefficient
     # our best try: check the modification date on the FTP and take the file if it has
-    # been changed since the previous day (DAG will run daily)
+    # been changed since the previous day (DAG will run daily), and if the file has not
+    # been updated already
+    resources_lists = get_resource_lists()
     diff_files = [
         f for f in ftp_files
         if f not in minio_files
-        or ftp_files[f]["modif_date"] > (datetime.now(timezone.utc) - timedelta(days=1))
+        or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
@@ -246,7 +274,7 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
             print("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
         # we are recreating the file structure from FTP to Minio
-        path = "/".join(ftp_files[file_to_transfer]["file_path"].split("/")[:-1])
+        path = get_path(ftp_files[file_to_transfer]["file_path"])
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + path)
         # downloading the file from FTP
@@ -286,11 +314,11 @@ def get_and_upload_file_diff_ftp_minio(ti, minio_folder, ftp):
     ti.xcom_push(key="files_to_update_same_name", value=files_to_update_same_name)
 
 
-def get_file_extention(file):
+def get_file_extention(file: str) -> str:
     return ".".join(file.split("_")[-1].split(".")[1:])
 
 
-def upload_new_files(ti, minio_folder):
+def upload_new_files(ti) -> None:
     new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
@@ -310,9 +338,9 @@ def upload_new_files(ti, minio_folder):
     # but that are missing on data.gouv
     for file_path in reversed(minio_files.keys()):
         clean_file_path = file_path.replace(minio_folder, "")
-        path = "/".join(clean_file_path.split("/")[:-1])
+        path = get_path(clean_file_path)
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://object.files.data.gouv.fr/meteofrance/{file_path}"
+        url = f"https://{MINIO_URL}/{bucket}/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list,
         # and if it's not an old file that has been renamed (values of new_name)
@@ -362,7 +390,7 @@ def upload_new_files(ti, minio_folder):
     ti.xcom_push(key="new_files", value=[f for f in new_files if f not in went_wrong])
 
 
-def handle_updated_files_same_name(ti, minio_folder):
+def handle_updated_files_same_name(ti) -> None:
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_same_name = ti.xcom_pull(
         key="files_to_update_same_name",
@@ -373,9 +401,9 @@ def handle_updated_files_same_name(ti, minio_folder):
 
     new_files = []
     for idx, file_path in enumerate(files_to_update_same_name):
-        path = "/".join(file_path.split("/")[:-1])
+        path = get_path(file_path)
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + file_path}"
+        url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
         print("Resource already exists and name unchanged:", file_with_ext)
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
@@ -388,7 +416,7 @@ def handle_updated_files_same_name(ti, minio_folder):
                 "filesize": minio_files[minio_folder + file_path],
             },
             dataset_id=config[path]['dataset_id'][AIRFLOW_ENV],
-            resource_id=resources_lists[path][url],
+            resource_id=resources_lists[path][url]["id"],
         )
         raise_if_duplicates(idx)
         updated_datasets.add(path)
@@ -396,7 +424,7 @@ def handle_updated_files_same_name(ti, minio_folder):
     ti.xcom_push(key="new_files", value=new_files)
 
 
-def handle_updated_files_new_name(ti, minio_folder):
+def handle_updated_files_new_name(ti) -> None:
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -416,7 +444,7 @@ def handle_updated_files_new_name(ti, minio_folder):
         print("Updating URL and metadata for:", file_with_ext)
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
-        old_url = f"https://object.files.data.gouv.fr/meteofrance/{minio_folder + old_file_path}"
+        old_url = f"https://{MINIO_URL}/{bucket}/{minio_folder + old_file_path}"
         if not resources_lists[path].get(old_url):
             print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
             new_files.append(file_path)
@@ -429,7 +457,7 @@ def handle_updated_files_new_name(ti, minio_folder):
                 "filesize": minio_files[minio_folder + file_path],
             },
             dataset_id=config[path]["dataset_id"][AIRFLOW_ENV],
-            resource_id=resources_lists[path][old_url],
+            resource_id=resources_lists[path][old_url]["id"],
         )
         raise_if_duplicates(idx)
         updated_datasets.add(path)
@@ -437,7 +465,7 @@ def handle_updated_files_new_name(ti, minio_folder):
     ti.xcom_push(key="new_files", value=new_files)
 
 
-def update_temporal_coverages(ti):
+def update_temporal_coverages(ti) -> None:
     period_starts = ti.xcom_pull(key="period_starts", task_ids="get_current_files_on_minio")
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
@@ -470,7 +498,7 @@ def update_temporal_coverages(ti):
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
 
-def log_modified_files(ti):
+def log_modified_files(ti) -> None:
     new_files = ti.xcom_pull(key="new_files", task_ids="upload_new_files")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -507,7 +535,7 @@ def log_modified_files(ti):
             {
                 "source_path": f"{DATADIR}/",
                 "source_name": log_file_path.split('/')[-1],
-                "dest_path": "/".join(log_file_path.split('/')[:-1]) + "/",
+                "dest_path": get_path(log_file_path) + "/",
                 "dest_name": log_file_path.split('/')[-1],
             }
         ],
@@ -515,7 +543,7 @@ def log_modified_files(ti):
     )
 
 
-def delete_replaced_minio_files(ti, minio_folder):
+def delete_replaced_minio_files(ti) -> None:
     # files that have been renamed while update will be removed
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name",
@@ -527,7 +555,7 @@ def delete_replaced_minio_files(ti, minio_folder):
         )
 
 
-def notification_mattermost(ti):
+def notification_mattermost(ti) -> None:
     new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_new_files")
     updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="update_temporal_coverages")
     print(new_files_datasets)
@@ -588,7 +616,7 @@ def notification_mattermost(ti):
 import pandas as pd
 
 
-def raise_if_duplicates(idx):
+def raise_if_duplicates(idx: int) -> None:
     if idx > 9 and idx % 10 != 0:
         # checking for duplicates if not many cases (new file or new name)
         # or every 10 files processed
