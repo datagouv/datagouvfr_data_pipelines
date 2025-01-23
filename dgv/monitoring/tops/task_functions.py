@@ -172,7 +172,7 @@ def send_tops_to_minio(ti, **kwargs):
         minio_open.dict_to_bytes_to_minio(top, publish_info["minio"] + f"top_{_class}.json")
 
 
-def send_stats_to_minio(ti, **kwargs):
+def send_stats_to_minio(**kwargs):
     piwik_info = kwargs.get("templates_dict")
     end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
     if piwik_info["period"] == "day":
