@@ -361,7 +361,7 @@ def update_grist(ti):
     )
     if fresh_hvd_metadata["id2"].nunique() != len(fresh_hvd_metadata):
         raise ValueError("New table has duplicated dataset ids")
-    removed_hvd = (set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"]))
+    removed_hvd = set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"])
     for hvd_id in removed_hvd:
         send_message(
             f":alert: [Ce jeu de données](https://www.data.gouv.fr/fr/datasets/{hvd_id}/)"
@@ -381,6 +381,8 @@ def update_grist(ti):
     # updating existing rows
     updates = 0
     for dataset_id in old_hvd_metadata["id2"]:
+        if dataset_id in removed_hvd:
+            continue
         row_old = old_hvd_metadata.loc[old_hvd_metadata["id2"] == dataset_id].iloc[0]
         row_new = fresh_hvd_metadata.loc[fresh_hvd_metadata["id2"] == dataset_id].iloc[0]
         new_values = {}
