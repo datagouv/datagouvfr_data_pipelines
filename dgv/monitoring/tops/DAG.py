@@ -1,10 +1,8 @@
 from datetime import timedelta, datetime
+from collections import defaultdict
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
-)
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     get_top,
     send_tops_to_minio,
@@ -17,8 +15,8 @@ from datagouvfr_data_pipelines.utils.utils import (
 )
 
 DAG_NAME = "dgv_tops"
-MINIO_PATH = "dgv/"
-
+MINIO_PATH = "tops/"
+today = datetime.today().strftime("%Y-%m-%d")
 
 default_args = {
     'retries': 3,
@@ -34,104 +32,9 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ) as dag:
-    get_top_datasets_day = PythonOperator(
-        task_id="get_top_datasets_day",
-        python_callable=get_top,
-        templates_dict={
-            "type": "datasets",
-            "date": "{{ ds }}",
-            "period": "day",
-            "title": "Top 10 des jeux de données",
-        },
-    )
-
-    get_top_reuses_day = PythonOperator(
-        task_id="get_top_reuses_day",
-        python_callable=get_top,
-        templates_dict={
-            "type": "reuses",
-            "date": "{{ ds }}",
-            "period": "day",
-            "title": "Top 10 des réutilisations",
-        },
-    )
-
-    publish_top_day_mattermost = PythonOperator(
-        task_id="publish_top_day_mattermost",
-        python_callable=publish_top_mattermost,
-        templates_dict={"period": "day", "periode": "Journée d'hier"},
-    )
-
-    send_top_day_to_minio = PythonOperator(
-        task_id="send_top_day_to_minio",
-        python_callable=send_tops_to_minio,
-        templates_dict={
-            "period": "day",
-            "minio": f"{AIRFLOW_ENV}/{MINIO_PATH}piwik_tops_daily/{{ ds }}/",
-        },
-    )
-
-    send_stats_day_to_minio = PythonOperator(
-        task_id="send_stats_day_to_minio",
-        python_callable=send_stats_to_minio,
-        templates_dict={
-            "period": "day",
-            "minio": f"{AIRFLOW_ENV}/{MINIO_PATH}piwik_stats_daily/{{ ds }}/",
-            "date": "{{ ds }}",
-            "title_end": "sur les trois derniers mois",
-        },
-    )
 
     check_if_monday = ShortCircuitOperator(
         task_id="check_if_monday", python_callable=check_if_monday
-    )
-
-    get_top_datasets_week = PythonOperator(
-        task_id="get_top_datasets_week",
-        python_callable=get_top,
-        templates_dict={
-            "type": "datasets",
-            "period": "week",
-            "date": "{{ ds }}",
-            "title": "Top 10 des jeux de données",
-        },
-    )
-
-    get_top_reuses_week = PythonOperator(
-        task_id="get_top_reuses_week",
-        python_callable=get_top,
-        templates_dict={
-            "type": "reuses",
-            "period": "week",
-            "date": "{{ ds }}",
-            "title": "Top 10 des réutilisations",
-        },
-    )
-
-    publish_top_week_mattermost = PythonOperator(
-        task_id="publish_top_week_mattermost",
-        python_callable=publish_top_mattermost,
-        templates_dict={"period": "week", "periode": "Semaine dernière"},
-    )
-
-    send_top_week_to_minio = PythonOperator(
-        task_id="send_top_week_to_minio",
-        python_callable=send_tops_to_minio,
-        templates_dict={
-            "period": "week",
-            "minio": f"{AIRFLOW_ENV}/{MINIO_PATH}piwik_tops_weekly/{{ ds }}/",
-        },
-    )
-
-    send_stats_week_to_minio = PythonOperator(
-        task_id="send_stats_week_to_minio",
-        python_callable=send_stats_to_minio,
-        templates_dict={
-            "period": "week",
-            "minio": f"{AIRFLOW_ENV}/{MINIO_PATH}piwik_stats_weekly/{{ ds }}/",
-            "date": "{{ ds }}",
-            "title_end": "sur les six derniers mois",
-        },
     )
 
     check_if_first_day_of_month = ShortCircuitOperator(
@@ -139,73 +42,69 @@ with DAG(
         python_callable=check_if_first_day_of_month,
     )
 
-    get_top_datasets_month = PythonOperator(
-        task_id="get_top_datasets_month",
-        python_callable=get_top,
-        templates_dict={
-            "type": "datasets",
-            "period": "month",
-            "date": "{{ ds }}",
-            "title": "Top 10 des jeux de données",
-        },
-    )
+    freqs = {
+        "day": "Journée d'hier",
+        "week": "Semaine dernière",
+        "month": "Mois dernier",
+    }
 
-    get_top_reuses_month = PythonOperator(
-        task_id="get_top_reuses_month",
-        python_callable=get_top,
-        templates_dict={
-            "type": "reuses",
-            "period": "month",
-            "date": "{{ ds }}",
-            "title": "Top 10 des réutilisations",
-        },
-    )
+    classes = {
+        "datasets": "jeux de données",
+        "reuses": "réutilisations",
+    }
 
-    publish_top_month_mattermost = PythonOperator(
-        task_id="publish_top_month_mattermost",
-        python_callable=publish_top_mattermost,
-        templates_dict={"period": "month", "periode": "Mois dernier"},
-    )
-    send_top_month_to_minio = PythonOperator(
-        task_id="send_top_month_to_minio",
-        python_callable=send_tops_to_minio,
-        templates_dict={
-            "period": "month",
-            "minio": f"{AIRFLOW_ENV}/{MINIO_PATH}piwik_tops_monthly/{{ ds }}/",
-        },
-    )
+    tasks = defaultdict(dict)
+    for freq, freq_label in freqs.items():
+        tasks[freq]["first"] = [
+            PythonOperator(
+                task_id=f"get_top_{_class}_{freq}",
+                python_callable=get_top,
+                templates_dict={
+                    "type": _class,
+                    "date": today,
+                    "period": freq,
+                    "title": f"Top 10 des {class_label}",
+                },
+            ) for _class, class_label in classes.items()
+        ]
+        tasks[freq]["second"] = [
+            PythonOperator(
+                task_id=f"publish_top_{freq}_mattermost",
+                python_callable=publish_top_mattermost,
+                templates_dict={
+                    "period": freq,
+                    "label": freq_label,
+                },
+            )
+        ]
+        prefix = "dai" if freq == "day" else freq
+        tasks[freq]["third"] = [
+            PythonOperator(
+                task_id=f"send_top_{freq}_to_minio",
+                python_callable=send_tops_to_minio,
+                templates_dict={
+                    "period": freq,
+                    "minio": f"{MINIO_PATH}piwik_tops_{prefix}ly/{today}/",
+                },
+            ),
+            PythonOperator(
+                task_id=f"send_stats_{freq}_to_minio",
+                python_callable=send_stats_to_minio,
+                templates_dict={
+                    "period": freq,
+                    "minio": f"{MINIO_PATH}piwik_stats_{prefix}ly/{today}/",
+                    "date": today,
+                },
+            ),
+        ]
 
-    send_stats_month_to_minio = PythonOperator(
-        task_id="send_stats_month_to_minio",
-        python_callable=send_stats_to_minio,
-        templates_dict={
-            "period": "month",
-            "minio": f"{AIRFLOW_ENV}/{MINIO_PATH}piwik_stats_monthly/{{ ds }}/",
-            "date": "{{ ds }}",
-            "title_end": "sur les deux dernières années",
-        },
-    )
+        for task in tasks[freq]["first"]:
+            if freq == "week":
+                task.set_upstream(check_if_monday)
+            elif freq == "month":
+                task.set_upstream(check_if_first_day_of_month)
 
-    publish_top_day_mattermost.set_upstream(get_top_datasets_day)
-    publish_top_day_mattermost.set_upstream(get_top_reuses_day)
-
-    send_top_day_to_minio.set_upstream(publish_top_day_mattermost)
-    send_stats_day_to_minio.set_upstream(publish_top_day_mattermost)
-
-    check_if_monday.set_upstream(send_top_day_to_minio)
-    get_top_datasets_week.set_upstream(check_if_monday)
-    get_top_reuses_week.set_upstream(check_if_monday)
-
-    publish_top_week_mattermost.set_upstream(get_top_datasets_week)
-    publish_top_week_mattermost.set_upstream(get_top_reuses_week)
-    send_top_week_to_minio.set_upstream(publish_top_week_mattermost)
-    send_stats_week_to_minio.set_upstream(publish_top_week_mattermost)
-
-    check_if_first_day_of_month.set_upstream(send_top_day_to_minio)
-    get_top_datasets_month.set_upstream(check_if_first_day_of_month)
-    get_top_reuses_month.set_upstream(check_if_first_day_of_month)
-
-    publish_top_month_mattermost.set_upstream(get_top_datasets_month)
-    publish_top_month_mattermost.set_upstream(get_top_reuses_month)
-    send_top_month_to_minio.set_upstream(publish_top_month_mattermost)
-    send_stats_month_to_minio.set_upstream(publish_top_month_mattermost)
+        for parent, child in zip(["first", "second"], ["second", "third"]):
+            for child_task in tasks[freq][child]:
+                for parent_task in tasks[freq][parent]:
+                    child_task.set_upstream(parent_task)

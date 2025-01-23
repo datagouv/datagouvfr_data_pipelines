@@ -158,7 +158,7 @@ def publish_top_mattermost(ti, **kwargs):
         )
         message = (
             header
-            + f"{publish_info['periode']} (visites)\n\n{top}"
+            + f"{publish_info['label']} (visites)\n\n{top}"
         )
         send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
