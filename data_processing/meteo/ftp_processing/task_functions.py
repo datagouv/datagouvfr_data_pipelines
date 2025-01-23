@@ -56,7 +56,7 @@ def get_resource_lists() -> dict:
         path: {
             r["url"]: {
                 "id": r["id"],
-                "last_modified": parser.parse(r["internal"]["last_modified_internal"][:-6]),
+                "last_modified": datetime.fromisoformat(r["internal"]["last_modified_internal"]),
             } for r in requests.get(
                 f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
                 headers={"X-fields": "resources{id,url,internal{last_modified_internal}}"}
@@ -210,10 +210,11 @@ def get_current_files_on_minio(ti) -> None:
 
 
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
-    file_url = f"https://{MINIO_URL}/{bucket}/{ftp_file['file_path']}"
+    file_url = f"https://{MINIO_URL}/{bucket}/{minio_folder}{ftp_file['file_path']}"
     path = get_path(ftp_file["file_path"])
     last_modified_datagouv = resources_lists.get(path, {}).get(file_url, {}).get("last_modified")
     if not last_modified_datagouv:
+        print("This file is not on datagouv yet:", ftp_file["file_path"])
         return False
     has_been_modified = last_modified_datagouv > ftp_file["modif_date"]
     if has_been_modified:
