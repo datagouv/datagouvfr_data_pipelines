@@ -223,10 +223,10 @@ def get_hvd_ouverture(df_ouverture, url):
 
 
 def get_hvd_category_from_tags(tags):
-    if not tags:
-        return
-    tags = tags.split(",")
     # "L" is because the column is "multiple choices" in Grist
+    if not tags:
+        return "L"
+    tags = tags.split(",")
     return ",".join(["L"] + [
         tag.replace("-", " ").capitalize()
         for tag in tags if tag in HVD_CATEGORIES
