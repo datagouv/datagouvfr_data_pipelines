@@ -227,7 +227,7 @@ def get_hvd_category_from_tags(tags):
     if not tags:
         return "L"
     tags = tags.split(",")
-    return ",".join(["L"] + [
+    return ";".join(["L"] + [
         tag.replace("-", " ").capitalize()
         for tag in tags if tag in HVD_CATEGORIES
     ])
@@ -364,9 +364,8 @@ def update_grist(ti):
         axis=1
     )
     fresh_hvd_metadata["hvd_category"] = fresh_hvd_metadata["hvd_category"].apply(
-        lambda s: s.split(",")
+        lambda s: s.split(";")
     )
-    print(fresh_hvd_metadata["hvd_category"].to_list())
     if fresh_hvd_metadata["id2"].nunique() != len(fresh_hvd_metadata):
         raise ValueError("New table has duplicated dataset ids")
     removed_hvd = set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"])
