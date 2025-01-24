@@ -227,10 +227,10 @@ def get_hvd_category_from_tags(tags):
         return
     tags = tags.split(",")
     # "L" is because the column is "multiple choices" in Grist
-    return ["L"] + [
+    return ",".join(["L"] + [
         tag.replace("-", " ").capitalize()
         for tag in tags if tag in HVD_CATEGORIES
-    ]
+    ])
 
 
 def dataservice_information(dataset_id, df_dataservices, df_resources):
@@ -355,7 +355,9 @@ def update_grist(ti):
         doc_id=DOC_ID,
         table_id="Hvd_metadata_res",
         columns_labels=False,
-        dtype={"hvd_category": list},
+    )
+    old_hvd_metadata ["hvd_category"] = old_hvd_metadata ["hvd_category"].apply(
+        lambda: s: s.split(",")
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
