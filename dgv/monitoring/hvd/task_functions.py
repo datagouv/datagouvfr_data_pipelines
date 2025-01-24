@@ -383,7 +383,7 @@ def update_grist(ti):
         "resources_count",
         "in_ouverture",
         "hvd_ouverture",
-        "hvd_category_datagouv",
+        "hvd_category",
         "api_title_datagouv",
         "endpoint_url_datagouv",
         "endpoint_description_datagouv",
