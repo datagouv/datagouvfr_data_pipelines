@@ -1,5 +1,5 @@
 from dateutil.relativedelta import relativedelta
-from datetime import datetime, date
+from datetime import datetime
 import requests
 import pandas as pd
 
@@ -39,11 +39,24 @@ PARAMS_GENERAL = {
 }
 
 
-def compute_top(pattern, date, title):
+def build_start(end, freq):
+    if freq == "day":
+        # we want only one day
+        return end
+    elif freq == "week":
+        # 6 days back, 7 days in total
+        return end + relativedelta(days=-6)
+    elif freq == "month":
+        return end + relativedelta(months=-1)
+    elif freq == "year":
+        return end + relativedelta(years=-1)
+
+
+def compute_top(_class, date, title):
     textTop = ""
     PARAMS_TOPS["period"] = "range"
     PARAMS_TOPS["date"] = date
-    PARAMS_TOPS["filter_pattern"] = f"/fr/{pattern}/"
+    PARAMS_TOPS["filter_pattern"] = f"/fr/{_class}/"
     print(PARAMS_TOPS)
     r = requests.get(BASE_URL, params=PARAMS_TOPS)
     arr = []
@@ -65,40 +78,39 @@ def compute_top(pattern, date, title):
                     "url": data["url"],
                     "name": r2.json().get("title", data["url"])
                 })
-                textTop = (
-                    textTop
-                    + f"`{data['nb_visits']}`".ljust(10)
+                textTop += (
+                    f"`{data['nb_visits']}`".ljust(10)
                     + data["url"]
                     + "\n"
                 )
     mydict = {
-        "nom": title,
-        "unite": "visites",
+        "name": title,
+        "unit": "visites",
         "values": arr[:10],
         "date_maj": datetime.today().strftime("%Y-%m-%d"),
     }
     return textTop, mydict
 
 
-def compute_general(date, start, pageviews, uniq_pageviews, downloads):
+def compute_general(date):
     print(date)
     PARAMS_GENERAL["date"] = date
     PARAMS_GENERAL["period"] = "range" if "," in date else "day"
     print(PARAMS_GENERAL)
     r = requests.get(BASE_URL, params=PARAMS_GENERAL)
-    print(r.json())
+    pageviews, uniq_pageviews, downloads = [], [], []
     for data in r.json():
         print(data)
         pageviews.append({
-            "date": start,
+            "date": date,
             "value": data["nb_pageviews"],
         })
         uniq_pageviews.append({
-            "date": start,
+            "date": date,
             "value": data["nb_uniq_pageviews"],
         })
         downloads.append({
-            "date": start,
+            "date": date,
             "value": data["nb_downloads"],
         })
     return pageviews, uniq_pageviews, downloads
@@ -107,13 +119,7 @@ def compute_general(date, start, pageviews, uniq_pageviews, downloads):
 def get_top(ti, **kwargs):
     piwik_info = kwargs.get("templates_dict")
     end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
-    if piwik_info["period"] == "day":
-        start = end + relativedelta(days=-7)
-    elif piwik_info["period"] == "week":
-        start = end + relativedelta(months=-1)
-    elif piwik_info["period"] == "month":
-        start = end + relativedelta(months=-12)
-
+    start = build_start(end, piwik_info["period"])
     textTop, mydict = compute_top(
         piwik_info["type"],
         start.strftime("%Y-%m-%d") + "," + end.strftime("%Y-%m-%d"),
@@ -123,24 +129,23 @@ def get_top(ti, **kwargs):
     ti.xcom_push(key="top_" + piwik_info["type"] + "_dict", value=mydict)
 
 
-def getstats(dates, period):
+def get_stats(dates, period):
     pageviews = []
     uniq_pageviews = []
     downloads = []
     for d in dates:
         start_date = datetime.strptime(str(d)[:10], "%Y-%m-%d")
-        if period == "month":
-            end_date = start_date + relativedelta(months=+1)
+        if period in ["month", "year"]:
+            end_date = start_date + relativedelta(**{f"{period}s": 1})
             matomodate = (
                 start_date.strftime("%Y-%m-%d") + "," + end_date.strftime("%Y-%m-%d")
             )
-        if period == "week":
+        elif period in ["day", "week"]:
             matomodate = start_date.strftime("%Y-%m-%d")
-        if period == "day":
-            matomodate = start_date.strftime("%Y-%m-%d")
-        pageviews, uniq_pageviews, downloads = compute_general(
-            matomodate, str(d)[:10], pageviews, uniq_pageviews, downloads
-        )
+        pv, upv, dl = compute_general(matomodate)
+        pageviews.append(pv)
+        uniq_pageviews.append(upv)
+        downloads.append(dl)
     return pageviews, uniq_pageviews, downloads
 
 
@@ -175,39 +180,37 @@ def send_tops_to_minio(ti, **kwargs):
 def send_stats_to_minio(**kwargs):
     piwik_info = kwargs.get("templates_dict")
     end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
-    if piwik_info["period"] == "day":
-        start = end + relativedelta(days=-7)
-        dates = pd.date_range(start, end, freq="D")
-    elif piwik_info["period"] == "week":
-        start = end + relativedelta(months=-1)
-        dates = pd.date_range(start, end, freq="D")
-        print("----")
-        print(dates)
-    elif piwik_info["period"] == "month":
-        start = end + relativedelta(months=-12)
-        dates = pd.date_range(start, end, freq="MS")
-    pageviews, uniq_pageviews, downloads = getstats(dates, piwik_info["period"])
-    today = date.today().strftime("%Y-%m-%d")
+    start = build_start(end, piwik_info["period"])
+    dates = pd.date_range(
+        start,
+        end,
+        freq=(
+            "MS" if piwik_info["period"] == "month"
+            else "YS" if piwik_info["period"] == "year"
+            else "D"
+        ),
+    )
+    pageviews, uniq_pageviews, downloads = get_stats(dates, piwik_info["period"])
     mydict = {
-        "nom": "Nombre de visites",
-        "unite": "visites",
+        "name": "Nombre de visites",
+        "unit": "visites",
         "values": pageviews,
-        "date_maj": today,
+        "date_maj": piwik_info["date"],
     }
     minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "visits.json")
 
     mydict = {
-        "nom": "Nombre de visiteurs uniques",
-        "unite": "visiteurs",
+        "name": "Nombre de visiteurs uniques",
+        "unit": "visiteurs",
         "values": uniq_pageviews,
-        "date_maj": today,
+        "date_maj": piwik_info["date"],
     }
     minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "uniq_visits.json")
 
     mydict = {
-        "nom": "Nombre de téléchargements",
-        "unite": "téléchargements",
+        "name": "Nombre de téléchargements",
+        "unit": "téléchargements",
         "values": downloads,
-        "date_maj": today,
+        "date_maj": piwik_info["date"],
     }
     minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "downloads.json")
