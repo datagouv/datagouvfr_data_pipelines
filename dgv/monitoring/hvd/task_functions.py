@@ -355,6 +355,7 @@ def update_grist(ti):
         doc_id=DOC_ID,
         table_id="Hvd_metadata_res",
         columns_labels=False,
+        dtype={"hvd_category": list},
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
@@ -400,6 +401,7 @@ def update_grist(ti):
         for col in columns_to_update:
             if (
                 (isinstance(row_new[col], str) and row_new[col])
+                or (isinstance(row_new[col], list) and row_new[col])
                 or (isinstance(row_new[col], float) and not isnan(row_new[col]))
             ) and row_old[col] != row_new[col]:
                 print(f"dataset {dataset_id} changing column '{col}':", row_old[col], "for", row_new[col])
