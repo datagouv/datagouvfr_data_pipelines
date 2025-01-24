@@ -366,6 +366,7 @@ def update_grist(ti):
     fresh_hvd_metadata["hvd_category"] = fresh_hvd_metadata["hvd_category"].apply(
         lambda s: s.split(",")
     )
+    print(fresh_hvd_metadata["hvd_category"].to_list())
     if fresh_hvd_metadata["id2"].nunique() != len(fresh_hvd_metadata):
         raise ValueError("New table has duplicated dataset ids")
     removed_hvd = set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"])
