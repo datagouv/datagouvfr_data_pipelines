@@ -357,7 +357,7 @@ def update_grist(ti):
         columns_labels=False,
     )
     old_hvd_metadata ["hvd_category"] = old_hvd_metadata ["hvd_category"].apply(
-        lambda: s: s.split(",")
+        lambda s: s.split(",")
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
