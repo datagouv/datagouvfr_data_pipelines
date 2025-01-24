@@ -10,13 +10,15 @@ from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     publish_top_mattermost,
 )
 from datagouvfr_data_pipelines.utils.utils import (
+    check_if_first_day_of_year,
     check_if_first_day_of_month,
     check_if_monday,
 )
 
 DAG_NAME = "dgv_tops"
 MINIO_PATH = "tops/"
-today = datetime.today().strftime("%Y-%m-%d")
+# we base ourselves on completed days
+yesterday = datetime.today().strftime("%Y-%m-%d")
 
 default_args = {
     'retries': 3,
@@ -42,10 +44,16 @@ with DAG(
         python_callable=check_if_first_day_of_month,
     )
 
+    check_if_first_day_of_year = ShortCircuitOperator(
+        task_id="check_if_first_day_of_year",
+        python_callable=check_if_first_day_of_year,
+    )
+
     freqs = {
         "day": "Journée d'hier",
         "week": "Semaine dernière",
         "month": "Mois dernier",
+        "year": "Année dernière",
     }
 
     classes = {
@@ -61,7 +69,7 @@ with DAG(
                 python_callable=get_top,
                 templates_dict={
                     "type": _class,
-                    "date": today,
+                    "date": yesterday,
                     "period": freq,
                     "title": f"Top 10 des {class_label}",
                 },
@@ -84,7 +92,7 @@ with DAG(
                 python_callable=send_tops_to_minio,
                 templates_dict={
                     "period": freq,
-                    "minio": f"{MINIO_PATH}piwik_tops_{prefix}ly/{today}/",
+                    "minio": f"{MINIO_PATH}piwik_tops_{prefix}ly/{yesterday}/",
                 },
             ),
             PythonOperator(
@@ -92,8 +100,8 @@ with DAG(
                 python_callable=send_stats_to_minio,
                 templates_dict={
                     "period": freq,
-                    "minio": f"{MINIO_PATH}piwik_stats_{prefix}ly/{today}/",
-                    "date": today,
+                    "minio": f"{MINIO_PATH}piwik_stats_{prefix}ly/{yesterday}/",
+                    "date": yesterday,
                 },
             ),
         ]
@@ -103,6 +111,8 @@ with DAG(
                 task.set_upstream(check_if_monday)
             elif freq == "month":
                 task.set_upstream(check_if_first_day_of_month)
+            elif freq == "year":
+                task.set_upstream(check_if_first_day_of_year)
 
         for parent, child in zip(["first", "second"], ["second", "third"]):
             for child_task in tasks[freq][child]:
