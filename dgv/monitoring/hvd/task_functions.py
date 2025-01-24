@@ -356,15 +356,15 @@ def update_grist(ti):
         table_id="Hvd_metadata_res",
         columns_labels=False,
     )
-    old_hvd_metadata ["hvd_category"] = old_hvd_metadata ["hvd_category"].apply(
-        lambda s: s.split(",")
-    )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
     fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv").rename(
         # because the "id" column in grist has the identifier "id2"
         {"id": "id2"},
         axis=1
+    )
+    fresh_hvd_metadata["hvd_category"] = fresh_hvd_metadata["hvd_category"].apply(
+        lambda s: s.split(",")
     )
     if fresh_hvd_metadata["id2"].nunique() != len(fresh_hvd_metadata):
         raise ValueError("New table has duplicated dataset ids")
