@@ -223,10 +223,14 @@ def get_hvd_ouverture(df_ouverture, url):
 
 
 def get_hvd_category_from_tags(tags):
+    if not tags:
+        return
     tags = tags.split(",")
-    for tag in tags:
-        if tag in HVD_CATEGORIES:
-            return tag
+    # "L" is because the column is "multiple choices" in Grist
+    return ["L"] + [
+        tag.replace("-", " ").capitalize()
+        for tag in tags if tag in HVD_CATEGORIES
+    ]
 
 
 def dataservice_information(dataset_id, df_dataservices, df_resources):
@@ -331,7 +335,7 @@ def build_df_for_grist():
     df_datasets['hvd_ouverture'] = df_datasets["url"].apply(
         lambda url: get_hvd_ouverture(df_ouverture=df_ouverture, url=url),
     )
-    df_datasets['hvd_category_datagouv'] = df_datasets["tags"].apply(get_hvd_category_from_tags)
+    df_datasets['hvd_category'] = df_datasets["tags"].apply(get_hvd_category_from_tags)
     df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)
     print("Processing...")
     (
