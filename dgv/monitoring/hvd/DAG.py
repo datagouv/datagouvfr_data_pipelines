@@ -3,13 +3,13 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
 
-from datagouvfr_data_pipelines.utils.utils import check_if_monday
+# from datagouvfr_data_pipelines.utils.utils import check_if_monday
 from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DAG_NAME,
     DATADIR,
-    get_hvd,
-    send_to_minio,
-    publish_mattermost,
+    # get_hvd,
+    # send_to_minio,
+    # publish_mattermost,
     build_df_for_grist,
     update_grist,
     publish_mattermost_grist,
@@ -35,31 +35,32 @@ with DAG(
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
     )
 
+    # OBSOLETE
     # Recap HVD mattermost
-    check_if_monday = ShortCircuitOperator(
-        task_id="check_if_monday",
-        python_callable=check_if_monday,
-    )
+    # check_if_monday = ShortCircuitOperator(
+    #     task_id="check_if_monday",
+    #     python_callable=check_if_monday,
+    # )
 
-    get_hvd = PythonOperator(
-        task_id="get_hvd",
-        python_callable=get_hvd,
-    )
+    # get_hvd = PythonOperator(
+    #     task_id="get_hvd",
+    #     python_callable=get_hvd,
+    # )
 
-    send_to_minio = PythonOperator(
-        task_id="send_to_minio",
-        python_callable=send_to_minio,
-    )
+    # send_to_minio = PythonOperator(
+    #     task_id="send_to_minio",
+    #     python_callable=send_to_minio,
+    # )
 
-    publish_mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=publish_mattermost,
-    )
+    # publish_mattermost = PythonOperator(
+    #     task_id="publish_mattermost",
+    #     python_callable=publish_mattermost,
+    # )
 
-    check_if_monday.set_upstream(clean_previous_outputs)
-    get_hvd.set_upstream(check_if_monday)
-    send_to_minio.set_upstream(get_hvd)
-    publish_mattermost.set_upstream(send_to_minio)
+    # check_if_monday.set_upstream(clean_previous_outputs)
+    # get_hvd.set_upstream(check_if_monday)
+    # send_to_minio.set_upstream(get_hvd)
+    # publish_mattermost.set_upstream(send_to_minio)
 
     # Grist
     build_df_for_grist = PythonOperator(
