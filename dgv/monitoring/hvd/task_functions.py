@@ -216,12 +216,6 @@ HVD_CATEGORIES = [
 API_TABULAIRE_ID = '673b0e6774a23d9eac2af8ce'
 
 
-def get_hvd_ouverture(df_ouverture, url):
-    df_res = df_ouverture.loc[df_ouverture["URL_Telechargement"] == url]
-    if len(df_res):
-        return df_res.iloc[0]["Ensemble_de_donnees"]
-
-
 def get_hvd_category_from_tags(tags):
     # "L" is because the column is "multiple choices" in Grist
     if not tags:
@@ -325,16 +319,6 @@ def build_df_for_grist():
         delimiter=";",
         usecols=["id", "datasets", "endpoint_description_url", "base_api_url", "url", "title"],
     ).dropna(subset="datasets")
-    print("Getting ouverture HVD")
-    df_ouverture = get_table_as_df(
-        doc_id=DOC_ID,
-        table_id="Hvd",
-        columns_labels=False,
-    )
-    df_datasets['in_ouverture'] = df_datasets["url"].isin(df_ouverture["URL_Telechargement"])
-    df_datasets['hvd_ouverture'] = df_datasets["url"].apply(
-        lambda url: get_hvd_ouverture(df_ouverture=df_ouverture, url=url),
-    )
     df_datasets['hvd_category'] = df_datasets["tags"].apply(get_hvd_category_from_tags)
     df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)
     print("Processing...")
@@ -384,8 +368,6 @@ def update_grist(ti):
         )
     columns_to_update = [
         "resources_count",
-        "in_ouverture",
-        "hvd_ouverture",
         "hvd_category",
         "api_title_datagouv",
         "endpoint_url_datagouv",
