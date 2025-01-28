@@ -72,10 +72,14 @@ with DAG(
     )
 
     download_latest_data.set_upstream(clean_previous_outputs)
-    get_daily_prices.set_upstream(download_latest_data)
-    unzip_files.set_upstream(get_daily_prices)
+    get_daily_prices.set_upstream(clean_previous_outputs)
+
+    unzip_files.set_upstream(download_latest_data)
     convert_utf8_files.set_upstream(unzip_files)
     reformat_file.set_upstream(convert_utf8_files)
+
     generate_latest_france.set_upstream(reformat_file)
+    generate_latest_france.set_upstream(get_daily_prices)
+
     generate_rupture_france.set_upstream(generate_latest_france)
     send_files_minio.set_upstream(generate_rupture_france)
