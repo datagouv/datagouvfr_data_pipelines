@@ -105,8 +105,7 @@ def generate_rupture_france():
 
 
 def send_files_minio():
-    today = date.today()
-    today = today.strftime("%Y-%m-%d")
+    today = date.today().strftime("%Y-%m-%d")
 
     minio_open.send_files(
         list_files=[
