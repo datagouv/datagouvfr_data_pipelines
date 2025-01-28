@@ -61,6 +61,10 @@ def try_to_get_ticket_count(year_month, tags=None, per_page=200):
 
 
 def get_monthly_tickets(year_month, tags=None):
+    # after investigation, it appears that *sometimes* the API doesn't return the
+    # same amount of tickets for a given month if you change the "per_page" parameter
+    # so if we end up in this situation, we try a bunch of values to get closer to the result
+    # but it's still not perfectly accurate...
     nb_tickets = []
     per_page = 200
     while len(nb_tickets) < 20 and not (len(nb_tickets) > 3 and len(set(nb_tickets)) == 1):
