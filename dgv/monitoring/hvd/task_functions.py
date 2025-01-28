@@ -373,6 +373,7 @@ def update_grist(ti):
         "endpoint_url_datagouv",
         "endpoint_description_datagouv",
         "api_web_datagouv",
+        "organization",
     ]
     # updating existing rows
     updates = 0
