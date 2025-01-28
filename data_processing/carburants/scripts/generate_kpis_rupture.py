@@ -1,14 +1,22 @@
-import json
 import pandas as pd
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME
+    AIRFLOW_DAG_HOME,
+)
+from datagouvfr_data_pipelines.data_processing.carburants.scripts.utils import (
+    LIST_FUELS,
+    create_todays_df,
 )
 
 
-def is_rupture_essence(row):
+AUGMENTED_LIST_FUELS = LIST_FUELS + [
+    "essence",
+    "au_moins_un_produit",
+    "deux_produits",
+]
+
+
+def rupture_essence(row):
     if row["SP95"] == "R" and row["E10"] != "S" and row["SP98"] != "S":
         return "R"
     if row["SP95"] != "S" and row["E10"] == "R" and row["SP98"] != "S":
@@ -54,184 +62,98 @@ def parseCP(val):
 
 
 def get_stats_df(df):
-    list_fuels = [
-        "SP95",
-        "E10",
-        "SP98",
-        "Gazole",
-        "GPLc",
-        "E85",
-        "essence",
-        "au_moins_un_produit",
-        "deux_produits",
-    ]
     arr = []
-    for lf in list_fuels:
+    for fuel in AUGMENTED_LIST_FUELS:
         for d in df["dep"].unique():
-            mydict = {}
-            mydict["dep"] = d
-            mydict["carburant"] = lf
+            mydict = {
+                "dep": d,
+                "carburant": fuel,
+            }
             try:
                 mydict["pourcentage_rupture"] = (
-                    df[
-                        (df["dep"] == d) & (df["carburant"] == lf) & (df["etat"] == "R")
-                    ]["nb"].iloc[0]
+                    df.loc[
+                        (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
+                        "nb"
+                    ].iloc[0]
                     / (
-                        df[
-                            (df["dep"] == d)
-                            & (df["carburant"] == lf)
-                            & (df["etat"] == "R")
-                        ]["nb"].iloc[0]
-                        + df[
-                            (df["dep"] == d)
-                            & (df["carburant"] == lf)
-                            & (df["etat"] == "S")
-                        ]["nb"].iloc[0]
+                        df.loc[
+                            (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
+                            "nb"
+                        ].iloc[0]
+                        + df.loc[
+                            (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "S"),
+                            "nb"
+                        ].iloc[0]
                     )
                     * 100
                 )
             except:
                 mydict["pourcentage_rupture"] = 0
-            mydict["nombre_rupture"] = df[
-                (df["dep"] == d) & (df["carburant"] == lf) & (df["etat"] == "R")
-            ]["nb"].iloc[0]
+            mydict["nombre_rupture"] = df.loc[
+                (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
+                "nb"
+            ].iloc[0]
             mydict["nombre_stations"] = (
-                df[(df["dep"] == d) & (df["carburant"] == lf) & (df["etat"] == "R")][
+                df.loc[
+                    (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
                     "nb"
                 ].iloc[0]
-                + df[(df["dep"] == d) & (df["carburant"] == lf) & (df["etat"] == "S")][
+                + df.loc[
+                    (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "S"),
                     "nb"
                 ].iloc[0]
             )
-
             arr.append(mydict)
     return pd.DataFrame(arr)
 
 
 def generate_kpis_rupture(path):
-    list_fuels = ["SP95", "E10", "SP98", "Gazole", "GPLc", "E85"]
-
-    with open(f"{path}quotidien.geojson") as fp:
-        data = json.load(fp)
-
-    start_date_rupture = (datetime.today() - relativedelta(years=1)).strftime(
-        "%Y-%m-%d"
-    )
-
-    obj = {}
-    obj["type"] = "FeatureCollection"
-    obj["features"] = []
-    for d in data["features"]:
-        mydict = {}
-        mydict["type"] = "Feature"
-        mydict["properties"] = {}
-        mydict["properties"]["id"] = d["properties"]["id"]
-        mydict["properties"]["adr"] = (
-            d["properties"]["adresse"]
-            .encode("Latin-1", "ignore")
-            .decode("utf-8", "ignore")
-            .lower()
-            if isinstance(d["properties"]["adresse"], str) else None
-        )
-        mydict["properties"]["cpl_adr"] = (
-            d["properties"]["cp"]
-            .encode("Latin-1", "ignore")
-            .decode("utf-8", "ignore")
-            .lower()
-            + " "
-            + d["properties"]["ville"]
-            .encode("Latin-1", "ignore")
-            .decode("utf-8", "ignore")
-            .lower()
-        )
-        mydict["properties"]["dep"] = parseCP(d["properties"]["cp"])
-        for r in d["properties"]["ruptures"]:
-            # old 2022-09-15
-            if r["debut"] > start_date_rupture:
-                mydict["properties"][r["nom"]] = "R"
-            else:
-                mydict["properties"][r["nom"]] = "ND"
-
-            mydict["properties"][r["nom"] + "_prix"] = None
-            mydict["properties"][r["nom"] + "_date"] = r["debut"]
-
-        for p in d["properties"]["prix"]:
-            mydict["properties"][p["nom"]] = "S"
-            mydict["properties"][p["nom"] + "_prix"] = p["valeur"]
-            mydict["properties"][p["nom"] + "_date"] = p["maj"]
-
-        for fuel in list_fuels:
-            if fuel not in mydict["properties"]:
-                mydict["properties"][fuel] = "ND"
-                mydict["properties"][fuel + "_prix"] = None
-                mydict["properties"][fuel + "_date"] = None
-
-        mydict["geometry"] = d["geometry"]
-        obj["features"].append(mydict)
-
-    arr = []
-    for d in obj["features"]:
-        mydict = d["properties"]
-        arr.append(mydict)
-
-    mef = pd.DataFrame(arr)
-    mef["essence"] = mef.apply(lambda row: is_rupture_essence(row), axis=1)
+    mef = create_todays_df(path)
+    mef["essence"] = mef.apply(lambda row: rupture_essence(row), axis=1)
     mef["au_moins_un_produit"] = mef.apply(
         lambda row: rupture_au_moins_un_produit(row), axis=1
     )
     mef["deux_produits"] = mef.apply(lambda row: rupture_deux_produits(row), axis=1)
 
-    list_fuels = [
-        "SP95",
-        "E10",
-        "SP98",
-        "Gazole",
-        "GPLc",
-        "E85",
-        "essence",
-        "au_moins_un_produit",
-        "deux_produits",
-    ]
-
-    mef_dep = pd.DataFrame(columns=["dep", "etat", "nb", "carburant"])
-
-    for lf in list_fuels:
+    mef_dep = []
+    for fuel in AUGMENTED_LIST_FUELS:
         inter = (
-            mef[["dep", lf, "id"]]
-            .groupby(["dep", lf], as_index=False)
+            mef[["dep", fuel, "id"]]
+            .groupby(["dep", fuel], as_index=False)
             .count()
-            .rename(columns={"id": "nb", lf: "etat"})
+            .rename(columns={"id": "nb", fuel: "etat"})
         )
-        inter["carburant"] = lf
-        mef_dep = pd.concat([mef_dep, inter])
+        inter["carburant"] = fuel
+        mef_dep.append(inter)
+    mef_dep = pd.concat(mef_dep, ignore_index=True)
 
     new_rows = []
-    for lf in list_fuels:
+    for fuel in AUGMENTED_LIST_FUELS:
         for d in mef_dep["dep"].unique():
             if (
                 mef_dep[
                     (mef_dep["dep"] == d)
-                    & (mef_dep["carburant"] == lf)
+                    & (mef_dep["carburant"] == fuel)
                     & (mef_dep["etat"] == "R")
                 ].shape[0]
                 == 0
             ):
-                new_rows.append({"dep": d, "etat": "R", "nb": 0, "carburant": lf})
+                new_rows.append({"dep": d, "etat": "R", "nb": 0, "carburant": fuel})
             if (
                 mef_dep[
                     (mef_dep["dep"] == d)
-                    & (mef_dep["carburant"] == lf)
+                    & (mef_dep["carburant"] == fuel)
                     & (mef_dep["etat"] == "S")
                 ].shape[0]
                 == 0
             ):
-                new_rows.append({"dep": d, "etat": "S", "nb": 0, "carburant": lf})
+                new_rows.append({"dep": d, "etat": "S", "nb": 0, "carburant": fuel})
     mef_dep = pd.concat([mef_dep, pd.DataFrame(new_rows)], ignore_index=True)
 
     stats_mef_dep = get_stats_df(mef_dep)
     deps = pd.read_csv(
         f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/data_processing/carburants/utils/deps_regs.csv",
-        dtype=str
+        dtype=str,
     )
     stats_mef_reg = pd.merge(stats_mef_dep, deps, on="dep", how="left")
     stats_mef_reg = stats_mef_reg.groupby(
@@ -255,20 +177,19 @@ def generate_kpis_rupture(path):
 
     arr = []
     for d in df.dep.unique():
-        mydict = {}
-        mydict["dep"] = d
-        for lf in list_fuels:
-            print(lf, d)
-            mydict[lf] = round(
-                df[(df["dep"] == d) & (df["carburant"] == lf)][
+        mydict = {"dep": d}
+        for fuel in AUGMENTED_LIST_FUELS:
+            print(fuel, d)
+            mydict[fuel] = round(
+                df[(df["dep"] == d) & (df["carburant"] == fuel)][
                     "pourcentage_rupture"
                 ].iloc[0],
                 2,
             )
-            mydict[lf + "_nbrup"] = df[(df["dep"] == d) & (df["carburant"] == lf)][
+            mydict[fuel + "_nbrup"] = df[(df["dep"] == d) & (df["carburant"] == fuel)][
                 "nombre_rupture"
             ].iloc[0]
-            mydict[lf + "_nbstation"] = df[(df["dep"] == d) & (df["carburant"] == lf)][
+            mydict[fuel + "_nbstation"] = df[(df["dep"] == d) & (df["carburant"] == fuel)][
                 "nombre_stations"
             ].iloc[0]
         arr.append(mydict)
