@@ -120,15 +120,15 @@ def send_files_minio():
                 ),
             } for name in [
                 "latest_france.geojson",
-                "latest_france_ruptures.geojson",
+                "latest_france_ruptures.json",
                 "synthese_ruptures_latest.xlsx",
             ] for folder in ["", f"{today}/"]
         ] + [
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "daily_prices.geojson",
+                "source_name": "daily_prices.json",
                 "dest_path": "carburants/",
-                "dest_name": "daily_prices.geojson",
+                "dest_name": "daily_prices.json",
                 "content_type": "application/json; charset=utf-8",
             },
         ],
