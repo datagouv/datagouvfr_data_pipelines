@@ -109,7 +109,7 @@ def gather_data(ti):
         raise ValueError(f"There should be exactly one opposition file, {len(opposition_url)} found")
     df_opposition = pd.read_csv(
         opposition_url[0],
-        sep=';',
+        # sep=';',
         dtype=str,
     )
     df_opposition.rename(
