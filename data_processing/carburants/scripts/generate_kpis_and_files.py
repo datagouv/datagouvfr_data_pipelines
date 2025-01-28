@@ -34,6 +34,7 @@ def generate_kpis(path):
         mydict["properties"]["id"] = d["properties"]["id"]
         mydict["properties"]["adr"] = (
             d["properties"]["adresse"].encode('Latin-1', 'ignore').decode('utf-8', 'ignore').lower()
+            if isinstance(d["properties"]["adresse"], str) else None
         )
         mydict["properties"]["cpl_adr"] = (
             d["properties"]["cp"].encode('Latin-1', 'ignore').decode('utf-8', 'ignore').lower()

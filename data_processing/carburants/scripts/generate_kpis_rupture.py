@@ -131,6 +131,7 @@ def generate_kpis_rupture(path):
             .encode("Latin-1", "ignore")
             .decode("utf-8", "ignore")
             .lower()
+            if isinstance(d["properties"]["adresse"], str) else None
         )
         mydict["properties"]["cpl_adr"] = (
             d["properties"]["cp"]
@@ -204,6 +205,7 @@ def generate_kpis_rupture(path):
         inter["carburant"] = lf
         mef_dep = pd.concat([mef_dep, inter])
 
+    new_rows = []
     for lf in list_fuels:
         for d in mef_dep["dep"].unique():
             if (
@@ -214,8 +216,7 @@ def generate_kpis_rupture(path):
                 ].shape[0]
                 == 0
             ):
-                new_row = {"dep": d, "etat": "R", "nb": 0, "carburant": lf}
-                mef_dep = mef_dep.append(new_row, ignore_index=True)
+                new_rows.append({"dep": d, "etat": "R", "nb": 0, "carburant": lf})
             if (
                 mef_dep[
                     (mef_dep["dep"] == d)
@@ -224,8 +225,8 @@ def generate_kpis_rupture(path):
                 ].shape[0]
                 == 0
             ):
-                new_row = {"dep": d, "etat": "S", "nb": 0, "carburant": lf}
-                mef_dep = mef_dep.append(new_row, ignore_index=True)
+                new_rows.append({"dep": d, "etat": "S", "nb": 0, "carburant": lf})
+    mef_dep = pd.concat([mef_dep, pd.DataFrame(new_rows)], ignore_index=True)
 
     stats_mef_dep = get_stats_df(mef_dep)
     deps = pd.read_csv(
