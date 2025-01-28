@@ -79,8 +79,12 @@ def get_zammad_tickets(
         'IMPOT',
     ]
 
-    all_tickets = []
-    hs_tickets = []
+    spam_tags = [
+        "SPAM",
+        "spam",
+    ]
+
+    all_tickets, hs_tickets, spam_tickets = [], [], []
     months = []
     for year, month in month_year_iter(
         start_date.month,
@@ -94,9 +98,13 @@ def get_zammad_tickets(
         hs_tickets.append(
             get_monthly_tickets(f"{year}-{'0'*(month<10) + str(month)}", tags=hs_tags)
         )
+        spam_tickets.append(
+            get_monthly_tickets(f"{year}-{'0'*(month<10) + str(month)}", tags=spam_tags)
+        )
         months.append(f"{year}-{'0'*(month<10) + str(month)}")
     ti.xcom_push(key="all_tickets", value=all_tickets)
     ti.xcom_push(key="hs_tickets", value=hs_tickets)
+    ti.xcom_push(key="spam_tickets", value=spam_tickets)
     ti.xcom_push(key="months", value=months)
 
 
@@ -139,11 +147,10 @@ def get_visits(
         ti.xcom_push(key=k['title'], value=vues)
 
 
-def gather_and_upload(
-    ti,
-):
+def gather_and_upload(ti):
     all_tickets = ti.xcom_pull(key="all_tickets", task_ids="get_zammad_tickets")
     hs_ticket = ti.xcom_pull(key="hs_tickets", task_ids="get_zammad_tickets")
+    spam_tickets = ti.xcom_pull(key="spam_tickets", task_ids="get_zammad_tickets")
     months = ti.xcom_pull(key="months", task_ids="get_zammad_tickets")
     # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
     support = ti.xcom_pull(key="support", task_ids="get_visits")
@@ -153,6 +160,7 @@ def gather_and_upload(
         'Page support': support,
         'Ouverture de ticket': all_tickets,
         'Ticket hors-sujet': hs_ticket,
+        'Ticket spam': spam_tickets,
     }, index=months).T
     # removing current month from stats
     stats = stats[stats.columns[:-1]]
