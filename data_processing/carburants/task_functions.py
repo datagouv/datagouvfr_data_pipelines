@@ -111,49 +111,25 @@ def send_files_minio():
         list_files=[
             {
                 "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "latest_france.geojson",
+                "source_name": name,
+                "dest_path": f"carburants/{folder}",
+                "dest_name": name,
+                "content_type": (
+                    "application/json; charset=utf-8" if name.endswith("json")
+                    else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ),
+            } for name in [
+                "latest_france.geojson",
+                "latest_france_ruptures.geojson",
+                "synthese_ruptures_latest.xlsx",
+            ] for folder in ["", f"{today}/"]
+        ] + [
+            {
+                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
+                "source_name": "daily_prices.geojson",
                 "dest_path": "carburants/",
-                "dest_name": "latest_france.geojson",
+                "dest_name": "daily_prices.geojson",
                 "content_type": "application/json; charset=utf-8",
             },
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "daily_prices.json",
-                "dest_path": "carburants/",
-                "dest_name": "daily_prices.json",
-                "content_type": "application/json; charset=utf-8",
-            },
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "latest_france_ruptures.json",
-                "dest_path": "carburants/",
-                "dest_name": "latest_france_ruptures.json",
-                "content_type": "application/json; charset=utf-8",
-            },
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "synthese_ruptures_latest.xlsx",
-                "dest_path": "carburants/",
-                "dest_name": "synthese_ruptures_latest.xlsx",
-                "content_type": "application/json; charset=utf-8",
-            },
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "latest_france.geojson",
-                "dest_path": f"carburants/{today}/",
-                "dest_name": "latest_france.geojson",
-            },
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "latest_france_ruptures.json",
-                "dest_path": f"carburants/{today}/",
-                "dest_name": "latest_france_ruptures.json",
-            },
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "synthese_ruptures_latest.xlsx",
-                "dest_path": f"carburants/{today}/",
-                "dest_name": "synthese_ruptures_latest.xlsx",
-            }
-        ]
+        ],
     )
