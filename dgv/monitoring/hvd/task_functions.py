@@ -417,7 +417,7 @@ def update_grist(ti):
         append="lazy",
     )
     ti.xcom_push(key="new_rows", value=[(r["title"], r["url"]) for r in new_rows])
-    return new_rows
+    return len(new_rows)
 
 
 def publish_mattermost_grist(ti):
