@@ -81,5 +81,7 @@ with DAG(
     generate_latest_france.set_upstream(reformat_file)
     generate_latest_france.set_upstream(get_daily_prices)
 
-    generate_rupture_france.set_upstream(generate_latest_france)
+    generate_rupture_france.set_upstream(reformat_file)
+
+    send_files_minio.set_upstream(generate_latest_france)
     send_files_minio.set_upstream(generate_rupture_france)
