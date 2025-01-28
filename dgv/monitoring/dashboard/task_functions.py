@@ -29,7 +29,7 @@ minio_open = MinIOClient(bucket='dataeng-open')
 minio_destination_folder = "dashboard/"
 
 
-def get_monthly_tickets(year_month, tags=None, per_page=200):
+def try_to_get_ticket_count(year_month, tags=None, per_page=200):
     session = requests.Session()
     session.headers = {"Authorization": "Bearer " + SECRET_ZAMMAD_API_TOKEN}
 
@@ -58,6 +58,20 @@ def get_monthly_tickets(year_month, tags=None, per_page=200):
         res += batch
     print(f"{res} tickets found for month {year_month} across {page} pages")
     return res
+
+
+def get_monthly_tickets(year_month, tags=None):
+    nb_tickets = []
+    per_page = 200
+    while len(nb_tickets) < 20 and not (len(nb_tickets) > 3 and len(set(nb_tickets)) == 1):
+        nb_tickets.append(try_to_get_ticket_count(year_month, tags=tags, per_page=per_page))
+        if len(nb_tickets) > 1:
+            if nb_tickets[-1] > nb_tickets[-2]:
+                per_page = round(per_page * 1.5)
+            else:
+                per_page = round(per_page / 1.2)
+    print(nb_tickets)
+    return max(nb_tickets)
 
 
 def get_zammad_tickets(
