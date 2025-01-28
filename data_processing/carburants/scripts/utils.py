@@ -66,4 +66,5 @@ def create_todays_df(path):
         feature["geometry"] = d["geometry"]
         obj["features"].append(feature)
 
+    # improvement: save as csv and convert to a task, so that we don't do it twice
     return pd.DataFrame([d["properties"] for d in obj["features"]])

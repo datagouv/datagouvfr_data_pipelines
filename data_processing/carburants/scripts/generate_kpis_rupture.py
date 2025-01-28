@@ -108,13 +108,15 @@ def get_stats_df(df):
 
 
 def generate_kpis_rupture(path):
+    print("Building today's table")
     mef = create_todays_df(path)
+
+    print("Detecting shortages")
     mef["essence"] = mef.apply(lambda row: rupture_essence(row), axis=1)
-    mef["au_moins_un_produit"] = mef.apply(
-        lambda row: rupture_au_moins_un_produit(row), axis=1
-    )
+    mef["au_moins_un_produit"] = mef.apply(lambda row: rupture_au_moins_un_produit(row), axis=1)
     mef["deux_produits"] = mef.apply(lambda row: rupture_deux_produits(row), axis=1)
 
+    print("Aggreggation")
     mef_dep = []
     for fuel in AUGMENTED_LIST_FUELS:
         inter = (
@@ -127,6 +129,7 @@ def generate_kpis_rupture(path):
         mef_dep.append(inter)
     mef_dep = pd.concat(mef_dep, ignore_index=True)
 
+    print("Adding rows")
     new_rows = []
     for fuel in AUGMENTED_LIST_FUELS:
         for d in mef_dep["dep"].unique():
@@ -150,6 +153,7 @@ def generate_kpis_rupture(path):
                 new_rows.append({"dep": d, "etat": "S", "nb": 0, "carburant": fuel})
     mef_dep = pd.concat([mef_dep, pd.DataFrame(new_rows)], ignore_index=True)
 
+    print("Getting stats")
     stats_mef_dep = get_stats_df(mef_dep)
     deps = pd.read_csv(
         f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/data_processing/carburants/utils/deps_regs.csv",
@@ -166,12 +170,14 @@ def generate_kpis_rupture(path):
     stats_mef_nat["pourcentage_rupture"] = round(
         stats_mef_nat["nombre_rupture"] / stats_mef_nat["nombre_stations"] * 100, 2
     )
+    print("Exporting as excel")
     writer = pd.ExcelWriter(f"{path}synthese_ruptures_latest.xlsx", engine="xlsxwriter")
     stats_mef_dep.to_excel(writer, sheet_name="départements", index=False)
     stats_mef_reg.to_excel(writer, sheet_name="régions", index=False)
     stats_mef_nat.to_excel(writer, sheet_name="national", index=False)
     writer.close()
 
+    print("Final process")
     df = stats_mef_dep
     df.groupby(["dep", "carburant"], as_index=False).count()
 

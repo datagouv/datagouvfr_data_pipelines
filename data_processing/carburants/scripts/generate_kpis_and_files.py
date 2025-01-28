@@ -11,12 +11,14 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.utils import (
 
 def generate_kpis(path):
 
+    print("Building today's table")
     df = create_todays_df(path)
     df = df.where(pd.notnull(df), None)
 
     with open(f"{path}latest.geojson") as fp:
         data = json.load(fp)
 
+    print("Building today's file")
     final = {
         "type": "FeatureCollection",
         "features": [],
