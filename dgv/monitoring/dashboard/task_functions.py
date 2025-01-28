@@ -45,7 +45,7 @@ def try_to_get_ticket_count(year_month, tags=None, per_page=200):
     params = {
         "query": query,
         "page": page,
-        "per_page": 200,
+        "per_page": per_page,
     }
     res = session.get(
         f'{SECRET_ZAMMAD_API_URL}tickets/search',
@@ -75,7 +75,7 @@ def get_monthly_tickets(year_month, tags=None):
         nb_tickets.append(try_to_get_ticket_count(year_month, tags=tags, per_page=per_page))
         if len(nb_tickets) > 1:
             if nb_tickets[-1] > nb_tickets[-2]:
-                per_page = round(per_page * 1.5)
+                per_page = round(per_page * 1.3)
             else:
                 per_page = round(per_page / 1.2)
     print(nb_tickets)
