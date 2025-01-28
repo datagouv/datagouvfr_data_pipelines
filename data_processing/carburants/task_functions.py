@@ -40,6 +40,19 @@ def download_latest_data():
     )
 
 
+def get_daily_prices():
+    minio_open.download_files(
+        list_files=[
+            {
+                "source_path": "carburants/",
+                "source_name": "daily_prices.json",
+                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
+                "dest_name": "daily_prices.json",
+            }
+        ],
+    )
+
+
 def unzip_files(ti):
     with zipfile.ZipFile(f"{AIRFLOW_DAG_TMP}carburants/jour.zip", mode="r") as z:
         z.extractall(f"{AIRFLOW_DAG_TMP}carburants/")
@@ -89,19 +102,6 @@ def generate_latest_france():
 
 def generate_rupture_france():
     generate_kpis_rupture(f"{AIRFLOW_DAG_TMP}carburants/")
-
-
-def get_daily_prices():
-    minio_open.download_files(
-        list_files=[
-            {
-                "source_path": "carburants/",
-                "source_name": "daily_prices.json",
-                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "dest_name": "daily_prices.json",
-            }
-        ],
-    )
 
 
 def send_files_minio():
