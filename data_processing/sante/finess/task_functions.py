@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_communautary_resource,
-    # check_if_recent_update,
+    check_if_recent_update,
     DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -33,11 +33,10 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
 
 
 def check_if_modif():
-    return True
-    # return check_if_recent_update(
-    #     reference_resource_id=config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"],
-    #     dataset_id="5cf8d9ed8b4c4110294c841d",
-    # )
+    return check_if_recent_update(
+        reference_resource_id=config["csv"]["prod"]["resource_id"],
+        dataset_id="53699569a3a729239d2046eb",
+    )
 
 
 def get_finess_columns(ti):
