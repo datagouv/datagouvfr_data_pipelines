@@ -515,13 +515,26 @@ def log_modified_files(ti) -> None:
     ))
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
-    log_file[today] = [
-        {
-            "folder": '/'.join(k.split('/')[:-1]),
-            "name": k.split('/')[-1],
-        } for k in
-        new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
-    ]
+    if log_file.get(today):
+        # the DAG runs more than once a day, we don't want to erase the info
+        # from previous runs, so we append what's not already here
+        already_here = set(file["name"]for file in log_file[today])
+        log_file[today] += [
+            {
+                "folder": '/'.join(k.split('/')[:-1]),
+                "name": k.split('/')[-1],
+            } for k in
+            new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
+            if k.split('/')[-1] not in already_here
+        ]
+    else:
+        log_file[today] = [
+            {
+                "folder": '/'.join(k.split('/')[:-1]),
+                "name": k.split('/')[-1],
+            } for k in
+            new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
+        ]
     # keeping logs for the last month only, and all keys that are not dates
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
     log_file = {
