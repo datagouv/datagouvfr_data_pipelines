@@ -1,3 +1,5 @@
+from datetime import datetime
+import os
 import json
 import requests
 import pandas as pd
@@ -12,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    # post_remote_communautary_resource,
+    post_remote_communautary_resource,
     # check_if_recent_update,
     DATAGOUV_URL,
 )
@@ -194,11 +196,52 @@ def build_finess_table(ti):
     )
 
 
+def send_to_minio():
+    minio_open.send_files(
+        list_files=[
+            {
+                "source_path": f"{DATADIR}/",
+                "source_name": f"finess_geoloc.{_ext}",
+                "dest_path": "finess/",
+                "dest_name": f"finess_geoloc.{_ext}",
+            }
+            for _ext in ["csv", "parquet"]
+        ],
+        ignore_airflow_env=True,
+    )
+
+
+def publish_on_datagouv():
+    date = datetime.today().strftime("%d-%m-%Y")
+    for ext in ["csv", "parquet"]:
+        post_remote_communautary_resource(
+            dataset_id=config[ext][AIRFLOW_ENV]["dataset_id"],
+            resource_id=config[ext][AIRFLOW_ENV]["resource_id"],
+            payload={
+                "url": (
+                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"/finess/finess_geoloc.{ext}"
+                ),
+                "filesize": os.path.getsize(DATADIR + f"/finess_geoloc.{ext}"),
+                "title": (
+                    f"Finess des établissements géolocalisés au {date} (format {ext})"
+                ),
+                "format": ext,
+                "description": (
+                    f"Finess des établissements géolocalisés (format {ext})"
+                    " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
+                    f"({DATAGOUV_URL}/fr/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f" (dernière mise à jour le {date})"
+                ),
+            },
+        )
+
+
 def send_notification_mattermost():
-    dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
+    dataset_id = config["csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
-            ":mega: Données du contrôle sanitaire de l'eau mises à jour.\n"
+            ":mega: Données Finess mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources)"
         )

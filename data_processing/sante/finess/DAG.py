@@ -11,8 +11,9 @@ from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions impor
     get_finess_columns,
     get_geoloc_columns,
     build_finess_table,
-    # publish_on_datagouv,
-    # send_notification_mattermost,
+    send_to_minio,
+    publish_on_datagouv,
+    send_notification_mattermost,
 )
 
 DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
@@ -57,15 +58,25 @@ with DAG(
         python_callable=build_finess_table,
     )
 
-    # clean_up = BashOperator(
-    #     task_id="clean_up",
-    #     bash_command=f"rm -rf {TMP_FOLDER}",
-    # )
+    send_to_minio = PythonOperator(
+        task_id='send_to_minio',
+        python_callable=send_to_minio,
+    )
 
-    # send_notification_mattermost = PythonOperator(
-    #     task_id='send_notification_mattermost',
-    #     python_callable=send_notification_mattermost,
-    # )
+    publish_on_datagouv = PythonOperator(
+        task_id='publish_on_datagouv',
+        python_callable=publish_on_datagouv,
+    )
+
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
+    send_notification_mattermost = PythonOperator(
+        task_id='send_notification_mattermost',
+        python_callable=send_notification_mattermost,
+    )
 
     clean_previous_outputs.set_upstream(check_if_modif)
 
@@ -75,4 +86,7 @@ with DAG(
     build_finess_table.set_upstream(get_finess_columns)
     build_finess_table.set_upstream(get_geoloc_columns)
 
-    # send_notification_mattermost.set_upstream(clean_up)
+    send_to_minio.set_upstream(build_finess_table)
+    publish_on_datagouv.set_upstream(send_to_minio)
+    clean_up.set_upstream(publish_on_datagouv)
+    send_notification_mattermost.set_upstream(clean_up)
