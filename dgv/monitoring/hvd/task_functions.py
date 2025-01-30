@@ -416,7 +416,7 @@ def update_grist(ti):
         table_id="Hvd_metadata_res",
         append="lazy",
     )
-    ti.xcom_push(key="new_rows", value=[(r["title"], r["url"]) for r in new_rows])
+    ti.xcom_push(key="new_rows", value=[(r["title"], r["url"], r["organization"]) for r in new_rows])
     return len(new_rows)
 
 
@@ -426,6 +426,6 @@ def publish_mattermost_grist(ti):
         f"#### {len(new_rows)} nouvelles lignes dans [la table Grist HVD]"
         "(https://grist.numerique.gouv.fr/o/datagouv/eJxok2H2va3E/suivi-des-ouvertures-CITP-et-HVD/p/4)"
     )
-    for (title, url) in new_rows:
-        message += f"\n- [{title}]({url})"
+    for (title, url, orga) in new_rows:
+        message += f"\n- [{title}]({url}) de l'organisation {orga}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
