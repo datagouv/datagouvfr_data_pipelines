@@ -22,7 +22,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 4 * * *",
+    schedule_interval="0 6 * * *",
     start_date=datetime(2024, 6, 1),
     dagrun_timeout=timedelta(minutes=60),
     tags=["hvd", "datagouv"],
