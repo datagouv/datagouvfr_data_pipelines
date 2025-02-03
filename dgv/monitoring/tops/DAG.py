@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
@@ -18,7 +19,7 @@ from datagouvfr_data_pipelines.utils.utils import (
 DAG_NAME = "dgv_tops"
 MINIO_PATH = "tops/"
 # we base ourselves on completed days
-yesterday = datetime.today().strftime("%Y-%m-%d")
+yesterday = (datetime.today() + relativedelta(days=-1)).strftime("%Y-%m-%d")
 
 default_args = {
     'retries': 3,
