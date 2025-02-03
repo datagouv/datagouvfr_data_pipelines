@@ -89,6 +89,7 @@ def get_zammad_tickets(
 ):
     hs_tags = [
         'HORS-SUJET',
+        '"HORS SUJET"',
         'RNA',
         # quotes are mandatory if tag has blanks
         '"TITRE DE SEJOUR"',
