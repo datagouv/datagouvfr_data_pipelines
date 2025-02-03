@@ -403,6 +403,9 @@ def handle_updated_files_same_name(ti) -> None:
     new_files = []
     for idx, file_path in enumerate(files_to_update_same_name):
         path = get_path(file_path)
+        if path not in resources_lists:
+            print("⚠️ no config for this file:", file_path)
+            continue
         file_with_ext = file_path.split("/")[-1]
         url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
         print("Resource already exists and name unchanged:", file_with_ext)
