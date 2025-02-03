@@ -26,8 +26,8 @@ groups = [
     for k in ['support', 'ouverture', 'moissonnage', 'certification', 'geo', 'cadastre', 'candidature']
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
-# rate limiting of 7 requests/second
-rate_limiting_delay = 1 / 7
+# max 5 requests/second (rate limiting is 1/7)
+rate_limiting_delay = 1 / 5
 
 minio_open = MinIOClient(bucket='dataeng-open')
 minio_destination_folder = "dashboard/"
