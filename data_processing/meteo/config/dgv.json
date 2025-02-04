@@ -223,16 +223,6 @@
         },
         "table_name": "refcc_sim"
     },
-    "REF_CC/SIM/Shapefile": {
-        "source_pattern": null,
-        "name_template": null,
-        "doc_pattern": ".*\\..*",
-        "description_template": null,
-        "dataset_id": {
-            "prod": "6569b27598256cc583c917a7",
-            "dev": "653a6afa18f9f98d2ffdaded"
-        }
-    },
     "REF_CC/LSH": {
         "source_pattern": "SH_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
         "name_template": "SH_{TYPE}_{GEO}",
@@ -309,5 +299,27 @@
             "dev": "669e2657a07290f6dc4eec77"
         },
         "table_name": "reanalyses_comephore"
+    },
+    "BASE/INFOS_POSTES": {
+        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<STATION>[^_]+).pdf",
+        "name_template": "Département {DEP} - station {STATION} ({ID})",
+        "doc_pattern": null,
+        "description_template": "Fiche d'informations sur la station {STATION} ({ID})",
+        "dataset_id": {
+            "prod": "67a1e85a366f75613f750296",
+            "dev": "67a0cfacb32d4139c7402602"
+        },
+        "table_name": null
+    },
+    "BASE/INFOS_POSTES_COMP": {
+        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<STATION>[^_]+).pdf",
+        "name_template": "Département {DEP} - station {STATION} ({ID})",
+        "doc_pattern": null,
+        "description_template": "Fiche d'informations sur la station {STATION} ({ID})",
+        "dataset_id": {
+            "prod": "67a1e983bf9d219de1d86bbd",
+            "dev": "67a0cfdc2a98ab4e3079792d"
+        },
+        "table_name": null
     }
 }
