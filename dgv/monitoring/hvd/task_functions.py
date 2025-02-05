@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.utils.grist import (
     get_table_as_df,
     update_records,
     df_to_grist,
+    get_unique_values_from_multiple_choice_column,
 )
 
 DAG_NAME = "dgv_hvd"
@@ -33,38 +34,20 @@ def get_hvd(ti):
     print("Getting suivi ouverture")
     df_ouverture = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd",
-        columns_labels=True,
+        table_id="Hvd_metadata_res",
+        columns_labels=False,
     )
-    goal = df_ouverture['Ensemble_de_donnees'].nunique()
-    # goal_list = list(df_ouverture['Ensemble_de_donnees'].unique())
     categories = {
         slugify(cat): cat
-        for cat in set(df_ouverture['Thematique'])
+        for cat in get_unique_values_from_multiple_choice_column(df_ouverture['hvd_category'])
     }
-    dfs = []
-    for _type in ['Telechargement', 'API']:
-        tmp = df_ouverture[
-            ['Titre', 'Ensemble_de_donnees', 'Thematique'] +
-            [c for c in df_ouverture.columns if c.endswith(_type)]
-        ]
-        tmp['type'] = 'dataservices' if _type == 'API' else 'datasets'
-        tmp.rename(
-            {c: c.replace(f'_{_type}', '') for c in df_ouverture.columns if c.endswith(_type)},
-            axis=1, inplace=True
-        )
-        dfs.append(tmp)
-    df_ouverture = pd.concat(dfs)
-    df_ouverture.rename({
-        'URL': 'url',
-    }, axis=1, inplace=True)
 
     print("Getting datasets catalog")
     df_datasets = pd.read_csv(
         'https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3',
         delimiter=';',
+        usecols=["url", "tags", "organization_id", "license"],
     )
-    df_datasets['url'] = df_datasets['url'].str.replace('http://', 'https://')
 
     print("Merging")
     df_merge = df_datasets.merge(
@@ -73,22 +56,22 @@ def get_hvd(ti):
         how='outer',
     )
     df_merge['tagged_hvd'] = df_merge['tags'].str.contains('hvd') | False
-    df_merge['in_ouverture'] = df_merge['type'].notna()
-    df_merge['hvd_name'] = df_merge['Ensemble_de_donnees']
     df_merge['hvd_category'] = (
         df_merge['tags'].fillna('').apply(
             lambda tags: next((tag for tag in tags.split(',') if tag in categories.keys()), None)
         )
     )
+    valid_statuses = ["Disponible sur data.gouv.fr", "Partiellement disponible", "Non requis"]
     df_merge = (
         df_merge.loc[
-            df_merge['tagged_hvd'] | (df_merge['in_ouverture'] & (df_merge['Statut'].apply(
-                lambda s: any(s == k for k in ['Disponible sur data.gouv.fr', 'Disponible'])
-                if isinstance(s, str) else False
-            ))),
+            (
+                df_merge['status_telechargement_automatique'].isin(valid_statuses)
+                & df_merge['status_api_automatique'].isin(valid_statuses)
+            ),
             [
                 'title', 'url', 'in_ouverture', 'tagged_hvd', 'hvd_name',
-                'hvd_category', 'organization', 'organization_id', 'license'
+                'hvd_category', 'organization', 'organization_id', 'license',
+                'endpoint_url_datagouv', 'contact_point_datagouv', 'endpoint_description_datagouv',
             ]
         ]
     )
@@ -96,8 +79,6 @@ def get_hvd(ti):
     filename = f'hvd_{datetime.now().strftime("%Y-%m-%d")}.csv'
     df_merge.to_csv(f"{DATADIR}/{filename}", index=False)
     ti.xcom_push(key="filename", value=filename)
-    ti.xcom_push(key="goal", value=goal)
-    # ti.xcom_push(key="goal_list", value=goal_list)
 
 
 def send_to_minio(ti):
@@ -137,17 +118,24 @@ def markdown_item(row):
 
 def publish_mattermost(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    goal = ti.xcom_pull(key="goal", task_ids="get_hvd")
-    # goal_list = ti.xcom_pull(key="goal_list", task_ids="get_hvd")
     minio_files = sorted(minio_open.get_files_from_prefix('hvd/', ignore_airflow_env=True))
     print(minio_files)
     if len(minio_files) == 1:
         return
+    all_hvd_names = set(get_table_as_df(
+        doc_id=DOC_ID,
+        table_id="Hvd",
+        columns_labels=False,
+    )["Ensemble_de_donnees"].dropna().drop_duplicates().to_list())
+    goal = len(all_hvd_names)
 
     previous_week = pd.read_csv(StringIO(
         minio_open.get_file_content(minio_files[-2])
     ))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
+    this_week["hvd_name"] = this_week["hvd_name"].apply(
+        lambda l: eval(l) if isinstance(l, str) else l
+    )
 
     new = this_week.loc[
         (~this_week['title'].isin(previous_week['title']))
@@ -157,16 +145,15 @@ def publish_mattermost(ti):
         (~previous_week['title'].isin(this_week['title']))
         & (~previous_week['title'].isna())
     ]
-    # tmp = list(this_week['hvd_name'].unique())
-    # print([k for k in tmp if k not in goal_list])
-    # print([k for k in goal_list if k not in tmp])
 
     message = "#### :flag-eu: :pokeball: Suivi HVD\n"
-    if len(this_week['hvd_name'].unique()) == goal:
-        message += f"# :tada: :tada: {this_week['hvd_name'].nunique()}/{goal} HVD référencés :tada: :tada: "
+    hvds = get_unique_values_from_multiple_choice_column(this_week['hvd_name'])
+
+    if len(hvds) == goal:
+        message += f"# :tada: :tada: {len(hvds)}/{goal} HVD référencés :tada: :tada: "
     else:
-        message += f"{len(this_week['hvd_name'].unique())}/{goal} HVD référencés, "
-    message += f"soit {round(this_week['hvd_name'].nunique() / goal * 100, 1)}% "
+        message += f"{len(hvds)}/{goal} HVD référencés, "
+    message += f"soit {round(len(hvds) / goal * 100, 1)}% "
     message += f"et un total de {this_week['url'].nunique()} JdD "
     message += "([:arrow_down: télécharger le dernier fichier]"
     message += f"({minio_open.get_file_url('hvd/' + filename, ignore_airflow_env=True)}))\n"
@@ -191,16 +178,28 @@ def publish_mattermost(ti):
         # could also delete the latest file
         message += "Pas de changement par rapport à la semaine dernière"
 
-    issues = this_week.loc[
-        this_week['hvd_category'].isna()
-        & ~this_week['title'].isna()
-    ]
-    if len(issues):
-        message += "\n\n :small_red_triangle: Les jeux de données suivants ne sont pas 100% renseignés\n"
-        for _, row in issues.iterrows():
-            message += markdown_item(row)
-            if len(message) > round(MAX_MESSAGE_LENGTH * 0.95):
-                break
+    df_ouverture = get_table_as_df(
+        doc_id=DOC_ID,
+        table_id="Hvd_metadata_res",
+        columns_labels=False,
+    )
+    pct_cat_hvd = round(
+        len(df_ouverture.loc[~df_ouverture["hvd_category"].isna()]) / len(df_ouverture) * 100, 1
+    )
+    pct_api = round(
+        len(df_ouverture.loc[~df_ouverture["endpoint_url_datagouv"].isna()]) / len(df_ouverture) * 100, 1
+    )
+    pct_contact_point = round(len(df_ouverture.loc[
+        (~df_ouverture["endpoint_url_datagouv"].isna()) & (~df_ouverture["contact_point_datagouv"].isna())
+    ]) / len(df_ouverture.loc[~df_ouverture["endpoint_url_datagouv"].isna()]) * 100, 1)
+    pct_endpoint_doc = round(len(df_ouverture.loc[
+        (~df_ouverture["endpoint_url_datagouv"].isna()) & (~df_ouverture["endpoint_description_datagouv"].isna())
+    ]) / len(df_ouverture.loc[~df_ouverture["endpoint_url_datagouv"].isna()]) * 100, 1)
+
+    message += f"\n- {pct_cat_hvd}% ont une catégorie HVD renseignée"
+    message += f"\n- {pct_api}% ont une API"
+    message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
+    message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
