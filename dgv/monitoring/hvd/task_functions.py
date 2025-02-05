@@ -37,10 +37,6 @@ def get_hvd(ti):
         table_id="Hvd_metadata_res",
         columns_labels=False,
     )
-    categories = {
-        slugify(cat): cat
-        for cat in get_unique_values_from_multiple_choice_column(df_ouverture['hvd_category'])
-    }
 
     print("Getting datasets catalog")
     df_datasets = pd.read_csv(
@@ -50,31 +46,24 @@ def get_hvd(ti):
     )
 
     print("Merging")
-    df_merge = df_datasets.merge(
+    df_merge = pd.merge(
         df_ouverture,
+        df_datasets,
         on='url',
-        how='outer',
-    )
-    df_merge['tagged_hvd'] = df_merge['tags'].str.contains('hvd') | False
-    df_merge['hvd_category'] = (
-        df_merge['tags'].fillna('').apply(
-            lambda tags: next((tag for tag in tags.split(',') if tag in categories.keys()), None)
-        )
+        how='left',
     )
     valid_statuses = ["Disponible sur data.gouv.fr", "Partiellement disponible", "Non requis"]
-    df_merge = (
-        df_merge.loc[
-            (
-                df_merge['status_telechargement_automatique'].isin(valid_statuses)
-                & df_merge['status_api_automatique'].isin(valid_statuses)
-            ),
-            [
-                'title', 'url', 'in_ouverture', 'tagged_hvd', 'hvd_name',
-                'hvd_category', 'organization', 'organization_id', 'license',
-                'endpoint_url_datagouv', 'contact_point_datagouv', 'endpoint_description_datagouv',
-            ]
+    df_merge = df_merge.loc[
+        (
+            df_merge['status_telechargement_automatique'].isin(valid_statuses)
+            | df_merge['status_api_automatique'].isin(valid_statuses)
+        ),
+        [
+            'title', 'url', 'hvd_name', 'hvd_category',
+            'organization', 'organization_id', 'license',
+            'endpoint_url_datagouv', 'contact_point_datagouv', 'endpoint_description_datagouv',
         ]
-    )
+    ]
     print(df_merge)
     filename = f'hvd_{datetime.now().strftime("%Y-%m-%d")}.csv'
     df_merge.to_csv(f"{DATADIR}/{filename}", index=False)
@@ -183,18 +172,26 @@ def publish_mattermost(ti):
         table_id="Hvd_metadata_res",
         columns_labels=False,
     )
+    for col in [
+        "hvd_category",
+        "endpoint_url_datagouv",
+        "contact_point_datagouv",
+        "endpoint_description_datagouv",
+    ]:
+        df_ouverture[col] = df_ouverture[col].fillna("")
+
     pct_cat_hvd = round(
-        len(df_ouverture.loc[~df_ouverture["hvd_category"].isna()]) / len(df_ouverture) * 100, 1
+        len(df_ouverture.loc[df_ouverture["hvd_category"] != ""]) / len(df_ouverture) * 100, 1
     )
     pct_api = round(
-        len(df_ouverture.loc[~df_ouverture["endpoint_url_datagouv"].isna()]) / len(df_ouverture) * 100, 1
+        len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) / len(df_ouverture) * 100, 1
     )
     pct_contact_point = round(len(df_ouverture.loc[
-        (~df_ouverture["endpoint_url_datagouv"].isna()) & (~df_ouverture["contact_point_datagouv"].isna())
-    ]) / len(df_ouverture.loc[~df_ouverture["endpoint_url_datagouv"].isna()]) * 100, 1)
+        (df_ouverture["endpoint_url_datagouv"] != "") & (df_ouverture["contact_point_datagouv"] != "")
+    ]) / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) * 100, 1)
     pct_endpoint_doc = round(len(df_ouverture.loc[
-        (~df_ouverture["endpoint_url_datagouv"].isna()) & (~df_ouverture["endpoint_description_datagouv"].isna())
-    ]) / len(df_ouverture.loc[~df_ouverture["endpoint_url_datagouv"].isna()]) * 100, 1)
+        (df_ouverture["endpoint_url_datagouv"] != "") & (df_ouverture["endpoint_description_datagouv"] != "")
+    ]) / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) * 100, 1)
 
     message += f"\n- {pct_cat_hvd}% ont une catégorie HVD renseignée"
     message += f"\n- {pct_api}% ont une API"
