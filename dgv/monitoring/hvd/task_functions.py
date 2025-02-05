@@ -194,7 +194,8 @@ def publish_mattermost(ti):
     ]) / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) * 100, 1)
 
     message += f"\n- {pct_cat_hvd}% ont une catégorie HVD renseignée"
-    message += f"\n- {pct_api}% ont une API"
+    message += f"\n- {pct_api}% ont au moins une API"
+
     message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
     message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
