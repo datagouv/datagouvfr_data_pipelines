@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message, MAX_MESSAGE_LENGTH
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.grist import (
     get_table_as_df,
@@ -113,9 +113,9 @@ def publish_mattermost(ti):
         return
     all_hvd_names = set(get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd",
+        table_id="Adresses",
         columns_labels=False,
-    )["Ensemble_de_donnees"].dropna().drop_duplicates().to_list())
+    )["hvd_name"])
     goal = len(all_hvd_names)
 
     previous_week = pd.read_csv(StringIO(
