@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.postgres import (
     execute_sql_file,
-    copy_file
+    copy_file,
 )
 from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -253,8 +253,7 @@ def populate_copro_table():
         usecols=mapping.keys()
     )
     copro = copro.rename(mapping, axis=1)
-    mask = copro['commune'].str.len() == 5
-    copro = copro.loc[mask]
+    copro = copro.loc[copro['commune'].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
     table = f'{schema}.copro' if schema else "copro"
     populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
@@ -304,10 +303,9 @@ def populate_whole_period_table():
 
 
 def get_epci():
-    page = requests.get(
+    epci = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
-    )
-    epci = page.json()
+    ).json()
     data = [
         {
             "code_epci": e["code"],
@@ -322,7 +320,7 @@ def get_epci():
         for commune in d["liste_membres"]
     ]
     pd.DataFrame(
-        epci_list, columns=["code_commune", "code_epci", "libelle_geo"]
+        epci_list, columns=["code_commune", "code_epci", "libelle_geo"],
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
@@ -343,7 +341,7 @@ def process_dpe():
     }
     cols_parcelles = [
         "batiment_groupe_id",
-        "parcelle_id"
+        "parcelle_id",
     ]
     print("Import des batiment_id pour imports segmentés")
     # these files are too big to be loaded at once
@@ -399,7 +397,7 @@ def process_dpe():
         dpe_parcelled = dpe.join(
             parcelles,
             on='batiment_groupe_id',
-            how='left'
+            how='left',
         )
         del dpe
         del parcelles
@@ -446,7 +444,7 @@ def process_dvf_stats():
         DATADIR + "/epci.csv",
         sep=",",
         encoding="utf8",
-        dtype=str
+        dtype=str,
     )
     sections_from_dvf = set()
     communes_from_dvf = set()
@@ -650,7 +648,7 @@ def process_dvf_stats():
 
                 merged.rename(
                     columns={f"code_{echelle}": "code_geo"},
-                    inplace=True
+                    inplace=True,
                 )
                 dfs_dict[echelle] = merged
 
@@ -662,8 +660,8 @@ def process_dvf_stats():
                     )
                 ] = len(
                     ventes.loc[
-                        (ventes["code_type_local"] == t) &
-                        (ventes["month"] == m)
+                        (ventes["code_type_local"] == t)
+                        & (ventes["month"] == m)
                     ]
                 )
                 general[
@@ -672,8 +670,8 @@ def process_dvf_stats():
                     )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t) &
-                        (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t)
+                        & (ventes_nodup["month"] == m)
                     ]["prix_m2"].mean()
                 )
                 general[
@@ -682,27 +680,27 @@ def process_dvf_stats():
                     )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t) &
-                        (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t)
+                        & (ventes_nodup["month"] == m)
                     ]["prix_m2"].median()
                 )
 
             general["nb_ventes_apt_maison"] = len(
                 ventes.loc[
-                    (ventes["code_type_local"].isin([1, 2])) &
-                    (ventes["month"] == m)
+                    (ventes["code_type_local"].isin([1, 2]))
+                    & (ventes["month"] == m)
                 ]
             )
             general["moy_prix_m2_apt_maison"] = np.round(
                 ventes_nodup.loc[
-                    (ventes_nodup["code_type_local"].isin([1, 2])) &
-                    (ventes_nodup["month"] == m)
+                    (ventes_nodup["code_type_local"].isin([1, 2]))
+                    & (ventes_nodup["month"] == m)
                 ]["prix_m2"].mean()
             )
             general["med_prix_m2_apt_maison"] = np.round(
                 ventes_nodup.loc[
-                    (ventes_nodup["code_type_local"].isin([1, 2])) &
-                    (ventes_nodup["month"] == m)
+                    (ventes_nodup["code_type_local"].isin([1, 2]))
+                    & (ventes_nodup["month"] == m)
                 ]["prix_m2"].median()
             )
 
@@ -726,7 +724,7 @@ def process_dvf_stats():
         sections = [s.replace('\n', '') for s in f.readlines()]
     sections = pd.DataFrame(
         set(sections) | sections_from_dvf,
-        columns=['code_geo']
+        columns=['code_geo'],
     )
     sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
     sections = sections.drop_duplicates()
@@ -734,10 +732,10 @@ def process_dvf_stats():
     sections['libelle_geo'] = sections['code_geo']
     sections['echelle_geo'] = 'section'
     departements = pd.read_csv(
-        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
+        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"],
     )
     departements = departements.rename(
-        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
+        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1,
     )
     departements['code_parent'] = 'nation'
     departements['echelle_geo'] = 'departement'
@@ -747,14 +745,14 @@ def process_dvf_stats():
     )
     epci = epci.drop("code_commune", axis=1)
     epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
-        {"code_epci": "code_geo"}, axis=1
+        {"code_epci": "code_geo"}, axis=1,
     )
     epci['echelle_geo'] = 'epci'
 
     communes = pd.read_csv(
         DATADIR + "/communes.csv",
         dtype=str,
-        usecols=["TYPECOM", "COM", "LIBELLE"]
+        usecols=["TYPECOM", "COM", "LIBELLE"],
     )
     communes = (
         communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
@@ -832,7 +830,7 @@ def process_dvf_stats():
             ]
         mask = export[year]['code_geo'] == 'nation'
         export[year].loc[mask, ['code_parent', 'libelle_geo', 'echelle_geo']] = [
-            ['-', 'nation', 'nation'] for k in range(sum(mask))
+            ['-', 'nation', 'nation'] for _ in range(sum(mask))
         ]
         del mask
         export[year] = export[year][reordered_columns]
@@ -843,7 +841,7 @@ def process_dvf_stats():
             index=False,
             float_format="%.0f",
             mode='w' if year == min(years) else 'a',
-            header=True if year == min(years) else False
+            header=True if year == min(years) else False,
         )
         print("Done with first export (API table)")
 
@@ -861,7 +859,7 @@ def process_dvf_stats():
             index=False,
             float_format="%.0f",
             mode='w' if year == min(years) else 'a',
-            header=True if year == min(years) else False
+            header=True if year == min(years) else False,
         )
         del export[year]
         print("Done with year " + str(year))
@@ -878,7 +876,7 @@ def create_distribution_and_stats_whole_period():
     def distrib_from_prix(
         prix,
         nb_tranches=10,
-        arrondi=True
+        arrondi=True,
     ):
         # 1er et dernier quantiles gardés
         # on coupe le reste des données en tranches égales de prix (!= volumes)
@@ -930,7 +928,7 @@ def create_distribution_and_stats_whole_period():
         sep=",",
         encoding="utf8",
         usecols=['code_geo', 'echelle_geo', 'code_parent', 'libelle_geo'],
-        dtype=str
+        dtype=str,
     )
     echelles = echelles.drop_duplicates()
     # on récupère les données DVF
@@ -946,7 +944,7 @@ def create_distribution_and_stats_whole_period():
         DATADIR + "/epci.csv",
         sep=",",
         encoding="utf8",
-        dtype=str
+        dtype=str,
     )
     to_keep = [
         "id_mutation",
@@ -986,8 +984,8 @@ def create_distribution_and_stats_whole_period():
         # choix : les terres et/ou dépendances ne rendent pas une mutation
         # multitype
         ventes = df.loc[
-            (df["nature_mutation"].isin(natures_of_interest)) &
-            (df["code_type_local"].isin([1, 2, 4]))
+            (df["nature_mutation"].isin(natures_of_interest))
+            & (df["code_type_local"].isin([1, 2, 4]))
         ]
         del df
 
@@ -1015,14 +1013,14 @@ def create_distribution_and_stats_whole_period():
         dvf,
         epci[['code_commune', 'code_epci']],
         on="code_commune",
-        how="left"
+        how="left",
     )
     # bool is for distribution calculation
     echelles_of_interest = {
         "departement": True,
         "epci": True,
         "commune": True,
-        "section": False
+        "section": False,
     }
     types_of_interest = {
         'appartement': [2],
@@ -1087,21 +1085,21 @@ def create_distribution_and_stats_whole_period():
                                 'code_geo': code,
                                 'type_local': t,
                                 'xaxis': intervalles,
-                                'yaxis': volumes
+                                'yaxis': volumes,
                             })
                         else:
                             tranches.append({
                                 'code_geo': code,
                                 'type_local': t,
                                 'xaxis': None,
-                                'yaxis': None
+                                'yaxis': None,
                             })
                     else:
                         tranches.append({
                             'code_geo': code,
                             'type_local': t,
                             'xaxis': None,
-                            'yaxis': None
+                            'yaxis': None,
                         })
                 print("- Done with distribution")
             else:
@@ -1127,7 +1125,7 @@ def create_distribution_and_stats_whole_period():
         sep=",",
         encoding="utf8",
         index=False,
-        float_format='%.0f'
+        float_format='%.0f',
     )
 
 
@@ -1145,7 +1143,7 @@ def send_stats_to_minio():
                 "source_name": "stats_whole_period.csv",
                 "dest_path": "dvf/",
                 "dest_name": "stats_whole_period.csv",
-            }
+            },
         ],
     )
 
@@ -1158,7 +1156,7 @@ def send_distribution_to_minio():
                 "source_name": "distribution_prix.csv",
                 "dest_path": "dvf/",
                 "dest_name": "distribution_prix.csv",
-            }
+            },
         ],
     )
 
