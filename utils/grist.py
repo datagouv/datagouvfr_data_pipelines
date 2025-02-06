@@ -255,12 +255,12 @@ def update_records(
     handle_grist_error(r)
 
 
-def get_unique_values_from_multiple_choice_column(column: pd.Series, tmp_sep=";") -> set:
+def get_unique_values_from_multiple_choice_column(column: pd.Series) -> set:
     # multiple choice columns look like ["L", "val1", "val2", ...]
     # this returns all unique single possible values
-    # you may choose a different separator if the default one is problematic for the column's content
-    return set(
-        name for name in tmp_sep.join(column.apply(
-            lambda l: tmp_sep.join(x for x in l if x != "L") if isinstance(l, list) else ""
-        )).split(tmp_sep) if name
-    )
+    unique = set()
+    for cell in column:
+        if cell:
+            unique = unique | set(cell)
+    unique.remove("L")
+    return unique
