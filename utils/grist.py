@@ -258,9 +258,4 @@ def update_records(
 def get_unique_values_from_multiple_choice_column(column: pd.Series) -> set:
     # multiple choice columns look like ["L", "val1", "val2", ...]
     # this returns all unique single possible values
-    unique = set()
-    for cell in column:
-        if cell:
-            unique = unique | set(cell)
-    unique.remove("L")
-    return unique
+    return set([value for cell in column if cell for value in cell if value != "L"])
