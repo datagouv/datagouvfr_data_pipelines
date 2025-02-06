@@ -113,7 +113,7 @@ def publish_mattermost(ti):
         return
     all_hvd_names = set(get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Adresses",
+        table_id="Hvd_names",
         columns_labels=False,
     )["hvd_name"])
     goal = len(all_hvd_names)
