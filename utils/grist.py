@@ -253,3 +253,9 @@ def update_records(
         },
     )
     handle_grist_error(r)
+
+
+def get_unique_values_from_multiple_choice_column(column: pd.Series) -> set:
+    # multiple choice columns look like ["L", "val1", "val2", ...]
+    # this returns all unique single possible values
+    return set([value for cell in column if cell for value in cell if value != "L"])
