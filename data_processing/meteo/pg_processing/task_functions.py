@@ -9,20 +9,15 @@ import csv
 from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
-import psycopg2
 from typing import Optional
 import pandas as pd
-from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.postgres import (
-    execute_sql_file,
-    execute_query,
-)
+from datagouvfr_data_pipelines.utils.postgres import PostgresTool
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -35,16 +30,9 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
 minio_meteo = MinIOClient(bucket='meteofrance')
 
 
-conn = BaseHook.get_connection("POSTGRES_METEO")
-db_params = {
-    'database': conn.schema,
-    'user': conn.login,
-    'password': conn.password,
-    'host': conn.host,
-    'port': conn.port,
-}
-
 SCHEMA_NAME = 'meteo'
+pgtool = PostgresTool(conn_name="POSTGRES_METEO", schema=SCHEMA_NAME)
+
 TIMEOUT = 60 * 5
 
 
@@ -110,33 +98,17 @@ def create_tables_if_not_exists(ti):
     with open(f"{DATADIR}create.sql", 'w') as file:
         file.write(output)
 
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": DATADIR,
-                "source_name": "create.sql",
-            }
-        ],
-        SCHEMA_NAME,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": DATADIR,
+            "source_name": "create.sql",
+        },
     )
 
 
 # %%
 def retrieve_latest_processed_date(ti):
-    data = execute_query(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        "SELECT MAX(processed) FROM dag_processed;",
-        SCHEMA_NAME,
-    )
+    data = pgtool.execute_query("SELECT MAX(processed) FROM dag_processed;")
     print(data)
     ti.xcom_push(key="latest_processed_date", value=data[0]["max"])
 
@@ -261,7 +233,7 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
 
-        _conn = psycopg2.connect(**db_params)
+        _conn = pgtool.conn
         _conn.autocommit = False
         _failed = False
         try:
@@ -619,14 +591,8 @@ def insert_latest_date_pg(ti):
         task_ids="set_max_date"
     )
     print(new_latest_date)
-    execute_query(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
+    pgtool.execute_query(
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
-        SCHEMA_NAME,
     )
 
 

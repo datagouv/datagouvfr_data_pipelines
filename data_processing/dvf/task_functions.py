@@ -8,7 +8,6 @@ import requests
 from datetime import datetime
 import json
 from functools import reduce
-from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -18,10 +17,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.postgres import (
-    execute_sql_file,
-    copy_file,
-)
+from datagouvfr_data_pipelines.utils.postgres import PostgresTool
 from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -29,13 +25,12 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 DPEDIR = f"{DATADIR}/dpe/"
-schema = 'dvf'
+schema = "dvf"
 
-if AIRFLOW_ENV == 'prod':
-    conn = BaseHook.get_connection("POSTGRES_DVF")
-else:
-    conn = BaseHook.get_connection("postgres_localhost")
-
+pgtool = PostgresTool(
+    conn_name="POSTGRES_DVF" if AIRFLOW_ENV == "prod" else "postgres_localhost",
+    schema=schema,
+)
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
@@ -48,141 +43,71 @@ def get_year_interval() -> tuple[int, int]:
     return today.year - 5, today.year
 
 
+def build_table_name(table: str) -> str:
+    # modify this to suit your local database structure
+    return f'{schema}.{table}' if AIRFLOW_ENV == "prod" else table
+
+
 def create_copro_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_copro_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "create_copro_table.sql",
+        },
     )
 
 
 def create_dpe_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_dpe_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "create_dpe_table.sql",
+        },
     )
 
 
 def create_dvf_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_dvf_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "create_dvf_table.sql",
+        },
     )
 
 
 def index_dvf_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "index_dvf_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "index_dvf_table.sql",
+        },
     )
 
 
 def create_stats_dvf_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_stats_dvf_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "create_stats_dvf_table.sql",
+        },
     )
 
 
 def create_distribution_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_distribution_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "create_distribution_table.sql",
+        },
     )
 
 
 def create_whole_period_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_whole_period_table.sql",
-            }
-        ],
-        schema,
-    )
-
-
-def populate_utils(files: list[str], table: str, has_header: bool) -> None:
-    format_files = []
-    for file in files:
-        format_files.append(
-            {"source_path": f"{DATADIR}/", "source_name": file.split("/")[-1]}
-        )
-    copy_file(
-        PG_HOST=conn.host,
-        PG_PORT=conn.port,
-        PG_DB=conn.schema,
-        PG_TABLE=table,
-        PG_USER=conn.login,
-        PG_PASSWORD=conn.password,
-        list_files=format_files,
-        PG_SCHEMA=schema,
-        has_header=has_header,
+    pgtool.execute_sql_file(
+        file={
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "create_whole_period_table.sql",
+        },
     )
 
 
@@ -255,51 +180,62 @@ def populate_copro_table() -> None:
     copro = copro.rename(mapping, axis=1)
     copro = copro.loc[copro['commune'].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
-    table = f'{schema}.copro' if schema else "copro"
-    populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
+    pgtool.copy_file(
+        file={"source_path": f"{DATADIR}/", "source_name": "copro_clean.csv"},
+        table=build_table_name("copro"),
+        has_header=True,
+    )
 
 
 def populate_distribution_table() -> None:
-    table = f'{schema}.distribution_prix' if schema else "distribution_prix"
-    populate_utils([f"{DATADIR}/distribution_prix.csv"], table, True)
+    pgtool.copy_file(
+        file={"source_path": f"{DATADIR}/", "source_name": "distribution_prix.csv"},
+        table=build_table_name("distribution_prix"),
+        has_header=True,
+    )
 
 
 def populate_dvf_table() -> None:
     files = glob.glob(f"{DATADIR}/full*.csv")
-    table = f'{schema}.dvf' if schema else "dvf"
-    populate_utils(files, table, True)
+    for file in files:
+        pgtool.copy_file(
+            file={"source_path": f"{DATADIR}/", "source_name": file},
+            table=build_table_name("dvf"),
+            has_header=True,
+        )
 
 
 def alter_dvf_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "alter_dvf_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        {
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "alter_dvf_table.sql",
+        },
     )
 
 
 def populate_stats_dvf_table() -> None:
-    table = f'{schema}.stats_dvf' if schema else "stats_dvf"
-    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], table, True)
+    pgtool.copy_file(
+        file={"source_path": f"{DATADIR}/", "source_name": "stats_dvf_api.csv"},
+        table=build_table_name("stats_dvf"),
+        has_header=True,
+    )
 
 
 def populate_dpe_table() -> None:
-    table = f'{schema}.dpe' if schema else "dpe"
-    populate_utils([f"{DATADIR}/all_dpe.csv"], table, False)
+    pgtool.copy_file(
+        file={"source_path": f"{DATADIR}/", "source_name": "all_dpe.csv"},
+        table=build_table_name("dpe"),
+        has_header=False,
+    )
 
 
 def populate_whole_period_table() -> None:
-    table = f'{schema}.stats_whole_period' if schema else "stats_whole_period"
-    populate_utils([f"{DATADIR}/stats_whole_period.csv"], table, True)
+    pgtool.copy_file(
+        file={"source_path": f"{DATADIR}/", "source_name": "stats_whole_period.csv"},
+        table=build_table_name("stats_whole_period"),
+        has_header=True,
+    )
 
 
 def get_epci() -> None:
@@ -415,19 +351,11 @@ def process_dpe() -> None:
 
 
 def index_dpe_table() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "index_dpe_table.sql",
-            }
-        ],
-        schema,
+    pgtool.execute_sql_file(
+        {
+            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            "source_name": "index_dpe_table.sql",
+        },
     )
 
 
