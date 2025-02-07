@@ -413,7 +413,7 @@ def update_grist(ti):
         )
         r.raise_for_status()
         r = r.json()
-        to_send.append(hvd_id, r['title'], r['organization']['name'])
+        to_send.append((hvd_id, r['title'], r['organization']['name']))
     message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
     for _id, title, orga in to_send:
         message += (
