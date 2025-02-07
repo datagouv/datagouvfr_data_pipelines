@@ -11,6 +11,7 @@ import re
 from jinja2 import Environment, FileSystemLoader
 from typing import Optional
 import pandas as pd
+import psycopg2
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
