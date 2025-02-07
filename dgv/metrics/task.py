@@ -5,7 +5,6 @@ import tarfile
 from datetime import date, datetime, timedelta
 
 import pandas as pd
-from airflow.hooks.base import BaseHook
 from tqdm import tqdm
 
 from datagouvfr_data_pipelines.config import (
@@ -21,12 +20,7 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import remove_files_from_directory
 from datagouvfr_data_pipelines.utils.minio import MinIOClient, File as MinioFile
-from datagouvfr_data_pipelines.utils.postgres import (
-    File,
-    copy_file,
-    execute_query,
-    execute_sql_file,
-)
+from datagouvfr_data_pipelines.utils.postgres import PostgresTool, File
 from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
@@ -34,7 +28,7 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
 minio_client = MinIOClient(bucket=MINIO_BUCKET_INFRA)
-conn = BaseHook.get_connection("POSTGRES_METRIC")
+pgtool = PostgresTool(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"
 FOUND_FOLDER = f"{TMP_FOLDER}found/"
@@ -42,20 +36,12 @@ OUTPUT_FOLDER = f"{TMP_FOLDER}outputs/"
 
 
 def create_metrics_tables() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            File(
-                source_path=f"{config.code_folder_full_path}/sql/",
-                source_name="create_tables.sql",
-                column_order=None,
-                header=None,
-            )
-        ],
+    pgtool.execute_sql_file(
+        file=File(
+            source_path=f"{config.code_folder_full_path}/sql/",
+            source_name="create_tables.sql",
+            column_order=None,
+        ),
     )
 
 
@@ -151,7 +137,8 @@ def aggregate_log(ti) -> None:
             )
 
             if obj_config.type in ["resources"]:
-                # Resource catalog has no slug column but only URLs starting with https://static.data.gouv.fr/resources/..
+                # Resource catalog has no slug column but only URLs starting with
+                # https://static.data.gouv.fr/resources/..
                 df_catalog["slug"] = df_catalog["url"].apply(
                     lambda x: str(x).replace(
                         "https://static.data.gouv.fr/resources/", ""
@@ -160,7 +147,10 @@ def aggregate_log(ti) -> None:
                 # A few resource_id are common to multiple datasets
                 # Deduplicate them with priority to "dataset.archived" as False
                 # Otherwise keep the last one created
-                df_catalog = df_catalog.sort_values(by=["dataset.archived", "created_at"], ascending=[True, False])
+                df_catalog = df_catalog.sort_values(
+                    by=["dataset.archived", "created_at"],
+                    ascending=[True, False]
+                )
                 df_catalog = df_catalog.drop_duplicates(subset=["id"], keep="first")
 
             catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
@@ -218,7 +208,8 @@ def aggregate_log(ti) -> None:
                 header=False,
             )
             logging.info(
-                f"> Output saved in {obj_config.type}-{log_date}.csv ({df.shape[0]} rows). With columns: {obj_config.output_columns}"
+                f"> Output saved in {obj_config.type}-{log_date}.csv ({df.shape[0]} rows)."
+                f" With columns: {obj_config.output_columns}"
             )
             processed_dates = list(df["date_metric"].unique())
             dates_processed = get_unique_list(dates_processed, processed_dates)
@@ -237,37 +228,22 @@ def remove_existing_metrics_from_postgres(ti) -> None:
         logging.info(f"Deleting existing metrics from the {log_date} if they exists.")
         with open(f"{config.code_folder_full_path}/sql/remove_metrics.sql") as sql:
             sql_query = sql.read().replace("%%date%%", log_date)
-            execute_query(
-                conn.host,
-                conn.port,
-                conn.schema,
-                conn.login,
-                conn.password,
-                sql_query,
-            )
+            pgtool.execute_query(sql_query)
 
 
 def save_metrics_to_postgres() -> None:
     for obj_config in config.logs_config:
         for lf in glob.glob(f"{OUTPUT_FOLDER}{obj_config.type}-*"):
             if "-id-" not in lf and "-static-" not in lf:
-                copy_file(
-                    PG_HOST=conn.host,
-                    PG_PORT=conn.port,
-                    PG_DB=conn.schema,
-                    PG_TABLE=f"{config.database_schema}.visits_{obj_config.type}",
-                    PG_USER=conn.login,
-                    PG_PASSWORD=conn.password,
-                    list_files=[
-                        File(
-                            source_path="/".join(lf.split("/")[:-1]) + "/",
-                            source_name=lf.split("/")[-1],
-                            column_order="("
-                            + ", ".join(obj_config.output_columns)
-                            + ")",
-                            header=None,
-                        )
-                    ],
+                pgtool.copy_file(
+                    file=File(
+                        source_path="/".join(lf.split("/")[:-1]) + "/",
+                        source_name=lf.split("/")[-1],
+                        column_order="("
+                        + ", ".join(obj_config.output_columns)
+                        + ")",
+                    ),
+                    table=f"{config.database_schema}.visits_{obj_config.type}",
                     has_header=False,
                 )
 
@@ -280,20 +256,12 @@ def copy_logs_to_processed_folder(ti) -> None:
 
 
 def refresh_materialized_views() -> None:
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            File(
-                source_path=f"{config.code_folder_full_path}/sql/",
-                source_name="refresh_materialized_views.sql",
-                column_order=None,
-                header=None,
-            )
-        ],
+    pgtool.execute_sql_file(
+        file=File(
+            source_path=f"{config.code_folder_full_path}/sql/",
+            source_name="refresh_materialized_views.sql",
+            column_order=None,
+        ),
     )
 
 
@@ -363,20 +331,12 @@ def save_matomo_to_postgres() -> None:
     ]
     for obj in pg_config:
         for lf in glob.glob(f"{TMP_FOLDER}matomo-outputs/{obj['name']}-*"):
-            copy_file(
-                PG_HOST=conn.host,
-                PG_PORT=conn.port,
-                PG_DB=conn.schema,
-                PG_TABLE=f"{config.database_schema}.matomo_{obj['name']}",
-                PG_USER=conn.login,
-                PG_PASSWORD=conn.password,
-                list_files=[
-                    File(
-                        source_path="/".join(lf.split("/")[:-1]) + "/",
-                        source_name=lf.split("/")[-1],
-                        column_order=obj["columns"],
-                        header=None,
-                    )
-                ],
+            pgtool.copy_file(
+                file=File(
+                    source_path="/".join(lf.split("/")[:-1]) + "/",
+                    source_name=lf.split("/")[-1],
+                    column_order=obj["columns"],
+                ),
+                table=f"{config.database_schema}.matomo_{obj['name']}",
                 has_header=False,
             )
