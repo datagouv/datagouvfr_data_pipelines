@@ -77,6 +77,7 @@ def return_sql_results(cur) -> list[dict]:
         data = cur.fetchall()
     except psycopg2.ProgrammingError as e:
         print(e)
+        data = None
     if data:
         columns = [desc[0] for desc in cur.description]
         return [{k: v for k, v in zip(columns, d)} for d in data]
