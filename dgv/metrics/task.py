@@ -1,3 +1,4 @@
+from collections import defaultdict
 import glob
 import logging
 import os
@@ -137,23 +138,38 @@ def aggregate_log(ti) -> None:
             )
 
             if obj_config.type in ["resources"]:
-                # Resource catalog has no slug column but only URLs starting with
-                # https://static.data.gouv.fr/resources/..
-                df_catalog["slug"] = df_catalog["url"].apply(
-                    lambda x: str(x).replace(
-                        "https://static.data.gouv.fr/resources/", ""
-                    )
-                )
-                # A few resource_id are common to multiple datasets
-                # Deduplicate them with priority to "dataset.archived" as False
-                # Otherwise keep the last one created
-                df_catalog = df_catalog.sort_values(
-                    by=["dataset.archived", "created_at"],
-                    ascending=[True, False]
-                )
-                df_catalog = df_catalog.drop_duplicates(subset=["id"], keep="first")
+                catalog_dict: dict[str, str] = defaultdict()
+                static_uri = "https://static.data.gouv.fr/resources/"
 
-            catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
+                # Resource catalog has no slug column but static
+                # URLs starting with https://static.data.gouv.fr/resources/$SLUG
+                # Using a resource ID will trigger a redirect to its static URL so we want:
+                # 1. All the slugs from the static URLs
+                df_slugs = (
+                    df_catalog.loc[lambda df: df["url"].str.contains(static_uri)]
+                    .assign(slug=lambda df: df["url"].str.replace(static_uri, ""))
+                    .filter(items=["slug", "id"])
+                )
+                catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
+
+                # 2. All the IDs that don't have any static URL
+                #  Note: a few resource_id are common to multiple datasets
+                #  They need to be deduplicated with a priority to
+                #  "dataset.archived" as False otherwise keep the last one created
+                df_ids = (
+                    df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
+                    .sort_values(
+                        by=["dataset.archived", "created_at"], ascending=[True, False]
+                    )
+                    .drop_duplicates(subset=["id"], keep="first")
+                    .filter(items=["id"])
+                )
+                catalog_dict.update({id: id for id in df_ids["id"].to_list()})
+                logging.info(catalog_dict)
+            else:
+                # Get all slugs and IDs
+                catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
+
             # Replace slugs by their ID and make sure all IDs do exist in the catalog
             df["id"] = df["id"].apply(
                 lambda x: catalog_dict[x] if x in catalog_dict else None
