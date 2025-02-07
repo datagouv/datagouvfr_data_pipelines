@@ -350,19 +350,6 @@ def update_grist(ti):
     if fresh_hvd_metadata["id2"].nunique() != len(fresh_hvd_metadata):
         raise ValueError("New table has duplicated dataset ids")
     removed_hvd = set(old_hvd_metadata["id2"]) - set(fresh_hvd_metadata["id2"])
-    for hvd_id in removed_hvd:
-        r = requests.get(
-            f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
-            headers={"X-fields": "title,organization{name}"},
-        )
-        r.raise_for_status()
-        r = r.json()
-        send_message(
-            f":alert: Le jeu de données [{r['title']}](https://www.data.gouv.fr/fr/datasets/{hvd_id}/)"
-            f" de l'organisation {r['organization']['name']}"
-            " a perdu son tag HVD @clarisse",
-            MATTERMOST_MODERATION_NOUVEAUTES
-        )
     columns_to_update = [
         "resources_count",
         "hvd_category",
@@ -416,6 +403,24 @@ def update_grist(ti):
         append="lazy",
     )
     ti.xcom_push(key="new_rows", value=[(r["title"], r["url"], r["organization"]) for r in new_rows])
+    if not removed_hvd:
+        return len(new_rows)
+    to_send = []
+    for hvd_id in removed_hvd:
+        r = requests.get(
+            f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
+            headers={"X-fields": "title,organization{name}"},
+        )
+        r.raise_for_status()
+        r = r.json()
+        to_send.append(hvd_id, r['title'], r['organization']['name'])
+    message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
+    for _id, title, orga in to_send:
+        message += (
+            f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
+            f" de l'organisation {orga}"
+        )
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
     return len(new_rows)
 
 
