@@ -7,13 +7,24 @@ def test_extract_log_info():
     test_logs = [
         {
             "log": "2025-01-22T00:00:52.999112+01:00 slb-03 haproxy[2021969]: 127.0.0.1:42912 [22/Jan/2025:00:00:52.847]"
-            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/1/150/+151 302 +1002 - - --NN 200/164/4/0/0 0/0 "GET'
+            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/1/150/+151 200 +1002 - - --NN 200/164/4/0/0 0/0 "GET'
             ' /fr/datasets/r/0e644d39-d47e-49a1-85f1-83751e84768b HTTP/1.1"',
             "expected_output": (
                 "0e644d39-d47e-49a1-85f1-83751e84768b",
                 "resources",
                 "fr",
+            ),  # /fr/datasets/r/$ID (not available through a slug) + 200 status code
+        },
+        {
+            "log": "2025-01-22T15:37:40.179336+01:00 slb-04 haproxy[2624750]: 127.0.0.1:59725 [22/Jan/2025:15:37:40.164]"
+            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/dataweb-05 0/0/1/14/+15 302 +920 - - --VN 362/279/8/1/0 0/0 "GET'
+            ' https://www.data.gouv.fr/fr/datasets/r/001f9710-b218-4184-ba01-d99ca91bf5a4 HTTP/2.0"',
+            "expected_output": (
+                "001f9710-b218-4184-ba01-d99ca91bf5a4",
+                "resources",
+                "fr",
             ),  # /fr/datasets/r/$ID (not available through a slug) + 302 status code
+            # Output is not None but there will be a check later to exclude it from the counts if it is redirecting to a static resource we don't count this visit twice.
         },
         {
             "log": "2025-01-22T00:00:38.903679+01:00 slb-03 haproxy[2021969]: 127.0.0.1:38338 [22/Jan/2025:00:00:38.861]"
@@ -33,7 +44,17 @@ def test_extract_log_info():
                 "liste-des-juridictions-competentes-pour-les-communes-de-france/20240327-094434/2024-competences-territoriales.csv",
                 "resources",
                 "static_resource",
-            ),  # /resources/$SLUG (not available though an ID) + full path
+            ),  #
+        },
+        {
+            "log": "2025-01-22T15:56:05.536201+01:00 slb-04 haproxy[2624750]: 127.0.0.1:52460 [22/Jan/2025:15:56:05.463]"
+            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/dataweb-06 0/0/2/70/+72 200 +14380 - - --NN 325/241/3/3/0 0/0 "GET'
+            ' https://static.data.gouv.fr/bf/037c2b98965794bb9bce7c69b562125c7b1fb5abfe5d8cdbdd2646a295d2fa.ZIP HTTP/2.0"',
+            "expected_output": (
+                None,
+                None,
+                None,
+            ),  # static.data.gouv.fr but with old format. Not supported, they will be migrated to the new format.
         },
         {
             "log": "2025-01-22T06:50:55.046844+01:00 slb-04 haproxy[2624750]: 127.0.0.1:47438 [22/Jan/2025:06:50:54.938]"
@@ -64,6 +85,16 @@ def test_extract_log_info():
                 "datasets",
                 "en",
             ),  # /en/datasets/$SLUG
+        },
+        {
+            "log": "2024-11-13T23:09:16.940506+01:00 slb-04 haproxy[1234]: X.X.X.X [13/Nov/2024:23:09:16.929]"
+            ' DATAGOUVFR_RGS~ DATAGOUVFR/prod 0/0/1/2/+3 302 +432 - - --NN 313/227/5/3/0 0/0 "GET'
+            ' /datasets/57868ea9a3a7295d371adcfe/ HTTP/1.1"',
+            "expected_output": (
+                None,
+                None,
+                None,
+            ),  # /datasets/$ID will redirect to /fr/datasets/$SLUG so we don't want to count it
         },
         {
             "log": "2025-01-22T00:03:20.860506+01:00 slb-03 haproxy[2021969]: 127.0.0.1:6080 [22/Jan/2025:00:03:20.010]"
