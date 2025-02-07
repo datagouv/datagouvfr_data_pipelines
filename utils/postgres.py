@@ -32,14 +32,14 @@ class PostgresTool():
                 f"file {file['source_path']}{file['source_name']} does not exists"
             )
 
-    def execute_query(self, query: str) -> Optional[list[dict]]:
+    def execute_query(self, query: str) -> list[dict]:
         with self.conn.cursor() as cur:
             cur.execute(query)
             data = return_sql_results(cur)
             self.conn.commit()
         return data
 
-    def execute_sql_file(self, file: File) -> Optional[list[dict]]:
+    def execute_sql_file(self, file: File) -> list[dict]:
         self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
             cur.execute(
@@ -49,7 +49,7 @@ class PostgresTool():
             self.conn.commit()
             return data
 
-    def copy_file(self, file: File, table: str, has_header: bool) -> Optional[list[dict]]:
+    def copy_file(self, file: File, table: str, has_header: bool) -> list[dict]:
         self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
             cur.copy_expert(
@@ -64,7 +64,7 @@ class PostgresTool():
         return data
 
 
-def return_sql_results(cur) -> Optional[list[dict]]:
+def return_sql_results(cur) -> list[dict]:
     """Return data from a sql query
 
     Args:
@@ -73,7 +73,11 @@ def return_sql_results(cur) -> Optional[list[dict]]:
     Returns:
         dict, bool: result of sql query or None
     """
-    data = cur.fetchall()
+    try:
+        data = cur.fetchall()
+    except psycopg2.ProgrammingError as e:
+        print(e)
     if data:
         columns = [desc[0] for desc in cur.description]
         return [{k: v for k, v in zip(columns, d)} for d in data]
+    return []
