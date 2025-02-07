@@ -80,7 +80,7 @@ class MinIOClient:
                     dest_path = f"{file['dest_path']}{file['dest_name']}"
                 else:
                     dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
-                print("Sending " + file["source_path"] + file["source_name"])
+                print("⬆️ Sending " + file["source_path"] + file["source_name"])
                 print(f"to {self.bucket}/{dest_path}")
                 self.client.fput_object(
                     self.bucket,
