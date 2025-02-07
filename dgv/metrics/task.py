@@ -218,17 +218,24 @@ def aggregate_log(ti) -> None:
     ti.xcom_push(key="dates_processed", value=dates_processed)
 
 
-def remove_existing_metrics_from_postgres(ti) -> None:
+def visit_postgres_duplication_safety(ti) -> None:
     """
     In case we have to process some logs again, this task is making
     sure we don't end up duplicating the metrics on postgres.
     """
     processed_dates = ti.xcom_pull(key="dates_processed", task_ids="aggregate_log")
     for log_date in processed_dates:
-        logging.info(f"Deleting existing metrics from the {log_date} if they exists.")
-        with open(f"{config.code_folder_full_path}/sql/remove_metrics.sql") as sql:
-            sql_query = sql.read().replace("%%date%%", log_date)
-            pgtool.execute_query(sql_query)
+        logging.info(
+            f"Deleting existing visit metrics from the {log_date} if they exists."
+        )
+        pgtool.execute_sql_file(
+            File(
+                source_name="remove_visit_metrics.sql",
+                source_path=f"{config.code_folder_full_path}/sql/",
+                column_order=None,
+            ),
+            replacements={"%%date%%": log_date},
+        )
 
 
 def save_metrics_to_postgres() -> None:
@@ -239,9 +246,7 @@ def save_metrics_to_postgres() -> None:
                     file=File(
                         source_path="/".join(lf.split("/")[:-1]) + "/",
                         source_name=lf.split("/")[-1],
-                        column_order="("
-                        + ", ".join(obj_config.output_columns)
-                        + ")",
+                        column_order="(" + ", ".join(obj_config.output_columns) + ")",
                     ),
                     table=f"{config.database_schema}.visits_{obj_config.type}",
                     has_header=False,
@@ -265,7 +270,7 @@ def refresh_materialized_views() -> None:
     )
 
 
-def process_matomo() -> None:
+def process_matomo(ti) -> None:
     """
     Fetch matomo metrics for external links for reuses and sum these by orga
     """
@@ -315,7 +320,28 @@ def process_matomo() -> None:
         index=False,
         header=False,
     )
+    ti.xcom_push(key="dates_processed", value=[yesterday])
     logging.info("Matomo organisations outlinks processed!")
+
+
+def matomo_postgres_duplication_safety(ti) -> None:
+    """
+    In case we have to process some logs again, this task is making
+    sure we don't end up duplicating the matomo metrics on postgres.
+    """
+    processed_dates = ti.xcom_pull(key="dates_processed", task_ids="process_matomo")
+    for log_date in processed_dates:
+        logging.info(
+            f"Deleting existing matomo metrics from the {log_date} if they exists."
+        )
+        pgtool.execute_sql_file(
+            File(
+                source_name="remove_matomo_metrics.sql",
+                source_path=f"{config.code_folder_full_path}/sql/",
+                column_order=None,
+            ),
+            replacements={"%%date%%": log_date},
+        )
 
 
 def save_matomo_to_postgres() -> None:

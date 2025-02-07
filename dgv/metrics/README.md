@@ -14,3 +14,11 @@
 ## DAG
 
 ![Graphe du DAG](dag.png)
+
+## First run
+
+Execute the following queries against the database:
+```sql
+CREATE SCHEMA IF NOT EXISTS metric;
+CREATE DATABASE metric;
+```
