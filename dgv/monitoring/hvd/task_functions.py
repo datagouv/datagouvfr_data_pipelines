@@ -148,7 +148,7 @@ def publish_mattermost(ti):
     message += f"({minio_open.get_file_url('hvd/' + filename, ignore_airflow_env=True)}))\n"
     if len(new):
         message += (
-            f":heavy_plus_sign: {len(new)} JDD (pour {new['hvd_name'].nunique()} HVD) "
+            f":heavy_plus_sign: {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n"
         )
         for _, row in new.iterrows():
@@ -157,7 +157,7 @@ def publish_mattermost(ti):
         if len(new):
             message += '\n\n'
         message += (
-            f":heavy_minus_sign: {len(removed)} JDD (pour {removed['hvd_name'].nunique()} HVD) "
+            f":heavy_minus_sign: {len(removed)} JDD (pour {len(get_unique_values_from_multiple_choice_column(['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n"
         )
         for _, row in removed.iterrows():
