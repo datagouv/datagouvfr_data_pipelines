@@ -249,8 +249,6 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         if f not in minio_files
         or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
-    # TEMPORARY SKIP OF IN CONSTRUCTION FOLDERS
-    diff_files = [f for f in diff_files if "INFOS_POSTES" not in f]
     print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
     print(diff_files)
     if len(diff_files) == 0:
