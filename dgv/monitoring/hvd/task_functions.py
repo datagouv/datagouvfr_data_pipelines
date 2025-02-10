@@ -123,7 +123,7 @@ def publish_mattermost(ti):
     ))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
     this_week["hvd_name"] = this_week["hvd_name"].apply(
-        lambda l: eval(l) if isinstance(l, str) else l
+        lambda l: eval(l) if isinstance(l, str) else []
     )
 
     new = this_week.loc[
