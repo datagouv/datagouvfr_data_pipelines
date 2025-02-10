@@ -201,7 +201,7 @@ def publish_mattermost(ti):
     
     missing_hvd = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
     if len(missing_hvd):
-        message += f"\n\n{len(missing_hvd)} n'ont pas d'ensemble de données renseigné :"
+        message += f"\n\n{len(missing_hvd)} jeux de données n'ont pas d'ensemble de données renseigné :"
     for _, row in missing_hvd.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
