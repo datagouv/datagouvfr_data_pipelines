@@ -152,8 +152,7 @@ def publish_mattermost(ti):
             "par rapport à la semaine dernière\n"
         )
         for _, row in new.iterrows():
-            pass
-            # message += markdown_item(row)
+            message += markdown_item(row)
     if len(removed):
         if len(new):
             message += '\n\n'
@@ -162,8 +161,7 @@ def publish_mattermost(ti):
             "par rapport à la semaine dernière\n"
         )
         for _, row in removed.iterrows():
-            pass
-            # message += markdown_item(row)
+            message += markdown_item(row)
 
     if not (len(new) or len(removed)):
         # could also delete the latest file
