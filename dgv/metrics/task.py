@@ -174,7 +174,6 @@ def aggregate_log(ti) -> None:
                     .filter(items=["id"])
                 )
                 catalog_dict.update({id: id for id in df_ids["id"].to_list()})
-                logging.info(catalog_dict)
             else:
                 # Get all slugs and IDs
                 catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
