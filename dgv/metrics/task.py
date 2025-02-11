@@ -105,17 +105,26 @@ def process_log(ti) -> None:
         isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
         logging.info(f"Processing {isoformat_log_date} date...")
         for file_name in glob.glob(f"{TMP_FOLDER}*{log_date}*.tar.gz"):
-            lines = []
             with tarfile.open(file_name, "r:gz") as tar:
                 for log_file in tar:
                     logging.info(f"> Parsing {file_name} content: {log_file.name}...")
                     log_data = tar.extractfile(log_file)
-                    if log_data:
-                        lines += log_data.readlines()
-                    n_logs_processed = parse_logs(
-                        lines, isoformat_log_date, config.logs_config, FOUND_FOLDER
-                    )
-                    logging.info(f">> {n_logs_processed} log processed.")
+                    if not log_data:
+                        logging.info("Empty file!")
+                        break
+                    batch_size = 300_000_000 # One log line is around 290 bytes
+                    n_logs_found_total = 0
+                    while True:
+                        lines = log_data.readlines(batch_size)
+                        if not lines:
+                            break
+                        n_logs_processed = len(lines)
+                        n_logs_found = parse_logs(
+                            lines, isoformat_log_date, config.logs_config, FOUND_FOLDER
+                        )
+                        n_logs_found_total += n_logs_found
+                        logging.info(f">> {n_logs_processed} log processed. {n_logs_found} ({n_logs_found/n_logs_processed*100:.1f}%) relevant logs found.")
+                    logging.info(f">> Total of {n_logs_found_total} relevant log found.")
 
 
 def aggregate_log(ti) -> None:
@@ -165,7 +174,6 @@ def aggregate_log(ti) -> None:
                     .filter(items=["id"])
                 )
                 catalog_dict.update({id: id for id in df_ids["id"].to_list()})
-                logging.info(catalog_dict)
             else:
                 # Get all slugs and IDs
                 catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
