@@ -80,8 +80,8 @@ class MinIOClient:
                     dest_path = f"{file['dest_path']}{file['dest_name']}"
                 else:
                     dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
-                print("⬆️ Sending " + file["source_path"] + file["source_name"])
-                print(f"to {self.bucket}/{dest_path}")
+                logging.info("⬆️ Sending " + file["source_path"] + file["source_name"])
+                logging.info(f"to {self.bucket}/{dest_path}")
                 self.client.fput_object(
                     self.bucket,
                     dest_path,
@@ -168,22 +168,22 @@ class MinIOClient:
         )
 
         try:
-            print(f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}")
-            print(f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}")
+            logging.info(f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}")
+            logging.info(f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}")
             file_1 = s3.head_object(
                 Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}"
             )
             file_2 = s3.head_object(
                 Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}"
             )
-            print(f"Hash file 1 : {file_1['ETag']}")
-            print(f"Hash file 2 : {file_2['ETag']}")
-            print(bool(file_1["ETag"] == file_2["ETag"]))
+            logging.info(f"Hash file 1 : {file_1['ETag']}")
+            logging.info(f"Hash file 2 : {file_2['ETag']}")
+            logging.info(bool(file_1["ETag"] == file_2["ETag"]))
 
             return bool(file_1["ETag"] == file_2["ETag"])
 
         except botocore.exceptions.ClientError as e:
-            print("Error loading files:", e)
+            logging.info("Error loading files:", e)
             return None
 
     @simple_connection_retry
@@ -210,7 +210,7 @@ class MinIOClient:
             self.bucket, prefix=prefix, recursive=recursive
         )
         for obj in objects:
-            # print(obj.object_name)
+            # logging.info(obj.object_name)
             list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
         return list_objects
 
@@ -246,7 +246,7 @@ class MinIOClient:
         ):
             # copy an object from a bucket to another.
             logging.info(
-                f"{'Move' if remove_source_file else 'Copy'} {minio_bucket_source}/{AIRFLOW_ENV}/{path_source}"
+                f"{'Moving' if remove_source_file else 'Copying'} {minio_bucket_source}/{AIRFLOW_ENV}/{path_source}"
             )
             self.client.copy_object(
                 minio_bucket_source,
@@ -333,9 +333,9 @@ class MinIOClient:
         try:
             self.client.stat_object(self.bucket, file_path)
             self.client.remove_object(self.bucket, file_path)
-            print(f"File '{file_path}' deleted successfully.")
+            logging.info(f"File '{file_path}' deleted successfully.")
         except S3Error as e:
-            print(e)
+            logging.warning(e)
 
     @simple_connection_retry
     def dict_to_bytes_to_minio(
