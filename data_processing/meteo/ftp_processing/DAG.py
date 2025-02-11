@@ -42,6 +42,7 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=900),
     tags=["data_processing", "meteo"],
+    max_active_runs=1,
     default_args=default_args,
 ) as dag:
 
