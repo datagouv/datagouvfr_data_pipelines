@@ -1,7 +1,3 @@
--- Manually run the following:
--- CREATE SCHEMA IF NOT EXISTS metric;
--- CREATE DATABASE metric;
-
 -- Logs visits tables
 CREATE TABLE IF NOT EXISTS metric.visits_datasets
 (

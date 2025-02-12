@@ -123,7 +123,7 @@ def publish_mattermost(ti):
     ))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
     this_week["hvd_name"] = this_week["hvd_name"].apply(
-        lambda l: eval(l) if isinstance(l, str) else l
+        lambda l: eval(l) if isinstance(l, str) else []
     )
 
     new = this_week.loc[
@@ -148,7 +148,7 @@ def publish_mattermost(ti):
     message += f"({minio_open.get_file_url('hvd/' + filename, ignore_airflow_env=True)}))\n"
     if len(new):
         message += (
-            f":heavy_plus_sign: {len(new)} JDD (pour {new['hvd_name'].nunique()} HVD) "
+            f":heavy_plus_sign: {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n"
         )
         for _, row in new.iterrows():
@@ -157,7 +157,7 @@ def publish_mattermost(ti):
         if len(new):
             message += '\n\n'
         message += (
-            f":heavy_minus_sign: {len(removed)} JDD (pour {removed['hvd_name'].nunique()} HVD) "
+            f":heavy_minus_sign: {len(removed)} JDD (pour {len(get_unique_values_from_multiple_choice_column(['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n"
         )
         for _, row in removed.iterrows():
@@ -198,6 +198,12 @@ def publish_mattermost(ti):
 
     message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
     message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
+    
+    missing_hvd = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
+    if len(missing_hvd):
+        message += f"\n\n{len(missing_hvd)} jeux de données n'ont pas d'ensemble de données renseigné :"
+    for _, row in missing_hvd.iterrows():
+        message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 

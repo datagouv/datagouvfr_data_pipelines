@@ -301,10 +301,10 @@
         "table_name": "reanalyses_comephore"
     },
     "BASE/INFOS_POSTES": {
-        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<STATION>[^_]+).pdf",
-        "name_template": "Département {DEP} - station {STATION} ({ID})",
+        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<COMMUNE>[^_]+).pdf",
+        "name_template": "Departement_{DEP}_station_{ID}_commune_{COMMUNE}",
         "doc_pattern": null,
-        "description_template": "Fiche d'informations sur la station {STATION} ({ID})",
+        "description_template": "Fiche d'informations sur la station {ID}, commune de {COMMUNE}",
         "dataset_id": {
             "prod": "67a1e85a366f75613f750296",
             "dev": "67a0cfacb32d4139c7402602"
@@ -312,10 +312,10 @@
         "table_name": null
     },
     "BASE/INFOS_POSTES_COMP": {
-        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<STATION>[^_]+).pdf",
-        "name_template": "Département {DEP} - station {STATION} ({ID})",
+        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<COMMUNE>[^_]+).pdf",
+        "name_template": "Departement_{DEP}_station_{ID}_commune_{COMMUNE}",
         "doc_pattern": null,
-        "description_template": "Fiche d'informations sur la station {STATION} ({ID})",
+        "description_template": "Fiche d'informations sur la station {ID}, commune de {COMMUNE}",
         "dataset_id": {
             "prod": "67a1e983bf9d219de1d86bbd",
             "dev": "67a0cfdc2a98ab4e3079792d"

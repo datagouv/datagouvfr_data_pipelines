@@ -1,3 +1,4 @@
+from collections import defaultdict
 import glob
 import logging
 import os
@@ -104,17 +105,26 @@ def process_log(ti) -> None:
         isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
         logging.info(f"Processing {isoformat_log_date} date...")
         for file_name in glob.glob(f"{TMP_FOLDER}*{log_date}*.tar.gz"):
-            lines = []
             with tarfile.open(file_name, "r:gz") as tar:
                 for log_file in tar:
                     logging.info(f"> Parsing {file_name} content: {log_file.name}...")
                     log_data = tar.extractfile(log_file)
-                    if log_data:
-                        lines += log_data.readlines()
-                    n_logs_processed = parse_logs(
-                        lines, isoformat_log_date, config.logs_config, FOUND_FOLDER
-                    )
-                    logging.info(f">> {n_logs_processed} log processed.")
+                    if not log_data:
+                        logging.info("Empty file!")
+                        break
+                    batch_size = 300_000_000 # One log line is around 290 bytes
+                    n_logs_found_total = 0
+                    while True:
+                        lines = log_data.readlines(batch_size)
+                        if not lines:
+                            break
+                        n_logs_processed = len(lines)
+                        n_logs_found = parse_logs(
+                            lines, isoformat_log_date, config.logs_config, FOUND_FOLDER
+                        )
+                        n_logs_found_total += n_logs_found
+                        logging.info(f">> {n_logs_processed} log processed. {n_logs_found} ({n_logs_found/n_logs_processed*100:.1f}%) relevant logs found.")
+                    logging.info(f">> Total of {n_logs_found_total} relevant log found.")
 
 
 def aggregate_log(ti) -> None:
@@ -137,23 +147,37 @@ def aggregate_log(ti) -> None:
             )
 
             if obj_config.type in ["resources"]:
-                # Resource catalog has no slug column but only URLs starting with
-                # https://static.data.gouv.fr/resources/..
-                df_catalog["slug"] = df_catalog["url"].apply(
-                    lambda x: str(x).replace(
-                        "https://static.data.gouv.fr/resources/", ""
-                    )
-                )
-                # A few resource_id are common to multiple datasets
-                # Deduplicate them with priority to "dataset.archived" as False
-                # Otherwise keep the last one created
-                df_catalog = df_catalog.sort_values(
-                    by=["dataset.archived", "created_at"],
-                    ascending=[True, False]
-                )
-                df_catalog = df_catalog.drop_duplicates(subset=["id"], keep="first")
+                catalog_dict: dict[str, str] = defaultdict()
+                static_uri = "https://static.data.gouv.fr/resources/"
 
-            catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
+                # Resource catalog has no slug column but static
+                # URLs starting with https://static.data.gouv.fr/resources/$SLUG
+                # Using a resource ID will trigger a redirect to its static URL so we want:
+                # 1. All the slugs from the static URLs
+                df_slugs = (
+                    df_catalog.loc[lambda df: df["url"].str.contains(static_uri)]
+                    .assign(slug=lambda df: df["url"].str.replace(static_uri, ""))
+                    .filter(items=["slug", "id"])
+                )
+                catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
+
+                # 2. All the IDs that don't have any static URL
+                #  Note: a few resource_id are common to multiple datasets
+                #  They need to be deduplicated with a priority to
+                #  "dataset.archived" as False otherwise keep the last one created
+                df_ids = (
+                    df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
+                    .sort_values(
+                        by=["dataset.archived", "created_at"], ascending=[True, False]
+                    )
+                    .drop_duplicates(subset=["id"], keep="first")
+                    .filter(items=["id"])
+                )
+                catalog_dict.update({id: id for id in df_ids["id"].to_list()})
+            else:
+                # Get all slugs and IDs
+                catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
+
             # Replace slugs by their ID and make sure all IDs do exist in the catalog
             df["id"] = df["id"].apply(
                 lambda x: catalog_dict[x] if x in catalog_dict else None
@@ -218,17 +242,24 @@ def aggregate_log(ti) -> None:
     ti.xcom_push(key="dates_processed", value=dates_processed)
 
 
-def remove_existing_metrics_from_postgres(ti) -> None:
+def visit_postgres_duplication_safety(ti) -> None:
     """
     In case we have to process some logs again, this task is making
     sure we don't end up duplicating the metrics on postgres.
     """
     processed_dates = ti.xcom_pull(key="dates_processed", task_ids="aggregate_log")
     for log_date in processed_dates:
-        logging.info(f"Deleting existing metrics from the {log_date} if they exists.")
-        with open(f"{config.code_folder_full_path}/sql/remove_metrics.sql") as sql:
-            sql_query = sql.read().replace("%%date%%", log_date)
-            pgclient.execute_query(sql_query)
+        logging.info(
+            f"Deleting existing visit metrics from the {log_date} if they exists."
+        )
+        pgclient.execute_sql_file(
+            File(
+                source_name="remove_visit_metrics.sql",
+                source_path=f"{config.code_folder_full_path}/sql/",
+                column_order=None,
+            ),
+            replacements={"%%date%%": log_date},
+        )
 
 
 def save_metrics_to_postgres() -> None:
@@ -239,9 +270,7 @@ def save_metrics_to_postgres() -> None:
                     file=File(
                         source_path="/".join(lf.split("/")[:-1]) + "/",
                         source_name=lf.split("/")[-1],
-                        column_order="("
-                        + ", ".join(obj_config.output_columns)
-                        + ")",
+                        column_order="(" + ", ".join(obj_config.output_columns) + ")",
                     ),
                     table=f"{config.database_schema}.visits_{obj_config.type}",
                     has_header=False,
@@ -265,7 +294,7 @@ def refresh_materialized_views() -> None:
     )
 
 
-def process_matomo() -> None:
+def process_matomo(ti) -> None:
     """
     Fetch matomo metrics for external links for reuses and sum these by orga
     """
@@ -315,7 +344,28 @@ def process_matomo() -> None:
         index=False,
         header=False,
     )
+    ti.xcom_push(key="dates_processed", value=[yesterday])
     logging.info("Matomo organisations outlinks processed!")
+
+
+def matomo_postgres_duplication_safety(ti) -> None:
+    """
+    In case we have to process some logs again, this task is making
+    sure we don't end up duplicating the matomo metrics on postgres.
+    """
+    processed_dates = ti.xcom_pull(key="dates_processed", task_ids="process_matomo")
+    for log_date in processed_dates:
+        logging.info(
+            f"Deleting existing matomo metrics from the {log_date} if they exists."
+        )
+        pgtool.execute_sql_file(
+            File(
+                source_name="remove_matomo_metrics.sql",
+                source_path=f"{config.code_folder_full_path}/sql/",
+                column_order=None,
+            ),
+            replacements={"%%date%%": log_date},
+        )
 
 
 def save_matomo_to_postgres() -> None:

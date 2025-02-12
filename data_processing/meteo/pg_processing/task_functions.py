@@ -11,6 +11,8 @@ import re
 from jinja2 import Environment, FileSystemLoader
 from typing import Optional
 import pandas as pd
+import psycopg2
+from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -32,6 +34,14 @@ minio_meteo = MinIOClient(bucket='meteofrance')
 
 SCHEMA_NAME = 'meteo'
 pgclient = PostgresClient(conn_name="POSTGRES_METEO", schema=SCHEMA_NAME)
+conn = BaseHook.get_connection("POSTGRES_METEO")
+db_params = {
+    'database': conn.schema,
+    'user': conn.login,
+    'password': conn.password,
+    'host': conn.host,
+    'port': conn.port,
+}
 
 TIMEOUT = 60 * 5
 
@@ -233,7 +243,7 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
 
-        _conn = pgclient.conn
+        _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
         _failed = False
         try:

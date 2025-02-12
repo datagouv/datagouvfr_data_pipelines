@@ -11,7 +11,7 @@ class File(TypedDict):
     column_order: Optional[str]
 
 
-class PostgresClient():
+class PostgresClient:
 
     def __init__(self, conn_name: str, schema: Optional[str] = None):
         airflow_conn = BaseHook.get_connection(conn_name)
@@ -32,24 +32,31 @@ class PostgresClient():
                 f"file {file['source_path']}{file['source_name']} does not exists"
             )
 
-    def execute_query(self, query: str) -> Optional[list[dict]]:
+    def execute_query(self, query: str) -> list[dict]:
         with self.conn.cursor() as cur:
             cur.execute(query)
-            data = return_sql_results(cur)
+            data = self._return_sql_results(cur)
             self.conn.commit()
         return data
 
-    def execute_sql_file(self, file: File) -> Optional[list[dict]]:
+    def execute_sql_file(
+        self,
+        file: File,
+        replacements: dict[str, str] = {},
+    ) -> list[dict]:
         self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
-            cur.execute(
-                open(os.path.join(file["source_path"], file["source_name"]), "r").read()
-            )
-            data = return_sql_results(cur)
+            sql_query = open(
+                os.path.join(file["source_path"], file["source_name"]), "r"
+            ).read()
+            for old, new in replacements.items():
+                sql_query = sql_query.replace(old, new)
+            cur.execute(sql_query)
+            data = self._return_sql_results(cur)
             self.conn.commit()
-            return data
+        return data
 
-    def copy_file(self, file: File, table: str, has_header: bool) -> Optional[list[dict]]:
+    def copy_file(self, file: File, table: str, has_header: bool) -> list[dict]:
         self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
             cur.copy_expert(
@@ -59,21 +66,26 @@ class PostgresClient():
                 ),
                 file=open(os.path.join(file["source_path"], file["source_name"]), "r"),
             )
-            data = return_sql_results(cur)
+            data = self._return_sql_results(cur)
             self.conn.commit()
         return data
 
+    @staticmethod
+    def _return_sql_results(cur) -> list[dict]:
+        """Return data from a sql query
 
-def return_sql_results(cur) -> Optional[list[dict]]:
-    """Return data from a sql query
+        Args:
+            cur (Cursor): cursor from postgres connection
 
-    Args:
-        cur (Cursor): cursor from postgres connection
-
-    Returns:
-        dict, bool: result of sql query or None
-    """
-    data = cur.fetchall()
-    if data:
-        columns = [desc[0] for desc in cur.description]
-        return [{k: v for k, v in zip(columns, d)} for d in data]
+        Returns:
+                  list: result of sql query, or an empty list if no result
+        """
+        try:
+            data = cur.fetchall()
+        except psycopg2.ProgrammingError as e:
+            print(e)
+            data = None
+        if data:
+            columns = [desc[0] for desc in cur.description]
+            return [{k: v for k, v in zip(columns, d)} for d in data]
+        return []
