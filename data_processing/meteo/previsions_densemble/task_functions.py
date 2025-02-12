@@ -39,7 +39,7 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/previsions_densemble/config.jso
 
 
 def create_client():
-    return SFTPClient(conn_name="SFTP_TRANSFER", user="meteofrance")
+    return SFTPClient(conn_name="SSH_TRANSFER_INFRA_DATA_GOUV_FR", user="meteofrance")
 
 
 def get_file_infos(file_name: str):
