@@ -358,7 +358,7 @@ def matomo_postgres_duplication_safety(ti) -> None:
         logging.info(
             f"Deleting existing matomo metrics from the {log_date} if they exists."
         )
-        pgtool.execute_sql_file(
+        pgclient.execute_sql_file(
             File(
                 source_name="remove_matomo_metrics.sql",
                 source_path=f"{config.code_folder_full_path}/sql/",
