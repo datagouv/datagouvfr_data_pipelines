@@ -15,14 +15,23 @@ class SFTPClient:
         self,
         conn_name: str,
         user: str,
+        key_type: str = "RSA",
         host: str = SECRET_SFTP_HOST,
         accept_unknown_keys: bool = True,
     ):
+        if key_type not in ["RSA", "DSS", "ECDSA", "Ed25519"]:
+            raise ValueError(f"{key_type} is not a valid key type")
         conn_infos = BaseHook.get_connection(conn_name).extra_dejson
         if "private_key" in conn_infos:
-            private_key = paramiko.RSAKey.from_private_key(StringIO(conn_infos["private_key"]))
+            private_key = (
+                getattr(paramiko, key_type + "Key")
+                .from_private_key(StringIO(conn_infos["private_key"]))
+            )
         elif "key_file" in conn_infos:
-            private_key = paramiko.RSAKey.from_private_key_file(conn_infos["key_file"])
+            private_key = (
+                getattr(paramiko, key_type + "Key")
+                .from_private_key_file(conn_infos["key_file"])
+            )
         else:
             raise KeyError("None of the required keys could be found")
         self.ssh = paramiko.SSHClient()
