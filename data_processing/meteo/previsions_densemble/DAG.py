@@ -28,7 +28,7 @@ with DAG(
     schedule_interval=None,
     start_date=datetime(2024, 6, 1),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=120),
+    dagrun_timeout=timedelta(minutes=600),
     tags=["data_processing", "meteo", "sftp"],
     max_active_runs=1,
     default_args=default_args,
