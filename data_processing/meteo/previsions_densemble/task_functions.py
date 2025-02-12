@@ -108,8 +108,8 @@ def process_members(members: list[str], date: str, grid: str, pack: str, subpack
     )
     logging.info("> Cleaning")
     shutil.rmtree(DATADIR + tmp_folder)
-    # for file in members:
-    #     sftp.delete_file(upload_dir + file)
+    for file in members:
+        sftp.delete_file(upload_dir + file)
 
 
 def transfer_files_to_minio(ti, pack: str, subpack: str):
@@ -137,9 +137,9 @@ def transfer_files_to_minio(ti, pack: str, subpack: str):
                     sftp=sftp,
                 )
                 count += 1
-                if count > 200:
-                    print("Early stop")
-                    return count
+                # if count > 200:
+                #     print("Early stop")
+                #     return count
             elif nb < CONFIG[pack][subpack]["nb_membres"]:
                 logging.info(
                     f"Only {nb} members have arrived, waiting until {CONFIG[pack][subpack]['nb_membres']}"
@@ -247,4 +247,4 @@ def remove_old_occurrences(pack: str, subpack: str):
             )
             for file in files_to_delete:
                 # minio_meteo.delete_file(file)
-                print("deleting", file)
+                print("would delete", file)
