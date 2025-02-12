@@ -85,10 +85,7 @@ def get_files_list_on_sftp():
     for pack in to_process:
         for subpack in to_process[pack]:
             with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
-                d = to_process[pack][subpack]
-                json.dump(d, f)
-            with open(DATADIR + f"{pack}_{subpack}.yaml", "w") as f:
-                yaml.dump(to_process[pack][subpack], f)
+                json.dump(to_process[pack][subpack], f)
 
 
 def process_members(members: list[str], date: str, grid: str, pack: str, subpack: str, sftp):
@@ -123,11 +120,11 @@ def process_members(members: list[str], date: str, grid: str, pack: str, subpack
 
 
 def transfer_files_to_minio(pack: str, subpack: str):
-    with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
-        files = json.load(f)
-    if not files:
+    if not os.path.isfile(DATADIR + f"{pack}_{subpack}.json"):
         logging.info("No file to process, skipping")
         return
+    with open(DATADIR + f"{pack}_{subpack}.json", "r") as f:
+        files = json.load(f)
     # we are storing files by datetime => grid => members
     dates_grids = defaultdict(lambda: defaultdict(list))
     for file, infos in files.items():
