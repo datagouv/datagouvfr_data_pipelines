@@ -83,6 +83,7 @@ def get_files_list_on_sftp(ti):
     logging.info(f"{nb} files to process")
     for pack in to_process:
         for subpack in to_process[pack]:
+            print(pack, subpack, type(to_process[pack][subpack]), len(to_process[pack][subpack]))
             with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
                 json.dump(to_process[pack][subpack], f)
 
