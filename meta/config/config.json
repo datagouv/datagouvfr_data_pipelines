@@ -7,6 +7,7 @@
         "data_processing_geozones": true,
         "data_processing_meteo": true,
         "data_processing_meteo_hydra_and_previz": true,
+        "data_processing_meteo_previsions_densemble": true,
         "data_processing_pnt_monitor": true,
         "data_processing_postgres_meteo": true,
         "data_processing_rna": true,
