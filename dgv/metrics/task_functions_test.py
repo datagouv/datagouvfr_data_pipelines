@@ -44,7 +44,7 @@ def test_extract_log_info():
                 "liste-des-juridictions-competentes-pour-les-communes-de-france/20240327-094434/2024-competences-territoriales.csv",
                 "resources",
                 "static_resource",
-            ),  #
+            ),  # static.data.gouv.fr/resources/$SLUG
         },
         {
             "log": "2025-01-22T15:56:05.536201+01:00 slb-04 haproxy[2624750]: 127.0.0.1:52460 [22/Jan/2025:15:56:05.463]"
@@ -54,7 +54,7 @@ def test_extract_log_info():
                 None,
                 None,
                 None,
-            ),  # static.data.gouv.fr but with old format. Not supported, they will be migrated to the new format.
+            ),  # static.data.gouv.fr/.. but with old format. Not supported, they will be migrated to the new format.
         },
         {
             "log": "2025-01-22T06:50:55.046844+01:00 slb-04 haproxy[2624750]: 127.0.0.1:47438 [22/Jan/2025:06:50:54.938]"
@@ -67,6 +67,16 @@ def test_extract_log_info():
             ),  # /api/1/datasets/.*/resources/$ID (not available through a slug) + 200 status code
         },
         {
+            "log": "2025-01-22T00:05:45.211003+01:00 slb-04 haproxy[2624750]: 127.0.0.1:53704 [22/Jan/2025:00:05:45.194]"
+            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/2/14/+16 200 +1079 - - --NN 137/111/2/0/0 0/0 "GET'
+            ' /api/2/datasets/resources/7af423ec-1311-4766-bba1-22e2aeb6742c/ HTTP/1.1"',
+            "expected_output": (
+                "7af423ec-1311-4766-bba1-22e2aeb6742c",
+                "resources",
+                "api2",
+            ),
+        }, # /api/2/datasets/resources/$ID
+        {
             "log": "2025-01-22T00:00:39.022635+01:00 slb-03 haproxy[2021969]: 127.0.0.1:10036 [22/Jan/2025:00:00:38.891]"
             ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/1/130/+131 200 +2317 - - --NN 203/165/8/0/0 0/0 "GET'
             ' https://www.data.gouv.fr/api/2/datasets/6569b3d7d193b4daf2b43edc/resources/?page=2&page_size=6&type=main&q= HTTP/2.0"',
@@ -74,7 +84,7 @@ def test_extract_log_info():
                 "6569b3d7d193b4daf2b43edc",
                 "datasets",
                 "api2",
-            ),  # /api/2/datasets/.*/resources/ with no ID
+            ),  # /api/2/datasets/$ID/resources/ with no resource ID
         },
         {
             "log": "2025-01-22T00:03:14.919798+01:00 slb-03 haproxy[2021969]: 127.0.0.1:51900 [22/Jan/2025:00:03:14.472]"
@@ -213,7 +223,7 @@ def test_extract_log_info():
         {
             "log": "2025-01-22T00:00:59.397051+01:00 slb-03 haproxy[2021969]: 127.0.0.1:54438 [22/Jan/2025:00:00:59.318]"
             ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/0/77/+77 200 +1027 - - --NR 200/159/2/0/0 0/0 "PUT'
-            ' /api/2/datasets/612780152c7513b4140e69c4/resources/4629e371-191e-497e-b363-66d7fd12872a/extras/ HTTP/1.1"',
+            ' /api/2/datasets/resources/4629e371-191e-497e-b363-66d7fd12872a/extras/ HTTP/1.1"',
             "expected_output": (None, None, None),  # No GET method
         },
         {
