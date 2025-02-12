@@ -83,9 +83,15 @@ def get_files_list_on_sftp():
     logging.info(f"{nb} files to process")
     for pack in to_process:
         for subpack in to_process[pack]:
+            json_str = json.dumps(to_process[pack][subpack])
             with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
                 print(pack, subpack, type(to_process[pack][subpack]), len(to_process[pack][subpack]))
-                json.dump(to_process[pack][subpack], f)
+                print(len(json_str))
+                f.write(json_str)
+            # with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
+            #     json.dump(to_process[pack][subpack], f)
+    with open(DATADIR + "tmp.json", "w") as f:
+        json.dump({"tout": "fonctione", "tres": "bien"}, f)
 
 
 def process_members(members: list[str], date: str, grid: str, pack: str, subpack: str, sftp):
