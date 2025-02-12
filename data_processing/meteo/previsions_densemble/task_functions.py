@@ -150,7 +150,8 @@ def transfer_files_to_minio(pack: str, subpack: str):
                 #     return count
             elif nb < CONFIG[pack][subpack]["nb_membres"]:
                 logging.info(
-                    f"Only {nb} members have arrived, waiting until {CONFIG[pack][subpack]['nb_membres']}"
+                    f"{pack}_{subpack}_{date}_{grid}: only {nb} members have arrived, "
+                    f"waiting until {CONFIG[pack][subpack]['nb_membres']}"
                 )
             else:
                 # this should not happen, so raising feels fair
