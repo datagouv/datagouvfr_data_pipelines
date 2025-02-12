@@ -145,6 +145,7 @@ def transfer_files_to_minio(ti, pack: str, subpack: str):
                     f"Only {nb} members have arrived, waiting until {CONFIG[pack][subpack]['nb_membres']}"
                 )
             else:
+                # this should not happen, so raising feels fair
                 raise ValueError(
                     f"Too many members: {nb} for {CONFIG[pack][subpack]['nb_membres']} expected"
                 )
