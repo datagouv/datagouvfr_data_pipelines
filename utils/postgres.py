@@ -11,7 +11,7 @@ class File(TypedDict):
     column_order: Optional[str]
 
 
-class PostgresTool():
+class PostgresClient():
 
     def __init__(self, conn_name: str, schema: Optional[str] = None):
         airflow_conn = BaseHook.get_connection(conn_name)

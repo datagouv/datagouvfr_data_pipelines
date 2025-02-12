@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import remove_files_from_directory
 from datagouvfr_data_pipelines.utils.minio import MinIOClient, File as MinioFile
-from datagouvfr_data_pipelines.utils.postgres import PostgresTool, File
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient, File
 from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
 minio_client = MinIOClient(bucket=MINIO_BUCKET_INFRA)
-pgtool = PostgresTool(conn_name="POSTGRES_METRIC")
+pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"
 FOUND_FOLDER = f"{TMP_FOLDER}found/"
@@ -36,7 +36,7 @@ OUTPUT_FOLDER = f"{TMP_FOLDER}outputs/"
 
 
 def create_metrics_tables() -> None:
-    pgtool.execute_sql_file(
+    pgclient.execute_sql_file(
         file=File(
             source_path=f"{config.code_folder_full_path}/sql/",
             source_name="create_tables.sql",
@@ -228,14 +228,14 @@ def remove_existing_metrics_from_postgres(ti) -> None:
         logging.info(f"Deleting existing metrics from the {log_date} if they exists.")
         with open(f"{config.code_folder_full_path}/sql/remove_metrics.sql") as sql:
             sql_query = sql.read().replace("%%date%%", log_date)
-            pgtool.execute_query(sql_query)
+            pgclient.execute_query(sql_query)
 
 
 def save_metrics_to_postgres() -> None:
     for obj_config in config.logs_config:
         for lf in glob.glob(f"{OUTPUT_FOLDER}{obj_config.type}-*"):
             if "-id-" not in lf and "-static-" not in lf:
-                pgtool.copy_file(
+                pgclient.copy_file(
                     file=File(
                         source_path="/".join(lf.split("/")[:-1]) + "/",
                         source_name=lf.split("/")[-1],
@@ -256,7 +256,7 @@ def copy_logs_to_processed_folder(ti) -> None:
 
 
 def refresh_materialized_views() -> None:
-    pgtool.execute_sql_file(
+    pgclient.execute_sql_file(
         file=File(
             source_path=f"{config.code_folder_full_path}/sql/",
             source_name="refresh_materialized_views.sql",
@@ -331,7 +331,7 @@ def save_matomo_to_postgres() -> None:
     ]
     for obj in pg_config:
         for lf in glob.glob(f"{TMP_FOLDER}matomo-outputs/{obj['name']}-*"):
-            pgtool.copy_file(
+            pgclient.copy_file(
                 file=File(
                     source_path="/".join(lf.split("/")[:-1]) + "/",
                     source_name=lf.split("/")[-1],

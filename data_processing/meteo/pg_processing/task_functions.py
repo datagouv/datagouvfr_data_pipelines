@@ -17,7 +17,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.postgres import PostgresTool
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -31,7 +31,7 @@ minio_meteo = MinIOClient(bucket='meteofrance')
 
 
 SCHEMA_NAME = 'meteo'
-pgtool = PostgresTool(conn_name="POSTGRES_METEO", schema=SCHEMA_NAME)
+pgclient = PostgresClient(conn_name="POSTGRES_METEO", schema=SCHEMA_NAME)
 
 TIMEOUT = 60 * 5
 
@@ -98,7 +98,7 @@ def create_tables_if_not_exists(ti):
     with open(f"{DATADIR}create.sql", 'w') as file:
         file.write(output)
 
-    pgtool.execute_sql_file(
+    pgclient.execute_sql_file(
         file={
             "source_path": DATADIR,
             "source_name": "create.sql",
@@ -108,7 +108,7 @@ def create_tables_if_not_exists(ti):
 
 # %%
 def retrieve_latest_processed_date(ti):
-    data = pgtool.execute_query("SELECT MAX(processed) FROM dag_processed;")
+    data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
     print(data)
     ti.xcom_push(key="latest_processed_date", value=data[0]["max"])
 
@@ -233,7 +233,7 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         print("Starting with", file_path.name)
 
-        _conn = pgtool.conn
+        _conn = pgclient.conn
         _conn.autocommit = False
         _failed = False
         try:
@@ -591,7 +591,7 @@ def insert_latest_date_pg(ti):
         task_ids="set_max_date"
     )
     print(new_latest_date)
-    pgtool.execute_query(
+    pgclient.execute_query(
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
     )
 
