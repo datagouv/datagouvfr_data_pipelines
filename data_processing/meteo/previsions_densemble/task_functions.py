@@ -59,7 +59,7 @@ def get_file_infos(file_name: str):
     }
 
 
-def get_files_list_on_sftp(ti):
+def get_files_list_on_sftp():
     sftp = create_client()
     files = sftp.list_files_in_directory(upload_dir)
     logging.info(f"{len(files)} files in {upload_dir}")
@@ -85,9 +85,9 @@ def get_files_list_on_sftp(ti):
         for subpack in to_process[pack]:
             print(pack, subpack, type(to_process[pack][subpack]), len(to_process[pack][subpack]))
             with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
-                for i in to_process[pack][subpack].items():
-                    print(i)
                 json.dump(to_process[pack][subpack], f)
+                f.flush()
+                os.fsync(f.fileno())
 
 
 def process_members(members: list[str], date: str, grid: str, pack: str, subpack: str, sftp):
@@ -121,7 +121,7 @@ def process_members(members: list[str], date: str, grid: str, pack: str, subpack
         sftp.delete_file(upload_dir + file)
 
 
-def transfer_files_to_minio(ti, pack: str, subpack: str):
+def transfer_files_to_minio(pack: str, subpack: str):
     with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
         files = json.load(f)
     if not files:
