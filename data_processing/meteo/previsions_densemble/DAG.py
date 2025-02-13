@@ -27,7 +27,7 @@ with DAG(
     dagrun_timeout=timedelta(minutes=600),
     tags=["data_processing", "meteo", "sftp"],
     # if a run is not done, don't trigger a new one
-    max_active_runs=1,
+    max_active_runs=2,
 ) as dag:
 
     clean_previous_outputs = BashOperator(
