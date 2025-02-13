@@ -124,7 +124,7 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
 
 
 def transfer_files_to_minio(ti, pack: str, grid: str):
-    timestamp = ti.xcom_pull(key="files", task_ids="unzip_files")
+    timestamp = ti.xcom_pull(key="timestamp", task_ids="get_files_list_on_sftp")
     if not os.path.isfile(DATADIR + f"{pack}_{grid}_{timestamp}.json"):
         logging.info("No file to process, skipping")
         return
