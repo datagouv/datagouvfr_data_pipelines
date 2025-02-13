@@ -198,6 +198,10 @@ def publish_on_datagouv(pack: str, subpack: str):
     current_resources: dict = get_current_resources(pack, subpack)
 
     for file_id, infos in latest_files.items():
+        print("______________")
+        print(file_id)
+        print("infos:", infos)
+        print("current_resources:", current_resources.get(file_id))
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
