@@ -59,7 +59,7 @@ def get_file_infos(file_name: str):
     }
 
 
-def get_files_list_on_sftp():
+def get_files_list_on_sftp(ti):
     sftp = create_client()
     files = sftp.list_files_in_directory(upload_dir)
     logging.info(f"{len(files)} files in {upload_dir}")
@@ -81,10 +81,12 @@ def get_files_list_on_sftp():
             })
             nb += 1
     logging.info(f"{nb} files to process")
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     for pack in to_process:
         for grid in to_process[pack]:
-            with open(DATADIR + f"{pack}_{grid}.json", "w") as f:
+            with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "w") as f:
                 json.dump(to_process[pack][grid], f)
+    ti.xcom_push(key="timestamp", value=timestamp)
 
 
 def process_members(members: list[str], date: str, echeance: str, pack: str, grid: str, sftp):
@@ -121,11 +123,12 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
     return 1
 
 
-def transfer_files_to_minio(pack: str, grid: str):
-    if not os.path.isfile(DATADIR + f"{pack}_{grid}.json"):
+def transfer_files_to_minio(ti, pack: str, grid: str):
+    timestamp = ti.xcom_pull(key="files", task_ids="unzip_files")
+    if not os.path.isfile(DATADIR + f"{pack}_{grid}_{timestamp}.json"):
         logging.info("No file to process, skipping")
         return
-    with open(DATADIR + f"{pack}_{grid}.json", "r") as f:
+    with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "r") as f:
         files = json.load(f)
     # we are storing files by datetime => echeance => members
     dates_echeances = defaultdict(lambda: defaultdict(list))
@@ -157,6 +160,7 @@ def transfer_files_to_minio(pack: str, grid: str):
                     f"Too many members: {nb} for {CONFIG[pack][grid]['nb_membres']} expected"
                 )
     logging.info(f"{count} file{'s' * (count > 1)} transfered")
+    os.remove(DATADIR + f"{pack}_{grid}_{timestamp}.json")
     return count
 
 
