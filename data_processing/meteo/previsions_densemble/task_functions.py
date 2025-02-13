@@ -198,10 +198,6 @@ def publish_on_datagouv(pack: str, subpack: str):
     current_resources: dict = get_current_resources(pack, subpack)
 
     for file_id, infos in latest_files.items():
-        print("______________")
-        print(file_id)
-        print("infos:", infos)
-        print("current_resources:", current_resources.get(file_id))
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
@@ -215,7 +211,7 @@ def publish_on_datagouv(pack: str, subpack: str):
                     "type": "main",
                 },
             )
-        elif infos["date"] > current_resources["date"]:
+        elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Uptdating resource for {file_id}")
             post_remote_resource(
