@@ -1,13 +1,11 @@
 from datetime import timedelta, datetime
 from airflow.models import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
-    DATADIR,
     CONFIG,
     get_files_list_on_sftp,
     transfer_files_to_minio,
@@ -26,14 +24,9 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=600),
     tags=["data_processing", "meteo", "sftp"],
-    # if a run is not done, don't trigger a new one
+    # runs can run in parallel, safeguards ensure they won't interfere
     max_active_runs=2,
 ) as dag:
-
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {DATADIR}",
-    )
 
     get_files_list_on_sftp = PythonOperator(
         task_id="get_files_list_on_sftp",
@@ -74,7 +67,6 @@ with DAG(
                 )
             )
 
-    get_files_list_on_sftp.set_upstream(clean_previous_outputs)
     for transfer, publication, removal in zip(transfers, publications, removals):
         transfer.set_upstream(get_files_list_on_sftp)
         publication.set_upstream(transfer)
