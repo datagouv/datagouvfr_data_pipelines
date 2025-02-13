@@ -97,10 +97,15 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
     logging.info(f"Processing {tmp_folder}")
     os.mkdir(DATADIR + tmp_folder)
     for file in members:
-        sftp.download_file(
-            remote_file_path=upload_dir + file,
-            local_file_path=DATADIR + tmp_folder + file,
-        )
+        try:
+            sftp.download_file(
+                remote_file_path=upload_dir + file,
+                local_file_path=DATADIR + tmp_folder + file,
+            )
+        except FileNotFoundError:
+            logging.warning("Seems like it has already been processed")
+            shutil.rmtree(DATADIR + tmp_folder)
+            return 0
     # grouping all members of the occurrence in a zip
     logging.info("> Zipping")
     shutil.make_archive(DATADIR + tmp_folder[:-1], 'zip', DATADIR + tmp_folder)
