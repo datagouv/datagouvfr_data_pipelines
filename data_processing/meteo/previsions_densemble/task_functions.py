@@ -89,6 +89,9 @@ def get_files_list_on_sftp():
 
 def process_members(members: list[str], date: str, echeance: str, pack: str, grid: str, sftp):
     tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
+    if os.path.isdir(DATADIR + tmp_folder):
+        logging.info(f"{tmp_folder} is already being processed by another run")
+        return 0
     logging.info(f"Processing {tmp_folder}")
     os.mkdir(DATADIR + tmp_folder)
     for file in members:
@@ -115,6 +118,7 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
     shutil.rmtree(DATADIR + tmp_folder)
     for file in members:
         sftp.delete_file(upload_dir + file)
+    return 1
 
 
 def transfer_files_to_minio(pack: str, grid: str):
@@ -134,7 +138,7 @@ def transfer_files_to_minio(pack: str, grid: str):
             # checking if all members of the occurrence have arrived
             nb = len(dates_echeances[date][echeance])
             if nb == CONFIG[pack][grid]["nb_membres"]:
-                process_members(
+                count += process_members(
                     members=dates_echeances[date][echeance],
                     date=date,
                     echeance=echeance,
@@ -142,7 +146,6 @@ def transfer_files_to_minio(pack: str, grid: str):
                     grid=grid,
                     sftp=sftp,
                 )
-                count += 1
             elif nb < CONFIG[pack][grid]["nb_membres"]:
                 logging.info(
                     f"{pack}_{grid}_{date}_{echeance}: only {nb} members have arrived, "
