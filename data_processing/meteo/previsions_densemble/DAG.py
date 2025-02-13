@@ -18,20 +18,16 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_f
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 DAG_NAME = "data_processing_meteo_previsions_densemble"
 
-default_args = {
-    # 'retries': 5,
-    # 'retry_delay': timedelta(minutes=5),
-}
-
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval=None,
+    # DAG runs every 5 minutes
+    schedule_interval="*/5 * * * *",
     start_date=datetime(2024, 6, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=600),
     tags=["data_processing", "meteo", "sftp"],
+    # if a run is not done, don't trigger a new one
     max_active_runs=1,
-    default_args=default_args,
 ) as dag:
 
     clean_previous_outputs = BashOperator(

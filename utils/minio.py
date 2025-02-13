@@ -333,7 +333,7 @@ class MinIOClient:
         try:
             self.client.stat_object(self.bucket, file_path)
             self.client.remove_object(self.bucket, file_path)
-            logging.info(f"File '{file_path}' deleted successfully.")
+            logging.info(f"🔥 '{file_path}' successfully deleted.")
         except S3Error as e:
             logging.warning(e)
 
