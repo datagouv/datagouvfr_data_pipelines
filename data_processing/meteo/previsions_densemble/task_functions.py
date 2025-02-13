@@ -213,7 +213,7 @@ def publish_on_datagouv(pack: str, subpack: str):
             )
         elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
-            logging.info(f"🔃 Uptdating resource for {file_id}")
+            logging.info(f"🔃 Updating resource for {file_id}")
             post_remote_resource(
                 dataset_id=CONFIG[pack][subpack]['dataset_id'][AIRFLOW_ENV],
                 resource_id=current_resources[file_id]["resource_id"],
