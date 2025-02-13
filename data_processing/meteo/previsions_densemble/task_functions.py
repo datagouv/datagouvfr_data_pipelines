@@ -216,7 +216,7 @@ def publish_on_datagouv(pack: str, subpack: str):
             logging.info(f"🔃 Uptdating resource for {file_id}")
             post_remote_resource(
                 dataset_id=CONFIG[pack][subpack]['dataset_id'][AIRFLOW_ENV],
-                resource_id=current_resources["resource_id"],
+                resource_id=current_resources[file_id]["resource_id"],
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
