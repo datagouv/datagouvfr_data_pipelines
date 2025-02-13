@@ -18,14 +18,14 @@ DAG_NAME = "data_processing_meteo_previsions_densemble"
 
 with DAG(
     dag_id=DAG_NAME,
-    # DAG runs every 5 minutes
-    schedule_interval="*/5 * * * *",
+    # DAG runs every 3 minutes
+    schedule_interval="*/3 * * * *",
     start_date=datetime(2024, 6, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=600),
     tags=["data_processing", "meteo", "sftp"],
     # runs can run in parallel, safeguards ensure they won't interfere
-    max_active_runs=2,
+    max_active_runs=4,
 ) as dag:
 
     get_files_list_on_sftp = PythonOperator(
