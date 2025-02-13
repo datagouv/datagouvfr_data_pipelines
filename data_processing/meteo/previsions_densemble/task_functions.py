@@ -253,4 +253,4 @@ def remove_old_occurrences(pack: str, subpack: str):
                 recursive=True,
             )
             for file in files_to_delete:
-                minio_meteo.delete_file(file)
+                minio_meteo.delete_file(f"{AIRFLOW_ENV}/{file}")
