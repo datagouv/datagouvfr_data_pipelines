@@ -49,13 +49,13 @@ def create_client():
 
 def get_file_infos(file_name: str):
     # files look like this: arome_pecaledonie_202409230600_mb0_ncaled0025_00:00.grib
-    pack, _, date, membre, subpack, grid = file_name.split(".")[0].split("_")
+    pack, _, date, membre, grid, echeance = file_name.split(".")[0].split("_")
     return {
         "pack": pack,
-        "subpack": subpack,
+        "grid": grid,
         "date": date,
         "membre": membre,
-        "grid": grid,
+        "echeance": echeance,
     }
 
 
@@ -63,7 +63,7 @@ def get_files_list_on_sftp():
     sftp = create_client()
     files = sftp.list_files_in_directory(upload_dir)
     logging.info(f"{len(files)} files in {upload_dir}")
-    # we recreate the structure of the config file: packs => subpacks => files
+    # we recreate the structure of the config file: packs => grids => files
     to_process = defaultdict(lambda: defaultdict(dict))
     nb = 0
     for f in files:
@@ -73,22 +73,22 @@ def get_files_list_on_sftp():
             infos = get_file_infos(f)
             if (
                 infos["pack"] not in CONFIG
-                or infos["subpack"] not in CONFIG[infos["pack"]]
+                or infos["grid"] not in CONFIG[infos["pack"]]
             ):
-                raise ValueError(f"Got an unexpected pack: {infos['pack']}_{infos['subpack']}")
-            to_process[infos["pack"]][infos["subpack"]].update({
+                raise ValueError(f"Got an unexpected pack: {infos['pack']}_{infos['grid']}")
+            to_process[infos["pack"]][infos["grid"]].update({
                 f: infos,
             })
             nb += 1
     logging.info(f"{nb} files to process")
     for pack in to_process:
-        for subpack in to_process[pack]:
-            with open(DATADIR + f"{pack}_{subpack}.json", "w") as f:
-                json.dump(to_process[pack][subpack], f)
+        for grid in to_process[pack]:
+            with open(DATADIR + f"{pack}_{grid}.json", "w") as f:
+                json.dump(to_process[pack][grid], f)
 
 
-def process_members(members: list[str], date: str, grid: str, pack: str, subpack: str, sftp):
-    tmp_folder = f"{pack}_{subpack}_{date}_{grid}/"
+def process_members(members: list[str], date: str, echeance: str, pack: str, grid: str, sftp):
+    tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
     logging.info(f"Processing {tmp_folder}")
     os.mkdir(DATADIR + tmp_folder)
     for file in members:
@@ -104,7 +104,7 @@ def process_members(members: list[str], date: str, grid: str, pack: str, subpack
             {
                 "source_path": DATADIR,
                 "source_name": tmp_folder[:-1] + ".zip",
-                "dest_path": f"{minio_folder}/{pack}/{subpack}/{date}/",
+                "dest_path": f"{minio_folder}/{pack}/{grid}/{date}/",
                 "dest_name": tmp_folder[:-1] + ".zip",
             },
         ],
@@ -117,58 +117,58 @@ def process_members(members: list[str], date: str, grid: str, pack: str, subpack
         sftp.delete_file(upload_dir + file)
 
 
-def transfer_files_to_minio(pack: str, subpack: str):
-    if not os.path.isfile(DATADIR + f"{pack}_{subpack}.json"):
+def transfer_files_to_minio(pack: str, grid: str):
+    if not os.path.isfile(DATADIR + f"{pack}_{grid}.json"):
         logging.info("No file to process, skipping")
         return
-    with open(DATADIR + f"{pack}_{subpack}.json", "r") as f:
+    with open(DATADIR + f"{pack}_{grid}.json", "r") as f:
         files = json.load(f)
-    # we are storing files by datetime => grid => members
-    dates_grids = defaultdict(lambda: defaultdict(list))
+    # we are storing files by datetime => echeance => members
+    dates_echeances = defaultdict(lambda: defaultdict(list))
     for file, infos in files.items():
-        dates_grids[infos["date"]][infos["grid"]].append(file)
+        dates_echeances[infos["date"]][infos["echeance"]].append(file)
     count = 0
     sftp = create_client()
-    for date in dates_grids:
-        for grid in dates_grids[date]:
+    for date in dates_echeances:
+        for echeance in dates_echeances[date]:
             # checking if all members of the occurrence have arrived
-            nb = len(dates_grids[date][grid])
-            if nb == CONFIG[pack][subpack]["nb_membres"]:
+            nb = len(dates_echeances[date][echeance])
+            if nb == CONFIG[pack][grid]["nb_membres"]:
                 process_members(
-                    members=dates_grids[date][grid],
+                    members=dates_echeances[date][echeance],
                     date=date,
-                    grid=grid,
+                    echeance=echeance,
                     pack=pack,
-                    subpack=subpack,
+                    grid=grid,
                     sftp=sftp,
                 )
                 count += 1
-            elif nb < CONFIG[pack][subpack]["nb_membres"]:
+            elif nb < CONFIG[pack][grid]["nb_membres"]:
                 logging.info(
-                    f"{pack}_{subpack}_{date}_{grid}: only {nb} members have arrived, "
-                    f"waiting until {CONFIG[pack][subpack]['nb_membres']}"
+                    f"{pack}_{grid}_{date}_{echeance}: only {nb} members have arrived, "
+                    f"waiting until {CONFIG[pack][grid]['nb_membres']}"
                 )
             else:
                 # this should not happen, so raising feels fair
                 raise ValueError(
-                    f"Too many members: {nb} for {CONFIG[pack][subpack]['nb_membres']} expected"
+                    f"Too many members: {nb} for {CONFIG[pack][grid]['nb_membres']} expected"
                 )
-    logging.info(f"{nb} file{'s' * bool(nb)} transfered")
+    logging.info(f"{count} file{'s' * (count > 1)} transfered")
     return count
 
 
 def build_zipfile_id_and_date(file_name: str):
     # zipped files look like "arome_ncaled0025_202501021800_03:00.zip"
-    # on data.gouv we will expose only the latest occurrence of pack+subpack+grid
+    # on data.gouv we will expose only the latest occurrence of pack+grid+echeance
     # so we build an id (aka just remove the date) to compare files
-    pack, subpack, date, grid = file_name.split(".")[0].split("_")
-    return f"{pack}_{subpack}_{grid}", date
+    pack, grid, date, echeance = file_name.split(".")[0].split("_")
+    return f"{pack}_{grid}_{echeance}", date
 
 
-def get_current_resources(pack: str, subpack: str):
+def get_current_resources(pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
-        f"{DATAGOUV_URL}/api/1/datasets/{CONFIG[pack][subpack]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{DATAGOUV_URL}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={"X-fields": "resources{id,url}"},
     ).json()["resources"]:
         file_id, file_date = build_zipfile_id_and_date(r["url"].split("/")[-1])
@@ -179,11 +179,11 @@ def get_current_resources(pack: str, subpack: str):
     return current_resources
 
 
-def publish_on_datagouv(pack: str, subpack: str):
+def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on Minio
     latest_files = {}
     for obj, size in minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
-        folder=f"{AIRFLOW_ENV}/{minio_folder}/{pack}/{subpack}/",
+        folder=f"{AIRFLOW_ENV}/{minio_folder}/{pack}/{grid}/",
     ).items():
         file_id, file_date = build_zipfile_id_and_date(obj.split("/")[-1])
         if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
@@ -195,14 +195,14 @@ def publish_on_datagouv(pack: str, subpack: str):
             }
 
     # getting the current state of the resources
-    current_resources: dict = get_current_resources(pack, subpack)
+    current_resources: dict = get_current_resources(pack, grid)
 
     for file_id, infos in latest_files.items():
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
             post_remote_resource(
-                dataset_id=CONFIG[pack][subpack]['dataset_id'][AIRFLOW_ENV],
+                dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
@@ -215,7 +215,7 @@ def publish_on_datagouv(pack: str, subpack: str):
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
             post_remote_resource(
-                dataset_id=CONFIG[pack][subpack]['dataset_id'][AIRFLOW_ENV],
+                dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
                 resource_id=current_resources[file_id]["resource_id"],
                 payload={
                     "url": infos["url"],
@@ -227,8 +227,8 @@ def publish_on_datagouv(pack: str, subpack: str):
             )
 
 
-def remove_old_occurrences(pack: str, subpack: str):
-    current_resources: dict = get_current_resources(pack, subpack)
+def remove_old_occurrences(pack: str, grid: str):
+    current_resources: dict = get_current_resources(pack, grid)
     oldest_available_date = datetime.strptime(
         min([r["date"] for r in current_resources.values()]),
         "%Y%m%d%H%M",
@@ -239,7 +239,7 @@ def remove_old_occurrences(pack: str, subpack: str):
     dates_on_minio = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
         for path in minio_meteo.get_files_from_prefix(
-            prefix=f"{minio_folder}/{pack}/{subpack}/",
+            prefix=f"{minio_folder}/{pack}/{grid}/",
             ignore_airflow_env=False,
             recursive=False,
         )

@@ -42,34 +42,34 @@ with DAG(
 
     transfers, publications, removals = [], [], []
     for pack in CONFIG:
-        for subpack in CONFIG[pack]:
+        for grid in CONFIG[pack]:
             transfers.append(
                 ShortCircuitOperator(
-                    task_id=f"transfer_{pack}_{subpack}",
+                    task_id=f"transfer_{pack}_{grid}",
                     python_callable=transfer_files_to_minio,
                     op_kwargs={
                         "pack": pack,
-                        "subpack": subpack,
+                        "grid": grid,
                     },
                 )
             )
             publications.append(
                 PythonOperator(
-                    task_id=f"publish_{pack}_{subpack}",
+                    task_id=f"publish_{pack}_{grid}",
                     python_callable=publish_on_datagouv,
                     op_kwargs={
                         "pack": pack,
-                        "subpack": subpack,
+                        "grid": grid,
                     },
                 )
             )
             removals.append(
                 PythonOperator(
-                    task_id=f"remove_old_{pack}_{subpack}",
+                    task_id=f"remove_old_{pack}_{grid}",
                     python_callable=remove_old_occurrences,
                     op_kwargs={
                         "pack": pack,
-                        "subpack": subpack,
+                        "grid": grid,
                     },
                 )
             )
