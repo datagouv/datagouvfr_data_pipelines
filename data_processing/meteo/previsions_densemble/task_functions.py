@@ -5,7 +5,6 @@ import logging
 import os
 import requests
 import shutil
-import yaml
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -92,8 +91,7 @@ def process_members(members: list[str], date: str, grid: str, pack: str, subpack
     tmp_folder = f"{pack}_{subpack}_{date}_{grid}/"
     logging.info(f"Processing {tmp_folder}")
     os.mkdir(DATADIR + tmp_folder)
-    # temporarily consider only a few files to make it quicker
-    for file in members[:2]:
+    for file in members:
         sftp.download_file(
             remote_file_path=upload_dir + file,
             local_file_path=DATADIR + tmp_folder + file,
@@ -145,9 +143,6 @@ def transfer_files_to_minio(pack: str, subpack: str):
                     sftp=sftp,
                 )
                 count += 1
-                # if count > 200:
-                #     print("Early stop")
-                #     return count
             elif nb < CONFIG[pack][subpack]["nb_membres"]:
                 logging.info(
                     f"{pack}_{subpack}_{date}_{grid}: only {nb} members have arrived, "
@@ -236,9 +231,9 @@ def remove_old_occurrences(pack: str, subpack: str):
         min([r["date"] for r in current_resources.values()]),
         "%Y%m%d%H%M",
     )
-    print(oldest_available_date)
+    logging.info(f"Oldest date in dataset: {oldest_available_date}")
     threshold = oldest_available_date - TIME_DEPTH_TO_KEEP
-    print(threshold)
+    logging.info(f"Will delete everything before {threshold}")
     dates_on_minio = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
         for path in minio_meteo.get_files_from_prefix(
@@ -247,7 +242,7 @@ def remove_old_occurrences(pack: str, subpack: str):
             recursive=False,
         )
     }
-    print(dates_on_minio)
+    logging.info(f"Current dates on Minio: {dates_on_minio}")
     for path, date in dates_on_minio.items():
         if date < threshold:
             files_to_delete = minio_meteo.get_files_from_prefix(
@@ -256,5 +251,4 @@ def remove_old_occurrences(pack: str, subpack: str):
                 recursive=True,
             )
             for file in files_to_delete:
-                # minio_meteo.delete_file(file)
-                print("would delete", file)
+                minio_meteo.delete_file(file)
