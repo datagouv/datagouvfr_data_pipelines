@@ -208,6 +208,7 @@ def publish_on_datagouv(pack: str, subpack: str):
                     "filesize": infos["size"],
                     "title": infos["title"],
                     "format": "zip",
+                    "type": "main",
                 },
             )
         elif infos["date"] > current_resources["date"]:
@@ -221,6 +222,7 @@ def publish_on_datagouv(pack: str, subpack: str):
                     "filesize": infos["size"],
                     "title": infos["title"],
                     "format": "zip",
+                    "type": "main",
                 },
             )
 
