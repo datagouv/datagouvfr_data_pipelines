@@ -111,6 +111,11 @@ with DAG(
         trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     create_metrics_tables.set_upstream(clean_previous_outputs)
     download_catalog.set_upstream(create_metrics_tables)
     get_new_logs.set_upstream(create_metrics_tables)
@@ -129,3 +134,5 @@ with DAG(
 
     refresh_materialized_views.set_upstream(save_metrics_to_postgres)
     refresh_materialized_views.set_upstream(save_matomo_to_postgres)
+
+    clean_up.set_upstream(refresh_materialized_views)
