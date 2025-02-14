@@ -6,7 +6,7 @@
         },
         "prod": {
             "dataset_id": "53699569a3a729239d2046eb",
-            "resource_id": ""
+            "resource_id": "29d6cd38-1905-4a7b-a28e-d9598a7f41e3"
         }
     },
     "parquet" : {
@@ -16,7 +16,7 @@
         },
         "prod": {
             "dataset_id": "53699569a3a729239d2046eb",
-            "resource_id": ""
+            "resource_id": "019806b0-1b36-4bd6-9860-3e35ce4c4712"
         }
     }
 }
