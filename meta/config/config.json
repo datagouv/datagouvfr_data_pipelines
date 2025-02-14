@@ -4,6 +4,7 @@
         "data_processing_deces_consolidation": true,
         "data_processing_dvf": true,
         "data_processing_elections": true,
+        "data_processing_finess": true,
         "data_processing_geozones": true,
         "data_processing_meteo": true,
         "data_processing_meteo_hydra_and_previz": true,
