@@ -5,6 +5,7 @@ import logging
 import os
 import requests
 import shutil
+import subprocess
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -106,16 +107,21 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
             logging.warning("Seems like it has already been processed")
             shutil.rmtree(DATADIR + tmp_folder)
             return 0
-    # grouping all members of the occurrence in a zip
-    logging.info("> Zipping")
-    shutil.make_archive(DATADIR + tmp_folder[:-1], 'zip', DATADIR + tmp_folder)
+    # concatenating all members of the occurrence into a grib
+    logging.info("> Concatenating")
+    subprocess.run(
+        f"cat {DATADIR + tmp_folder}* > {DATADIR + tmp_folder[:-1]}.grib",
+        shell=True,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+    )
     minio_meteo.send_files(
         [
             {
                 "source_path": DATADIR,
-                "source_name": tmp_folder[:-1] + ".zip",
+                "source_name": tmp_folder[:-1] + ".grib",
                 "dest_path": f"{minio_folder}/{pack}/{grid}/{date}/",
-                "dest_name": tmp_folder[:-1] + ".zip",
+                "dest_name": tmp_folder[:-1] + ".grib",
             },
         ],
         ignore_airflow_env=False,
@@ -169,8 +175,8 @@ def transfer_files_to_minio(ti, pack: str, grid: str):
     return count
 
 
-def build_zipfile_id_and_date(file_name: str):
-    # zipped files look like "arome_ncaled0025_202501021800_03:00.zip"
+def build_file_id_and_date(file_name: str):
+    # final files look like "arome_ncaled0025_202501021800_03:00.grib"
     # on data.gouv we will expose only the latest occurrence of pack+grid+echeance
     # so we build an id (aka just remove the date) to compare files
     pack, grid, date, echeance = file_name.split(".")[0].split("_")
@@ -183,7 +189,7 @@ def get_current_resources(pack: str, grid: str):
         f"{DATAGOUV_URL}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={"X-fields": "resources{id,url}"},
     ).json()["resources"]:
-        file_id, file_date = build_zipfile_id_and_date(r["url"].split("/")[-1])
+        file_id, file_date = build_file_id_and_date(r["url"].split("/")[-1])
         current_resources[file_id] = {
             "date": file_date,
             "resource_id": r["id"],
@@ -197,7 +203,7 @@ def publish_on_datagouv(pack: str, grid: str):
     for obj, size in minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=f"{AIRFLOW_ENV}/{minio_folder}/{pack}/{grid}/",
     ).items():
-        file_id, file_date = build_zipfile_id_and_date(obj.split("/")[-1])
+        file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
         if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
             latest_files[file_id] = {
                 "date": file_date,
@@ -219,7 +225,7 @@ def publish_on_datagouv(pack: str, grid: str):
                     "url": infos["url"],
                     "filesize": infos["size"],
                     "title": infos["title"],
-                    "format": "zip",
+                    "format": "grib",
                     "type": "main",
                 },
             )
@@ -233,7 +239,7 @@ def publish_on_datagouv(pack: str, grid: str):
                     "url": infos["url"],
                     "filesize": infos["size"],
                     "title": infos["title"],
-                    "format": "zip",
+                    "format": "grib",
                     "type": "main",
                 },
             )
