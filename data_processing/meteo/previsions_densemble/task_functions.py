@@ -197,6 +197,12 @@ def get_current_resources(pack: str, grid: str):
     return current_resources
 
 
+def fix_title(file_name: str):
+    # names are not perfectly accurate, but it's cleaner to modify only the title
+    # as the whole file structure is automatically made from original names
+    return file_name.replace("arome", "pearome").replace("arpege", "pearp")
+
+
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on Minio
     latest_files = {}
@@ -208,7 +214,7 @@ def publish_on_datagouv(pack: str, grid: str):
             latest_files[file_id] = {
                 "date": file_date,
                 "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
-                "title": obj.split("/")[-1],
+                "title": fix_title(obj.split("/")[-1]),
                 "size": size,
             }
 
