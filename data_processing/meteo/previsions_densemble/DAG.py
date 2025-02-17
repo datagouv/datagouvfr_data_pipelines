@@ -34,10 +34,14 @@ def create_dag(pack: str, grid: str):
         _get_files_list_on_sftp = PythonOperator(
             task_id="get_files_list_on_sftp",
             python_callable=get_files_list_on_sftp,
+            op_kwargs={
+                "pack": pack,
+                "grid": grid,
+            },
         )
 
         _transfer_files_to_minio = ShortCircuitOperator(
-            task_id=f"transfer_{pack}_{grid}",
+            task_id="transfer_files_to_minio",
             python_callable=transfer_files_to_minio,
             op_kwargs={
                 "pack": pack,
@@ -46,7 +50,7 @@ def create_dag(pack: str, grid: str):
         )
 
         _publish_on_datagouv = PythonOperator(
-            task_id=f"publish_{pack}_{grid}",
+            task_id="publish_on_datagouv",
             python_callable=publish_on_datagouv,
             op_kwargs={
                 "pack": pack,
@@ -55,7 +59,7 @@ def create_dag(pack: str, grid: str):
         )
 
         _remove_old_occurrences = PythonOperator(
-            task_id=f"remove_old_{pack}_{grid}",
+            task_id="remove_old_occurrences",
             python_callable=remove_old_occurrences,
             op_kwargs={
                 "pack": pack,

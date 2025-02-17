@@ -60,7 +60,7 @@ def get_file_infos(file_name: str):
     }
 
 
-def get_files_list_on_sftp(ti):
+def get_files_list_on_sftp(ti, pack: str, grid: str):
     sftp = create_client()
     files = sftp.list_files_in_directory(upload_dir)
     logging.info(f"{len(files)} files in {upload_dir}")
@@ -77,16 +77,15 @@ def get_files_list_on_sftp(ti):
                 or infos["grid"] not in CONFIG[infos["pack"]]
             ):
                 raise ValueError(f"Got an unexpected pack: {infos['pack']}_{infos['grid']}")
-            to_process[infos["pack"]][infos["grid"]].update({
-                f: infos,
-            })
-            nb += 1
+            if infos["pack"] == pack and infos["grid"] == grid:
+                to_process[infos["pack"]][infos["grid"]].update({
+                    f: infos,
+                })
+                nb += 1
     logging.info(f"{nb} files to process")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    for pack in to_process:
-        for grid in to_process[pack]:
-            with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "w") as f:
-                json.dump(to_process[pack][grid], f)
+    with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "w") as f:
+        json.dump(to_process[pack][grid], f)
     ti.xcom_push(key="timestamp", value=timestamp)
 
 
