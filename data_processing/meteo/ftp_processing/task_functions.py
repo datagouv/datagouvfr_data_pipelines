@@ -343,6 +343,7 @@ def upload_new_files(ti) -> None:
     )
     resources_lists = get_resource_lists()
     new_files += spotted_new_files
+    new_files = list(set(new_files))
 
     # adding files that are on minio, not updated from FTP in this batch,
     # but that are missing on data.gouv
