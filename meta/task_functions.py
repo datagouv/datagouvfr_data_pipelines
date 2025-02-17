@@ -29,7 +29,7 @@ def get_ids(config: dict):
             ids += [d["dag_id"] for d in dags if d.startswith(raw_id[:-1])]
         else:
             ids.append(raw_id)
-    return ids
+    return list(set(ids))
 
 
 def monitor_dags(
