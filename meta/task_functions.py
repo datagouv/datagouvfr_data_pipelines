@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta
 import numpy as np
 import pytz
+import requests
 from airflow.models import DagRun
 from airflow.utils.state import State
 
@@ -14,14 +15,28 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 local_timezone = pytz.timezone('Europe/Paris')
 
+with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
+    config = json.load(f)
+
+
+def get_ids(config: dict):
+    ids = []
+    for raw_id, included in config.items():
+        if not included:
+            continue
+        if raw_id.endswith("*"):
+            dags = requests.get("http://localhost:8080/api/v1/dags").json()["dags"]
+            ids += [d["dag_id"] for d in dags if d.startswith(raw_id[:-1])]
+        else:
+            ids.append(raw_id)
+    return ids
+
 
 def monitor_dags(
     ti,
     date=(datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),
 ):
-    with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
-        config = json.load(f)
-    dag_ids_to_monitor = config['dag_list']
+    dag_ids_to_monitor = get_ids(config)
     print("DAG list:", dag_ids_to_monitor)
 
     print("Start date considered:", date)
@@ -60,9 +75,7 @@ def monitor_dags(
 
 
 def notification_mattermost(ti):
-    with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
-        config = json.load(f)
-    dag_ids_to_monitor = config['dag_list']
+    dag_ids_to_monitor = get_ids(config)
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     message = '# Récap quotidien DAGs :'
     print(todays_runs)
