@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
+    delete_dataset_or_resource,
     DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -127,8 +128,9 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
     )
     logging.info("> Cleaning")
     shutil.rmtree(DATADIR + tmp_folder)
-    for file in members:
-        sftp.delete_file(upload_dir + file)
+    if AIRFLOW_ENV == "prod":
+        for file in members:
+            sftp.delete_file(upload_dir + file)
     return 1
 
 
@@ -185,8 +187,10 @@ def get_current_resources(pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
         f"{DATAGOUV_URL}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
-        headers={"X-fields": "resources{id,url}"},
+        headers={"X-fields": "resources{id,url,type}"},
     ).json()["resources"]:
+        if r["type"] != "main":
+            continue
         file_id, file_date = build_file_id_and_date(r["url"].split("/")[-1])
         current_resources[file_id] = {
             "date": file_date,
@@ -276,3 +280,39 @@ def remove_old_occurrences(pack: str, grid: str):
             )
             for file in files_to_delete:
                 minio_meteo.delete_file(f"{AIRFLOW_ENV}/{file}")
+
+
+def handle_cyclonic_alert(pack: str, grid: str):
+    # during a cyclonic alert, some packs have a higher number of members (79 instead of 49)
+    # so when a cyclonic alert is stopped, we have to remove the additional resources from the dataset
+    current_resources: dict = get_current_resources(pack, grid)
+    if len(current_resources) not in [49, 79]:
+        raise ValueError(f"{pack}_{grid} has an unexpected number of resources: {len(current_resources)}")
+    if len(current_resources) != 79:
+        logging.info("Nothing to do here")
+        return
+    latest_date = max(
+        path.split("/")[-2] for path in minio_meteo.get_files_from_prefix(
+            prefix=f"{minio_folder}/{pack}/{grid}/",
+            ignore_airflow_env=False,
+            recursive=False,
+        )
+    )
+    nb_files_latest_date = len(
+        minio_meteo.get_files_from_prefix(
+            prefix=f"{minio_folder}/{pack}/{grid}/{latest_date}/",
+            ignore_airflow_env=False,
+            recursive=False,
+        )
+    )
+    if nb_files_latest_date == 49:
+        logging.info("Deleting cyclonic alert additional resources")
+        for file_id, infos in current_resources.items():
+            # by construction
+            _, _, echeance = file_id.split("_")
+            echeance = int(echeance.replace(":", ""))
+            if echeance > 48:
+                delete_dataset_or_resource(
+                    dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
+                    resource_id=infos["resource_id"],
+                )

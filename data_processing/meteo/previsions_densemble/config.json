@@ -28,35 +28,40 @@
                 "dev": "67aa2bd5dc82578a96dda62e",
                 "prod": "67ac5d7d09429c0cc8a352cf"
             },
-            "nb_membres": 16
+            "nb_membres": 16,
+            "alerte_cyclonique": true
         },
         "guyane0025": {
             "dataset_id": {
                 "dev": "67aa2bf14a59f2703e5a70f5",
                 "prod": "67ac5d4370219dececf80544"
             },
-            "nb_membres": 16
+            "nb_membres": 16,
+            "alerte_cyclonique": true
         },
         "indienxl0025": {
             "dataset_id": {
                 "dev": "67aa2c81e24b7d1438a43f07",
                 "prod": "67ac5d11465cc8ba2e5d1bc1"
             },
-            "nb_membres": 16
+            "nb_membres": 16,
+            "alerte_cyclonique": true
         },
         "polyn0025": {
             "dataset_id": {
                 "dev": "67aa2c9daaf5c80c8090d4dc",
                 "prod": "67ac5ce1de55a41eb156f1bd"
             },
-            "nb_membres": 16
+            "nb_membres": 16,
+            "alerte_cyclonique": true
         },
         "ncaled0025": {
             "dataset_id": {
                 "dev": "67aa2cbadc82578a96dda62f",
                 "prod": "67ac5caede55a41eb156f1bc"
             },
-            "nb_membres": 16
+            "nb_membres": 16,
+            "alerte_cyclonique": true
         }
     },
     "mfwam":{

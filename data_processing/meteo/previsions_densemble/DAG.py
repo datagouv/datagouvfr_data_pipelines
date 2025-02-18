@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_f
     transfer_files_to_minio,
     publish_on_datagouv,
     remove_old_occurrences,
+    handle_cyclonic_alert,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
@@ -31,45 +32,44 @@ def create_dag(pack: str, grid: str):
     )
     with dag:
 
+        common_kwargs = {"pack": pack, "grid": grid}
+
         _get_files_list_on_sftp = PythonOperator(
             task_id="get_files_list_on_sftp",
             python_callable=get_files_list_on_sftp,
-            op_kwargs={
-                "pack": pack,
-                "grid": grid,
-            },
+            op_kwargs=common_kwargs,
         )
 
         _transfer_files_to_minio = ShortCircuitOperator(
             task_id="transfer_files_to_minio",
             python_callable=transfer_files_to_minio,
-            op_kwargs={
-                "pack": pack,
-                "grid": grid,
-            },
+            op_kwargs=common_kwargs,
         )
 
         _publish_on_datagouv = PythonOperator(
             task_id="publish_on_datagouv",
             python_callable=publish_on_datagouv,
-            op_kwargs={
-                "pack": pack,
-                "grid": grid,
-            },
+            op_kwargs=common_kwargs,
         )
 
         _remove_old_occurrences = PythonOperator(
             task_id="remove_old_occurrences",
             python_callable=remove_old_occurrences,
-            op_kwargs={
-                "pack": pack,
-                "grid": grid,
-            },
+            op_kwargs=common_kwargs,
         )
 
         _transfer_files_to_minio.set_upstream(_get_files_list_on_sftp)
         _publish_on_datagouv.set_upstream(_transfer_files_to_minio)
         _remove_old_occurrences.set_upstream(_publish_on_datagouv)
+
+        if CONFIG[pack][grid].get("alerte_cyclonique"):
+            _handle_cyclonic_alert = PythonOperator(
+                task_id="handle_cyclonic_alert",
+                python_callable=handle_cyclonic_alert,
+                op_kwargs=common_kwargs,
+            )
+            _handle_cyclonic_alert.set_upstream(_remove_old_occurrences)
+
     return dag
 
 
