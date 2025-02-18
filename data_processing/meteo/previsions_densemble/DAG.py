@@ -22,8 +22,7 @@ def create_dag(pack: str, grid: str):
     dag = DAG(
         dag_id=DAG_NAME + f"_{pack}_{grid}",
         # DAG runs every 3 minutes
-        # schedule_interval="*/3 * * * *",
-        schedule_interval=None,
+        schedule_interval="*/3 * * * *",
         start_date=datetime(2024, 6, 1),
         catchup=False,
         dagrun_timeout=timedelta(minutes=600),
