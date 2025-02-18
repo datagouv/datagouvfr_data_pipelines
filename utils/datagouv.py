@@ -2,6 +2,7 @@ import dateutil
 from typing import TypedDict, Iterator, Optional
 import requests
 from datetime import datetime
+import logging
 import re
 
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -143,7 +144,7 @@ def post_resource(
     r.raise_for_status()
     if not resource_id:
         resource_id = r.json()['id']
-        print("Resource was given this id:", resource_id)
+        logging.info("Resource was given this id:", resource_id)
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and payload:
         r = update_dataset_or_resource_metadata(
@@ -181,7 +182,7 @@ def post_remote_resource(
 
     if resource_id:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
-        print(f"Putting '{payload['title']}' at {url}")
+        logging.info(f"Putting '{payload['title']}' at {url}")
         r = update_dataset_or_resource_metadata(
             payload=payload,
             dataset_id=dataset_id,
@@ -190,7 +191,7 @@ def post_remote_resource(
         )
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
-        print(f"Posting '{payload['title']}' at {url}")
+        logging.info(f"Posting '{payload['title']}' at {url}")
         if "filetype" not in payload:
             payload.update({"filetype": "remote"})
         r = datagouv_session.post(
@@ -221,7 +222,7 @@ def delete_dataset_or_resource(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
-
+    logging.info(f"🚮 Deleting {url}")
     r = datagouv_session.delete(url)
     r.raise_for_status()
     return r.json()
@@ -299,7 +300,7 @@ def update_dataset_or_resource_metadata(
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/"
-    print("Putting", url, "with", payload)
+    logging.info("Putting", url, "with", payload)
     r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
     return r
@@ -477,9 +478,9 @@ def post_remote_communautary_resource(
     community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
     dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
 
-    print("Payload content:\n", payload)
+    logging.info("Payload content:\n", payload)
     if resource_id:
-        print(f"Updating resource at {dataset_link} from {payload['url']}")
+        logging.info(f"Updating resource at {dataset_link} from {payload['url']}")
         # Update resource
         refined_url = community_resource_url + f"/{resource_id}"
         r = datagouv_session.put(
@@ -488,7 +489,7 @@ def post_remote_communautary_resource(
         )
 
     else:
-        print(f"Creating resource at {dataset_link} from {payload['url']}")
+        logging.info(f"Creating resource at {dataset_link} from {payload['url']}")
         # Create resource
         r = datagouv_session.post(
             community_resource_url,
