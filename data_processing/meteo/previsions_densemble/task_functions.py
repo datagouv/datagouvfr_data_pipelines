@@ -287,9 +287,9 @@ def handle_cyclonic_alert(pack: str, grid: str):
     # so when a cyclonic alert is stopped, we have to remove the additional resources from the dataset
     current_resources: dict = get_current_resources(pack, grid)
     if len(current_resources) not in [49, 79]:
-        raise ValueError(f"{pack}_{grid} has an undesired number of resources: {len(current_resources)}")
+        raise ValueError(f"{pack}_{grid} has an unexpected number of resources: {len(current_resources)}")
     if len(current_resources) != 79:
-        logging.info("Nothing do do here")
+        logging.info("Nothing to do here")
         return
     latest_date = max(
         path.split("/")[-2] for path in minio_meteo.get_files_from_prefix(
