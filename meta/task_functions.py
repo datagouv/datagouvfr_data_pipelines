@@ -2,9 +2,9 @@ import json
 from datetime import datetime, timedelta
 import numpy as np
 import pytz
-import requests
 from airflow.models import DagRun
 from airflow.utils.state import State
+from airflow.providers.http.hooks.http import HttpHook
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -14,19 +14,20 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 local_timezone = pytz.timezone('Europe/Paris')
+http_hook = HttpHook(http_conn_id='HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR', method='GET')
 
 with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
     config = json.load(f)
 
 
 def get_ids(config: dict):
+    dags = http_hook.run('api/v1/dags').json()["dags"]
     ids = []
     for raw_id, included in config.items():
         if not included:
             continue
         if raw_id.endswith("*"):
-            dags = requests.get("http://localhost:8080/api/v1/dags").json()["dags"]
-            ids += [d["dag_id"] for d in dags if d.startswith(raw_id[:-1])]
+            ids += [d["dag_id"] for d in dags if d["dag_id"].startswith(raw_id[:-1])]
         else:
             ids.append(raw_id)
     return list(set(ids))
