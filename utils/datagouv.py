@@ -144,7 +144,7 @@ def post_resource(
     r.raise_for_status()
     if not resource_id:
         resource_id = r.json()['id']
-        logging.info("Resource was given this id:", resource_id)
+        logging.info(f"Resource was given this id: {resource_id}")
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and payload:
         r = update_dataset_or_resource_metadata(
@@ -300,7 +300,7 @@ def update_dataset_or_resource_metadata(
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/"
-    logging.info("Putting", url, "with", payload)
+    logging.info(f"Putting {url} with {payload}")
     r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
     return r
@@ -478,7 +478,7 @@ def post_remote_communautary_resource(
     community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
     dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
 
-    logging.info("Payload content:\n", payload)
+    logging.info(f"Payload content:\n{payload}")
     if resource_id:
         logging.info(f"Updating resource at {dataset_link} from {payload['url']}")
         # Update resource
