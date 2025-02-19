@@ -225,7 +225,7 @@ def delete_dataset_or_resource(
     logging.info(f"🚮 Deleting {url}")
     r = datagouv_session.delete(url)
     r.raise_for_status()
-    return r.json()
+    return r
 
 
 @simple_connection_retry
