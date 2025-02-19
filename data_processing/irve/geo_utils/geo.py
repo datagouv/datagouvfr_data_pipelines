@@ -8,6 +8,7 @@ from shapely.geometry import Point, shape
 from shapely.geometry.polygon import Polygon
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 with open(
     f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/"
@@ -104,6 +105,7 @@ def fix_code_insee( # noqa
     Requires address and coordinates columns
     """
 
+    @simple_connection_retry
     def enrich_row_address(row: pd.Series, session) -> pd.Series:
         row["consolidated_is_lon_lat_correct"] = False
         row["consolidated_is_code_insee_verified"] = False
