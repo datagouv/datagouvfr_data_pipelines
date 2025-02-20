@@ -144,7 +144,7 @@ def fix_code_insee( # noqa
             # Lat lon do not match any commune
             enrich_row_address.no_match_coords += 1
 
-        if str(row[code_insee_col]) in row[address_col]:
+        if pd.notna(row[code_insee_col]) and row[code_insee_col] != "" and str(row[code_insee_col]) in row[address_col]:
             # Code INSEE field actually contains a postcode
             response = session.get(
                 url=f"https://geo.api.gouv.fr/communes?codePostal={row[code_insee_col]}&fields=code,nom"
