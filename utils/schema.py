@@ -17,9 +17,9 @@ import pytz
 
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
-    DATAGOUV_URL,
     VALIDATA_BASE_URL,
     ORGA_REFERENCE,
+    DATAGOUV_URL,
     post_resource,
     create_dataset,
     update_dataset_or_resource_metadata,
@@ -31,9 +31,6 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 pd.set_option('display.max_columns', None)
-
-# DEV : for local dev in order not to mess up with production
-# DATAGOUV_URL = 'https://www.data.gouv.fr'
 
 VALIDATA_BASE_URL = (
     VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
@@ -443,8 +440,7 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
     if row["error_type"] is None:  # if no error
         rurl = row["resource_url"]
         resource_api_url = (
-            DATAGOUV_URL
-            + f'/api/1/datasets/{row["dataset_id"]}/resources/{row["resource_id"]}'
+            f'{api_url}datasets/{row["dataset_id"]}/resources/{row["resource_id"]}'
         )
         res, report = is_validata_valid(rurl, schema_url, resource_api_url)
         if report and not report.get('report', {}).get('error', False):
@@ -1180,7 +1176,7 @@ def update_resource_metadata(
         schema_from_consolidation = {"name": schema_name, "version": version_name}
         with open(validata_report_path) as out:
             validation_report = json.load(out)
-        print(f"Updating metadata for {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+        print(f"Updating metadata for {api_url}datasets/{dataset_id}/resources/{resource_id}/")
         if validation_report.get("from_metadata"):
             print("report is made from metadata and unchanged, passing")
             return True
@@ -1193,7 +1189,7 @@ def update_resource_metadata(
             # if the resource already has a schema mentionned in its metadata, we don't
             # change it, we display how it is, but don't throw an error anymore
             if schema_from_resource and schema_from_resource.get("name") != schema_name:
-                print(f"For resource {DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/")
+                print(f"For resource {api_url}datasets/{dataset_id}/resources/{resource_id}/")
                 print("Schema metadata error, it looks like this:", schema_from_resource)
                 print("while this report is about", schema_name)
                 return True
@@ -1240,7 +1236,7 @@ def update_resource_metadata(
     else:
         print(
             f"Validation report for v{version_name} doesn't exist for "
-            f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
+            f"{api_url}datasets/{dataset_id}/resources/{resource_id}/"
         )
     return True
 

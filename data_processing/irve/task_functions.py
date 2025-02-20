@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 import re
 
+from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.schema import (
     load_config,
     remove_old_schemas,
@@ -66,46 +67,66 @@ def get_all_irve_resources(
     config_dict = load_config(config_path)
     config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
-    # uncomment to consolidate on demo
-    # schemas_catalogue_list = [{
-    #     'name': 'etalab/schema-irve-statique',
-    #     'title': 'IRVE statique',
-    #     'description': "Spécification du fichier d'échange relatif aux données concernant la localisation géographique et les caractéristiques techniques des stations et des points de recharge pour véhicules électriques", 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/latest/schema-statique.json',
-    #     'schema_type': 'tableschema',
-    #     'contact': 'contact@transport.beta.gouv.fr',
-    #     'examples': [{'title': 'Exemple de fichier IRVE valide', 'path': 'https://github.com/etalab/schema-irve/raw/v2.1.0/exemple-valide.csv'}],
-    #     'labels': ['Socle Commun des Données Locales', 'transport.data.gouv.fr'],
-    #     'consolidation_dataset_id': '64b521568ecbee60f15aa241',
-    #     'versions': [
-    #         {'version_name': '2.3.0', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.0/schema-statique.json'},
-    #         {'version_name': '2.3.1', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.1/schema-statique.json'},
-    #     ],
-    #     'external_doc': 'https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve',
-    #     'external_tool': None,
-    #     'homepage': 'https://github.com/etalab/schema-irve.git',
-    #     'datapackage_title': 'Infrastructures de recharges pour véhicules électriques',
-    #     'datapackage_name': 'etalab/schema-irve',
-    #     'datapackage_description': 'data package contenant 2 schémas : IRVE statique et IRVE dynamique'
-    # }]
-    # config_dict = {
-    #     'etalab/schema-irve-statique': {
-    #         'consolidate': True,
-    #         'consolidated_dataset_id': '64b521568ecbee60f15aa241',
-    #         'documentation_resource_id': '66f90dcf-caa3-43ad-9aeb-0f504f503104',
-    #         'drop_versions': ['1.0.0', '1.0.1', '1.0.2', '1.0.3', '2.0.0', '2.0.1', '2.0.2', '2.0.3', '2.1.0', '2.2.0', '2.2.1'],
-    #         'exclude_dataset_ids': ['54231d4a88ee38334b5b9e1d', '601d660f2be2c8896f86e18d'],
-    #         'geojson_resource_id': '489c3d81-4312-4506-8242-44a674b0bb55',
-    #         'latest_resource_ids': {
-    #             '2.3.0': '18ac7b73-5781-4493-b98a-d624f9f9ab27',
-    #             '2.3.1': '9a300b97-d0c4-411b-9830-b2465624cf22',
-    #             'latest': 'f8fdc246-e67b-4006-8f65-6db0f2f9b57b',
-    #         },
-    #         'publication': True,
-    #         'search_words': ['Infrastructures de recharge pour véhicules électriques', 'IRVE']
-    #     }
-    # }
-    print(schemas_catalogue_list)
-    print(config_dict)
+    if AIRFLOW_ENV == "dev": # to consolidate on demo
+        schemas_catalogue_list = [{
+            'name': 'etalab/schema-irve-statique',
+            'title': 'IRVE statique',
+            'description': "Spécification du fichier d'échange relatif aux données concernant la localisation géographique et les caractéristiques techniques des stations et des points de recharge pour véhicules électriques",
+            'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/latest/schema-statique.json',
+            'schema_type': 'tableschema',
+            'contact': 'contact@transport.beta.gouv.fr',
+            'examples': [{'title': 'Exemple de fichier IRVE valide', 'path': 'https://raw.githubusercontent.com/etalab/schema-irve/v2.3.0/statique/exemple-valide-statique.csv'}],
+            'labels': ['Socle Commun des Données Locales', 'transport.data.gouv.fr'],
+            'consolidation_dataset_id': '64b521568ecbee60f15aa241',
+            'versions': [
+                {'version_name': '2.3.0', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.0/schema-statique.json'},
+                {'version_name': '2.3.1', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.1/schema-statique.json'},
+            ],
+            'external_doc': 'https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve',
+            'external_tool': None,
+            'homepage': 'https://github.com/etalab/schema-irve.git',
+            'datapackage_title': 'Infrastructures de recharges pour véhicules électriques',
+            'datapackage_name': 'etalab/schema-irve',
+            'datapackage_description': 'data package contenant 2 schémas : IRVE statique et IRVE dynamique'
+        }]
+        config_dict = {
+            "etalab/schema-irve-statique": {
+                "consolidate": True,
+                "consolidated_dataset_id": "64b521568ecbee60f15aa241",
+                "documentation_resource_id": "66f90dcf-caa3-43ad-9aeb-0f504f503104",
+                "drop_versions": [
+                    "1.0.0",
+                    "1.0.1",
+                    "1.0.2",
+                    "1.0.3",
+                    "2.0.0",
+                    "2.0.1",
+                    "2.0.2",
+                    "2.0.3",
+                    "2.1.0",
+                    "2.2.0",
+                    "2.2.1",
+                    "2.3.0",
+                ],
+                "exclude_dataset_ids": [
+                    "54231d4a88ee38334b5b9e1d",
+                    "601d660f2be2c8896f86e18d",
+                ],
+                "geojson_resource_id": "489c3d81-4312-4506-8242-44a674b0bb55",
+                "latest_resource_ids": {
+                    "2.3.0": "18ac7b73-5781-4493-b98a-d624f9f9ab27",
+                    "2.3.1": "9a300b97-d0c4-411b-9830-b2465624cf22",
+                    "latest": "f8fdc246-e67b-4006-8f65-6db0f2f9b57b",
+                },
+                "publication": True,
+                "search_words": [
+                    "infrastructures de recharge pour véhicules électriques",
+                    "bornes de recharge pour véhicules électriques",
+                    "IRVE",
+                ],
+                "tags": ["irve"],
+            }
+        }
 
     success = build_reference_table(
         config_dict,
