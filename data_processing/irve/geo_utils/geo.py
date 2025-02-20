@@ -194,7 +194,10 @@ def fix_code_insee( # noqa
     enrich_row_address.code_insee_has_postcode_in_address = 0
     enrich_row_address.nothing_matches = 0
 
-    df = df.apply(lambda x: enrich_row_address(x, session), axis=1)
+    df = df.progress_apply(
+        lambda x: enrich_row_address(x, session),
+        axis=1,
+    ) # type: ignore
 
     total_rows = len(df)
     print(

@@ -5,6 +5,7 @@ import requests
 import json
 from json import JSONDecodeError
 import os
+from tqdm import tqdm
 import yaml
 from datetime import datetime, date
 import time
@@ -31,6 +32,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 pd.set_option('display.max_columns', None)
+tqdm.pandas(desc="pandas progress bar", mininterval=30)
 
 VALIDATA_BASE_URL = (
     VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
