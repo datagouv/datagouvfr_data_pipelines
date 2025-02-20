@@ -1,31 +1,32 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+
 from airflow.models import DAG
-from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-AIRFLOW_ENV,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    MINIO_URL,
 )
 from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
-    get_all_irve_resources,
-    download_irve_resources,
     consolidate_irve,
-    custom_filters_irve,
-    improve_irve_geo_data_quality,
-    upload_consolidated_irve,
-    update_reference_table_irve,
-    update_resource_send_mail_producer_irve,
-    update_consolidation_documentation_report_irve,
     create_consolidation_reports_irve,
     create_detailed_report_irve,
+    custom_filters_irve,
+    download_irve_resources,
     final_directory_clean_up_irve,
+    get_all_irve_resources,
+    improve_irve_geo_data_quality,
+    notification_synthese_irve,
+    update_consolidation_documentation_report_irve,
+    update_reference_table_irve,
+    update_resource_send_mail_producer_irve,
+    upload_consolidated_irve,
     upload_minio_irve,
-    notification_synthese_irve
 )
 
 DAG_NAME = "irve_consolidation"
@@ -36,11 +37,10 @@ GIT_REPO = "https://github.com/datagouv/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
-    'retries': 5 if AIRFLOW_ENV == "prod" else 1,
-    'retry_delay': timedelta(minutes=5),
-    'provide_context': True,
+    "retries": 5 if AIRFLOW_ENV == "prod" else 0,
+    "retry_delay": timedelta(minutes=5),
+    "email_on_failure": False,
 }
-
 
 with DAG(
     dag_id=DAG_NAME,
@@ -48,6 +48,7 @@ with DAG(
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
     catchup=False,
+    max_active_runs=1,
     tags=["schemas", "irve", "consolidation", "datagouv"],
     default_args=default_args,
 ) as dag:
@@ -67,7 +68,7 @@ with DAG(
         op_kwargs={
             "tmp_path": TMP_FOLDER,
             "schemas_catalogue_url": SCHEMA_CATALOG,
-            "config_path": TMP_CONFIG_FILE
+            "config_path": TMP_CONFIG_FILE,
         },
     )
 
@@ -81,7 +82,7 @@ with DAG(
         python_callable=consolidate_irve,
         op_kwargs={
             "tmp_path": TMP_FOLDER,
-            "schemas_catalogue_url": SCHEMA_CATALOG
+            "schemas_catalogue_url": SCHEMA_CATALOG,
         },
     )
 
@@ -101,9 +102,7 @@ with DAG(
     upload_consolidated_irve = PythonOperator(
         task_id="upload_consolidated_irve",
         python_callable=upload_consolidated_irve,
-        op_kwargs={
-            "config_path": TMP_CONFIG_FILE
-        },
+        op_kwargs={"config_path": TMP_CONFIG_FILE},
     )
 
     update_reference_table_irve = PythonOperator(
@@ -119,14 +118,12 @@ with DAG(
     update_consolidation_documentation_report_irve = PythonOperator(
         task_id="update_consolidation_documentation_report_irve",
         python_callable=update_consolidation_documentation_report_irve,
-        op_kwargs={
-            "config_path": TMP_CONFIG_FILE
-        },
+        op_kwargs={"config_path": TMP_CONFIG_FILE},
     )
 
     create_consolidation_reports_irve = PythonOperator(
         task_id="create_consolidation_reports_irve",
-        python_callable=create_consolidation_reports_irve
+        python_callable=create_consolidation_reports_irve,
     )
 
     create_detailed_report_irve = PythonOperator(
@@ -147,8 +144,8 @@ with DAG(
         task_id="upload_minio_irve",
         python_callable=upload_minio_irve,
         op_kwargs={
-            "TMP_FOLDER": TMP_FOLDER,
-            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "tmp_folder": TMP_FOLDER,
+            "minio_bucket_data_pipeline_open": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "minio_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
@@ -158,21 +155,21 @@ with DAG(
         bash_command=(
             f"cd {TMP_FOLDER.as_posix()}/schema.data.gouv.fr/ && git add config_consolidation.yml "
             ' && git commit -m "Update config consolidation file - '
-            f'{ datetime.today().strftime("%Y-%m-%d")}'
+            f"{datetime.today().strftime('%Y-%m-%d')}"
             '" || echo "No changes to commit"'
             " && git push origin main"
-        )
+        ),
     )
 
     notification_synthese_irve = PythonOperator(
         task_id="notification_synthese_irve",
         python_callable=notification_synthese_irve,
         op_kwargs={
-            "MINIO_URL": MINIO_URL,
-            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "TMP_FOLDER": TMP_FOLDER,
-            "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "date_dict": {"TODAY": f"{datetime.today().strftime('%Y-%m-%d')}"}
+            "minio_url": MINIO_URL,
+            "minio_bucket_data_pipeline_open": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "tmp_folder": TMP_FOLDER,
+            "mattermost_datagouv_schema_activite": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+            "date_dict": {"TODAY": f"{datetime.today().strftime('%Y-%m-%d')}"},
         },
     )
 

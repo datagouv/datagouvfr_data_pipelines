@@ -1,44 +1,48 @@
-from ast import literal_eval
-import pandas as pd
+import logging
 import os
-from pathlib import Path
-from datetime import datetime
 import re
+from ast import literal_eval
+from datetime import datetime
+from pathlib import Path
+from typing import Union
+
+import pandas as pd
+from airflow.models import TaskInstance
 
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
-from datagouvfr_data_pipelines.utils.schema import (
-    load_config,
-    remove_old_schemas,
-    get_schema_report,
-    build_reference_table,
-    download_schema_files,
-    consolidate_data,
-    comparer_versions,
-    upload_consolidated,
-    update_reference_table,
-    update_resource_send_mail_producer,
-    update_consolidation_documentation_report,
-    append_stats_list,
-    create_detailed_report,
-    final_directory_clean_up,
-    upload_minio,
-    notification_synthese
-)
 from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
     improve_geo_data_quality,
+)
+from datagouvfr_data_pipelines.utils.schema import (
+    append_stats_list,
+    build_reference_table,
+    comparer_versions,
+    consolidate_data,
+    create_detailed_report,
+    download_schema_files,
+    final_directory_clean_up,
+    get_schema_report,
+    load_config,
+    notification_synthese,
+    remove_old_schemas,
+    update_consolidation_documentation_report,
+    update_reference_table,
+    update_resource_send_mail_producer,
+    upload_consolidated,
+    upload_minio,
 )
 
 schema_name = "etalab/schema-irve-statique"
 
 
 def get_all_irve_resources(
-    ti,
-    tmp_path,
-    schemas_catalogue_url,
-    config_path
-):
-    consolidation_date_str = datetime.today().strftime('%Y%m%d')
-    print(consolidation_date_str)
+    ti: TaskInstance,
+    tmp_path: Path,
+    schemas_catalogue_url: str,
+    config_path: Path,
+) -> None:
+    consolidation_date_str = datetime.today().strftime("%Y%m%d")
+    logging.info(consolidation_date_str)
 
     data_path = tmp_path / "data"
     data_path.mkdir(parents=True, exist_ok=True)
@@ -61,34 +65,50 @@ def get_all_irve_resources(
     schemas_report_dict, schemas_catalogue_list = get_schema_report(
         schemas_catalogue_url=schemas_catalogue_url,
         config_path=config_path,
-        schema_name=schema_name
+        schema_name=schema_name,
     )
 
     config_dict = load_config(config_path)
     config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
 
-    if AIRFLOW_ENV == "dev": # to consolidate on demo
-        schemas_catalogue_list = [{
-            'name': 'etalab/schema-irve-statique',
-            'title': 'IRVE statique',
-            'description': "Spécification du fichier d'échange relatif aux données concernant la localisation géographique et les caractéristiques techniques des stations et des points de recharge pour véhicules électriques",
-            'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/latest/schema-statique.json',
-            'schema_type': 'tableschema',
-            'contact': 'contact@transport.beta.gouv.fr',
-            'examples': [{'title': 'Exemple de fichier IRVE valide', 'path': 'https://raw.githubusercontent.com/etalab/schema-irve/v2.3.0/statique/exemple-valide-statique.csv'}],
-            'labels': ['Socle Commun des Données Locales', 'transport.data.gouv.fr'],
-            'consolidation_dataset_id': '64b521568ecbee60f15aa241',
-            'versions': [
-                {'version_name': '2.3.0', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.0/schema-statique.json'},
-                {'version_name': '2.3.1', 'schema_url': 'https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.1/schema-statique.json'},
-            ],
-            'external_doc': 'https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve',
-            'external_tool': None,
-            'homepage': 'https://github.com/etalab/schema-irve.git',
-            'datapackage_title': 'Infrastructures de recharges pour véhicules électriques',
-            'datapackage_name': 'etalab/schema-irve',
-            'datapackage_description': 'data package contenant 2 schémas : IRVE statique et IRVE dynamique'
-        }]
+    if AIRFLOW_ENV == "dev":  # to consolidate on demo
+        schemas_catalogue_list = [
+            {
+                "name": "etalab/schema-irve-statique",
+                "title": "IRVE statique",
+                "description": "Spécification du fichier d'échange relatif aux données concernant la localisation géographique et les caractéristiques techniques des stations et des points de recharge pour véhicules électriques",
+                "schema_url": "https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/latest/schema-statique.json",
+                "schema_type": "tableschema",
+                "contact": "contact@transport.beta.gouv.fr",
+                "examples": [
+                    {
+                        "title": "Exemple de fichier IRVE valide",
+                        "path": "https://raw.githubusercontent.com/etalab/schema-irve/v2.3.0/statique/exemple-valide-statique.csv",
+                    }
+                ],
+                "labels": [
+                    "Socle Commun des Données Locales",
+                    "transport.data.gouv.fr",
+                ],
+                "consolidation_dataset_id": "64b521568ecbee60f15aa241",
+                "versions": [
+                    {
+                        "version_name": "2.3.0",
+                        "schema_url": "https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.0/schema-statique.json",
+                    },
+                    {
+                        "version_name": "2.3.1",
+                        "schema_url": "https://schema.data.gouv.fr/schemas/etalab/schema-irve-statique/2.3.1/schema-statique.json",
+                    },
+                ],
+                "external_doc": "https://doc.transport.data.gouv.fr/producteurs/infrastructures-de-recharge-de-vehicules-electriques-irve",
+                "external_tool": None,
+                "homepage": "https://github.com/etalab/schema-irve.git",
+                "datapackage_title": "Infrastructures de recharges pour véhicules électriques",
+                "datapackage_name": "etalab/schema-irve",
+                "datapackage_description": "data package contenant 2 schémas : IRVE statique et IRVE dynamique",
+            }
+        ]
         config_dict = {
             "etalab/schema-irve-statique": {
                 "consolidate": True,
@@ -135,47 +155,42 @@ def get_all_irve_resources(
         schemas_report_dict,
         validata_reports_path,
         ref_tables_path,
-        should_succeed=True
+        should_succeed=True,
     )
     assert success
 
-    ti.xcom_push(key='consolidation_date_str', value=consolidation_date_str)
-    ti.xcom_push(key='data_path', value=data_path.as_posix())
-    ti.xcom_push(key='consolidated_data_path', value=consolidated_data_path.as_posix())
-    ti.xcom_push(key='ref_tables_path', value=ref_tables_path.as_posix())
-    ti.xcom_push(key='report_tables_path', value=report_tables_path.as_posix())
-    ti.xcom_push(key='validata_reports_path', value=validata_reports_path.as_posix())
-    ti.xcom_push(key='schemas_report_dict', value=str(schemas_report_dict))
-    ti.xcom_push(key='schemas_catalogue_list', value=schemas_catalogue_list)
-    ti.xcom_push(key='config_dict', value=str(config_dict))
-    return
+    ti.xcom_push(key="consolidation_date_str", value=consolidation_date_str)
+    ti.xcom_push(key="data_path", value=data_path.as_posix())
+    ti.xcom_push(key="consolidated_data_path", value=consolidated_data_path.as_posix())
+    ti.xcom_push(key="ref_tables_path", value=ref_tables_path.as_posix())
+    ti.xcom_push(key="report_tables_path", value=report_tables_path.as_posix())
+    ti.xcom_push(key="validata_reports_path", value=validata_reports_path.as_posix())
+    ti.xcom_push(key="schemas_report_dict", value=str(schemas_report_dict))
+    ti.xcom_push(key="schemas_catalogue_list", value=schemas_catalogue_list)
+    ti.xcom_push(key="config_dict", value=str(config_dict))
 
 
-def download_irve_resources(ti):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    data_path = ti.xcom_pull(key='data_path', task_ids='get_all_irve_resources')
-    success = download_schema_files(
-        schema_name,
-        ref_tables_path,
-        data_path,
-        should_succeed=True
-    )
+def download_irve_resources(
+    ti: TaskInstance,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    data_path = ti.xcom_pull(key="data_path", task_ids="get_all_irve_resources")
+    logging.debug(f"ref_tables_pat={ref_tables_path} -- {type(ref_tables_path)}")
+    logging.debug(f"data_path={data_path} -- {type(data_path)}")
+    success = download_schema_files(schema_name, ref_tables_path, data_path, should_succeed=True)
     assert success
-    return
 
 
 def consolidate_irve(
-    ti,
-    tmp_path
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    data_path = ti.xcom_pull(key='data_path', task_ids='get_all_irve_resources')
-    consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
-    consolidated_data_path = ti.xcom_pull(key='consolidated_data_path', task_ids='get_all_irve_resources')
-    schemas_report_dict = literal_eval(
-        ti.xcom_pull(key='schemas_report_dict', task_ids='get_all_irve_resources')
-    )
-    schemas_catalogue_list = ti.xcom_pull(key='schemas_catalogue_list', task_ids='get_all_irve_resources')
+    ti: TaskInstance,
+    tmp_path: Path,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    data_path = ti.xcom_pull(key="data_path", task_ids="get_all_irve_resources")
+    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
+    consolidated_data_path = ti.xcom_pull(key="consolidated_data_path", task_ids="get_all_irve_resources")
+    schemas_report_dict = literal_eval(ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources"))
+    schemas_catalogue_list = ti.xcom_pull(key="schemas_catalogue_list", task_ids="get_all_irve_resources")
     success = consolidate_data(
         data_path,
         schema_name,
@@ -185,60 +200,47 @@ def consolidate_irve(
         consolidation_date_str,
         tmp_path,
         schemas_report_dict,
-        should_succeed=True
+        should_succeed=True,
     )
     assert success
-    return
 
 
 def custom_filters_irve(
-    ti
-):
-    consolidated_data_path = ti.xcom_pull(key='consolidated_data_path', task_ids='get_all_irve_resources')
-    schema_consolidated_data_path = Path(
-        consolidated_data_path
-    ) / schema_name.replace("/", "_")
+    ti: TaskInstance,
+) -> None:
+    consolidated_data_path = ti.xcom_pull(key="consolidated_data_path", task_ids="get_all_irve_resources")
+    schema_consolidated_data_path = Path(consolidated_data_path) / schema_name.replace("/", "_")
     consolidated_file = [
-        f for f in os.listdir(schema_consolidated_data_path)
-        if f.startswith('consolidation') and f.endswith('.csv')
+        f for f in os.listdir(schema_consolidated_data_path) if f.startswith("consolidation") and f.endswith(".csv")
     ][0]
-    print("Consolidated IRVE file is here:", os.path.join(
-        schema_consolidated_data_path,
-        consolidated_file
-    ))
-    df_conso = pd.read_csv(
-        os.path.join(
-            schema_consolidated_data_path,
-            consolidated_file
-        ),
-        dtype=str
-    )
+    logging.info(f"Consolidated IRVE file is here: {os.path.join(schema_consolidated_data_path, consolidated_file)}")
+    df_conso = pd.read_csv(os.path.join(schema_consolidated_data_path, consolidated_file), dtype=str)
     df_filtered = df_conso.copy()
     # on enlève les lignes publiées par des utilisateurs (aka pas par des organisations)
-    df_filtered = df_filtered.loc[df_filtered['is_orga'] == "True"].drop('is_orga', axis=1)
+    df_filtered = df_filtered.loc[df_filtered["is_orga"] == "True"].drop("is_orga", axis=1)
 
     # pour un id_pdc_itinerance publié plusieurs fois par le même producteur
     # on garde la ligne du fichier le plus récent (si un id_pdc est en double
     # MAIS dans des fichiers de producteurs différents on garde les deux)
     # récent par rapport au champ date_maj (en cas d'égalité, on regarde la date de création de la ressource)
     df_filtered = df_filtered.sort_values(
-        ['id_pdc_itinerance', 'datagouv_organization_or_owner', 'date_maj', 'created_at'],
-        ascending=[True, True, False, False]
+        [
+            "id_pdc_itinerance",
+            "datagouv_organization_or_owner",
+            "date_maj",
+            "created_at",
+        ],
+        ascending=[True, True, False, False],
     )
     df_filtered = df_filtered.drop_duplicates(
-        subset=['id_pdc_itinerance', 'datagouv_organization_or_owner'],
-        keep='first'
+        subset=["id_pdc_itinerance", "datagouv_organization_or_owner"], keep="first"
     )
-    print("Consolidated file has", len(df_filtered), "rows")
+    logging.info("Consolidated file has", len(df_filtered), "rows")
     df_filtered.to_csv(
-        os.path.join(
-            schema_consolidated_data_path,
-            consolidated_file
-        ),
+        os.path.join(schema_consolidated_data_path, consolidated_file),
         index=False,
         encoding="utf-8",
     )
-    return
 
 
 def improve_irve_geo_data_quality(
@@ -257,28 +259,25 @@ def improve_irve_geo_data_quality(
         "latitude": "consolidated_latitude",
     }
     schema_irve_path = os.path.join(tmp_path, "consolidated_data", "etalab_schema-irve-statique")
-    latest_version_consolidation = sorted([
-        file for file in os.listdir(schema_irve_path) if file.endswith('.csv')
-    ], key=sort_consolidated_from_version)[-1]
-    print('Only processing the latest version (too time-consuming):', latest_version_consolidation)
-    improve_geo_data_quality({
-        os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols
-    })
+
+    latest_version_consolidation = sorted(
+        [file for file in os.listdir(schema_irve_path) if file.endswith(".csv")],
+        key=sort_consolidated_from_version,
+    )[-1]
+
+    logging.info(f"Only processing the latest version (too time-consuming): {latest_version_consolidation}")
+    improve_geo_data_quality({os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols})
 
 
 def upload_consolidated_irve(
-    ti,
-    config_path
-):
-    consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
-    consolidated_data_path = ti.xcom_pull(key='consolidated_data_path', task_ids='get_all_irve_resources')
-    schemas_report_dict = literal_eval(
-        ti.xcom_pull(key='schemas_report_dict', task_ids='get_all_irve_resources')
-    )
-    config_dict = literal_eval(
-        ti.xcom_pull(key='config_dict', task_ids='get_all_irve_resources')
-    )
-    schemas_catalogue_list = ti.xcom_pull(key='schemas_catalogue_list', task_ids='get_all_irve_resources')
+    ti: TaskInstance,
+    config_path: Path,
+) -> None:
+    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
+    consolidated_data_path = ti.xcom_pull(key="consolidated_data_path", task_ids="get_all_irve_resources")
+    schemas_report_dict = literal_eval(ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources"))
+    config_dict = literal_eval(ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources"))
+    schemas_catalogue_list = ti.xcom_pull(key="schemas_catalogue_list", task_ids="get_all_irve_resources")
 
     success = upload_consolidated(
         schema_name,
@@ -289,70 +288,55 @@ def upload_consolidated_irve(
         schemas_report_dict,
         consolidation_date_str,
         bool_upload_geojson=True,
-        should_succeed=True
+        should_succeed=True,
     )
     assert success
-    return
 
 
 def update_reference_table_irve(
-    ti
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    success = update_reference_table(
-        ref_tables_path,
-        schema_name,
-        should_succeed=True
-    )
+    ti: TaskInstance,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    success = update_reference_table(ref_tables_path, schema_name, should_succeed=True)
     assert success
-    return
 
 
 def update_resource_send_mail_producer_irve(
-    ti,
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    validata_reports_path = ti.xcom_pull(key='validata_reports_path', task_ids='get_all_irve_resources')
+    ti: TaskInstance,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    validata_reports_path = ti.xcom_pull(key="validata_reports_path", task_ids="get_all_irve_resources")
     success = update_resource_send_mail_producer(
-        ref_tables_path,
-        schema_name,
-        validata_reports_path,
-        should_succeed=True
+        ref_tables_path, schema_name, validata_reports_path, should_succeed=True
     )
     assert success
-    return
 
 
 def update_consolidation_documentation_report_irve(
-    ti,
-    config_path
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
-    config_dict = literal_eval(
-        ti.xcom_pull(key='config_dict', task_ids='get_all_irve_resources')
-    )
+    ti: TaskInstance,
+    config_path: Path,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
+    config_dict = literal_eval(ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources"))
     success = update_consolidation_documentation_report(
         schema_name,
         ref_tables_path,
         config_path,
         consolidation_date_str,
         config_dict,
-        should_succeed=True
+        should_succeed=True,
     )
     assert success
-    return
 
 
 def create_consolidation_reports_irve(
-    ti,
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    report_tables_path = ti.xcom_pull(key='report_tables_path', task_ids='get_all_irve_resources')
-    consolidation_date_str = ti.xcom_pull(key='consolidation_date_str', task_ids='get_all_irve_resources')
-    schemas_report_dict = literal_eval(
-        ti.xcom_pull(key='schemas_report_dict', task_ids='get_all_irve_resources')
-    )
+    ti: TaskInstance,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    report_tables_path = ti.xcom_pull(key="report_tables_path", task_ids="get_all_irve_resources")
+    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
+    schemas_report_dict = literal_eval(ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources"))
 
     reports_list = []
 
@@ -363,18 +347,12 @@ def create_consolidation_reports_irve(
 
     reports_df = pd.DataFrame(reports_list)
 
-    reports_df = reports_df[
-        ["schema_name"] + [col for col in reports_df.columns if col != "schema_name"]
-    ].rename(
+    reports_df = reports_df[["schema_name"] + [col for col in reports_df.columns if col != "schema_name"]].rename(
         columns={"config_created": "new_config_created"}
     )  # rename to drop at next launch
 
-    stats_df_list = []
-    append_stats_list(
-        ref_tables_path,
-        schema_name,
-        stats_df_list
-    )
+    stats_df_list: list[pd.DataFrame] = []
+    append_stats_list(ref_tables_path, schema_name, stats_df_list)
 
     stats_df = pd.concat(stats_df_list).reset_index(drop=True)
 
@@ -399,53 +377,44 @@ def create_consolidation_reports_irve(
 
 
 def create_detailed_report_irve(
-    ti
-):
-    ref_tables_path = ti.xcom_pull(key='ref_tables_path', task_ids='get_all_irve_resources')
-    report_tables_path = ti.xcom_pull(key='report_tables_path', task_ids='get_all_irve_resources')
-    success = create_detailed_report(
-        ref_tables_path,
-        schema_name,
-        report_tables_path,
-        should_succeed=True
-    )
+    ti: TaskInstance,
+) -> None:
+    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    report_tables_path = ti.xcom_pull(key="report_tables_path", task_ids="get_all_irve_resources")
+    success = create_detailed_report(ref_tables_path, schema_name, report_tables_path, should_succeed=True)
     assert success
-    return
 
 
 def final_directory_clean_up_irve(
-    tmp_path,
-    output_data_folder
-):
+    tmp_path: Path,
+    output_data_folder: str,
+) -> None:
     tmp_folder = tmp_path.as_posix() + "/"
-    final_directory_clean_up(
-        tmp_folder,
-        output_data_folder
-    )
+    final_directory_clean_up(tmp_folder, output_data_folder)
 
 
 def upload_minio_irve(
-    TMP_FOLDER,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    minio_output_filepath
-):
+    tmp_folder: Path,
+    minio_bucket_data_pipeline_open: str,
+    minio_output_filepath: str,
+) -> None:
     upload_minio(
-        TMP_FOLDER.as_posix(),
-        MINIO_BUCKET_DATA_PIPELINE_OPEN,
+        tmp_folder.as_posix(),
+        minio_bucket_data_pipeline_open,
         minio_output_filepath,
     )
 
 
 def notification_synthese_irve(
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    TMP_FOLDER,
-    MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-):
+    minio_url: str,
+    minio_bucket_data_pipeline_open: str,
+    tmp_folder: Path,
+    mattermost_datagouv_schema_activite: str,
+) -> None:
     notification_synthese(
-        MINIO_URL,
-        MINIO_BUCKET_DATA_PIPELINE_OPEN,
-        TMP_FOLDER,
-        MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-        schema_name
+        minio_url,
+        minio_bucket_data_pipeline_open,
+        tmp_folder,
+        mattermost_datagouv_schema_activite,
+        schema_name,
     )
