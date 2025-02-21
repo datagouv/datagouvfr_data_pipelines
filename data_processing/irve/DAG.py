@@ -46,7 +46,7 @@ with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 5 * * *",
     start_date=datetime(2024, 8, 10),
-    dagrun_timeout=timedelta(minutes=240),
+    dagrun_timeout=timedelta(minutes=360),
     catchup=False,
     max_active_runs=1,
     tags=["schemas", "irve", "consolidation", "datagouv"],
