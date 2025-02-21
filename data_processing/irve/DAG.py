@@ -33,7 +33,7 @@ DAG_NAME = "irve_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
-GIT_REPO = "https://github.com/datagouv/schema.data.gouv.fr.git"
+GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
@@ -173,6 +173,11 @@ with DAG(
         },
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     clone_dag_schema_repo.set_upstream(clean_previous_outputs)
     get_all_irve_resources.set_upstream(clone_dag_schema_repo)
     download_irve_resources.set_upstream(get_all_irve_resources)
@@ -189,3 +194,4 @@ with DAG(
     upload_minio_irve.set_upstream(final_directory_clean_up_irve)
     commit_changes.set_upstream(upload_minio_irve)
     notification_synthese_irve.set_upstream(commit_changes)
+    clean_up.set_upstream(notification_synthese_irve)
