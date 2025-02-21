@@ -242,10 +242,11 @@ def custom_filters_irve(
 
 
 def improve_irve_geo_data_quality(
-    tmp_path,
-):
-    def sort_consolidated_from_version(file_name):
-        version = re.search(r'\d+.\d+.\d+', file_name)[0]
+    tmp_path: Path,
+) -> None:
+    def sort_consolidated_from_version(file_name: str) -> list[Union[int, float]]:
+        version_lookup = re.search(r"\d+.\d+.\d+", file_name)
+        version = str(version_lookup[0]) if version_lookup else "inf"
         return comparer_versions(version)
 
     schema_irve_cols = {

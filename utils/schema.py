@@ -29,6 +29,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 pd.set_option('display.max_columns', None)
@@ -361,7 +362,7 @@ def is_validata_valid(rurl, schema_url, resource_api_url, validata_base_url=VALI
         report = make_validata_report(rurl, schema_url, resource_api_url, validata_base_url)
         try:
             res = report["report"]["valid"]
-        except:
+        except KeyError:
             print(
                 f"---- 🔴 No info in validata report for resource: {rurl}"
             )
@@ -402,9 +403,7 @@ def save_validata_report(
         save_report["from_metadata"] = True
 
     try:
-        nb_errors = (
-            _report["stats"]["errors"] if _report["stats"]["errors"] < 100 else 100
-        )
+        nb_errors = nb_errors = min(_report["stats"]["errors"], 100)
     except KeyError:
         nb_errors = None
     save_report["validation-report:nb_errors"] = nb_errors
@@ -1967,12 +1966,14 @@ def upload_minio(
 ):
     minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
-    list_files = [{
-        "source_path": path,
-        "source_name": name,
-        "dest_path": minio_output_filepath,
-        "dest_name": os.path.join(path, name).replace(TMP_FOLDER, ""),
-    }
+    list_files = [
+        File(
+            source_path=path,
+            source_name=name,
+            dest_path=minio_output_filepath,
+            dest_name=os.path.join(path, name).replace(TMP_FOLDER, ""),
+            content_type=None,
+        )
         for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
         for name in files
         if os.path.isfile(os.path.join(path, name))
@@ -2055,12 +2056,13 @@ def notification_synthese(
 
                 minio_open.send_files(
                     list_files=[
-                        {
-                            "source_path": f"{TMP_FOLDER}/",
-                            "source_name": erreurs_file_name,
-                            "dest_path": "schema/schemas_consolidation/liste_erreurs/",
-                            "dest_name": erreurs_file_name,
-                        }
+                        File(
+                            source_path=f"{TMP_FOLDER}/",
+                            source_name=erreurs_file_name,
+                            dest_path="schema/schemas_consolidation/liste_erreurs/",
+                            dest_name=erreurs_file_name,
+                            content_type=None,
+                        )
                     ],
                     ignore_airflow_env=True
                 )

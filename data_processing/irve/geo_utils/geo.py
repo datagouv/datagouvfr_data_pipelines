@@ -48,12 +48,9 @@ def fix_coordinates_order(
             # Coordinates are inverted with lat before lon
             row[coordinates_column] = json.dumps(reversed_coordonnees)
             row["consolidated_coordinates_reordered"] = True
-            fix_coordinates.rows_modified = fix_coordinates.rows_modified + 1
         return row
 
-    fix_coordinates.rows_modified = 0
     df = df.apply(fix_coordinates, axis=1)
-    print(f"Coordinates reordered: {fix_coordinates.rows_modified}/{len(df)}")
     return df
 
 
@@ -76,11 +73,11 @@ def export_to_geojson(
     )
     json_result = json.loads(json_result_string)
 
-    geojson = {"type": "FeatureCollection", "features": []}
+    features = []
     for record in json_result:
         coordinates = json.loads(record[coordinates_column])
         longitude, latitude = coordinates
-        geojson["features"].append(
+        features.append(
             {
                 "type": "Feature",
                 "geometry": {
@@ -90,6 +87,7 @@ def export_to_geojson(
                 "properties": record,
             }
         )
+    geojson = {"type": "FeatureCollection", "features": features}
     with open(target_filepath, "w") as f:
         f.write(json.dumps(geojson, indent=2))
 
@@ -197,7 +195,7 @@ def fix_code_insee( # noqa
     df = df.progress_apply(
         lambda x: enrich_row_address(x, session),
         axis=1,
-    ) # type: ignore
+    )  # type: ignore
 
     total_rows = len(df)
     print(
@@ -235,7 +233,10 @@ def improve_geo_data_quality(file_cols_mapping: Dict[str, Dict[str, str]]) -> No
         df = pd.read_csv(filepath, dtype="str", na_filter=False, keep_default_na=False)
         schema_cols = list(df.columns)
         df = fix_coordinates_order(df, coordinates_column=cols_dict["xy_coords"])
-        print("Done fixing coordinates")
+        print(
+            f"Done fixing coordinates: ({df['consolidated_coordinates_reordered'].sum()}/{len(df)})"
+        )
+
         df = create_lon_lat_cols(df, coordinates_column=cols_dict["xy_coords"])
         print("Done creating long lat")
         df = fix_code_insee(
