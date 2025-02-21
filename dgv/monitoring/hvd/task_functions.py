@@ -280,7 +280,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         if row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
             contact_point = requests.get(
                 f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
-            ).json()["contact_point"] or {}
+            ).json().get("contact_point", {})
             return (
                 row["title"],
                 url,
