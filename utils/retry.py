@@ -1,4 +1,5 @@
 from tenacity import retry, stop_after_attempt, wait_exponential
+import requests
 
 
 def log_retry_attempt(state):
@@ -25,3 +26,8 @@ def _simple_connection_retry(
 
 
 simple_connection_retry = _simple_connection_retry()
+
+
+@simple_connection_retry
+def get_with_retries(url: str, **kwargs):
+    return requests.get(url, **kwargs)
