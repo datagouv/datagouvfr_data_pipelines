@@ -58,7 +58,7 @@ class MinIOClient:
         list_files: List[File],
         ignore_airflow_env: bool = False,
         burn_after_sending: bool = False,
-    ):
+    ) -> None:
         """Send list of file to Minio bucket
 
         Args:
@@ -105,7 +105,7 @@ class MinIOClient:
         self,
         list_files: List[File],
         ignore_airflow_env=False,
-    ):
+    ) -> None:
         """Retrieve list of files from Minio
 
         Args:
@@ -136,7 +136,7 @@ class MinIOClient:
         self,
         file_path,
         encoding="utf-8",
-    ):
+    ) -> str:
         """
         Return the content of a file as a string.
         """
@@ -152,7 +152,7 @@ class MinIOClient:
         file_path_2: str,
         file_name_1: str,
         file_name_2: str,
-    ):
+    ) -> Optional[bool]:
         """Compare two minio files
 
         Args:
@@ -193,7 +193,7 @@ class MinIOClient:
         prefix: str,
         ignore_airflow_env=False,
         recursive=False,
-    ):
+    ) -> list:
         """Retrieve only the list of files in a Minio pattern
 
         Args:
@@ -303,7 +303,7 @@ class MinIOClient:
     def get_all_files_names_and_sizes_from_parent_folder(
         self,
         folder: str,
-    ):
+    ) -> dict[str, int]:
         """
         returns a dict of {"file_name": file_size, ...} for all files in the folder
         """
@@ -327,7 +327,7 @@ class MinIOClient:
     def delete_file(
         self,
         file_path: str,
-    ):
+    ) -> None:
         """/!\ USE WITH CAUTION"""
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
@@ -342,7 +342,7 @@ class MinIOClient:
     def delete_files_from_prefix(
         self,
         prefix: str,
-    ):
+    ) -> None:
         for obj in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
             self.client.remove_object(self.bucket, obj.object_name)
         logging.info(
@@ -354,7 +354,7 @@ class MinIOClient:
         self,
         dict_top,
         name,
-    ):
+    ) -> None:
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         raw_data = io.BytesIO(json.dumps(dict_top, indent=2).encode("utf-8"))
@@ -369,7 +369,7 @@ class MinIOClient:
         self,
         file_path,
         ignore_airflow_env=False,
-    ):
+    ) -> str:
         return (
             f"https://{MINIO_URL}/{self.bucket}/"
             f"{AIRFLOW_ENV + '/' if not ignore_airflow_env else ''}"
@@ -382,7 +382,7 @@ class MinIOClient:
         url: str,
         destination_file_path: str,
         session: Optional[requests.Session] = None,
-    ):
+    ) -> None:
         # to upload a file from an URL without having to download, save and send
         _req = session or requests
         response = _req.get(url, stream=True)
