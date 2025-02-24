@@ -244,6 +244,7 @@ def custom_filters_irve(
 
 
 def improve_irve_geo_data_quality(
+    ti,
     tmp_path: Path,
 ) -> None:
     def sort_consolidated_from_version(file_name: str) -> list[Union[int, float]]:
@@ -251,6 +252,8 @@ def improve_irve_geo_data_quality(
         version = str(version_lookup[0]) if version_lookup else "inf"
         return comparer_versions(version)
 
+    config_dict = literal_eval(ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources"))
+    latest_resource_id = config_dict["etalab/schema-irve-statique"]["latest_resource_ids"]["latest"]
     schema_irve_cols = {
         "xy_coords": "coordonneesXY",
         "code_insee": "code_insee_commune",
@@ -266,7 +269,10 @@ def improve_irve_geo_data_quality(
     )[-1]
 
     logging.info(f"Only processing the latest version (too time-consuming): {latest_version_consolidation}")
-    improve_geo_data_quality({os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols})
+    improve_geo_data_quality(
+        file_cols_mapping={os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols},
+        latest_resource_id=latest_resource_id,
+    )
 
 
 def upload_consolidated_irve(
