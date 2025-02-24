@@ -6,7 +6,6 @@ import geojson
 import pandas as pd
 import requests
 from shapely.geometry import Point, shape
-from shapely.geometry.polygon import Polygon
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -17,16 +16,6 @@ with open(f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/ge
 # Create a Polygon
 geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
 polys = [shape(geom) for geom in geoms]
-
-
-def is_point_in_polygon(
-    x: float,
-    y: float,
-    polygon: list[list[float]],
-) -> bool:
-    point = Point(x, y)
-    polygon_shape = Polygon(polygon)
-    return polygon_shape.contains(point)
 
 
 def is_point_in_france(
@@ -100,6 +89,7 @@ def export_to_geojson(
 
 def fix_code_insee(
     df: pd.DataFrame,
+    latest_resource_id: str,
     code_insee_col: str = "code_insee_commune",
     address_col: str = "adresse_station",
     lon_col: str = "consolidated_longitude",
@@ -110,7 +100,13 @@ def fix_code_insee(
     """
 
     @simple_connection_retry
-    def enrich_row_address(row: pd.Series, session) -> pd.Series:
+    def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
+        if (
+            row["consolidated_is_code_insee_verified"] is True
+            and isinstance(row[code_insee_col], str)
+            and row[code_insee_col]
+        ):
+            return row
         row["consolidated_is_lon_lat_correct"] = False
         row["consolidated_is_code_insee_verified"] = False
         row["consolidated_code_insee_modified"] = False
@@ -193,10 +189,62 @@ def fix_code_insee(
     enrich_row_address.code_insee_has_postcode_in_address = 0
     enrich_row_address.nothing_matches = 0
 
+    process_infos_cols = [
+        "consolidated_is_lon_lat_correct",
+        "consolidated_is_code_insee_verified",
+        "consolidated_code_insee_modified",
+    ]
+    yesterdays_data = df = pd.read_csv(
+        f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
+        dtype={
+            c: bool for c in process_infos_cols
+        } | {
+            c: str for c in [code_insee_col, address_col, lon_col, lat_col]
+        },
+        usecols=[
+            code_insee_col,
+            address_col,
+            lon_col,
+            lat_col,
+        ] + process_infos_cols,
+    )
+    yesterdays_data = yesterdays_data.loc[~yesterdays_data[code_insee_col].isna()].drop_duplicates()
+    coords = yesterdays_data[
+        [code_insee_col, lon_col, lat_col] + process_infos_cols
+    ].drop_duplicates()
+    address = yesterdays_data[
+        [code_insee_col, address_col] + process_infos_cols
+    ].drop_duplicates()
+    logging.info("Getting data from yesterday's file")
+    df_coords = pd.merge(
+        coords,
+        df.loc[(~df[lon_col].isna()) & (~df[lat_col].isna())],
+        on=[lon_col, lat_col],
+        how="left",
+    )
+    df_address = pd.merge(
+        address,
+        df.loc[~df[address_col].isna()],
+        on=[address_col],
+        how="left",
+    )
+    df = pd.concat(
+        [
+            df_coords,
+            df_address,
+            df.loc[
+                df[lon_col].isna()
+                | df[lat_col].isna()
+                | df[address_col].isna()
+            ],
+        ],
+        ignore_index=True,
+    )
+    logging.info(f"{len(df.loc[~df['code_insee_commune'].isna()])} lines filled from yesterday")
     df = df.progress_apply(
         lambda x: enrich_row_address(x, session),
         axis=1,
-    )  # type: ignore
+    )
 
     total_rows = len(df)
     logging.info(
@@ -228,6 +276,7 @@ def fix_code_insee(
 
 def improve_geo_data_quality(
     file_cols_mapping: dict[str, dict[str, str]],
+    latest_resource_id: str,
 ) -> None:
     for filepath, cols_dict in file_cols_mapping.items():
         df = pd.read_csv(filepath, dtype="str", na_filter=False, keep_default_na=False)
@@ -241,6 +290,7 @@ def improve_geo_data_quality(
 
         df = fix_code_insee(
             df,
+            latest_resource_id=latest_resource_id,
             code_insee_col=cols_dict["code_insee"],
             address_col=cols_dict["adress"],
             lon_col=cols_dict["longitude"],
@@ -254,6 +304,7 @@ def improve_geo_data_quality(
             "consolidated_commune",
             "consolidated_is_lon_lat_correct",
             "consolidated_is_code_insee_verified",
+            "consolidated_code_insee_modified",
         ]
         df = df[schema_cols + new_cols]
         df.to_csv(filepath, index=False)
