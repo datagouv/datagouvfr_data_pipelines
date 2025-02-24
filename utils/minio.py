@@ -8,6 +8,7 @@ import os
 import io
 import json
 import magic
+import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
@@ -338,6 +339,17 @@ class MinIOClient:
             logging.warning(e)
 
     @simple_connection_retry
+    def delete_files_from_prefix(
+        self,
+        prefix: str,
+    ):
+        for obj in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
+            self.client.remove_object(self.bucket, obj.object_name)
+        logging.info(
+            f"All objects with prefix '{prefix}' deleted successfully."
+        )
+
+    @simple_connection_retry
     def dict_to_bytes_to_minio(
         self,
         dict_top,
@@ -363,3 +375,37 @@ class MinIOClient:
             f"{AIRFLOW_ENV + '/' if not ignore_airflow_env else ''}"
             f"{file_path}"
         )
+
+    @simple_connection_retry
+    def send_from_url(
+        self,
+        url: str,
+        destination_file_path: str,
+        session: Optional[requests.Session] = None,
+    ):
+        # to upload a file from an URL without having to download, save and send
+        _req = session or requests
+        response = _req.get(url, stream=True)
+        response.raise_for_status()
+        logging.info("⬆️ Stream-sending " + url)
+        logging.info(f"to {self.bucket}/{destination_file_path}")
+        self.client.put_object(
+            self.bucket,
+            destination_file_path,
+            response.raw,
+            length=-1,
+            part_size=10 * 1024 * 1024,
+        )
+
+    def does_file_exist_on_minio(
+        self,
+        file: str,
+    ) -> bool:
+        try:
+            self.client.stat_object(self.bucket, file)
+            return True
+        except S3Error as e:
+            if e.code == "NoSuchKey":
+                return False
+            else:
+                raise
