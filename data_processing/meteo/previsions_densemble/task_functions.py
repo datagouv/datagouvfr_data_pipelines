@@ -288,7 +288,7 @@ def handle_cyclonic_alert(pack: str, grid: str):
     current_resources: dict = get_current_resources(pack, grid)
     if len(current_resources) not in [49, 79]:
         raise ValueError(f"{pack}_{grid} has an unexpected number of resources: {len(current_resources)}")
-    if len(current_resources) != 79:
+    if len(current_resources) == 49:
         logging.info("Nothing to do here")
         return
     latest_date = max(
@@ -298,6 +298,7 @@ def handle_cyclonic_alert(pack: str, grid: str):
             recursive=False,
         )
     )
+    logging.info(f"Latest date {latest_date}")
     nb_files_latest_date = len(
         minio_meteo.get_files_from_prefix(
             prefix=f"{minio_folder}/{pack}/{grid}/{latest_date}/",
@@ -305,13 +306,15 @@ def handle_cyclonic_alert(pack: str, grid: str):
             recursive=False,
         )
     )
+    logging.info(f"Nb files latest date {nb_files_latest_date}")
     if nb_files_latest_date == 49:
         logging.info("Deleting cyclonic alert additional resources")
         for file_id, infos in current_resources.items():
             # by construction
             _, _, echeance = file_id.split("_")
             echeance = int(echeance.replace(":", ""))
-            if echeance > 48:
+            if echeance > 4800:
+                logging.info(f"Deleting {file_id}")
                 delete_dataset_or_resource(
                     dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
                     resource_id=infos["resource_id"],

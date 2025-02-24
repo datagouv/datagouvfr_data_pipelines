@@ -1,18 +1,16 @@
-from typing import Dict, List
-import geojson
 import json
+import logging
 import os
+
+import geojson
 import pandas as pd
 import requests
 from shapely.geometry import Point, shape
-from shapely.geometry.polygon import Polygon
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
-with open(
-    f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/"
-    "irve/geo_utils/france_bbox.geojson"
-) as f:
+with open(f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/geo_utils/france_bbox.geojson") as f:
     FRANCE_BBOXES = geojson.load(f)
 
 # Create a Polygon
@@ -20,19 +18,16 @@ geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
 polys = [shape(geom) for geom in geoms]
 
 
-def is_point_in_polygon(x: float, y: float, polygon: List[List[float]]) -> bool:
-    point = Point(x, y)
-    polygon_shape = Polygon(polygon)
-    return polygon_shape.contains(point)
-
-
-def is_point_in_france(coordonnees_xy: List[float]) -> bool:
+def is_point_in_france(
+    coordonnees_xy: list[float],
+) -> bool:
     p = Point(*coordonnees_xy)
     return any(p.within(poly) for poly in polys)
 
 
 def fix_coordinates_order(
-    df: pd.DataFrame, coordinates_column: str = "coordonneesXY"
+    df: pd.DataFrame,
+    coordinates_column: str = "coordonneesXY",
 ) -> pd.DataFrame:
     """
     Cette fonction modifie une dataframe pour placer la longitude avant la latitude
@@ -47,17 +42,15 @@ def fix_coordinates_order(
             # Coordinates are inverted with lat before lon
             row[coordinates_column] = json.dumps(reversed_coordonnees)
             row["consolidated_coordinates_reordered"] = True
-            fix_coordinates.rows_modified = fix_coordinates.rows_modified + 1
         return row
 
-    fix_coordinates.rows_modified = 0
     df = df.apply(fix_coordinates, axis=1)
-    print(f"Coordinates reordered: {fix_coordinates.rows_modified}/{len(df)}")
     return df
 
 
 def create_lon_lat_cols(
-    df: pd.DataFrame, coordinates_column: str = "coordonneesXY"
+    df: pd.DataFrame,
+    coordinates_column: str = "coordonneesXY",
 ) -> pd.DataFrame:
     """Add longitude and latitude columns to dataframe using coordinates_column"""
     coordinates = df[coordinates_column].apply(json.loads)
@@ -67,19 +60,19 @@ def create_lon_lat_cols(
 
 
 def export_to_geojson(
-    df: pd.DataFrame, target_filepath: str, coordinates_column: str = "coordonneesXY"
+    df: pd.DataFrame,
+    target_filepath: str,
+    coordinates_column: str = "coordonneesXY",
 ) -> None:
     """Export dataframe into Geojson format"""
-    json_result_string = df.to_json(
-        orient="records", double_precision=12, date_format="iso"
-    )
+    json_result_string = df.to_json(orient="records", double_precision=12, date_format="iso")
     json_result = json.loads(json_result_string)
 
-    geojson = {"type": "FeatureCollection", "features": []}
+    features = []
     for record in json_result:
         coordinates = json.loads(record[coordinates_column])
         longitude, latitude = coordinates
-        geojson["features"].append(
+        features.append(
             {
                 "type": "Feature",
                 "geometry": {
@@ -89,12 +82,14 @@ def export_to_geojson(
                 "properties": record,
             }
         )
+    geojson = {"type": "FeatureCollection", "features": features}
     with open(target_filepath, "w") as f:
         f.write(json.dumps(geojson, indent=2))
 
 
-def fix_code_insee( # noqa
+def fix_code_insee(
     df: pd.DataFrame,
+    latest_resource_id: str,
     code_insee_col: str = "code_insee_commune",
     address_col: str = "adresse_station",
     lon_col: str = "consolidated_longitude",
@@ -104,16 +99,20 @@ def fix_code_insee( # noqa
     Requires address and coordinates columns
     """
 
-    def enrich_row_address(row: pd.Series, session) -> pd.Series:
+    @simple_connection_retry
+    def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
+        if (
+            row["consolidated_is_code_insee_verified"] is True
+            and isinstance(row[code_insee_col], str)
+            and row[code_insee_col]
+        ):
+            return row
         row["consolidated_is_lon_lat_correct"] = False
         row["consolidated_is_code_insee_verified"] = False
         row["consolidated_code_insee_modified"] = False
         # Try getting commune with code INSEE from latitude and longitude alone
         response = session.get(
-            url=(
-                f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}"
-                f"&lon={row[lon_col]}&fields=code,nom,codesPostaux"
-            )
+            url=(f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}&lon={row[lon_col]}&fields=code,nom,codesPostaux")
         )
         commune_results = json.loads(response.content)
         if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
@@ -142,15 +141,13 @@ def fix_code_insee( # noqa
             # Lat lon do not match any commune
             enrich_row_address.no_match_coords += 1
 
-        if str(row[code_insee_col]) in row[address_col]:
+        if pd.notna(row[code_insee_col]) and row[code_insee_col] != "" and str(row[code_insee_col]) in row[address_col]:
             # Code INSEE field actually contains a postcode
             response = session.get(
                 url=f"https://geo.api.gouv.fr/communes?codePostal={row[code_insee_col]}&fields=code,nom"
             )
             commune_results = json.loads(response.content)
-            if (response.status_code == requests.codes.ok) and (
-                len(commune_results) > 0
-            ):
+            if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
                 commune = commune_results[0]
                 row["consolidated_code_postal"] = row[code_insee_col]
                 row["consolidated_commune"] = commune["nom"]
@@ -192,55 +189,114 @@ def fix_code_insee( # noqa
     enrich_row_address.code_insee_has_postcode_in_address = 0
     enrich_row_address.nothing_matches = 0
 
-    df = df.apply(lambda x: enrich_row_address(x, session), axis=1)
+    process_infos_cols = [
+        "consolidated_is_lon_lat_correct",
+        "consolidated_is_code_insee_verified",
+        "consolidated_code_insee_modified",
+    ]
+    yesterdays_data = df = pd.read_csv(
+        f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
+        dtype={
+            c: bool for c in process_infos_cols
+        } | {
+            c: str for c in [code_insee_col, address_col, lon_col, lat_col]
+        },
+        usecols=[
+            code_insee_col,
+            address_col,
+            lon_col,
+            lat_col,
+        ] + process_infos_cols,
+    )
+    yesterdays_data = yesterdays_data.loc[~yesterdays_data[code_insee_col].isna()].drop_duplicates()
+    coords = yesterdays_data[
+        [code_insee_col, lon_col, lat_col] + process_infos_cols
+    ].drop_duplicates()
+    address = yesterdays_data[
+        [code_insee_col, address_col] + process_infos_cols
+    ].drop_duplicates()
+    logging.info("Getting data from yesterday's file")
+    df_coords = pd.merge(
+        coords,
+        df.loc[(~df[lon_col].isna()) & (~df[lat_col].isna())],
+        on=[lon_col, lat_col],
+        how="left",
+    )
+    df_address = pd.merge(
+        address,
+        df.loc[~df[address_col].isna()],
+        on=[address_col],
+        how="left",
+    )
+    df = pd.concat(
+        [
+            df_coords,
+            df_address,
+            df.loc[
+                df[lon_col].isna()
+                | df[lat_col].isna()
+                | df[address_col].isna()
+            ],
+        ],
+        ignore_index=True,
+    )
+    logging.info(f"{len(df.loc[~df['code_insee_commune'].isna()])} lines filled from yesterday")
+    df = df.progress_apply(
+        lambda x: enrich_row_address(x, session),
+        axis=1,
+    )
 
     total_rows = len(df)
-    print(
-        "Coords OK. INSEE codes already correct, simply enriched: "
-        f"{enrich_row_address.already_good}/{total_rows}"
+    logging.info(
+        f"Coords OK. INSEE codes already correct, simply enriched: {enrich_row_address.already_good}/{total_rows}"
     )
-    print(
+    logging.info(
         "Coords OK. INSEE code field contained postcode. Fixed and enriched: "
         f"{enrich_row_address.code_fixed}/{total_rows}"
     )
-    print(
+    logging.info(
         "Coords not matching code INSEE field as code INSEE or postcode: "
         f"{enrich_row_address.code_coords_mismatch}/{total_rows}"
     )
-    print(
-        f"Coords not matching any commune: {enrich_row_address.no_match_coords}/{total_rows}"
-    )
-    print(
+    logging.info(f"Coords not matching any commune: {enrich_row_address.no_match_coords}/{total_rows}")
+    logging.info(
         "Code INSEE is postcode in address. Fixed and enriched: "
         f"{enrich_row_address.code_insee_is_postcode_in_address}/{total_rows}"
     )
-    print(
+    logging.info(
         "Code INSEE has postcode in address. "
         f"Enriched: {enrich_row_address.code_insee_has_postcode_in_address}/{total_rows}"
     )
-    print(
+    logging.info(
         "No indication of postcode/code INSEE in address or coordinates matching code INSEE field. "
         f"No enriching performed: {enrich_row_address.nothing_matches}/{total_rows}"
     )
     return df
 
 
-def improve_geo_data_quality(file_cols_mapping: Dict[str, Dict[str, str]]) -> None:
+def improve_geo_data_quality(
+    file_cols_mapping: dict[str, dict[str, str]],
+    latest_resource_id: str,
+) -> None:
     for filepath, cols_dict in file_cols_mapping.items():
         df = pd.read_csv(filepath, dtype="str", na_filter=False, keep_default_na=False)
         schema_cols = list(df.columns)
+
         df = fix_coordinates_order(df, coordinates_column=cols_dict["xy_coords"])
-        print("Done fixing coordinates")
+        logging.info(f"Done fixing coordinates: ({df['consolidated_coordinates_reordered'].sum()}/{len(df)})")
+
         df = create_lon_lat_cols(df, coordinates_column=cols_dict["xy_coords"])
-        print("Done creating long lat")
+        logging.info("Done creating long lat")
+
         df = fix_code_insee(
             df,
+            latest_resource_id=latest_resource_id,
             code_insee_col=cols_dict["code_insee"],
             address_col=cols_dict["adress"],
             lon_col=cols_dict["longitude"],
             lat_col=cols_dict["latitude"],
         )
-        print("Done fixing code INSEE")
+        logging.info("Done fixing code INSEE")
         new_cols = [
             "consolidated_longitude",
             "consolidated_latitude",
@@ -248,6 +304,7 @@ def improve_geo_data_quality(file_cols_mapping: Dict[str, Dict[str, str]]) -> No
             "consolidated_commune",
             "consolidated_is_lon_lat_correct",
             "consolidated_is_code_insee_verified",
+            "consolidated_code_insee_modified",
         ]
         df = df[schema_cols + new_cols]
         df.to_csv(filepath, index=False)
