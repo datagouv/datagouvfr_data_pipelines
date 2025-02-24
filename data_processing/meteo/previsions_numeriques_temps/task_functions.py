@@ -1,20 +1,13 @@
-from collections import defaultdict
 from datetime import datetime, timedelta
-import json
 import logging
 import os
-from requests.exceptions import RequestException, Timeout
 import pygrib
 import requests
-import time
-import random
-import shutil
-import subprocess
 
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    MINIO_URL,
     MINIO_BUCKET_PNT,
     SECRET_MINIO_PNT_USER,
     SECRET_MINIO_PNT_PASSWORD,
@@ -22,8 +15,6 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
     MAX_LAST_BATCHES,
-    BATCH_URL_SIZE,
-    BATCH_URL_SIZE_PACKAGE,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.utils import (
     MeteoClient,
@@ -32,7 +23,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
-    delete_dataset_or_resource,
     DATAGOUV_URL,
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -90,7 +80,7 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
                 get_last_batch_hour() - timedelta(hours=6 * i)
             ).strftime("%Y-%m-%dT%H:%M:%SZ"))
     else:
-        # the others every 6h
+        # the others run every 6h
         for i in range(MAX_LAST_BATCHES * 2):
             batches.append((
                 get_last_batch_hour() - timedelta(hours=3 * i)
@@ -294,3 +284,89 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
         # making way for later occurrences
         os.removedirs(f"{DATADIR}{path}/{p}")
     ti.xcom_push(key="uploaded", value=uploaded)
+
+
+def build_file_id_and_date(file_name: str):
+    # final files look like "arome__001__HP1__00H__2025-02-24T09:00:00Z.grib2"
+    # on data.gouv we will expose only the latest occurrence of model+grid+package+batch
+    # so we build an id (aka just remove the date) to compare files
+    model, grid, package, batch, date = file_name.split(".")[0].split("__")
+    return f"{model}_{grid}_{package}_{batch}", date
+
+
+def get_current_resources(model: str, pack: str, grid: str):
+    current_resources = {}
+    for r in requests.get(
+        f"{DATAGOUV_URL}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        headers={"X-fields": "resources{id,url,type}"},
+    ).json()["resources"]:
+        if r["type"] != "main":
+            continue
+        file_id, file_date = build_file_id_and_date(r["url"].split("/")[-1])
+        current_resources[file_id] = {
+            "date": file_date,
+            "resource_id": r["id"],
+        }
+    return current_resources
+
+
+def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
+    # getting the current state of the resources
+    current_resources: dict = get_current_resources(model, pack, grid)
+
+    # getting the latest available occurrence of each file on Minio
+    latest_files = {}
+    batches_on_minio = [path.split("/")[-2] for path in minio_pnt.get_files_from_prefix(
+        prefix=f"{minio_folder}/",
+        ignore_airflow_env=True,
+        recursive=False,
+    )]
+    logging.info(f"Current batches on Minio: {batches_on_minio}")
+
+    # starting with latest timeslots
+    path = build_folder_path(model, pack, grid)
+    for batch in reversed(sorted(batches_on_minio)):
+        for obj, size in minio_pnt.get_all_files_names_and_sizes_from_parent_folder(
+            folder=f"{minio_folder}/{batch}/{path}/",
+        ).items():
+            file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
+            if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
+                latest_files[file_id] = {
+                    "date": file_date,
+                    "url": f"https://{MINIO_URL}/{MINIO_BUCKET_PNT}/{obj}",
+                    "title": obj.split("/")[-1],
+                    "size": size,
+                }
+            if len(latest_files) == len(current_resources):
+                # we have found all files
+                break
+        logging.info(f"{len(latest_files)}/{len(current_resources)} files found after {batch}")
+
+    for file_id, infos in latest_files.items():
+        if file_id not in current_resources:
+            # uploading files that are not on data.gouv yet
+            logging.info(f"🆕 Creating resource for {file_id}")
+            post_remote_resource(
+                dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
+                payload={
+                    "url": infos["url"],
+                    "filesize": infos["size"],
+                    "title": infos["title"],
+                    "format": PACKAGES[model][pack]["extension"],
+                    "type": "main",
+                },
+            )
+        elif infos["date"] > current_resources[file_id]["date"]:
+            # updating existing resources if fresher occurrences are available
+            logging.info(f"🔃 Updating resource for {file_id}")
+            post_remote_resource(
+                dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
+                resource_id=current_resources[file_id]["resource_id"],
+                payload={
+                    "url": infos["url"],
+                    "filesize": infos["size"],
+                    "title": infos["title"],
+                    "format": PACKAGES[model][pack]["extension"],
+                    "type": "main",
+                },
+            )

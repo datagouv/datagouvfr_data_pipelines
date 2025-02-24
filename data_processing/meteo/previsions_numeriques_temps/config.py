@@ -1,14 +1,6 @@
 # Nb of batch we want to retrieve (every 6 hours)
 MAX_LAST_BATCHES = 60
-BATCH_URL_SIZE = 50
 METEO_API_URL = "https://public-api.meteofrance.fr/previnum/"
-
-BATCH_URL_SIZE_PACKAGE = {
-    "arome": 40,
-    "arpege": 40,
-    "arome-om": 340,
-    "vague-surcote": 90,
-}
 
 
 def standardize_hour(hour: int, nb_char: int):

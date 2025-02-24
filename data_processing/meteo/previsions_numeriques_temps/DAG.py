@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     clean_old_runs_in_minio,
     construct_all_possible_files,
     send_files_to_minio,
+    publish_on_datagouv,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
@@ -60,10 +61,17 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
             op_kwargs=common_kwargs,
         )
 
+        _publish_on_datagouv = PythonOperator(
+            task_id="publish_on_datagouv",
+            python_callable=publish_on_datagouv,
+            op_kwargs=common_kwargs,
+        )
+
         _clean_old_runs_in_minio.set_upstream(_get_latest_theorical_batches)
 
         _construct_all_possible_files.set_upstream(_get_latest_theorical_batches)
         _send_files_to_minio.set_upstream(_construct_all_possible_files)
+        _publish_on_datagouv.set_upstream(_send_files_to_minio)
 
     return dag
 
