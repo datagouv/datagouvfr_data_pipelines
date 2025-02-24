@@ -101,7 +101,11 @@ def fix_code_insee(
 
     @simple_connection_retry
     def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
-        if isinstance(row[code_insee_col], str) and row[code_insee_col]:
+        if (
+            row["consolidated_is_code_insee_verified"] is True
+            and isinstance(row[code_insee_col], str)
+            and row[code_insee_col]
+        ):
             return row
         row["consolidated_is_lon_lat_correct"] = False
         row["consolidated_is_code_insee_verified"] = False
@@ -192,7 +196,11 @@ def fix_code_insee(
     ]
     yesterdays_data = df = pd.read_csv(
         f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
-        dtype=str,
+        dtype={
+            c: bool for c in process_infos_cols
+        } | {
+            c: str for c in [code_insee_col, address_col, lon_col, lat_col]
+        },
         usecols=[
             code_insee_col,
             address_col,
@@ -296,6 +304,7 @@ def improve_geo_data_quality(
             "consolidated_commune",
             "consolidated_is_lon_lat_correct",
             "consolidated_is_code_insee_verified",
+            "consolidated_code_insee_modified",
         ]
         df = df[schema_cols + new_cols]
         df.to_csv(filepath, index=False)
