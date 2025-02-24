@@ -5,6 +5,7 @@ import logging
 import os
 from requests.exceptions import RequestException, Timeout
 import pygrib
+import requests
 import time
 import random
 import shutil
@@ -161,6 +162,7 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
                 url_to_infos[url] = {
                     "filename": filename,
                     "minio_path": minio_path,
+                    "package": package.name,
                 }
                 minio_path_to_url[minio_path] = url
 
@@ -227,13 +229,20 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
     logging.info(f"Getting {len(to_get)} files")
     # we could also put the content of the loop within an async function and process the files simultaneously
     uploaded = []
+    my_packages = []
     for minio_path in to_get:
-        ## NEED TIME TO SLEEP BETWEEN ATTEMPTS
         url = minio_path_to_url[minio_path]
+        package = url_to_infos[url]['package']
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
-        local_filename = f"{DATADIR}{path}/{url_to_infos[url]['filename']}"
-        os.makedirs(f"{DATADIR}{path}", exist_ok=True)
+        if os.path.isdir(f"{DATADIR}{path}/{package}") and package not in my_packages:
+            logging.info(f"{url_to_infos[url]['package']} is already being processed by another run")
+            continue
+        else:
+            # this is to make sure concurrent runs don't interfere or process the same data
+            os.makedirs(f"{DATADIR}{path}/{package}", exist_ok=True)
+            my_packages.append(package)
+        local_filename = f"{DATADIR}{path}/{package}/{url_to_infos[url]['filename']}"
         # ideally we'd like to minio_pnt.send_from_url directly but we have to test the file structure first
         with meteo_client.get(
             url,
@@ -281,4 +290,7 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             logging.info("This file is an already known issue, passing")
         # deleting the file locally
         os.remove(local_filename)
+    for p in my_packages:
+        # making way for later occurrences
+        os.removedirs(f"{DATADIR}{path}/{p}")
     ti.xcom_push(key="uploaded", value=uploaded)

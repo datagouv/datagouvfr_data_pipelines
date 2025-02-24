@@ -31,7 +31,7 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         dagrun_timeout=timedelta(minutes=600),
         tags=["data_processing", "meteo", "pnt", model],
         # runs can run in parallel, safeguards ensure they won't interfere
-        max_active_runs=1,
+        max_active_runs=3,
     )
     with dag:
 
