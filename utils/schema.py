@@ -35,6 +35,7 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)
 
+DATAGOUV_URL = "https://www.data.gouv.fr"
 VALIDATA_BASE_URL = VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"
@@ -606,8 +607,8 @@ def build_reference_table(
         df = df.drop_duplicates(subset=["resource_id"], keep="first")
 
         logging.info(
-            f"🔢 {len(df)} resource(s) found for this schema,",
-            f"{len(df.loc[df['error_type'].isna()])} with no inherent error.",
+            f"🔢 {len(df)} resource(s) found for this schema, "
+            f"{len(df.loc[df['error_type'].isna()])} with no inherent error."
         )
 
         if "initial_version_name" not in df.columns:  # in case there is no resource found by schema request
@@ -720,8 +721,8 @@ def download_schema_files(schema_name, ref_tables_path, data_path, should_succee
 
     else:
         logging.info(
-            "-- ❌ No reference table made for this schema (schema not to consolidate,",
-            "no version to consolidate or no resource found).",
+            "-- ❌ No reference table made for this schema (schema not to consolidate, "
+            "no version to consolidate or no resource found)."
         )
         if should_succeed:
             return False
@@ -819,7 +820,7 @@ def consolidate_data(
                                     engine="openpyxl",
                                 )
                         except Exception as e:
-                            logging.warning("Pb on reading resource: ", file_path)
+                            logging.warning(f"Pb on reading resource: {file_path}")
                             logging.warning(e)
 
                         try:
