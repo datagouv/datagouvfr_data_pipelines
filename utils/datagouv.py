@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 import re
 
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, get_with_retries
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
@@ -499,7 +499,6 @@ def post_remote_communautary_resource(
     return r.json()
 
 
-@simple_connection_retry
 def get_all_from_api_query(
     base_query: str,
     next_page: str = 'next_page',
@@ -520,13 +519,13 @@ def get_all_from_api_query(
     headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
     if mask is not None:
         headers["X-fields"] = mask + f",{next_page}"
-    r = requests.get(base_query, headers=headers)
+    r = get_with_retries(base_query, headers=headers)
     if not ignore_errors:
         r.raise_for_status()
     for elem in r.json()["data"]:
         yield elem
     while get_link_next_page(r.json(), next_page):
-        r = requests.get(get_link_next_page(r.json(), next_page), headers=headers)
+        r = get_with_retries(get_link_next_page(r.json(), next_page), headers=headers)
         if not ignore_errors:
             r.raise_for_status()
         for data in r.json()['data']:

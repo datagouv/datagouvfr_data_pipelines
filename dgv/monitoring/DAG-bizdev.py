@@ -21,6 +21,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
 from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, df_to_grist
+from datagouvfr_data_pipelines.utils.retry import get_with_retries
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
     check_if_first_day_of_month,
@@ -219,7 +220,7 @@ def create_curation_tables():
         except StopIteration:
             restr_reuses[rid].update({'monthly_visit': 0})
 
-        r = requests.get(datagouv_api_url + 'reuses/' + rid).json()
+        r = get_with_retries(datagouv_api_url + 'reuses/' + rid).json()
         restr_reuses[rid].update({
             'title': r.get('title', None),
             'page': r.get('page', None),
@@ -392,7 +393,7 @@ def create_edito_tables():
     }.keys())[:50]
     orga_visited = {k: orga_visited[k] for k in orga_visited if k in tmp or k in tmp2}
     for k in orga_visited:
-        r = requests.get(datagouv_api_url + 'organizations/' + k).json()
+        r = get_with_retries(datagouv_api_url + 'organizations/' + k).json()
         orga_visited[k].update({'name': r.get('name', None), 'url': r.get('page', None)})
     df = pd.DataFrame(orga_visited.values(), index=orga_visited.keys())
     df.to_csv(DATADIR + 'top50_orgas_most_visits_last_month.csv', index=False)
@@ -412,7 +413,7 @@ def create_edito_tables():
         k: v for k, v in sorted(datasets_visited.items(), key=lambda x: -x[1]['monthly_visit'])
     }
     for k in datasets_visited:
-        r = requests.get(datagouv_api_url + 'datasets/' + k).json()
+        r = get_with_retries(datagouv_api_url + 'datasets/' + k).json()
         datasets_visited[k].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
@@ -438,10 +439,10 @@ def create_edito_tables():
     while len(resources_downloaded) < 50:
         d = next(data)
         if d['monthly_download_resource']:
-            if not requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").ok:
+            if not get_with_retries(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").ok:
                 print("This dataset seems to have disappeared:", d['dataset_id'])
                 continue
-            r = requests.get(
+            r = get_with_retries(
                 f"https://www.data.gouv.fr/api/2/datasets/resources/{d['resource_id']}/"
             ).json()
             d['dataset_id'] = r['dataset_id'] if r['dataset_id'] else 'COMMUNAUTARY'
@@ -449,8 +450,8 @@ def create_edito_tables():
             r2 = {}
             r3 = {}
             if d['dataset_id'] != 'COMMUNAUTARY':
-                r2 = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
-                r3 = requests.get(
+                r2 = get_with_retries(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
+                r3 = get_with_retries(
                     f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}"
                     f"&dataset_id__exact={d['dataset_id']}"
                 ).json()
@@ -506,7 +507,7 @@ def create_edito_tables():
         k: v for k, v in sorted(reuses_visited.items(), key=lambda x: -x[1]['monthly_visit'])
     }
     for k in reuses_visited:
-        r = requests.get(datagouv_api_url + 'reuses/' + k).json()
+        r = get_with_retries(datagouv_api_url + 'reuses/' + k).json()
         reuses_visited[k].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
@@ -531,7 +532,7 @@ def create_edito_tables():
         if d['created'] < threshold:
             break
         if d['subject']['class'] == 'Dataset':
-            tmp = requests.get(datagouv_api_url + f"datasets/{d['subject']['id']}").json()
+            tmp = get_with_retries(datagouv_api_url + f"datasets/{d['subject']['id']}").json()
             organization_or_owner = (
                 tmp.get('organization', {}).get('name', None) if tmp.get('organization', None)
                 else tmp.get('owner', {}).get('slug', None)
