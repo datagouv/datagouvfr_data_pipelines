@@ -18,7 +18,7 @@ def show_html(html):
 
 
 def make_link(text: str, link: str):
-    return f"<a href='{link}' target='_blank'>{text}</a>"
+    return f"<a href='{link.replace(' ', '')}' target='_blank'>{text}</a>"
 
 
 def show_link(text: str, link: str):
