@@ -235,7 +235,7 @@ def custom_filters_irve(
     df_filtered = df_filtered.drop_duplicates(
         subset=["id_pdc_itinerance", "datagouv_organization_or_owner"], keep="first"
     )
-    logging.info("Consolidated file has", len(df_filtered), "rows")
+    logging.info(f"Consolidated file has {len(df_filtered)} rows")
     df_filtered.to_csv(
         os.path.join(schema_consolidated_data_path, consolidated_file),
         index=False,
