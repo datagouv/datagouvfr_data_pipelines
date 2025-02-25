@@ -192,7 +192,7 @@ def fix_code_insee(
     process_infos_cols = [
         "consolidated_is_lon_lat_correct",
         "consolidated_is_code_insee_verified",
-        "consolidated_code_insee_modified",
+        # "consolidated_code_insee_modified",
     ]
     yesterdays_data = df = pd.read_csv(
         f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
