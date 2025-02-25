@@ -226,9 +226,14 @@ def show_discussions(
             url = f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
         user = make_link(fullname(comment["posted_by"]), comment["posted_by"]["page"])
         to_be_shown = object_title + f" ({subject['class']})" if object_title else subject['class']
-        show_html(
-            f"{d['discussion_title']} sur {make_link(to_be_shown, url)} par {user}"
-        )
+        try:
+            show_html(
+                f"{d['discussion_title']} sur {make_link(to_be_shown, url)} par {user}"
+            )
+        except:
+            show_html(
+                f"{d['discussion_title']} sur {to_be_shown} {url} par {user}"
+            )
         show_html(f"<pre>{comment['content']}</pre>")
         show_html("<hr/>")
 
