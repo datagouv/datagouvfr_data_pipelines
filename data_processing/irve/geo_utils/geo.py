@@ -199,7 +199,10 @@ def fix_code_insee(
         dtype={
             c: bool for c in process_infos_cols
         } | {
-            c: str for c in [code_insee_col, address_col, lon_col, lat_col]
+            code_insee_col: str,
+            address_col: str,
+            lon_col: float,
+            lat_col: float,
         },
         usecols=[
             code_insee_col,
