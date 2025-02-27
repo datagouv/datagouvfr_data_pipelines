@@ -7,7 +7,7 @@ import time
 import requests
 from airflow.models import Variable
 
-from datagouvfr_data_pipelines.config import APPLICATION_ID
+from datagouvfr_data_pipelines.config import METEO_PNT_APPLICATION_ID
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
@@ -58,7 +58,7 @@ class MeteoClient(object):
             access_token_response = requests.post(
                 self.token_url,
                 data={'grant_type': 'client_credentials'},
-                headers={'Authorization': 'Basic ' + APPLICATION_ID},
+                headers={'Authorization': 'Basic ' + METEO_PNT_APPLICATION_ID},
             )
             token = access_token_response.json()['access_token']
             Variable.set("pnt_token", token)
