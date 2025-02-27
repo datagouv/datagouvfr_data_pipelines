@@ -73,14 +73,8 @@ def get_new_batches(batches: list, url: str) -> list:
 
 def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs):
     batches = []
-    if model != "arome":
+    if model == "arome":
         # arome runs every 3h
-        for i in range(MAX_LAST_BATCHES):
-            batches.append((
-                get_last_batch_hour() - timedelta(hours=6 * i)
-            ).strftime("%Y-%m-%dT%H:%M:%SZ"))
-    else:
-        # the others run every 6h
         for i in range(MAX_LAST_BATCHES * 2):
             batches.append((
                 get_last_batch_hour() - timedelta(hours=3 * i)
@@ -90,6 +84,12 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
         ) + timedelta(hours=3)
         if batch3hlater < datetime.now():
             batches.append(batch3hlater.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    else:
+        # the others run every 6h
+        for i in range(MAX_LAST_BATCHES):
+            batches.append((
+                get_last_batch_hour() - timedelta(hours=6 * i)
+            ).strftime("%Y-%m-%dT%H:%M:%SZ"))
     logging.info(f"All batches: {batches}")
     tested_batches: list = get_new_batches(
         batches,
