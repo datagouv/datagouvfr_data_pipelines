@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
+import json
 import pandas as pd
-import requests
 from langdetect import detect
 import os
 import random
 import aiohttp
 import asyncio
+
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
@@ -128,12 +129,11 @@ async def crawl_reuses(reuses):
 
 def get_unavailable_reuses():
     print("Fetching reuse list from https://www.data.gouv.fr/api/1/reuses/")
-    reuses = list(
-        get_all_from_api_query(
-            "https://www.data.gouv.fr/api/1/reuses/?page_size=100&sort=-created",
-            mask="data{id,url}"
-        )
-    )
+    reuses = json.loads(pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
+        sep=";",
+        usecols=["id", "url"],
+    ).to_json(orient="records"))
     reuses = [r for r in reuses if r['id'] not in ignored_reuses]
     # gather on the whole reuse list is inconsistent (some unavailable reuses do not
     # appear), having a smaller batch size provides better results and keeps the duration
@@ -235,45 +235,40 @@ def process_unavailable_reuses():
 
 
 def process_empty_datasets():
-    data = get_all_from_api_query(
-        datagouv_api_url + 'datasets',
-        mask="data{id,title,organization{name},owner{slug},created_at,resources{id}}"
-    )
-    empty_datasets = {}
-    for d in data:
-        if not d['resources']:
-            empty_datasets.update({d['id']: {
-                'dataset_id': d['id'],
-                'title': d.get('title', None),
-                'url': 'https://www.data.gouv.fr/fr/admin/dataset/' + d['id'],
-                'organization_or_owner': (
-                    d['organization'].get('name', None) if d.get('organization', None)
-                    else d['owner'].get('slug', None) if d.get('owner', None) else None
-                ),
-                'created_at': d['created_at'][:10] if d.get('created_at', None) else None
-            }})
-        # keeping this for now, because it's resource consuming. It'll get better with curation
-        if len(empty_datasets) == 1000:
-            print('Early stopping')
-            break
-    print('   > Getting visits...')
-    for d in empty_datasets:
+    def get_last_month_visits(dataset_id: str):
         data = get_all_from_api_query(
             (
                 f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}'
-                '&dataset_id__exact={d}'
+                f'&dataset_id__exact={dataset_id}'
             ),
-            next_page='links.next'
+            next_page='links.next',
         )
         try:
             n = next(data)
-            empty_datasets[d].update({'last_month_visits': n['monthly_visit']})
+            return n['monthly_visit']
         except:
-            empty_datasets[d].update({'last_month_visits': 0})
-    df = pd.DataFrame(empty_datasets.values(), index=empty_datasets.keys())
-    df = df.sort_values('last_month_visits', ascending=False)
-    df.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
-    df_to_grist(df, grist_curation, "Datasets_vides")
+            return 0
+
+    empty_datasets = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        sep=";",
+        usecols=["id", "title", "organization", "owner", "created_at", "resources_count"],
+    )
+    empty_datasets = empty_datasets.loc[empty_datasets["resources_count"] == 0]
+    del empty_datasets["resources_count"]
+    empty_datasets["url"] = empty_datasets["id"].apply(
+        lambda _id: f"https://www.data.gouv.fr/fr/admin/dataset/{_id}"
+    )
+    empty_datasets["created_at"] = empty_datasets["created_at"].str.slice(0, 10)
+    empty_datasets["organization_or_owner"] = empty_datasets.apply(
+        lambda df: df["organization"] if isinstance(df["organization"], str) else df["owner"],
+        axis=1,
+    )
+    empty_datasets["last_month_visits"] = empty_datasets["id"].apply(get_last_month_visits)
+    empty_datasets.rename({"id": "dataset_id"}, axis=1, inplace=True)
+    empty_datasets = empty_datasets.sort_values('last_month_visits', ascending=False)
+    empty_datasets.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
+    df_to_grist(empty_datasets, grist_curation, "Datasets_vides")
 
 
 def process_potential_spam():
@@ -281,7 +276,7 @@ def process_potential_spam():
         'datasets',
         'reuses',
         'organizations',
-        'users'
+        'users',
     ]
     spam = []
     for obj in search_types:
@@ -344,30 +339,25 @@ curation_functions = [
 # %%
 def get_top_orgas_publish():
     # Top 50 des orgas ayant produits le plus de JDD
-    data = get_all_from_api_query(
-        'https://www.data.gouv.fr/api/1/datasets/?sort=-created',
-        mask="data{organization{id,name},internal{created_at_internal}}"
-    )
+    datasets = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        sep=";",
+        usecols=["organization", "organization_id", "created_at"],
+    ).rename({"organization": "name"}, axis=1)
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-    orgas_of_interest = {}
-    for d in data:
-        if d['internal']['created_at_internal'] < threshold:
-            break
-        if d.get('organization', False):
-            orgas_of_interest.setdefault(
-                d['organization']['id'], {
-                    'name': d['organization']['name'],
-                    'url': f"www.data.gouv.fr/fr/organizations/{d['organization']['id']}/",
-                    'publications': 0,
-                }
-            )
-            orgas_of_interest[d['organization']['id']]['publications'] += 1
-    orgas_of_interest = {
-        k: v for k, v in sorted(orgas_of_interest.items(), key=lambda x: -x[1]['publications'])
-    }
-    df = pd.DataFrame(orgas_of_interest.values(), index=orgas_of_interest.keys())
-    df[:50].to_csv(DATADIR + 'top50_orgas_most_publications_30_days.csv', index=False)
-    df_to_grist(df, grist_edito, "Top50_organisations_publications_1mois")
+    restr = datasets.loc[datasets["created_at"] >= threshold]
+    restr["url"] = restr["organization_id"].apply(
+        lambda _id: f"www.data.gouv.fr/fr/organizations/{_id}/"
+    )
+    count = restr["organization_id"].value_counts().reset_index().rename({"count": "publications"}, axis=1)
+    count = pd.merge(
+        count,
+        restr[["organization_id", "url"]].drop_duplicates(subset="organization_id"),
+        on="organization_id",
+        how="left",
+    ).sort_values(by="publications", ascending=False)
+    count[:50].to_csv(DATADIR + 'top50_orgas_most_publications_30_days.csv', index=False)
+    df_to_grist(count, grist_edito, "Top50_organisations_publications_1mois")
 
 
 def get_top_orgas_visits():
@@ -531,30 +521,31 @@ def get_top_reuses_visits():
 
 def get_top_datasets_discussions():
     # Top 50 des JDD les plus discutés
-    data = get_all_from_api_query(
-        datagouv_api_url + 'discussions/?sort=-created',
-        mask="data{created,subject{id,class}}"
+    discussions = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/d77705e1-4ecd-461c-8c24-662d47c4c2f9",
+        sep=";",
+        usecols=["created", "subject_class", "subject_id"],
     )
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+    discussions = discussions.loc[
+        discussions["created"] >= threshold
+        & discussions["subject_class"] == "Dataset"
+    ]
     discussions_of_interest = {}
-    for d in data:
-        if d['created'] < threshold:
-            break
-        if d['subject']['class'] == 'Dataset':
-            tmp = get_with_retries(datagouv_api_url + f"datasets/{d['subject']['id']}").json()
+    for dataset_id in discussions["subject_id"]:
+        if dataset_id not in discussions_of_interest:
+            tmp = get_with_retries(datagouv_api_url + f"datasets/{dataset_id}").json()
             organization_or_owner = (
                 tmp.get('organization', {}).get('name', None) if tmp.get('organization', None)
                 else tmp.get('owner', {}).get('slug', None)
             )
-            discussions_of_interest.setdefault(
-                d['subject']['id'], {
-                    'discussions_created': 0,
-                    'dataset_id': d['subject']['id'],
-                    'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{d['subject']['id']}",
-                    'organization_or_owner': organization_or_owner
-                }
-            )
-            discussions_of_interest[d['subject']['id']]['discussions_created'] += 1
+            discussions_of_interest[dataset_id] = {
+                'discussions_created': 0,
+                'dataset_id': dataset_id,
+                'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{dataset_id}",
+                'organization_or_owner': organization_or_owner
+            }
+        discussions_of_interest[dataset_id]['discussions_created'] += 1
     discussions_of_interest = {
         k: v for k, v in sorted(
             discussions_of_interest.items(),
