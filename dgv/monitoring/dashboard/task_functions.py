@@ -411,7 +411,7 @@ def get_hvd_dataservices_stats():
         count += 1
         for i in of_interest:
             if i != 'license':
-                of_interest[i] += c[i] is not None
+                of_interest[i] += c.get(i) is not None
             # for now, as license is not None when not specified
             else:
                 of_interest[i] += c[i] != "notspecified"
