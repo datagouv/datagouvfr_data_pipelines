@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     # DATAGOUV_MATOMO_ID,
 )
 from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
-from datagouvfr_data_pipelines.utils.utils import month_year_iter
+from datagouvfr_data_pipelines.utils.utils import list_months_between
 
 DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -109,20 +109,15 @@ def get_zammad_tickets(
     ]
 
     all_tickets, hs_tickets, spam_tickets = [], [], []
-    months = []
-    for year, month in month_year_iter(
-        start_date.month,
-        start_date.year,
-        end_date.month,
-        end_date.year,
-    ):
+    months = list_months_between(start_date, end_date)
+    for month in months:
         logging.info("Searching all tickets...")
-        all_tickets.append(get_monthly_tickets(f"{year}-{'0' * (month < 10) + str(month)}"))
+        all_tickets.append(get_monthly_tickets(month))
         logging.info("Searching HS tickets...")
-        hs_tickets.append(get_monthly_tickets(f"{year}-{'0' * (month < 10) + str(month)}", tags=hs_tags))
+        hs_tickets.append(get_monthly_tickets(month, tags=hs_tags))
         logging.info("Searching spam tickets...")
-        spam_tickets.append(get_monthly_tickets(f"{year}-{'0' * (month < 10) + str(month)}", tags=spam_tags))
-        months.append(f"{year}-{'0' * (month < 10) + str(month)}")
+        spam_tickets.append(get_monthly_tickets(month, tags=spam_tags))
+
     ti.xcom_push(key="all_tickets", value=all_tickets)
     ti.xcom_push(key="hs_tickets", value=hs_tickets)
     ti.xcom_push(key="spam_tickets", value=spam_tickets)
@@ -153,6 +148,8 @@ def get_visits(
     #     "label": "fr",
     #     "title": "Homepage",
     # }
+
+    months_to_process = list_months_between(start_date, end_date)
     url_stats_support = {
         "site_id": "176",
         "label": "%40%252Findex",
@@ -171,8 +168,21 @@ def get_visits(
                 label=k["label"],
             )
         )
-        df = pd.read_csv(StringIO(r.text))
+        df = pd.read_csv(
+            filepath_or_buffer=StringIO(r.text),
+            usecols=["Date", "Vues de page uniques"],
+        )
+
+        # Filling missing months to 0 in case Matomo did not return them yet
+        for month in months_to_process:
+            if month not in df["Date"].values:
+                logging.error(f"Missing month: {month}")
+                new_values = pd.DataFrame({"Date": [month], "Vues de page uniques": [0]})
+                df = pd.concat([new_values, df], ignore_index=True)
+                df = df.sort_values(by="Date")
+
         vues = df["Vues de page uniques"].to_list()
+        logging.info(f"Vues : {vues}")
         ti.xcom_push(key=k["title"], value=vues)
 
 
