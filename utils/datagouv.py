@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 import re
 
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry.get
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
