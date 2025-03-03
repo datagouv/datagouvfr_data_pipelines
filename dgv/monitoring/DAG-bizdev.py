@@ -201,9 +201,7 @@ async def get_suspect_users():
     return results
 
 
-def create_curation_tables():
-    # Reuses inaccessibles
-    print('Reuses inaccessibles')
+def process_unavailable_reuses():
     unavailable_reuses = get_unavailable_reuses()
     restr_reuses = {
         d[0]['id']: {'error': d[1]} for d in unavailable_reuses
@@ -235,8 +233,8 @@ def create_curation_tables():
     df.to_csv(DATADIR + 'all_reuses_most_visits_KO_last_month.csv', float_format="%.0f", index=False)
     df_to_grist(df, grist_curation, "Reutilisations_down")
 
-    # Datasets sans ressources
-    print('Datasets sans ressources')
+
+def process_empty_datasets():
     data = get_all_from_api_query(
         datagouv_api_url + 'datasets',
         mask="data{id,title,organization{name},owner{slug},created_at,resources{id}}"
@@ -277,8 +275,8 @@ def create_curation_tables():
     df.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
     df_to_grist(df, grist_curation, "Datasets_vides")
 
-    # Spam
-    print('Spam')
+
+def process_potential_spam():
     search_types = [
         'datasets',
         'reuses',
@@ -336,9 +334,16 @@ def create_curation_tables():
     df_to_grist(df, grist_curation, "Spam")
 
 
-def create_edito_tables():
-    # Top 50 des orga qui ont publié le plus de jeux de données
-    print('Top 50 des orga qui ont publié le plus de jeux de données')
+curation_functions = [
+    process_unavailable_reuses,
+    process_empty_datasets,
+    process_potential_spam,
+]
+
+
+# %%
+def get_top_orgas_publish():
+    # Top 50 des orgas ayant produits le plus de JDD
     data = get_all_from_api_query(
         'https://www.data.gouv.fr/api/1/datasets/?sort=-created',
         mask="data{organization{id,name},internal{created_at_internal}}"
@@ -364,9 +369,9 @@ def create_edito_tables():
     df[:50].to_csv(DATADIR + 'top50_orgas_most_publications_30_days.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_organisations_publications_1mois")
 
-    # Top 50 des orga les plus visitées et avec le plus de ressources téléchargées
-    # aka le plus de visites sur tous les datasets de l'orga
-    print('Top 50 des orga les plus visitées et avec le plus de ressources téléchargées')
+
+def get_top_orgas_visits():
+    # Top 50 des orgas les plus visités
     data = get_all_from_api_query(
         f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}',
         next_page='links.next'
@@ -399,8 +404,9 @@ def create_edito_tables():
     df.to_csv(DATADIR + 'top50_orgas_most_visits_last_month.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_organisations_visites_1mois")
 
+
+def get_top_datasets_visits():
     # Top 50 des JDD les plus visités
-    print('Top 50 des JDD les plus visités')
     data = get_all_from_api_query(
         f'{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
         next_page='links.next'
@@ -426,8 +432,9 @@ def create_edito_tables():
     df.to_csv(DATADIR + 'top50_datasets_most_visits_last_month.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_datasets_visites_1mois")
 
+
+def get_top_resources_downloads():
     # Top 50 des ressources les plus téléchargées
-    print('Top 50 des ressources les plus téléchargées')
     data = get_all_from_api_query(
         (
             f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}'
@@ -489,8 +496,9 @@ def create_edito_tables():
     )
     df_to_grist(df, grist_edito, "Top50_ressources_telechargees_1mois")
 
+
+def get_top_reuses_visits():
     # Top 50 des réutilisations les plus visitées
-    print('Top 50 des réutilisations les plus visitées')
     data = get_all_from_api_query(
         f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
         next_page='links.next',
@@ -520,8 +528,9 @@ def create_edito_tables():
     df.to_csv(DATADIR + 'top50_reuses_most_visits_last_month.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_reutilisations_visites_1mois")
 
+
+def get_top_datasets_discussions():
     # Top 50 des JDD les plus discutés
-    print('Top 50 des JDD les plus discutés')
     data = get_all_from_api_query(
         datagouv_api_url + 'discussions/?sort=-created',
         mask="data{created,subject{id,class}}"
@@ -557,6 +566,17 @@ def create_edito_tables():
     df_to_grist(df, grist_edito, "Top50_orgas_discutees_30jours")
 
 
+edito_functions = [
+    get_top_datasets_discussions,
+    get_top_datasets_visits,
+    get_top_orgas_publish,
+    get_top_orgas_visits,
+    get_top_resources_downloads,
+    get_top_reuses_visits,
+]
+
+
+# %%
 def send_tables_to_minio():
     print(os.listdir(DATADIR))
     print('Saving tops as millésimes')
@@ -638,27 +658,33 @@ with DAG(
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
-    ),
+    )
 
     check_if_monday = ShortCircuitOperator(
         task_id="check_if_monday",
         python_callable=check_if_monday
     )
 
-    create_curation_tables = PythonOperator(
-        task_id="create_curation_tables",
-        python_callable=create_curation_tables
-    )
+    curation_tasks = [
+        PythonOperator(
+            task_id=func.__name__,
+            python_callable=func
+        )
+        for func in curation_functions
+    ]
 
     check_if_first_day_of_month = ShortCircuitOperator(
         task_id="check_if_first_day_of_month",
         python_callable=check_if_first_day_of_month
     )
 
-    create_edito_tables = PythonOperator(
-        task_id="create_edito_tables",
-        python_callable=create_edito_tables
-    )
+    edito_tasks = [
+        PythonOperator(
+            task_id=func.__name__,
+            python_callable=func
+        )
+        for func in edito_functions
+    ]
 
     send_tables_to_minio = PythonOperator(
         task_id="send_tables_to_minio",
@@ -675,10 +701,12 @@ with DAG(
     check_if_monday.set_upstream(clean_previous_outputs)
     check_if_first_day_of_month.set_upstream(clean_previous_outputs)
 
-    create_curation_tables.set_upstream(check_if_monday)
-    create_edito_tables.set_upstream(check_if_first_day_of_month)
+    for task in curation_tasks:
+        task.set_upstream(check_if_monday)
+        send_tables_to_minio.set_upstream(task)
 
-    send_tables_to_minio.set_upstream(create_edito_tables)
-    send_tables_to_minio.set_upstream(create_curation_tables)
+    for task in edito_tasks:
+        task.set_upstream(check_if_first_day_of_month)
+        send_tables_to_minio.set_upstream(task)
 
     publish_mattermost.set_upstream(send_tables_to_minio)
