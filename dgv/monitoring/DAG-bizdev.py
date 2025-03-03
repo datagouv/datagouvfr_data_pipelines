@@ -206,6 +206,8 @@ def process_unavailable_reuses():
     restr_reuses = {
         d[0]['id']: {'error': d[1]} for d in unavailable_reuses
     }
+    if not restr_reuses:
+        return
     for rid in restr_reuses:
         data = get_all_from_api_query(
             f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
@@ -528,8 +530,8 @@ def get_top_datasets_discussions():
     )
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
     discussions = discussions.loc[
-        discussions["created"] >= threshold
-        & discussions["subject_class"] == "Dataset"
+        (discussions["created"] >= threshold)
+        & (discussions["subject_class"] == "Dataset")
     ]
     discussions_of_interest = {}
     for dataset_id in discussions["subject_id"]:
