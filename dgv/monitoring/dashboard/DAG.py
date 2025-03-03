@@ -1,38 +1,36 @@
 from datetime import datetime, timedelta
-from airflow.models import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
 
+from airflow.models import DAG
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
+
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
-    get_zammad_tickets,
-    get_visits,
+    gather_and_upload,
     get_and_upload_certification,
     get_and_upload_reuses_down,
-    gather_and_upload,
     get_catalog_stats,
     get_hvd_dataservices_stats,
+    get_visits,
+    get_zammad_tickets,
 )
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
-groups = [
-    k + "@" + ".".join(['data', 'gouv', 'fr'])
-    for k in ['support', 'ouverture', 'moissonnage', 'certification']
-]
+groups = [k + "@" + ".".join(["data", "gouv", "fr"]) for k in ["support", "ouverture", "moissonnage", "certification"]]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
-minio_open = MinIOClient(bucket='dataeng-open')
+minio_open = MinIOClient(bucket="dataeng-open")
 minio_destination_folder = "dashboard/"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
@@ -44,7 +42,6 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ) as dag:
-
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
@@ -53,13 +50,13 @@ with DAG(
     get_zammad_tickets = PythonOperator(
         task_id="get_zammad_tickets",
         python_callable=get_zammad_tickets,
-        op_kwargs={'start_date': one_year_ago},
+        op_kwargs={"start_date": one_year_ago},
     )
 
     get_visits = PythonOperator(
         task_id="get_visits",
         python_callable=get_visits,
-        op_kwargs={'start_date': one_year_ago},
+        op_kwargs={"start_date": one_year_ago},
     )
 
     get_catalog_stats = PythonOperator(

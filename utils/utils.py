@@ -1,8 +1,9 @@
-from datetime import date, datetime
 import gzip
+from datetime import date, datetime
 from typing import Optional
 
 import duckdb
+from dateutil.relativedelta import relativedelta
 
 MOIS_FR = {
     "01": "janvier",
@@ -35,15 +36,6 @@ def check_if_first_day_of_year():
 def get_fiscal_year(date):
     # Get the fiscal year based on the month of the date
     return date.year if date.month >= 7 else date.year - 1
-
-
-def month_year_iter(start_month, start_year, end_month, end_year):
-    # includes both start and end months
-    ym_start = 12 * start_year + start_month - 1
-    ym_end = 12 * end_year + end_month - 1
-    for ym in range(ym_start, ym_end + 1):
-        y, m = divmod(ym, 12)
-        yield y, m + 1
 
 
 def csv_to_parquet(
@@ -88,9 +80,7 @@ def csv_to_csvgz(
     print(f"to {output_path + output_name}")
     with (
         open(csv_file_path, "r", newline="", encoding="utf-8") as csvfile,
-        gzip.open(
-            output_path + output_name, "wt", newline="", encoding="utf-8"
-        ) as gzfile,
+        gzip.open(output_path + output_name, "wt", newline="", encoding="utf-8") as gzfile,
     ):
         while True:
             chunk = csvfile.read(chunk_size)
@@ -120,3 +110,26 @@ def get_unique_list(*lists: list[str]) -> list[str]:
     for lst in lists:
         unique_elements.update(lst)
     return list(unique_elements)
+
+
+def list_months_between(start_date: datetime, end_date: datetime) -> list[str]:
+    """
+    Generate a list of month strings between two dates.
+    Args:
+        start_date (datetime): The start date.
+        end_date (datetime): The end date.
+    Returns:
+        list[str]: A list of strings representing each month between the start and end dates included in the format 'YYYY-MM'.
+    """
+
+    start_date = start_date.replace(day=1).date()
+    end_date = end_date.replace(day=1).date()
+
+    months = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        months.append(current_date.strftime("%Y-%m"))
+        current_date += relativedelta(months=1)
+
+    return months
