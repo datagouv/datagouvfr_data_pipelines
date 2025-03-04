@@ -326,7 +326,7 @@ def clean_directory():
     files_and_folders = os.listdir(DATADIR)
     threshold = datetime.now() - timedelta(hours=6)
     for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(os.path.getctime(DATADIR + ff))
+        creation_date = datetime.fromtimestamp(os.path.getctime(DATADIR + f))
         if creation_date < threshold:
             try:
                 shutil.rmtree(DATADIR + f)
