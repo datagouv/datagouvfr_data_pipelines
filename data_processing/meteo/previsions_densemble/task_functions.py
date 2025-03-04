@@ -319,3 +319,17 @@ def handle_cyclonic_alert(pack: str, grid: str):
                     dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
                     resource_id=infos["resource_id"],
                 )
+
+
+def clean_directory():
+    # in case processes crash and leave stuff behind
+    files_and_folders = os.listdir(DATADIR)
+    threshold = datetime.now() - timedelta(hours=6)
+    for f in files_and_folders:
+        creation_date = datetime.fromtimestamp(os.path.getctime(f))
+        if creation_date < threshold:
+            try:
+                shutil.rmtree(DATADIR + f)
+            except NotADirectoryError:
+                os.remove(DATADIR + f)
+            logging.warning(f"Deleted {f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})")
