@@ -102,7 +102,7 @@ def fix_code_insee(
     @simple_connection_retry
     def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
         if (
-            row["consolidated_is_code_insee_verified"] is True
+            row.get("consolidated_is_code_insee_verified") is True
             and isinstance(row[code_insee_col], str)
             and row[code_insee_col]
         ):
