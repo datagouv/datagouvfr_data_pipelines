@@ -212,9 +212,15 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool
     return res
 
 
-def get_table_as_df(doc_id: str, table_id: str, columns_labels: bool = True):
+def get_table_as_df(
+    doc_id: str,
+    table_id: str,
+    columns_labels: bool = True,
+    usecols: Optional[list[str]] = None,
+):
     """
     Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
+    Fill in usecols with the list of the columns you want to keep.
     """
     r = requests.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
@@ -222,6 +228,8 @@ def get_table_as_df(doc_id: str, table_id: str, columns_labels: bool = True):
     )
     handle_grist_error(r)
     df = pd.DataFrame([k["fields"] for k in r.json()["records"]])
+    if usecols:
+        df = df[usecols]
     if not columns_labels:
         return df
     column_mapping = get_columns_mapping(doc_id, table_id, id_to_label=True)
