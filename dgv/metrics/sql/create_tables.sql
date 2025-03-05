@@ -324,7 +324,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.dataservices_total AS
     SELECT
         MIN(__id) AS __id,
         dataservice_id,
-        SUM(nb_visit) AS visit_dataservice
+        SUM(nb_visit) AS visit
     FROM metric.visits_dataservices
     GROUP BY dataservice_id
 ;
