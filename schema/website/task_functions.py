@@ -2,6 +2,7 @@ import yaml
 from git import Repo, Git
 import os
 import shutil
+import logging
 from table_schema_to_markdown import convert_source, sources_to_markdown
 import frictionless
 import json
@@ -127,7 +128,7 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
 
     # for every tag
     for t in tags:
-        print("version ", t)
+        logging.info(f"version {t}")
         # get semver version and validity of it
         version, valid_version = get_consolidated_version(t)
         # if semver ok
@@ -173,7 +174,7 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
                     repertoire_slug
                 )
     if not list_schemas:
-        print("No valid version for this schema")
+        logging.warning("No valid version for this schema")
         return
     # Find latest valid version and create a specific folder 'latest' copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(schema_name, folders)
@@ -181,8 +182,8 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
     SCHEMA_INFOS[schema_name]['latest'] = sf
     schema_file = list_schemas[sf]
     # Complete catalog with all relevant information of schema in it
-    print('conf: ', conf)
-    print('conf_schema: ', conf_schema)
+    logging.info(f"conf:  {conf}")
+    logging.info(f"conf_schema: {conf_schema}")
     if conf_schema:
         conf.update(conf_schema)
     schema_to_add_to_catalog = generate_catalog_object(
@@ -230,7 +231,7 @@ def check_datapackage(repertoire_slug, conf, folders):
     SCHEMA_INFOS[dpkg_name]['schemas'] = []
 
     for t in tags:
-        print("version ", t)
+        logging.info(f"version {t}")
         # get semver version and validity of it
         version, valid_version = get_consolidated_version(t)
         # if semver ok
@@ -339,9 +340,9 @@ def check_datapackage(repertoire_slug, conf, folders):
 
                         latest_folder, sf = manage_latest_folder(schema_name, folders)
                 else:
-                    print('not valid')
+                    logging.warning('not valid')
             else:
-                print('no datapackage')
+                logging.warning('no datapackage')
     # Find latest valid version and create a specific folder 'latest' copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(dpkg_name, folders)
 
@@ -405,7 +406,7 @@ def manage_tableschema(
             # if so, we copy paste them into dest folder
             for f in [schema_file, 'README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md']:
                 if os.path.isfile(src_folder + subfolder + f):
-                    print("schema has", f)
+                    logging.info(f"schema has {f}")
                     shutil.copyfile(src_folder + subfolder + f, dest_folder + f)
                     # if it is a markdown file, we will read them as page in website
                     if f[-3:] == '.md':
@@ -432,9 +433,8 @@ def manage_tableschema(
                 SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('sources.md')
         # If schema release is not valid, we remove it from DATA_FOLDER1
         else:
-            print(
-                "> invalid version",
-                frictionless_report.errors[0].message if frictionless_report.errors else ""
+            logging.warning(
+                f"> invalid version {frictionless_report.errors[0].message if frictionless_report.errors else ''}"
             )
             manage_errors(repertoire_slug, version, 'tableschema validation')
             shutil.rmtree(dest_folder)
@@ -480,7 +480,7 @@ def manage_jsonschema(
                         # if so, we copy paste them into dest folder
                         for f in ['README.md', 'SEE_ALSO.md', 'CHANGELOG.md', 'CONTEXT.md', s['path']]:
                             if os.path.isfile(src_folder + f):
-                                print("schema has", f)
+                                logging.info(f"schema has {f}")
                                 os.makedirs(os.path.dirname(dest_folder + f), exist_ok=True)
                                 shutil.copyfile(src_folder + f, dest_folder + f)
                                 # if it is a markdown file, we will read them as page in website
@@ -506,7 +506,7 @@ def manage_jsonschema(
                         out.write(md)
                         SCHEMA_INFOS[schema_name]['versions'][version]['pages'].append('documentation.md')
                 except:
-                    print("Could not build documentation from schema")
+                    logging.warning("Could not build documentation from schema")
         # If schema release is not valid, we remove it from DATA_FOLDER1
         except:
             manage_errors(repertoire_slug, version, 'jsonschema validation')
@@ -791,21 +791,21 @@ def check_and_save_schemas(ti):
 
     # For every schema in repertoires.yml, check it
     for repertoire_slug, conf in config.items():
-        print("_______________________________")
-        print("Starting with", repertoire_slug)
-        print(conf)
+        logging.info("_______________________________")
+        logging.info(f"Starting with {repertoire_slug}")
+        logging.info(conf)
         if conf['type'] != 'datapackage':
-            print(f"Recognized as a simple {conf['type']}")
+            logging.info(f"Recognized as a {conf['type']}")
             schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf['type'], folders)
             if schema_to_add_to_catalog:
                 SCHEMA_CATALOG['schemas'].append(schema_to_add_to_catalog)
         else:
-            print('Recognized as a datapackage')
+            logging.info('Recognized as a datapackage')
             schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
             for schema in schemas_to_add_to_catalog:
                 SCHEMA_CATALOG['schemas'].append(schema)
         # Append info to SCHEMA_CATALOG
-        print(f'--- {repertoire_slug} processed')
+        logging.info(f'--- {repertoire_slug} processed')
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
     schemas_tableschema = SCHEMA_CATALOG.copy()
@@ -845,9 +845,9 @@ def check_and_save_schemas(ti):
     ti.xcom_push(key='SCHEMA_CATALOG', value=SCHEMA_CATALOG)
     ti.xcom_push(key='SCHEMA_INFOS', value=SCHEMA_INFOS)
     ti.xcom_push(key='ERRORS_REPORT', value=ERRORS_REPORT)
-    print('End of process catalog: ', SCHEMA_CATALOG)
-    print('End of process infos: ', SCHEMA_INFOS)
-    print('End of process errors: ', ERRORS_REPORT)
+    logging.info(f'End of process catalog: {SCHEMA_CATALOG}')
+    logging.info(f'End of process infos: {SCHEMA_INFOS}')
+    logging.info(f'End of process errors: {ERRORS_REPORT}')
 
 
 def get_template_github_issues():
@@ -872,9 +872,9 @@ def get_template_github_issues():
                 )
         return issues
 
-    print("Getting issues from repo")
+    logging.info("Getting issues from repo")
     issues = get_all_issues()
-    print("Sorting relevant issues")
+    logging.info("Sorting relevant issues")
     dates = {}
     for issue in issues:
         d = issue['created_at'][:10]
@@ -968,19 +968,19 @@ def update_news_feed(ti, TMP_FOLDER):
     issues = get_template_github_issues()
     # to have updates when issues change status we check which ones have already been seen
     # in one state or another
-    print("Gathering issues in groups")
+    logging.info("Gathering issues in groups")
     already_there_issues = {'investigation': [], 'construction': []}
     for date in updates:
         for k in already_there_issues:
             if k in updates[date]:
                 for schema in updates[date][k]:
                     already_there_issues[k].append(schema['url'])
-    print("Updating changes with issues")
+    logging.info("Updating changes with issues")
     for date in issues:
         for change_type in issues[date]:
             for issue in issues[date][change_type]:
                 if issue['url'] not in already_there_issues[change_type]:
-                    print("  >", issue['title'], f"changed status for {change_type}")
+                    logging.info(f"  > {issue['title']} changed status for {change_type}")
                     if today not in changes:
                         changes[today] = {}
                     if change_type not in changes[today]:
@@ -1002,7 +1002,7 @@ def update_news_feed(ti, TMP_FOLDER):
     #     ],
     # }
     if changes[today]:
-        print("Updating news feed with:", changes[today])
+        logging.info(f"Updating news feed with: {changes[today]}")
         # updating schema-updates.json
         if today not in updates:
             updates.update(changes)
@@ -1013,7 +1013,7 @@ def update_news_feed(ti, TMP_FOLDER):
                 else:
                     updates[today][change_type] += changes[today][change_type]
         updates = {k: updates[k] for k in sorted(updates.keys())}
-        print(updates)
+        logging.info(updates)
         with open(schema_updates_file, 'w', encoding='utf-8') as f:
             json.dump(updates, f, indent=4)
 
@@ -1067,7 +1067,7 @@ def update_news_feed(ti, TMP_FOLDER):
         root = tree.getroot()
         root.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
         root.set('xmlns:content', 'http://purl.org/rss/1.0/modules/content/')
-        # print(ET.tostring(root, encoding='utf-8').decode('utf-8'))
+        # logging.info(ET.tostring(root, encoding='utf-8').decode('utf-8'))
 
         existing_feeds = [
             k.replace('_', '/').replace('.xml', '') for k in os.listdir(TMP_FOLDER + rss_folder)
@@ -1083,7 +1083,7 @@ def update_news_feed(ti, TMP_FOLDER):
                     description = ET.SubElement(new_item, 'description')
                     if version.get('schema_name'):
                         # existing schemas
-                        print(f"   - {version['schema_name']}")
+                        logging.info(f"   - {version['schema_name']}")
                         v = version['version'].replace('=>', 'to')
                         title.text = (
                             f"{update_type.capitalize().replace('_', ' ')} - {version['schema_name']} ({v})"
@@ -1092,7 +1092,7 @@ def update_news_feed(ti, TMP_FOLDER):
                         description.text = f"Schema update on {date}: {v} for {version['schema_name']}"
                     else:
                         # issues from repo
-                        print(f"   - {version['title']}")
+                        logging.info(f"   - {version['title']}")
                         title.text = (
                             f"{update_type.capitalize()} - {version['title']}"
                         )
@@ -1129,7 +1129,7 @@ def update_news_feed(ti, TMP_FOLDER):
                         specific_root = specific_tree.getroot()
                         specific_root.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
                         specific_root.set('xmlns:content', 'http://purl.org/rss/1.0/modules/content/')
-                        # print(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
+                        # logging.info(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
                         new_item = ET.Element('item')
                         title = ET.SubElement(new_item, 'title')
                         title.text = title_content
@@ -1141,7 +1141,7 @@ def update_news_feed(ti, TMP_FOLDER):
                         specific_root.find('./channel').text = '\n  '
                         specific_root.find('./channel').append(new_item)
                         specific_root.find('./channel').text = '\n  '
-                        # print(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
+                        # logging.info(ET.tostring(specific_root, encoding='utf-8').decode('utf-8'))
                         specific_tree.write(feed_path)
                     else:
                         specific_fg = FeedGenerator()
@@ -1152,15 +1152,15 @@ def update_news_feed(ti, TMP_FOLDER):
                         fe.title(title_content)
                         fe.description(description_content)
                         fe.published(date_content)
-                        # print(specific_fg.rss_str(pretty=True))
+                        # logging.info(specific_fg.rss_str(pretty=True))
                         specific_fg.rss_file(
                             TMP_FOLDER + rss_folder + version['schema_name'].replace('/', '_') + '.xml',
                             pretty=True
                         )
-        # print(ET.tostring(root, encoding='utf-8').decode('utf-8'))
+        # logging.info(ET.tostring(root, encoding='utf-8').decode('utf-8'))
         tree.write(TMP_FOLDER + rss_folder + 'global.xml')
     else:
-        print('No update today')
+        logging.info('No update today')
 
 
 def sort_folders(ti):
@@ -1204,9 +1204,9 @@ def get_issues_and_labels(ti):
     mydict = {}
     labels = ['construction', 'investigation']
     # For each label, get relevant info via github api of schema.data.gouv.fr repo
-    print("Getting issues for each label")
+    logging.info("Getting issues for each label")
     for lab in labels:
-        print('   >', lab)
+        logging.info(f'   > {lab}')
         try:
             r = requests.get(
                 (
@@ -1225,7 +1225,7 @@ def get_issues_and_labels(ti):
                 mydict2['url'] = issue['html_url']
                 mydict[lab].append(mydict2)
         except:
-            print('Error with github API')
+            logging.warning('Error with github API')
 
     # Find number of current issue in schema.data.gouv.fr repo
     try:
@@ -1234,11 +1234,11 @@ def get_issues_and_labels(ti):
         )
         mydict['nb_issues'] = len(r.json())
     except:
-        print('Error with github API while trying to get issues from schema.data.gouv.fr repo')
+        logging.warning('Error with github API while trying to get issues from schema.data.gouv.fr repo')
 
     # for every schema, find relevant info in data.gouv.fr API
     mydict['references'] = {}
-    print("Getting nb resources on data.gouv")
+    logging.info("Getting nb resources on data.gouv")
     for s in SCHEMA_CATALOG['schemas']:
         r = requests.get(
             'https://www.data.gouv.fr/api/1/datasets/?schema=' + s['name'],
@@ -1249,7 +1249,7 @@ def get_issues_and_labels(ti):
             'title': s['title'],
             'contributors': get_contributors(s['homepage']),
         }
-        print('   >', mydict['references'][s['name']])
+        logging.info(f"   > {mydict['references'][s['name']]}")
 
     # Save stats infos to stats.json file
     with open(folders['DATA_FOLDER2'] + '/stats.json', 'w') as fp:
