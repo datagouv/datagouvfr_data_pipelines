@@ -134,7 +134,7 @@ def publish_mattermost(ti):
 
     text = (
         ":mega: Rapport hebdo sur l'état des moissonneurs en attente"
-        " ([lien grist](https://grist.numerique.gouv.fr/o/datagouv/6xrGmKARsDFR/Suivi-moissonneurs/p/3)):\n"
+        " ([lien grist](https://grist.numerique.gouv.fr/o/datagouv/6xrGmKARsDFR/Suivi-moissonneurs/p/2)):\n"
         f"- {len(pending_harvesters)} moissonneurs en attente\n"
     )
     if new:
