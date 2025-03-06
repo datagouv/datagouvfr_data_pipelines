@@ -30,7 +30,7 @@ def get_directory_size(directory):
 # Define the Python function to delete old logs and directories
 def delete_old_logs_and_directories(ti):
     total_size_bytes = 0
-    log_dir = "/opt/airflow/logs" if AIRFLOW_ENV == "dev" else f"{"/".join(AIRFLOW_DAG_HOME.split("/")[:-2])}/logs"
+    log_dir = "/opt/airflow/logs" if AIRFLOW_ENV == "dev" else f"{'/'.join(AIRFLOW_DAG_HOME.split('/')[:-2])}/logs"
     cutoff_date = datetime.now() - timedelta(days=nb_days_to_keep)
 
     # Check if the directory exists
