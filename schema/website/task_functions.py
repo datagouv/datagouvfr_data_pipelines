@@ -1,3 +1,4 @@
+from typing import Optional
 import yaml
 from git import Repo, Git
 import os
@@ -62,14 +63,14 @@ def initialization(ti, TMP_FOLDER):
     ti.xcom_push(key="branch", value=branch)
 
 
-def clean_and_create_folder(folder):
+def clean_and_create_folder(folder: str) -> None:
     """Remove local folder if exist and (re)create it"""
     if os.path.exists(folder):
         shutil.rmtree(folder)
     os.mkdir(folder)
 
 
-def get_consolidated_version(tag):
+def get_consolidated_version(tag) -> tuple[str, bool]:
     """Analyze tag from a code source release, cast it to acceptable semver version X.X.X"""
     valid_version = True
     # Removing "v" or "V" from tag
@@ -88,16 +89,16 @@ def get_consolidated_version(tag):
     return ".".join(version_items), valid_version
 
 
-def manage_errors(repertoire_slug, version, reason):
+def manage_errors(repertoire_slug: str, version: str, reason: str):
     """Create dictionnary that will populate ERRORS_REPORT object"""
-    errors = {}
-    errors["schema"] = repertoire_slug
-    errors["version"] = version
-    errors["type"] = reason
-    ERRORS_REPORT.append(errors)
+    ERRORS_REPORT.append({
+        "schema": repertoire_slug,
+        "version": version,
+        "type": reason,
+    })
 
 
-def check_schema(repertoire_slug, conf, schema_type, folders):
+def check_schema(repertoire_slug: str, conf: dict, schema_type: str, folders: dict) -> dict:
     global SCHEMA_INFOS
     """Check validity of schema and all of its releases"""
     # schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
@@ -116,15 +117,16 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
     list_schemas = {}
 
     # Defining SCHEMA_INFOS object for website use
-    SCHEMA_INFOS[schema_name] = {}
-    SCHEMA_INFOS[schema_name]["homepage"] = conf["url"]
-    SCHEMA_INFOS[schema_name]["external_doc"] = conf.get("external_doc", None)
-    SCHEMA_INFOS[schema_name]["external_tool"] = conf.get("external_tool", None)
-    SCHEMA_INFOS[schema_name]["type"] = conf["type"]
-    SCHEMA_INFOS[schema_name]["email"] = conf["email"]
-    SCHEMA_INFOS[schema_name]["labels"] = conf.get("labels", None)
-    SCHEMA_INFOS[schema_name]["consolidation_dataset_id"] = conf.get("consolidation", None)
-    SCHEMA_INFOS[schema_name]["versions"] = {}
+    SCHEMA_INFOS[schema_name] = {
+        "homepage": conf["url"],
+        "external_doc": conf.get("external_doc"),
+        "external_tool": conf.get("external_tool"),
+        "type": conf["type"],
+        "email": conf["email"],
+        "labels": conf.get("labels"),
+        "consolidation_dataset_id": conf.get("consolidation"),
+        "versions": {},
+    }
 
     # for every tag
     for t in tags:
@@ -135,7 +137,7 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
         if valid_version:
             # define destination folder and create it
             # destination folder will store pertinents files for website for each version of each schema
-            dest_folder = folders["DATA_FOLDER1"] + "/" + schema_name + "/" + version + "/"
+            dest_folder = f"{folders['DATA_FOLDER1']}/{schema_name}/{version}/"
             os.makedirs(dest_folder, exist_ok=True)
             # checkout to current version
             g = Git(src_folder)
@@ -145,15 +147,15 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
             # Managing validation differently for each type of schema
             # tableschema will use frictionless package
             # jsonschema will use jsonschema package
-            # other will only check if schema.yml file is present and contain correct information
+            # other will only check if schema.yml file is present and contains correct information
             if schema_type == "tableschema":
-                list_schemas = manage_tableschema(
+                list_schemas: dict = manage_tableschema(
                     src_folder,
                     dest_folder,
                     list_schemas,
                     version,
                     schema_name,
-                    repertoire_slug
+                    repertoire_slug,
                 )
             if schema_type == "jsonschema":
                 list_schemas, conf_schema = manage_jsonschema(
@@ -162,7 +164,7 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
                     list_schemas,
                     version,
                     schema_name,
-                    repertoire_slug
+                    repertoire_slug,
                 )
             if schema_type == "other":
                 list_schemas, conf_schema = manage_other(
@@ -171,7 +173,7 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
                     list_schemas,
                     version,
                     schema_name,
-                    repertoire_slug
+                    repertoire_slug,
                 )
     if not list_schemas:
         logging.warning("No valid version for this schema")
@@ -186,28 +188,27 @@ def check_schema(repertoire_slug, conf, schema_type, folders):
     logging.info(f"conf_schema: {conf_schema}")
     if conf_schema:
         conf.update(conf_schema)
-    schema_to_add_to_catalog = generate_catalog_object(
+    schema_to_add_to_catalog: dict = generate_catalog_object(
         latest_folder,
         list_schemas,
         schema_file,
         schema_type,
         schema_name,
         folders,
-        conf
+        conf,
     )
     return schema_to_add_to_catalog
 
 
-def check_datapackage(repertoire_slug, conf, folders):
+def check_datapackage(conf, folders):
     global SCHEMA_INFOS
     """Check validity of schemas from a datapackage repo for all of its releases"""
-    # schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
-    # Ex : etalab / schema-irve-statique
-
     # define source folder and create it
     # source folder will help us to checkout to every release and analyze source code for each one
     dpkg_name = "/".join(conf["url"].split(".git")[0].split("/")[-2:])
-    src_folder = folders["CACHE_FOLDER"] + "/" + "/".join(conf["url"].split(".git")[0].split("/")[-2:]) + "/"
+    src_folder = (
+        f"{folders['CACHE_FOLDER']}/{'/'.join(conf['url'].split('.git')[0].split('/')[-2:])}/"
+    )
     os.makedirs(src_folder, exist_ok=True)
     # clone repo in source folder
     Repo.clone_from(conf["url"], src_folder)
@@ -219,17 +220,19 @@ def check_datapackage(repertoire_slug, conf, folders):
     schemas_to_add_to_catalog = []
 
     # Defining SCHEMA_INFOS object for website use
-    SCHEMA_INFOS[dpkg_name] = {}
-    SCHEMA_INFOS[dpkg_name]["homepage"] = conf["url"]
-    SCHEMA_INFOS[dpkg_name]["external_doc"] = conf.get("external_doc", None)
-    SCHEMA_INFOS[dpkg_name]["external_tool"] = conf.get("external_tool", None)
-    SCHEMA_INFOS[dpkg_name]["type"] = conf["type"]
-    SCHEMA_INFOS[dpkg_name]["email"] = conf.get("email", None)
-    SCHEMA_INFOS[dpkg_name]["labels"] = conf.get("labels", None)
-    SCHEMA_INFOS[dpkg_name]["consolidation_dataset_id"] = conf.get("consolidation", None)
-    SCHEMA_INFOS[dpkg_name]["versions"] = {}
-    SCHEMA_INFOS[dpkg_name]["schemas"] = []
-
+    SCHEMA_INFOS[dpkg_name] = {
+        "homepage": conf["url"],
+        "external_doc": conf.get("external_doc"),
+        "external_tool": conf.get("external_tool"),
+        "type": conf["type"],
+        "email": conf.get("email"),
+        "labels": conf.get("labels"),
+        "consolidation_dataset_id": conf.get("consolidation"),
+        "versions": {},
+        "schemas": [],
+    }
+    one_valid = False
+    frictionless_report = None
     for t in tags:
         logging.info(f"version {t}")
         # get semver version and validity of it
@@ -239,10 +242,9 @@ def check_datapackage(repertoire_slug, conf, folders):
             g = Git(src_folder)
             g.checkout(str(t))
 
-            SCHEMA_INFOS[dpkg_name]["versions"][version] = {}
-            SCHEMA_INFOS[dpkg_name]["versions"][version]["pages"] = []
+            SCHEMA_INFOS[dpkg_name]["versions"][version] = {"pages": []}
 
-            dest_folder = folders["DATA_FOLDER1"] + "/" + dpkg_name + "/" + version + "/"
+            dest_folder = f"{folders['DATA_FOLDER1']}/{dpkg_name}/{version}/"
             os.makedirs(dest_folder, exist_ok=True)
             for f in ["README.md", "SEE_ALSO.md", "CHANGELOG.md", "CONTEXT.md", "datapackage.json"]:
                 if os.path.isfile(src_folder + f):
@@ -251,7 +253,7 @@ def check_datapackage(repertoire_slug, conf, folders):
                         SCHEMA_INFOS[dpkg_name]["versions"][version]["pages"].append(f)
                     else:
                         SCHEMA_INFOS[dpkg_name]["versions"][version]["schema_url"] = (
-                            "/" + dpkg_name + "/" + version + "/datapackage.json"
+                            f"/{dpkg_name}/{version}/datapackage.json"
                         )
 
             # Verify that a file datapackage.json is present
@@ -260,6 +262,7 @@ def check_datapackage(repertoire_slug, conf, folders):
                 frictionless_report = frictionless.validate(src_folder + "datapackage.json")
                 # If datapackage release is valid, then
                 if frictionless_report.valid:
+                    one_valid = True
                     with open(src_folder + "datapackage.json") as out:
                         dp = json.load(out)
 
@@ -279,23 +282,20 @@ def check_datapackage(repertoire_slug, conf, folders):
 
                         if schema_name not in SCHEMA_INFOS:
                             # Defining SCHEMA_INFOS object for website use
-                            SCHEMA_INFOS[schema_name] = {}
-                            SCHEMA_INFOS[schema_name]["homepage"] = conf["url"]
-                            SCHEMA_INFOS[schema_name]["external_doc"] = conf.get("external_doc", None)
-                            SCHEMA_INFOS[schema_name]["external_tool"] = conf.get("external_tool", None)
-                            SCHEMA_INFOS[schema_name]["type"] = "tableschema"
-                            SCHEMA_INFOS[schema_name]["email"] = conf.get("email", None)
-                            SCHEMA_INFOS[schema_name]["versions"] = {}
-                            SCHEMA_INFOS[schema_name]["datapackage"] = dp["title"]
-                            SCHEMA_INFOS[schema_name]["datapackage_id"] = dp["name"]
-                            SCHEMA_INFOS[schema_name]["labels"] = conf.get("labels", None)
-                            SCHEMA_INFOS[schema_name]["consolidation_dataset_id"] = conf.get(
-                                "consolidation",
-                                None
-                            )
+                            SCHEMA_INFOS[schema_name] = {
+                                "homepage": conf["url"],
+                                "external_doc": conf.get("external_doc"),
+                                "external_tool": conf.get("external_tool"),
+                                "type": "tableschema",
+                                "email": conf.get("email"),
+                                "versions": {},
+                                "datapackage": dp["title"],
+                                "datapackage_id": dp["name"],
+                                "labels": conf.get("labels"),
+                                "consolidation_dataset_id": conf.get("consolidation"),
+                            }
 
-                        SCHEMA_INFOS[schema_name]["versions"][version] = {}
-                        SCHEMA_INFOS[schema_name]["versions"][version]["pages"] = []
+                        SCHEMA_INFOS[schema_name]["versions"][version] = {"pages": []}
 
                         # define destination folder and create it
                         # destination folder will store pertinents files for website
@@ -308,7 +308,7 @@ def check_datapackage(repertoire_slug, conf, folders):
                             os.makedirs(schema_dest_folder, exist_ok=True)
                         shutil.copyfile(src_folder + schema, schema_dest_folder + schema.split("/")[-1])
                         SCHEMA_INFOS[schema_name]["versions"][version]["schema_url"] = (
-                            "/" + schema_name + "/" + version + "/" + schema.split("/")[-1]
+                            f"/{schema_name}/{version}/{schema.split('/')[-1]}"
                         )
                         for f in ["README.md", "SEE_ALSO.md", "CHANGELOG.md", "CONTEXT.md"]:
                             if os.path.isfile(src_folder + "/".join(schema.split("/")[:-1]) + "/" + f):
@@ -342,7 +342,11 @@ def check_datapackage(repertoire_slug, conf, folders):
                 else:
                     logging.warning("not valid")
             else:
-                logging.warning("no datapackage")
+                logging.warning("no datapackage.json file")
+    if not one_valid:
+        logging.warning("No valid version for this datapackage, see report:")
+        logging.info(frictionless_report)
+        return
     # Find latest valid version and create a specific folder "latest" copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(dpkg_name, folders)
 
@@ -367,9 +371,10 @@ def check_datapackage(repertoire_slug, conf, folders):
     SCHEMA_INFOS[dpkg_name]["latest"] = sf
 
     statc = generate_catalog_datapackage(
-        latest_folder, dpkg_name,
+        latest_folder,
+        dpkg_name,
         conf,
-        list_schemas[dpkg_name.split("/")[0] + "/" + schema_json["name"]]
+        list_schemas[dpkg_name.split("/")[0] + "/" + schema_json["name"]],
     )
     schemas_to_add_to_catalog.append(statc)
 
@@ -378,14 +383,14 @@ def check_datapackage(repertoire_slug, conf, folders):
 
 
 def manage_tableschema(
-    src_folder,
-    dest_folder,
-    list_schemas,
-    version,
-    schema_name,
-    repertoire_slug,
-    schema_file="schema.json"
-):
+    src_folder: str,
+    dest_folder: str,
+    list_schemas: dict,
+    version: str,
+    schema_name: str,
+    repertoire_slug: str,
+    schema_file: str = "schema.json",
+) -> dict:
     """Check validity of a schema release from tableschema type"""
     # Verify that a file schema.json is present
     if os.path.isfile(src_folder + schema_file):
@@ -395,8 +400,7 @@ def manage_tableschema(
         if frictionless_report.valid:
             list_schemas[version] = schema_file
             # We complete info of version
-            SCHEMA_INFOS[schema_name]["versions"][version] = {}
-            SCHEMA_INFOS[schema_name]["versions"][version]["pages"] = []
+            SCHEMA_INFOS[schema_name]["versions"][version] = {"pages": []}
             subfolder = "/".join(schema_file.split("/")[:-1]) + "/"
             if subfolder == "/":
                 subfolder = ""
@@ -408,18 +412,18 @@ def manage_tableschema(
                 if os.path.isfile(src_folder + subfolder + f):
                     logging.info(f"schema has {f}")
                     shutil.copyfile(src_folder + subfolder + f, dest_folder + f)
-                    # if it is a markdown file, we will read them as page in website
+                    # if it is a markdown file, we will read it as page in website
                     if f[-3:] == ".md":
                         SCHEMA_INFOS[schema_name]["versions"][version]["pages"].append(f)
                     # if it is the schema, we indicate it as it in object
                     if f == schema_file:
                         SCHEMA_INFOS[schema_name]["versions"][version]["schema_url"] = (
-                            "/" + schema_name + "/" + version + "/" + schema_file
+                            f"/{schema_name}/{version}/{schema_file}"
                         )
             # Create documentation file and save it
             with open(dest_folder + "documentation.md", "w") as out:
-                # From schema.json, we use tableschema_to_markdown package to convert it in a
-                # readable mardown file that will be use for documentation
+                # From schema.json, we use tableschema_to_markdown package to convert it
+                # into a readable mardown file that will be use as documentation
                 convert_source(dest_folder + schema_file, out, "page")
                 SCHEMA_INFOS[schema_name]["versions"][version]["pages"].append("documentation.md")
 
@@ -447,12 +451,12 @@ def manage_tableschema(
 
 
 def manage_jsonschema(
-    src_folder,
-    dest_folder,
-    list_schemas,
-    version,
-    schema_name,
-    repertoire_slug
+    src_folder: str,
+    dest_folder: str,
+    list_schemas: dict,
+    version: str,
+    schema_name: str,
+    repertoire_slug: str,
 ):
     """Check validity of a schema release from jsonschema type"""
     conf_schema = None
@@ -474,8 +478,7 @@ def manage_jsonschema(
                         jsonschema.validators.validator_for(schema_data).check_schema(schema_data)
                         list_schemas[version] = s["path"]
                         # We complete info of version
-                        SCHEMA_INFOS[schema_name]["versions"][version] = {}
-                        SCHEMA_INFOS[schema_name]["versions"][version]["pages"] = []
+                        SCHEMA_INFOS[schema_name]["versions"][version] = {"pages": []}
                         # We check for list of normalized files if it is present in source code
                         # if so, we copy paste them into dest folder
                         for f in ["README.md", "SEE_ALSO.md", "CHANGELOG.md", "CONTEXT.md", s["path"]]:
@@ -538,8 +541,7 @@ def manage_other(
                 conf_schema = yaml.safe_load(f)
             list_schemas[version] = "schema.yml"
             # We complete info of version
-            SCHEMA_INFOS[schema_name]["versions"][version] = {}
-            SCHEMA_INFOS[schema_name]["versions"][version]["pages"] = []
+            SCHEMA_INFOS[schema_name]["versions"][version] = {"pages": []}
             # We check for list of normalized files if it is present in source code
             # if so, we copy paste them into dest folder
             for f in ["README.md", "SEE_ALSO.md", "CHANGELOG.md", "CONTEXT.md", "schema.yml"]:
@@ -565,21 +567,21 @@ def manage_other(
     return list_schemas, conf_schema
 
 
-def manage_latest_folder(schema_name, folders):
+def manage_latest_folder(schema_name: str, folders: dict) -> tuple[str, str]:
     """Create latest folder containing all files from latest valid version of a schema"""
     # Get all valid version from a schema by analyzing folders
     # then sort them to get latest valid version and related folder
     subfolders = [
-        f.name for f in os.scandir(folders["DATA_FOLDER1"] + "/" + schema_name + "/")
+        f.name for f in os.scandir(f"{folders['DATA_FOLDER1']}/{schema_name}/")
         if f.is_dir()
     ]
     subfolders = sorted(subfolders, key=comparer_versions)
     sf = subfolders[-1]
     if sf == "latest":
         sf = subfolders[-2]
-    latest_version_folder = folders["DATA_FOLDER1"] + "/" + schema_name + "/" + sf + "/"
+    latest_version_folder = f"{folders['DATA_FOLDER1']}/{schema_name}/{sf}/"
     # Determine latest folder path then mkdir it
-    latest_folder = folders["DATA_FOLDER1"] + "/" + schema_name + "/latest/"
+    latest_folder = f"{folders['DATA_FOLDER1']}/{schema_name}/latest/"
     os.makedirs(latest_folder, exist_ok=True)
     # For every file in latest valid version folder, copy them into
     shutil.copytree(latest_version_folder, latest_folder, dirs_exist_ok=True)
@@ -603,10 +605,10 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
         "https://schema.data.gouv.fr/schemas/" + dpkg_name + "/latest/" + "datapackage.json"
     )
     mydict["schema_type"] = "datapackage"
-    mydict["contact"] = conf.get("email", None)
+    mydict["contact"] = conf.get("email")
     mydict["examples"] = []
     mydict["labels"] = conf["labels"] if "labels" in conf else []
-    mydict["consolidation_dataset_id"] = conf.get("consolidation", None)
+    mydict["consolidation_dataset_id"] = conf.get("consolidation")
     mydict["versions"] = []
     for sf in list_schemas:
         mydict2 = {}
@@ -616,22 +618,22 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
         )
         mydict["versions"].append(mydict2)
     # These four following property are not in catalog spec
-    mydict["external_doc"] = conf.get("external_doc", None)
-    mydict["external_tool"] = conf.get("external_tool", None)
+    mydict["external_doc"] = conf.get("external_doc")
+    mydict["external_tool"] = conf.get("external_tool")
     mydict["homepage"] = conf["url"]
     return mydict
 
 
 def generate_catalog_object(
-    latest_folder,
-    list_schemas,
-    schema_file,
-    schema_type,
-    schema_name,
-    folders,
-    obj_info=None,
-    datapackage=None,
-):
+    latest_folder: str,
+    list_schemas: list,
+    schema_file: str,
+    schema_type: str,
+    schema_name: str,
+    folders: dict,
+    obj_info: Optional[dict] = None,
+    datapackage: Optional[str] = None,
+) -> dict:
     """Generate dictionnary containing all relevant information for catalog"""
     # If tableschema, relevant information are directly into schema.json,
     # if not, relevant info are in yaml files with are stored in obj_info variable
@@ -640,36 +642,34 @@ def generate_catalog_object(
             schema = json.load(f)
     else:
         schema = obj_info
-    # Complete dictionnary with relevant info needed in catalog
-    mydict = {}
-    if datapackage:
-        mydict["name"] = latest_folder.replace(folders["DATA_FOLDER1"] + "/", "").replace("/latest/", "")
-    else:
-        mydict["name"] = schema_name
-    mydict["title"] = schema["title"]
-    mydict["description"] = schema["description"]
-    mydict["schema_url"] = "https://schema.data.gouv.fr/schemas/" + mydict["name"] + "/latest/" + schema_file
-    mydict["schema_type"] = schema_type
-    mydict["contact"] = obj_info.get("email", None)
-    mydict["examples"] = schema.get("resources", [])
-    mydict["labels"] = obj_info.get("labels", [])
-    mydict["consolidation_dataset_id"] = obj_info.get("consolidation", None)
-    mydict["versions"] = []
+    mydict = {
+        "name": (
+            latest_folder.replace(folders["DATA_FOLDER1"] + "/", "").replace("/latest/", "")
+            if datapackage
+            else schema_name
+        ),
+        "title": schema["title"],
+        "description": schema["description"],
+        "schema_type": schema_type,
+        "contact": obj_info.get("email"),
+        "examples": schema.get("resources", []),
+        "labels": schema.get("labels", []),
+        "consolidation_dataset_id": obj_info.get("consolidation"),
+        "versions": [],
+        "external_doc": obj_info.get("external_doc"),
+        "external_tool": obj_info.get("external_tool"),
+        "homepage": obj_info.get("homepage", obj_info.get("url")),
+    }
+    mydict["schema_url"] = f"https://schema.data.gouv.fr/schemas/{mydict['name']}/latest/{schema_file}"
     for sf in list_schemas:
-        mydict2 = {}
-        mydict2["version_name"] = sf
-        mydict2["schema_url"] = (
-            "https://schema.data.gouv.fr/schemas/" + mydict["name"] + "/" + sf + "/" + list_schemas[sf]
-        )
-        mydict["versions"].append(mydict2)
-    # These four following property are not in catalog spec
-    mydict["external_doc"] = obj_info.get("external_doc", None)
-    mydict["external_tool"] = obj_info.get("external_tool", None)
-    mydict["homepage"] = obj_info.get("homepage", obj_info.get("url", None))
+        mydict["versions"].append({
+            "version_name": sf,
+            "schema_url": f"https://schema.data.gouv.fr/schemas/{mydict['name']}/{sf}/{list_schemas[sf]}",
+        })
     if datapackage:
         mydict["datapackage_title"] = datapackage["title"]
         mydict["datapackage_name"] = schema_name
-        mydict["datapackage_description"] = datapackage.get("description", None)
+        mydict["datapackage_description"] = datapackage.get("description")
     return mydict
 
 
@@ -778,8 +778,8 @@ def get_contributors(url):
 # DAG functions
 
 def check_and_save_schemas(ti):
-    folders = ti.xcom_pull(key="folders", task_ids="initialization")
-    config = ti.xcom_pull(key="config", task_ids="initialization")
+    folders: dict = ti.xcom_pull(key="folders", task_ids="initialization")
+    config: dict[str, dict] = ti.xcom_pull(key="config", task_ids="initialization")
     # Clean and (re)create CACHE AND DATA FOLDER
     clean_and_create_folder(folders["CACHE_FOLDER"])
     clean_and_create_folder(folders["DATA_FOLDER1"])
@@ -795,16 +795,16 @@ def check_and_save_schemas(ti):
         logging.info(f"Starting with {repertoire_slug}")
         logging.info(conf)
         if conf["type"] != "datapackage":
-            logging.info(f"Recognized as a {conf['type']}")
-            schema_to_add_to_catalog = check_schema(repertoire_slug, conf, conf["type"], folders)
+            logging.info(f"Recognized as {conf['type']}")
+            schema_to_add_to_catalog: dict = check_schema(repertoire_slug, conf, conf["type"], folders)
             if schema_to_add_to_catalog:
                 SCHEMA_CATALOG["schemas"].append(schema_to_add_to_catalog)
         else:
-            logging.info("Recognized as a datapackage")
-            schemas_to_add_to_catalog = check_datapackage(repertoire_slug, conf, folders)
-            for schema in schemas_to_add_to_catalog:
-                SCHEMA_CATALOG["schemas"].append(schema)
-        # Append info to SCHEMA_CATALOG
+            logging.info("Recognized as datapackage")
+            schemas_to_add_to_catalog = check_datapackage(conf, folders)
+            if schemas_to_add_to_catalog:
+                for schema in schemas_to_add_to_catalog:
+                    SCHEMA_CATALOG["schemas"].append(schema)
         logging.info(f"--- {repertoire_slug} processed")
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
