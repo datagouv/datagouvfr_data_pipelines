@@ -100,7 +100,7 @@ def fill_in_grist(ti):
                     if harvester["owner_type"] else ""
                 ),
                 "Statut": harvester["preview"],
-                "Statut_bizdev": ["L", "🆕 Nouveau"],
+                "Statut_bizdev": "🆕 Nouveau",
             }
             logging.info(f"New harvester: {harvester['id']}")
         # handling existing ones
