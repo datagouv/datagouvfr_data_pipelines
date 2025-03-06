@@ -220,7 +220,7 @@ def get_table_as_df(
 ):
     """
     Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
-    Fill in usecols with the list of the columns you want to keep.
+    Fill in usecols with the list of the columns you want to keep (using their ids).
     """
     r = requests.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
