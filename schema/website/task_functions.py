@@ -867,7 +867,7 @@ def get_template_github_issues():
                 page += 1
             else:
                 raise Exception(
-                    "This shouldn"t fail, maybe consider adding a token "
+                    "This shouldn't fail, maybe consider adding a token "
                     "in the headers, or wait a couple of minutes and retry"
                 )
         return issues
@@ -896,7 +896,7 @@ def get_template_github_issues():
                     "url": issue["html_url"]
                 })
         # getting potentially unlabelled issues
-        if not processed and "Stade d"avancement" in body:
+        if not processed and "Stade d'avancement" in body:
             rows = body.split("\n")
             phases = [
                 row for row in rows
