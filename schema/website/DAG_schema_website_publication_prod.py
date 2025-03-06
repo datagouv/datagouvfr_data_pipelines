@@ -19,8 +19,10 @@ from datagouvfr_data_pipelines.schema.website.task_functions import (
 
 DAG_NAME = "schema_website_publication_prod"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
-GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
-# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
+GIT_REPO = (
+    "git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/"
+    + "datagouv/schema.data.gouv.fr.git"
+)
 
 default_args = {
     'retries': 5,
