@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.schema.website.task_functions import (
 DAG_NAME = "schema_website_publication_preprod"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 GIT_REPO = (
-    "git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/"
+    ("git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/")
     + "datagouv/schema.data.gouv.fr.git"
 )
 
