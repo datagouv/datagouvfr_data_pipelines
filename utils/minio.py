@@ -3,7 +3,7 @@ import boto3
 import botocore
 from minio import Minio, S3Error
 from minio.commonconfig import CopySource
-from typing import TypedDict, Optional
+from typing import Optional
 import os
 import io
 import json
@@ -15,21 +15,8 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
-
-
-class File(TypedDict):
-    source_path: str
-    source_name: str
-    dest_path: str
-    dest_name: str
-    content_type: Optional[str]
-
-
-def scan_file(file: File) -> None:
-    for path in ["source_path", "dest_path"]:
-        if not file[path].endswith("/"):
-            raise ValueError(f"Please add a `/` at the end of the {path}")
 
 
 class MinIOClient:
@@ -78,7 +65,6 @@ class MinIOClient:
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         for file in list_files:
-            scan_file(file)
             is_file = os.path.isfile(file["source_path"] + file["source_name"])
             if is_file:
                 if ignore_airflow_env:
@@ -123,7 +109,6 @@ class MinIOClient:
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         for file in list_files:
-            scan_file(file)
             if ignore_airflow_env:
                 source_path = f"{file['source_path']}{file['source_name']}"
             else:

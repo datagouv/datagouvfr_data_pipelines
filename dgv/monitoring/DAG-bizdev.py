@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES,
     MATTERMOST_DATAGOUV_EDITO,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
@@ -575,24 +576,24 @@ def send_tables_to_minio():
     print('Saving tops as millésimes')
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": file,
-                "dest_path": f"bizdev/{today.strftime('%Y-%m-%d')}/",
-                "dest_name": file,
-            } for file in os.listdir(DATADIR)
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=file,
+                dest_path=f"bizdev/{today.strftime('%Y-%m-%d')}/",
+                dest_name=file,
+            ) for file in os.listdir(DATADIR)
             if not any([k in file for k in ['spam', 'KO']])
         ],
     )
     print('Saving KO reuses and spams (erasing previous files)')
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": file,
-                "dest_path": "bizdev/",
-                "dest_name": file,
-            } for file in os.listdir(DATADIR)
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=file,
+                dest_path="bizdev/",
+                dest_name=file,
+            ) for file in os.listdir(DATADIR)
             if any([k in file for k in ['spam', 'KO']])
         ],
     )

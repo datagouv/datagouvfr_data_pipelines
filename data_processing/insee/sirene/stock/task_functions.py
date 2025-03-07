@@ -4,6 +4,7 @@ from datetime import datetime
 import hashlib
 from airflow.providers.sftp.operators.sftp import SFTPOperator
 
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
@@ -28,17 +29,14 @@ def get_files(**kwargs):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
 
-    hashfiles = {}
-    list_urls = [
-        {
-            "url": f"{INSEE_BASE_URL}{item['nameFTP']}",
-            "dest_path": tmp_dir,
-            "dest_name": item["nameFTP"],
-        }
-        for item in data
-    ]
     download_files(
-        list_urls=list_urls,
+        list_urls=[
+            File(
+                url=f"{INSEE_BASE_URL}{item['nameFTP']}",
+                dest_path=tmp_dir,
+                dest_name=item["nameFTP"],
+            ) for item in data
+        ],
         auth_user=SECRET_INSEE_LOGIN,
         auth_password=SECRET_INSEE_PASSWORD,
     )
@@ -61,13 +59,12 @@ def upload_files_minio(**kwargs):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     list_files = [
-        {
-            "source_path": tmp_dir,
-            "source_name": item["nameFTP"],
-            "dest_path": minio_path,
-            "dest_name": item["nameFTP"],
-        }
-        for item in data
+        File(
+            source_path=tmp_dir,
+            source_name=item["nameFTP"],
+            dest_path=minio_path,
+            dest_name=item["nameFTP"],
+        ) for item in data
     ]
 
     minio_restricted.send_files(

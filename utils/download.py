@@ -1,23 +1,16 @@
 # import requests
 # from requests.auth import HTTPBasicAuth
-from typing import List, Optional, TypedDict
+from typing import List, Optional
 from pathlib import Path
 import aiohttp
 import asyncio
 
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
-
-
-class File(TypedDict):
-    url: str
-    dest_path: str
-    dest_name: str
 
 
 @simple_connection_retry
 async def download_file(session, url, dest_path, dest_name, auth=None):
-    if not dest_path.endswith("/"):
-        dest_path = dest_path + "/"
     Path(dest_path).mkdir(parents=True, exist_ok=True)
     async with session.get(url, auth=auth) as response:
         response.raise_for_status()
