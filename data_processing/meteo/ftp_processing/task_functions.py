@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     update_dataset_or_resource_metadata,
     DATAGOUV_URL,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
@@ -295,12 +296,12 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         try:
             minio_meteo.send_files(
                 list_files=[
-                    {
-                        "source_path": f"{DATADIR}/",
-                        "source_name": file_name,
-                        "dest_path": minio_folder + true_path + "/",
-                        "dest_name": file_name,
-                    }
+                    File(
+                        source_path=f"{DATADIR}/",
+                        source_name=file_name,
+                        dest_path=minio_folder + true_path + "/",
+                        dest_name=file_name,
+                    )
                 ],
                 ignore_airflow_env=True
             )
@@ -559,12 +560,12 @@ def log_modified_files(ti) -> None:
         json.dump(log_file, f)
     minio_meteo.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": log_file_path.split('/')[-1],
-                "dest_path": get_path(log_file_path)[0] + "/",
-                "dest_name": log_file_path.split('/')[-1],
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=log_file_path.split('/')[-1],
+                dest_path=get_path(log_file_path)[0] + "/",
+                dest_name=log_file_path.split('/')[-1],
+            )
         ],
         ignore_airflow_env=True
     )

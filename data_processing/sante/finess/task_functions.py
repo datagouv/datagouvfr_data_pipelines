@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     check_if_recent_update,
     DATAGOUV_URL,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
@@ -198,12 +199,12 @@ def build_finess_table(ti):
 def send_to_minio():
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"finess_geoloc.{_ext}",
-                "dest_path": "finess/",
-                "dest_name": f"finess_geoloc.{_ext}",
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"finess_geoloc.{_ext}",
+                dest_path="finess/",
+                dest_name=f"finess_geoloc.{_ext}",
+            )
             for _ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,

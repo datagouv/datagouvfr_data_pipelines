@@ -3,7 +3,7 @@ import boto3
 import botocore
 from minio import Minio, S3Error
 from minio.commonconfig import CopySource
-from typing import List, TypedDict, Optional
+from typing import Optional
 import os
 import io
 import json
@@ -15,15 +15,8 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_DATA_PIPELINE_USER,
     SECRET_MINIO_DATA_PIPELINE_PASSWORD,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
-
-
-class File(TypedDict):
-    source_path: str
-    source_name: str
-    dest_path: str
-    dest_name: str
-    content_type: Optional[str]
 
 
 class MinIOClient:
@@ -54,14 +47,14 @@ class MinIOClient:
     @simple_connection_retry
     def send_files(
         self,
-        list_files: List[File],
+        list_files: list[File],
         ignore_airflow_env: bool = False,
         burn_after_sending: bool = False,
     ):
         """Send list of file to Minio bucket
 
         Args:
-            list_files (List[File]): List of Dictionnaries containing for each
+            list_files (list[File]): List of Dictionnaries containing for each
             `source_path` and `source_name` : local file location ;
             `dest_path` and `dest_name` : minio location (inside bucket specified) ;
 
@@ -72,9 +65,7 @@ class MinIOClient:
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         for file in list_files:
-            is_file = os.path.isfile(
-                os.path.join(file["source_path"], file["source_name"])
-            )
+            is_file = os.path.isfile(file["source_path"] + file["source_name"])
             if is_file:
                 if ignore_airflow_env:
                     dest_path = f"{file['dest_path']}{file['dest_name']}"
@@ -85,14 +76,14 @@ class MinIOClient:
                 self.client.fput_object(
                     self.bucket,
                     dest_path,
-                    os.path.join(file["source_path"], file["source_name"]),
+                    file["source_path"] + file["source_name"],
                     content_type=file.get("content_type") or magic.from_file(
-                        os.path.join(file["source_path"], file["source_name"]),
+                        file["source_path"] + file["source_name"],
                         mime=True,
                     ),
                 )
                 if burn_after_sending:
-                    os.remove(os.path.join(file["source_path"], file["source_name"]))
+                    os.remove(file["source_path"] + file["source_name"])
             else:
                 raise Exception(
                     f"file {file['source_path']}{file['source_name']} "
@@ -102,13 +93,13 @@ class MinIOClient:
     @simple_connection_retry
     def download_files(
         self,
-        list_files: List[File],
+        list_files: list[File],
         ignore_airflow_env=False,
     ):
         """Retrieve list of files from Minio
 
         Args:
-            list_files (List[File]): List of Dictionnaries containing for each
+            list_files (list[File]): List of Dictionnaries containing for each
             `source_path` and `source_name` : Minio location inside specified bucket ;
             `dest_path` and `dest_name` : local file destination ;
 

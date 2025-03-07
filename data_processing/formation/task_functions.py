@@ -8,6 +8,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
@@ -121,12 +122,12 @@ def send_file_to_minio(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}formation/",
-                "source_name": f"{res['name']}_clean.csv",
-                "dest_path": "formation/new/",
-                "dest_name": f"{res['name']}_clean.csv",
-            }
+            File(
+                source_path=f"{AIRFLOW_DAG_TMP}formation/",
+                source_name=f"{res['name']}_clean.csv",
+                dest_path="formation/new/",
+                dest_name=f"{res['name']}_clean.csv",
+            )
         ],
     )
 
@@ -147,12 +148,12 @@ def compare_files_minio(ti):
 
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}formation/",
-                "source_name": f"{res['name']}_clean.csv",
-                "dest_path": "formation/latest/",
-                "dest_name": f"{res['name']}_clean.csv",
-            }
+            File(
+                source_path=f"{AIRFLOW_DAG_TMP}formation/",
+                source_name=f"{res['name']}_clean.csv",
+                dest_path="formation/latest/",
+                dest_name=f"{res['name']}_clean.csv",
+            )
         ],
     )
 

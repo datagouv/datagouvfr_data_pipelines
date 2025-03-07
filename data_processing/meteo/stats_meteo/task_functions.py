@@ -8,6 +8,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
@@ -110,19 +111,19 @@ def send_to_minio(ti):
     filename = ti.xcom_pull(key="filename", task_ids="gather_meteo_stats")
     minio_meteo.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"{filename}.{ext}",
-                "dest_path": f"metrics/{AIRFLOW_ENV}/",
-                "dest_name": f"{filename}.{ext}",
-            } for ext in ["csv", "json"]
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"{filename}.{ext}",
+                dest_path=f"metrics/{AIRFLOW_ENV}/",
+                dest_name=f"{filename}.{ext}",
+            ) for ext in ["csv", "json"]
         ] + [
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "visites_meteo.csv",
-                "dest_path": f"metrics/{AIRFLOW_ENV}/",
-                "dest_name": "visites_meteo.csv",
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name="visites_meteo.csv",
+                dest_path=f"metrics/{AIRFLOW_ENV}/",
+                dest_name="visites_meteo.csv",
+            )
         ],
         ignore_airflow_env=True,
     )

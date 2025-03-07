@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -204,10 +205,10 @@ def post_geozones():
         data = json.load(fp)
     year = datetime.now().strftime('%Y')
 
-    geozones_file = {
-        "dest_path": f"{DATADIR}/",
-        "dest_name": "export_geozones.json",
-    }
+    geozones_file = File(
+        dest_path=f"{DATADIR}/",
+        dest_name="export_geozones.json",
+    )
     payload = {
         "description": (
             "Géozones créées à partir du [fichier de l'INSEE]"
@@ -225,10 +226,10 @@ def post_geozones():
         payload=payload
     )
 
-    countries_file = {
-        "dest_path": f"{DATADIR}/",
-        "dest_name": "export_countries.json",
-    }
+    countries_file = File(
+        dest_path=f"{DATADIR}/",
+        dest_name="export_countries.json",
+    )
     payload = {
         "description": (
             "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
@@ -246,10 +247,10 @@ def post_geozones():
         payload=payload
     )
 
-    levels_file = {
-        "dest_path": f"{DATADIR}/",
-        "dest_name": "levels.json",
-    }
+    levels_file = File(
+        dest_path=f"{DATADIR}/",
+        dest_name="levels.json",
+    )
     payload = {
         "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
         "mime": "application/json",
