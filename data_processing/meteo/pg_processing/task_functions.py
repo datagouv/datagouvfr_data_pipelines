@@ -272,7 +272,7 @@ def process_resources(
                     list_files=[
                         {
                             # source can be hooked file name
-                            "source_path": "/".join(csv_path.split("/")[:-1]),
+                            "source_path": "/".join(csv_path.split("/")[:-1]) + "/",
                             "source_name": csv_path.split("/")[-1],
                             # but destination has to be the real file name
                             "dest_path": (
