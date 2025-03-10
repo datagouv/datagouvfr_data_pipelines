@@ -32,7 +32,6 @@ class PostgresClient:
         file: File,
         replacements: dict[str, str] = {},
     ) -> list[dict]:
-        self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
             sql_query = open(file["source_path"] + file["source_name"], "r").read()
             for old, new in replacements.items():
@@ -43,7 +42,6 @@ class PostgresClient:
         return data
 
     def copy_file(self, file: File, table: str, has_header: bool) -> list[dict]:
-        self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
             cur.copy_expert(
                 sql=(
