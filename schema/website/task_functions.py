@@ -29,12 +29,12 @@ SCHEMA_INFOS = {}
 SCHEMA_CATALOG = {}
 
 
-def initialization(ti, TMP_FOLDER):
+def initialization(ti, tmp_folder, branch):
     # DAG_NAME is defined in the DAG file, and all paths are made from it
-    OUTPUT_DATA_FOLDER = f"{TMP_FOLDER}output/"
-    CACHE_FOLDER = TMP_FOLDER + "cache"
-    DATA_FOLDER1 = TMP_FOLDER + "data"
-    DATA_FOLDER2 = TMP_FOLDER + "data2"
+    OUTPUT_DATA_FOLDER = f"{tmp_folder}output/"
+    CACHE_FOLDER = tmp_folder + "cache"
+    DATA_FOLDER1 = tmp_folder + "data"
+    DATA_FOLDER2 = tmp_folder + "data2"
     folders = {
         "OUTPUT_DATA_FOLDER": OUTPUT_DATA_FOLDER,
         "CACHE_FOLDER": CACHE_FOLDER,
@@ -42,9 +42,6 @@ def initialization(ti, TMP_FOLDER):
         "DATA_FOLDER2": DATA_FOLDER2,
     }
 
-    branch = "main"
-    if "preprod" in TMP_FOLDER:
-        branch = "preprod"
     LIST_SCHEMAS_YAML = (
         "https://raw.githubusercontent.com/etalab/"
         f"schema.data.gouv.fr/{branch}/repertoires.yml"
@@ -53,15 +50,14 @@ def initialization(ti, TMP_FOLDER):
     # Loading yaml file containing all schemas that we want to display in schema.data.gouv.fr
     r = requests.get(LIST_SCHEMAS_YAML)
 
-    with open(TMP_FOLDER + "repertoires.yml", "wb") as f:
+    with open(tmp_folder + "repertoires.yml", "wb") as f:
         f.write(r.content)
 
-    with open(TMP_FOLDER + "repertoires.yml", "r") as f:
+    with open(tmp_folder + "repertoires.yml", "r") as f:
         config = yaml.safe_load(f)
 
     ti.xcom_push(key="folders", value=folders)
     ti.xcom_push(key="config", value=config)
-    ti.xcom_push(key="branch", value=branch)
 
 
 def clean_and_create_folder(folder: str) -> None:
@@ -778,9 +774,9 @@ def get_contributors(url):
 #######################################################################################################
 # DAG functions
 
-def check_and_save_schemas(ti):
-    folders: dict = ti.xcom_pull(key="folders", task_ids="initialization")
-    config: dict[str, dict] = ti.xcom_pull(key="config", task_ids="initialization")
+def check_and_save_schemas(ti, suffix):
+    folders: dict = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
+    config: dict[str, dict] = ti.xcom_pull(key="config", task_ids="initialization" + suffix)
     # Clean and (re)create CACHE AND DATA FOLDER
     clean_and_create_folder(folders["CACHE_FOLDER"])
     clean_and_create_folder(folders["DATA_FOLDER1"])
@@ -921,12 +917,12 @@ def get_template_github_issues():
     return dates
 
 
-def update_news_feed(ti, TMP_FOLDER):
-    new = ti.xcom_pull(key="SCHEMA_INFOS", task_ids="check_and_save_schemas")
+def update_news_feed(ti, tmp_folder, suffix):
+    new = ti.xcom_pull(key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix)
     today = datetime.now().strftime("%Y-%m-%d")
     changes = {today: {}}
     with open(
-        TMP_FOLDER + "schema.data.gouv.fr/site/.vuepress/public/schema-infos.json",
+        tmp_folder + "schema.data.gouv.fr/site/.vuepress/public/schema-infos.json",
         "r",
         encoding="utf-8"
     ) as f:
@@ -964,7 +960,7 @@ def update_news_feed(ti, TMP_FOLDER):
 
     # getting investigation/construction from github issues
     # only parsing issues made from the template
-    schema_updates_file = TMP_FOLDER + "schema.data.gouv.fr/site/.vuepress/public/schema-updates.json"
+    schema_updates_file = tmp_folder + "schema.data.gouv.fr/site/.vuepress/public/schema-updates.json"
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
@@ -1058,7 +1054,7 @@ def update_news_feed(ti, TMP_FOLDER):
                             f"(/{schema['schema_name']}/)** : "
                             f'<span style="color:blue;">{schema["version"]}</span><br>\n'
                         )
-        with open(TMP_FOLDER + "schema.data.gouv.fr/site/actualites.md", "w", encoding="utf-8") as f:
+        with open(tmp_folder + "schema.data.gouv.fr/site/actualites.md", "w", encoding="utf-8") as f:
             f.write(md)
 
         # updating RSS feed
@@ -1066,14 +1062,14 @@ def update_news_feed(ti, TMP_FOLDER):
         url = "https://schema.data.gouv.fr/"
         rss_folder = "schema.data.gouv.fr/site/.vuepress/public/rss/"
         # loading existing file
-        tree = ET.parse(TMP_FOLDER + rss_folder + "global.xml")
+        tree = ET.parse(tmp_folder + rss_folder + "global.xml")
         root = tree.getroot()
         root.set("xmlns:atom", "http://www.w3.org/2005/Atom")
         root.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
         # logging.info(ET.tostring(root, encoding="utf-8").decode("utf-8"))
 
         existing_feeds = [
-            k.replace("_", "/").replace(".xml", "") for k in os.listdir(TMP_FOLDER + rss_folder)
+            k.replace("_", "/").replace(".xml", "") for k in os.listdir(tmp_folder + rss_folder)
         ]
 
         for date, up in changes.items():
@@ -1126,7 +1122,7 @@ def update_news_feed(ti, TMP_FOLDER):
                     )
                     if version["schema_name"] in existing_feeds:
                         feed_path = (
-                            TMP_FOLDER + rss_folder + version["schema_name"].replace("/", "_") + ".xml"
+                            tmp_folder + rss_folder + version["schema_name"].replace("/", "_") + ".xml"
                         )
                         specific_tree = ET.parse(feed_path)
                         specific_root = specific_tree.getroot()
@@ -1157,18 +1153,18 @@ def update_news_feed(ti, TMP_FOLDER):
                         fe.published(date_content)
                         # logging.info(specific_fg.rss_str(pretty=True))
                         specific_fg.rss_file(
-                            TMP_FOLDER + rss_folder + version["schema_name"].replace("/", "_") + ".xml",
+                            tmp_folder + rss_folder + version["schema_name"].replace("/", "_") + ".xml",
                             pretty=True
                         )
         # logging.info(ET.tostring(root, encoding="utf-8").decode("utf-8"))
-        tree.write(TMP_FOLDER + rss_folder + "global.xml")
+        tree.write(tmp_folder + rss_folder + "global.xml")
     else:
         logging.info("No update today")
 
 
-def sort_folders(ti):
-    SCHEMA_CATALOG = ti.xcom_pull(key="SCHEMA_CATALOG", task_ids="check_and_save_schemas")
-    folders = ti.xcom_pull(key="folders", task_ids="initialization")
+def sort_folders(ti, suffix):
+    SCHEMA_CATALOG = ti.xcom_pull(key="SCHEMA_CATALOG", task_ids="check_and_save_schemas" + suffix)
+    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
     # Get list of all files in DATA_FOLDER
     files = getListOfFiles(folders["DATA_FOLDER1"])
     # Create list of file that we do not want to copy paste
@@ -1200,9 +1196,9 @@ def sort_folders(ti):
     shutil.copytree(folders["DATA_FOLDER1"], folders["DATA_FOLDER2"])
 
 
-def get_issues_and_labels(ti):
-    SCHEMA_CATALOG = ti.xcom_pull(key="SCHEMA_CATALOG", task_ids="check_and_save_schemas")
-    folders = ti.xcom_pull(key="folders", task_ids="initialization")
+def get_issues_and_labels(ti, suffix):
+    SCHEMA_CATALOG = ti.xcom_pull(key="SCHEMA_CATALOG", task_ids="check_and_save_schemas" + suffix)
+    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
     # For every issue, request them by label schema status (en investigation or en construction)
     mydict = {}
     labels = ["construction", "investigation"]
@@ -1259,10 +1255,9 @@ def get_issues_and_labels(ti):
         json.dump(mydict, fp, indent=4)
 
 
-def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
-    schemas = ti.xcom_pull(key="SCHEMA_INFOS", task_ids="check_and_save_schemas")
-    folders = ti.xcom_pull(key="folders", task_ids="initialization")
-    branch = ti.xcom_pull(key="branch", task_ids="initialization")
+def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
+    schemas = ti.xcom_pull(key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix)
+    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
     with open(folders["DATA_FOLDER2"] + "/stats.json", "r") as f:
         references = json.load(f)["references"]
     df = pd.DataFrame(
@@ -1280,11 +1275,11 @@ def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
         on="name",
         how="outer",
     )
-    merged.to_csv(TMP_FOLDER + "schemas_catalog_table.csv", index=False)
-    is_demo = branch == "preprod" or AIRFLOW_ENV == "dev"
+    merged.to_csv(tmp_folder + "schemas_catalog_table.csv", index=False)
+    is_demo = (branch != "main") or (AIRFLOW_ENV == "dev")
     post_resource(
         file_to_upload=File(
-            dest_path=TMP_FOLDER,
+            dest_path=tmp_folder,
             dest_name="schemas_catalog_table.csv",
         ),
         dataset_id=(
@@ -1298,7 +1293,7 @@ def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
         payload={
             "title": f"Catalogue des schémas de données ({datetime.now().strftime('%Y-%m-%d')})"
         },
-        on_demo=branch == "preprod",
+        on_demo=branch != "main",
     )
 
 
@@ -1311,8 +1306,8 @@ def remove_all_files_extension(folder, extension):
             os.remove(f)
 
 
-def final_clean_up(ti):
-    folders = ti.xcom_pull(key="folders", task_ids="initialization")
+def final_clean_up(ti, suffix):
+    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
     # Remove all markdown from DATA_FOLDER1 and all json, yaml and yml file of DATA_FOLDER2
     remove_all_files_extension(folders["DATA_FOLDER2"], ".md")
     remove_all_files_extension(folders["DATA_FOLDER1"], ".json")
