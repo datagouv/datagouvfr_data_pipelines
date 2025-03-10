@@ -22,6 +22,7 @@ import pandas as pd
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.filesystem import File
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
@@ -1282,10 +1283,10 @@ def publish_schema_dataset(ti, TMP_FOLDER, AIRFLOW_ENV):
     merged.to_csv(TMP_FOLDER + "schemas_catalog_table.csv", index=False)
     is_demo = branch == "preprod" or AIRFLOW_ENV == "dev"
     post_resource(
-        file_to_upload={
-            "dest_path": TMP_FOLDER,
-            "dest_name": "schemas_catalog_table.csv",
-        },
+        file_to_upload=File(
+            dest_path=TMP_FOLDER,
+            dest_name="schemas_catalog_table.csv",
+        ),
         dataset_id=(
             "668282444f9d3f48f2702fcd" if not is_demo
             else "6682b2f35a23814365024994"

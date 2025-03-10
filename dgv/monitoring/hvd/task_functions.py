@@ -10,6 +10,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.grist import (
@@ -74,12 +75,12 @@ def send_to_minio(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": filename,
-                "dest_path": "hvd/",
-                "dest_name": filename,
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=filename,
+                dest_path="hvd/",
+                dest_name=filename,
+            )
         ],
         ignore_airflow_env=True,
     )

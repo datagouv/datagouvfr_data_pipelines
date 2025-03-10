@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
@@ -183,13 +184,12 @@ def gather_data(ti):
 def send_to_minio():
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"deces.{_ext}",
-                "dest_path": "deces/",
-                "dest_name": f"deces.{_ext}",
-            }
-            for _ext in ["csv", "parquet"]
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"deces.{_ext}",
+                dest_path="deces/",
+                dest_name=f"deces.{_ext}",
+            ) for _ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,
     )

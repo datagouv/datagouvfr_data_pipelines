@@ -5,6 +5,7 @@ from datetime import datetime
 import logging
 import re
 
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
@@ -76,11 +77,6 @@ SPAM_WORDS = [
 
 datagouv_session = requests.Session()
 datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
-
-
-class File(TypedDict):
-    dest_path: str
-    dest_name: str
 
 
 @simple_connection_retry

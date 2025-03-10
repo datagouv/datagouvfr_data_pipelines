@@ -19,6 +19,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     check_if_recent_update,
     DATAGOUV_URL,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import (
@@ -98,12 +99,12 @@ def process_data():
 def send_to_minio(file_type):
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"{file_type}.{ext}",
-                "dest_path": "controle_sanitaire_eau/",
-                "dest_name": f"{file_type}.{ext}",
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"{file_type}.{ext}",
+                dest_path="controle_sanitaire_eau/",
+                dest_name=f"{file_type}.{ext}",
+            )
             for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]
         ],
         ignore_airflow_env=True,
