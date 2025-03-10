@@ -653,7 +653,7 @@ def generate_catalog_object(
         "schema_type": schema_type,
         "contact": obj_info.get("email"),
         "examples": schema.get("resources", []),
-        "labels": schema.get("labels", []),
+        "labels": obj_info.get("labels", []),
         "consolidation_dataset_id": obj_info.get("consolidation"),
         "versions": [],
         "external_doc": obj_info.get("external_doc"),
@@ -816,10 +816,12 @@ def check_and_save_schemas(ti):
     schemas_scdl["schemas"] = [
         x for x in schemas_scdl["schemas"] if "Socle Commun des Données Locales" in x["labels"]
     ]
+    logging.info(f"Schémas SCDL : {schemas_scdl}")
 
     schemas_transport["schemas"] = [
         x for x in schemas_transport["schemas"] if "transport.data.gouv.fr" in x["labels"]
     ]
+    logging.info(f"Schémas transport : {schemas_transport}")
 
     schemas_tableschema["schemas"] = [
         x for x in schemas_tableschema["schemas"] if x["schema_type"] == "tableschema"
