@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix import (
     reformat_prix,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
@@ -26,29 +27,30 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 def download_latest_data():
     download_files(
         [
-            {
-                "url": "https://donnees.roulez-eco.fr/opendata/jour",
-                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "dest_name": "jour.zip",
-            },
-            {
-                "url": "https://donnees.roulez-eco.fr/opendata/instantane",
-                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "dest_name": "instantane.zip",
-            },
-        ]
+            File(
+                url="https://donnees.roulez-eco.fr/opendata/jour",
+                dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                dest_name="jour.zip",
+            ),
+            File(
+                url="https://donnees.roulez-eco.fr/opendata/instantane",
+                dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                dest_name="instantane.zip",
+            ),
+        ],
     )
 
 
 def get_daily_prices():
     minio_open.download_files(
         list_files=[
-            {
-                "source_path": "carburants/",
-                "source_name": "daily_prices.json",
-                "dest_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "dest_name": "daily_prices.json",
-            }
+            File(
+                source_path="carburants/",
+                source_name="daily_prices.json",
+                dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                dest_name="daily_prices.json",
+                remote_source=True,
+            ),
         ],
     )
 
@@ -109,27 +111,27 @@ def send_files_minio():
 
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": name,
-                "dest_path": f"carburants/{folder}",
-                "dest_name": name,
-                "content_type": (
+            File(
+                source_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                source_name=name,
+                dest_path=f"carburants/{folder}",
+                dest_name=name,
+                content_type=(
                     "application/json; charset=utf-8" if name.endswith("json")
                     else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ),
-            } for name in [
+            ) for name in [
                 "latest_france.geojson",
                 "latest_france_ruptures.json",
                 "synthese_ruptures_latest.xlsx",
             ] for folder in ["", f"{today}/"]
         ] + [
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}carburants/",
-                "source_name": "daily_prices.json",
-                "dest_path": "carburants/",
-                "dest_name": "daily_prices.json",
-                "content_type": "application/json; charset=utf-8",
-            },
+            File(
+                source_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                source_name="daily_prices.json",
+                dest_path="carburants/",
+                dest_name="daily_prices.json",
+                content_type="application/json; charset=utf-8",
+            ),
         ],
     )

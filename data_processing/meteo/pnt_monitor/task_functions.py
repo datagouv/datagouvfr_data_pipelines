@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
@@ -138,12 +139,12 @@ def notification_mattermost(ti):
 
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": AIRFLOW_DAG_TMP,
-                "source_name": too_old_filename,
-                "dest_path": "pnt/",
-                "dest_name": too_old_filename,
-            },
+            File(
+                source_path=AIRFLOW_DAG_TMP,
+                source_name=too_old_filename,
+                dest_path="pnt/",
+                dest_name=too_old_filename,
+            )
         ]
     )
 
@@ -276,12 +277,12 @@ def consolidate_logs():
                 f.write(row)
         minio_pnt.send_files(
             list_files=[
-                {
-                    "source_path": AIRFLOW_DAG_TMP,
-                    "source_name": f"{date}.csv",
-                    "dest_path": "logs/",
-                    "dest_name": f"{date}.csv",
-                },
+                File(
+                    source_path=AIRFLOW_DAG_TMP,
+                    source_name=f"{date}.csv",
+                    dest_path="logs/",
+                    dest_name=f"{date}.csv",
+                ),
             ],
             ignore_airflow_env=True,
             burn_after_sending=True,

@@ -19,6 +19,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
@@ -50,64 +51,64 @@ def build_table_name(table: str) -> str:
 
 def create_copro_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "create_copro_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_copro_table.sql",
+        ),
     )
 
 
 def create_dpe_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "create_dpe_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_dpe_table.sql",
+        ),
     )
 
 
 def create_dvf_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "create_dvf_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_dvf_table.sql",
+        ),
     )
 
 
 def index_dvf_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "index_dvf_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="index_dvf_table.sql",
+        ),
     )
 
 
 def create_stats_dvf_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "create_stats_dvf_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_stats_dvf_table.sql",
+        ),
     )
 
 
 def create_distribution_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "create_distribution_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_distribution_table.sql",
+        ),
     )
 
 
 def create_whole_period_table() -> None:
     pgclient.execute_sql_file(
-        file={
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "create_whole_period_table.sql",
-        },
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_whole_period_table.sql",
+        ),
     )
 
 
@@ -181,7 +182,7 @@ def populate_copro_table() -> None:
     copro = copro.loc[copro['commune'].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
     pgclient.copy_file(
-        file={"source_path": f"{DATADIR}/", "source_name": "copro_clean.csv"},
+        file=File(source_path=f"{DATADIR}/", source_name="copro_clean.csv"),
         table=build_table_name("copro"),
         has_header=True,
     )
@@ -189,7 +190,7 @@ def populate_copro_table() -> None:
 
 def populate_distribution_table() -> None:
     pgclient.copy_file(
-        file={"source_path": f"{DATADIR}/", "source_name": "distribution_prix.csv"},
+        file=File(source_path=f"{DATADIR}/", source_name="distribution_prix.csv"),
         table=build_table_name("distribution_prix"),
         has_header=True,
     )
@@ -199,7 +200,7 @@ def populate_dvf_table() -> None:
     files = glob.glob(f"{DATADIR}/full*.csv")
     for file in files:
         pgclient.copy_file(
-            file={"source_path": f"{DATADIR}/", "source_name": file},
+            file=File(source_path=f"{DATADIR}/", source_name=file),
             table=build_table_name("dvf"),
             has_header=True,
         )
@@ -207,16 +208,16 @@ def populate_dvf_table() -> None:
 
 def alter_dvf_table() -> None:
     pgclient.execute_sql_file(
-        {
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "alter_dvf_table.sql",
-        },
+        File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="alter_dvf_table.sql",
+        ),
     )
 
 
 def populate_stats_dvf_table() -> None:
     pgclient.copy_file(
-        file={"source_path": f"{DATADIR}/", "source_name": "stats_dvf_api.csv"},
+        file=File(source_path=f"{DATADIR}/", source_name="stats_dvf_api.csv"),
         table=build_table_name("stats_dvf"),
         has_header=True,
     )
@@ -224,7 +225,7 @@ def populate_stats_dvf_table() -> None:
 
 def populate_dpe_table() -> None:
     pgclient.copy_file(
-        file={"source_path": f"{DATADIR}/", "source_name": "all_dpe.csv"},
+        file=File(source_path=f"{DATADIR}/", source_name="all_dpe.csv"),
         table=build_table_name("dpe"),
         has_header=False,
     )
@@ -232,7 +233,7 @@ def populate_dpe_table() -> None:
 
 def populate_whole_period_table() -> None:
     pgclient.copy_file(
-        file={"source_path": f"{DATADIR}/", "source_name": "stats_whole_period.csv"},
+        file=File(source_path=f"{DATADIR}/", source_name="stats_whole_period.csv"),
         table=build_table_name("stats_whole_period"),
         has_header=True,
     )
@@ -352,10 +353,10 @@ def process_dpe() -> None:
 
 def index_dpe_table() -> None:
     pgclient.execute_sql_file(
-        {
-            "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-            "source_name": "index_dpe_table.sql",
-        },
+        File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="index_dpe_table.sql",
+        ),
     )
 
 
@@ -1060,12 +1061,12 @@ def create_distribution_and_stats_whole_period() -> None:
 def send_stats_to_minio() -> None:
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"{file}.csv",
-                "dest_path": "dvf/",
-                "dest_name": f"{file}.csv",
-            } for file in ["stats_dvf", "stats_whole_period"]
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"{file}.csv",
+                dest_path="dvf/",
+                dest_name=f"{file}.csv",
+            ) for file in ["stats_dvf", "stats_whole_period"]
         ],
     )
 
@@ -1073,12 +1074,12 @@ def send_stats_to_minio() -> None:
 def send_distribution_to_minio() -> None:
     minio_restricted.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "distribution_prix.csv",
-                "dest_path": "dvf/",
-                "dest_name": "distribution_prix.csv",
-            },
+            File(
+                source_path=f"{DATADIR}/",
+                source_name="distribution_prix.csv",
+                dest_path="dvf/",
+                dest_name="distribution_prix.csv",
+            ),
         ],
     )
 

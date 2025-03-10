@@ -22,6 +22,7 @@ import pandas as pd
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.filesystem import File
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}
@@ -649,7 +650,7 @@ def generate_catalog_object(
         "schema_type": schema_type,
         "contact": obj_info.get("email"),
         "examples": schema.get("resources", []),
-        "labels": schema.get("labels", []),
+        "labels": obj_info.get("labels", []),
         "consolidation_dataset_id": obj_info.get("consolidation"),
         "versions": [],
         "external_doc": obj_info.get("external_doc"),
@@ -812,10 +813,12 @@ def check_and_save_schemas(ti, suffix):
     schemas_scdl["schemas"] = [
         x for x in schemas_scdl["schemas"] if "Socle Commun des Données Locales" in x["labels"]
     ]
+    logging.info(f"Schémas SCDL : {schemas_scdl}")
 
     schemas_transport["schemas"] = [
         x for x in schemas_transport["schemas"] if "transport.data.gouv.fr" in x["labels"]
     ]
+    logging.info(f"Schémas transport : {schemas_transport}")
 
     schemas_tableschema["schemas"] = [
         x for x in schemas_tableschema["schemas"] if x["schema_type"] == "tableschema"
@@ -1275,10 +1278,10 @@ def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
     merged.to_csv(tmp_folder + "schemas_catalog_table.csv", index=False)
     is_demo = (branch != "main") or (AIRFLOW_ENV == "dev")
     post_resource(
-        file_to_upload={
-            "dest_path": tmp_folder,
-            "dest_name": "schemas_catalog_table.csv",
-        },
+        file_to_upload=File(
+            dest_path=tmp_folder,
+            dest_name="schemas_catalog_table.csv",
+        ),
         dataset_id=(
             "668282444f9d3f48f2702fcd" if not is_demo
             else "6682b2f35a23814365024994"

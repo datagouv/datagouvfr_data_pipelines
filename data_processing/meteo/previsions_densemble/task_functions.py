@@ -20,6 +20,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     delete_dataset_or_resource,
     DATAGOUV_URL,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
@@ -116,12 +117,12 @@ def process_members(members: list[str], date: str, echeance: str, pack: str, gri
     )
     minio_meteo.send_files(
         [
-            {
-                "source_path": DATADIR,
-                "source_name": tmp_folder[:-1] + ".grib",
-                "dest_path": f"{minio_folder}/{pack}/{grid}/{date}/",
-                "dest_name": tmp_folder[:-1] + ".grib",
-            },
+            File(
+                source_path=DATADIR,
+                source_name=tmp_folder[:-1] + ".grib",
+                dest_path=f"{minio_folder}/{pack}/{grid}/{date}/",
+                dest_name=tmp_folder[:-1] + ".grib",
+            ),
         ],
         ignore_airflow_env=False,
         burn_after_sending=True,
