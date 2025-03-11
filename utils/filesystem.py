@@ -12,11 +12,13 @@ class File:
         source_path: Optional[str] = None,
         source_name: Optional[str] = None,
         url: Optional[str] = None,
+        content_type: Optional[str] = None,
         column_order: Optional[str] = None,
         remote_source: bool = False,
     ) -> None:
         self.url = url
         self.column_order = column_order
+        self.content_type = content_type
         if dest_path and dest_name:
             self.dest_path = self.add_trailing_slash(dest_path)
             self.dest_name = dest_name
