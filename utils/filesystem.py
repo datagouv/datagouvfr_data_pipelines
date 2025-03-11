@@ -31,8 +31,8 @@ class File:
     def __getitem__(self, item: str):
         return getattr(self, item)
 
-    def get(self, item: str):
-        return getattr(self, item) if hasattr(self, item) else None
+    def get(self, item: str, default = None):
+        return getattr(self, item) if hasattr(self, item) else default
 
     @staticmethod
     def add_trailing_slash(path: str) -> str:
