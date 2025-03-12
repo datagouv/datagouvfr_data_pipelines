@@ -2,6 +2,7 @@ import csv
 import glob
 import os
 from typing import Any, Optional
+import magic
 
 
 class File:
@@ -27,11 +28,16 @@ class File:
             self.source_name = source_name
             if not remote_source:
                 self.assert_file_exists(self.source_path, self.source_name)
+                if not content_type:
+                    self.content_type = magic.from_file(
+                        self.source_path + self.source_name,
+                        mime=True,
+                    )
 
     def __getitem__(self, item: str):
         return getattr(self, item)
 
-    def get(self, item: str, default = None):
+    def get(self, item: str, default=None):
         return getattr(self, item) if hasattr(self, item) else default
 
     @staticmethod
