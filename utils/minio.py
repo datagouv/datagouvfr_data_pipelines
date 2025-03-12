@@ -7,7 +7,6 @@ from typing import Optional
 import os
 import io
 import json
-import magic
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
