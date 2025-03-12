@@ -218,7 +218,6 @@ def gather_and_upload(
                 source_name="stats_support.csv",
                 dest_path=minio_destination_folder,
                 dest_name="stats_support.csv",
-                content_type=None,
             )
         ],
         ignore_airflow_env=True,
@@ -287,7 +286,6 @@ def get_and_upload_certification() -> None:
                 source_name=f,
                 dest_path=minio_destination_folder + datetime.now().strftime("%Y-%m-%d") + "/",
                 dest_name=f,
-                content_type=None,
             )
             for f in ["certified.json", "SP_or_CT.json", "issues.json"]
         ],
@@ -323,7 +321,6 @@ def get_and_upload_reuses_down() -> None:
                 source_name=output_file_name,
                 dest_path=minio_destination_folder,
                 dest_name=output_file_name,
-                content_type=None,
             )
         ],
         ignore_airflow_env=True,
@@ -402,7 +399,6 @@ def get_catalog_stats() -> None:
                 source_name=output_file_name,
                 dest_path=minio_destination_folder,
                 dest_name=output_file_name,
-                content_type=None,
             )
             for output_file_name in ["resources_stats.json", "datasets_quality.json"]
         ],
@@ -449,7 +445,6 @@ def get_hvd_dataservices_stats() -> None:
                 source_name="hvd_dataservices_quality.json",
                 dest_path=minio_destination_folder,
                 dest_name="hvd_dataservices_quality.json",
-                content_type=None,
             )
         ],
         ignore_airflow_env=True,

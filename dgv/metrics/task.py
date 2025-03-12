@@ -83,7 +83,6 @@ def download_log(ti):
                     source_name=path.split("/")[-1],
                     dest_path=TMP_FOLDER,
                     dest_name=path.split("/")[-1],
-                    content_type=None,
                     remote_source=True,
                 )
             ]

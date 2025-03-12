@@ -1759,9 +1759,8 @@ def upload_minio(
             source_name=name,
             dest_path=minio_output_filepath,
             dest_name=os.path.join(path, name).replace(TMP_FOLDER, ""),
-            content_type=None,
         )
-        for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
+        for path, subdirs, files in os.walk(TMP_FOLDER + "output/")
         for name in files
         if os.path.isfile(os.path.join(path, name))
     ]
@@ -1843,7 +1842,6 @@ def notification_synthese(
                             source_name=erreurs_file_name,
                             dest_path="schema/schemas_consolidation/liste_erreurs/",
                             dest_name=erreurs_file_name,
-                            content_type=None,
                         )
                     ],
                     ignore_airflow_env=True,
