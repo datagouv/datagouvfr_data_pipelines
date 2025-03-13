@@ -35,7 +35,6 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)
 
-DATAGOUV_URL = "https://www.data.gouv.fr"
 VALIDATA_BASE_URL = VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{DATAGOUV_URL}/api/1/"
@@ -1752,21 +1751,18 @@ def upload_minio(
     minio_output_filepath: str,
 ):
     minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-
-    list_files = [
-        File(
-            source_path=path,
-            source_name=name,
-            dest_path=minio_output_filepath,
-            dest_name=os.path.join(path, name).replace(TMP_FOLDER, ""),
-        )
-        for path, subdirs, files in os.walk(TMP_FOLDER + "output/")
-        for name in files
-        if os.path.isfile(os.path.join(path, name))
-    ]
-
     minio_open.send_files(
-        list_files=list_files,
+        list_files=[
+            File(
+                source_path=path,
+                source_name=name,
+                dest_path=(minio_output_filepath + path).replace(TMP_FOLDER, ""),
+                dest_name=name,
+            )
+            for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
+            for name in files
+            if os.path.isfile(os.path.join(path, name))
+        ],
         ignore_airflow_env=True,
     )
     return
