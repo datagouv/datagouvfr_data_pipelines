@@ -1,4 +1,3 @@
-from typing import Optional, Union
 import requests
 import json
 import pandas as pd
@@ -24,7 +23,7 @@ def handle_grist_error(response: requests.Response):
         raise Exception(f"Grist error: '{response.json()['error']}'")
 
 
-def erase_table_content(doc_id: str, table_id: str, ids: Optional[list] = None):
+def erase_table_content(doc_id: str, table_id: str, ids: list | None = None):
     """Empty some (if specified) or all rows of a table. Doesn't touch the columns"""
     if ids is None:
         records = RequestRetry.get(
@@ -39,7 +38,7 @@ def erase_table_content(doc_id: str, table_id: str, ids: Optional[list] = None):
     handle_grist_error(r)
 
 
-def rename_table_columns(doc_id: str, table_id: str, new_columns: Union[list, dict]):
+def rename_table_columns(doc_id: str, table_id: str, new_columns: list | dict):
     """
     Delete and recreate columns in the table
     Intended to be used when the table is empty to prevent unwanted behaviour
@@ -91,7 +90,7 @@ def chunkify(df: pd.DataFrame, chunk_size: int = 100):
         yield df[start:]
 
 
-def recordify(df: pd.DataFrame, returned_columns: Optional[dict]):
+def recordify(df: pd.DataFrame, returned_columns: dict | None):
     """Renames columns (if ids have been changed by grist) and wraps the content as expected"""
     if returned_columns:
         df = df.rename(returned_columns, axis=1)
@@ -117,7 +116,7 @@ def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
         }
 
 
-def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union[bool, str]):
+def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: bool | str):
     """
     Handles cases where the df has more/less columns than the table:
         - more: add missing columns (empty) for the records to be uploaded
@@ -151,7 +150,7 @@ def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, appe
     return returned_columns
 
 
-def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool, str] = False):
+def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: bool | str = False):
     """
     Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
     If the table(_id) already exists:
@@ -217,7 +216,7 @@ def get_table_as_df(
     doc_id: str,
     table_id: str,
     columns_labels: bool = True,
-    usecols: Optional[list[str]] = None,
+    usecols: list[str] | None = None,
 ):
     """
     Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.

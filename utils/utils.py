@@ -1,6 +1,5 @@
 import gzip
 from datetime import date, datetime
-from typing import Optional
 
 import duckdb
 from dateutil.relativedelta import relativedelta
@@ -40,10 +39,10 @@ def get_fiscal_year(date):
 
 def csv_to_parquet(
     csv_file_path: str,
-    dtype: Optional[dict] = None,
-    columns: Optional[list] = None,
-    output_name: Optional[str] = None,
-    output_path: Optional[str] = None,
+    dtype: dict | None = None,
+    columns: list | None = None,
+    output_name: str | None = None,
+    output_path: str | None = None,
     sep: str = ";",
     compression: str = "zstd",
 ):
@@ -68,8 +67,8 @@ def csv_to_parquet(
 
 def csv_to_csvgz(
     csv_file_path: str,
-    output_name: Optional[str] = None,
-    output_path: Optional[str] = None,
+    output_name: str | None = None,
+    output_path: str | None = None,
     chunk_size: int = 1024 * 1024,
 ):
     if output_name is None:

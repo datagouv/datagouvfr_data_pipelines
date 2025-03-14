@@ -1,5 +1,3 @@
-from typing import Optional
-
 import psycopg2
 from airflow.hooks.base import BaseHook
 
@@ -8,7 +6,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 
 class PostgresClient:
 
-    def __init__(self, conn_name: str, schema: Optional[str] = None):
+    def __init__(self, conn_name: str, schema: str | None = None):
         airflow_conn = BaseHook.get_connection(conn_name)
         self.schema = schema or "public"
         self.conn = psycopg2.connect(

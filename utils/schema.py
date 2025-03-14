@@ -7,7 +7,6 @@ import time
 from datetime import date, datetime
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Optional, Union
 
 import chardet
 import emails
@@ -76,7 +75,7 @@ def build_report_prefix(
     return str(validata_reports_path) + "/" + schema_name.replace("/", "_") + "_" + dataset_id + "_" + resource_id + "_"
 
 
-def comparer_versions(version: str) -> list[Union[int, float]]:
+def comparer_versions(version: str) -> list[int | float]:
     return [int(part) if part.isnumeric() else np.inf for part in version.split(".")]
 
 
@@ -439,7 +438,7 @@ def get_resource_schema_version(row: pd.Series, api_url: str):
 def get_schema_report(
     schemas_catalogue_url: str,
     config_path: Path,
-    schema_name: Optional[str] = None,
+    schema_name: str | None = None,
     list_schema_skip: list = [],
 ) -> tuple[dict, list]:
     """

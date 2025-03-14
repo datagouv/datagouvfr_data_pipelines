@@ -1,6 +1,6 @@
 from collections import defaultdict
 import re
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 import requests
@@ -86,7 +86,7 @@ def parse_logs(
 
 def extract_log_info(
     log: str, logs_config: list[DataGouvLog]
-) -> tuple[Optional[str], Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None, str | None]:
     """
     Retrieve information related to the datasets, organisation or resources
     from the anonymised HAProxy logs.

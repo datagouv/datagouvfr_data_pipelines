@@ -4,7 +4,6 @@ import re
 from ast import literal_eval
 from datetime import datetime
 from pathlib import Path
-from typing import Union
 
 import pandas as pd
 from airflow.models import TaskInstance
@@ -245,7 +244,7 @@ def improve_irve_geo_data_quality(
     ti,
     tmp_path: Path,
 ) -> None:
-    def sort_consolidated_from_version(file_name: str) -> list[Union[int, float]]:
+    def sort_consolidated_from_version(file_name: str) -> list[int | float]:
         version_lookup = re.search(r"\d+.\d+.\d+", file_name)
         version = str(version_lookup[0]) if version_lookup else "inf"
         return comparer_versions(version)
