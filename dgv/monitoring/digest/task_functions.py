@@ -1,6 +1,5 @@
 from datetime import datetime
 import re
-from typing import Optional
 
 import requests
 from IPython.core.display import display, HTML
@@ -48,7 +47,7 @@ def get_url(about: str):
     return searched.group(0)
 
 
-def show_users(start_date: datetime, end_date: Optional[datetime] = None):
+def show_users(start_date: datetime, end_date: datetime | None = None):
     users = get_last_items("users", start_date, end_date, date_key="since",)
 
     show_html(
@@ -93,7 +92,7 @@ def accorde(object_class: str, nb: int):
     )
 
 
-def show_objects(object_class: str, start_date: datetime, end_date: Optional[datetime] = None):
+def show_objects(object_class: str, start_date: datetime, end_date: datetime | None = None):
     feminin = "e" if object_class in ["reuses", "dataservices"] else ""
     objects = get_last_items(
         object_class,
@@ -159,7 +158,7 @@ def show_objects(object_class: str, start_date: datetime, end_date: Optional[dat
     return len(objects), objects
 
 
-def show_orgas(start_date: datetime, end_date: Optional[datetime] = None):
+def show_orgas(start_date: datetime, end_date: datetime | None = None):
     orgs = get_last_items("organizations", start_date, end_date)
 
     show_html(
@@ -199,8 +198,8 @@ def show_orgas(start_date: datetime, end_date: Optional[datetime] = None):
 
 def show_discussions(
     start_date: datetime,
-    end_date: Optional[datetime] = None,
-    subjects_of_interest: Optional[list] = None,
+    end_date: datetime | None = None,
+    subjects_of_interest: list | None = None,
 ):
     discussions = get_latest_comments(start_date, end_date)
 

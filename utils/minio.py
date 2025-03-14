@@ -3,7 +3,6 @@ import boto3
 import botocore
 from minio import Minio, S3Error
 from minio.commonconfig import CopySource
-from typing import Optional
 import os
 import io
 import json
@@ -21,9 +20,9 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 class MinIOClient:
     def __init__(
         self,
-        bucket: Optional[str] = None,
-        user: Optional[str] = None,
-        pwd: Optional[str] = None,
+        bucket: str | None = None,
+        user: str | None = None,
+        pwd: str | None = None,
         login: bool = True,
         http_client=None,
     ):
@@ -206,8 +205,8 @@ class MinIOClient:
         self,
         path_source: str,
         path_target: str,
-        minio_bucket_source: Optional[str] = None,
-        minio_bucket_target: Optional[str] = None,
+        minio_bucket_source: str | None = None,
+        minio_bucket_target: str | None = None,
         remove_source_file: bool = False,
     ) -> None:
         """Copy and paste file to another folder.
@@ -254,8 +253,8 @@ class MinIOClient:
         self,
         obj_source_paths: list[str],
         target_directory: str,
-        minio_bucket_source: Optional[str] = None,
-        minio_bucket_target: Optional[str] = None,
+        minio_bucket_source: str | None = None,
+        minio_bucket_target: str | None = None,
         remove_source_file: bool = False,
     ) -> list[str]:
         """
@@ -264,8 +263,8 @@ class MinIOClient:
         Args:
             obj_source_paths (list[str]): List of the objects full paths to be copied.
             target_path (str): The target directory where the objects will be copied.
-            minio_bucket_source (Optional[str]): The source MinIO bucket name. Defaults to the bucket specified at init.
-            minio_bucket_target (Optional[str]): The target MinIO bucket name. Defaults to the bucket specified at init.
+            minio_bucket_source (str | None): The source MinIO bucket name. Defaults to the bucket specified at init.
+            minio_bucket_target (str | None): The target MinIO bucket name. Defaults to the bucket specified at init.
             remove_source_file (bool): If True, removes the source files after copying. Defaults to False.
 
         Returns:

@@ -1,4 +1,3 @@
-from typing import Optional
 from pathlib import Path
 import yaml
 
@@ -13,7 +12,7 @@ class DataGouvLog:
         global_pattern: str,
         database_excluded_column: list[str],
         static_segments: list[str] = [],
-        additional_patterns: Optional[dict[str, str]] = None,
+        additional_patterns: dict[str, str] | None = None,
     ) -> None:
         self.type = type
         self.catalog_columns = catalog_columns
