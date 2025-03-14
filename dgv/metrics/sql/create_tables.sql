@@ -170,6 +170,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.metrics_organizations AS
            datasets.nb_visit as dataset_nb_visit,
            datasets.resource_nb_download as resource_nb_download,
            reuses.nb_visit as reuse_nb_visit,
+           dataservices.nb_visit as dataservice_nb_visit,
            matomo.nb_outlink
     FROM metric.visits_organizations visits
     FULL OUTER JOIN metric.matomo_organizations matomo
@@ -225,7 +226,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.organizations AS
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(dataset_nb_visit) as monthly_visit_dataset,
         sum(resource_nb_download) as monthly_download_resource,
-        sum(reuse_nb_visit) as monthly_visit_reuse
+        sum(reuse_nb_visit) as monthly_visit_reuse,
+        sum(dataservice_nb_visit) as monthly_visit_dataservice
     FROM metric.metrics_organizations
     GROUP BY metric_month, organization_id
 ;
@@ -305,6 +307,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.organizations_total AS
         sum(dataset_nb_visit) as visit_dataset,
         sum(resource_nb_download) as download_resource,
         sum(reuse_nb_visit) as visit_reuse,
+        sum(dataservice_nb_visit) as visit_dataservice,
         sum(nb_outlink) as outlink
     FROM metric.metrics_organizations
     GROUP BY organization_id
