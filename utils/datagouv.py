@@ -20,7 +20,7 @@ if AIRFLOW_ENV == "dev":
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
     ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
-VALIDATA_BASE_URL = "https://preprod-api-validata.dataeng.etalab.studio"
+VALIDATA_BASE_URL = "https://api.validata.etalab.studio/"
 DATAGOUV_MATOMO_ID = 109
 
 SPAM_WORDS = [
