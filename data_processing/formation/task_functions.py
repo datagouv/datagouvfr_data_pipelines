@@ -36,7 +36,7 @@ def concat_spe(row):
 
 
 def convert_date(val):
-    if isinstance(x, str):
+    if isinstance(val, str):
         return datetime.strptime(val, "%d/%m/%Y").strftime("%Y-%m-%d")
     return None
 
