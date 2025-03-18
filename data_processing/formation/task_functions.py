@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import isnan
 import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
@@ -32,11 +33,11 @@ def download_latest_data(ti):
 
 
 def concat_spe(row):
-    return [x for x in [row["spe1"], row["spe2"], row["spe3"]] if x == x]
+    return [x for x in [row["spe1"], row["spe2"], row["spe3"]] if not isnan(x)]
 
 
 def convert_date(val):
-    if val == val:
+    if not isnan(val):
         return datetime.strptime(val, "%d/%m/%Y").strftime("%Y-%m-%d")
     return None
 
