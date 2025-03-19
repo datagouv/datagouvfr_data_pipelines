@@ -1,11 +1,13 @@
 # import requests
 # from requests.auth import HTTPBasicAuth
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from pathlib import Path
 import aiohttp
 import asyncio
 
-from datagouvfr_data_pipelines.utils.filesystem import File
+if TYPE_CHECKING:
+    # to avoid circular imports
+    from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
@@ -20,7 +22,7 @@ async def download_file(session, url, dest_path, dest_name, auth=None):
 
 
 async def async_download_files(
-    list_urls: List[File],
+    list_urls: List["File"],
     auth_user: Optional[str] = None,
     auth_password: Optional[str] = None,
     timeout: int = 300,
@@ -50,7 +52,7 @@ async def async_download_files(
 
 # so that we keep the main function synchronous
 def download_files(
-    list_urls: List[File],
+    list_urls: List["File"],
     auth_user: Optional[str] = None,
     auth_password: Optional[str] = None,
     timeout: int = 300,
@@ -60,7 +62,7 @@ def download_files(
 
 
 # def download_files(
-#     list_urls: List[File],
+#     list_urls: List["File"],
 #     auth_user: Optional[str] = None,
 #     auth_password: Optional[str] = None,
 # ):

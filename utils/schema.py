@@ -1121,8 +1121,8 @@ def upload_geojson(
     obj["format"] = "json"
     response = post_resource(
         file_to_upload=File(
-            dest_path=schema_consolidated_data_path.as_posix(),
-            dest_name=build_consolidation_name(
+            source_path=schema_consolidated_data_path.as_posix(),
+            source_name=build_consolidation_name(
                 schema_name,
                 geojson_version_names_list[-1],
                 consolidation_date_str,
@@ -1227,8 +1227,8 @@ def upload_consolidated(
 
                 response = post_resource(
                     file_to_upload=File(
-                        dest_path=schema_consolidated_data_path.as_posix(),
-                        dest_name=build_consolidation_name(
+                        source_path=schema_consolidated_data_path.as_posix(),
+                        source_name=build_consolidation_name(
                             schema_name,
                             latest_mapping.get(version_name, version_name),
                             consolidation_date_str,
@@ -1621,8 +1621,8 @@ def update_consolidation_documentation_report(
 
                 response = post_resource(
                     file_to_upload=File(
-                        dest_path=ref_tables_path,
-                        dest_name=build_ref_table_name(schema_name),
+                        source_path=ref_tables_path,
+                        source_name=build_ref_table_name(schema_name),
                     ),
                     dataset_id=consolidated_dataset_id,
                     resource_id=doc_r_id,

@@ -58,17 +58,16 @@ def upload_files_minio(**kwargs):
 
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
-    list_files = [
-        File(
-            source_path=tmp_dir,
-            source_name=item["nameFTP"],
-            dest_path=minio_path,
-            dest_name=item["nameFTP"],
-        ) for item in data
-    ]
 
     minio_restricted.send_files(
-        list_files=list_files,
+        list_files=[
+            File(
+                source_path=tmp_dir,
+                source_name=item["nameFTP"],
+                dest_path=minio_path,
+                dest_name=item["nameFTP"],
+            ) for item in data
+        ],
     )
 
 
