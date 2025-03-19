@@ -21,7 +21,6 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
@@ -322,23 +321,19 @@ def download_resource(res, dataset):
         file_path = f"{DATADIR}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split('/')[-1])
     file_path = Path(file_path + file_name)
-    download_files([
-        File(
-            url=res["url"],
-            dest_path=file_path.parent.as_posix(),
-            dest_name=file_path.name,
-        )
-    ], timeout=TIMEOUT)
+    File(
+        url=res["url"],
+        dest_path=file_path.parent.as_posix(),
+        dest_name=file_path.name,
+    ).download(timeout=TIMEOUT)
     csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
-        download_files([
-            File(
-                url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
-                dest_path=file_path.parent.as_posix(),
-                dest_name=old_file,
-            )
-        ], timeout=TIMEOUT)
+        File(
+            url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
+            dest_path=file_path.parent.as_posix(),
+            dest_name=old_file,
+        ).download(timeout=TIMEOUT)
     except Exception as e:
         raise ValueError(f"Download error for {res['url']}: {e}")
         # this should not happen anymore, specific cases will be handled manually

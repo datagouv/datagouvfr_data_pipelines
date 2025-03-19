@@ -8,7 +8,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_and_files import (
     generate_kpis
 )
@@ -25,20 +24,16 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data():
-    download_files(
-        [
-            File(
-                url="https://donnees.roulez-eco.fr/opendata/jour",
-                dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
-                dest_name="jour.zip",
-            ),
-            File(
-                url="https://donnees.roulez-eco.fr/opendata/instantane",
-                dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
-                dest_name="instantane.zip",
-            ),
-        ],
-    )
+    File(
+        url="https://donnees.roulez-eco.fr/opendata/jour",
+        dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+        dest_name="jour.zip",
+    ).download()
+    File(
+        url="https://donnees.roulez-eco.fr/opendata/instantane",
+        dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+        dest_name="instantane.zip",
+    ).download()
 
 
 def get_daily_prices():

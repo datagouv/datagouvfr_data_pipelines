@@ -227,9 +227,7 @@ def send_exports_to_minio():
                             dest_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
                         )
                     )
-    minio_open.send_files(
-        list_files=list_files
-    )
+    minio_open.send_files(list_files=list_files)
 
 
 def check_if_continue(ti):

@@ -205,10 +205,6 @@ def post_geozones():
         data = json.load(fp)
     year = datetime.now().strftime('%Y')
 
-    geozones_file = File(
-        dest_path=f"{DATADIR}/",
-        dest_name="export_geozones.json",
-    )
     payload = {
         "description": (
             "Géozones créées à partir du [fichier de l'INSEE]"
@@ -220,16 +216,15 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        file_to_upload=geozones_file,
+        file_to_upload=File(
+            dest_path=f"{DATADIR}/",
+            dest_name="export_geozones.json",
+        ),
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
         payload=payload
     )
 
-    countries_file = File(
-        dest_path=f"{DATADIR}/",
-        dest_name="export_countries.json",
-    )
     payload = {
         "description": (
             "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
@@ -241,16 +236,15 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        file_to_upload=countries_file,
+        file_to_upload=File(
+            dest_path=f"{DATADIR}/",
+            dest_name="export_countries.json",
+        ),
         dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
         payload=payload
     )
 
-    levels_file = File(
-        dest_path=f"{DATADIR}/",
-        dest_name="levels.json",
-    )
     payload = {
         "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
         "mime": "application/json",
@@ -258,7 +252,10 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        file_to_upload=levels_file,
+        file_to_upload=File(
+            dest_path=f"{DATADIR}/",
+            dest_name="levels.json",
+        ),
         dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),
         payload=payload
