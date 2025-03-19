@@ -217,8 +217,8 @@ def post_geozones():
     }
     post_resource(
         file_to_upload=File(
-            dest_path=f"{DATADIR}/",
-            dest_name="export_geozones.json",
+            source_path=f"{DATADIR}/",
+            source_name="export_geozones.json",
         ),
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
@@ -237,8 +237,8 @@ def post_geozones():
     }
     post_resource(
         file_to_upload=File(
-            dest_path=f"{DATADIR}/",
-            dest_name="export_countries.json",
+            source_path=f"{DATADIR}/",
+            source_name="export_countries.json",
         ),
         dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
@@ -253,8 +253,8 @@ def post_geozones():
     }
     post_resource(
         file_to_upload=File(
-            dest_path=f"{DATADIR}/",
-            dest_name="levels.json",
+            source_path=f"{DATADIR}/",
+            source_name="levels.json",
         ),
         dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),
