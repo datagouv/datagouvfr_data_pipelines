@@ -6,6 +6,7 @@ from minio.commonconfig import CopySource
 import os
 import io
 import json
+import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
@@ -137,7 +138,7 @@ class MinIOClient:
         file_path_2: str,
         file_name_1: str,
         file_name_2: str,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Compare two minio files
 
         Args:
@@ -366,7 +367,7 @@ class MinIOClient:
         self,
         url: str,
         destination_file_path: str,
-        session: Optional[requests.Session] = None,
+        session: requests.Session = None,
     ) -> None:
         # to upload a file from an URL without having to download, save and send
         _req = session or requests
