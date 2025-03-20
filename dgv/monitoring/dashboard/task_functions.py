@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from io import StringIO
 from time import sleep
-from typing import Iterator, Optional, Union
+from typing import Iterator
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,7 @@ def try_to_get_ticket_count(
     if tags:
         query += f" AND (tags:{' OR tags:'.join(tags)})"
     page = 1
-    params: dict[str, Union[str, int]] = {
+    params: dict[str, str | int] = {
         "query": query,
         "page": page,
         "per_page": per_page,
@@ -234,7 +234,7 @@ def is_certified(badges: Iterator[dict[str, str]]) -> bool:
 def is_SP_or_CT(
     siret: str,
     session: requests.Session,
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     issue = None
     if siret is None:
         return False, issue

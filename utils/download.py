@@ -1,6 +1,6 @@
 # import requests
 # from requests.auth import HTTPBasicAuth
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from pathlib import Path
 import aiohttp
 import asyncio

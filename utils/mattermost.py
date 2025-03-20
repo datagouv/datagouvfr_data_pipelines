@@ -1,5 +1,4 @@
 import requests
-from typing import Optional
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
@@ -12,8 +11,8 @@ MAX_MESSAGE_LENGTH = 60000
 
 def send_message(
     text: str,
-    endpoint_url: Optional[str] = None,
-    image_url: Optional[str] = None,
+    endpoint_url: str | None = None,
+    image_url: str | None = None,
     force_send: bool = False,
 ):
     """Send a message to a mattermost channel
@@ -21,7 +20,7 @@ def send_message(
     Args:
         endpoint_url (str): URL of the mattermost endpoint (for bot)
         text (str): Text to send to a channel
-        image_url (Optional[str], optional): Url of an image to link
+        image_url (str | None, optional): Url of an image to link
         with your text. Defaults to None.
     """
     if not force_send and len(text) > MAX_MESSAGE_LENGTH:

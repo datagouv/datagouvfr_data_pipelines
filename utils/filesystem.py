@@ -1,7 +1,7 @@
 import csv
 import glob
 import os
-from typing import Any, Optional
+from typing import Any
 import magic
 
 from datagouvfr_data_pipelines.utils.download import download_files
@@ -10,13 +10,13 @@ from datagouvfr_data_pipelines.utils.download import download_files
 class File:
     def __init__(
         self,
-        dest_path: Optional[str] = None,
-        dest_name: Optional[str] = None,
-        source_path: Optional[str] = None,
-        source_name: Optional[str] = None,
-        url: Optional[str] = None,
-        content_type: Optional[str] = None,
-        column_order: Optional[str] = None,
+        dest_path: str | None = None,
+        dest_name: str | None = None,
+        source_path: str | None = None,
+        source_name: str | None = None,
+        url: str | None = None,
+        content_type: str | None = None,
+        column_order: str | None = None,
         remote_source: bool = False,
     ) -> None:
         self.url = url

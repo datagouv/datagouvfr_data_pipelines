@@ -1,5 +1,5 @@
 import dateutil
-from typing import TypedDict, Iterator, Optional
+from typing import Iterator
 import requests
 from datetime import datetime
 import logging
@@ -102,8 +102,8 @@ def create_dataset(
 def post_resource(
     file_to_upload: File,
     dataset_id: str,
-    resource_id: Optional[str] = None,
-    payload: Optional[dict] = None,
+    resource_id: str | None = None,
+    payload: dict | None = None,
     on_demo: bool = False,
 ) -> requests.Response:
     """Upload a resource in data.gouv.fr
@@ -154,7 +154,7 @@ def post_resource(
 def post_remote_resource(
     dataset_id: str,
     payload: dict,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     on_demo: bool = False,
 ) -> dict:
     """Create a post in data.gouv.fr
@@ -199,7 +199,7 @@ def post_remote_resource(
 @simple_connection_retry
 def delete_dataset_or_resource(
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Delete a dataset or a resource in data.gouv.fr
 
@@ -225,7 +225,7 @@ def delete_dataset_or_resource(
 @simple_connection_retry
 def get_dataset_or_resource_metadata(
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Retrieve dataset or resource metadata from data.gouv.fr
 
@@ -269,7 +269,7 @@ def get_dataset_from_resource_id(
 def update_dataset_or_resource_metadata(
     payload: dict,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     on_demo: bool = False,
 ) -> requests.Response:
     """Update metadata to dataset or resource in data.gouv.fr
@@ -304,7 +304,7 @@ def update_dataset_or_resource_metadata(
 def update_dataset_or_resource_extras(
     payload: dict,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> requests.Response:
     """Update specific extras to a dataset or resource in data.gouv.fr
 
@@ -331,7 +331,7 @@ def update_dataset_or_resource_extras(
 def delete_dataset_or_resource_extras(
     extras: list,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ):
     """Delete extras from a dataset or resoruce in data.gouv.fr
 
@@ -362,7 +362,7 @@ def create_post(
     headline: str,
     content: str,
     body_type: str,
-    tags: Optional[list] = [],
+    tags: list | None = [],
 ) -> dict:
     """Create a post in data.gouv.fr
 
@@ -458,7 +458,7 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
 def post_remote_communautary_resource(
     dataset_id: str,
     payload: dict,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Post a remote communautary resource on data.gouv.fr
 
@@ -497,7 +497,7 @@ def get_all_from_api_query(
     base_query: str,
     next_page: str = 'next_page',
     ignore_errors: bool = False,
-    mask: Optional[str] = None,
+    mask: str | None = None,
     auth: bool = False,
 ) -> Iterator[dict]:
     """/!\ only for paginated endpoints"""
@@ -550,7 +550,7 @@ def get_awaiting_spam_comments() -> dict:
 
 
 @simple_connection_retry
-def check_duplicated_orga(slug: str) -> tuple[bool, Optional[str]]:
+def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
     duplicate_slug_pattern = r'-\d+$'
     if re.search(duplicate_slug_pattern, slug) is not None:
         suffix = re.findall(duplicate_slug_pattern, slug)[0]

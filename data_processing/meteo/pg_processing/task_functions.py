@@ -9,7 +9,6 @@ import csv
 from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
-from typing import Optional
 import pandas as pd
 import psycopg2
 from airflow.hooks.base import BaseHook
@@ -191,7 +190,7 @@ def process_resources(
     resources: list[dict],
     dataset_name: str,
     latest_ftp_processing: list,
-    dates: Optional[list] = None,
+    dates: list | None = None,
 ):
     # going through all resources of the dataset to check which ones to update
     for resource in resources:
