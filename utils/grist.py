@@ -1,8 +1,8 @@
-from typing import Optional, Union
 import requests
 import json
 import pandas as pd
 
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
     SECRET_GRIST_API_KEY,
@@ -23,14 +23,14 @@ def handle_grist_error(response: requests.Response):
         raise Exception(f"Grist error: '{response.json()['error']}'")
 
 
-def erase_table_content(doc_id: str, table_id: str, ids: Optional[list] = None):
+def erase_table_content(doc_id: str, table_id: str, ids: list | None = None):
     """Empty some (if specified) or all rows of a table. Doesn't touch the columns"""
     if ids is None:
-        records = requests.get(
+        records = RequestRetry.get(
             GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
             headers=headers,
         ).json()["records"]
-    r = requests.post(
+    r = RequestRetry.post(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/data/delete",
         headers=headers,
         json=ids or [r["id"] for r in records]
@@ -38,7 +38,7 @@ def erase_table_content(doc_id: str, table_id: str, ids: Optional[list] = None):
     handle_grist_error(r)
 
 
-def rename_table_columns(doc_id: str, table_id: str, new_columns: Union[list, dict]):
+def rename_table_columns(doc_id: str, table_id: str, new_columns: list | dict):
     """
     Delete and recreate columns in the table
     Intended to be used when the table is empty to prevent unwanted behaviour
@@ -46,13 +46,13 @@ def rename_table_columns(doc_id: str, table_id: str, new_columns: Union[list, di
         - list: ids and labels are set to the same values
         - dict: the exact grist pattern is expected (see how it's constructed for the list case)
     """
-    current_columns = requests.get(
+    current_columns = RequestRetry.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
         headers=headers,
     ).json()["columns"]
     ids = [c["id"] for c in current_columns]
     for i in ids:
-        r = requests.delete(
+        r = RequestRetry.delete(
             GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns/{i}",
             headers=headers,
         )
@@ -68,7 +68,7 @@ def rename_table_columns(doc_id: str, table_id: str, new_columns: Union[list, di
         _columns = new_columns
     else:
         raise ValueError("'new_columns' should be a list or dict")
-    r = requests.post(
+    r = RequestRetry.post(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
         headers=headers,
         json=_columns,
@@ -90,7 +90,7 @@ def chunkify(df: pd.DataFrame, chunk_size: int = 100):
         yield df[start:]
 
 
-def recordify(df: pd.DataFrame, returned_columns: Optional[dict]):
+def recordify(df: pd.DataFrame, returned_columns: dict | None):
     """Renames columns (if ids have been changed by grist) and wraps the content as expected"""
     if returned_columns:
         df = df.rename(returned_columns, axis=1)
@@ -101,7 +101,7 @@ def recordify(df: pd.DataFrame, returned_columns: Optional[dict]):
 def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
     # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
     # to potentially replace them so that the upload doesn't crash
-    r = requests.get(
+    r = RequestRetry.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
         headers=headers,
     )
@@ -116,7 +116,7 @@ def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
         }
 
 
-def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: Union[bool, str]):
+def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: bool | str):
     """
     Handles cases where the df has more/less columns than the table:
         - more: add missing columns (empty) for the records to be uploaded
@@ -139,7 +139,7 @@ def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, appe
                     "label": col
                 },
             } for col in columns_to_add]}
-            r = requests.post(
+            r = RequestRetry.post(
                 GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/columns",
                 headers=headers,
                 json=columns_to_add,
@@ -150,7 +150,7 @@ def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, appe
     return returned_columns
 
 
-def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool, str] = False):
+def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: bool | str = False):
     """
     Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
     If the table(_id) already exists:
@@ -161,7 +161,7 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool
     Otherwise create it
     """
     assert append in [False, "lazy", "exact"]
-    tables = requests.get(
+    tables = RequestRetry.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/",
         headers=headers,
     )
@@ -182,7 +182,7 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool
             }
         ]}
         # create the table
-        r = requests.post(
+        r = RequestRetry.post(
             GRIST_API_URL + "docs/" + doc_id + "/tables",
             headers=headers,
             json=table
@@ -202,7 +202,7 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool
     # fill it up
     res = []
     for chunk in chunkify(df):
-        r = requests.post(
+        r = RequestRetry.post(
             GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
             headers=headers,
             json=recordify(chunk, returned_columns)
@@ -212,16 +212,24 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: Union[bool
     return res
 
 
-def get_table_as_df(doc_id: str, table_id: str, columns_labels: bool = True):
+def get_table_as_df(
+    doc_id: str,
+    table_id: str,
+    columns_labels: bool = True,
+    usecols: list[str] | None = None,
+):
     """
     Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
+    Fill in usecols with the list of the columns you want to keep (using their ids).
     """
-    r = requests.get(
+    r = RequestRetry.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
         headers=headers
     )
     handle_grist_error(r)
     df = pd.DataFrame([k["fields"] for k in r.json()["records"]])
+    if usecols:
+        df = df[usecols]
     if not columns_labels:
         return df
     column_mapping = get_columns_mapping(doc_id, table_id, id_to_label=True)
@@ -240,7 +248,7 @@ def update_records(
     # new_values should look like {"col": "new_value", ...}, we update the values of the specified columns
     # see https://support.getgrist.com/api/#tag/records/operation/replaceRecords for query parameters
     url_params = "&".join(f"{k}={v}" for k, v in query_params.items())
-    r = requests.put(
+    r = RequestRetry.put(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records?{url_params}",
         headers=headers,
         json={

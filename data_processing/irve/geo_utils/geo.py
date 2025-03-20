@@ -102,14 +102,14 @@ def fix_code_insee(
     @simple_connection_retry
     def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
         if (
-            row["consolidated_is_code_insee_verified"] is True
+            row.get("consolidated_is_code_insee_verified") is True
             and isinstance(row[code_insee_col], str)
             and row[code_insee_col]
         ):
             return row
         row["consolidated_is_lon_lat_correct"] = False
         row["consolidated_is_code_insee_verified"] = False
-        row["consolidated_code_insee_modified"] = False
+        row["consolidated_is_code_insee_modified"] = False
         # Try getting commune with code INSEE from latitude and longitude alone
         response = session.get(
             url=(f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}&lon={row[lon_col]}&fields=code,nom,codesPostaux")
@@ -127,7 +127,7 @@ def fix_code_insee(
                 return row
             elif row[code_insee_col] in commune["codesPostaux"]:
                 row["consolidated_code_postal"] = row[code_insee_col]
-                row["consolidated_code_insee_modified"] = True
+                row["consolidated_is_code_insee_modified"] = True
                 row[code_insee_col] = commune["code"]
                 row["consolidated_commune"] = commune["nom"]
                 row["consolidated_is_lon_lat_correct"] = True
@@ -152,7 +152,7 @@ def fix_code_insee(
                 row["consolidated_code_postal"] = row[code_insee_col]
                 row["consolidated_commune"] = commune["nom"]
                 row[code_insee_col] = commune["code"]
-                row["consolidated_code_insee_modified"] = True
+                row["consolidated_is_code_insee_modified"] = True
                 row["consolidated_is_code_insee_verified"] = True
                 enrich_row_address.code_insee_is_postcode_in_address += 1
                 return row
@@ -179,7 +179,8 @@ def fix_code_insee(
         row["consolidated_commune"] = ""
         enrich_row_address.nothing_matches += 1
         return row
-
+    cols = list(df.columns)
+    total_rows = len(df)
     session = requests.Session()
     enrich_row_address.already_good = 0
     enrich_row_address.code_fixed = 0
@@ -189,64 +190,78 @@ def fix_code_insee(
     enrich_row_address.code_insee_has_postcode_in_address = 0
     enrich_row_address.nothing_matches = 0
 
+    logging.info("Getting data from yesterday's file")
     process_infos_cols = [
         "consolidated_is_lon_lat_correct",
         "consolidated_is_code_insee_verified",
-        "consolidated_code_insee_modified",
+        "consolidated_is_code_insee_modified",
+        "consolidated_code_postal",
+        "consolidated_commune",
     ]
-    yesterdays_data = df = pd.read_csv(
+    sample = pd.read_csv(
         f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
-        dtype={
-            c: bool for c in process_infos_cols
-        } | {
-            c: str for c in [code_insee_col, address_col, lon_col, lat_col]
-        },
-        usecols=[
-            code_insee_col,
-            address_col,
-            lon_col,
-            lat_col,
-        ] + process_infos_cols,
+        dtype=str,
+        nrows=5,
     )
-    yesterdays_data = yesterdays_data.loc[~yesterdays_data[code_insee_col].isna()].drop_duplicates()
-    coords = yesterdays_data[
-        [code_insee_col, lon_col, lat_col] + process_infos_cols
-    ].drop_duplicates()
-    address = yesterdays_data[
-        [code_insee_col, address_col] + process_infos_cols
-    ].drop_duplicates()
-    logging.info("Getting data from yesterday's file")
-    df_coords = pd.merge(
-        coords,
-        df.loc[(~df[lon_col].isna()) & (~df[lat_col].isna())],
-        on=[lon_col, lat_col],
-        how="left",
-    )
-    df_address = pd.merge(
-        address,
-        df.loc[~df[address_col].isna()],
-        on=[address_col],
-        how="left",
-    )
-    df = pd.concat(
-        [
-            df_coords,
-            df_address,
+    if all(c in sample.columns for c in process_infos_cols):
+        yesterdays_data = pd.read_csv(
+            f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
+            dtype={
+                c: bool if "_is_" in c else str for c in process_infos_cols
+            } | {
+                code_insee_col: str,
+                address_col: str,
+                lon_col: float,
+                lat_col: float,
+            },
+            usecols=[
+                code_insee_col,
+                address_col,
+                lon_col,
+                lat_col,
+            ] + process_infos_cols,
+        )
+        yesterdays_data = yesterdays_data.loc[
+            (~yesterdays_data[code_insee_col].isna())
+            & (yesterdays_data["consolidated_is_code_insee_verified"])
+        ].drop_duplicates()
+        # we could do the same with lat-lon
+        address = yesterdays_data[
+            [code_insee_col, address_col] + process_infos_cols
+        ].drop_duplicates(subset=address_col)
+        logging.info("Merging existing data")
+        df_address = pd.merge(
+            address,
             df.loc[
-                df[lon_col].isna()
-                | df[lat_col].isna()
-                | df[address_col].isna()
+                # we have to exclude the rows that are handled by coords
+                ~df[address_col].isna(),
+                [c for c in df.columns if c not in address.columns] + [address_col]
             ],
-        ],
-        ignore_index=True,
-    )
-    logging.info(f"{len(df.loc[~df['code_insee_commune'].isna()])} lines filled from yesterday")
+            on=address_col,
+            how="right",
+        )
+        df = pd.concat(
+            [
+                df_address,
+                df.loc[df[address_col].isna()],
+            ],
+            ignore_index=True,
+        )
+        logging.info(
+            f"{len(df.loc[~df['consolidated_is_code_insee_verified'].isna()])}/"
+            f"{len(df)} lines filled from yesterday"
+        )
+    else:
+        logging.warning(
+            f"Columns are missing in yesterday's file: {[c for c in process_infos_cols if c not in sample.columns]}"
+        )
+    assert not [c for c in cols if c not in df.columns]
+    assert len(df) == total_rows
     df = df.progress_apply(
         lambda x: enrich_row_address(x, session),
         axis=1,
     )
 
-    total_rows = len(df)
     logging.info(
         f"Coords OK. INSEE codes already correct, simply enriched: {enrich_row_address.already_good}/{total_rows}"
     )
@@ -287,7 +302,6 @@ def improve_geo_data_quality(
 
         df = create_lon_lat_cols(df, coordinates_column=cols_dict["xy_coords"])
         logging.info("Done creating long lat")
-
         df = fix_code_insee(
             df,
             latest_resource_id=latest_resource_id,
@@ -304,7 +318,7 @@ def improve_geo_data_quality(
             "consolidated_commune",
             "consolidated_is_lon_lat_correct",
             "consolidated_is_code_insee_verified",
-            "consolidated_code_insee_modified",
+            "consolidated_is_code_insee_modified",
         ]
         df = df[schema_cols + new_cols]
         df.to_csv(filepath, index=False)

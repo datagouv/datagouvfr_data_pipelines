@@ -7,6 +7,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
     CONFIG,
+    clean_directory,
     get_files_list_on_sftp,
     transfer_files_to_minio,
     publish_on_datagouv,
@@ -31,6 +32,12 @@ def create_dag(pack: str, grid: str):
         max_active_runs=2,
     )
     with dag:
+
+
+        _clean_directory = PythonOperator(
+            task_id="clean_directory",
+            python_callable=clean_directory,
+        )
 
         common_kwargs = {"pack": pack, "grid": grid}
 
@@ -58,6 +65,7 @@ def create_dag(pack: str, grid: str):
             op_kwargs=common_kwargs,
         )
 
+        _clean_directory.set_upstream(_get_files_list_on_sftp)
         _transfer_files_to_minio.set_upstream(_get_files_list_on_sftp)
         _publish_on_datagouv.set_upstream(_transfer_files_to_minio)
         _remove_old_occurrences.set_upstream(_publish_on_datagouv)

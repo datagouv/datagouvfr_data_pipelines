@@ -7,7 +7,6 @@ import time
 from datetime import date, datetime
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Optional, Union
 
 import chardet
 import emails
@@ -76,7 +75,7 @@ def build_report_prefix(
     return str(validata_reports_path) + "/" + schema_name.replace("/", "_") + "_" + dataset_id + "_" + resource_id + "_"
 
 
-def comparer_versions(version: str) -> list[Union[int, float]]:
+def comparer_versions(version: str) -> list[int | float]:
     return [int(part) if part.isnumeric() else np.inf for part in version.split(".")]
 
 
@@ -439,7 +438,7 @@ def get_resource_schema_version(row: pd.Series, api_url: str):
 def get_schema_report(
     schemas_catalogue_url: str,
     config_path: Path,
-    schema_name: Optional[str] = None,
+    schema_name: str | None = None,
     list_schema_skip: list = [],
 ) -> tuple[dict, list]:
     """
@@ -606,8 +605,8 @@ def build_reference_table(
         df = df.drop_duplicates(subset=["resource_id"], keep="first")
 
         logging.info(
-            f"🔢 {len(df)} resource(s) found for this schema,",
-            f"{len(df.loc[df['error_type'].isna()])} with no inherent error.",
+            f"🔢 {len(df)} resource(s) found for this schema, "
+            f"{len(df.loc[df['error_type'].isna()])} with no inherent error."
         )
 
         if "initial_version_name" not in df.columns:  # in case there is no resource found by schema request
@@ -720,8 +719,8 @@ def download_schema_files(schema_name, ref_tables_path, data_path, should_succee
 
     else:
         logging.info(
-            "-- ❌ No reference table made for this schema (schema not to consolidate,",
-            "no version to consolidate or no resource found).",
+            "-- ❌ No reference table made for this schema (schema not to consolidate, "
+            "no version to consolidate or no resource found)."
         )
         if should_succeed:
             return False
@@ -819,7 +818,7 @@ def consolidate_data(
                                     engine="openpyxl",
                                 )
                         except Exception as e:
-                            logging.warning("Pb on reading resource: ", file_path)
+                            logging.warning(f"Pb on reading resource: {file_path}")
                             logging.warning(e)
 
                         try:
@@ -1120,15 +1119,15 @@ def upload_geojson(
     obj["title"] = f"Export au format geojson (v{latest_version})"
     obj["format"] = "json"
     response = post_resource(
-        file_to_upload={
-            "dest_path": schema_consolidated_data_path.as_posix(),
-            "dest_name": build_consolidation_name(
+        file_to_upload=File(
+            source_path=schema_consolidated_data_path.as_posix(),
+            source_name=build_consolidation_name(
                 schema_name,
                 geojson_version_names_list[-1],
                 consolidation_date_str,
                 extension="json",
             ),
-        },
+        ),
         dataset_id=consolidated_dataset_id,
         resource_id=r_id,
         payload=obj,
@@ -1226,14 +1225,14 @@ def upload_consolidated(
                     r_to_create = True
 
                 response = post_resource(
-                    file_to_upload={
-                        "dest_path": schema_consolidated_data_path.as_posix(),
-                        "dest_name": build_consolidation_name(
+                    file_to_upload=File(
+                        source_path=schema_consolidated_data_path.as_posix(),
+                        source_name=build_consolidation_name(
                             schema_name,
                             latest_mapping.get(version_name, version_name),
                             consolidation_date_str,
                         ),
-                    },
+                    ),
                     dataset_id=consolidated_dataset_id,
                     resource_id=r_id,
                     payload=obj,
@@ -1620,10 +1619,10 @@ def update_consolidation_documentation_report(
                     doc_r_to_create = True
 
                 response = post_resource(
-                    file_to_upload={
-                        "dest_path": ref_tables_path,
-                        "dest_name": build_ref_table_name(schema_name),
-                    },
+                    file_to_upload=File(
+                        source_path=ref_tables_path,
+                        source_name=build_ref_table_name(schema_name),
+                    ),
                     dataset_id=consolidated_dataset_id,
                     resource_id=doc_r_id,
                     payload=obj,
@@ -1751,22 +1750,18 @@ def upload_minio(
     minio_output_filepath: str,
 ):
     minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-
-    list_files = [
-        File(
-            source_path=path,
-            source_name=name,
-            dest_path=minio_output_filepath,
-            dest_name=os.path.join(path, name).replace(TMP_FOLDER, ""),
-            content_type=None,
-        )
-        for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
-        for name in files
-        if os.path.isfile(os.path.join(path, name))
-    ]
-
     minio_open.send_files(
-        list_files=list_files,
+        list_files=[
+            File(
+                source_path=path,
+                source_name=name,
+                dest_path=(minio_output_filepath + path).replace(TMP_FOLDER, ""),
+                dest_name=name,
+            )
+            for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
+            for name in files
+            if os.path.isfile(os.path.join(path, name))
+        ],
         ignore_airflow_env=True,
     )
     return
@@ -1842,7 +1837,6 @@ def notification_synthese(
                             source_name=erreurs_file_name,
                             dest_path="schema/schemas_consolidation/liste_erreurs/",
                             dest_name=erreurs_file_name,
-                            content_type=None,
                         )
                     ],
                     ignore_airflow_env=True,

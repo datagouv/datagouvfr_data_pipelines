@@ -19,9 +19,9 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     get_matomo_outlinks,
 )
 from datagouvfr_data_pipelines.utils.download import download_files
-from datagouvfr_data_pipelines.utils.filesystem import remove_files_from_directory
-from datagouvfr_data_pipelines.utils.minio import MinIOClient, File as MinioFile
-from datagouvfr_data_pipelines.utils.postgres import PostgresClient, File
+from datagouvfr_data_pipelines.utils.filesystem import remove_files_from_directory, File
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
@@ -61,11 +61,11 @@ def get_new_logs(ti) -> bool:
 def download_catalog() -> None:
     download_files(
         [
-            {
-                "url": obj_config.catalog_download_url,
-                "dest_path": TMP_FOLDER,
-                "dest_name": obj_config.catalog_destination_name,
-            }
+            File(
+                url=obj_config.catalog_download_url,
+                dest_path=TMP_FOLDER,
+                dest_name=obj_config.catalog_destination_name,
+            )
             for obj_config in config.logs_config
         ]
     )
@@ -78,12 +78,12 @@ def download_log(ti):
     for path in ongoing_logs_path:
         minio_client.download_files(
             list_files=[
-                MinioFile(
+                File(
                     source_path="metrics-logs/ongoing/",
                     source_name=path.split("/")[-1],
                     dest_path=TMP_FOLDER,
                     dest_name=path.split("/")[-1],
-                    content_type=None,
+                    remote_source=True,
                 )
             ]
         )

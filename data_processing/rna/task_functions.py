@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     check_if_recent_update,
     DATAGOUV_URL,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
@@ -91,12 +92,12 @@ def process_rna(ti, file_type):
 def send_rna_to_minio(file_type):
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"{file_type}.{ext}",
-                "dest_path": "rna/",
-                "dest_name": f"{file_type}.{ext}",
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"{file_type}.{ext}",
+                dest_path="rna/",
+                dest_name=f"{file_type}.{ext}",
+            )
             for ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,

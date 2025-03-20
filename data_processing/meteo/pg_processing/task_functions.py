@@ -9,7 +9,6 @@ import csv
 from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
-from typing import Optional
 import pandas as pd
 import psycopg2
 from airflow.hooks.base import BaseHook
@@ -19,8 +18,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
@@ -191,7 +190,7 @@ def process_resources(
     resources: list[dict],
     dataset_name: str,
     latest_ftp_processing: list,
-    dates: Optional[list] = None,
+    dates: list | None = None,
 ):
     # going through all resources of the dataset to check which ones to update
     for resource in resources:
@@ -270,18 +269,18 @@ def process_resources(
             if AIRFLOW_ENV == "prod":
                 minio_meteo.send_files(
                     list_files=[
-                        {
+                        File(
                             # source can be hooked file name
-                            "source_path": "/".join(csv_path.split("/")[:-1]),
-                            "source_name": csv_path.split("/")[-1],
+                            source_path="/".join(csv_path.split("/")[:-1]) + "/",
+                            source_name=csv_path.split("/")[-1],
                             # but destination has to be the real file name
-                            "dest_path": (
+                            dest_path=(
                                 "synchro_pg/"
                                 + "/".join(resource["url"].split("synchro_ftp/")[1].split("/")[:-1])
                                 + "/"
                             ),
-                            "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
-                        }
+                            dest_name=resource["url"].split("/")[-1].replace(".csv.gz", ".csv"),
+                        )
                     ],
                     ignore_airflow_env=True
                 )
@@ -321,19 +320,19 @@ def download_resource(res, dataset):
         file_path = f"{DATADIR}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split('/')[-1])
     file_path = Path(file_path + file_name)
-    download_files([{
-        "url": res["url"],
-        "dest_path": file_path.parent.as_posix(),
-        "dest_name": file_path.name,
-    }], timeout=TIMEOUT)
+    File(
+        url=res["url"],
+        dest_path=file_path.parent.as_posix(),
+        dest_name=file_path.name,
+    ).download(timeout=TIMEOUT)
     csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
-        download_files([{
-            "url": res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
-            "dest_path": file_path.parent.as_posix(),
-            "dest_name": old_file,
-        }], timeout=TIMEOUT)
+        File(
+            url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
+            dest_path=file_path.parent.as_posix(),
+            dest_name=old_file,
+        ).download(timeout=TIMEOUT)
     except Exception as e:
         raise ValueError(f"Download error for {res['url']}: {e}")
         # this should not happen anymore, specific cases will be handled manually

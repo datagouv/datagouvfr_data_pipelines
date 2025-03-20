@@ -4,7 +4,6 @@ import re
 from ast import literal_eval
 from datetime import datetime
 from pathlib import Path
-from typing import Union
 
 import pandas as pd
 from airflow.models import TaskInstance
@@ -112,8 +111,8 @@ def get_all_irve_resources(
         config_dict = {
             "etalab/schema-irve-statique": {
                 "consolidate": True,
-                "consolidated_dataset_id": "64b521568ecbee60f15aa241",
-                "documentation_resource_id": "66f90dcf-caa3-43ad-9aeb-0f504f503104",
+                "consolidated_dataset_id": "5448d3e0c751df01f85d0572",
+                "documentation_resource_id": "41b0514d-956d-4e42-80ef-1dcf88cc74e9",
                 "drop_versions": [
                     "1.0.0",
                     "1.0.1",
@@ -130,13 +129,11 @@ def get_all_irve_resources(
                 ],
                 "exclude_dataset_ids": [
                     "54231d4a88ee38334b5b9e1d",
-                    "601d660f2be2c8896f86e18d",
                 ],
-                "geojson_resource_id": "489c3d81-4312-4506-8242-44a674b0bb55",
+                "geojson_resource_id": "cf25b716-7edd-4c63-a495-4ca6aa5d5917",
                 "latest_resource_ids": {
-                    "2.3.0": "18ac7b73-5781-4493-b98a-d624f9f9ab27",
-                    "2.3.1": "9a300b97-d0c4-411b-9830-b2465624cf22",
-                    "latest": "f8fdc246-e67b-4006-8f65-6db0f2f9b57b",
+                    "2.3.1": "7185a540-3def-4510-a82e-b73eca37e315",
+                    "latest": "8d9398ae-3037-48b2-be19-412c24561fbb",
                 },
                 "publication": True,
                 "search_words": [
@@ -235,7 +232,7 @@ def custom_filters_irve(
     df_filtered = df_filtered.drop_duplicates(
         subset=["id_pdc_itinerance", "datagouv_organization_or_owner"], keep="first"
     )
-    logging.info("Consolidated file has", len(df_filtered), "rows")
+    logging.info(f"Consolidated file has {len(df_filtered)} rows")
     df_filtered.to_csv(
         os.path.join(schema_consolidated_data_path, consolidated_file),
         index=False,
@@ -247,7 +244,7 @@ def improve_irve_geo_data_quality(
     ti,
     tmp_path: Path,
 ) -> None:
-    def sort_consolidated_from_version(file_name: str) -> list[Union[int, float]]:
+    def sort_consolidated_from_version(file_name: str) -> list[int | float]:
         version_lookup = re.search(r"\d+.\d+.\d+", file_name)
         version = str(version_lookup[0]) if version_lookup else "inf"
         return comparer_versions(version)

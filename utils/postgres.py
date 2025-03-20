@@ -1,19 +1,12 @@
-import os
-from typing import TypedDict, Optional
-
 import psycopg2
 from airflow.hooks.base import BaseHook
 
-
-class File(TypedDict):
-    source_name: str
-    source_path: str
-    column_order: Optional[str]
+from datagouvfr_data_pipelines.utils.filesystem import File
 
 
 class PostgresClient:
 
-    def __init__(self, conn_name: str, schema: Optional[str] = None):
+    def __init__(self, conn_name: str, schema: str | None = None):
         airflow_conn = BaseHook.get_connection(conn_name)
         self.schema = schema or "public"
         self.conn = psycopg2.connect(
@@ -24,13 +17,6 @@ class PostgresClient:
             port=airflow_conn.port,
             options=f"-c search_path={self.schema}",
         )
-
-    def raise_if_not_file(self, file: File):
-        is_file = os.path.isfile(os.path.join(file["source_path"], file["source_name"]))
-        if not is_file:
-            raise Exception(
-                f"file {file['source_path']}{file['source_name']} does not exists"
-            )
 
     def execute_query(self, query: str) -> list[dict]:
         with self.conn.cursor() as cur:
@@ -44,11 +30,8 @@ class PostgresClient:
         file: File,
         replacements: dict[str, str] = {},
     ) -> list[dict]:
-        self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
-            sql_query = open(
-                os.path.join(file["source_path"], file["source_name"]), "r"
-            ).read()
+            sql_query = open(file["source_path"] + file["source_name"], "r").read()
             for old, new in replacements.items():
                 sql_query = sql_query.replace(old, new)
             cur.execute(sql_query)
@@ -57,14 +40,13 @@ class PostgresClient:
         return data
 
     def copy_file(self, file: File, table: str, has_header: bool) -> list[dict]:
-        self.raise_if_not_file(file)
         with self.conn.cursor() as cur:
             cur.copy_expert(
                 sql=(
                     f"COPY {table} {file.get('column_order') or ''} FROM STDIN "
                     f"WITH CSV {'HEADER' * has_header} DELIMITER AS ','"
                 ),
-                file=open(os.path.join(file["source_path"], file["source_name"]), "r"),
+                file=open(file["source_path"] + file["source_name"], "r"),
             )
             data = self._return_sql_results(cur)
             self.conn.commit()

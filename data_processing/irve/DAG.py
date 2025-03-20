@@ -33,7 +33,9 @@ DAG_NAME = "irve_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
-GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
+GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
+if AIRFLOW_ENV == "dev":
+    GIT_REPO = GIT_REPO.replace("git@github.com:", "https://github.com/")
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
@@ -44,7 +46,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 5 * * *",
+    schedule_interval="20 4 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=360),
     catchup=False,

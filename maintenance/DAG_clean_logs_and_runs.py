@@ -7,6 +7,10 @@ from airflow.models import DAG
 from airflow.models.dagrun import DagRun
 from airflow.settings import Session
 
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_HOME,
+    AIRFLOW_ENV,
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 nb_days_to_keep = 60
@@ -26,7 +30,7 @@ def get_directory_size(directory):
 # Define the Python function to delete old logs and directories
 def delete_old_logs_and_directories(ti):
     total_size_bytes = 0
-    log_dir = "/opt/airflow/logs"
+    log_dir = "/opt/airflow/logs" if AIRFLOW_ENV == "dev" else f"{'/'.join(AIRFLOW_DAG_HOME.split('/')[:-2])}/logs"
     cutoff_date = datetime.now() - timedelta(days=nb_days_to_keep)
 
     # Check if the directory exists

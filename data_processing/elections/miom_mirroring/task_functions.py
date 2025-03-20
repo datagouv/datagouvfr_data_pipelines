@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
@@ -134,43 +135,39 @@ def download_local_files(ti):
 
 def send_to_minio(ti):
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
-    arr = []
-    for cf in miom_files:
-        arr.append(
-            {
-                "source_path": (
+    minio_open.send_files(
+        list_files=[
+            File(
+                source_path=(
                     f"{AIRFLOW_DAG_TMP}elections-mirroring/" +
                     "/".join(cf["link"].replace(URL_ELECTIONS_HTTP_SERVER, "").split("/")[:-1]) + "/"
                 ),
-                "source_name": cf["name"],
-                "dest_path": (
+                source_name=cf["name"],
+                dest_path=(
                     f"elections-mirroring/{ID_CURRENT_ELECTION}/data/" +
                     "/".join(
                         cf["link"].replace(URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/", "")
                         .split("/")[:-1]
                     ) + "/"
                 ),
-                "dest_name": cf["name"],
-            }
-        )
-
-    minio_open.send_files(
-        list_files=arr
+                dest_name=cf["name"],
+            ) for cf in miom_files
+        ]
     )
 
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-                "source_name": "max_date.json",
-                "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
-                "dest_name": "max_date.json",
-            }
+            File(
+                source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+                source_name="max_date.json",
+                dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+                dest_name="max_date.json",
+            )
         ]
     )
 
 
-def download_from_minio(ti):
+def download_from_minio():
     prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/"
     minio_files = minio_open.get_files_from_prefix(
         prefix=prefix,
@@ -179,41 +176,40 @@ def download_from_minio(ti):
     )
     print(minio_files)
     os.makedirs(f"{AIRFLOW_DAG_TMP}elections-mirroring/export", exist_ok=True)
-    list_files = []
-    for mf in minio_files:
-        list_files.append(
-            {
-                "source_path": "/".join(mf.split("/")[:-1]) + "/",
-                "source_name": mf.split("/")[-1],
-                "dest_path": (
+    minio_open.download_files(
+        list_files=[
+            File(
+                source_path="/".join(mf.split("/")[:-1]) + "/",
+                source_name=mf.split("/")[-1],
+                dest_path=(
                     f"{AIRFLOW_DAG_TMP}elections-mirroring/export/" +
                     "/".join(mf.split(prefix)[1].split("/")[:-1]) + "/"
                 ),
-                "dest_name": mf.split("/")[-1],
-            }
-        )
-
-    minio_open.download_files(list_files=list_files)
+                dest_name=mf.split("/")[-1],
+                remote_source=True,
+            ) for mf in minio_files
+        ]
+    )
 
 
 def send_exports_to_minio():
     list_files = [
-        {
-            "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-            "source_name": ID_CURRENT_ELECTION + ".zip",
-            "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
-            "dest_name": ID_CURRENT_ELECTION + ".zip",
-        }
+        File(
+            source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+            source_name=ID_CURRENT_ELECTION + ".zip",
+            dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+            dest_name=ID_CURRENT_ELECTION + ".zip",
+        )
     ]
     for typeCandidat in ['candidatsT1', 'candidatsT2']:
         if os.path.exists(f"{AIRFLOW_DAG_TMP}elections-mirroring/{typeCandidat}.csv"):
             list_files.append(
-                {
-                    "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-                    "source_name": f"{typeCandidat}.csv",
-                    "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
-                    "dest_name": f"{typeCandidat}.csv",
-                }
+                File(
+                    source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+                    source_name=f"{typeCandidat}.csv",
+                    dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+                    dest_name=f"{typeCandidat}.csv",
+                )
             )
 
     for typeResultat in ['resultatsT1', 'resultatsT2']:
@@ -224,16 +220,14 @@ def send_exports_to_minio():
                     f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv"
                 ):
                     list_files.append(
-                        {
-                            "source_path": f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-                            "source_name": f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
-                            "dest_path": "elections-mirroring/" + ID_CURRENT_ELECTION + "/",
-                            "dest_name": f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
-                        }
+                        File(
+                            source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+                            source_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
+                            dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+                            dest_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
+                        )
                     )
-    minio_open.send_files(
-        list_files=list_files
-    )
+    minio_open.send_files(list_files=list_files)
 
 
 def check_if_continue(ti):

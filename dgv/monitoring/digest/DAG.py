@@ -192,3 +192,6 @@ with DAG(
             for k in range(2):
                 if tasks[scope][freq][k + 1]:
                     tasks[scope][freq][k + 1].set_upstream(tasks[scope][freq][k])
+            if scope != "general":
+                # other scopes need stats.json too
+                tasks[scope][freq][1].set_upstream(tasks["general"][freq][0])

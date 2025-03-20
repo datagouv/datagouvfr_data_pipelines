@@ -7,10 +7,12 @@ from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     SECRET_SFTP_HOST
 )
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
 class SFTPClient:
 
+    @simple_connection_retry
     def __init__(
         self,
         conn_name: str,

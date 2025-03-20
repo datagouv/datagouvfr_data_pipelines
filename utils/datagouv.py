@@ -1,11 +1,12 @@
 import dateutil
-from typing import TypedDict, Iterator, Optional
+from typing import Iterator
 import requests
 from datetime import datetime
 import logging
 import re
 
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
@@ -19,7 +20,7 @@ if AIRFLOW_ENV == "dev":
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
     ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
-VALIDATA_BASE_URL = "https://preprod-api-validata.dataeng.etalab.studio"
+VALIDATA_BASE_URL = "https://api.validata.etalab.studio/"
 DATAGOUV_MATOMO_ID = 109
 
 SPAM_WORDS = [
@@ -78,11 +79,6 @@ datagouv_session = requests.Session()
 datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
 
 
-class File(TypedDict):
-    dest_path: str
-    dest_name: str
-
-
 @simple_connection_retry
 def create_dataset(
     payload: dict,
@@ -106,14 +102,14 @@ def create_dataset(
 def post_resource(
     file_to_upload: File,
     dataset_id: str,
-    resource_id: Optional[str] = None,
-    payload: Optional[dict] = None,
+    resource_id: str | None = None,
+    payload: dict | None = None,
     on_demo: bool = False,
 ) -> requests.Response:
     """Upload a resource in data.gouv.fr
 
     Args:
-        file_to_upload: Dictionnary containing `dest_path` and `dest_name` where resource to upload is stored
+        file_to_upload: Dictionnary containing `source_path` and `source_name` where resource to upload is stored
         dataset_id: ID of the dataset where to store resource
         resource_id: ID of the resource where to upload file. If it is a new resource, leave it to None
         payload: payload to update the resource's metadata (if resource_id is specified)
@@ -128,11 +124,9 @@ def post_resource(
     else:
         datagouv_url = DATAGOUV_URL
 
-    if not file_to_upload['dest_path'].endswith('/'):
-        file_to_upload['dest_path'] += '/'
     files = {
         "file": open(
-            f"{file_to_upload['dest_path']}{file_to_upload['dest_name']}",
+            f"{file_to_upload['source_path']}{file_to_upload['source_name']}",
             "rb",
         )
     }
@@ -160,7 +154,7 @@ def post_resource(
 def post_remote_resource(
     dataset_id: str,
     payload: dict,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     on_demo: bool = False,
 ) -> dict:
     """Create a post in data.gouv.fr
@@ -205,7 +199,7 @@ def post_remote_resource(
 @simple_connection_retry
 def delete_dataset_or_resource(
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Delete a dataset or a resource in data.gouv.fr
 
@@ -231,7 +225,7 @@ def delete_dataset_or_resource(
 @simple_connection_retry
 def get_dataset_or_resource_metadata(
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Retrieve dataset or resource metadata from data.gouv.fr
 
@@ -275,7 +269,7 @@ def get_dataset_from_resource_id(
 def update_dataset_or_resource_metadata(
     payload: dict,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     on_demo: bool = False,
 ) -> requests.Response:
     """Update metadata to dataset or resource in data.gouv.fr
@@ -310,7 +304,7 @@ def update_dataset_or_resource_metadata(
 def update_dataset_or_resource_extras(
     payload: dict,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> requests.Response:
     """Update specific extras to a dataset or resource in data.gouv.fr
 
@@ -337,7 +331,7 @@ def update_dataset_or_resource_extras(
 def delete_dataset_or_resource_extras(
     extras: list,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ):
     """Delete extras from a dataset or resoruce in data.gouv.fr
 
@@ -368,7 +362,7 @@ def create_post(
     headline: str,
     content: str,
     body_type: str,
-    tags: Optional[list] = [],
+    tags: list | None = [],
 ) -> dict:
     """Create a post in data.gouv.fr
 
@@ -464,7 +458,7 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
 def post_remote_communautary_resource(
     dataset_id: str,
     payload: dict,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Post a remote communautary resource on data.gouv.fr
 
@@ -499,12 +493,11 @@ def post_remote_communautary_resource(
     return r.json()
 
 
-@simple_connection_retry
 def get_all_from_api_query(
     base_query: str,
     next_page: str = 'next_page',
     ignore_errors: bool = False,
-    mask: Optional[str] = None,
+    mask: str | None = None,
     auth: bool = False,
 ) -> Iterator[dict]:
     """/!\ only for paginated endpoints"""
@@ -520,13 +513,13 @@ def get_all_from_api_query(
     headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
     if mask is not None:
         headers["X-fields"] = mask + f",{next_page}"
-    r = requests.get(base_query, headers=headers)
+    r = RequestRetry.get(base_query, headers=headers)
     if not ignore_errors:
         r.raise_for_status()
     for elem in r.json()["data"]:
         yield elem
     while get_link_next_page(r.json(), next_page):
-        r = requests.get(get_link_next_page(r.json(), next_page), headers=headers)
+        r = RequestRetry.get(get_link_next_page(r.json(), next_page), headers=headers)
         if not ignore_errors:
             r.raise_for_status()
         for data in r.json()['data']:
@@ -557,7 +550,7 @@ def get_awaiting_spam_comments() -> dict:
 
 
 @simple_connection_retry
-def check_duplicated_orga(slug: str) -> tuple[bool, Optional[str]]:
+def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
     duplicate_slug_pattern = r'-\d+$'
     if re.search(duplicate_slug_pattern, slug) is not None:
         suffix = re.findall(duplicate_slug_pattern, slug)[0]

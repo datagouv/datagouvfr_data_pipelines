@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_URL,
     post_resource,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_stats/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/stats/"
@@ -41,7 +42,7 @@ def create_year_if_missing():
     with open(DATADIR + "/placeholder.csv", "w") as f:
         f.write("tmp")
     post_resource(
-        file_to_upload={"dest_path": DATADIR, "dest_name": "placeholder.csv"},
+        file_to_upload=File(source_path=DATADIR, source_name="placeholder.csv"),
         dataset_id=config[AIRFLOW_ENV]["dataset_id"],
         payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},
     )
@@ -77,7 +78,7 @@ def update_year():
     df.index.name = ("date")
     df.to_csv(DATADIR + f"/{yesterdays_year}-days.csv")
     post_resource(
-        file_to_upload={"dest_path": DATADIR, "dest_name": f"{yesterdays_year}-days.csv"},
+        file_to_upload=File(source_path=DATADIR, source_name=f"{yesterdays_year}-days.csv"),
         dataset_id=config[AIRFLOW_ENV]["dataset_id"],
         resource_id=current_year_resource_id,
         payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},
