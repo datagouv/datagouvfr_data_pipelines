@@ -2,7 +2,7 @@ from datetime import datetime
 import re
 
 import requests
-from IPython.core.display import display, HTML
+from IPython.display import display, HTML
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_last_items,
     get_latest_comments,

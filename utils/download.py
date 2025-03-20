@@ -1,10 +1,13 @@
 # import requests
 # from requests.auth import HTTPBasicAuth
+from typing import TYPE_CHECKING
 from pathlib import Path
 import aiohttp
 import asyncio
 
-from datagouvfr_data_pipelines.utils.filesystem import File
+if TYPE_CHECKING:
+    # to avoid circular imports
+    from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
@@ -19,9 +22,9 @@ async def download_file(session, url, dest_path, dest_name, auth=None):
 
 
 async def async_download_files(
-    list_urls: list[File],
-    auth_user: str | None = None,
-    auth_password: str | None = None,
+    list_urls: List["File"],
+    auth_user: Optional[str] = None,
+    auth_password: Optional[str] = None,
     timeout: int = 300,
 ):
     """Retrieve list of files from urls
@@ -49,9 +52,9 @@ async def async_download_files(
 
 # so that we keep the main function synchronous
 def download_files(
-    list_urls: list[File],
-    auth_user: str | None = None,
-    auth_password: str | None = None,
+    list_urls: List["File"],
+    auth_user: Optional[str] = None,
+    auth_password: Optional[str] = None,
     timeout: int = 300,
 ):
     loop = asyncio.get_event_loop()
@@ -59,9 +62,9 @@ def download_files(
 
 
 # def download_files(
-#     list_urls: List[File],
-#     auth_user: str | None = None,
-#     auth_password: str | None = None,
+#     list_urls: List["File"],
+#     auth_user: Optional[str] = None,
+#     auth_password: Optional[str] = None,
 # ):
 #     """Retrieve list of files from urls
 

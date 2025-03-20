@@ -250,7 +250,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         return (
             dataservices.iloc[0]["title"],
             dataservices.iloc[0]["base_api_url"],
-            dataservices.iloc[0]["endpoint_description_url"],
+            dataservices.iloc[0]["machine_documentation_url"],
             dataservices.iloc[0]["url"],
             contact_point.get("name")
         )
@@ -297,7 +297,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         return (
             dataservices.iloc[0]["title"],
             dataservices.iloc[0]["base_api_url"],
-            dataservices.iloc[0]["endpoint_description_url"],
+            dataservices.iloc[0]["machine_documentation_url"],
             dataservices.iloc[0]["url"],
             contact_point.get("name")
         )
@@ -321,7 +321,7 @@ def build_df_for_grist():
     df_dataservices = pd.read_csv(
         "https://www.data.gouv.fr/fr/dataservices.csv",
         delimiter=";",
-        usecols=["id", "datasets", "endpoint_description_url", "base_api_url", "url", "title"],
+        usecols=["id", "datasets", "machine_documentation_url", "base_api_url", "url", "title"],
     ).dropna(subset="datasets")
     df_datasets['hvd_category'] = df_datasets["tags"].apply(get_hvd_category_from_tags)
     df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)

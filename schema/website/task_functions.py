@@ -1278,8 +1278,8 @@ def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
     is_demo = (branch != "main") or (AIRFLOW_ENV == "dev")
     post_resource(
         file_to_upload=File(
-            dest_path=tmp_folder,
-            dest_name="schemas_catalog_table.csv",
+            source_path=tmp_folder,
+            source_name="schemas_catalog_table.csv",
         ),
         dataset_id=(
             "668282444f9d3f48f2702fcd" if not is_demo

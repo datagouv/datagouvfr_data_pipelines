@@ -20,7 +20,7 @@ if AIRFLOW_ENV == "dev":
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
     ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
-VALIDATA_BASE_URL = "https://preprod-api-validata.dataeng.etalab.studio"
+VALIDATA_BASE_URL = "https://api.validata.etalab.studio/"
 DATAGOUV_MATOMO_ID = 109
 
 SPAM_WORDS = [
@@ -109,7 +109,7 @@ def post_resource(
     """Upload a resource in data.gouv.fr
 
     Args:
-        file_to_upload: Dictionnary containing `dest_path` and `dest_name` where resource to upload is stored
+        file_to_upload: Dictionnary containing `source_path` and `source_name` where resource to upload is stored
         dataset_id: ID of the dataset where to store resource
         resource_id: ID of the resource where to upload file. If it is a new resource, leave it to None
         payload: payload to update the resource's metadata (if resource_id is specified)
@@ -124,11 +124,9 @@ def post_resource(
     else:
         datagouv_url = DATAGOUV_URL
 
-    if not file_to_upload['dest_path'].endswith('/'):
-        file_to_upload['dest_path'] += '/'
     files = {
         "file": open(
-            f"{file_to_upload['dest_path']}{file_to_upload['dest_name']}",
+            f"{file_to_upload['source_path']}{file_to_upload['source_name']}",
             "rb",
         )
     }

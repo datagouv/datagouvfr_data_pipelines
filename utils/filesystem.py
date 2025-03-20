@@ -4,6 +4,8 @@ import os
 from typing import Any
 import magic
 
+from datagouvfr_data_pipelines.utils.download import download_files
+
 
 class File:
     def __init__(
@@ -48,6 +50,11 @@ class File:
     def assert_file_exists(path: str, file_name: str) -> None:
         if not os.path.isfile(path + file_name):
             raise FileNotFoundError(f"{path + file_name} doesn't exist")
+
+    def download(self, **kwargs):
+        if not all((self.url, self.dest_path, self.dest_name)):
+            raise ValueError("Downloading requires url, dest_path and dest_name")
+        download_files(list_urls=[self], **kwargs)
 
 
 def save_list_of_dict_to_csv(
