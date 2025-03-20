@@ -33,7 +33,6 @@ def create_dag(pack: str, grid: str):
     )
     with dag:
 
-
         _clean_directory = PythonOperator(
             task_id="clean_directory",
             python_callable=clean_directory,
