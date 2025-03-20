@@ -6,7 +6,7 @@ import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
+    # AIRFLOW_ENV,
     MINIO_URL,
     MINIO_BUCKET_PNT,
     SECRET_MINIO_PNT_USER,
@@ -27,6 +27,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
+# to test the migration, we don't want to interfere with the current production
+AIRFLOW_ENV = "dev"
 
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{DATADIR}logs/"
