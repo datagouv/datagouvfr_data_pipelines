@@ -1,6 +1,6 @@
 from datetime import datetime
 from airflow import DAG
-from airflow.contrib.operators.ssh_operator import SSHOperator
+from airflow.providers.ssh.operators.ssh import SSHOperator
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
