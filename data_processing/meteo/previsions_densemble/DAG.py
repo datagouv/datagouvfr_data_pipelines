@@ -1,12 +1,11 @@
 from datetime import timedelta, datetime
 from airflow.models import DAG
+from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
     CONFIG,
+    DATADIR,
     clean_directory,
     get_files_list_on_sftp,
     transfer_files_to_minio,
@@ -15,7 +14,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_f
     handle_cyclonic_alert,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 DAG_NAME = "data_processing_meteo_previsions_densemble"
 
 
@@ -32,6 +30,10 @@ def create_dag(pack: str, grid: str):
         max_active_runs=2,
     )
     with dag:
+        create_working_dir = BashOperator(
+            task_id="create_working_dir",
+            bash_command=f"mkdir -p {DATADIR}",
+        )
 
         _clean_directory = PythonOperator(
             task_id="clean_directory",
@@ -64,6 +66,7 @@ def create_dag(pack: str, grid: str):
             op_kwargs=common_kwargs,
         )
 
+        _get_files_list_on_sftp.set_upstream(create_working_dir)
         _clean_directory.set_upstream(_get_files_list_on_sftp)
         _transfer_files_to_minio.set_upstream(_get_files_list_on_sftp)
         _publish_on_datagouv.set_upstream(_transfer_files_to_minio)

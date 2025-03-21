@@ -1,14 +1,13 @@
 from datetime import timedelta, datetime
 from airflow.models import DAG
+from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.task_functions import (
+    LOG_PATH,
     get_latest_theorical_batches,
     clean_old_runs_in_minio,
     construct_all_possible_files,
@@ -16,7 +15,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     publish_on_datagouv,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 DAG_NAME = "data_processing_meteo_pnt"
 
 
@@ -35,6 +33,10 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         max_active_runs=3,
     )
     with dag:
+        create_working_dirs = BashOperator(
+            task_id="create_working_dirs",
+            bash_command=f"mkdir -p {LOG_PATH}",
+        )
 
         common_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
 
@@ -66,6 +68,8 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
             python_callable=publish_on_datagouv,
             op_kwargs=common_kwargs,
         )
+
+        _get_latest_theorical_batches.set_upstream(create_working_dirs)
 
         _clean_old_runs_in_minio.set_upstream(_get_latest_theorical_batches)
 
