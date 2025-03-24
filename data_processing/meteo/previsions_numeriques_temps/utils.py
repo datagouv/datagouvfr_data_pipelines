@@ -24,6 +24,7 @@ class MeteoClient(object):
         )
 
     def request(self, method, url, **kwargs):
+        time.sleep(0.2)
         # First request will always need to obtain a token first
         if 'Authorization' not in self.session.headers:
             self.obtain_token()
@@ -34,6 +35,10 @@ class MeteoClient(object):
             self.obtain_token()
             # Re-dispatch the request that previously failed
             response = self.session.request(method, url, **kwargs)
+        if response.status_code == 429:
+            logging.warning("Too many requests, sleeping for a while...")
+            time.sleep(2)
+            return self.request(method=method, url=url, **kwargs)
         return response
 
     @simple_connection_retry
