@@ -332,6 +332,9 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # starting with latest timeslots
     path = build_folder_path(model, pack, grid)
     for batch in reversed(sorted(batches_on_minio)):
+        if len(latest_files) == len(current_resources):
+            # we have found all files
+            break
         for obj, size in minio_pnt.get_all_files_names_and_sizes_from_parent_folder(
             folder=f"{minio_folder}/{batch}/{path}/",
         ).items():
