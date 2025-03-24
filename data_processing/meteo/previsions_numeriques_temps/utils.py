@@ -36,9 +36,10 @@ class MeteoClient(object):
             # Re-dispatch the request that previously failed
             response = self.session.request(method, url, **kwargs)
         if response.status_code == 429:
-            logging.warning("Too many requests, sleeping for a while...")
-            time.sleep(2)
-            return self.request(method=method, url=url, **kwargs)
+            _sleep = kwargs.get("_sleep", 2)
+            logging.warning(f"Too many requests, sleeping for '{_sleep}s'...")
+            time.sleep(_sleep)
+            return self.request(method=method, url=url, **kwargs, **{"_sleep": _sleep * 2})
         return response
 
     @simple_connection_retry
