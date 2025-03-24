@@ -244,6 +244,9 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             # do we actually need these headers? response content type is binary
             headers={"Content-Type": "application/json; charset=utf-8"},
         ) as r:
+            if r.status_code == 404:
+                logging.warning("Not available yet, skipping")
+                continue
             r.raise_for_status()
             with open(local_filename, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=32768):
