@@ -245,7 +245,7 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             headers={"Content-Type": "application/json; charset=utf-8"},
         ) as r:
             if r.status_code == 404:
-                logging.warning("Not available yet, skipping")
+                logging.warning(f"Not available yet, skipping. URL is: {url}")
                 continue
             r.raise_for_status()
             with open(local_filename, 'wb') as f:
