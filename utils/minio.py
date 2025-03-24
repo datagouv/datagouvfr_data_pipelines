@@ -330,10 +330,8 @@ class MinIOClient:
         prefix: str,
     ) -> None:
         for obj in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
+            logging.info(f"🔥 '{obj.object_name}' successfully deleted.")
             self.client.remove_object(self.bucket, obj.object_name)
-        logging.info(
-            f"All objects with prefix '{prefix}' deleted successfully."
-        )
 
     @simple_connection_retry
     def dict_to_bytes_to_minio(

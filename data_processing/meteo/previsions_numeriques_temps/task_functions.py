@@ -107,23 +107,23 @@ def clean_old_runs_in_minio(ti):
     batches = ti.xcom_pull(key="batches", task_ids="get_latest_theorical_batches")
     # we get the runs' names from the folders
     runs = minio_pnt.get_files_from_prefix(
-        prefix=minio_folder,
+        prefix=f"{minio_folder}/",
         recursive=False,
         ignore_airflow_env=True,
     )
     logging.info(runs)
     old_dates = set()
     keep_dates = set()
-    for run in runs:
+    for run_path in runs:
         # run.object_name looks like "{minio_folder}/2024-10-02T00:00:00Z/"
-        run = run.object_name.split('/')[-2]
+        run = run_path.split('/')[-2]
         if run < batches[-1]:
             old_dates.add(run)
         if run >= batches[-1]:
             keep_dates.add(run)
     if len(keep_dates) > 3:
         for od in old_dates:
-            minio_pnt.delete_files_from_prefix(prefix=f"{minio_folder}/{od}")
+            minio_pnt.delete_files_from_prefix(prefix=f"{minio_folder}/{od}/")
 
 
 def build_folder_path(model: str, pack: str, grid: str) -> str:
