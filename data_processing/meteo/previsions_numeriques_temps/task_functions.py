@@ -106,15 +106,16 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
 def clean_old_runs_in_minio(ti):
     batches = ti.xcom_pull(key="batches", task_ids="get_latest_theorical_batches")
     # we get the runs' names from the folders
-    get_list_runs = minio_pnt.get_files_from_prefix(
+    runs = minio_pnt.get_files_from_prefix(
         prefix=minio_folder,
         recursive=False,
     )
+    logging.info(runs)
     old_dates = []
     keep_dates = []
-    for run in get_list_runs:
+    for run in runs:
         # run.object_name looks like "{minio_folder}/2024-10-02T00:00:00Z/"
-        run = run.object_name.split('/')[1]
+        run = run.object_name.split('/')[-2]
         if run < batches[-1] and run not in old_dates:
             old_dates.append(run)
         if run >= batches[-1] and run not in keep_dates:
