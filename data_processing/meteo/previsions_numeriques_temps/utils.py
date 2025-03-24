@@ -39,7 +39,7 @@ class MeteoClient(object):
             _sleep = kwargs.get("_sleep", 2)
             logging.warning(f"Too many requests, sleeping for '{_sleep}s'...")
             time.sleep(_sleep)
-            return self.request(method=method, url=url, **kwargs, **{"_sleep": _sleep * 2})
+            return self.request(method=method, url=url, **(kwargs | {"_sleep": _sleep * 2}))
         return response
 
     @simple_connection_retry
