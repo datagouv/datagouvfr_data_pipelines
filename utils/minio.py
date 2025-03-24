@@ -177,8 +177,8 @@ class MinIOClient:
     def get_files_from_prefix(
         self,
         prefix: str,
-        ignore_airflow_env=False,
-        recursive=False,
+        ignore_airflow_env: bool = False,
+        recursive: bool = False,
     ) -> list:
         """Retrieve only the list of files in a Minio pattern
 

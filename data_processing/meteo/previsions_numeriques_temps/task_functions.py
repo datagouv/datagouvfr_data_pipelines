@@ -109,17 +109,18 @@ def clean_old_runs_in_minio(ti):
     runs = minio_pnt.get_files_from_prefix(
         prefix=minio_folder,
         recursive=False,
+        ignore_airflow_env=True,
     )
     logging.info(runs)
-    old_dates = []
-    keep_dates = []
+    old_dates = set()
+    keep_dates = set()
     for run in runs:
         # run.object_name looks like "{minio_folder}/2024-10-02T00:00:00Z/"
         run = run.object_name.split('/')[-2]
-        if run < batches[-1] and run not in old_dates:
-            old_dates.append(run)
-        if run >= batches[-1] and run not in keep_dates:
-            keep_dates.append(run)
+        if run < batches[-1]:
+            old_dates.add(run)
+        if run >= batches[-1]:
+            keep_dates.add(run)
     if len(keep_dates) > 3:
         for od in old_dates:
             minio_pnt.delete_files_from_prefix(prefix=f"{minio_folder}/{od}")

@@ -29,12 +29,12 @@ class MeteoClient(object):
         if 'Authorization' not in self.session.headers:
             self.obtain_token()
         # Optimistically attempt to dispatch request
-        response = self.session.request(method, url, **kwargs)
+        response = self.session.request(method, url, **{k: v for k, v in kwargs.items() if k != "_sleep"})
         if self.token_has_expired(response):
             # We got an 'Access token expired' response => refresh token
             self.obtain_token()
             # Re-dispatch the request that previously failed
-            response = self.session.request(method, url, **kwargs)
+            response = self.session.request(method, url, **{k: v for k, v in kwargs.items() if k != "_sleep"})
         if response.status_code == 429:
             _sleep = kwargs.get("_sleep", 2)
             logging.warning(f"Too many requests, sleeping for '{_sleep}s'...")
