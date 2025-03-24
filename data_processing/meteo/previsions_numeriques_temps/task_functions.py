@@ -390,7 +390,7 @@ def clean_directory(model: str, pack: str, grid: str):
     # in case processes crash and leave stuff behind
     path = build_folder_path(model, pack, grid)
     files_and_folders = os.listdir(f"{DATADIR}{path}")
-    threshold = datetime.now() - timedelta(hours=3)
+    threshold = datetime.now() - timedelta(hours=1)
     for f in files_and_folders:
         creation_date = datetime.fromtimestamp(os.path.getctime(f"{DATADIR}{path}/{f}"))
         if creation_date < threshold and "issues" not in f:
