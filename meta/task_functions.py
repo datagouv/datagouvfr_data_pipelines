@@ -76,11 +76,10 @@ def monitor_dags(
 
 
 def notification_mattermost(ti):
-    dag_ids_to_monitor = get_ids(config)
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     message = '# Récap quotidien DAGs :'
     print(todays_runs)
-    for dag, attempts in todays_runs.items():
+    for dag, attempts in dict(sorted(todays_runs.items())).items():
         message += f'\n- **{dag}** :'
         successes = {
             atp_id: attempts[atp_id] for atp_id in attempts if attempts[atp_id]['success']
