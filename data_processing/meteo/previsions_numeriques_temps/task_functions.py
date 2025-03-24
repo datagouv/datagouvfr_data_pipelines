@@ -390,7 +390,7 @@ def clean_directory(model: str, pack: str, grid: str):
     # in case processes crash and leave stuff behind
     path = build_folder_path(model, pack, grid)
     files_and_folders = os.listdir(f"{DATADIR}{path}")
-    threshold = datetime.now() - timedelta(hours=1)
+    threshold = datetime.now() - timedelta(hours=3)
     for f in files_and_folders:
         creation_date = datetime.fromtimestamp(os.path.getctime(f"{DATADIR}{path}/{f}"))
         if creation_date < threshold and "issues" not in f:
@@ -398,4 +398,7 @@ def clean_directory(model: str, pack: str, grid: str):
                 shutil.rmtree(f"{DATADIR}{path}/{f}")
             except NotADirectoryError:
                 os.remove(f"{DATADIR}{path}/{f}")
-            logging.warning(f"Deleted {path}/{f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})")
+            logging.warning(
+                f"Deleted {DATADIR}{path}/{f} (created at "
+                f"{creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
+            )
