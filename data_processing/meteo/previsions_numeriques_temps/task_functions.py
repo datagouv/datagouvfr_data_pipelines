@@ -119,7 +119,7 @@ def clean_old_runs_in_minio(ti):
         run = run_path.split('/')[-2]
         if run < batches[-1]:
             old_dates.add(run)
-        if run >= batches[-1]:
+        else:
             keep_dates.add(run)
     if len(keep_dates) > 3:
         for od in old_dates:
