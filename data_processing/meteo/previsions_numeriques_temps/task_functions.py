@@ -222,7 +222,7 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
     logging.info(f"Getting {len(to_get)} files")
     # we could also put the content of the loop within an async function and process the files simultaneously
     uploaded = []
-    my_packages = []
+    my_packages = set()
     for minio_path in to_get:
         url = minio_path_to_url[minio_path]
         package = url_to_infos[url]['package']
@@ -234,7 +234,7 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
         else:
             # this is to make sure concurrent runs don't interfere or process the same data
             os.makedirs(f"{DATADIR}{path}/{package}", exist_ok=True)
-            my_packages.append(package)
+            my_packages.add(package)
         local_filename = f"{DATADIR}{path}/{package}/{url_to_infos[url]['filename']}"
         # ideally we'd like to minio_pnt.send_from_url directly but we have to test the file structure first
         with meteo_client.get(
