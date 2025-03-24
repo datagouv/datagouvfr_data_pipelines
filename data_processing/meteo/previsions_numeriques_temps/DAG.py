@@ -54,6 +54,7 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         _clean_directory = PythonOperator(
             task_id="clean_directory",
             python_callable=clean_directory,
+            op_kwargs=common_kwargs,
         )
 
         _construct_all_possible_files = ShortCircuitOperator(
