@@ -29,7 +29,7 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         dagrun_timeout=timedelta(minutes=600),
         tags=["data_processing", "meteo", "pnt", model],
         # runs can run in parallel, safeguards ensure they won't interfere
-        max_active_runs=3,
+        max_active_runs=2,
     )
     with dag:
         create_working_dirs = BashOperator(
