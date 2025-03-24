@@ -3,6 +3,7 @@ import logging
 import os
 import pygrib
 import requests
+import shutil
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -383,3 +384,18 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                 },
                 on_demo=AIRFLOW_ENV == "dev",
             )
+
+
+def clean_directory(model: str, pack: str, grid: str):
+    # in case processes crash and leave stuff behind
+    path = build_folder_path(model, pack, grid)
+    files_and_folders = os.listdir(f"{DATADIR}{path}")
+    threshold = datetime.now() - timedelta(hours=3)
+    for f in files_and_folders:
+        creation_date = datetime.fromtimestamp(os.path.getctime(DATADIR + f))
+        if creation_date < threshold and "issues" not in f:
+            try:
+                shutil.rmtree(DATADIR + f)
+            except NotADirectoryError:
+                os.remove(DATADIR + f)
+            logging.warning(f"Deleted {f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})")

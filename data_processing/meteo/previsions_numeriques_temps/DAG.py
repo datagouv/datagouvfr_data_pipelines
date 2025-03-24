@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     construct_all_possible_files,
     send_files_to_minio,
     publish_on_datagouv,
+    clean_directory,
 )
 
 DAG_NAME = "data_processing_meteo_pnt"
@@ -50,6 +51,11 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
             python_callable=clean_old_runs_in_minio,
         )
 
+        _clean_directory = PythonOperator(
+            task_id="clean_directory",
+            python_callable=clean_directory,
+        )
+
         _construct_all_possible_files = ShortCircuitOperator(
             task_id="construct_all_possible_files",
             python_callable=construct_all_possible_files,
@@ -71,6 +77,7 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         _get_latest_theorical_batches.set_upstream(create_working_dirs)
 
         _clean_old_runs_in_minio.set_upstream(_get_latest_theorical_batches)
+        _clean_directory.set_upstream(_get_latest_theorical_batches)
 
         _construct_all_possible_files.set_upstream(_get_latest_theorical_batches)
         _send_files_to_minio.set_upstream(_construct_all_possible_files)
