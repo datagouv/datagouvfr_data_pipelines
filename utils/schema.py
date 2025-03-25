@@ -72,7 +72,10 @@ def build_report_prefix(
     dataset_id,
     resource_id,
 ):
-    return str(validata_reports_path) + "/" + schema_name.replace("/", "_") + "_" + dataset_id + "_" + resource_id + "_"
+    return (
+        str(validata_reports_path) + "/" + schema_name.replace("/", "_")
+        + f"_{dataset_id}_{resource_id}_"
+    )
 
 
 def comparer_versions(version: str) -> list[int | float]:
@@ -81,7 +84,7 @@ def comparer_versions(version: str) -> list[int | float]:
 
 def drop_versions_sample(versions, nb_to_keep=5, level=0):
     _versions = sorted(versions, key=comparer_versions)
-    majors = set(".".join(v.split(".")[0 : level + 1]) for v in _versions)
+    majors = set(".".join(v.split(".")[0: level + 1]) for v in _versions)
     # if only one major: consider each minor as a major and run again
     if len(majors) == 1:
         if level == 2:
@@ -90,7 +93,7 @@ def drop_versions_sample(versions, nb_to_keep=5, level=0):
     latest_each_major = sorted(
         [
             sorted(
-                [v for v in _versions if ".".join(v.split(".")[0 : level + 1]) == m],
+                [v for v in _versions if ".".join(v.split(".")[0: level + 1]) == m],
                 key=comparer_versions,
             )[-1]
             for m in majors
@@ -205,20 +208,23 @@ def parse_api(
                 filename = res["url"].split("/")[-1]
             ext = filename.split(".")[-1]
             detected_mime = res.get("extras", {}).get("check:headers:content-type", "").split(";")[0].strip()
-            obj = {}
-            obj["dataset_id"] = dataset["id"]
-            obj["dataset_title"] = dataset["title"]
-            obj["dataset_slug"] = dataset["slug"]
-            obj["dataset_page"] = dataset["page"]
-            obj["resource_id"] = res["id"]
-            obj["resource_title"] = res["title"]
-            obj["resource_url"] = res["url"]
-            obj["resource_last_modified"] = res["last_modified"]
-            obj["resource_created_at"] = res["created_at"]
-            obj["publish_source"] = res.get("extras", {}).get("publish_source", "")
-            obj["error_type"] = None
-            if not res.get("extras", {}).get("check:available", True):
-                obj["error_type"] = "hydra-unavailable-resource"
+            obj = {
+                "dataset_id": dataset["id"],
+                "dataset_title": dataset["title"],
+                "dataset_slug": dataset["slug"],
+                "dataset_page": dataset["page"],
+                "resource_id": res["id"],
+                "resource_title": res["title"],
+                "resource_url": res["url"],
+                "resource_last_modified": res["last_modified"],
+                "resource_created_at": res["created_at"],
+                "publish_source": res.get("extras", {}).get("publish_source", ""),
+                "error_type": (
+                    "hydra-unavailable-resource"
+                    if not res.get("extras", {}).get("check:available", True)
+                    else None
+                )
+            }
             appropriate_extension = ext in ["csv", "xls", "xlsx"]
             mime_dict = {
                 "text/csv": "csv",
