@@ -179,7 +179,7 @@ class MinIOClient:
         prefix: str,
         ignore_airflow_env: bool = False,
         recursive: bool = False,
-    ) -> list:
+    ) -> list[str]:
         """Retrieve only the list of files in a Minio pattern
 
         Args:
@@ -329,9 +329,9 @@ class MinIOClient:
         self,
         prefix: str,
     ) -> None:
-        for obj in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
-            logging.info(f"🔥 '{obj.object_name}' successfully deleted.")
-            self.client.remove_object(self.bucket, obj.object_name)
+        for file in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
+            logging.info(f"🔥 '{file}' successfully deleted.")
+            self.client.remove_object(self.bucket, file)
 
     @simple_connection_retry
     def dict_to_bytes_to_minio(
