@@ -26,6 +26,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     post_remote_resource,
     # DATAGOUV_URL,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 # to test the migration, we don't want to interfere with the current production
@@ -204,12 +205,12 @@ def log_and_send_error(filename):
         f.write(f"{filename};{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     minio_pnt.send_files(
         list_files=[
-            {
-                "source_path": LOG_PATH,
-                "source_name": log_name,
-                "dest_path": "logs/" if AIRFLOW_ENV == "prod" else "dev/logs/",
-                "dest_name": log_name,
-            }
+            File(
+                source_path=LOG_PATH,
+                source_name=log_name,
+                dest_path="logs/" if AIRFLOW_ENV == "prod" else "dev/logs/",
+                dest_name=log_name,
+            )
         ],
         ignore_airflow_env=True,
         burn_after_sending=True,
