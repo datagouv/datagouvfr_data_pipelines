@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_communautary_resource,
+    post_remote_resource,
     check_if_recent_update,
     DATAGOUV_URL,
 )
@@ -214,7 +214,7 @@ def send_to_minio():
 def publish_on_datagouv():
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv", "parquet"]:
-        post_remote_communautary_resource(
+        post_remote_resource(
             dataset_id=config[ext][AIRFLOW_ENV]["dataset_id"],
             resource_id=config[ext][AIRFLOW_ENV]["resource_id"],
             payload={
