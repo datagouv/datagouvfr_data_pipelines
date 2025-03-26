@@ -1,22 +1,22 @@
 {
     "csv" : {
         "dev": {
-            "dataset_id": "53699569a3a729239d2046eb",
-            "resource_id": "3214c46b-cb5d-4233-9e39-f2169bfc0d93"
+            "dataset_id": "",
+            "resource_id": ""
         },
         "prod": {
-            "dataset_id": "53699569a3a729239d2046eb",
-            "resource_id": "29d6cd38-1905-4a7b-a28e-d9598a7f41e3"
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "935e1dc5-afce-4d45-9fda-47b18f7444e6"
         }
     },
     "parquet" : {
         "dev": {
-            "dataset_id": "53699569a3a729239d2046eb",
-            "resource_id": "3ddc55c2-6421-4244-8b99-a8b26fa01fcc"
+            "dataset_id": "",
+            "resource_id": ""
         },
         "prod": {
-            "dataset_id": "53699569a3a729239d2046eb",
-            "resource_id": "019806b0-1b36-4bd6-9860-3e35ce4c4712"
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "5eb67ddc-b58c-4531-a3f2-2c2843cf3986"
         }
     }
 }
