@@ -1,5 +1,5 @@
 import dateutil
-from typing import TypedDict, Iterator, Optional
+from typing import Iterator, Optional
 import requests
 from datetime import datetime
 import logging
@@ -75,62 +75,108 @@ SPAM_WORDS = [
     'visa',
 ]
 
-datagouv_session = requests.Session()
-datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
+
+class Client:
+    _envs = ["www", "demo", "dev"]
+
+    def __init__(self, environment: str = "www", api_key: str | None = None):
+        if environment not in self._envs:
+            raise ValueError(f"`environment` must be in {self._envs}")
+        self.base_url = f"https://{environment}.data.gouv.fr"
+        self.session = requests.Session()
+        self.environment = environment
+        self._authenticated = False
+        if api_key:
+            self._authenticated = True
+            self.session.headers.update({"X-API-KEY": api_key})
+
+    def Resource(self, id, **kwargs):
+        return Resource(id, _client=self, **kwargs)
+
+    def Dataset(self, id):
+        return Dataset(id, _client=self)
+
+
+def assert_auth(client: Client) -> None:
+    if not client._authenticated:
+        raise PermissionError("This method requires authentication")
+
+
+class Client:
+    _envs = ["www", "demo", "dev"]
+    _authenticated = False
+
+    def __init__(self, environment: str = "www", api_key: str | None = None):
+        if environment not in self._envs:
+            raise ValueError(f"`environment` must be in {self._envs}")
+        self.base_url = f"https://{environment}.data.gouv.fr"
+        self.session = requests.Session()
+        if api_key:
+            self._authenticated = True
+            self.session.headers.update({"X-API-KEY": api_key})
+
+    def Resource(self, id=None, **kwargs):
+        return Resource(id, _client=self, **kwargs)
+
+    def Dataset(self, id=None, **kwargs):
+        return Dataset(id, _client=self)
 
 
 class BaseObject:
 
-    def __init__(self, id: str):
+    def __init__(self, id: str | None = None, _client: Client = Client()):
         self.id = id
+        self._client = _client
 
     @simple_connection_retry
     def get_metadata(self) -> dict:
-        r = datagouv_session.get(self.url)
+        r = self._client.session.get(self.url)
         r.raise_for_status()
         return r.json()
 
     @simple_connection_retry
     def update_metadata(self, payload: dict) -> requests.Response:
+        assert_auth(self._client)
         logging.info(f"🔁 Putting {self.url} with {payload}")
-        r = datagouv_session.put(self.url, json=payload)
+        r = self._client.session.put(self.url, json=payload)
         r.raise_for_status()
         return r
 
     @simple_connection_retry
     def delete(self) -> requests.Response:
+        assert_auth(self._client)
         logging.info(f"🚮 Deleting {self.url}")
-        r = datagouv_session.delete(self.url)
+        r = self._client.session.delete(self.url)
         r.raise_for_status()
         return r
 
     @simple_connection_retry
     def update_extras(self, payload: dict) -> requests.Response:
+        assert_auth(self._client)
         logging.info(f"🔁 Putting {self.url} with extras {payload}")
-        r = datagouv_session.put(self.url + "extras/", json=payload)
+        r = self._client.session.put(self.url + "extras/", json=payload)
         r.raise_for_status()
         return r
 
     @simple_connection_retry
     def delete_extras(self, payload: dict) -> requests.Response:
+        assert_auth(self._client)
         logging.info(f"🚮 Deleting extras {payload} for {self.url}")
-        r = datagouv_session.delete(self.url + "extras/", json=payload)
+        r = self._client.session.delete(self.url + "extras/", json=payload)
         r.raise_for_status()
         return r
 
 
 class Dataset(BaseObject):
-    def __init__(self, id: str, on_demo: bool = False):
-        super().__init__(id)
-        datagouv_url = "https://demo.data.gouv.fr" if on_demo or AIRFLOW_ENV == "dev" else DATAGOUV_URL
-        self.url = f"{datagouv_url}/api/1/datasets/{self.id}/"
+    def __init__(self, id: str | None = None, _client: Client = Client()):
+        super().__init__(id, _client)
+        self.url = f"{self._client.base_url}/api/1/datasets/{self.id}/"
 
-    @staticmethod
     @simple_connection_retry
-    def create(payload: dict, on_demo: bool = False) -> requests.Response:
+    def create(self, payload: dict) -> requests.Response:
+        assert_auth(self._client)
         logging.info(f"Creating dataset '{payload['title']}'")
-        datagouv_url = "https://demo.data.gouv.fr" if on_demo or AIRFLOW_ENV == "dev" else DATAGOUV_URL
-        r = datagouv_session.post(f"{datagouv_url}/api/1/datasets/", json=payload)
+        r = self._client.session.post(f"{self._client.base_url}/api/1/datasets/", json=payload)
         r.raise_for_status()
         return r
 
@@ -139,57 +185,51 @@ class Resource(BaseObject):
     def __init__(
         self,
         id: str,
-        dataset_id: str | None,
+        dataset_id: str | None = None,
         is_communautary: bool = False,
-        on_demo: bool = False,
+        _client: Client = Client(),
     ):
         super().__init__(id)
         self.dataset_id = dataset_id or self.get_dataset_id(id)
-        datagouv_url = "https://demo.data.gouv.fr" if on_demo or AIRFLOW_ENV == "dev" else DATAGOUV_URL
-        # datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
         self.url = (
-            f"{datagouv_url}/api/1/datasets/{self.dataset_id}/resources/{self.id}/"
+            f"{_client.base_url}/api/1/datasets/{self.dataset_id}/resources/{self.id}/"
             if not is_communautary
-            else f"{datagouv_url}/api/1/datasets/community_resources/{self.id}"
+            else f"{_client.base_url}/api/1/datasets/community_resources/{self.id}"
         )
 
-    @staticmethod
     @simple_connection_retry
     def create_remote(
+        self,
         dataset_id: str,
         payload: dict,
-        on_demo: bool = False,
         is_communautary: bool = False,
     ) -> requests.Response:
-        datagouv_url = "https://demo.data.gouv.fr" if on_demo or AIRFLOW_ENV == "dev" else DATAGOUV_URL
         if is_communautary:
-            url = f"{datagouv_url}/api/1/datasets/community_resources"
+            url = f"{self._client.base_url}/api/1/datasets/community_resources"
             payload["dataset"] = {"class": "Dataset", "id": dataset_id}
         else:
-            url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
+            url = f"{self._client.base_url}/api/1/datasets/{dataset_id}/resources/"
         logging.info(f"Creating '{payload['title']}' at {url}")
         if "filetype" not in payload:
             payload.update({"filetype": "remote"})
-        r = datagouv_session.post(url, json=payload)
+        r = self._client.session.post(url, json=payload)
         r.raise_for_status()
         return r
 
-    @staticmethod
     @simple_connection_retry
     def create_static(
+        self,
         file_to_upload: File,
         dataset_id: str,
         payload: dict,
-        on_demo: bool = False,
         is_communautary: bool = False,
     ) -> requests.Response:
-        datagouv_url = "https://demo.data.gouv.fr" if on_demo or AIRFLOW_ENV == "dev" else DATAGOUV_URL
         if is_communautary:
-            url = f"{datagouv_url}/api/1/datasets/community_resources"
+            url = f"{self._client.base_url}/api/1/datasets/community_resources"
             payload["dataset"] = {"class": "Dataset", "id": dataset_id}
         else:
-            url = f"{datagouv_url}/api/1/datasets/{dataset_id}/upload/"
-        r = datagouv_session.post(url, files={
+            url = f"{self._client.base_url}/api/1/datasets/{dataset_id}/upload/"
+        r = self._client.session.post(url, files={
             "file": open(
                 f"{file_to_upload['source_path']}{file_to_upload['source_name']}",
                 "rb",
@@ -201,35 +241,37 @@ class Resource(BaseObject):
         r = Resource(resource_id=resource_id, dataset_id=dataset_id).update_metadata(payload=payload)
         return r
 
-    @staticmethod
     @simple_connection_retry
-    def get_dataset_id(resource_id: str) -> str:
-        url = f"{DATAGOUV_URL}/api/2/datasets/resources/{resource_id}/"
-        r = datagouv_session.get(url)
+    def get_dataset_id(self, resource_id: str) -> str:
+        url = f"{self._client.base_url}/api/2/datasets/resources/{resource_id}/"
+        r = requests.get(url)
         r.raise_for_status()
         return r.json()['dataset_id']
 
+    @simple_connection_retry
     def check_if_more_recent_update(
         self,
         dataset_id: str,
-        on_demo: bool = False,
     ) -> bool:
         """
         Checks whether any resource of the specified dataset has been updated more recently
         than the specified resource
         """
-        prefix = "demo" if on_demo else "www"
-        resources = datagouv_session.get(
-            f"https://{prefix}.data.gouv.fr/api/1/datasets/{dataset_id}/",
+        resources = self._client.session.get(
+            f"{self._client.base_url}/api/1/datasets/{dataset_id}/",
             headers={"X-fields": "resources{internal{last_modified_internal}}"}
         ).json()['resources']
-        latest_update = datagouv_session.get(
-            f"https://{prefix}.data.gouv.fr/api/2/datasets/resources/{self.id}/",
+        latest_update = self._client.session.get(
+            f"{self._client.base_url}/api/2/datasets/resources/{self.id}/",
             headers={"X-fields": "resource{internal{last_modified_internal}}"}
         ).json()["resource"]["internal"]["last_modified_internal"]
         return any(
             r["internal"]["last_modified_internal"] > latest_update for r in resources
         )
+
+
+prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY)
+demo_client = Client(environment="demo", api_key=DEMO_DATAGOUV_SECRET_API_KEY)
 
 
 @simple_connection_retry
@@ -253,7 +295,7 @@ def create_post(
        json: return API result in a dictionnary containing metadatas
     """
 
-    r = datagouv_session.post(
+    r = prod_client.session.post(
         f"{DATAGOUV_URL}/api/1/posts/",
         json={
             'name': name,
@@ -371,7 +413,7 @@ def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> reques
         "comment": comment,
         "subject": {"class": "Dataset", "id": dataset_id},
     }
-    r = datagouv_session.post(
+    r = prod_client.session.post(
         f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/discussions/",
         json=post_object
     )
@@ -381,7 +423,7 @@ def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> reques
 
 @simple_connection_retry
 def get_awaiting_spam_comments() -> dict:
-    r = datagouv_session.get("https://www.data.gouv.fr/api/1/spam/")
+    r = prod_client.session.get("https://www.data.gouv.fr/api/1/spam/")
     r.raise_for_status()
     return r.json()
 
