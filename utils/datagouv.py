@@ -89,18 +89,19 @@ class Client:
             self._authenticated = True
             self.session.headers.update({"X-API-KEY": api_key})
 
-    def Resource(self, id=None, **kwargs):
+    def Resource(self, id: str | None = None, **kwargs):
         if id:
             return Resource(id, _client=self, **kwargs)
         return ResourceCreator(_client=self)
 
-    def Dataset(self, id=None):
+    def Dataset(self, id: str | None = None):
         if id:
             return Dataset(id, _client=self)
         return DatasetCreator(_client=self)
 
     @simple_connection_retry
-    def get_dataset_id(self, resource_id: str) -> str:
+    def get_dataset_id(self, resource_id: str) -> str | None:
+        # communautary resources return None
         url = f"{self._client.base_url}/api/2/datasets/resources/{resource_id}/"
         r = requests.get(url)
         r.raise_for_status()
@@ -117,6 +118,7 @@ class BaseObject:
     def __init__(self, id: str | None = None, _client: Client = Client()):
         self.id = id
         self._client = _client
+        self.front_url = self.url.replace("api/1", "fr")
 
     def __repr__(self):
         return self.url
@@ -162,8 +164,8 @@ class BaseObject:
 
 class Dataset(BaseObject):
     def __init__(self, id: str | None = None, _client: Client = Client()):
+        self.url = f"{_client.base_url}/api/1/datasets/{id}/"
         super().__init__(id, _client)
-        self.url = f"{self._client.base_url}/api/1/datasets/{self.id}/"
 
 
 class Resource(BaseObject):
@@ -174,13 +176,14 @@ class Resource(BaseObject):
         is_communautary: bool = False,
         _client: Client = Client(),
     ):
-        super().__init__(id, _client)
         self.dataset_id = dataset_id or _client.get_dataset_id(id)
         self.url = (
             f"{_client.base_url}/api/1/datasets/{self.dataset_id}/resources/{self.id}/"
-            if not is_communautary
+            if not is_communautary and self.dataset_id is not None
             else f"{_client.base_url}/api/1/datasets/community_resources/{self.id}"
         )
+        super().__init__(id, _client)
+        self.front_url = self.front_url.replace("/resources", "/#/resources")
 
     @simple_connection_retry
     def check_if_more_recent_update(
