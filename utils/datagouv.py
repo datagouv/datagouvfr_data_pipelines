@@ -84,17 +84,27 @@ class Client:
             raise ValueError(f"`environment` must be in {self._envs}")
         self.base_url = f"https://{environment}.data.gouv.fr"
         self.session = requests.Session()
-        self.environment = environment
         self._authenticated = False
         if api_key:
             self._authenticated = True
             self.session.headers.update({"X-API-KEY": api_key})
 
-    def Resource(self, id, **kwargs):
-        return Resource(id, _client=self, **kwargs)
+    def Resource(self, id=None, **kwargs):
+        if id:
+            return Resource(id, _client=self, **kwargs)
+        return ResourceCreator(_client=self)
 
-    def Dataset(self, id):
-        return Dataset(id, _client=self)
+    def Dataset(self, id=None):
+        if id:
+            return Dataset(id, _client=self)
+        return DatasetCreator(_client=self)
+
+    @simple_connection_retry
+    def get_dataset_id(self, resource_id: str) -> str:
+        url = f"{self._client.base_url}/api/2/datasets/resources/{resource_id}/"
+        r = requests.get(url)
+        r.raise_for_status()
+        return r.json()['dataset_id']
 
 
 def assert_auth(client: Client) -> None:
@@ -102,31 +112,14 @@ def assert_auth(client: Client) -> None:
         raise PermissionError("This method requires authentication")
 
 
-class Client:
-    _envs = ["www", "demo", "dev"]
-    _authenticated = False
-
-    def __init__(self, environment: str = "www", api_key: str | None = None):
-        if environment not in self._envs:
-            raise ValueError(f"`environment` must be in {self._envs}")
-        self.base_url = f"https://{environment}.data.gouv.fr"
-        self.session = requests.Session()
-        if api_key:
-            self._authenticated = True
-            self.session.headers.update({"X-API-KEY": api_key})
-
-    def Resource(self, id=None, **kwargs):
-        return Resource(id, _client=self, **kwargs)
-
-    def Dataset(self, id=None, **kwargs):
-        return Dataset(id, _client=self)
-
-
 class BaseObject:
 
     def __init__(self, id: str | None = None, _client: Client = Client()):
         self.id = id
         self._client = _client
+
+    def __repr__(self):
+        return self.url
 
     @simple_connection_retry
     def get_metadata(self) -> dict:
@@ -172,14 +165,6 @@ class Dataset(BaseObject):
         super().__init__(id, _client)
         self.url = f"{self._client.base_url}/api/1/datasets/{self.id}/"
 
-    @simple_connection_retry
-    def create(self, payload: dict) -> requests.Response:
-        assert_auth(self._client)
-        logging.info(f"Creating dataset '{payload['title']}'")
-        r = self._client.session.post(f"{self._client.base_url}/api/1/datasets/", json=payload)
-        r.raise_for_status()
-        return r
-
 
 class Resource(BaseObject):
     def __init__(
@@ -189,13 +174,54 @@ class Resource(BaseObject):
         is_communautary: bool = False,
         _client: Client = Client(),
     ):
-        super().__init__(id)
-        self.dataset_id = dataset_id or self.get_dataset_id(id)
+        super().__init__(id, _client)
+        self.dataset_id = dataset_id or _client.get_dataset_id(id)
         self.url = (
             f"{_client.base_url}/api/1/datasets/{self.dataset_id}/resources/{self.id}/"
             if not is_communautary
             else f"{_client.base_url}/api/1/datasets/community_resources/{self.id}"
         )
+
+    @simple_connection_retry
+    def check_if_more_recent_update(
+        self,
+        dataset_id: str,
+    ) -> bool:
+        """
+        Checks whether any resource of the specified dataset has been updated more recently
+        than the specified resource
+        """
+        resources = self._client.session.get(
+            f"{self._client.base_url}/api/1/datasets/{dataset_id}/",
+            headers={"X-fields": "resources{internal{last_modified_internal}}"}
+        ).json()['resources']
+        latest_update = self._client.session.get(
+            f"{self._client.base_url}/api/2/datasets/resources/{self.id}/",
+            headers={"X-fields": "resource{internal{last_modified_internal}}"}
+        ).json()["resource"]["internal"]["last_modified_internal"]
+        return any(
+            r["internal"]["last_modified_internal"] > latest_update for r in resources
+        )
+
+
+class DatasetCreator:
+
+    def __init__(self, _client):
+        self._client = _client
+
+    @simple_connection_retry
+    def create(self, payload: dict) -> requests.Response:
+        assert_auth(self._client)
+        logging.info(f"Creating dataset '{payload['title']}'")
+        r = self._client.session.post(f"{self._client.base_url}/api/1/datasets/", json=payload)
+        r.raise_for_status()
+        return r
+
+
+class ResourceCreator:
+
+    def __init__(self, _client):
+        self._client = _client
 
     @simple_connection_retry
     def create_remote(
@@ -240,34 +266,6 @@ class Resource(BaseObject):
         logging.info(f"Resource was given this id: {resource_id}")
         r = Resource(resource_id=resource_id, dataset_id=dataset_id).update_metadata(payload=payload)
         return r
-
-    @simple_connection_retry
-    def get_dataset_id(self, resource_id: str) -> str:
-        url = f"{self._client.base_url}/api/2/datasets/resources/{resource_id}/"
-        r = requests.get(url)
-        r.raise_for_status()
-        return r.json()['dataset_id']
-
-    @simple_connection_retry
-    def check_if_more_recent_update(
-        self,
-        dataset_id: str,
-    ) -> bool:
-        """
-        Checks whether any resource of the specified dataset has been updated more recently
-        than the specified resource
-        """
-        resources = self._client.session.get(
-            f"{self._client.base_url}/api/1/datasets/{dataset_id}/",
-            headers={"X-fields": "resources{internal{last_modified_internal}}"}
-        ).json()['resources']
-        latest_update = self._client.session.get(
-            f"{self._client.base_url}/api/2/datasets/resources/{self.id}/",
-            headers={"X-fields": "resource{internal{last_modified_internal}}"}
-        ).json()["resource"]["internal"]["last_modified_internal"]
-        return any(
-            r["internal"]["last_modified_internal"] > latest_update for r in resources
-        )
 
 
 prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY)
