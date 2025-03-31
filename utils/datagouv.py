@@ -89,12 +89,12 @@ class Client:
             self._authenticated = True
             self.session.headers.update({"X-API-KEY": api_key})
 
-    def Resource(self, id: str | None = None, **kwargs):
+    def resource(self, id: str | None = None, **kwargs):
         if id:
             return Resource(id, _client=self, **kwargs)
         return ResourceCreator(_client=self)
 
-    def Dataset(self, id: str | None = None):
+    def dataset(self, id: str | None = None):
         if id:
             return Dataset(id, _client=self)
         return DatasetCreator(_client=self)
