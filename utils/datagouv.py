@@ -102,7 +102,7 @@ class Client:
     @simple_connection_retry
     def get_dataset_id(self, resource_id: str) -> str | None:
         # communautary resources return None
-        url = f"{self._client.base_url}/api/2/datasets/resources/{resource_id}/"
+        url = f"{self.base_url}/api/2/datasets/resources/{resource_id}/"
         r = requests.get(url)
         r.raise_for_status()
         return r.json()['dataset_id']
@@ -110,7 +110,9 @@ class Client:
 
 def assert_auth(client: Client) -> None:
     if not client._authenticated:
-        raise PermissionError("This method requires authentication")
+        raise PermissionError(
+            "This method requires authentication, please specify your API key in the Client"
+        )
 
 
 class BaseObject:
@@ -118,7 +120,6 @@ class BaseObject:
     def __init__(self, id: str | None = None, _client: Client = Client()):
         self.id = id
         self._client = _client
-        self.front_url = self.url.replace("api/1", "fr")
 
     def __repr__(self):
         return self.url
@@ -164,8 +165,9 @@ class BaseObject:
 
 class Dataset(BaseObject):
     def __init__(self, id: str | None = None, _client: Client = Client()):
-        self.url = f"{_client.base_url}/api/1/datasets/{id}/"
         super().__init__(id, _client)
+        self.url = f"{_client.base_url}/api/1/datasets/{id}/"
+        self.front_url = self.url.replace("api/1", "fr")
 
 
 class Resource(BaseObject):
@@ -176,14 +178,14 @@ class Resource(BaseObject):
         is_communautary: bool = False,
         _client: Client = Client(),
     ):
+        super().__init__(id, _client)
         self.dataset_id = dataset_id or _client.get_dataset_id(id)
         self.url = (
             f"{_client.base_url}/api/1/datasets/{self.dataset_id}/resources/{self.id}/"
             if not is_communautary and self.dataset_id is not None
             else f"{_client.base_url}/api/1/datasets/community_resources/{self.id}"
         )
-        super().__init__(id, _client)
-        self.front_url = self.front_url.replace("/resources", "/#/resources")
+        self.front_url = self.url.replace("api/1", "fr").replace("/resources", "/#/resources")
 
     @simple_connection_retry
     def check_if_more_recent_update(
