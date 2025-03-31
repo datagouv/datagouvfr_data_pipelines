@@ -193,6 +193,9 @@ class Resource(BaseObject):
         )
         self.front_url = self.url.replace("api/1", "fr").replace("/resources", "/#/resources")
 
+    def dataset(self):
+        return Dataset(self.dataset_id, _client=self._client)
+
     @simple_connection_retry
     def check_if_more_recent_update(
         self,
