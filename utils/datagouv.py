@@ -213,12 +213,12 @@ class DatasetCreator:
         self._client = _client
 
     @simple_connection_retry
-    def create(self, payload: dict) -> requests.Response:
+    def create(self, payload: dict) -> Dataset:
         assert_auth(self._client)
         logging.info(f"Creating dataset '{payload['title']}'")
         r = self._client.session.post(f"{self._client.base_url}/api/1/datasets/", json=payload)
         r.raise_for_status()
-        return r
+        return Dataset(r.json()["id"], _client=self._client)
 
 
 class ResourceCreator:
@@ -232,7 +232,7 @@ class ResourceCreator:
         dataset_id: str,
         payload: dict,
         is_communautary: bool = False,
-    ) -> requests.Response:
+    ) -> Resource:
         if is_communautary:
             url = f"{self._client.base_url}/api/1/datasets/community_resources"
             payload["dataset"] = {"class": "Dataset", "id": dataset_id}
@@ -243,7 +243,7 @@ class ResourceCreator:
             payload.update({"filetype": "remote"})
         r = self._client.session.post(url, json=payload)
         r.raise_for_status()
-        return r
+        return Resource(r.json()["id"], _client=self._client)
 
     @simple_connection_retry
     def create_static(
@@ -252,7 +252,7 @@ class ResourceCreator:
         dataset_id: str,
         payload: dict,
         is_communautary: bool = False,
-    ) -> requests.Response:
+    ) -> Resource:
         if is_communautary:
             url = f"{self._client.base_url}/api/1/datasets/community_resources"
             payload["dataset"] = {"class": "Dataset", "id": dataset_id}
@@ -268,7 +268,7 @@ class ResourceCreator:
         resource_id = r.json()['id']
         logging.info(f"Resource was given this id: {resource_id}")
         r = Resource(resource_id=resource_id, dataset_id=dataset_id).update_metadata(payload=payload)
-        return r
+        return Resource(resource_id, _client=self._client)
 
 
 prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY)
