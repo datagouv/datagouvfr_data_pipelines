@@ -169,6 +169,12 @@ class Dataset(BaseObject):
         self.url = f"{_client.base_url}/api/1/datasets/{id}/"
         self.front_url = self.url.replace("api/1", "fr")
 
+    def resources(self):
+        return [
+            Resource(id=r["id"], dataset_id=self.id, _client=self._client)
+            for r in self.get_metadata()["resources"]
+        ]
+
 
 class Resource(BaseObject):
     def __init__(
