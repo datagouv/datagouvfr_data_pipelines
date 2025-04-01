@@ -39,7 +39,7 @@ def get_files(**kwargs):
         ],
         auth_user=SECRET_INSEE_LOGIN,
         auth_password=SECRET_INSEE_PASSWORD,
-        timeout=None,
+        timeout=1200,
     )
 
     hashfiles = {}
