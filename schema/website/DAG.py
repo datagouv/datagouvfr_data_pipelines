@@ -137,7 +137,7 @@ with DAG(
                 ),
             ),
             BashOperator(
-                task_id="clean_up",
+                task_id="clean_up" + suffix,
                 bash_command=f"rm -rf {tmp_folder}",
             ),
         ]
