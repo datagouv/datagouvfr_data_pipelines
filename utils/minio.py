@@ -260,6 +260,7 @@ class MinIOClient:
     ) -> list[str]:
         """
         Copy multiple objects from a source folder to a target folder in MinIO.
+        Ensure credentials allow to access both buckets.
 
         Args:
             obj_source_paths (list[str]): List of the objects full paths to be copied.
