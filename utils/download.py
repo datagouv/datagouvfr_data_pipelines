@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 @simple_connection_retry
 async def download_file(session, url, dest_path, dest_name, auth=None):
+    logging.info(f"Downloading {url} to {dest_path}{dest_name}")
     Path(dest_path).mkdir(parents=True, exist_ok=True)
     async with session.get(url, auth=auth) as response:
         response.raise_for_status()
