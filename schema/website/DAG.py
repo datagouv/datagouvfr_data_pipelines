@@ -136,6 +136,10 @@ with DAG(
                     f" && git push origin {branch}"
                 ),
             ),
+            BashOperator(
+                task_id="clean_up",
+                bash_command=f"rm -rf {tmp_folder}",
+            ),
         ]
 
     for branch in branches:

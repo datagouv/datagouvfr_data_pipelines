@@ -91,6 +91,11 @@ with DAG(
         python_callable=update_dataset_data_gouv,
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
+
     publish_mattermost_geoloc = PythonOperator(
         task_id="publish_mattermost", python_callable=publish_mattermost_geoloc
     )
@@ -101,4 +106,5 @@ with DAG(
     upload_latest_files_minio.set_upstream(compare_minio_files)
     publish_file_files_data_gouv.set_upstream(upload_latest_files_minio)
     update_dataset_data_gouv.set_upstream(publish_file_files_data_gouv)
-    publish_mattermost_geoloc.set_upstream(update_dataset_data_gouv)
+    clean_up.set_upstream(update_dataset_data_gouv)
+    publish_mattermost_geoloc.set_upstream(clean_up)
