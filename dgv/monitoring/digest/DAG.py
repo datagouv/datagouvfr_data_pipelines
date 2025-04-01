@@ -29,14 +29,14 @@ from datagouvfr_data_pipelines.utils.utils import (
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
 DAG_NAME = "dgv_digests"
-TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_FOLDER + DAG_NAME
+TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
 MINIO_PATH = "dgv/"
 today = datetime.today().strftime('%Y-%m-%d')
 
 
 def get_stats_period(TODAY, period, scope):
     with open(
-        AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{period}/{TODAY}/output/stats.json"
+        TMP_FOLDER + f"digest_{period}/{TODAY}/output/stats.json", "r"
     ) as json_file:
         res = json.load(json_file)
     if scope == "api":
@@ -115,6 +115,12 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
     )
 
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+        trigger_rule="all_done",
+    )
+
     tasks = defaultdict(dict)
     scopes = ["general", "api"]
     freqs = ["daily", "weekly", "monthly", "yearly"]
@@ -129,7 +135,7 @@ with DAG(
                             "digest.ipynb" if scope == "general" else "digest-api.ipynb"
                         ),
                         "output_nb": today + ("" if scope == "general" else "-api") + ".ipynb",
-                        "tmp_path": AIRFLOW_DAG_TMP + DAG_FOLDER + f"digest_{freq}/{today}/",
+                        "tmp_path": TMP_FOLDER + f"digest_{freq}/{today}/",
                         "minio_url": MINIO_URL,
                         "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
                         "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
@@ -138,8 +144,7 @@ with DAG(
                         "parameters": {
                             "WORKING_DIR": AIRFLOW_DAG_HOME,
                             "OUTPUT_DATA_FOLDER": (
-                                AIRFLOW_DAG_TMP
-                                + DAG_FOLDER
+                                TMP_FOLDER
                                 + f"digest_{freq}/{today}/output/"
                             ),
                             "DATE_AIRFLOW": today,
@@ -195,3 +200,7 @@ with DAG(
             if scope != "general":
                 # other scopes need stats.json too
                 tasks[scope][freq][1].set_upstream(tasks["general"][freq][0])
+            if tasks[scope][freq][-1]:
+                clean_up.set_upstream(tasks[scope][freq][-1])
+            else:
+                clean_up.set_upstream(tasks[scope][freq][-2])
