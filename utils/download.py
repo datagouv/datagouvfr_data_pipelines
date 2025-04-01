@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from pathlib import Path
 import aiohttp
 import asyncio
+import logging
 
 if TYPE_CHECKING:
     # to avoid circular imports
