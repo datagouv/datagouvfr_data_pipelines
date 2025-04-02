@@ -36,7 +36,7 @@ today = datetime.today().strftime('%Y-%m-%d')
 
 def get_stats_period(TODAY, period, scope):
     with open(
-        TMP_FOLDER + f"digest_{period}/{TODAY}/output/stats.json", "r"
+        TMP_FOLDER + f"/digest_{period}/{TODAY}/output/stats.json", "r"
     ) as json_file:
         res = json.load(json_file)
     if scope == "api":
@@ -135,7 +135,7 @@ with DAG(
                             "digest.ipynb" if scope == "general" else "digest-api.ipynb"
                         ),
                         "output_nb": today + ("" if scope == "general" else "-api") + ".ipynb",
-                        "tmp_path": TMP_FOLDER + f"digest_{freq}/{today}/",
+                        "tmp_path": TMP_FOLDER + f"/digest_{freq}/{today}/",
                         "minio_url": MINIO_URL,
                         "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
                         "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
@@ -145,7 +145,7 @@ with DAG(
                             "WORKING_DIR": AIRFLOW_DAG_HOME,
                             "OUTPUT_DATA_FOLDER": (
                                 TMP_FOLDER
-                                + f"digest_{freq}/{today}/output/"
+                                + f"/digest_{freq}/{today}/output/"
                             ),
                             "DATE_AIRFLOW": today,
                             "PERIOD_DIGEST": freq,
