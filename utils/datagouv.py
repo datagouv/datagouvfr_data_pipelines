@@ -122,76 +122,105 @@ class BaseObject:
         self._client = _client
 
     def __repr__(self):
-        return self.url
+        return str(self.__dict__)
 
     @simple_connection_retry
-    def get_metadata(self) -> dict:
-        r = self._client.session.get(self.url)
-        r.raise_for_status()
-        return r.json()
+    def refresh(self, _from_response: dict | None = None) -> dict:
+        if _from_response:
+            metadata = _from_response
+        else:
+            r = self._client.session.get(self.uri)
+            r.raise_for_status()
+            metadata = r.json()
+        for a in self._attributes:
+            setattr(self, a, metadata.get(a))
+        return metadata
 
     @simple_connection_retry
     def update_metadata(self, payload: dict) -> requests.Response:
         assert_auth(self._client)
-        logging.info(f"🔁 Putting {self.url} with {payload}")
-        r = self._client.session.put(self.url, json=payload)
+        logging.info(f"🔁 Putting {self.uri} with {payload}")
+        r = self._client.session.put(self.uri, json=payload)
         r.raise_for_status()
+        self.refresh(_from_response=r.json())
         return r
 
     @simple_connection_retry
     def delete(self) -> requests.Response:
         assert_auth(self._client)
-        logging.info(f"🚮 Deleting {self.url}")
-        r = self._client.session.delete(self.url)
+        logging.info(f"🚮 Deleting {self.uri}")
+        r = self._client.session.delete(self.uri)
         r.raise_for_status()
         return r
 
     @simple_connection_retry
     def update_extras(self, payload: dict) -> requests.Response:
         assert_auth(self._client)
-        logging.info(f"🔁 Putting {self.url} with extras {payload}")
-        r = self._client.session.put(self.url + "extras/", json=payload)
+        logging.info(f"🔁 Putting {self.uri} with extras {payload}")
+        r = self._client.session.put(self.uri + "extras/", json=payload)
         r.raise_for_status()
+        self.refresh()
         return r
 
     @simple_connection_retry
     def delete_extras(self, payload: dict) -> requests.Response:
         assert_auth(self._client)
-        logging.info(f"🚮 Deleting extras {payload} for {self.url}")
-        r = self._client.session.delete(self.url + "extras/", json=payload)
+        logging.info(f"🚮 Deleting extras {payload} for {self.uri}")
+        r = self._client.session.delete(self.uri + "extras/", json=payload)
         r.raise_for_status()
+        self.refresh()
         return r
 
 
 class Dataset(BaseObject):
-    def __init__(self, id: str | None = None, _client: Client = Client()):
+    _attributes = [
+        "created_at",
+        "description",
+        "last_modified",
+        "title",
+        "extras",
+    ]
+
+    def __init__(self, id: str | None = None, _client: Client = Client(), _from_response: dict | None = None):
         super().__init__(id, _client)
-        self.url = f"{_client.base_url}/api/1/datasets/{id}/"
-        self.front_url = self.url.replace("api/1", "fr")
+        self.uri = f"{_client.base_url}/api/1/datasets/{id}/"
+        self.front_url = self.uri.replace("api/1", "fr")
+        self.refresh(_from_response=_from_response)
 
     def resources(self):
         return [
-            Resource(id=r["id"], dataset_id=self.id, _client=self._client)
-            for r in self.get_metadata()["resources"]
+            Resource(id=r["id"], dataset_id=self.id, _client=self._client, _from_response=r)
+            for r in self._client.session.get(self.uri).json()["resources"]
         ]
 
 
 class Resource(BaseObject):
+    _attributes = [
+        "created_at",
+        "description",
+        "last_modified",
+        "title",
+        "url",
+        "extras",
+    ]
+
     def __init__(
         self,
         id: str,
         dataset_id: str | None = None,
         is_communautary: bool = False,
+        _from_response: dict | None = None,
         _client: Client = Client(),
     ):
         super().__init__(id, _client)
         self.dataset_id = dataset_id or _client.get_dataset_id(id)
-        self.url = (
+        self.uri = (
             f"{_client.base_url}/api/1/datasets/{self.dataset_id}/resources/{self.id}/"
             if not is_communautary and self.dataset_id is not None
             else f"{_client.base_url}/api/1/datasets/community_resources/{self.id}"
         )
-        self.front_url = self.url.replace("api/1", "fr").replace("/resources", "/#/resources")
+        self.front_url = self.uri.replace("api/1", "fr").replace("/resources", "/#/resources")
+        self.refresh(_from_response=_from_response)
 
     def dataset(self):
         return Dataset(self.dataset_id, _client=self._client)
@@ -229,7 +258,8 @@ class DatasetCreator:
         logging.info(f"Creating dataset '{payload['title']}'")
         r = self._client.session.post(f"{self._client.base_url}/api/1/datasets/", json=payload)
         r.raise_for_status()
-        return Dataset(r.json()["id"], _client=self._client)
+        metadata = r.json()
+        return Dataset(metadata["id"], _client=self._client, _from_response=metadata)
 
 
 class ResourceCreator:
@@ -245,7 +275,7 @@ class ResourceCreator:
         is_communautary: bool = False,
     ) -> Resource:
         if is_communautary:
-            url = f"{self._client.base_url}/api/1/datasets/community_resources"
+            url = f"{self._client.base_url}/api/1/datasets/community_resources/"
             payload["dataset"] = {"class": "Dataset", "id": dataset_id}
         else:
             url = f"{self._client.base_url}/api/1/datasets/{dataset_id}/resources/"
@@ -254,7 +284,8 @@ class ResourceCreator:
             payload.update({"filetype": "remote"})
         r = self._client.session.post(url, json=payload)
         r.raise_for_status()
-        return Resource(r.json()["id"], _client=self._client)
+        metadata = r.json()
+        return Resource(metadata["id"], _client=self._client, _from_response=metadata)
 
     @simple_connection_retry
     def create_static(
@@ -264,11 +295,9 @@ class ResourceCreator:
         payload: dict,
         is_communautary: bool = False,
     ) -> Resource:
+        url = f"{self._client.base_url}/api/1/datasets/{dataset_id}/upload/"
         if is_communautary:
-            url = f"{self._client.base_url}/api/1/datasets/community_resources"
-            payload["dataset"] = {"class": "Dataset", "id": dataset_id}
-        else:
-            url = f"{self._client.base_url}/api/1/datasets/{dataset_id}/upload/"
+            url += "community/"
         r = self._client.session.post(url, files={
             "file": open(
                 f"{file_to_upload['source_path']}{file_to_upload['source_name']}",
@@ -276,10 +305,18 @@ class ResourceCreator:
             )
         })
         r.raise_for_status()
-        resource_id = r.json()['id']
+        metadata = r.json()
+        resource_id = metadata['id']
         logging.info(f"Resource was given this id: {resource_id}")
-        r = Resource(resource_id=resource_id, dataset_id=dataset_id).update_metadata(payload=payload)
-        return Resource(resource_id, _client=self._client)
+        r = Resource(
+            id=resource_id,
+            dataset_id=dataset_id,
+            is_communautary=is_communautary,
+            _client=self._client,
+            _from_response=metadata,
+        )
+        r.update_metadata(payload=payload)
+        return r
 
 
 prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY)
