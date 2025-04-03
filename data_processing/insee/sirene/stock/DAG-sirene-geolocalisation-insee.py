@@ -67,7 +67,7 @@ with DAG(
         templates_dict={
             "minio_latest_path": MINIO_BASE_PATH + "latest/",
             "minio_new_path": MINIO_BASE_PATH + "new/",
-            "resource_file": "resources_to_download.json",
+            "resource_file": "resources_geolocalisation_to_download.json",
         },
         python_callable=move_new_files_to_latest,
     )
