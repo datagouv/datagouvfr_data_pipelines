@@ -116,7 +116,7 @@ def assert_auth(client: Client) -> None:
 
 
 class BaseObject:
-
+    
     def __init__(self, id: str | None = None, _client: Client = Client()):
         self.id = id
         self._client = _client
@@ -157,7 +157,7 @@ class BaseObject:
     def update_extras(self, payload: dict) -> requests.Response:
         assert_auth(self._client)
         logging.info(f"🔁 Putting {self.uri} with extras {payload}")
-        r = self._client.session.put(self.uri + "extras/", json=payload)
+        r = self._client.session.put(self.uri.replace("api/1", "api/2") + "extras/", json=payload)
         r.raise_for_status()
         self.refresh()
         return r
@@ -166,13 +166,13 @@ class BaseObject:
     def delete_extras(self, payload: dict) -> requests.Response:
         assert_auth(self._client)
         logging.info(f"🚮 Deleting extras {payload} for {self.uri}")
-        r = self._client.session.delete(self.uri + "extras/", json=payload)
+        r = self._client.session.delete(self.uri.replace("api/1", "api/2") + "extras/", json=payload)
         r.raise_for_status()
         self.refresh()
         return r
 
 
-class Dataset(BaseObject):
+class Dataset(BaseObject, ResourceCreator):
     _attributes = [
         "created_at",
         "description",
@@ -182,7 +182,7 @@ class Dataset(BaseObject):
     ]
 
     def __init__(self, id: str | None = None, _client: Client = Client(), _from_response: dict | None = None):
-        super().__init__(id, _client)
+        BaseObject.__init__(self, id, _client)
         self.uri = f"{_client.base_url}/api/1/datasets/{id}/"
         self.front_url = self.uri.replace("api/1", "fr")
         self.refresh(_from_response=_from_response)
@@ -270,10 +270,15 @@ class ResourceCreator:
     @simple_connection_retry
     def create_remote(
         self,
-        dataset_id: str,
         payload: dict,
+        dataset_id: str | None = None,
         is_communautary: bool = False,
     ) -> Resource:
+        if not dataset_id:
+            if self.__class__.__name__ == "Dataset":
+                dataset_id = self.id
+            else:
+                raise ValueError("A dataset_id must be specified")
         if is_communautary:
             url = f"{self._client.base_url}/api/1/datasets/community_resources/"
             payload["dataset"] = {"class": "Dataset", "id": dataset_id}
@@ -282,6 +287,8 @@ class ResourceCreator:
         logging.info(f"Creating '{payload['title']}' at {url}")
         if "filetype" not in payload:
             payload.update({"filetype": "remote"})
+        if "type" not in payload:
+            payload.update({"type": "main"})
         r = self._client.session.post(url, json=payload)
         r.raise_for_status()
         metadata = r.json()
@@ -291,10 +298,15 @@ class ResourceCreator:
     def create_static(
         self,
         file_to_upload: File,
-        dataset_id: str,
         payload: dict,
+        dataset_id: str | None = None,
         is_communautary: bool = False,
     ) -> Resource:
+        if not dataset_id:
+            if self.__class__.__name__ == "Dataset":
+                dataset_id = self.id
+            else:
+                raise ValueError("A dataset_id must be specified")
         url = f"{self._client.base_url}/api/1/datasets/{dataset_id}/upload/"
         if is_communautary:
             url += "community/"
@@ -315,6 +327,8 @@ class ResourceCreator:
             _client=self._client,
             _from_response=metadata,
         )
+        if "type" not in payload:
+            payload.update({"type": "main"})
         r.update_metadata(payload=payload)
         return r
 
