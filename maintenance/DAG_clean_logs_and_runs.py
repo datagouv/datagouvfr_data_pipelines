@@ -116,7 +116,7 @@ with DAG(
     default_args=default_args,
     description=f"Delete Airflow logs and runs older than {nb_days_to_keep} days",
     schedule_interval="0 16 2 * *",  # run every 2nd of month at 4:00 PM (UTC)
-    dagrun_timeout=timedelta(minutes=30),
+    dagrun_timeout=timedelta(minutes=120),
     start_date=datetime(2024, 1, 25),
     catchup=False,  # False to ignore past runs
     max_active_runs=1,  # Allow only one execution at a time
