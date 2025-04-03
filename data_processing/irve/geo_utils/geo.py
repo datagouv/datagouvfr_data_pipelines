@@ -295,6 +295,8 @@ def improve_geo_data_quality(
 ) -> None:
     for filepath, cols_dict in file_cols_mapping.items():
         df = pd.read_csv(filepath, dtype="str", na_filter=False, keep_default_na=False)
+        # we load and dump with the same name, so in case of crash we need to remove the newly created columns
+        df = df[[c for c in df.columns if not c.startswith("consolidated_")]]
         schema_cols = list(df.columns)
 
         df = fix_coordinates_order(df, coordinates_column=cols_dict["xy_coords"])
