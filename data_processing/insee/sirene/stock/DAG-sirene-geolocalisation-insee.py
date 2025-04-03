@@ -10,14 +10,14 @@ from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions
     get_files,
     upload_files_minio,
     compare_minio_files,
+    move_new_files_to_latest,
     publish_file_files_data_gouv,
     update_dataset_data_gouv,
-    publish_mattermost_geoloc,
+    publish_mattermost,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene_geolocalisation_insee/"
-MINIO_LATEST = "insee/sirene/sirene_geolocalisation_insee/latest/"
-MINIO_NEW = "insee/sirene/sirene_geolocalisation_insee/new/"
+MINIO_BASE_PATH = "insee/sirene/sirene_geolocalisation_insee/"
 
 with DAG(
     dag_id="data_processing_sirene_geolocalisation",
@@ -46,7 +46,7 @@ with DAG(
         task_id="upload_new_files_minio",
         templates_dict={
             "tmp_dir": TMP_FOLDER,
-            "minio_path": MINIO_NEW,
+            "minio_path": MINIO_BASE_PATH + "new/",
             "resource_file": "resources_geolocalisation_to_download.json",
         },
         python_callable=upload_files_minio,
@@ -55,21 +55,21 @@ with DAG(
     compare_minio_files = ShortCircuitOperator(
         task_id="compare_minio_files",
         templates_dict={
-            "minio_path_new": MINIO_NEW,
-            "minio_path_latest": MINIO_LATEST,
+            "minio_path_new": MINIO_BASE_PATH + "new/",
+            "minio_path_latest": MINIO_BASE_PATH + "latest/",
             "resource_file": "resources_geolocalisation_to_download.json",
         },
         python_callable=compare_minio_files,
     )
 
-    upload_latest_files_minio = PythonOperator(
-        task_id="upload_latest_files_minio",
+    move_new_files_to_latest = PythonOperator(
+        task_id="move_new_files_to_latest",
         templates_dict={
-            "tmp_dir": TMP_FOLDER,
-            "minio_path": MINIO_LATEST,
+            "minio_latest_path": MINIO_BASE_PATH + "latest/",
+            "minio_new_path": MINIO_BASE_PATH + "new/",
             "resource_file": "resources_geolocalisation_to_download.json",
         },
-        python_callable=upload_files_minio,
+        python_callable=move_new_files_to_latest,
     )
 
     publish_file_files_data_gouv = PythonOperator(
@@ -97,14 +97,16 @@ with DAG(
     )
 
     publish_mattermost_geoloc = PythonOperator(
-        task_id="publish_mattermost", python_callable=publish_mattermost_geoloc
+        task_id="publish_mattermost",
+        python_callable=publish_mattermost,
+        op_kwargs={"geoloc": True},
     )
 
     get_files.set_upstream(clean_previous_outputs)
     upload_new_files_minio.set_upstream(get_files)
     compare_minio_files.set_upstream(upload_new_files_minio)
-    upload_latest_files_minio.set_upstream(compare_minio_files)
-    publish_file_files_data_gouv.set_upstream(upload_latest_files_minio)
+    move_new_files_to_latest.set_upstream(compare_minio_files)
+    publish_file_files_data_gouv.set_upstream(move_new_files_to_latest)
     update_dataset_data_gouv.set_upstream(publish_file_files_data_gouv)
     clean_up.set_upstream(update_dataset_data_gouv)
     publish_mattermost_geoloc.set_upstream(clean_up)
