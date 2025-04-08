@@ -100,6 +100,7 @@ with DAG(
     clean_up = BashOperator(
         task_id="clean_up",
         bash_command=f"rm -rf {TMP_FOLDER}",
+        trigger_rule="none_failed",
     )
 
     get_files.set_upstream(clean_previous_outputs)

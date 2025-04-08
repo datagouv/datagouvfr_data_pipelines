@@ -56,6 +56,7 @@ def calculate_quality_score(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': ''
     }
@@ -146,6 +147,7 @@ def calculate_time_for_legitimate_answer(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': 'les délais sont écrétés à 30 jours'
     }
@@ -201,6 +203,7 @@ def get_quality_reuses(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': ''
     }
@@ -255,6 +258,7 @@ def get_discoverability(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': ''
     }
