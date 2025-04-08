@@ -118,7 +118,7 @@ with DAG(
     clean_up = BashOperator(
         task_id="clean_up",
         bash_command=f"rm -rf {TMP_FOLDER}",
-        trigger_rule="all_done",
+        trigger_rule="none_failed",
     )
 
     tasks = defaultdict(dict)
