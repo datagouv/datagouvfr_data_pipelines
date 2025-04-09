@@ -5,6 +5,8 @@ from datetime import datetime
 import logging
 import re
 
+from datagouv import Client
+
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry
 from datagouvfr_data_pipelines.config import (
@@ -24,55 +26,55 @@ VALIDATA_BASE_URL = "https://api.validata.etalab.studio/"
 DATAGOUV_MATOMO_ID = 109
 
 SPAM_WORDS = [
-    'free',
-    'gratuit',
-    'allah',
-    'jesus'
-    'call',
-    'promo',
-    'argent',
-    'reduction',
-    'economisez',
-    'urgent',
-    'recompense',
-    'discount',
-    'money',
-    'gagner',
-    'libido',
-    'sex',
-    'viagra',
-    'bitcoin',
-    'cash',
-    'satisfied',
-    'miracle',
-    'weight loss',
-    'voyance',
-    'streaming',
-    'benefits',
-    'escort',
-    'kbis',
-    'hack',
-    'fuck',
-    'macron',
-    'acte de',
-    'siret',
-    'casier judiciaire',
-    'officiel',
-    'annuaire',
-    'carte grise',
-    'passeport',
-    'administratif',
-    "repertoire d'entreprises",
-    'documents professionnels',
-    'immatriculation',
-    'greffe',
-    'juridique',
-    'seo',
-    'demarche',
-    'B2B',
-    'documents legaux',
-    'entrepreneur',
-    'visa',
+    "free",
+    "gratuit",
+    "allah",
+    "jesus"
+    "call",
+    "promo",
+    "argent",
+    "reduction",
+    "economisez",
+    "urgent",
+    "recompense",
+    "discount",
+    "money",
+    "gagner",
+    "libido",
+    "sex",
+    "viagra",
+    "bitcoin",
+    "cash",
+    "satisfied",
+    "miracle",
+    "weight loss",
+    "voyance",
+    "streaming",
+    "benefits",
+    "escort",
+    "kbis",
+    "hack",
+    "fuck",
+    "macron",
+    "acte de",
+    "siret",
+    "casier judiciaire",
+    "officiel",
+    "annuaire",
+    "carte grise",
+    "passeport",
+    "administratif",
+    "repertoire d"entreprises",
+    "documents professionnels",
+    "immatriculation",
+    "greffe",
+    "juridique",
+    "seo",
+    "demarche",
+    "B2B",
+    "documents legaux",
+    "entrepreneur",
+    "visa",
 ]
 
 datagouv_session = requests.Session()
@@ -137,7 +139,7 @@ def post_resource(
     r = datagouv_session.post(url, files=files)
     r.raise_for_status()
     if not resource_id:
-        resource_id = r.json()['id']
+        resource_id = r.json()["id"]
         logging.info(f"Resource was given this id: {resource_id}")
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and payload:
@@ -262,7 +264,7 @@ def get_dataset_from_resource_id(
     url = f"{DATAGOUV_URL}/api/2/datasets/resources/{resource_id}/"
     r = datagouv_session.get(url)
     r.raise_for_status()
-    return r.json()['dataset_id']
+    return r.json()["dataset_id"]
 
 
 @simple_connection_retry
@@ -380,11 +382,11 @@ def create_post(
     r = datagouv_session.post(
         f"{DATAGOUV_URL}/api/1/posts/",
         json={
-            'name': name,
-            'headline': headline,
-            'content': content,
-            'body_type': body_type,
-            'tags': tags
+            "name": name,
+            "headline": headline,
+            "content": content,
+            "body_type": body_type,
+            "tags": tags
         },
     )
     assert r.status_code == 201
@@ -393,7 +395,7 @@ def create_post(
 
 def get_created_date(data: dict, date_key: str) -> datetime:
     # Helper to get created date based on a date_key that could be nested, using . as a separator
-    for key in date_key.split('.'):
+    for key in date_key.split("."):
         data = data.get(key)
     created = dateutil.parser.parse(data)
     return created
@@ -404,8 +406,8 @@ def get_last_items(
     endpoint: str,
     start_date: datetime,
     end_date=None,
-    date_key='created_at',
-    sort_key='-created',
+    date_key="created_at",
+    sort_key="-created",
 ) -> list:
     results = []
     data = get_all_from_api_query(
@@ -434,21 +436,21 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
         "https://www.data.gouv.fr/api/1/discussions/?sort=-discussion.posted_on"
     )
     for d in data:
-        latest_comment = datetime.fromisoformat(d['discussion'][-1]['posted_on'])
+        latest_comment = datetime.fromisoformat(d["discussion"][-1]["posted_on"])
         if latest_comment.timestamp() < start_date.timestamp():
             break
         # going up from the latest comment
-        for comment in d['discussion'][::-1]:
-            posted_ts = datetime.fromisoformat(comment['posted_on']).timestamp()
+        for comment in d["discussion"][::-1]:
+            posted_ts = datetime.fromisoformat(comment["posted_on"]).timestamp()
             if end_date and posted_ts > end_date.timestamp():
                 continue
             elif posted_ts < start_date.timestamp():
                 break
             results.append({
                 "comment_id": f"{d['id']}|{comment['posted_on']}",
-                "discussion_subject": d['subject'],
-                "discussion_title": d['title'],
-                "discussion_created": d['created'],
+                "discussion_subject": d["subject"],
+                "discussion_title": d["title"],
+                "discussion_created": d["created"],
                 "comment": comment,
             })
     return results
@@ -495,7 +497,7 @@ def post_remote_communautary_resource(
 
 def get_all_from_api_query(
     base_query: str,
-    next_page: str = 'next_page',
+    next_page: str = "next_page",
     ignore_errors: bool = False,
     mask: str | None = None,
     auth: bool = False,
@@ -503,7 +505,7 @@ def get_all_from_api_query(
     """/!\ only for paginated endpoints"""
     def get_link_next_page(elem: dict, separated_keys: str):
         result = elem
-        for k in separated_keys.split('.'):
+        for k in separated_keys.split("."):
             result = result[k]
         return result
     # certain endpoints require authentification but otherwise we're not using it
@@ -522,7 +524,7 @@ def get_all_from_api_query(
         r = RequestRetry.get(get_link_next_page(r.json(), next_page), headers=headers)
         if not ignore_errors:
             r.raise_for_status()
-        for data in r.json()['data']:
+        for data in r.json()["data"]:
             yield data
 
 
@@ -551,7 +553,7 @@ def get_awaiting_spam_comments() -> dict:
 
 @simple_connection_retry
 def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
-    duplicate_slug_pattern = r'-\d+$'
+    duplicate_slug_pattern = r"-\d+$"
     if re.search(duplicate_slug_pattern, slug) is not None:
         suffix = re.findall(duplicate_slug_pattern, slug)[0]
         original_orga = slug[:-len(suffix)]
@@ -576,7 +578,7 @@ def check_if_recent_update(
     resources = datagouv_session.get(
         f"https://{prefix}.data.gouv.fr/api/1/datasets/{dataset_id}/",
         headers={"X-fields": "resources{internal{last_modified_internal}}"}
-    ).json()['resources']
+    ).json()["resources"]
     latest_update = datagouv_session.get(
         f"https://{prefix}.data.gouv.fr/api/2/datasets/resources/{reference_resource_id}/",
         headers={"X-fields": "resource{internal{last_modified_internal}}"}
