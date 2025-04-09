@@ -73,6 +73,9 @@ def scan_pnt_files(ti):
             headers={'X-fields': 'resources{id,url,title}'},
         ).json()['resources']
         for r in resources:
+            if "MFWAM/05" in r['url']:
+                # MFWAM 0.5 is deprecated since April 2025
+                continue
             if 'object.data.gouv.fr' in r['url']:
                 ts, pq = get_timeslot_and_paquet(r['url'])
                 if ts < threshold:
