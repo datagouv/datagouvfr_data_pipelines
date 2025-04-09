@@ -21,7 +21,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_URL,
     ORGA_REFERENCE,
     VALIDATA_BASE_URL,
-    create_dataset,
+    local_client,
     get_all_from_api_query,
     post_resource,
     update_dataset_or_resource_extras,
@@ -943,7 +943,7 @@ def create_schema_consolidation_dataset(
 
     schema_title = get_schema_dict(schema_name, schemas_catalogue_list)["title"]
 
-    response = create_dataset(
+    dataset = local_client.dataset().create(
         payload={
             "title": datasets_title_template.format(schema_title=schema_title),
             "description": datasets_description_template.format(schema_name=schema_name),
@@ -952,7 +952,7 @@ def create_schema_consolidation_dataset(
         },
     )
 
-    return response
+    return dataset
 
 
 # Generic function to update a field (key) in the config file
@@ -1168,11 +1168,11 @@ def upload_consolidated(
         schema_config = config_dict[schema_name]
         if schema_config.get("publication"):
             if "consolidated_dataset_id" not in schema_config.keys():
-                response = create_schema_consolidation_dataset(
+                dataset = create_schema_consolidation_dataset(
                     schema_name,
                     schemas_catalogue_list,
                 )
-                consolidated_dataset_id = response["id"]
+                consolidated_dataset_id = dataset.id
                 update_config_file(
                     schema_name,
                     "consolidated_dataset_id",

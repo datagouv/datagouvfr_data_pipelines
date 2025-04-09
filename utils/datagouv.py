@@ -77,27 +77,12 @@ SPAM_WORDS = [
     "visa",
 ]
 
+prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY)
+demo_client = Client(environment="demo", api_key=DEMO_DATAGOUV_SECRET_API_KEY)
+local_client = prod_client if AIRFLOW_ENV == "prod" else demo_client
+
 datagouv_session = requests.Session()
 datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
-
-
-@simple_connection_retry
-def create_dataset(
-    payload: dict,
-) -> dict:
-    """Create a dataset in data.gouv.fr
-
-    Args:
-        payload: payload for dataset containing at minimum title
-
-    Returns:
-        json: return API result in a dictionnary
-    """
-    r = datagouv_session.post(
-        f"{DATAGOUV_URL}/api/1/datasets/", json=payload
-    )
-    r.raise_for_status()
-    return r.json()
 
 
 @simple_connection_retry
