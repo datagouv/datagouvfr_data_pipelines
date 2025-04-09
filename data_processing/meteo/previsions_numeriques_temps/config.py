@@ -83,14 +83,14 @@ PACKAGES = {
                 "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.1/packages/SP1",
                 "packages": [SP1_MFWAM],
             },
-            "0.5": {
-                "dataset_id": {
-                    "dev": "65b68c841a2bd22881b8e488",
-                    "prod": "65bd19fe0d61026813636c33",
-                },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.5/packages/SP1",
-                "packages": [SP1_MFWAM],
-            },
+            # "0.5": {
+            #     "dataset_id": {
+            #         "dev": "65b68c841a2bd22881b8e488",
+            #         "prod": "65bd19fe0d61026813636c33",
+            #     },
+            #     "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.5/packages/SP1",
+            #     "packages": [SP1_MFWAM],
+            # },
             "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids",
             "product": "productMFWAM",
             "extension": "grib2",
