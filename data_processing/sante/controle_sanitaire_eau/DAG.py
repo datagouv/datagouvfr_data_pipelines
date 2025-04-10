@@ -52,6 +52,7 @@ with DAG(
     process_data = PythonOperator(
         task_id='process_data',
         python_callable=process_data,
+        pool_slots=16,
     )
 
     type_tasks = {}
