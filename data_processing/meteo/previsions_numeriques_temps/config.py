@@ -323,6 +323,7 @@ PACKAGES = {
                     Package(name="IP4", **{"time": ARPEGE025_TIME}),
                     Package(name="SP1", **{"time": ARPEGE025_TIME}),
                     Package(name="SP2", **{"time": ARPEGE025_TIME}),
+                    Package(name="SP3", **{"time": ARPEGE025_TIME}),
                     Package(name="HP1", **{"time": ARPEGE025_TIME}),
                     Package(name="HP2", **{"time": ARPEGE025_TIME}),
                 ],
