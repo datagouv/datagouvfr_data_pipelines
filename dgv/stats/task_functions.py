@@ -10,7 +10,6 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_MATOMO_ID,
-    DATAGOUV_URL,
     local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -25,7 +24,7 @@ yesterday = datetime.today() - timedelta(days=1)
 
 def get_current_resources():
     resources = requests.get(
-        f"{DATAGOUV_URL}/api/1/datasets/{config[AIRFLOW_ENV]['dataset_id']}/",
+        f"{local_client.base_url}/api/1/datasets/{config[AIRFLOW_ENV]['dataset_id']}/",
         headers={"X-fields": "resources{id,title}"},
     ).json()["resources"]
     return resources

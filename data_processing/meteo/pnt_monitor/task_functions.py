@@ -14,13 +14,11 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_PNT_PASSWORD,
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
-    DATAGOUV_SECRET_API_KEY,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
-api_url = "https://www.data.gouv.fr/api/1/"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 minio_pnt = MinIOClient(
     bucket=MINIO_BUCKET_PNT,
@@ -59,7 +57,7 @@ def threshold_in_the_past(nb_batches_behind=3):
 def scan_pnt_files(ti):
     threshold = threshold_in_the_past()
     pnt_datasets = requests.get(
-        api_url + 'topics/65e0c82c2da27c1dff5fa66f/',
+        "https://www.data.gouv.fr/api/1/topics/65e0c82c2da27c1dff5fa66f/",
         headers={'X-fields': 'datasets{id,title}'},
     ).json()['datasets']
 
@@ -69,7 +67,7 @@ def scan_pnt_files(ti):
     for d in pnt_datasets:
         print(d)
         resources = requests.get(
-            api_url + f'datasets/{d["id"]}/',
+            f"https://www.data.gouv.fr/api/1/datasets/{d["id"]}/",
             headers={'X-fields': 'resources{id,url,title}'},
         ).json()['resources']
         for r in resources:
@@ -210,35 +208,22 @@ def dump_and_send_tree() -> None:
     with open('./pnt_tree.json', 'w') as f:
         json.dump(tree, f)
 
-    files = {"file": open("./pnt_tree.json", "rb",)}
-    url = (
-        f"{DATAGOUV_URL}/api/1/datasets/66d02b7174375550d7b10f3f/"
-        "resources/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb/upload/"
+    local_client.resource(
+        id="ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb",
+        dataset_id="66d02b7174375550d7b10f3f",
+    ).update(
+        file_to_upload="./pnt_tree.json",
+        payload={"title": "Arborescence des dossiers sur le dépôt"}
     )
-    r = requests.post(
-        url,
-        files=files,
-        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
-    )
-    r.raise_for_status()
-    r = requests.put(
-        url.replace("upload/", ""),
-        json={"title": "Arborescence des dossiers sur le dépôt"},
-        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
-    )
-    r.raise_for_status()
-    r = requests.put(
-        f"{DATAGOUV_URL}/api/1/datasets/66d02b7174375550d7b10f3f/",
-        json={
+    local_client.dataset("66d02b7174375550d7b10f3f").update(
+        payload={
             "temporal_coverage": {
                 "start": oldest + ".000000+00:00",
                 "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             },
             "tags": ["hvd", "meteorologiques"],
         },
-        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
     )
-    r.raise_for_status()
 
 
 def consolidate_logs():

@@ -18,7 +18,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.datagouv import local_client, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -1133,6 +1133,6 @@ def notification_mattermost(ti) -> None:
         f"Stats DVF générées :"
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({DATAGOUV_URL}/fr/datasets/{dataset_id})"
+        f"({local_client.base_url}/fr/datasets/{dataset_id})"
         f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
     )

@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.datagouv import local_client, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
@@ -256,5 +256,5 @@ def post_geozones():
 
 def notification_mattermost():
     message = "Données Géozones mises à jours [ici]"
-    message += f"({DATAGOUV_URL}/fr/datasets/{dataset_id})"
+    message += f"({local_client.base_url}/fr/datasets/{dataset_id})"
     send_message(message)

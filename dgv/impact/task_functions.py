@@ -6,6 +6,7 @@ import numpy as np
 import requests
 import json
 from io import StringIO
+from datagouv import Client
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -66,7 +67,7 @@ def calculate_time_for_legitimate_answer(ti):
     ).json()
     datagouv_team = [m['user']['id'] for m in datagouv_team['members']]
 
-    discussions = local_client.get_all_from_api_query(
+    discussions = Client().get_all_from_api_query(
         "api/1/discussions/?sort=-created",
         mask='data{created,subject,discussion}'
     )

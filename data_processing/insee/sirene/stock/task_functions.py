@@ -7,7 +7,7 @@ from airflow.providers.sftp.operators.sftp import SFTPOperator
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from datagouvfr_data_pipelines.config import (
@@ -149,17 +149,16 @@ def update_dataset_data_gouv(**kwargs):
         data = json.load(json_file)
     logging.info(data)
     for d in data:
-        obj = {
-            "title": (
-                f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
-                f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
-            ),
-        }
-
-        update_dataset_or_resource_metadata(
-            payload=obj,
+        local_client.resource(
             dataset_id=d["dataset_id"],
-            resource_id=d["resource_id"],
+            id=d["resource_id"],
+        ).update(
+            payload={
+                "title": (
+                    f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
+                    f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
+                ),
+            },
         )
 
 

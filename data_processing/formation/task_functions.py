@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
@@ -22,7 +22,7 @@ def download_latest_data(ti):
     download_files(
         list_urls=[
             File(
-                url=f"{DATAGOUV_URL}/fr/datasets/r/{config['resource_id']}",
+                url=f"{local_client.base_url}/fr/datasets/r/{config['resource_id']}",
                 dest_path=f"{AIRFLOW_DAG_TMP}formation/",
                 dest_name=f"{config['name']}.csv",
             )
