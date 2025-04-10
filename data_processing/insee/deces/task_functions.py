@@ -15,10 +15,7 @@ from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    update_dataset_or_resource_metadata,
-    check_if_recent_update,
-    DATAGOUV_URL,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
@@ -30,11 +27,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
 
 
 def check_if_modif():
-    return check_if_recent_update(
-        reference_resource_id=config["deces_csv"][AIRFLOW_ENV]["resource_id"],
-        dataset_id="5de8f397634f4164071119c5",
-        on_demo=AIRFLOW_ENV == "dev",
-    )
+    return local_client.resource(
+        id=config["deces_csv"][AIRFLOW_ENV]["resource_id"],
+    ).check_if_more_recent_update(dataset_id="5de8f397634f4164071119c5")
 
 
 def clean_period(file_name):
@@ -199,9 +194,10 @@ def publish_on_datagouv(ti):
     min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
     max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
     for _ext in ["csv", "parquet"]:
-        post_remote_resource(
+        local_client.resource(
+            id=config[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
             dataset_id=config[f"deces_{_ext}"][AIRFLOW_ENV]["dataset_id"],
-            resource_id=config[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
+        ).update(
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -220,14 +216,13 @@ def publish_on_datagouv(ti):
             },
         )
     min_iso, max_iso = build_temporal_coverage(min_date, max_date)
-    update_dataset_or_resource_metadata(
+    local_client.dataset(config["deces_csv"][AIRFLOW_ENV]["dataset_id"]).update(
         payload={
             "temporal_coverage": {
                 "start": min_iso,
                 "end": max_iso,
             },
         },
-        dataset_id=config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
     )
 
 
@@ -237,5 +232,5 @@ def notification_mattermost():
         f"Données décès agrégées :"
         f"\n- uploadées sur Minio"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({DATAGOUV_URL}/fr/datasets/{dataset_id}/)"
+        f"({local_client.base_url}/fr/datasets/{dataset_id}/)"
     )

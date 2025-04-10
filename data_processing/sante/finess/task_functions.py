@@ -13,11 +13,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    check_if_recent_update,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -34,10 +30,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
 
 
 def check_if_modif():
-    return check_if_recent_update(
-        reference_resource_id=config["csv"]["prod"]["resource_id"],
-        dataset_id="53699569a3a729239d2046eb",
-    )
+    return local_client.resource(
+        id=config["csv"]["prod"]["resource_id"]
+    ).check_if_more_recent_update(dataset_id="53699569a3a729239d2046eb")
 
 
 def get_finess_columns(ti):
@@ -214,9 +209,10 @@ def send_to_minio():
 def publish_on_datagouv():
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv", "parquet"]:
-        post_remote_resource(
+        local_client.resource(
             dataset_id=config[ext][AIRFLOW_ENV]["dataset_id"],
-            resource_id=config[ext][AIRFLOW_ENV]["resource_id"],
+            id=config[ext][AIRFLOW_ENV]["resource_id"],
+        ).update(
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -230,7 +226,7 @@ def publish_on_datagouv():
                 "description": (
                     f"Finess des établissements géolocalisés (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({DATAGOUV_URL}/fr/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f"({local_client.base_url}/fr/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
                     f" (dernière mise à jour le {date})"
                 ),
             },
@@ -243,6 +239,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données Finess mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id}/)"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id}/)"
         )
     )

@@ -86,52 +86,6 @@ datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
 
 
 @simple_connection_retry
-def post_remote_resource(
-    dataset_id: str,
-    payload: dict,
-    resource_id: str | None = None,
-    on_demo: bool = False,
-) -> dict:
-    """Create a post in data.gouv.fr
-
-    Args:
-        dataset_id: id of the dataset
-        payload: payload of metadata
-        resource_id: resource id (if modifying an existing resource)
-        on_demo: force publication on demo
-
-    Returns:
-       json: return API result in a dictionnary containing metadatas
-    """
-    if on_demo or AIRFLOW_ENV == "dev":
-        datagouv_url = "https://demo.data.gouv.fr"
-        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
-    else:
-        datagouv_url = DATAGOUV_URL
-
-    if resource_id:
-        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
-        logging.info(f"Putting '{payload['title']}' at {url}")
-        r = update_dataset_or_resource_metadata(
-            payload=payload,
-            dataset_id=dataset_id,
-            resource_id=resource_id,
-            on_demo=on_demo,
-        )
-    else:
-        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
-        logging.info(f"Posting '{payload['title']}' at {url}")
-        if "filetype" not in payload:
-            payload.update({"filetype": "remote"})
-        r = datagouv_session.post(
-            url,
-            json=payload,
-        )
-    r.raise_for_status()
-    return r.json()
-
-
-@simple_connection_retry
 def delete_dataset_or_resource(
     dataset_id: str,
     resource_id: str | None = None,
@@ -387,45 +341,6 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
                 "comment": comment,
             })
     return results
-
-
-@simple_connection_retry
-def post_remote_communautary_resource(
-    dataset_id: str,
-    payload: dict,
-    resource_id: str | None = None,
-) -> dict:
-    """Post a remote communautary resource on data.gouv.fr
-
-    Args:
-        dataset_id: id of the dataset
-        payload: payload of metadata
-        resource_id: id of the resource to modify if the resource already exists
-    Returns:
-       json: return API result in a dictionnary containing metadatas
-    """
-    community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
-    dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
-
-    logging.info(f"Payload content:\n{payload}")
-    if resource_id:
-        logging.info(f"Updating resource at {dataset_link} from {payload['url']}")
-        # Update resource
-        refined_url = community_resource_url + f"/{resource_id}"
-        r = datagouv_session.put(
-            refined_url,
-            json=payload,
-        )
-
-    else:
-        logging.info(f"Creating resource at {dataset_link} from {payload['url']}")
-        # Create resource
-        r = datagouv_session.post(
-            community_resource_url,
-            json=payload,
-        )
-    r.raise_for_status()
-    return r.json()
 
 
 def get_all_from_api_query(

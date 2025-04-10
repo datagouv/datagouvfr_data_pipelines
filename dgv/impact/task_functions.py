@@ -17,12 +17,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-    post_remote_resource,
-    update_dataset_or_resource_metadata,
-    DATAGOUV_URL
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"
@@ -71,8 +66,8 @@ def calculate_time_for_legitimate_answer(ti):
     ).json()
     datagouv_team = [m['user']['id'] for m in datagouv_team['members']]
 
-    discussions = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/discussions/?sort=-created",
+    discussions = local_client.get_all_from_api_query(
+        "api/1/discussions/?sort=-created",
         mask='data{created,subject,discussion}'
     )
     end_date = datetime.today().strftime("%Y-%m-%d")
@@ -313,9 +308,10 @@ def send_stats_to_minio():
 def publish_datagouv(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
         data = json.load(fp)
-    post_remote_resource(
+    local_client.resource(
         dataset_id=data[AIRFLOW_ENV]['dataset_id'],
-        resource_id=data[AIRFLOW_ENV]['resource_id'],
+        id=data[AIRFLOW_ENV]['resource_id'],
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
@@ -327,12 +323,11 @@ def publish_datagouv(DAG_FOLDER):
             "description": f"Dernière modification : {datetime.today()})",
         },
     )
-    update_dataset_or_resource_metadata(
+    local_client.dataset(id=data[AIRFLOW_ENV]['dataset_id']).update(
         payload={"temporal_coverage": {
             "start": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         }},
-        dataset_id=data[AIRFLOW_ENV]['dataset_id']
     )
 
 
@@ -345,7 +340,7 @@ def send_notification_mattermost(DAG_FOLDER):
             f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
             f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
             f"/{AIRFLOW_ENV}/dgv/impact)\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/"
             f"datasets/{data[AIRFLOW_ENV]['dataset_id']})"
         )
     )

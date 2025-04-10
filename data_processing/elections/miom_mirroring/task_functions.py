@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
+    demo_client,
 )
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
@@ -309,9 +309,10 @@ def publish_results_elections(ti):
         if d["filename"]:
             filesize = os.path.getsize(os.path.join(DATADIR, d["filename"]))
 
-        post_remote_resource(
+        demo_client.resource(
+            id=d[AIRFLOW_ENV]["resource_id"],
             dataset_id=d[AIRFLOW_ENV]["dataset_id"],
-            resource_id=d[AIRFLOW_ENV]["resource_id"],
+        ).update(
             payload={
                 "url": d['url'],
                 "filesize": filesize,
@@ -319,7 +320,6 @@ def publish_results_elections(ti):
                 "format": d['format'],
                 "description": "",
             },
-            on_demo=True,
         )
 
 

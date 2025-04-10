@@ -7,7 +7,6 @@ from io import BytesIO
 from urllib.parse import quote_plus, urlencode
 
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )

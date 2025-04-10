@@ -15,11 +15,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MINIO_METEO_PE_USER,
     SECRET_MINIO_METEO_PE_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    delete_dataset_or_resource,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
@@ -187,7 +183,7 @@ def build_file_id_and_date(file_name: str):
 def get_current_resources(pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
-        f"{DATAGOUV_URL}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{local_client.base_url}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={"X-fields": "resources{id,url,type}"},
     ).json()["resources"]:
         if r["type"] != "main":
@@ -228,7 +224,7 @@ def publish_on_datagouv(pack: str, grid: str):
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
-            post_remote_resource(
+            local_client.resource().create_remote(
                 dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
                 payload={
                     "url": infos["url"],
@@ -241,9 +237,10 @@ def publish_on_datagouv(pack: str, grid: str):
         elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
-            post_remote_resource(
+            local_client.resource(
                 dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
-                resource_id=current_resources[file_id]["resource_id"],
+                id=current_resources[file_id]["resource_id"],
+            ).update(
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
@@ -316,10 +313,10 @@ def handle_cyclonic_alert(pack: str, grid: str):
             echeance = int(echeance.replace(":", ""))
             if echeance > 4800:
                 logging.info(f"Deleting {file_id}")
-                delete_dataset_or_resource(
+                local_client.resource(
                     dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
-                    resource_id=infos["resource_id"],
-                )
+                    id=infos["resource_id"],
+                ).delete()
 
 
 def clean_directory():

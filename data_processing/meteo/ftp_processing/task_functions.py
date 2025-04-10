@@ -13,11 +13,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_URL,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    update_dataset_or_resource_metadata,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -69,7 +65,7 @@ def get_resource_lists() -> dict:
                 "id": r["id"],
                 "last_modified": datetime.fromisoformat(r["internal"]["last_modified_internal"]),
             } for r in requests.get(
-                f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
+                f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
                 headers={"X-fields": "resources{id,url,internal{last_modified_internal}}"}
             ).json()["resources"]
         }
@@ -379,7 +375,7 @@ def upload_new_files(ti) -> None:
             file_with_ext
         )
         try:
-            post_remote_resource(
+            local_client.resource().create_remote(
                 dataset_id=config[global_path]["dataset_id"][AIRFLOW_ENV],
                 payload={
                     "url": url,
@@ -426,12 +422,13 @@ def handle_updated_files_same_name(ti) -> None:
             print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
             # new_files.append(file_path)
             continue
-        update_dataset_or_resource_metadata(
+        local_client.resource(
+            id=resources_lists[global_path][url]["id"],
+            dataset_id=config[global_path]['dataset_id'][AIRFLOW_ENV],
+        ).update(
             payload={
                 "filesize": minio_files[minio_folder + file_path],
             },
-            dataset_id=config[global_path]['dataset_id'][AIRFLOW_ENV],
-            resource_id=resources_lists[global_path][url]["id"],
         )
         raise_if_duplicates(idx)
         updated_datasets.add(global_path)
@@ -464,15 +461,16 @@ def handle_updated_files_new_name(ti) -> None:
             print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
             new_files.append(file_path)
             continue
-        update_dataset_or_resource_metadata(
+        local_client.resource(
+            id=resources_lists[global_path][old_url]["id"],
+            dataset_id=config[global_path]["dataset_id"][AIRFLOW_ENV],
+        ).update(
             payload={
                 "url": url,
                 "title": resource_name if not is_doc else file_with_ext,
                 "description": description,
                 "filesize": minio_files[minio_folder + file_path],
             },
-            dataset_id=config[global_path]["dataset_id"][AIRFLOW_ENV],
-            resource_id=resources_lists[global_path][old_url]["id"],
         )
         raise_if_duplicates(idx)
         updated_datasets.add(global_path)
@@ -498,9 +496,9 @@ def update_temporal_coverages(ti) -> None:
         if path in period_starts:
             # for now the tags are erased when touching the metadata so we save them and put them back
             tags = requests.get(
-                f"{DATAGOUV_URL}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
+                f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
             ).json()["tags"]
-            update_dataset_or_resource_metadata(
+            local_client.dataset(config[path]["dataset_id"][AIRFLOW_ENV]).update(
                 payload={
                     "temporal_coverage": {
                         "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
@@ -508,7 +506,6 @@ def update_temporal_coverages(ti) -> None:
                     },
                     "tags": tags,
                 },
-                dataset_id=config[path]["dataset_id"][AIRFLOW_ENV]
             )
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
 
@@ -596,7 +593,7 @@ def notification_mattermost(ti) -> None:
         for path in updated_datasets:
             if path in config:
                 message += f"\n- [{path}]"
-                message += f"({DATAGOUV_URL}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
+                message += f"({local_client.base_url}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
                 if path in new_files_datasets:
                     message += "nouvelles données :new:"
                 else:
@@ -612,7 +609,7 @@ def notification_mattermost(ti) -> None:
         paths[config[path]['dataset_id'][AIRFLOW_ENV]] = path
     for dataset_id in allowed_patterns:
         resources = requests.get(
-            f'{DATAGOUV_URL}/api/1/datasets/{dataset_id}/',
+            f'{local_client.base_url}/api/1/datasets/{dataset_id}/',
             headers={'X-fields': 'resources{title,id,type}'}
         ).json()['resources']
         for r in resources:
@@ -630,11 +627,11 @@ def notification_mattermost(ti) -> None:
         for dataset_id in issues:
             message += (
                 f"- [{paths[dataset_id]}]"
-                f"({DATAGOUV_URL}/fr/datasets/{dataset_id}/) :\n"
+                f"({local_client.base_url}/fr/datasets/{dataset_id}/) :\n"
             )
             for rid in issues[dataset_id]:
                 message += (
-                    f"   - [{issues[dataset_id][rid]}]({DATAGOUV_URL}/fr/datasets/"
+                    f"   - [{issues[dataset_id][rid]}]({local_client.base_url}/fr/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)
