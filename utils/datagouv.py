@@ -86,58 +86,6 @@ datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
 
 
 @simple_connection_retry
-def post_resource(
-    file_to_upload: File,
-    dataset_id: str,
-    resource_id: str | None = None,
-    payload: dict | None = None,
-    on_demo: bool = False,
-) -> requests.Response:
-    """Upload a resource in data.gouv.fr
-
-    Args:
-        file_to_upload: Dictionnary containing `source_path` and `source_name` where resource to upload is stored
-        dataset_id: ID of the dataset where to store resource
-        resource_id: ID of the resource where to upload file. If it is a new resource, leave it to None
-        payload: payload to update the resource's metadata (if resource_id is specified)
-        on_demo: force publication on demo
-
-    Returns:
-        json: return API result in a dictionnary
-    """
-    if on_demo or AIRFLOW_ENV == "dev":
-        datagouv_url = "https://demo.data.gouv.fr"
-        datagouv_session.headers.update({"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY})
-    else:
-        datagouv_url = DATAGOUV_URL
-
-    files = {
-        "file": open(
-            f"{file_to_upload['source_path']}{file_to_upload['source_name']}",
-            "rb",
-        )
-    }
-    if resource_id:
-        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
-    else:
-        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/upload/"
-    r = datagouv_session.post(url, files=files)
-    r.raise_for_status()
-    if not resource_id:
-        resource_id = r.json()["id"]
-        logging.info(f"Resource was given this id: {resource_id}")
-        url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
-    if resource_id and payload:
-        r = update_dataset_or_resource_metadata(
-            payload=payload,
-            dataset_id=dataset_id,
-            resource_id=resource_id,
-            on_demo=on_demo,
-        )
-    return r
-
-
-@simple_connection_retry
 def post_remote_resource(
     dataset_id: str,
     payload: dict,

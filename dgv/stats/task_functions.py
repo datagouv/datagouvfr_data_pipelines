@@ -11,13 +11,13 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_MATOMO_ID,
     DATAGOUV_URL,
-    post_resource,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_stats/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/stats/"
-DATADIR = f"{TMP_FOLDER}data"
+DATADIR = f"{TMP_FOLDER}data/"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
     config = json.load(fp)
 yesterday = datetime.today() - timedelta(days=1)
@@ -39,12 +39,16 @@ def create_year_if_missing():
             return
     # landing here means there is no file for yesterday's year, so we create one
     # (its content doesn't matter, it will be replaced downstream)
-    with open(DATADIR + "/placeholder.csv", "w") as f:
+    file = File(
+        source_path=DATADIR,
+        source_name="placeholder.csv",
+    )
+    with open(file.full_source_path, "w") as f:
         f.write("tmp")
-    post_resource(
-        file_to_upload=File(source_path=DATADIR, source_name="placeholder.csv"),
-        dataset_id=config[AIRFLOW_ENV]["dataset_id"],
+    local_client.resource().create_static(
+        file_to_upload=file.full_source_path,
         payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},
+        dataset_id=config[AIRFLOW_ENV]["dataset_id"],
     )
 
 
@@ -76,10 +80,15 @@ def update_year():
         raise ValueError("Missing current year resource")
     df = get_months(DATAGOUV_MATOMO_ID, yesterdays_year)
     df.index.name = ("date")
-    df.to_csv(DATADIR + f"/{yesterdays_year}-days.csv")
-    post_resource(
-        file_to_upload=File(source_path=DATADIR, source_name=f"{yesterdays_year}-days.csv"),
+    file = File(
+        source_path=DATADIR,
+        source_name=f"{yesterdays_year}-days.csv",
+    )
+    df.to_csv(file.full_source_path)
+    local_client.resource(
+        id=current_year_resource_id,
         dataset_id=config[AIRFLOW_ENV]["dataset_id"],
-        resource_id=current_year_resource_id,
+    ).update(
+        file_to_upload=file.full_source_path,
         payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},
     )
