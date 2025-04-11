@@ -1,0 +1,44 @@
+---
+version: 2.1
+
+jobs:
+  clone-stack:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - run:
+          name: Clone stack
+          command: git clone https://github.com/datagouv/data-engineering-stack.git
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+  check-dags:
+    docker:
+      - image: apache/airflow:2.10.5-python3.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install jq
+          command: su -c "apt-get update && apt-get install -y jq"
+      - run:
+          name: Install dependencies
+          command: |
+            virtualenv venv
+            source venv/bin/activate
+            pip install -r data-engineering-stack/requirements.txt
+      - run:
+          name: Check DAGs
+          command: |
+            source venv/bin/activate
+            airflow dags list-import-errors --output=json | jq -e 'select(type=="array" and length == 0)'
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - clone-stack
+      - check-dags:
+          requires:
+            - clone-stack
