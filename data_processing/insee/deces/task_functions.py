@@ -197,6 +197,7 @@ def publish_on_datagouv(ti):
         local_client.resource(
             id=config[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
             dataset_id=config[f"deces_{_ext}"][AIRFLOW_ENV]["dataset_id"],
+            fetch=False,
         ).update(
             payload={
                 "url": (
@@ -216,7 +217,7 @@ def publish_on_datagouv(ti):
             },
         )
     min_iso, max_iso = build_temporal_coverage(min_date, max_date)
-    local_client.dataset(config["deces_csv"][AIRFLOW_ENV]["dataset_id"]).update(
+    local_client.dataset(config["deces_csv"][AIRFLOW_ENV]["dataset_id"], fetch=False).update(
         payload={
             "temporal_coverage": {
                 "start": min_iso,

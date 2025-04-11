@@ -211,11 +211,12 @@ def dump_and_send_tree() -> None:
     local_client.resource(
         id="ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb",
         dataset_id="66d02b7174375550d7b10f3f",
+        fetch=False,
     ).update(
         file_to_upload="./pnt_tree.json",
         payload={"title": "Arborescence des dossiers sur le dépôt"}
     )
-    local_client.dataset("66d02b7174375550d7b10f3f").update(
+    local_client.dataset("66d02b7174375550d7b10f3f", fetch=False).update(
         payload={
             "temporal_coverage": {
                 "start": oldest + ".000000+00:00",

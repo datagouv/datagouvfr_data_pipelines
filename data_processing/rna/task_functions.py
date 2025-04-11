@@ -106,6 +106,7 @@ def publish_on_datagouv(ti, file_type):
         local_client.resource(
             dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
             id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            fetch=False,
         ).update(
             payload={
                 "url": (

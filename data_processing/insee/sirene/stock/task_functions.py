@@ -152,6 +152,7 @@ def update_dataset_data_gouv(**kwargs):
         local_client.resource(
             dataset_id=d["dataset_id"],
             id=d["resource_id"],
+            fetch=False,
         ).update(
             payload={
                 "title": (

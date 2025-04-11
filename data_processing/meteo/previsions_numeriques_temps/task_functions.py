@@ -372,6 +372,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             demo_client.resource(
                 dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
                 id=current_resources[file_id]["resource_id"],
+                fetch=False,
             ).update(
                 payload={
                     "url": infos["url"],

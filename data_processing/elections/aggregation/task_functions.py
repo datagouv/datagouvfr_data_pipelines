@@ -246,6 +246,7 @@ def publish_results_elections():
     local_client.resource(
         id=data["general"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         payload={
             "url": (
@@ -266,6 +267,7 @@ def publish_results_elections():
     local_client.resource(
         id=data["candidats"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         payload={
             "url": (
@@ -286,6 +288,7 @@ def publish_results_elections():
     local_client.resource(
         id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         payload={
             "url": (
@@ -306,6 +309,7 @@ def publish_results_elections():
     local_client.resource(
         id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         payload={
             "url": (

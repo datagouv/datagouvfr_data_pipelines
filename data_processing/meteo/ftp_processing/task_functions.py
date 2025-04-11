@@ -425,6 +425,7 @@ def handle_updated_files_same_name(ti) -> None:
         local_client.resource(
             id=resources_lists[global_path][url]["id"],
             dataset_id=config[global_path]['dataset_id'][AIRFLOW_ENV],
+            fetch=False,
         ).update(
             payload={
                 "filesize": minio_files[minio_folder + file_path],
@@ -464,6 +465,7 @@ def handle_updated_files_new_name(ti) -> None:
         local_client.resource(
             id=resources_lists[global_path][old_url]["id"],
             dataset_id=config[global_path]["dataset_id"][AIRFLOW_ENV],
+            fetch=False,
         ).update(
             payload={
                 "url": url,
@@ -498,7 +500,7 @@ def update_temporal_coverages(ti) -> None:
             tags = requests.get(
                 f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
             ).json()["tags"]
-            local_client.dataset(config[path]["dataset_id"][AIRFLOW_ENV]).update(
+            local_client.dataset(config[path]["dataset_id"][AIRFLOW_ENV], fetch=False).update(
                 payload={
                     "temporal_coverage": {
                         "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),

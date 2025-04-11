@@ -17,7 +17,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}geozones/data/"
 dataset_id = "554210a9c751df2666a7b26c" if AIRFLOW_ENV == "prod" else "64bfc429d6e029048e577d3e"
-dataset = local_client.dataset(dataset_id)
+dataset = local_client.dataset(dataset_id, fetch=False)
 geozones_file = File(
     source_path=DATADIR,
     source_name="export_geozones.json",

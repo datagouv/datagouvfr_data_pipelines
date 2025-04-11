@@ -212,6 +212,7 @@ def publish_on_datagouv():
         local_client.resource(
             dataset_id=config[ext][AIRFLOW_ENV]["dataset_id"],
             id=config[ext][AIRFLOW_ENV]["resource_id"],
+            fetch=False,
         ).update(
             payload={
                 "url": (

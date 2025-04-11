@@ -240,6 +240,7 @@ def publish_on_datagouv(pack: str, grid: str):
             local_client.resource(
                 dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
                 id=current_resources[file_id]["resource_id"],
+                fetch=False,
             ).update(
                 payload={
                     "url": infos["url"],

@@ -113,6 +113,7 @@ def publish_on_datagouv(file_type):
             dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
             id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
             is_communautary=True,
+            fetch=False,
         ).update(
             payload={
                 "url": (

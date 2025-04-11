@@ -312,6 +312,7 @@ def publish_datagouv(DAG_FOLDER):
     local_client.resource(
         dataset_id=data[AIRFLOW_ENV]['dataset_id'],
         id=data[AIRFLOW_ENV]['resource_id'],
+        fetch=False,
     ).update(
         payload={
             "url": (
@@ -324,7 +325,7 @@ def publish_datagouv(DAG_FOLDER):
             "description": f"Dernière modification : {datetime.today()})",
         },
     )
-    local_client.dataset(id=data[AIRFLOW_ENV]['dataset_id']).update(
+    local_client.dataset(id=data[AIRFLOW_ENV]['dataset_id'], fetch=False).update(
         payload={"temporal_coverage": {
             "start": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")

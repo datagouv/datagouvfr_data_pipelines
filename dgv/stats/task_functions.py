@@ -87,6 +87,7 @@ def update_year():
     local_client.resource(
         id=current_year_resource_id,
         dataset_id=config[AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         file_to_upload=file.full_source_path,
         payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},

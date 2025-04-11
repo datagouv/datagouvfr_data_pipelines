@@ -312,6 +312,7 @@ def publish_results_elections(ti):
         demo_client.resource(
             id=d[AIRFLOW_ENV]["resource_id"],
             dataset_id=d[AIRFLOW_ENV]["dataset_id"],
+            fetch=False,
         ).update(
             payload={
                 "url": d['url'],

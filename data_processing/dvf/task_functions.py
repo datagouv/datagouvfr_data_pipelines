@@ -1090,6 +1090,7 @@ def publish_stats_dvf(ti) -> None:
     local_client.resource(
         id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         payload={
             "url": (
@@ -1109,6 +1110,7 @@ def publish_stats_dvf(ti) -> None:
     local_client.resource(
         id=data["totales"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
     ).update(
         payload={
             "url": (

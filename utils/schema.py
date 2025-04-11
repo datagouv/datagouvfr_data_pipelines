@@ -1056,6 +1056,7 @@ def update_resource_metadata(
         reponse_extras = local_client.resource(
             id=resource_id,
             dataset_id=dataset_id,
+            fetch=False,
         ).update_extras(payload=validation_report)
         if reponse_extras.status_code != 200:
             logging.warning("🔴 Schema could not be added to extras")
@@ -1071,6 +1072,7 @@ def update_resource_metadata(
             response = local_client.resource(
                 id=resource_id,
                 dataset_id=dataset_id,
+                fetch=False,
             ).update(payload=obj)
 
             if response.status_code != 200:
@@ -1119,6 +1121,7 @@ def upload_geojson(
     response = local_client.resource(
         id=r_id,
         dataset_id=consolidated_dataset_id,
+        fetch=False,
     ).update(
         file_to_upload=File(
             source_path=schema_consolidated_data_path.as_posix(),
@@ -1234,6 +1237,7 @@ def upload_consolidated(
                     local_client.resource(
                         id=r_id,
                         dataset_id=consolidated_dataset_id,
+                        fetch=False,
                     ).update(**kwargs)
                     logging.info(f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})")
                 except KeyError:
@@ -1618,6 +1622,7 @@ def update_consolidation_documentation_report(
                     response = local_client.resource(
                         id=doc_r_id,
                         dataset_id=consolidated_dataset_id,
+                        fetch=False,
                     ).update(**kwargs)
                     if response.ok:
                         logging.info(f"--- ✅ Updated documentation resource  for {schema_name} (id: {doc_r_id})")
