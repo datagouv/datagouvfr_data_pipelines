@@ -20,6 +20,11 @@ jobs:
       - attach_workspace:
           at: .
       - run:
+          name: Install jq
+          command: |
+            apt-get update
+            apt-get install -y jq
+      - run:
           name: Install dependencies
           command: |
             virtualenv venv
