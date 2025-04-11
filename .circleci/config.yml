@@ -2,6 +2,8 @@ version: 2.1
 
 jobs:
   clone-stack:
+    docker:
+      - image: cimg/python:3.12
     steps:
       - checkout
       - run:
@@ -16,13 +18,13 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            python -m venv venv
-            venv/bin/activate
+            virtualenv venv
+            source venv/bin/activate
             pip install -r datagouv/data-engineering-stack/requirements.txt
       - run:
           name: Check DAGs
           command: |
-            venv/bin/activate
+            source venv/bin/activate
             airflow dags check
 
 workflows:
