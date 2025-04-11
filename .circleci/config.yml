@@ -15,10 +15,13 @@ jobs:
             - .
   check-dags:
     docker:
-      - image: cimg/python:3.12-browsers
+      - image: apache/airflow:2.10.5-python3.12
     steps:
       - attach_workspace:
           at: .
+      - run:
+          name: Install jq
+          command: su -c "apt-get update && apt-get install -y jq"
       - run:
           name: Install dependencies
           command: |
