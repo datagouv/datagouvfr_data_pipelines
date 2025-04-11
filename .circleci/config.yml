@@ -20,7 +20,7 @@ jobs:
           command: |
             virtualenv venv
             source venv/bin/activate
-            pip install -r datagouv/data-engineering-stack/requirements.txt
+            pip install -r data-engineering-stack/requirements.txt
       - run:
           name: Check DAGs
           command: |
