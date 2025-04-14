@@ -21,14 +21,17 @@ dataset = local_client.dataset(dataset_id, fetch=False)
 geozones_file = File(
     source_path=DATADIR,
     source_name="export_geozones.json",
+    remote_source=True,  # not remote but not created yet
 )
 countries_file = File(
     source_path=DATADIR,
     source_name="export_countries.json",
+    remote_source=True,  # not remote but not created yet
 )
 levels_file = File(
     source_path=DATADIR,
     source_name="export_levels.json",
+    remote_source=True,  # not remote but not created yet
 )
 
 
