@@ -11,10 +11,11 @@ from datagouvfr_data_pipelines.config import (
     # TWITTER_SECRET_TOKEN,
     MATTERMOST_DATAGOUV_EDITO,
 )
-from datagouvfr_data_pipelines.utils.datagouv import create_post, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import create_post
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 
+DATAGOUV_URL = "https://www.data.gouv.fr"
 NOW = date.today()
 LAST_MONTH_DATE = NOW + relativedelta(months=-1)
 LAST_MONTH_DATE_FMT = LAST_MONTH_DATE.strftime("%Y-%m")

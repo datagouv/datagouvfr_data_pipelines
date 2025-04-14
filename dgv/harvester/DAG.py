@@ -3,10 +3,7 @@ import logging
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-    datagouv_session,
-)
+from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.grist import (
     get_table_as_df,
@@ -26,7 +23,7 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 
 
 def get_pending_harvesters(ti):
-    harvesters = get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
+    harvesters = local_client.get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
     harvesters = [
         {
             "name": harvest["name"],

@@ -6,16 +6,16 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 DAG_NAME = "dgv_administrateur"
 
 
 def list_current_admins(ti):
     # We want the list of all current users with an admin role
-    print(f"Fetching admins from {DATAGOUV_URL}/api/1/users/")
-    users = get_all_from_api_query(
-        f"{DATAGOUV_URL}/api/1/users/?page_size=100",
+    print(f"Fetching admins from {local_client.base_url}/api/1/users/")
+    users = local_client.get_all_from_api_query(
+        f"{local_client.base_url}/api/1/users/?page_size=100",
         auth=True,
     )
     admins = [user for user in users if "admin" in user["roles"]]
