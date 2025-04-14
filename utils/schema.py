@@ -1040,7 +1040,11 @@ def update_resource_metadata(
             schema_from_resource = r.json()["schema"]
             # if the resource already has a schema mentionned in its metadata, we don't
             # change it, we display how it is, but don't throw an error anymore
-            if schema_from_resource and schema_from_resource.get("name") != schema_name:
+            if (
+                schema_from_resource
+                and schema_from_resource.get("name") is not None
+                and schema_from_resource.get("name") != schema_name
+            ):
                 logging.info(f"For resource {api_url}datasets/{dataset_id}/resources/{resource_id}/")
                 logging.info(f"Schema metadata error, it looks like this: {schema_from_resource}")
                 logging.info(f"while this report is about {schema_name}")
@@ -1122,6 +1126,7 @@ def upload_geojson(
         id=r_id,
         dataset_id=consolidated_dataset_id,
         fetch=False,
+        _from_response={"filetype": "file"},  # to be able to update the file without fetching
     ).update(
         file_to_upload=File(
             source_path=schema_consolidated_data_path.as_posix(),
@@ -1130,8 +1135,8 @@ def upload_geojson(
                 geojson_version_names_list[-1],
                 consolidation_date_str,
                 extension="json",
-            ).full_source_path,
-        ),
+            ),
+        ).full_source_path,
         payload={
             "type": "main",
             "title": f"Export au format geojson (v{latest_version})",
@@ -1215,7 +1220,7 @@ def upload_consolidated(
                             latest_mapping.get(version_name, version_name),
                             consolidation_date_str,
                         ),
-                    ),
+                    ).full_source_path,
                     "payload": {
                         "schema": {
                             "name": schema_name,
@@ -1238,6 +1243,7 @@ def upload_consolidated(
                         id=r_id,
                         dataset_id=consolidated_dataset_id,
                         fetch=False,
+                        _from_response={"filetype": "file"},  # to be able to update the file without fetching
                     ).update(**kwargs)
                     logging.info(f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})")
                 except KeyError:
@@ -1610,7 +1616,7 @@ def update_consolidation_documentation_report(
                     "file_to_upload": File(
                         source_path=ref_tables_path,
                         source_name=build_ref_table_name(schema_name),
-                    ),
+                    ).full_source_path,
                     "payload": {
                         "type": "documentation",
                         "title": f"Documentation sur la consolidation - {consolidation_date_str}",
@@ -1623,6 +1629,7 @@ def update_consolidation_documentation_report(
                         id=doc_r_id,
                         dataset_id=consolidated_dataset_id,
                         fetch=False,
+                        _from_response={"filetype": "file"},  # to be able to update the file without fetching
                     ).update(**kwargs)
                     if response.ok:
                         logging.info(f"--- ✅ Updated documentation resource  for {schema_name} (id: {doc_r_id})")
