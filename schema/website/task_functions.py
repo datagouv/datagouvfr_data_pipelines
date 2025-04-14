@@ -1293,6 +1293,7 @@ def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
             else "6682b2f35a23814365024994"
         ),
         fetch=False,
+        _from_response={"filetype": "file"},  # to be able to update the file without fetching
     ).update(
         file_to_upload=file.full_source_path,
         payload={

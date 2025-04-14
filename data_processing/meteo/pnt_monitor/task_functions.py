@@ -212,6 +212,7 @@ def dump_and_send_tree() -> None:
         id="ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb",
         dataset_id="66d02b7174375550d7b10f3f",
         fetch=False,
+        _from_response={"filetype": "file"},  # to be able to update the file without fetching
     ).update(
         file_to_upload="./pnt_tree.json",
         payload={"title": "Arborescence des dossiers sur le dépôt"}
