@@ -199,7 +199,7 @@ def publish_mattermost(ti):
 
     message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
     message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
-    
+
     missing_hvd = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
     if len(missing_hvd):
         message += f"\n\n{len(missing_hvd)} jeux de données n'ont pas d'ensemble de données renseigné :"
@@ -306,10 +306,13 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
 
 def build_df_for_grist():
     print("Getting datasets")
-    df_datasets = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
-        delimiter=";",
-        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license"],
+    r = requests.get(
+        "https://www.data.gouv.fr/api/1/datasets/catalogue-des-donnees-de-data-gouv-fr/"
+        "resources/f868cca6-8da1-4369-a78d-47463f19a9a3"
+    ).json()
+    df_datasets = pd.read_parquet(
+        r["analysis:parsing:parquet_url"],
+        columns=["id", "url", "title", "organization", "resources_count", "tags", "license", "archived"],
     )
     print("Getting resources")
     df_resources = pd.read_csv(
@@ -367,6 +370,7 @@ def update_grist(ti):
         "organization",
         "license_datagouv",
         "contact_point_datagouv",
+        "archived",
     ]
     # updating existing rows
     updates = 0
