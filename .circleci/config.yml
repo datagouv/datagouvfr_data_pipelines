@@ -6,6 +6,7 @@ jobs:
     docker:
       - image: cimg/python:3.12
     steps:
+      - checkout
       - run:
           name: Clone stack
           command: git clone https://github.com/datagouv/data-engineering-stack.git
@@ -20,18 +21,27 @@ jobs:
           username: $GITLAB_USERNAME
           password: $GITLAB_ACCESS_TOKEN
     steps:
+      - checkout
       - attach_workspace:
           at: .
+      - restore_cache:
+          keys:
+            - py-cache-v1-{{ arch }}-{{ checksum "requirements.txt" }}
       - run:
           name: Install dependencies
           command: |
             virtualenv venv
             source venv/bin/activate
             pip install -r data-engineering-stack/requirements.txt
+      - save_cache:
+          key: py-cache-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - venv
       - run:
           name: Check DAGs
           command: |
             source venv/bin/activate
+            airflow db init
             airflow dags list-import-errors --output=json | jq -e 'select(type=="array" and length == 0)'
 
 workflows:
