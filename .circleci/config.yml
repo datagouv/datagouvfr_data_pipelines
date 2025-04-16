@@ -15,13 +15,13 @@ jobs:
             - .
   check-dags:
     docker:
-      - image: apache/airflow:2.10.5-python3.12
+      - image: registry.gitlab.com/etalab/data.gouv.fr/infra/airflow-extended:airflow2.10.5-python3.12-0.2.11
+        auth:
+          username: $GITLAB_USERNAME
+          password: $GITLAB_ACCESS_TOKEN
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: Install jq
-          command: su -c "apt-get update && apt-get install -y jq"
       - run:
           name: Install dependencies
           command: |
