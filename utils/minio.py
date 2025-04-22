@@ -145,6 +145,9 @@ class MinIOClient:
             both path and name from files to compare
 
         """
+        def get_content_length(response: dict) -> int:
+            return response.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("content-length", None)
+
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         s3 = boto3.client(
@@ -171,8 +174,8 @@ class MinIOClient:
 
             # upload process (single vs multi part) can lead to different ETags for identical files
             # so we check content-length too
-            cl1 = file_1['ResponseMetadata']['HTTPHeaders']['content-length']
-            cl2 = file_2['ResponseMetadata']['HTTPHeaders']['content-length']
+            cl1 = get_content_length(file_1)
+            cl2 = get_content_length(file_2)
             logging.info(f"content-length file 1 : {cl1}")
             logging.info(f"content-length file 2 : {cl2}")
             logging.info(f"Are content-lengths equal: {cl1 == cl2}")
