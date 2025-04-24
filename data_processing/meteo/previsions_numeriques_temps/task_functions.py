@@ -28,6 +28,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 # to test the migration, we don't want to interfere with the current production
 AIRFLOW_ENV = "dev"
@@ -64,6 +65,7 @@ def get_last_batch_hour() -> datetime:
     )
 
 
+@simple_connection_retry
 def get_new_batches(batches: list, url: str) -> list:
     r = meteo_client.get(url, timeout=10)
     r.raise_for_status()
@@ -218,6 +220,25 @@ def log_and_send_error(filename):
     logging.info(f"Sent and locally erased log for {filename}")
 
 
+@simple_connection_retry
+def download_file(url: str, local_filename: str) -> int:
+    with meteo_client.get(
+        url,
+        stream=True,
+        timeout=60,
+        # do we actually need these headers? response content type is binary
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    ) as r:
+        if r.status_code == 404:
+            logging.warning(f"Not available yet, skipping. URL is: {url}")
+            return 1
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=32768):
+                f.write(chunk)
+        return 0
+
+
 def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
     url_to_infos = ti.xcom_pull(key="url_to_infos", task_ids="construct_all_possible_files")
     to_get = ti.xcom_pull(key="to_get", task_ids="construct_all_possible_files")
@@ -241,20 +262,9 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             my_packages.add(package)
         local_filename = f"{DATADIR}{path}/{package}/{url_to_infos[url]['filename']}"
         # ideally we'd like to minio_pnt.send_from_url directly but we have to test the file structure first
-        with meteo_client.get(
-            url,
-            stream=True,
-            timeout=60,
-            # do we actually need these headers? response content type is binary
-            headers={"Content-Type": "application/json; charset=utf-8"},
-        ) as r:
-            if r.status_code == 404:
-                logging.warning(f"Not available yet, skipping. URL is: {url}")
-                continue
-            r.raise_for_status()
-            with open(local_filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=32768):
-                    f.write(chunk)
+        download_status = download_file(url, local_filename)
+        if download_status == 1:
+            continue
 
         issues = load_issues(f"{DATADIR}{path}")
         if test_file_structure(local_filename):
