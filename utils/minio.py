@@ -395,6 +395,7 @@ class MinIOClient:
             part_size=10 * 1024 * 1024,
         )
 
+    @simple_connection_retry
     def does_file_exist_on_minio(
         self,
         file: str,
