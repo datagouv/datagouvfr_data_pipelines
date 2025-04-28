@@ -1,13 +1,15 @@
-import gc
+from datetime import datetime
+from functools import reduce
 import glob
-from unidecode import unidecode
-import numpy as np
+import json
+import logging
 import os
+
+import gc
+import numpy as np
 import pandas as pd
 import requests
-from datetime import datetime
-import json
-from functools import reduce
+from unidecode import unidecode
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -29,7 +31,7 @@ DPEDIR = f"{DATADIR}/dpe/"
 schema = "dvf"
 
 pgclient = PostgresClient(
-    conn_name="POSTGRES_DVF" if AIRFLOW_ENV == "prod" else "postgres_localhost",
+    conn_name="POSTGRES_DVF",
     schema=schema,
 )
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
@@ -154,15 +156,15 @@ def populate_copro_table() -> None:
         ),
         "Nombre de lots à usage d’habitation": "nombre_lots_usage_habitation",
         "Nombre de lots de stationnement": "nombre_lots_stationnement",
-        "Nombre d'arrêtés relevant du code de la santé publique en cours": (
-            "nombre_arretes_code_sante_publique_en_cours"
-        ),
-        "Nombre d'arrêtés de péril sur les parties communes en cours": (
-            "nombre_arretes_peril_parties_communes_en_cours"
-        ),
-        "Nombre d'arrêtés sur les équipements communs en cours": (
-            "nombre_arretes_equipements_communs_en_cours"
-        ),
+        # "Nombre d'arrêtés relevant du code de la santé publique en cours": (
+        #     "nombre_arretes_code_sante_publique_en_cours"
+        # ),
+        # "Nombre d'arrêtés de péril sur les parties communes en cours": (
+        #     "nombre_arretes_peril_parties_communes_en_cours"
+        # ),
+        # "Nombre d'arrêtés sur les équipements communs en cours": (
+        #     "nombre_arretes_equipements_communs_en_cours"
+        # ),
         "Période de construction": "periode_construction",
         "Référence Cadastrale 1": "reference_cadastrale_1",
         "Référence Cadastrale 2": "reference_cadastrale_2",
@@ -176,7 +178,7 @@ def populate_copro_table() -> None:
     copro = pd.read_csv(
         f"{DATADIR}/copro.csv",
         dtype=str,
-        usecols=mapping.keys()
+        usecols=mapping.keys(),
     )
     copro = copro.rename(mapping, axis=1)
     copro = copro.loc[copro['commune'].str.len() == 5]
@@ -199,8 +201,10 @@ def populate_distribution_table() -> None:
 def populate_dvf_table() -> None:
     files = glob.glob(f"{DATADIR}/full*.csv")
     for file in files:
+        *path, file = file.split("/")
+        logging.info(f"Populating {file}")
         pgclient.copy_file(
-            file=File(source_path=f"{DATADIR}/", source_name=file),
+            file=File(source_path="/".join(path), source_name=file),
             table=build_table_name("dvf"),
             has_header=True,
         )
