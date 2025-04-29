@@ -732,7 +732,7 @@ def process_dvf_stats() -> None:
         ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
     logging.info(reordered_columns)
     for year in years:
-        logging.info("Final process for " + str(year))
+        logging.info(f"Final process for {year}")
         dup_libelle = pd.concat(
             [libelles_parents for _ in range(12)]
         ).sort_values(['code_geo', 'code_parent'])
@@ -786,7 +786,7 @@ def process_dvf_stats() -> None:
             header=True if year == min(years) else False,
         )
         del export[year]
-        logging.info("Done with year " + str(year))
+        logging.info(f"Done with year {year}")
 
 
 def create_distribution_and_stats_whole_period() -> None:
