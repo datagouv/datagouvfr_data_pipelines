@@ -7,16 +7,32 @@ from io import BytesIO
 from urllib.parse import quote_plus, urlencode
 
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}geozones/data"
+DATADIR = f"{AIRFLOW_DAG_TMP}geozones/data/"
+dataset_id = "554210a9c751df2666a7b26c" if AIRFLOW_ENV == "prod" else "64bfc429d6e029048e577d3e"
+dataset = local_client.dataset(dataset_id, fetch=False)
+geozones_file = File(
+    source_path=DATADIR,
+    source_name="export_geozones.json",
+    remote_source=True,  # not remote but not created yet
+)
+countries_file = File(
+    source_path=DATADIR,
+    source_name="export_countries.json",
+    remote_source=True,  # not remote but not created yet
+)
+levels_file = File(
+    source_path=DATADIR,
+    source_name="export_levels.json",
+    remote_source=True,  # not remote but not created yet
+)
 
 
 def download_and_process_geozones():
@@ -171,10 +187,10 @@ def download_and_process_geozones():
             if geoz[c] == 'nan':
                 geoz[c] = None
     os.mkdir(DATADIR)
-    with open(DATADIR + '/export_geozones.json', 'w', encoding='utf8') as f:
+    with open(geozones_file.full_source_path, 'w', encoding='utf8') as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
 
-    with open(DATADIR + '/export_countries.json', 'w', encoding='utf8') as f:
+    with open(countries_file.full_source_path, 'w', encoding='utf8') as f:
         json.dump(
             countries_json,
             f, ensure_ascii=False, indent=4
@@ -193,7 +209,7 @@ def download_and_process_geozones():
         {"id": "fr:collectivite", "label": "French overseas collectivities", "admin_level": 60, "parents": ["fr:region"]},
         {"id": "fr:epci", "label": "French intermunicipal (EPCI)", "admin_level": 68, "parents": ["country"]}
     ]
-    with open(DATADIR + '/levels.json', 'w', encoding='utf8') as f:
+    with open(levels_file.full_source_path, 'w', encoding='utf8') as f:
         json.dump(
             levels,
             f, ensure_ascii=False, indent=4
@@ -201,70 +217,47 @@ def download_and_process_geozones():
 
 
 def post_geozones():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}geozones/config/dgv.json") as fp:
-        data = json.load(fp)
     year = datetime.now().strftime('%Y')
-
-    payload = {
-        "description": (
-            "Géozones créées à partir du [fichier de l'INSEE]"
-            "(https://rdf.insee.fr/geo/index.html)"
-        ),
-        "filesize": os.path.getsize(os.path.join(DATADIR + '/export_geozones.json')),
-        "mime": "application/json",
-        "title": f"Zones {year} (json)",
-        "type": "main",
-    }
-    post_resource(
-        file_to_upload=File(
-            source_path=f"{DATADIR}/",
-            source_name="export_geozones.json",
-        ),
-        dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
-        resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
-        payload=payload
+    dataset.create_static(
+        file_to_upload=geozones_file.full_source_path,
+        payload={
+            "description": (
+                "Géozones créées à partir du [fichier de l'INSEE]"
+                "(https://rdf.insee.fr/geo/index.html)"
+            ),
+            "filesize": os.path.getsize(geozones_file.full_source_path),
+            "mime": "application/json",
+            "title": f"Zones {year} (json)",
+            "type": "main",
+        },
     )
 
-    payload = {
-        "description": (
-            "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
-            "(https://www.data.gouv.fr/fr/datasets/64959ecae2bdc5448631a59c/)"
-        ),
-        "filesize": os.path.getsize(os.path.join(DATADIR + '/export_countries.json')),
-        "mime": "application/json",
-        "title": f"Zones pays uniquement {year} (json)",
-        "type": "main",
-    }
-    post_resource(
-        file_to_upload=File(
-            source_path=f"{DATADIR}/",
-            source_name="export_countries.json",
-        ),
-        dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
-        resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
-        payload=payload
+    dataset.create_static(
+        file_to_upload=countries_file,
+        payload={
+            "description": (
+                "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
+                "(https://www.data.gouv.fr/fr/datasets/64959ecae2bdc5448631a59c/)"
+            ),
+            "filesize": os.path.getsize(countries_file.full_source_path),
+            "mime": "application/json",
+            "title": f"Zones pays uniquement {year} (json)",
+            "type": "main",
+        }
     )
 
-    payload = {
-        "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
-        "mime": "application/json",
-        "title": f"Niveaux {year} (json)",
-        "type": "main",
-    }
-    post_resource(
-        file_to_upload=File(
-            source_path=f"{DATADIR}/",
-            source_name="levels.json",
-        ),
-        dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
-        resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),
-        payload=payload
+    dataset.create_static(
+        file_to_upload=levels_file,
+        payload={
+            "filesize": os.path.getsize(levels_file.full_source_path),
+            "mime": "application/json",
+            "title": f"Niveaux {year} (json)",
+            "type": "main",
+        },
     )
 
 
 def notification_mattermost():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}geozones/config/dgv.json") as fp:
-        data = json.load(fp)
     message = "Données Géozones mises à jours [ici]"
-    message += f"({DATAGOUV_URL}/fr/datasets/{data['geozones'][AIRFLOW_ENV]['dataset_id']})"
+    message += f"({local_client.base_url}/fr/datasets/{dataset_id})"
     send_message(message)

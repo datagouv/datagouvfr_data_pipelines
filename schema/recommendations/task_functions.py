@@ -4,7 +4,7 @@ import jsonschema
 import yaml
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 DAG_NAME = "schema_recommendations"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
@@ -26,9 +26,8 @@ def consolidated_schemas():
 
 def datasets_for_schema(schema):
     """Fetch datasets on datagouv with the schema attribute set to a specific value"""
-    url = f"{DATA_GOUV_API}datasets?schema={schema}"
-    r = get_all_from_api_query(
-        base_query=url,
+    r = local_client.get_all_from_api_query(
+        base_query=f"datasets/?schema={schema}",
         mask='data{slug}'
     )
     return [d['slug'] for d in r]

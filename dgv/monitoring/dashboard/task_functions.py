@@ -16,8 +16,8 @@ from datagouvfr_data_pipelines.config import (
     SECRET_ZAMMAD_API_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
     # DATAGOUV_MATOMO_ID,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
 from datagouvfr_data_pipelines.utils.utils import list_months_between
@@ -241,7 +241,7 @@ def is_SP_or_CT(
     try:
         sleep(rate_limiting_delay)
         r = session.get(entreprises_api_url + siret).json()
-    except Exception as _:
+    except Exception:
         logging.warning("Sleeping a bit more")
         sleep(1)
         r = session.get(entreprises_api_url + siret).json()
@@ -258,8 +258,8 @@ def is_SP_or_CT(
 
 def get_and_upload_certification() -> None:
     session = requests.Session()
-    orgas = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/organizations", mask="data{id,badges,business_number_id}"
+    orgas = local_client.get_all_from_api_query(
+        "api/1/organizations", mask="data{id,badges,business_number_id}"
     )
     certified = []
     SP_or_CT = []
@@ -296,7 +296,9 @@ def get_and_upload_certification() -> None:
 def get_and_upload_reuses_down() -> None:
     client = MinIOClient(bucket="data-pipeline-open")
     # getting latest data
-    df = pd.read_csv(StringIO(client.get_file_content("prod/bizdev/all_reuses_most_visits_KO_last_month.csv")))
+    df = pd.read_csv(
+        StringIO(client.get_file_content("prod/bizdev/all_reuses_most_visits_KO_last_month.csv"))
+    )
     stats = pd.DataFrame(df["error"].apply(lambda x: x if x == "404" else "Autre erreur").value_counts()).T
     stats["Date"] = [datetime.now().strftime("%Y-%m-%d")]
     stats["Total"] = [
@@ -330,8 +332,8 @@ def get_and_upload_reuses_down() -> None:
 def get_catalog_stats() -> None:
     datasets = []
     resources = []
-    crawler = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/datasets/", mask="data{id,harvest,quality,tags,resources{id,format,type}}"
+    crawler = local_client.get_all_from_api_query(
+        "api/1/datasets/", mask="data{id,harvest,quality,tags,resources{id,format,type}}"
     )
     processed = 0
     for c in crawler:
@@ -407,7 +409,7 @@ def get_catalog_stats() -> None:
 
 
 def get_hvd_dataservices_stats() -> None:
-    crawler = get_all_from_api_query("https://www.data.gouv.fr/api/1/dataservices/?tags=hvd")
+    crawler = local_client.get_all_from_api_query("api/1/dataservices/?tags=hvd")
     count = 0
     # we can add more fields to monitor later
     of_interest = {
@@ -433,7 +435,9 @@ def get_hvd_dataservices_stats() -> None:
         },
     }
 
-    hist_ds = json.loads(minio_open.get_file_content(minio_destination_folder + "hvd_dataservices_quality.json"))
+    hist_ds = json.loads(
+        minio_open.get_file_content(minio_destination_folder + "hvd_dataservices_quality.json")
+    )
     hist_ds.update(dataservices_stats)
     with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:
         json.dump(hist_ds, f, indent=4)

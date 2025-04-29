@@ -17,9 +17,9 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     VALIDATA_BASE_URL,
     get_last_items,
     get_latest_comments,
-    get_all_from_api_query,
     get_awaiting_spam_comments,
     check_duplicated_orga,
+    local_client,
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
@@ -141,8 +141,8 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     if not (check_if_monday() and time_is_between(start, end)):
         print("Not running now")
         return
-    orgas = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/organizations/?sort=-created",
+    orgas = local_client.get_all_from_api_query(
+        "api/1/organizations/?sort=-created",
         mask="data{id,metrics,created_at,name}",
     )
     inactive = {}
@@ -193,8 +193,8 @@ def alert_if_new_reports():
         "previous_report_check",
         (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
     )
-    reports = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/reports/",
+    reports = local_client.get_all_from_api_query(
+        "api/1/reports/",
         auth=True,
     )
     unseen_reports = [
