@@ -293,7 +293,7 @@ def process_dpe() -> None:
     bat_id = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
         usecols=["batiment_groupe_id"],
-        sep=";",
+        sep=",",
     )
     prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9).unique())
     logging.info(f"{len(prefixes)} prefixes to process")
@@ -305,7 +305,7 @@ def process_dpe() -> None:
             DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
             dtype=cols_dpe,
             usecols=cols_dpe.keys(),
-            sep=";",
+            sep=",",
             iterator=True,
             chunksize=chunk_size,
         )
@@ -324,7 +324,7 @@ def process_dpe() -> None:
             DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
             dtype=str,
             usecols=cols_parcelles,
-            sep=";",
+            sep=",",
             iterator=True,
             chunksize=chunk_size,
         )
