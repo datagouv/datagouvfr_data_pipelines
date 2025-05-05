@@ -180,7 +180,10 @@ def build_file_id_and_date(file_name: str):
     # final files look like "arome_ncaled0025_202501021800_03:00.grib"
     # on data.gouv we will expose only the latest occurrence of pack+grid+echeance
     # so we build an id (aka just remove the date) to compare files
-    pack, grid, date, echeance = file_name.split(".")[0].split("_")
+    try:
+        pack, grid, date, echeance = file_name.split(".")[0].split("_")
+    except Exception:
+        raise ValueError(f"The file {file_name} does not meet requirements")
     return f"{pack}_{grid}_{echeance}", date
 
 
