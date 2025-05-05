@@ -121,6 +121,19 @@ PACKAGES = {
             "product": "productWMARO",
             "extension": "nc",
         },
+        "WW3-WARP": {
+            "0.01": {
+                "dataset_id": {
+                    "dev": "65b68c8580a75b6c6bae3d66",
+                    "prod": "65bd197cd4222b0c96db759e",
+                },
+                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids/0.01/packages/SP1",
+                "packages": [SP1_WW3],
+            },
+            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids",
+            "product": "productWWARP",
+            "extension": "nc",
+        },
         "HYCOM2D-MARP": {
             "0.04": {
                 "dataset_id": {
