@@ -180,10 +180,7 @@ def build_file_id_and_date(file_name: str):
     # final files look like "arome_ncaled0025_202501021800_03:00.grib"
     # on data.gouv we will expose only the latest occurrence of pack+grid+echeance
     # so we build an id (aka just remove the date) to compare files
-    try:
-        pack, grid, date, echeance = file_name.split(".")[0].split("_")
-    except Exception:
-        raise ValueError(f"The file {file_name} does not meet requirements")
+    pack, grid, date, echeance = file_name.split(".")[0].split("_")
     return f"{pack}_{grid}_{echeance}", date
 
 
@@ -215,14 +212,18 @@ def publish_on_datagouv(pack: str, grid: str):
     for obj, size in minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=f"{AIRFLOW_ENV}/{minio_folder}/{pack}/{grid}/",
     ).items():
-        file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
-        if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
-            latest_files[file_id] = {
-                "date": file_date,
-                "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
-                "title": fix_title(obj.split("/")[-1]),
-                "size": size,
-            }
+        try:
+            file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
+            if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
+                latest_files[file_id] = {
+                    "date": file_date,
+                    "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
+                    "title": fix_title(obj.split("/")[-1]),
+                    "size": size,
+                }
+        except Exception:
+            # skipping cases of relicates folders, not clean though
+            logging.error(f"Issue with {obj}, skipping")
 
     # getting the current state of the resources
     current_resources: dict = get_current_resources(pack, grid)
