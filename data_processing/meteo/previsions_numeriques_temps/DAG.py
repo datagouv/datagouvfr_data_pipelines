@@ -87,10 +87,10 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
     return dag
 
 
-dags = []
-for model in PACKAGES:
-    for pack in PACKAGES[model]:
-        infos = {k: PACKAGES[model][pack][k] for k in ["base_url", "product", "extension"]}
-        for grid in [_ for _ in PACKAGES[model][pack] if _ not in infos]:
-            # for pack in PACKAGES[model][pack][grid] ?
-            dags.append(create_dag(model, pack, grid, infos))
+# dags = []
+# for model in PACKAGES:
+#     for pack in PACKAGES[model]:
+#         infos = {k: PACKAGES[model][pack][k] for k in ["base_url", "product", "extension"]}
+#         for grid in [_ for _ in PACKAGES[model][pack] if _ not in infos]:
+#             # for pack in PACKAGES[model][pack][grid] ?
+#             dags.append(create_dag(model, pack, grid, infos))
