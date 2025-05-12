@@ -30,7 +30,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
-# to test the migration, we don't want to interfere with the current production
+# if you want to roll back to dev mode
 # AIRFLOW_ENV = "dev"
 # DATAGOUV_URL = "https://demo.data.gouv.fr"
 
