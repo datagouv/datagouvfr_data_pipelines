@@ -89,7 +89,6 @@ def compare_minio_files(**kwargs):
         data = json.load(json_file)
     logging.info(data)
 
-    nb_same = 0
     for item in data:
         isSame = minio_restricted.compare_files(
             file_path_1=minio_path_latest,
@@ -97,12 +96,9 @@ def compare_minio_files(**kwargs):
             file_name_1=item["nameFTP"],
             file_name_2=item["nameFTP"],
         )
-        if isSame:
-            nb_same = nb_same + 1
-    if nb_same == len(data):
-        return False
-    else:
-        return True
+        if not isSame:
+            return True
+    return False
 
 
 def publish_file_files_data_gouv(**kwargs):

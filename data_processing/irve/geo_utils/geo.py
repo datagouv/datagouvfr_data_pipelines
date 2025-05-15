@@ -35,7 +35,10 @@ def fix_coordinates_order(
     """
 
     def fix_coordinates(row: pd.Series) -> pd.Series:
-        coordonnees_xy = json.loads(row[coordinates_column])
+        try:
+            coordonnees_xy = json.loads(row[coordinates_column])
+        except Exception as e:
+            raise ValueError(f"Error with row: {row.to_list()}") from e
         reversed_coordonnees = list(reversed(coordonnees_xy))
         row["consolidated_coordinates_reordered"] = False
         if is_point_in_france(reversed_coordonnees):

@@ -321,5 +321,16 @@
             "dev": "67a0cfdc2a98ab4e3079792d"
         },
         "table_name": null
+    },
+    "REF_CC/NIVO": {
+        "source_pattern": "donnees_nivologiques_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "donnees_nivologiques_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données nivologiques sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "68243ea47db32bb739936ef7",
+            "dev": "68244550505b067d9cc89ddb"
+        },
+        "table_name": "refcc_nivo"
     }
 }
