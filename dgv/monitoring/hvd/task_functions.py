@@ -338,7 +338,7 @@ def build_df_for_grist():
     ) = zip(*df_datasets["id"].apply(
         lambda _id: dataservice_information(_id, df_dataservices=df_dataservices, df_resources=df_resources)
     ))
-    df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False)
+    df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False, sep=";")
 
 
 def update_grist(ti):
@@ -349,7 +349,7 @@ def update_grist(ti):
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
-    fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv").rename(
+    fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv", sep=";").rename(
         # because the "id" column in grist has the identifier "id2"
         {"id": "id2"},
         axis=1
@@ -371,6 +371,7 @@ def update_grist(ti):
         "license_datagouv",
         "contact_point_datagouv",
         "archived",
+        "tags",
     ]
     # updating existing rows
     updates = 0
