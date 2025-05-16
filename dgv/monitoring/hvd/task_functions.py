@@ -311,7 +311,7 @@ def build_df_for_grist():
         "resources/f868cca6-8da1-4369-a78d-47463f19a9a3"
     ).json()
     df_datasets = pd.read_parquet(
-        r["analysis:parsing:parquet_url"],
+        r["extras"]["analysis:parsing:parquet_url"],
         columns=["id", "url", "title", "organization", "resources_count", "tags", "license", "archived"],
     )
     print("Getting resources")
