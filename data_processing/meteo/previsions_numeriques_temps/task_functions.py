@@ -8,6 +8,7 @@ import shutil
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     MINIO_BUCKET_PNT,
     SECRET_MINIO_PNT_USER,
@@ -318,7 +319,10 @@ def get_current_resources(model: str, pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
         f"{DATAGOUV_URL}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
-        headers={"X-fields": "resources{id,url,type}"},
+        headers={
+            "X-fields": "resources{id,url,type}",
+            "X-API-KEY": DATAGOUV_SECRET_API_KEY,
+        },
     ).json()["resources"]:
         if r["type"] != "main":
             continue
