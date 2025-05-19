@@ -241,7 +241,6 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         - contact_point_datagouv
     from a dataset_id
     """
-    print("Starting", dataset_id)
     dataservices = df_dataservices.loc[df_dataservices["datasets"].str.contains(dataset_id)]
     # Skip tabular for now
     if len(dataservices.loc[dataservices["id"] != API_TABULAIRE_ID]):
