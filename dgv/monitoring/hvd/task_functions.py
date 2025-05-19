@@ -248,7 +248,6 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         contact_point = requests.get(
             f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
         ).json().get("contact_point", {})
-        print(">1", dataset_id)
         return (
             dataservices.iloc[0]["title"],
             dataservices.iloc[0]["base_api_url"],
@@ -271,7 +270,6 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
             contact_point = requests.get(
                 f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
             ).json().get("contact_point", {})
-            print(">2", dataset_id)
             return (
                 row["title"],
                 url,
@@ -285,7 +283,6 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
             contact_point = requests.get(
                 f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
             ).json().get("contact_point", {})
-            print(">3", dataset_id)
             return (
                 row["title"],
                 url,
@@ -298,7 +295,6 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         contact_point = requests.get(
             f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
         ).json().get("contact_point", {})
-        print(">4", dataset_id)
         return (
             dataservices.iloc[0]["title"],
             dataservices.iloc[0]["base_api_url"],
@@ -306,7 +302,6 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
             dataservices.iloc[0]["url"],
             contact_point.get("name")
         )
-    print(">5", dataset_id)
     return None, None, None, None, None
 
 
@@ -315,7 +310,7 @@ def build_df_for_grist():
     df_datasets = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
         delimiter=";",
-        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license"],
+        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license", "archived"],
     )
     print("Getting resources")
     df_resources = pd.read_csv(
