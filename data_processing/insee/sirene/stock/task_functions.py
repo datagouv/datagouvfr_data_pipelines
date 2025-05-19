@@ -4,7 +4,7 @@ from datetime import datetime
 import logging
 from airflow.providers.sftp.operators.sftp import SFTPOperator
 
-from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
@@ -41,6 +41,12 @@ def get_files(**kwargs):
         auth_password=SECRET_INSEE_PASSWORD,
         timeout=1200,
     )
+
+    hashfiles = {}
+    for item in data:
+        hashfiles[item["nameFTP"]] = compute_checksum_from_file(f"{tmp_dir}{item['nameFTP']}")
+
+    kwargs["ti"].xcom_push(key="hashes", value=hashfiles)
 
 
 def upload_files_minio(**kwargs):
@@ -132,7 +138,8 @@ def publish_file_files_data_gouv(**kwargs):
         put_file_with_date.execute(dict())
 
 
-def update_dataset_data_gouv(**kwargs):
+def update_dataset_data_gouv(ti, **kwargs):
+    hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
     templates_dict = kwargs.get("templates_dict")
     resource_file = templates_dict.get("resource_file")
     day_file = templates_dict.get("day_file")
@@ -151,6 +158,11 @@ def update_dataset_data_gouv(**kwargs):
                 f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
             ),
         }
+        if d["nameFTP"] in hashes:
+            obj["checksum"] = {
+                "type": "sha256",
+                "value": hashes[d["nameFTP"]]
+            }
 
         update_dataset_or_resource_metadata(
             payload=obj,
