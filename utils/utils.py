@@ -1,5 +1,8 @@
-import duckdb
+import gzip
 from datetime import date, datetime
+
+import duckdb
+from dateutil.relativedelta import relativedelta
 
 MOIS_FR = {
     "01": "janvier",
@@ -34,40 +37,55 @@ def get_fiscal_year(date):
     return date.year if date.month >= 7 else date.year - 1
 
 
-def month_year_iter(start_month, start_year, end_month, end_year):
-    # includes both start and end months
-    ym_start = 12 * start_year + start_month - 1
-    ym_end = 12 * end_year + end_month - 1
-    for ym in range(ym_start, ym_end + 1):
-        y, m = divmod(ym, 12)
-        yield y, m + 1
-
-
 def csv_to_parquet(
-    csv_file_path,
-    dtype=None,
-    columns=None,
-    output_name=None,
-    output_path=None,
-    sep=";",
-    compression="zstd",
+    csv_file_path: str,
+    dtype: dict | None = None,
+    columns: list | None = None,
+    output_name: str | None = None,
+    output_path: str | None = None,
+    sep: str = ";",
+    compression: str = "zstd",
 ):
     """
     if dtype is not specified, columns are required to load everything as string (for safety)
+    for allowed types see https://duckdb.org/docs/sql/data_types/overview.html
     """
     assert dtype is not None or columns is not None
     if output_name is None:
-        output_name = csv_file_path.split('/')[-1].replace('.csv', '.parquet')
+        output_name = csv_file_path.split("/")[-1].replace(".csv", ".parquet")
     if output_path is None:
-        output_path = '/'.join(csv_file_path.split('/')[:-1]) + '/'
-    print(f"Saving {csv_file_path}")
+        output_path = "/".join(csv_file_path.split("/")[:-1]) + "/"
+    print(f"Converting {csv_file_path}")
     print(f"to {output_path + output_name}")
     db = duckdb.read_csv(
         csv_file_path,
         sep=sep,
-        dtype=dtype or {c: 'VARCHAR' for c in columns},
+        dtype=dtype or {c: "VARCHAR" for c in columns},
     )
     db.write_parquet(output_path + output_name, compression=compression)
+
+
+def csv_to_csvgz(
+    csv_file_path: str,
+    output_name: str | None = None,
+    output_path: str | None = None,
+    chunk_size: int = 1024 * 1024,
+):
+    if output_name is None:
+        output_name = csv_file_path.split("/")[-1].replace(".csv", ".csv.gz")
+    if output_path is None:
+        output_path = "/".join(csv_file_path.split("/")[:-1]) + "/"
+    print(f"Converting {csv_file_path}")
+    print(f"to {output_path + output_name}")
+    with (
+        open(csv_file_path, "r", newline="", encoding="utf-8") as csvfile,
+        gzip.open(output_path + output_name, "wt", newline="", encoding="utf-8") as gzfile,
+    ):
+        while True:
+            chunk = csvfile.read(chunk_size)
+            if not chunk:
+                break
+            gzfile.write(chunk)
 
 
 def time_is_between(time1, time2):
@@ -75,3 +93,42 @@ def time_is_between(time1, time2):
     if time1 > time2:
         time1, time2 = time2, time1
     return time1 <= datetime.now().time() <= time2
+
+
+def get_unique_list(*lists: list[str]) -> list[str]:
+    """
+    Returns a list of unique string elements from multiple input lists.
+
+    Args:
+        *lists (List[str]): An arbitrary number of string lists of elements.
+
+    Returns:
+        list[str]: The list with unique elements in no particular order.
+    """
+    unique_elements = set()
+    for lst in lists:
+        unique_elements.update(lst)
+    return list(unique_elements)
+
+
+def list_months_between(start_date: datetime, end_date: datetime) -> list[str]:
+    """
+    Generate a list of month strings between two dates.
+    Args:
+        start_date (datetime): The start date.
+        end_date (datetime): The end date.
+    Returns:
+        list[str]: A list of strings representing each month between the start and end dates included in the format 'YYYY-MM'.
+    """
+
+    start_date = start_date.replace(day=1).date()
+    end_date = end_date.replace(day=1).date()
+
+    months = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        months.append(current_date.strftime("%Y-%m"))
+        current_date += relativedelta(months=1)
+
+    return months

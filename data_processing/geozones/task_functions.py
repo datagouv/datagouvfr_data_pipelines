@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import post_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -204,10 +205,6 @@ def post_geozones():
         data = json.load(fp)
     year = datetime.now().strftime('%Y')
 
-    geozones_file = {
-        "dest_path": f"{DATADIR}/",
-        "dest_name": "export_geozones.json",
-    }
     payload = {
         "description": (
             "Géozones créées à partir du [fichier de l'INSEE]"
@@ -219,16 +216,15 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        file_to_upload=geozones_file,
+        file_to_upload=File(
+            source_path=f"{DATADIR}/",
+            source_name="export_geozones.json",
+        ),
         dataset_id=data['geozones'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['geozones'][AIRFLOW_ENV].get('resource_id', None),
         payload=payload
     )
 
-    countries_file = {
-        "dest_path": f"{DATADIR}/",
-        "dest_name": "export_countries.json",
-    }
     payload = {
         "description": (
             "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
@@ -240,16 +236,15 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        file_to_upload=countries_file,
+        file_to_upload=File(
+            source_path=f"{DATADIR}/",
+            source_name="export_countries.json",
+        ),
         dataset_id=data['countries'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['countries'][AIRFLOW_ENV].get('resource_id', None),
         payload=payload
     )
 
-    levels_file = {
-        "dest_path": f"{DATADIR}/",
-        "dest_name": "levels.json",
-    }
     payload = {
         "filesize": os.path.getsize(os.path.join(DATADIR + '/levels.json')),
         "mime": "application/json",
@@ -257,7 +252,10 @@ def post_geozones():
         "type": "main",
     }
     post_resource(
-        file_to_upload=levels_file,
+        file_to_upload=File(
+            source_path=f"{DATADIR}/",
+            source_name="levels.json",
+        ),
         dataset_id=data['levels'][AIRFLOW_ENV]['dataset_id'],
         resource_id=data['levels'][AIRFLOW_ENV].get('resource_id', None),
         payload=payload

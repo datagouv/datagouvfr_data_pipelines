@@ -1,23 +1,20 @@
 # import requests
 # from requests.auth import HTTPBasicAuth
-from typing import List, Optional, TypedDict
+from typing import TYPE_CHECKING
 from pathlib import Path
 import aiohttp
 import asyncio
+import logging
 
+if TYPE_CHECKING:
+    # to avoid circular imports
+    from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
-
-
-class File(TypedDict):
-    url: str
-    dest_path: str
-    dest_name: str
 
 
 @simple_connection_retry
 async def download_file(session, url, dest_path, dest_name, auth=None):
-    if not dest_path.endswith("/"):
-        dest_path = dest_path + "/"
+    logging.info(f"Downloading {url} to {dest_path}{dest_name}")
     Path(dest_path).mkdir(parents=True, exist_ok=True)
     async with session.get(url, auth=auth) as response:
         response.raise_for_status()
@@ -27,9 +24,9 @@ async def download_file(session, url, dest_path, dest_name, auth=None):
 
 
 async def async_download_files(
-    list_urls: List[File],
-    auth_user: Optional[str] = None,
-    auth_password: Optional[str] = None,
+    list_urls: list["File"],
+    auth_user: str | None = None,
+    auth_password: str | None = None,
     timeout: int = 300,
 ):
     """Retrieve list of files from urls
@@ -57,9 +54,9 @@ async def async_download_files(
 
 # so that we keep the main function synchronous
 def download_files(
-    list_urls: List[File],
-    auth_user: Optional[str] = None,
-    auth_password: Optional[str] = None,
+    list_urls: list["File"],
+    auth_user: str | None = None,
+    auth_password: str | None = None,
     timeout: int = 300,
 ):
     loop = asyncio.get_event_loop()
@@ -67,14 +64,14 @@ def download_files(
 
 
 # def download_files(
-#     list_urls: List[File],
+#     list_urls: list["File"],
 #     auth_user: Optional[str] = None,
 #     auth_password: Optional[str] = None,
 # ):
 #     """Retrieve list of files from urls
 
 #     Args:
-#         list_urls (List[File]): List of Dictionnaries containing for each
+#         list_urls (list[File]): List of Dictionnaries containing for each
 #         `url` `dest_path` and `dest_name` : url and the file properties chosen for destination ;
 #         `auth_user` and `auth_password` : Optional authentication ;
 

@@ -106,7 +106,7 @@
         "doc_pattern": null,
         "description_template": "Données mensuelles pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b3d7d193b4daf2b43edc",
+            "prod": "6791045ba9116b0a49e6a720",
             "dev": "654c962a3b8186a2b5bbc995"
         },
         "table_name": "base_mens",
@@ -121,7 +121,7 @@
         "doc_pattern": null,
         "description_template": "Données décadaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b4a48a4161faec6b2779",
+            "prod": "679105fab4d7bba9aa3fd4be",
             "dev": "653a68f2c52ecb6d2e96fe3e"
         },
         "table_name": "base_decad",
@@ -136,7 +136,7 @@
         "doc_pattern": null,
         "description_template": "Données horaires pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b4473bedf2e7abad3b72",
+            "prod": "6791055a6d553b689a5e2ba4",
             "dev": "653a68f2c52ecb6d2e96fe3f"
         },
         "table_name": "base_hor",
@@ -151,7 +151,7 @@
         "doc_pattern": null,
         "description_template": "Données quotidiennes {PARAMETRES} pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569b51ae64326786e4e8e1a",
+            "prod": "679103e271c55090cfe86871",
             "dev": "653a68f2ba54993957fa00af"
         },
         "table_name": "base_quot",
@@ -166,7 +166,7 @@
         "doc_pattern": null,
         "description_template": "Données à la minute pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569ad61106d1679c93cdf77",
+            "prod": "67910698aae7f4e70034cf7e",
             "dev": "65649a720baab9dbf8f36731"
         },
         "table_name": "base_min",
@@ -181,7 +181,7 @@
         "doc_pattern": null,
         "description_template": "Données décadaires agro pour le département {DEP}, sur la période {PERIOD} pour les stations de type 5",
         "dataset_id": {
-            "prod": "6569af36ba0c3d2f9d4bf98c",
+            "prod": "67910646543edd2701937075",
             "dev": "65649a1b0baab9dbf8f36730"
         },
         "table_name": "base_decadagro",
@@ -216,22 +216,12 @@
         "source_pattern": "QUOT_SIM2_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "QUOT_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données quotidiennes SIM entre {PERIOD}",
+        "description_template": "Données quotidiennes SIM sur la période {PERIOD}",
         "dataset_id": {
             "prod": "6569b27598256cc583c917a7",
             "dev": "653a6afa18f9f98d2ffdaded"
         },
         "table_name": "refcc_sim"
-    },
-    "REF_CC/SIM/Shapefile": {
-        "source_pattern": null,
-        "name_template": null,
-        "doc_pattern": ".*\\..*",
-        "description_template": null,
-        "dataset_id": {
-            "prod": "6569b27598256cc583c917a7",
-            "dev": "653a6afa18f9f98d2ffdaded"
-        }
     },
     "REF_CC/LSH": {
         "source_pattern": "SH_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
@@ -248,7 +238,7 @@
         "source_pattern": "DECAD_SIM2_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données décadaires SIM entre {PERIOD}",
+        "description_template": "Données décadaires SIM sur la période {PERIOD}",
         "dataset_id": {
             "prod": "65e04035010927c797072b29",
             "dev": "65e04239afffd240dae81853"
@@ -259,7 +249,7 @@
         "source_pattern": "MENS_SIM2_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "MENS_SIM2_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données mensuelles SIM entre {PERIOD}",
+        "description_template": "Données mensuelles SIM sur la période {PERIOD}",
         "dataset_id": {
             "prod": "65e040c50a5c6872ebebc711",
             "dev": "65e04268afffd240dae81854"
@@ -270,7 +260,7 @@
         "source_pattern": "QUOT_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "QUOT_ETPgrille_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP spatialisées quotidiennes {PERIOD}",
+        "description_template": "Données ETP spatialisées quotidiennes sur l'année {PERIOD}",
         "dataset_id": {
             "prod": "661d079b6357625e12013241",
             "dev": "661d06b9852e185c7b180db0"
@@ -281,7 +271,7 @@
         "source_pattern": "DECAD_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD_ETPgrille_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP spatialisées décadaires {PERIOD}",
+        "description_template": "Données ETP spatialisées décadaires sur l'année {PERIOD}",
         "dataset_id": {
             "prod": "661d0762109ece6f985e9857",
             "dev": "661d0734eddf136314176ecd"
@@ -292,7 +282,7 @@
         "source_pattern": "ETP_Hargreaves_coefficient_0.175_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "ETP_Hargreaves_coefficient_0.175_{PERIOD}",
         "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP FAO Hargreaves coefficient 0.175 {PERIOD}",
+        "description_template": "Données ETP FAO Hargreaves coefficient 0.175 sur la période {PERIOD}",
         "dataset_id": {
             "prod": "667eae35510cd549fc7722c1",
             "dev": "667eb01a32a9caf3576d8d81"
@@ -309,5 +299,38 @@
             "dev": "669e2657a07290f6dc4eec77"
         },
         "table_name": "reanalyses_comephore"
+    },
+    "BASE/INFOS_POSTES": {
+        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<COMMUNE>[^_]+).pdf",
+        "name_template": "Departement_{DEP}_station_{ID}_commune_{COMMUNE}",
+        "doc_pattern": null,
+        "description_template": "Fiche d'informations sur la station {ID}, commune de {COMMUNE}",
+        "dataset_id": {
+            "prod": "67a1e85a366f75613f750296",
+            "dev": "67a0cfacb32d4139c7402602"
+        },
+        "table_name": null
+    },
+    "BASE/INFOS_POSTES_COMP": {
+        "source_pattern": "(?P<ID>[^_]+)_(?P<DEP>[^_]+)_(?P<COMMUNE>[^_]+).pdf",
+        "name_template": "Departement_{DEP}_station_{ID}_commune_{COMMUNE}",
+        "doc_pattern": null,
+        "description_template": "Fiche d'informations sur la station {ID}, commune de {COMMUNE}",
+        "dataset_id": {
+            "prod": "67a1e983bf9d219de1d86bbd",
+            "dev": "67a0cfdc2a98ab4e3079792d"
+        },
+        "table_name": null
+    },
+    "REF_CC/NIVO": {
+        "source_pattern": "donnees_nivologiques_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "donnees_nivologiques_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Données nivologiques sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "68243ea47db32bb739936ef7",
+            "dev": "68244550505b067d9cc89ddb"
+        },
+        "table_name": "refcc_nivo"
     }
 }

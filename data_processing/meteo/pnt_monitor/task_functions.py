@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     DATAGOUV_SECRET_API_KEY,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
 
@@ -72,6 +73,9 @@ def scan_pnt_files(ti):
             headers={'X-fields': 'resources{id,url,title}'},
         ).json()['resources']
         for r in resources:
+            if "MFWAM/05" in r['url']:
+                # MFWAM 0.5 is deprecated since April 2025
+                continue
             if 'object.data.gouv.fr' in r['url']:
                 ts, pq = get_timeslot_and_paquet(r['url'])
                 if ts < threshold:
@@ -119,8 +123,8 @@ def notification_mattermost(ti):
     message = ""
     if too_old:
         message += ":warning: "
-        if alert:
-            message += "@geoffrey.aldebert "
+        # if alert:
+        #     message += "@geoffrey.aldebert "
         message += f"Ces {nb_too_old} ressources n'ont pas été mises à jour récemment :"
         for dataset in too_old:
             message += f'\n- {dataset}:'
@@ -138,12 +142,12 @@ def notification_mattermost(ti):
 
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": AIRFLOW_DAG_TMP,
-                "source_name": too_old_filename,
-                "dest_path": "pnt/",
-                "dest_name": too_old_filename,
-            },
+            File(
+                source_path=AIRFLOW_DAG_TMP,
+                source_name=too_old_filename,
+                dest_path="pnt/",
+                dest_name=too_old_filename,
+            )
         ]
     )
 
@@ -232,7 +236,8 @@ def dump_and_send_tree() -> None:
             "temporal_coverage": {
                 "start": oldest + ".000000+00:00",
                 "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            }
+            },
+            "tags": ["hvd", "meteorologiques"],
         },
         headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
     )
@@ -275,12 +280,12 @@ def consolidate_logs():
                 f.write(row)
         minio_pnt.send_files(
             list_files=[
-                {
-                    "source_path": AIRFLOW_DAG_TMP,
-                    "source_name": f"{date}.csv",
-                    "dest_path": "logs/",
-                    "dest_name": f"{date}.csv",
-                },
+                File(
+                    source_path=AIRFLOW_DAG_TMP,
+                    source_name=f"{date}.csv",
+                    dest_path="logs/",
+                    dest_name=f"{date}.csv",
+                ),
             ],
             ignore_airflow_env=True,
             burn_after_sending=True,

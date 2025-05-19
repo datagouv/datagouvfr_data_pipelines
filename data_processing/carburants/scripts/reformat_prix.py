@@ -8,6 +8,18 @@ from shapely.geometry import Point, shape
 from xml.etree import ElementTree as etree
 
 
+bounds = {
+    "latitude": {
+        "low": -4.7240000000000002,
+        "up": 9.5480378609999992,
+    },
+    "longitude": {
+        "low": 41.3900000000000006,
+        "up": 51.0659999999999954,
+    },
+}
+
+
 def getJSON(urlData):
     webURL = urllib.request.urlopen(urlData)
     data = webURL.read()
@@ -33,8 +45,6 @@ def reformat_prix(local_path, dest_path, dest_name):
             pdv_attribs["ville"] = pdv.find("ville").text
             longitude_original = pdv_attribs["longitude"]
             latitude_original = pdv_attribs["latitude"]
-            longitude = pdv_attribs["longitude"]
-            latitude = pdv_attribs["latitude"]
             if pdv_attribs["longitude"] in ("", "0"):
                 longitude = None
             else:
@@ -48,9 +58,9 @@ def reformat_prix(local_path, dest_path, dest_name):
             if (
                 pdv_attribs["cp"][0:2] not in ["97", "98"]
                 and latitude is not None
-                and -4.7240000000000002 < latitude < 9.5480378609999992
+                and bounds["latitude"]["low"] < latitude < bounds["latitude"]["up"]
                 and longitude is not None
-                and 41.3900000000000006 < longitude < 51.0659999999999954
+                and bounds["longitude"]["low"] < longitude < bounds["longitude"]["up"]
             ):
                 temp = longitude
                 longitude = latitude
@@ -60,12 +70,12 @@ def reformat_prix(local_path, dest_path, dest_name):
                 pdv_attribs["cp"][0:2] not in ["97", "98"]
                 and latitude_original is not None
                 and latitude_original != ""
-                and -4.7240000000000002 < float(latitude_original) < 9.5480378609999992
+                and bounds["latitude"]["low"] < float(latitude_original) < bounds["latitude"]["up"]
                 and longitude_original is not None
                 and longitude_original != ""
-                and 41.3900000000000006
+                and bounds["longitude"]["low"]
                 < float(longitude_original)
-                < 51.0659999999999954
+                < bounds["longitude"]["up"]
             ):
                 longitude = (
                     float(latitude_original) if latitude_original != "" else None
@@ -77,7 +87,7 @@ def reformat_prix(local_path, dest_path, dest_name):
             if (
                 pdv_attribs["cp"][0:2] not in ["97", "98"]
                 and longitude is not None
-                and not -4.7240000000000002 < longitude < 9.5480378609999992
+                and not bounds["latitude"]["low"] < longitude < bounds["latitude"]["up"]
             ):
                 print("Longitude issue")
                 print(
@@ -111,7 +121,7 @@ def reformat_prix(local_path, dest_path, dest_name):
             if (
                 pdv_attribs["cp"][0:2] not in ["97", "98"]
                 and latitude is not None
-                and not 41.3900000000000006 < latitude < 51.0659999999999954
+                and not bounds["longitude"]["low"] < latitude < bounds["longitude"]["up"]
             ):
                 print("Latitude issue")
                 print(

@@ -26,7 +26,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functio
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
 DAG_NAME = 'data_processing_meteo'
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
-minio_folder = "data/synchro_ftp/"
 
 ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
 ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
@@ -43,6 +42,7 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=900),
     tags=["data_processing", "meteo"],
+    max_active_runs=1,
     default_args=default_args,
 ) as dag:
 
@@ -62,16 +62,12 @@ with DAG(
     get_current_files_on_minio = PythonOperator(
         task_id='get_current_files_on_minio',
         python_callable=get_current_files_on_minio,
-        op_kwargs={
-            "minio_folder": minio_folder,
-        },
     )
 
     get_and_upload_file_diff_ftp_minio = PythonOperator(
         task_id='get_and_upload_file_diff_ftp_minio',
         python_callable=get_and_upload_file_diff_ftp_minio,
         op_kwargs={
-            "minio_folder": minio_folder,
             "ftp": ftp,
         },
     )
@@ -79,33 +75,21 @@ with DAG(
     upload_new_files = PythonOperator(
         task_id='upload_new_files',
         python_callable=upload_new_files,
-        op_kwargs={
-            "minio_folder": minio_folder,
-        },
     )
 
     handle_updated_files_same_name = PythonOperator(
         task_id='handle_updated_files_same_name',
         python_callable=handle_updated_files_same_name,
-        op_kwargs={
-            "minio_folder": minio_folder,
-        },
     )
 
     handle_updated_files_new_name = PythonOperator(
         task_id='handle_updated_files_new_name',
         python_callable=handle_updated_files_new_name,
-        op_kwargs={
-            "minio_folder": minio_folder,
-        },
     )
 
     delete_replaced_minio_files = PythonOperator(
         task_id='delete_replaced_minio_files',
         python_callable=delete_replaced_minio_files,
-        op_kwargs={
-            "minio_folder": minio_folder,
-        },
     )
 
     log_modified_files = PythonOperator(
@@ -129,11 +113,13 @@ with DAG(
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_ftp)
     get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
 
-    upload_new_files.set_upstream(get_and_upload_file_diff_ftp_minio)
     handle_updated_files_same_name.set_upstream(get_and_upload_file_diff_ftp_minio)
     handle_updated_files_new_name.set_upstream(get_and_upload_file_diff_ftp_minio)
 
     delete_replaced_minio_files.set_upstream(handle_updated_files_new_name)
+
+    upload_new_files.set_upstream(handle_updated_files_same_name)
+    upload_new_files.set_upstream(delete_replaced_minio_files)
 
     update_temporal_coverages.set_upstream(upload_new_files)
     update_temporal_coverages.set_upstream(handle_updated_files_same_name)

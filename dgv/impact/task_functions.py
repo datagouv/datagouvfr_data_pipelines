@@ -14,6 +14,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_NOTION_KEY_IMPACT,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -55,6 +56,7 @@ def calculate_quality_score(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': ''
     }
@@ -145,6 +147,7 @@ def calculate_time_for_legitimate_answer(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': 'les délais sont écrétés à 30 jours'
     }
@@ -200,6 +203,7 @@ def get_quality_reuses(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': ''
     }
@@ -254,6 +258,7 @@ def get_discoverability(ti):
         'est_automatise': True,
         'source_collecte': 'script',
         'code_insee': '',
+        'denom_insee': '',
         'dataviz_wish': 'barchart',
         'commentaires': ''
     }
@@ -288,19 +293,19 @@ def gather_kpis(ti):
 def send_stats_to_minio():
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "statistiques_impact_datagouvfr.csv",
-                "dest_path": "dgv/impact/",
-                "dest_name": "statistiques_impact_datagouvfr.csv",
-            },
+            File(
+                source_path=f"{DATADIR}/",
+                source_name="statistiques_impact_datagouvfr.csv",
+                dest_path="dgv/impact/",
+                dest_name="statistiques_impact_datagouvfr.csv",
+            ),
             # saving millésimes in case of an emergency
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
-                "dest_path": "dgv/impact/",
-                "dest_name": f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
-            },
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
+                dest_path="dgv/impact/",
+                dest_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
+            ),
         ],
     )
 

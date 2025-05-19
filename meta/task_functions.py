@@ -4,6 +4,7 @@ import numpy as np
 import pytz
 from airflow.models import DagRun
 from airflow.utils.state import State
+from airflow.providers.http.hooks.http import HttpHook
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -13,15 +14,30 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 local_timezone = pytz.timezone('Europe/Paris')
+http_hook = HttpHook(http_conn_id='HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR', method='GET')
+
+with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
+    config = json.load(f)
+
+
+def get_ids(config: dict):
+    dags = http_hook.run('api/v1/dags').json()["dags"]
+    ids = []
+    for raw_id, included in config.items():
+        if not included:
+            continue
+        if raw_id.endswith("*"):
+            ids += [d["dag_id"] for d in dags if d["dag_id"].startswith(raw_id[:-1])]
+        else:
+            ids.append(raw_id)
+    return list(set(ids))
 
 
 def monitor_dags(
     ti,
     date=(datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),
 ):
-    with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
-        config = json.load(f)
-    dag_ids_to_monitor = config['dag_list']
+    dag_ids_to_monitor = get_ids(config)
     print("DAG list:", dag_ids_to_monitor)
 
     print("Start date considered:", date)
@@ -60,13 +76,10 @@ def monitor_dags(
 
 
 def notification_mattermost(ti):
-    with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
-        config = json.load(f)
-    dag_ids_to_monitor = config['dag_list']
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     message = '# Récap quotidien DAGs :'
     print(todays_runs)
-    for dag, attempts in todays_runs.items():
+    for dag, attempts in dict(sorted(todays_runs.items())).items():
         message += f'\n- **{dag}** :'
         successes = {
             atp_id: attempts[atp_id] for atp_id in attempts if attempts[atp_id]['success']
@@ -103,6 +116,5 @@ def notification_mattermost(ti):
                     if AIRFLOW_ENV == 'prod':
                         url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
                     message += f"\n   - {ft} ([voir log]({url_log}))"
-            if dag_ids_to_monitor.get(dag, False):
-                message += "\ncc @geoffrey.aldebert @pierlou_ramade"
+            message += "\ncc @geoffrey.aldebert @pierlou_ramade @hadrien_bossard"
     send_message(message)

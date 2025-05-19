@@ -1,9 +1,10 @@
 import os
 import json
 from datetime import datetime
-import hashlib
+import logging
 from airflow.providers.sftp.operators.sftp import SFTPOperator
 
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
@@ -28,28 +29,18 @@ def get_files(**kwargs):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
 
-    hashfiles = {}
-    list_urls = [
-        {
-            "url": f"{INSEE_BASE_URL}{item['nameFTP']}",
-            "dest_path": tmp_dir,
-            "dest_name": item["nameFTP"],
-        }
-        for item in data
-    ]
     download_files(
-        list_urls=list_urls,
+        list_urls=[
+            File(
+                url=f"{INSEE_BASE_URL}{item['nameFTP']}",
+                dest_path=tmp_dir,
+                dest_name=item["nameFTP"],
+            ) for item in data
+        ],
         auth_user=SECRET_INSEE_LOGIN,
         auth_password=SECRET_INSEE_PASSWORD,
+        timeout=1200,
     )
-
-    hashfiles = {}
-    for item in data:
-        with open(f"{tmp_dir}{item['nameFTP']}", "rb") as f:
-            bytes = f.read()
-            hashfiles[item["nameFTP"]] = hashlib.sha256(bytes).hexdigest()
-
-    kwargs["ti"].xcom_push(key="sha256", value=hashfiles)
 
 
 def upload_files_minio(**kwargs):
@@ -60,18 +51,31 @@ def upload_files_minio(**kwargs):
 
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
-    list_files = [
-        {
-            "source_path": tmp_dir,
-            "source_name": item["nameFTP"],
-            "dest_path": minio_path,
-            "dest_name": item["nameFTP"],
-        }
-        for item in data
-    ]
 
     minio_restricted.send_files(
-        list_files=list_files,
+        list_files=[
+            File(
+                source_path=tmp_dir,
+                source_name=item["nameFTP"],
+                dest_path=minio_path,
+                dest_name=item["nameFTP"],
+            ) for item in data
+        ],
+    )
+
+
+def move_new_files_to_latest(**kwargs):
+    templates_dict = kwargs.get("templates_dict")
+    minio_new_path = templates_dict.get("minio_new_path")
+    minio_latest_path = templates_dict.get("minio_latest_path")
+    resource_file = templates_dict.get("resource_file")
+
+    with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
+        data = json.load(json_file)
+    minio_restricted.copy_many_objects(
+        obj_source_paths=[minio_new_path + item["nameFTP"] for item in data],
+        target_directory=minio_latest_path,
+        remove_source_file=True,
     )
 
 
@@ -83,9 +87,8 @@ def compare_minio_files(**kwargs):
 
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
-    print(data)
+    logging.info(data)
 
-    nb_same = 0
     for item in data:
         isSame = minio_restricted.compare_files(
             file_path_1=minio_path_latest,
@@ -93,12 +96,9 @@ def compare_minio_files(**kwargs):
             file_name_1=item["nameFTP"],
             file_name_2=item["nameFTP"],
         )
-        if isSame:
-            nb_same = nb_same + 1
-    if nb_same == len(data):
-        return False
-    else:
-        return True
+        if not isSame:
+            return True
+    return False
 
 
 def publish_file_files_data_gouv(**kwargs):
@@ -108,7 +108,7 @@ def publish_file_files_data_gouv(**kwargs):
     files_path = templates_dict.get("files_path")
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
-    print(data)
+    logging.info(data)
 
     for d in data:
         put_file = SFTPOperator(
@@ -132,31 +132,25 @@ def publish_file_files_data_gouv(**kwargs):
         put_file_with_date.execute(dict())
 
 
-def update_dataset_data_gouv(ti, **kwargs):
+def update_dataset_data_gouv(**kwargs):
     templates_dict = kwargs.get("templates_dict")
     resource_file = templates_dict.get("resource_file")
     day_file = templates_dict.get("day_file")
 
-    hashs = ti.xcom_pull(key="sha256", task_ids="get_files")
-    Mois = [
+    liste_mois = [
         m.title() for m in MOIS_FR.values()
     ]
-    dat = datetime.now()
-    mois = dat.date().month
+    mois = datetime.now().date().month
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
-    print(data)
+    logging.info(data)
     for d in data:
-        obj = {}
-        obj["title"] = (
-            f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
-            f"{day_file} {Mois[mois - 1]} {datetime.today().strftime('%Y')}"
-        )
-        obj["published"] = datetime.now().isoformat()
-        if d["nameFTP"] in hashs:
-            obj["checksum"] = {}
-            obj["checksum"]["type"] = "sha256"
-            obj["checksum"]["value"] = hashs[d["nameFTP"]]
+        obj = {
+            "title": (
+                f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
+                f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
+            ),
+        }
 
         update_dataset_or_resource_metadata(
             payload=obj,
@@ -165,24 +159,21 @@ def update_dataset_data_gouv(ti, **kwargs):
         )
 
 
-def publish_mattermost():
-    send_message(
-        text=(
-            "Base Sirene mise à jour\n- [Stockage données](https://files.data.gouv.fr/insee-sirene)"
-            "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/fr/datasets/base-sirene-des-"
-            "entreprises-et-de-leurs-etablissements-siren-siret/) "
-        ),
-        image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg",
-    )
-
-
-def publish_mattermost_geoloc():
-    send_message(
-        text=(
+def publish_mattermost(geoloc):
+    if geoloc:
+        text = (
             "Sirene géolocalisé INSEE mis à jour\n- [Stockage données]"
             "(https://files.data.gouv.fr/insee-sirene-geo)"
             "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/fr/datasets/geolocalisation-"
             "des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques/) "
-        ),
+        )
+    else:
+        text = (
+            "Base Sirene mise à jour\n- [Stockage données](https://files.data.gouv.fr/insee-sirene)"
+            "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/fr/datasets/base-sirene-des-"
+            "entreprises-et-de-leurs-etablissements-siren-siret/) "
+        )
+    send_message(
+        text=text,
         image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg",
     )

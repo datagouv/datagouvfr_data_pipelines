@@ -1,6 +1,7 @@
 import json
 import requests
 import os
+from collections import defaultdict
 from pathlib import Path
 import gzip
 import shutil
@@ -8,8 +9,8 @@ import csv
 from datetime import datetime, timedelta
 import re
 from jinja2 import Environment, FileSystemLoader
+import pandas as pd
 import psycopg2
-from typing import Optional
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import (
@@ -17,11 +18,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.postgres import (
-    execute_sql_file,
-    execute_query,
-)
-from datagouvfr_data_pipelines.utils.download import download_files
+from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
@@ -33,6 +31,8 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
 minio_meteo = MinIOClient(bucket='meteofrance')
 
 
+SCHEMA_NAME = 'meteo'
+pgclient = PostgresClient(conn_name="POSTGRES_METEO", schema=SCHEMA_NAME)
 conn = BaseHook.get_connection("POSTGRES_METEO")
 db_params = {
     'database': conn.schema,
@@ -42,7 +42,6 @@ db_params = {
     'port': conn.port,
 }
 
-SCHEMA_NAME = 'meteo'
 TIMEOUT = 60 * 5
 
 
@@ -108,33 +107,17 @@ def create_tables_if_not_exists(ti):
     with open(f"{DATADIR}create.sql", 'w') as file:
         file.write(output)
 
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": DATADIR,
-                "source_name": "create.sql",
-            }
-        ],
-        SCHEMA_NAME,
+    pgclient.execute_sql_file(
+        file={
+            "source_path": DATADIR,
+            "source_name": "create.sql",
+        },
     )
 
 
 # %%
 def retrieve_latest_processed_date(ti):
-    data = execute_query(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        "SELECT MAX(processed) FROM dag_processed;",
-        SCHEMA_NAME,
-    )
+    data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
     print(data)
     ti.xcom_push(key="latest_processed_date", value=data[0]["max"])
 
@@ -207,7 +190,7 @@ def process_resources(
     resources: list[dict],
     dataset_name: str,
     latest_ftp_processing: list,
-    dates: Optional[list] = None,
+    dates: list | None = None,
 ):
     # going through all resources of the dataset to check which ones to update
     for resource in resources:
@@ -286,18 +269,18 @@ def process_resources(
             if AIRFLOW_ENV == "prod":
                 minio_meteo.send_files(
                     list_files=[
-                        {
+                        File(
                             # source can be hooked file name
-                            "source_path": "/".join(csv_path.split("/")[:-1]),
-                            "source_name": csv_path.split("/")[-1],
+                            source_path="/".join(csv_path.split("/")[:-1]) + "/",
+                            source_name=csv_path.split("/")[-1],
                             # but destination has to be the real file name
-                            "dest_path": (
+                            dest_path=(
                                 "synchro_pg/"
                                 + "/".join(resource["url"].split("synchro_ftp/")[1].split("/")[:-1])
                                 + "/"
                             ),
-                            "dest_name": resource["url"].split("/")[-1].replace(".csv.gz", ".csv")
-                        }
+                            dest_name=resource["url"].split("/")[-1].replace(".csv.gz", ".csv"),
+                        )
                     ],
                     ignore_airflow_env=True
                 )
@@ -337,25 +320,27 @@ def download_resource(res, dataset):
         file_path = f"{DATADIR}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split('/')[-1])
     file_path = Path(file_path + file_name)
-    download_files([{
-        "url": res["url"],
-        "dest_path": file_path.parent.as_posix(),
-        "dest_name": file_path.name,
-    }], timeout=TIMEOUT)
+    File(
+        url=res["url"],
+        dest_path=file_path.parent.as_posix(),
+        dest_name=file_path.name,
+    ).download(timeout=TIMEOUT)
     csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
-        download_files([{
-            "url": res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
-            "dest_path": file_path.parent.as_posix(),
-            "dest_name": old_file,
-        }], timeout=TIMEOUT)
-    except:
-        print("> This file is not in postgres mirror, creating an empty one for diff")
-        with open(csv_path, "r") as f:
-            columns = f.readline()
-        with open(build_old_file_name(str(csv_path)), "w") as f:
-            f.write(columns)
+        File(
+            url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
+            dest_path=file_path.parent.as_posix(),
+            dest_name=old_file,
+        ).download(timeout=TIMEOUT)
+    except Exception as e:
+        raise ValueError(f"Download error for {res['url']}: {e}")
+        # this should not happen anymore, specific cases will be handled manually
+        # print("> This file is not in postgres mirror, creating an empty one for diff")
+        # with open(csv_path, "r") as f:
+        #     columns = f.readline()
+        # with open(build_old_file_name(str(csv_path)), "w") as f:
+        #     f.write(columns)
     return file_path, csv_path
 
 
@@ -383,11 +368,11 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
             # it'll not be considered new when data is appended
             new_lines = set(
                 r.replace("\n", "") for r in new_file
-                if _filter is None or r.startswith(dep + _filter)
+                if _filter is None or r.startswith(_filter)
             )
             old_lines = set(
                 r.replace("\n", "") for r in old_file
-                if _filter is None or r.startswith(dep + _filter)
+                if _filter is None or r.startswith(_filter)
             )
 
         with open(additions_file, 'a') as outFile:
@@ -441,13 +426,36 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
     # if MIN or HOR: files are too big to be handled at once, we build the diff iteratively
     if any(_ in csv_path for _ in ['MN_', 'H_']):
         print("> Building diff in batches...")
-        for k in range(0, 10):
-            run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=str(k))
+        # files are too big to be handled in one go, so we process them in batches
+        # using the fact that the first column (NUM_POSTE) always starts with dep + numbers
+        for _filter in create_filters(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"]):
+            run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=_filter)
     # for other files it's fine to build diff on the whole file
     else:
         run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"])
 
     return _build_deletions(_conn, csv_path, table_name)
+
+
+def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
+    # returns a list of prefixes to filter the rows
+    # once we know the batches will be of a reasonable size
+    postes = pd.read_csv(
+        csv_path,
+        sep=";",
+        dtype=str,
+        usecols=["NUM_POSTE"],
+    )["NUM_POSTE"]
+    maxes = defaultdict(int)
+    k = 0
+    while True:
+        k += 1
+        counts = postes.str.slice(len(dep), k + len(dep)).value_counts()
+        maxes[max(counts)] += 1
+        if max(counts) < threshold or max(maxes.values()) == 3:
+            break
+    print(f"> built filters of length {k} (max occurences: {max(counts)})")
+    return [dep + suffix for suffix in counts.index]
 
 
 def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
@@ -592,14 +600,8 @@ def insert_latest_date_pg(ti):
         task_ids="set_max_date"
     )
     print(new_latest_date)
-    execute_query(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
+    pgclient.execute_query(
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
-        SCHEMA_NAME,
     )
 
 

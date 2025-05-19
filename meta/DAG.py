@@ -21,13 +21,14 @@ with DAG(
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
     tags=["monitoring"],
+    catchup=False,
     default_args=default_args,
 ) as dag:
     monitor_dags = PythonOperator(
         task_id="monitor_dags",
         python_callable=monitor_dags,
     )
-    
+
     notification_mattermost = PythonOperator(
         task_id="notification_mattermost",
         python_callable=notification_mattermost,

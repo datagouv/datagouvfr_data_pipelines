@@ -1,10 +1,12 @@
 import dateutil
-from typing import TypedDict, Iterator, Optional
+from typing import Iterator
 import requests
 from datetime import datetime
+import logging
 import re
 
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
@@ -18,7 +20,8 @@ if AIRFLOW_ENV == "dev":
 if AIRFLOW_ENV == "prod":
     DATAGOUV_URL = "https://www.data.gouv.fr"
     ORGA_REFERENCE = "646b7187b50b2a93b1ae3d45"
-VALIDATA_BASE_URL = "https://preprod-api-validata.dataeng.etalab.studio"
+VALIDATA_BASE_URL = "https://api.validata.etalab.studio/"
+DATAGOUV_MATOMO_ID = 109
 
 SPAM_WORDS = [
     'free',
@@ -76,11 +79,6 @@ datagouv_session = requests.Session()
 datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
 
 
-class File(TypedDict):
-    dest_path: str
-    dest_name: str
-
-
 @simple_connection_retry
 def create_dataset(
     payload: dict,
@@ -104,14 +102,14 @@ def create_dataset(
 def post_resource(
     file_to_upload: File,
     dataset_id: str,
-    resource_id: Optional[str] = None,
-    payload: Optional[dict] = None,
+    resource_id: str | None = None,
+    payload: dict | None = None,
     on_demo: bool = False,
 ) -> requests.Response:
     """Upload a resource in data.gouv.fr
 
     Args:
-        file_to_upload: Dictionnary containing `dest_path` and `dest_name` where resource to upload is stored
+        file_to_upload: Dictionnary containing `source_path` and `source_name` where resource to upload is stored
         dataset_id: ID of the dataset where to store resource
         resource_id: ID of the resource where to upload file. If it is a new resource, leave it to None
         payload: payload to update the resource's metadata (if resource_id is specified)
@@ -126,11 +124,9 @@ def post_resource(
     else:
         datagouv_url = DATAGOUV_URL
 
-    if not file_to_upload['dest_path'].endswith('/'):
-        file_to_upload['dest_path'] += '/'
     files = {
         "file": open(
-            f"{file_to_upload['dest_path']}{file_to_upload['dest_name']}",
+            f"{file_to_upload['source_path']}{file_to_upload['source_name']}",
             "rb",
         )
     }
@@ -142,7 +138,7 @@ def post_resource(
     r.raise_for_status()
     if not resource_id:
         resource_id = r.json()['id']
-        print("Resource was given this id:", resource_id)
+        logging.info(f"Resource was given this id: {resource_id}")
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/upload/"
     if resource_id and payload:
         r = update_dataset_or_resource_metadata(
@@ -158,7 +154,7 @@ def post_resource(
 def post_remote_resource(
     dataset_id: str,
     payload: dict,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     on_demo: bool = False,
 ) -> dict:
     """Create a post in data.gouv.fr
@@ -180,7 +176,7 @@ def post_remote_resource(
 
     if resource_id:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
-        print(f"Putting '{payload['title']}' at {url}")
+        logging.info(f"Putting '{payload['title']}' at {url}")
         r = update_dataset_or_resource_metadata(
             payload=payload,
             dataset_id=dataset_id,
@@ -189,7 +185,7 @@ def post_remote_resource(
         )
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/"
-        print(f"Posting '{payload['title']}' at {url}")
+        logging.info(f"Posting '{payload['title']}' at {url}")
         if "filetype" not in payload:
             payload.update({"filetype": "remote"})
         r = datagouv_session.post(
@@ -203,7 +199,7 @@ def post_remote_resource(
 @simple_connection_retry
 def delete_dataset_or_resource(
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Delete a dataset or a resource in data.gouv.fr
 
@@ -220,16 +216,16 @@ def delete_dataset_or_resource(
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{DATAGOUV_URL}/api/1/datasets/{dataset_id}/"
-
+    logging.info(f"🚮 Deleting {url}")
     r = datagouv_session.delete(url)
     r.raise_for_status()
-    return r.json()
+    return r
 
 
 @simple_connection_retry
 def get_dataset_or_resource_metadata(
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Retrieve dataset or resource metadata from data.gouv.fr
 
@@ -273,7 +269,7 @@ def get_dataset_from_resource_id(
 def update_dataset_or_resource_metadata(
     payload: dict,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
     on_demo: bool = False,
 ) -> requests.Response:
     """Update metadata to dataset or resource in data.gouv.fr
@@ -298,7 +294,7 @@ def update_dataset_or_resource_metadata(
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/resources/{resource_id}/"
     else:
         url = f"{datagouv_url}/api/1/datasets/{dataset_id}/"
-
+    logging.info(f"Putting {url} with {payload}")
     r = datagouv_session.put(url, json=payload)
     r.raise_for_status()
     return r
@@ -308,7 +304,7 @@ def update_dataset_or_resource_metadata(
 def update_dataset_or_resource_extras(
     payload: dict,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> requests.Response:
     """Update specific extras to a dataset or resource in data.gouv.fr
 
@@ -335,7 +331,7 @@ def update_dataset_or_resource_extras(
 def delete_dataset_or_resource_extras(
     extras: list,
     dataset_id: str,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ):
     """Delete extras from a dataset or resoruce in data.gouv.fr
 
@@ -366,7 +362,7 @@ def create_post(
     headline: str,
     content: str,
     body_type: str,
-    tags: Optional[list] = [],
+    tags: list | None = [],
 ) -> dict:
     """Create a post in data.gouv.fr
 
@@ -409,7 +405,7 @@ def get_last_items(
     start_date: datetime,
     end_date=None,
     date_key='created_at',
-    sort_key='-created'
+    sort_key='-created',
 ) -> list:
     results = []
     data = get_all_from_api_query(
@@ -462,7 +458,7 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
 def post_remote_communautary_resource(
     dataset_id: str,
     payload: dict,
-    resource_id: Optional[str] = None,
+    resource_id: str | None = None,
 ) -> dict:
     """Post a remote communautary resource on data.gouv.fr
 
@@ -476,9 +472,9 @@ def post_remote_communautary_resource(
     community_resource_url = f"{DATAGOUV_URL}/api/1/datasets/community_resources"
     dataset_link = f"{DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources"
 
-    print("Payload content:\n", payload)
+    logging.info(f"Payload content:\n{payload}")
     if resource_id:
-        print(f"Updating resource at {dataset_link} from {payload['remote_url']}")
+        logging.info(f"Updating resource at {dataset_link} from {payload['url']}")
         # Update resource
         refined_url = community_resource_url + f"/{resource_id}"
         r = datagouv_session.put(
@@ -487,7 +483,7 @@ def post_remote_communautary_resource(
         )
 
     else:
-        print(f"Creating resource at {dataset_link} from {payload['remote_url']}")
+        logging.info(f"Creating resource at {dataset_link} from {payload['url']}")
         # Create resource
         r = datagouv_session.post(
             community_resource_url,
@@ -497,12 +493,11 @@ def post_remote_communautary_resource(
     return r.json()
 
 
-@simple_connection_retry
 def get_all_from_api_query(
     base_query: str,
     next_page: str = 'next_page',
     ignore_errors: bool = False,
-    mask: Optional[str] = None,
+    mask: str | None = None,
     auth: bool = False,
 ) -> Iterator[dict]:
     """/!\ only for paginated endpoints"""
@@ -518,13 +513,13 @@ def get_all_from_api_query(
     headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
     if mask is not None:
         headers["X-fields"] = mask + f",{next_page}"
-    r = requests.get(base_query, headers=headers)
+    r = RequestRetry.get(base_query, headers=headers)
     if not ignore_errors:
         r.raise_for_status()
     for elem in r.json()["data"]:
         yield elem
     while get_link_next_page(r.json(), next_page):
-        r = requests.get(get_link_next_page(r.json(), next_page), headers=headers)
+        r = RequestRetry.get(get_link_next_page(r.json(), next_page), headers=headers)
         if not ignore_errors:
             r.raise_for_status()
         for data in r.json()['data']:
@@ -555,7 +550,7 @@ def get_awaiting_spam_comments() -> dict:
 
 
 @simple_connection_retry
-def check_duplicated_orga(slug: str) -> tuple[bool, Optional[str]]:
+def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
     duplicate_slug_pattern = r'-\d+$'
     if re.search(duplicate_slug_pattern, slug) is not None:
         suffix = re.findall(duplicate_slug_pattern, slug)[0]
@@ -566,3 +561,26 @@ def check_duplicated_orga(slug: str) -> tuple[bool, Optional[str]]:
         if test_orga.status_code not in [404, 410]:
             return True, url_dup
     return False, None
+
+
+def check_if_recent_update(
+    reference_resource_id: str,
+    dataset_id: str,
+    on_demo: bool = False,
+) -> bool:
+    """
+    Checks whether any resource of the specified dataset has been updated more recently
+    than the specified resource
+    """
+    prefix = "demo" if on_demo else "www"
+    resources = datagouv_session.get(
+        f"https://{prefix}.data.gouv.fr/api/1/datasets/{dataset_id}/",
+        headers={"X-fields": "resources{internal{last_modified_internal}}"}
+    ).json()['resources']
+    latest_update = datagouv_session.get(
+        f"https://{prefix}.data.gouv.fr/api/2/datasets/resources/{reference_resource_id}/",
+        headers={"X-fields": "resource{internal{last_modified_internal}}"}
+    ).json()["resource"]["internal"]["last_modified_internal"]
+    return any(
+        r["internal"]["last_modified_internal"] > latest_update for r in resources
+    )

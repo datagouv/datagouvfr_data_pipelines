@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
+import json
 import pandas as pd
-import requests
 from langdetect import detect
 import os
 import random
 import aiohttp
 import asyncio
+
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
@@ -17,10 +18,12 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES,
     MATTERMOST_DATAGOUV_EDITO,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
 from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, df_to_grist
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
     check_if_first_day_of_month,
@@ -127,12 +130,11 @@ async def crawl_reuses(reuses):
 
 def get_unavailable_reuses():
     print("Fetching reuse list from https://www.data.gouv.fr/api/1/reuses/")
-    reuses = list(
-        get_all_from_api_query(
-            "https://www.data.gouv.fr/api/1/reuses/?page_size=100&sort=-created",
-            mask="data{id,url}"
-        )
-    )
+    reuses = json.loads(pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
+        sep=";",
+        usecols=["id", "url"],
+    ).to_json(orient="records"))
     reuses = [r for r in reuses if r['id'] not in ignored_reuses]
     # gather on the whole reuse list is inconsistent (some unavailable reuses do not
     # appear), having a smaller batch size provides better results and keeps the duration
@@ -200,13 +202,13 @@ async def get_suspect_users():
     return results
 
 
-def create_curation_tables():
-    # Reuses inaccessibles
-    print('Reuses inaccessibles')
+def process_unavailable_reuses():
     unavailable_reuses = get_unavailable_reuses()
     restr_reuses = {
         d[0]['id']: {'error': d[1]} for d in unavailable_reuses
     }
+    if not restr_reuses:
+        return
     for rid in restr_reuses:
         data = get_all_from_api_query(
             f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}',
@@ -219,7 +221,7 @@ def create_curation_tables():
         except StopIteration:
             restr_reuses[rid].update({'monthly_visit': 0})
 
-        r = requests.get(datagouv_api_url + 'reuses/' + rid).json()
+        r = RequestRetry.get(datagouv_api_url + 'reuses/' + rid).json()
         restr_reuses[rid].update({
             'title': r.get('title', None),
             'page': r.get('page', None),
@@ -234,55 +236,50 @@ def create_curation_tables():
     df.to_csv(DATADIR + 'all_reuses_most_visits_KO_last_month.csv', float_format="%.0f", index=False)
     df_to_grist(df, grist_curation, "Reutilisations_down")
 
-    # Datasets sans ressources
-    print('Datasets sans ressources')
-    data = get_all_from_api_query(
-        datagouv_api_url + 'datasets',
-        mask="data{id,title,organization{name},owner{slug},created_at,resources{id}}"
-    )
-    empty_datasets = {}
-    for d in data:
-        if not d['resources']:
-            empty_datasets.update({d['id']: {
-                'dataset_id': d['id'],
-                'title': d.get('title', None),
-                'url': 'https://www.data.gouv.fr/fr/admin/dataset/' + d['id'],
-                'organization_or_owner': (
-                    d['organization'].get('name', None) if d.get('organization', None)
-                    else d['owner'].get('slug', None) if d.get('owner', None) else None
-                ),
-                'created_at': d['created_at'][:10] if d.get('created_at', None) else None
-            }})
-        # keeping this for now, because it's resource consuming. It'll get better with curation
-        if len(empty_datasets) == 1000:
-            print('Early stopping')
-            break
-    print('   > Getting visits...')
-    for d in empty_datasets:
+
+def process_empty_datasets():
+    def get_last_month_visits(dataset_id: str):
         data = get_all_from_api_query(
             (
                 f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}'
-                '&dataset_id__exact={d}'
+                f'&dataset_id__exact={dataset_id}'
             ),
-            next_page='links.next'
+            next_page='links.next',
         )
         try:
             n = next(data)
-            empty_datasets[d].update({'last_month_visits': n['monthly_visit']})
+            return n['monthly_visit']
         except:
-            empty_datasets[d].update({'last_month_visits': 0})
-    df = pd.DataFrame(empty_datasets.values(), index=empty_datasets.keys())
-    df = df.sort_values('last_month_visits', ascending=False)
-    df.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
-    df_to_grist(df, grist_curation, "Datasets_vides")
+            return 0
 
-    # Spam
-    print('Spam')
+    empty_datasets = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        sep=";",
+        usecols=["id", "title", "organization", "owner", "created_at", "resources_count"],
+    )
+    empty_datasets = empty_datasets.loc[empty_datasets["resources_count"] == 0]
+    del empty_datasets["resources_count"]
+    empty_datasets["url"] = empty_datasets["id"].apply(
+        lambda _id: f"https://www.data.gouv.fr/fr/admin/dataset/{_id}"
+    )
+    empty_datasets["created_at"] = empty_datasets["created_at"].str.slice(0, 10)
+    empty_datasets["organization_or_owner"] = empty_datasets.apply(
+        lambda df: df["organization"] if isinstance(df["organization"], str) else df["owner"],
+        axis=1,
+    )
+    empty_datasets["last_month_visits"] = empty_datasets["id"].apply(get_last_month_visits)
+    empty_datasets.rename({"id": "dataset_id"}, axis=1, inplace=True)
+    empty_datasets = empty_datasets.sort_values('last_month_visits', ascending=False)
+    empty_datasets.to_csv(DATADIR + 'empty_datasets.csv', float_format="%.0f", index=False)
+    df_to_grist(empty_datasets, grist_curation, "Datasets_vides")
+
+
+def process_potential_spam():
     search_types = [
         'datasets',
         'reuses',
         'organizations',
-        'users'
+        'users',
     ]
     spam = []
     for obj in search_types:
@@ -335,37 +332,39 @@ def create_curation_tables():
     df_to_grist(df, grist_curation, "Spam")
 
 
-def create_edito_tables():
-    # Top 50 des orga qui ont publié le plus de jeux de données
-    print('Top 50 des orga qui ont publié le plus de jeux de données')
-    data = get_all_from_api_query(
-        'https://www.data.gouv.fr/api/1/datasets/?sort=-created',
-        mask="data{organization{id,name},internal{created_at_internal}}"
-    )
-    threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
-    orgas_of_interest = {}
-    for d in data:
-        if d['internal']['created_at_internal'] < threshold:
-            break
-        if d.get('organization', False):
-            orgas_of_interest.setdefault(
-                d['organization']['id'], {
-                    'name': d['organization']['name'],
-                    'url': f"www.data.gouv.fr/fr/organizations/{d['organization']['id']}/",
-                    'publications': 0,
-                }
-            )
-            orgas_of_interest[d['organization']['id']]['publications'] += 1
-    orgas_of_interest = {
-        k: v for k, v in sorted(orgas_of_interest.items(), key=lambda x: -x[1]['publications'])
-    }
-    df = pd.DataFrame(orgas_of_interest.values(), index=orgas_of_interest.keys())
-    df[:50].to_csv(DATADIR + 'top50_orgas_most_publications_30_days.csv', index=False)
-    df_to_grist(df, grist_edito, "Top50_organisations_publications_1mois")
+curation_functions = [
+    process_unavailable_reuses,
+    process_empty_datasets,
+    process_potential_spam,
+]
 
-    # Top 50 des orga les plus visitées et avec le plus de ressources téléchargées
-    # aka le plus de visites sur tous les datasets de l'orga
-    print('Top 50 des orga les plus visitées et avec le plus de ressources téléchargées')
+
+# %%
+def get_top_orgas_publish():
+    # Top 50 des orgas ayant produits le plus de JDD
+    datasets = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        sep=";",
+        usecols=["organization", "organization_id", "created_at"],
+    ).rename({"organization": "name"}, axis=1)
+    threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+    restr = datasets.loc[datasets["created_at"] >= threshold]
+    restr["url"] = restr["organization_id"].apply(
+        lambda _id: f"www.data.gouv.fr/fr/organizations/{_id}/"
+    )
+    count = restr["organization_id"].value_counts().reset_index().rename({"count": "publications"}, axis=1)
+    count = pd.merge(
+        count,
+        restr[["organization_id", "url"]].drop_duplicates(subset="organization_id"),
+        on="organization_id",
+        how="left",
+    ).sort_values(by="publications", ascending=False)
+    count[:50].to_csv(DATADIR + 'top50_orgas_most_publications_30_days.csv', index=False)
+    df_to_grist(count, grist_edito, "Top50_organisations_publications_1mois")
+
+
+def get_top_orgas_visits():
+    # Top 50 des orgas les plus visités
     data = get_all_from_api_query(
         f'{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}',
         next_page='links.next'
@@ -392,14 +391,15 @@ def create_edito_tables():
     }.keys())[:50]
     orga_visited = {k: orga_visited[k] for k in orga_visited if k in tmp or k in tmp2}
     for k in orga_visited:
-        r = requests.get(datagouv_api_url + 'organizations/' + k).json()
+        r = RequestRetry.get(datagouv_api_url + 'organizations/' + k).json()
         orga_visited[k].update({'name': r.get('name', None), 'url': r.get('page', None)})
     df = pd.DataFrame(orga_visited.values(), index=orga_visited.keys())
     df.to_csv(DATADIR + 'top50_orgas_most_visits_last_month.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_organisations_visites_1mois")
 
+
+def get_top_datasets_visits():
     # Top 50 des JDD les plus visités
-    print('Top 50 des JDD les plus visités')
     data = get_all_from_api_query(
         f'{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
         next_page='links.next'
@@ -412,7 +412,7 @@ def create_edito_tables():
         k: v for k, v in sorted(datasets_visited.items(), key=lambda x: -x[1]['monthly_visit'])
     }
     for k in datasets_visited:
-        r = requests.get(datagouv_api_url + 'datasets/' + k).json()
+        r = RequestRetry.get(datagouv_api_url + 'datasets/' + k).json()
         datasets_visited[k].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
@@ -425,8 +425,9 @@ def create_edito_tables():
     df.to_csv(DATADIR + 'top50_datasets_most_visits_last_month.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_datasets_visites_1mois")
 
+
+def get_top_resources_downloads():
     # Top 50 des ressources les plus téléchargées
-    print('Top 50 des ressources les plus téléchargées')
     data = get_all_from_api_query(
         (
             f'{api_metrics_url}api/resources/data/?metric_month__exact={last_month}'
@@ -438,10 +439,10 @@ def create_edito_tables():
     while len(resources_downloaded) < 50:
         d = next(data)
         if d['monthly_download_resource']:
-            if not requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").ok:
+            if not RequestRetry.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").ok:
                 print("This dataset seems to have disappeared:", d['dataset_id'])
                 continue
-            r = requests.get(
+            r = RequestRetry.get(
                 f"https://www.data.gouv.fr/api/2/datasets/resources/{d['resource_id']}/"
             ).json()
             d['dataset_id'] = r['dataset_id'] if r['dataset_id'] else 'COMMUNAUTARY'
@@ -449,8 +450,8 @@ def create_edito_tables():
             r2 = {}
             r3 = {}
             if d['dataset_id'] != 'COMMUNAUTARY':
-                r2 = requests.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
-                r3 = requests.get(
+                r2 = RequestRetry.get(f"https://www.data.gouv.fr/api/1/datasets/{d['dataset_id']}/").json()
+                r3 = RequestRetry.get(
                     f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}"
                     f"&dataset_id__exact={d['dataset_id']}"
                 ).json()
@@ -488,8 +489,9 @@ def create_edito_tables():
     )
     df_to_grist(df, grist_edito, "Top50_ressources_telechargees_1mois")
 
+
+def get_top_reuses_visits():
     # Top 50 des réutilisations les plus visitées
-    print('Top 50 des réutilisations les plus visitées')
     data = get_all_from_api_query(
         f'{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&monthly_visit__sort=desc',
         next_page='links.next',
@@ -506,7 +508,7 @@ def create_edito_tables():
         k: v for k, v in sorted(reuses_visited.items(), key=lambda x: -x[1]['monthly_visit'])
     }
     for k in reuses_visited:
-        r = requests.get(datagouv_api_url + 'reuses/' + k).json()
+        r = RequestRetry.get(datagouv_api_url + 'reuses/' + k).json()
         reuses_visited[k].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
@@ -519,32 +521,34 @@ def create_edito_tables():
     df.to_csv(DATADIR + 'top50_reuses_most_visits_last_month.csv', index=False)
     df_to_grist(df, grist_edito, "Top50_reutilisations_visites_1mois")
 
+
+def get_top_datasets_discussions():
     # Top 50 des JDD les plus discutés
-    print('Top 50 des JDD les plus discutés')
-    data = get_all_from_api_query(
-        datagouv_api_url + 'discussions/?sort=-created',
-        mask="data{created,subject{id,class}}"
+    discussions = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/d77705e1-4ecd-461c-8c24-662d47c4c2f9",
+        sep=";",
+        usecols=["created", "subject_class", "subject_id"],
     )
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+    discussions = discussions.loc[
+        (discussions["created"] >= threshold)
+        & (discussions["subject_class"] == "Dataset")
+    ]
     discussions_of_interest = {}
-    for d in data:
-        if d['created'] < threshold:
-            break
-        if d['subject']['class'] == 'Dataset':
-            tmp = requests.get(datagouv_api_url + f"datasets/{d['subject']['id']}").json()
+    for dataset_id in discussions["subject_id"]:
+        if dataset_id not in discussions_of_interest:
+            tmp = RequestRetry.get(datagouv_api_url + f"datasets/{dataset_id}").json()
             organization_or_owner = (
                 tmp.get('organization', {}).get('name', None) if tmp.get('organization', None)
                 else tmp.get('owner', {}).get('slug', None)
             )
-            discussions_of_interest.setdefault(
-                d['subject']['id'], {
-                    'discussions_created': 0,
-                    'dataset_id': d['subject']['id'],
-                    'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{d['subject']['id']}",
-                    'organization_or_owner': organization_or_owner
-                }
-            )
-            discussions_of_interest[d['subject']['id']]['discussions_created'] += 1
+            discussions_of_interest[dataset_id] = {
+                'discussions_created': 0,
+                'dataset_id': dataset_id,
+                'dataset_url': f"https://www.data.gouv.fr/fr/datasets/{dataset_id}",
+                'organization_or_owner': organization_or_owner
+            }
+        discussions_of_interest[dataset_id]['discussions_created'] += 1
     discussions_of_interest = {
         k: v for k, v in sorted(
             discussions_of_interest.items(),
@@ -556,29 +560,40 @@ def create_edito_tables():
     df_to_grist(df, grist_edito, "Top50_orgas_discutees_30jours")
 
 
+edito_functions = [
+    get_top_datasets_discussions,
+    get_top_datasets_visits,
+    get_top_orgas_publish,
+    get_top_orgas_visits,
+    get_top_resources_downloads,
+    get_top_reuses_visits,
+]
+
+
+# %%
 def send_tables_to_minio():
     print(os.listdir(DATADIR))
     print('Saving tops as millésimes')
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": file,
-                "dest_path": f"bizdev/{today.strftime('%Y-%m-%d')}/",
-                "dest_name": file,
-            } for file in os.listdir(DATADIR)
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=file,
+                dest_path=f"bizdev/{today.strftime('%Y-%m-%d')}/",
+                dest_name=file,
+            ) for file in os.listdir(DATADIR)
             if not any([k in file for k in ['spam', 'KO']])
         ],
     )
     print('Saving KO reuses and spams (erasing previous files)')
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": file,
-                "dest_path": "bizdev/",
-                "dest_name": file,
-            } for file in os.listdir(DATADIR)
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=file,
+                dest_path="bizdev/",
+                dest_name=file,
+            ) for file in os.listdir(DATADIR)
             if any([k in file for k in ['spam', 'KO']])
         ],
     )
@@ -637,47 +652,55 @@ with DAG(
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
-    ),
+    )
 
     check_if_monday = ShortCircuitOperator(
         task_id="check_if_monday",
         python_callable=check_if_monday
     )
 
-    create_curation_tables = PythonOperator(
-        task_id="create_curation_tables",
-        python_callable=create_curation_tables
-    )
+    curation_tasks = [
+        PythonOperator(
+            task_id=func.__name__,
+            python_callable=func
+        )
+        for func in curation_functions
+    ]
 
     check_if_first_day_of_month = ShortCircuitOperator(
         task_id="check_if_first_day_of_month",
         python_callable=check_if_first_day_of_month
     )
 
-    create_edito_tables = PythonOperator(
-        task_id="create_edito_tables",
-        python_callable=create_edito_tables
-    )
+    edito_tasks = [
+        PythonOperator(
+            task_id=func.__name__,
+            python_callable=func
+        )
+        for func in edito_functions
+    ]
 
     send_tables_to_minio = PythonOperator(
         task_id="send_tables_to_minio",
         python_callable=send_tables_to_minio,
-        trigger_rule='all_done',
+        trigger_rule="none_failed",
     )
 
     publish_mattermost = PythonOperator(
         task_id="publish_mattermost",
         python_callable=publish_mattermost,
-        trigger_rule='all_done',
+        trigger_rule="none_failed",
     )
 
     check_if_monday.set_upstream(clean_previous_outputs)
     check_if_first_day_of_month.set_upstream(clean_previous_outputs)
 
-    create_curation_tables.set_upstream(check_if_monday)
-    create_edito_tables.set_upstream(check_if_first_day_of_month)
+    for task in curation_tasks:
+        task.set_upstream(check_if_monday)
+        send_tables_to_minio.set_upstream(task)
 
-    send_tables_to_minio.set_upstream(create_edito_tables)
-    send_tables_to_minio.set_upstream(create_curation_tables)
+    for task in edito_tasks:
+        task.set_upstream(check_if_first_day_of_month)
+        send_tables_to_minio.set_upstream(task)
 
     publish_mattermost.set_upstream(send_tables_to_minio)

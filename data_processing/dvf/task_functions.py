@@ -1,14 +1,15 @@
-import gc
+from datetime import datetime
+from functools import reduce
 import glob
-from unidecode import unidecode
-import numpy as np
+import json
+import logging
 import os
+
+import gc
+import numpy as np
 import pandas as pd
 import requests
-from datetime import datetime
-import json
-from functools import reduce
-from airflow.hooks.base import BaseHook
+from unidecode import unidecode
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -18,29 +19,26 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.postgres import (
-    execute_sql_file,
-    copy_file
-)
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 DPEDIR = f"{DATADIR}/dpe/"
-schema = 'dvf'
+schema = "dvf"
 
-if AIRFLOW_ENV == 'prod':
-    conn = BaseHook.get_connection("POSTGRES_DVF")
-else:
-    conn = BaseHook.get_connection("postgres_localhost")
-
+pgclient = PostgresClient(
+    conn_name="POSTGRES_DVF",
+    schema=schema,
+)
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
-def get_year_interval():
+def get_year_interval() -> tuple[int, int]:
     today = datetime.today()
     # data updates happen in April and October
     if 4 <= today.month < 10:
@@ -48,145 +46,75 @@ def get_year_interval():
     return today.year - 5, today.year
 
 
-def create_copro_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_copro_table.sql",
-            }
-        ],
-        schema,
+def build_table_name(table: str) -> str:
+    # modify this to suit your local database structure
+    return f'{schema}.{table}' if AIRFLOW_ENV == "prod" else table
+
+
+def create_copro_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_copro_table.sql",
+        ),
     )
 
 
-def create_dpe_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_dpe_table.sql",
-            }
-        ],
-        schema,
+def create_dpe_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_dpe_table.sql",
+        ),
     )
 
 
-def create_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_dvf_table.sql",
-            }
-        ],
-        schema,
+def create_dvf_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_dvf_table.sql",
+        ),
     )
 
 
-def index_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "index_dvf_table.sql",
-            }
-        ],
-        schema,
+def index_dvf_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="index_dvf_table.sql",
+        ),
     )
 
 
-def create_stats_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_stats_dvf_table.sql",
-            }
-        ],
-        schema,
+def create_stats_dvf_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_stats_dvf_table.sql",
+        ),
     )
 
 
-def create_distribution_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_distribution_table.sql",
-            }
-        ],
-        schema,
+def create_distribution_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_distribution_table.sql",
+        ),
     )
 
 
-def create_whole_period_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "create_whole_period_table.sql",
-            }
-        ],
-        schema,
+def create_whole_period_table() -> None:
+    pgclient.execute_sql_file(
+        file=File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="create_whole_period_table.sql",
+        ),
     )
 
 
-def populate_utils(files, table, has_header):
-    format_files = []
-    for file in files:
-        format_files.append(
-            {"source_path": f"{DATADIR}/", "source_name": file.split("/")[-1]}
-        )
-    copy_file(
-        PG_HOST=conn.host,
-        PG_PORT=conn.port,
-        PG_DB=conn.schema,
-        PG_TABLE=table,
-        PG_USER=conn.login,
-        PG_PASSWORD=conn.password,
-        list_files=format_files,
-        PG_SCHEMA=schema,
-        has_header=has_header,
-    )
-
-
-def populate_copro_table():
+def populate_copro_table() -> None:
     mapping = {
         "EPCI": "epci",
         "Commune": "commune",
@@ -228,15 +156,15 @@ def populate_copro_table():
         ),
         "Nombre de lots à usage d’habitation": "nombre_lots_usage_habitation",
         "Nombre de lots de stationnement": "nombre_lots_stationnement",
-        "Nombre d'arrêtés relevant du code de la santé publique en cours": (
-            "nombre_arretes_code_sante_publique_en_cours"
-        ),
-        "Nombre d'arrêtés de péril sur les parties communes en cours": (
-            "nombre_arretes_peril_parties_communes_en_cours"
-        ),
-        "Nombre d'arrêtés sur les équipements communs en cours": (
-            "nombre_arretes_equipements_communs_en_cours"
-        ),
+        # "Nombre d'arrêtés relevant du code de la santé publique en cours": (
+        #     "nombre_arretes_code_sante_publique_en_cours"
+        # ),
+        # "Nombre d'arrêtés de péril sur les parties communes en cours": (
+        #     "nombre_arretes_peril_parties_communes_en_cours"
+        # ),
+        # "Nombre d'arrêtés sur les équipements communs en cours": (
+        #     "nombre_arretes_equipements_communs_en_cours"
+        # ),
         "Période de construction": "periode_construction",
         "Référence Cadastrale 1": "reference_cadastrale_1",
         "Référence Cadastrale 2": "reference_cadastrale_2",
@@ -250,64 +178,75 @@ def populate_copro_table():
     copro = pd.read_csv(
         f"{DATADIR}/copro.csv",
         dtype=str,
-        usecols=mapping.keys()
+        usecols=mapping.keys(),
     )
     copro = copro.rename(mapping, axis=1)
-    mask = copro['commune'].str.len() == 5
-    copro = copro.loc[mask]
+    copro = copro.loc[copro['commune'].str.len() == 5]
     copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
-    table = f'{schema}.copro' if schema else "copro"
-    populate_utils([f"{DATADIR}/copro_clean.csv"], table, True)
+    pgclient.copy_file(
+        file=File(source_path=f"{DATADIR}/", source_name="copro_clean.csv"),
+        table=build_table_name("copro"),
+        has_header=True,
+    )
 
 
-def populate_distribution_table():
-    table = f'{schema}.distribution_prix' if schema else "distribution_prix"
-    populate_utils([f"{DATADIR}/distribution_prix.csv"], table, True)
+def populate_distribution_table() -> None:
+    pgclient.copy_file(
+        file=File(source_path=f"{DATADIR}/", source_name="distribution_prix.csv"),
+        table=build_table_name("distribution_prix"),
+        has_header=True,
+    )
 
 
-def populate_dvf_table():
+def populate_dvf_table() -> None:
     files = glob.glob(f"{DATADIR}/full*.csv")
-    table = f'{schema}.dvf' if schema else "dvf"
-    populate_utils(files, table, True)
+    for file in files:
+        *path, file = file.split("/")
+        logging.info(f"Populating {file}")
+        pgclient.copy_file(
+            file=File(source_path="/".join(path), source_name=file),
+            table=build_table_name("dvf"),
+            has_header=True,
+        )
 
 
-def alter_dvf_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "alter_dvf_table.sql",
-            }
-        ],
-        schema,
+def alter_dvf_table() -> None:
+    pgclient.execute_sql_file(
+        File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="alter_dvf_table.sql",
+        ),
     )
 
 
-def populate_stats_dvf_table():
-    table = f'{schema}.stats_dvf' if schema else "stats_dvf"
-    populate_utils([f"{DATADIR}/stats_dvf_api.csv"], table, True)
+def populate_stats_dvf_table() -> None:
+    pgclient.copy_file(
+        file=File(source_path=f"{DATADIR}/", source_name="stats_dvf_api.csv"),
+        table=build_table_name("stats_dvf"),
+        has_header=True,
+    )
 
 
-def populate_dpe_table():
-    table = f'{schema}.dpe' if schema else "dpe"
-    populate_utils([f"{DATADIR}/all_dpe.csv"], table, False)
+def populate_dpe_table() -> None:
+    pgclient.copy_file(
+        file=File(source_path=f"{DATADIR}/", source_name="all_dpe.csv"),
+        table=build_table_name("dpe"),
+        has_header=False,
+    )
 
 
-def populate_whole_period_table():
-    table = f'{schema}.stats_whole_period' if schema else "stats_whole_period"
-    populate_utils([f"{DATADIR}/stats_whole_period.csv"], table, True)
+def populate_whole_period_table() -> None:
+    pgclient.copy_file(
+        file=File(source_path=f"{DATADIR}/", source_name="stats_whole_period.csv"),
+        table=build_table_name("stats_whole_period"),
+        has_header=True,
+    )
 
 
-def get_epci():
-    page = requests.get(
+def get_epci() -> None:
+    epci = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
-    )
-    epci = page.json()
+    ).json()
     data = [
         {
             "code_epci": e["code"],
@@ -322,11 +261,11 @@ def get_epci():
         for commune in d["liste_membres"]
     ]
     pd.DataFrame(
-        epci_list, columns=["code_commune", "code_epci", "libelle_geo"]
+        epci_list, columns=["code_commune", "code_epci", "libelle_geo"],
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
-def process_dpe():
+def process_dpe() -> None:
     cols_dpe = {
         'batiment_groupe_id': str,
         # 'identifiant_dpe',
@@ -343,9 +282,9 @@ def process_dpe():
     }
     cols_parcelles = [
         "batiment_groupe_id",
-        "parcelle_id"
+        "parcelle_id",
     ]
-    print("Import des batiment_id pour imports segmentés")
+    logging.info("Import des batiment_id pour imports segmentés")
     # these files are too big to be loaded at once
     # ids look like this: "bdnb-bg-5CWD-3J5Q-VEGE"
     # they seem to be in even groups if considering the "bdnb-bg-X" prefix
@@ -354,19 +293,19 @@ def process_dpe():
     bat_id = pd.read_csv(
         DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
         usecols=["batiment_groupe_id"],
-        sep=";",
+        sep=",",
     )
     prefixes = list(bat_id['batiment_groupe_id'].str.slice(0, 9).unique())
-    print(f"{len(prefixes)} prefixes to process")
+    logging.info(f"{len(prefixes)} prefixes to process")
     del bat_id
-    print("Imports et traitements DPE x parcelles par batch...")
+    logging.info("Imports et traitements DPE x parcelles par batch...")
     chunk_size = 100000
     for idx, pref in enumerate(prefixes):
         iter_dpe = pd.read_csv(
             DATADIR + '/csv/batiment_groupe_dpe_representatif_logement.csv',
             dtype=cols_dpe,
             usecols=cols_dpe.keys(),
-            sep=";",
+            sep=",",
             iterator=True,
             chunksize=chunk_size,
         )
@@ -379,13 +318,13 @@ def process_dpe():
             for chunk in iter_dpe
         ])
         del iter_dpe
-        print(f"> Processing {pref}: {len(dpe)} values ({idx + 1}/{len(prefixes)})")
+        logging.info(f"> Processing {pref}: {len(dpe)} values ({idx + 1}/{len(prefixes)})")
         dpe.set_index('batiment_groupe_id', inplace=True)
         iter_parcelles = pd.read_csv(
             DATADIR + '/csv/rel_batiment_groupe_parcelle.csv',
             dtype=str,
             usecols=cols_parcelles,
-            sep=";",
+            sep=",",
             iterator=True,
             chunksize=chunk_size,
         )
@@ -395,11 +334,11 @@ def process_dpe():
         ])
         del iter_parcelles
         parcelles.set_index('batiment_groupe_id', inplace=True)
-        print("  Merging...")
+        logging.info("Merging...")
         dpe_parcelled = dpe.join(
             parcelles,
             on='batiment_groupe_id',
-            how='left'
+            how='left',
         )
         del dpe
         del parcelles
@@ -416,24 +355,16 @@ def process_dpe():
         del dpe_parcelled
 
 
-def index_dpe_table():
-    execute_sql_file(
-        conn.host,
-        conn.port,
-        conn.schema,
-        conn.login,
-        conn.password,
-        [
-            {
-                "source_path": f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
-                "source_name": "index_dpe_table.sql",
-            }
-        ],
-        schema,
+def index_dpe_table() -> None:
+    pgclient.execute_sql_file(
+        File(
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_name="index_dpe_table.sql",
+        ),
     )
 
 
-def process_dvf_stats():
+def process_dvf_stats() -> None:
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
@@ -446,7 +377,7 @@ def process_dvf_stats():
         DATADIR + "/epci.csv",
         sep=",",
         encoding="utf8",
-        dtype=str
+        dtype=str,
     )
     sections_from_dvf = set()
     communes_from_dvf = set()
@@ -470,7 +401,7 @@ def process_dvf_stats():
     types_of_interest = [1, 2, 4]
     echelles_of_interest = ["departement", "epci", "commune", "section"]
     for year in years:
-        print("Starting with", year)
+        logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
             sep=",",
@@ -516,37 +447,29 @@ def process_dvf_stats():
         # choix : les terres et/ou dépendances ne rendent pas une mutation
         # multi-type
         ventes = df.loc[
-            (df["nature_mutation"].isin(natures_of_interest)) &
-            (df["code_type_local"].isin(types_of_interest))
+            (df["nature_mutation"].isin(natures_of_interest))
+            & (df["code_type_local"].isin(types_of_interest))
         ]
         del df
-        ventes["month"] = (
-            ventes["date_mutation"]
-            .apply(lambda x: int(x.split("-")[1]))
-        )
-        print("Après déduplication et filtre types et natures :", len(ventes))
+        ventes["month"] = ventes["date_mutation"].apply(lambda x: int(x.split("-")[1]))
+        logging.info(f"Après déduplication et filtre types et natures : {len(ventes)}")
 
         # on ne garde que les ventes d'un seul bien
         # cf historique pour les ventes multi-types
         count_ventes = ventes['id_mutation'].value_counts().reset_index()
-        liste_ventes_monobien = count_ventes.loc[count_ventes['id_mutation'] == 1, 'index']
+        liste_ventes_monobien = count_ventes.loc[count_ventes["count"] == 1, "id_mutation"]
         ventes_nodup = ventes.loc[ventes['id_mutation'].isin(liste_ventes_monobien)]
-        print("Après filtrage des ventes de plusieurs biens :", len(ventes_nodup))
+        logging.info(f"Après filtrage des ventes de plusieurs biens : {len(ventes_nodup)}")
 
-        ventes_nodup["prix_m2"] = (
-            ventes_nodup["valeur_fonciere"] /
-            ventes_nodup["surface_reelle_bati"]
-        )
-        ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
-            [np.inf, -np.inf], np.nan
-        )
+        ventes_nodup["prix_m2"] = ventes_nodup["valeur_fonciere"] / ventes_nodup["surface_reelle_bati"]
+        ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace([np.inf, -np.inf], np.nan)
 
         # pas de prix ou pas de surface
         ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
 
         # garde fou pour les valeurs aberrantes
         ventes_nodup = ventes_nodup.loc[ventes_nodup['prix_m2'] < 100000]
-        print("Après retrait des ventes sans prix au m² et valeurs aberrantes :", len(ventes_nodup))
+        logging.info(f"Après retrait des ventes sans prix au m² et valeurs aberrantes : {len(ventes_nodup)}")
         export_intermediary = []
 
         # avoid unnecessary steps due to half years
@@ -650,7 +573,7 @@ def process_dvf_stats():
 
                 merged.rename(
                     columns={f"code_{echelle}": "code_geo"},
-                    inplace=True
+                    inplace=True,
                 )
                 dfs_dict[echelle] = merged
 
@@ -662,8 +585,8 @@ def process_dvf_stats():
                     )
                 ] = len(
                     ventes.loc[
-                        (ventes["code_type_local"] == t) &
-                        (ventes["month"] == m)
+                        (ventes["code_type_local"] == t)
+                        & (ventes["month"] == m)
                     ]
                 )
                 general[
@@ -672,8 +595,8 @@ def process_dvf_stats():
                     )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t) &
-                        (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t)
+                        & (ventes_nodup["month"] == m)
                     ]["prix_m2"].mean()
                 )
                 general[
@@ -682,27 +605,27 @@ def process_dvf_stats():
                     )
                 ] = np.round(
                     ventes_nodup.loc[
-                        (ventes_nodup["code_type_local"] == t) &
-                        (ventes_nodup["month"] == m)
+                        (ventes_nodup["code_type_local"] == t)
+                        & (ventes_nodup["month"] == m)
                     ]["prix_m2"].median()
                 )
 
             general["nb_ventes_apt_maison"] = len(
                 ventes.loc[
-                    (ventes["code_type_local"].isin([1, 2])) &
-                    (ventes["month"] == m)
+                    (ventes["code_type_local"].isin([1, 2]))
+                    & (ventes["month"] == m)
                 ]
             )
             general["moy_prix_m2_apt_maison"] = np.round(
                 ventes_nodup.loc[
-                    (ventes_nodup["code_type_local"].isin([1, 2])) &
-                    (ventes_nodup["month"] == m)
+                    (ventes_nodup["code_type_local"].isin([1, 2]))
+                    & (ventes_nodup["month"] == m)
                 ]["prix_m2"].mean()
             )
             general["med_prix_m2_apt_maison"] = np.round(
                 ventes_nodup.loc[
-                    (ventes_nodup["code_type_local"].isin([1, 2])) &
-                    (ventes_nodup["month"] == m)
+                    (ventes_nodup["code_type_local"].isin([1, 2]))
+                    & (ventes_nodup["month"] == m)
                 ]["prix_m2"].median()
             )
 
@@ -719,14 +642,14 @@ def process_dvf_stats():
         del ventes
         del ventes_nodup
         gc.collect()
-        print("Done with", year)
+        logging.info(f"Done with {year}")
 
     # on ajoute les colonnes libelle_geo et code_parent
     with open(DATADIR + "/sections.txt", 'r') as f:
         sections = [s.replace('\n', '') for s in f.readlines()]
     sections = pd.DataFrame(
         set(sections) | sections_from_dvf,
-        columns=['code_geo']
+        columns=['code_geo'],
     )
     sections['code_geo'] = sections['code_geo'].str.slice(0, 10)
     sections = sections.drop_duplicates()
@@ -734,10 +657,10 @@ def process_dvf_stats():
     sections['libelle_geo'] = sections['code_geo']
     sections['echelle_geo'] = 'section'
     departements = pd.read_csv(
-        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"]
+        DATADIR + "/departements.csv", dtype=str, usecols=["DEP", "LIBELLE"],
     )
     departements = departements.rename(
-        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1
+        {"DEP": "code_geo", "LIBELLE": "libelle_geo"}, axis=1,
     )
     departements['code_parent'] = 'nation'
     departements['echelle_geo'] = 'departement'
@@ -747,14 +670,14 @@ def process_dvf_stats():
     )
     epci = epci.drop("code_commune", axis=1)
     epci = epci.drop_duplicates(subset=["code_epci", "code_parent"]).rename(
-        {"code_epci": "code_geo"}, axis=1
+        {"code_epci": "code_geo"}, axis=1,
     )
     epci['echelle_geo'] = 'epci'
 
     communes = pd.read_csv(
         DATADIR + "/communes.csv",
         dtype=str,
-        usecols=["TYPECOM", "COM", "LIBELLE"]
+        usecols=["TYPECOM", "COM", "LIBELLE"],
     )
     communes = (
         communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
@@ -789,7 +712,7 @@ def process_dvf_stats():
     )
     communes['libelle_geo'].fillna('NA', inplace=True)
     communes['echelle_geo'] = 'commune'
-    print("Done with géo")
+    logging.info("Done with géo")
     libelles_parents = pd.concat([departements, epci, communes, sections])
     del sections
     del communes
@@ -807,12 +730,11 @@ def process_dvf_stats():
     reordered_columns = ['code_geo'] +\
         [pref + lib for lib in libelles_biens for pref in prefixes] +\
         ['annee_mois', 'libelle_geo', 'code_parent', 'echelle_geo']
-    print(reordered_columns)
+    logging.info(reordered_columns)
     for year in years:
-        print("Final process for " + str(year))
-        dup_libelle = libelles_parents.append(
-            [libelles_parents] * 11,
-            ignore_index=True
+        logging.info(f"Final process for {year}")
+        dup_libelle = pd.concat(
+            [libelles_parents for _ in range(12)]
         ).sort_values(['code_geo', 'code_parent'])
         dup_libelle['annee_mois'] = [
             f'{year}-{"0"+str(m) if m < 10 else m}'
@@ -832,7 +754,7 @@ def process_dvf_stats():
             ]
         mask = export[year]['code_geo'] == 'nation'
         export[year].loc[mask, ['code_parent', 'libelle_geo', 'echelle_geo']] = [
-            ['-', 'nation', 'nation'] for k in range(sum(mask))
+            ['-', 'nation', 'nation'] for _ in range(sum(mask))
         ]
         del mask
         export[year] = export[year][reordered_columns]
@@ -843,9 +765,9 @@ def process_dvf_stats():
             index=False,
             float_format="%.0f",
             mode='w' if year == min(years) else 'a',
-            header=True if year == min(years) else False
+            header=True if year == min(years) else False,
         )
-        print("Done with first export (API table)")
+        logging.info("Done with first export (API table)")
 
         mask = export[year][[
             c for c in export[year].columns if any([s in c for s in ['nb_', 'moy_', 'med_']])
@@ -861,14 +783,14 @@ def process_dvf_stats():
             index=False,
             float_format="%.0f",
             mode='w' if year == min(years) else 'a',
-            header=True if year == min(years) else False
+            header=True if year == min(years) else False,
         )
         del export[year]
-        print("Done with year " + str(year))
+        logging.info(f"Done with year {year}")
 
 
-def create_distribution_and_stats_whole_period():
-    def process_borne(borne, borne_inf, borne_sup):
+def create_distribution_and_stats_whole_period() -> None:
+    def process_borne(borne: float, borne_inf: int, borne_sup: int) -> int:
         # handle rounding of bounds
         if round(borne, -2) <= borne_inf or round(borne, -2) >= borne_sup:
             return round(borne)
@@ -876,10 +798,10 @@ def create_distribution_and_stats_whole_period():
             return round(borne, -2)
 
     def distrib_from_prix(
-        prix,
-        nb_tranches=10,
-        arrondi=True
-    ):
+        prix: pd.Series,
+        nb_tranches: int = 10,
+        arrondi: bool = True,
+    ) -> tuple[list, list]:
         # 1er et dernier quantiles gardés
         # on coupe le reste des données en tranches égales de prix (!= volumes)
         # .unique() pour éviter des bornes identique => ValueError
@@ -915,7 +837,7 @@ def create_distribution_and_stats_whole_period():
             # create new bins from bounds and intervals
             new_bins = [bins[0]]
             for idx, b in enumerate(count_bins.values[:-1]):
-                for k in range(b):
+                for _ in range(b):
                     new_bins.append(new_bins[-1] + ranges[idx])
             bins = list(map(round, new_bins))
         volumes = pd.cut(
@@ -930,7 +852,7 @@ def create_distribution_and_stats_whole_period():
         sep=",",
         encoding="utf8",
         usecols=['code_geo', 'echelle_geo', 'code_parent', 'libelle_geo'],
-        dtype=str
+        dtype=str,
     )
     echelles = echelles.drop_duplicates()
     # on récupère les données DVF
@@ -946,7 +868,7 @@ def create_distribution_and_stats_whole_period():
         DATADIR + "/epci.csv",
         sep=",",
         encoding="utf8",
-        dtype=str
+        dtype=str,
     )
     to_keep = [
         "id_mutation",
@@ -960,7 +882,7 @@ def create_distribution_and_stats_whole_period():
         "surface_reelle_bati",
     ]
     for year in years:
-        print("Starting with", year)
+        logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
             sep=",",
@@ -986,24 +908,19 @@ def create_distribution_and_stats_whole_period():
         # choix : les terres et/ou dépendances ne rendent pas une mutation
         # multitype
         ventes = df.loc[
-            (df["nature_mutation"].isin(natures_of_interest)) &
-            (df["code_type_local"].isin([1, 2, 4]))
+            (df["nature_mutation"].isin(natures_of_interest))
+            & (df["code_type_local"].isin([1, 2, 4]))
         ]
         del df
 
         # on ne garde que les ventes d'un seul bien
         # cf historique pour les ventes multi-types
         count_ventes = ventes['id_mutation'].value_counts().reset_index()
-        liste_ventes_monobien = count_ventes.loc[count_ventes['id_mutation'] == 1, 'index']
+        liste_ventes_monobien = count_ventes.loc[count_ventes["count"] == 1, "id_mutation"]
         ventes_nodup = ventes.loc[ventes['id_mutation'].isin(liste_ventes_monobien)]
 
-        ventes_nodup["prix_m2"] = (
-            ventes_nodup["valeur_fonciere"] /
-            ventes_nodup["surface_reelle_bati"]
-        )
-        ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace(
-            [np.inf, -np.inf], np.nan
-        )
+        ventes_nodup["prix_m2"] = ventes_nodup["valeur_fonciere"] / ventes_nodup["surface_reelle_bati"]
+        ventes_nodup["prix_m2"] = ventes_nodup["prix_m2"].replace([np.inf, -np.inf], np.nan)
 
         # pas de prix ou pas de surface
         ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
@@ -1015,14 +932,14 @@ def create_distribution_and_stats_whole_period():
         dvf,
         epci[['code_commune', 'code_epci']],
         on="code_commune",
-        how="left"
+        how="left",
     )
     # bool is for distribution calculation
     echelles_of_interest = {
         "departement": True,
         "epci": True,
         "commune": True,
-        "section": False
+        "section": False,
     }
     types_of_interest = {
         'appartement': [2],
@@ -1054,7 +971,7 @@ def create_distribution_and_stats_whole_period():
             f'med_prix_m2_whole_{t}': restr_type_dvf['prix_m2'].median(),
         }])]
         for e in echelles_of_interest:
-            print("Starting", e, t)
+            logging.info(f"Starting {e} {t}")
             # stats
             grouped = restr_type_dvf[[f'code_{e}', 'prix_m2']].groupby(f'code_{e}')
             nb = grouped.count().reset_index()
@@ -1066,7 +983,7 @@ def create_distribution_and_stats_whole_period():
             merged = pd.merge(nb, mean, on='code_geo')
             merged = pd.merge(merged, median, on='code_geo')
             type_stats.append(merged)
-            print("- Done with stats")
+            logging.info("- Done with stats")
 
             # distribution
             if echelles_of_interest[e]:
@@ -1076,7 +993,7 @@ def create_distribution_and_stats_whole_period():
                 operations = len(codes_geo)
                 for i, code in enumerate(codes_geo):
                     if i % (operations // 10) == 0 and i > 0:
-                        print(int(round(i / operations * 100, -1)), '%')
+                        logging.info(f"{int(round(i / operations * 100, -1))}%")
                     if code in idx:
                         prix = restr_dvf.loc[code]
                         if not isinstance(prix, pd.core.series.Series):
@@ -1087,25 +1004,25 @@ def create_distribution_and_stats_whole_period():
                                 'code_geo': code,
                                 'type_local': t,
                                 'xaxis': intervalles,
-                                'yaxis': volumes
+                                'yaxis': volumes,
                             })
                         else:
                             tranches.append({
                                 'code_geo': code,
                                 'type_local': t,
                                 'xaxis': None,
-                                'yaxis': None
+                                'yaxis': None,
                             })
                     else:
                         tranches.append({
                             'code_geo': code,
                             'type_local': t,
                             'xaxis': None,
-                            'yaxis': None
+                            'yaxis': None,
                         })
-                print("- Done with distribution")
+                logging.info("- Done with distribution")
             else:
-                print("- No distribution")
+                logging.info("- No distribution")
         stats_period.append(pd.concat(type_stats))
     output_tranches = pd.DataFrame(tranches)
     output_tranches.to_csv(
@@ -1114,56 +1031,50 @@ def create_distribution_and_stats_whole_period():
         encoding="utf8",
         index=False,
     )
-    print("Done exporting distribution")
+    logging.info("Done exporting distribution")
     stats_period = reduce(lambda x, y: pd.merge(x, y, on='code_geo', how='outer'), stats_period)
     stats_period = pd.merge(echelles, stats_period, on='code_geo', how='outer')
-    print("Check répartition échelles")
-    print("Réel")
-    print(echelles['echelle_geo'].value_counts(dropna=False))
-    print("Dans stats")
-    print(stats_period['echelle_geo'].value_counts(dropna=False))
+    logging.info("Check répartition échelles")
+    logging.info("Réel")
+    logging.info(echelles['echelle_geo'].value_counts(dropna=False))
+    logging.info("Dans stats")
+    logging.info(stats_period['echelle_geo'].value_counts(dropna=False))
     stats_period.to_csv(
         DATADIR + "/stats_whole_period.csv",
         sep=",",
         encoding="utf8",
         index=False,
-        float_format='%.0f'
+        float_format='%.0f',
     )
 
 
-def send_stats_to_minio():
+def send_stats_to_minio() -> None:
     minio_open.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "stats_dvf.csv",
-                "dest_path": "dvf/",
-                "dest_name": "stats_dvf.csv",
-            },
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "stats_whole_period.csv",
-                "dest_path": "dvf/",
-                "dest_name": "stats_whole_period.csv",
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name=f"{file}.csv",
+                dest_path="dvf/",
+                dest_name=f"{file}.csv",
+            ) for file in ["stats_dvf", "stats_whole_period"]
         ],
     )
 
 
-def send_distribution_to_minio():
+def send_distribution_to_minio() -> None:
     minio_restricted.send_files(
         list_files=[
-            {
-                "source_path": f"{DATADIR}/",
-                "source_name": "distribution_prix.csv",
-                "dest_path": "dvf/",
-                "dest_name": "distribution_prix.csv",
-            }
+            File(
+                source_path=f"{DATADIR}/",
+                source_name="distribution_prix.csv",
+                dest_path="dvf/",
+                dest_name="distribution_prix.csv",
+            ),
         ],
     )
 
 
-def publish_stats_dvf(ti):
+def publish_stats_dvf(ti) -> None:
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
     post_remote_resource(
@@ -1183,7 +1094,7 @@ def publish_stats_dvf(ti):
             ),
         },
     )
-    print("Done with stats mensuelles")
+    logging.info("Done with stats mensuelles")
     post_remote_resource(
         dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
         resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
@@ -1204,7 +1115,7 @@ def publish_stats_dvf(ti):
     ti.xcom_push(key="dataset_id", value=data['mensuelles'][AIRFLOW_ENV]["dataset_id"])
 
 
-def notification_mattermost(ti):
+def notification_mattermost(ti) -> None:
     dataset_id = ti.xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
     send_message(
         f"Stats DVF générées :"
