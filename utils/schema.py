@@ -75,7 +75,7 @@ def build_consolidation_name(
         schema_name.replace("/", "_"),
         version_name,
         consolidation_date_str,
-        extension
+        extension,
     )
 
 
@@ -1276,10 +1276,6 @@ def upload_geojson(
     consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
     r_id = config_dict[schema_name]["geojson_resource_id"]
 
-    obj = {}
-    obj["type"] = "main"
-    obj["title"] = f"Export au format geojson (v{latest_version})"
-    obj["format"] = "json"
     response = post_resource(
         file_to_upload={
             'dest_path': schema_consolidated_data_path.as_posix(),
@@ -1287,12 +1283,15 @@ def upload_geojson(
                 schema_name,
                 geojson_version_names_list[-1],
                 consolidation_date_str,
-                extension='json'
+                extension='geojson',
             ),
         },
         dataset_id=consolidated_dataset_id,
         resource_id=r_id,
-        payload=obj
+        payload={
+            "type": "main",
+            "title": f"Export au format geojson (v{latest_version})",
+        },
     )
 
     if not response.ok:
