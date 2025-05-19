@@ -88,7 +88,7 @@ def remove_files_from_directory(directory: str) -> None:
 
 
 def compute_checksum_from_file(filename: str, _type: str = "sha256") -> str:
-    """Compute sha1 in blocks"""
+    """Compute sha in blocks"""
     shasum = getattr(hashlib, _type)()
     with open(filename, "rb") as f:
         block = f.read(2**16)
