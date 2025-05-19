@@ -279,6 +279,11 @@ def parse_api(url: str, api_url: str, schema_name: str) -> pd.DataFrame:
 def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
     # saves time by not pinging Validata for unchanged resources
     data = requests.get(resource_api_url)
+    if data.status_code == 404:
+        return {'report': {
+            'error': 'ressource not available',
+            'valid': False
+        }}
     data.raise_for_status()
     data = data.json()
     # if resource is a file on data.gouv.fr (not remote, due to hydra async work)
