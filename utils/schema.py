@@ -1116,9 +1116,9 @@ def upload_geojson(
             filename.replace(
                 "consolidation_" + schema_name.replace("/", "_") + "_v_",
                 "",
-            ).replace("_" + consolidation_date_str + ".json", "")
+            ).replace("_" + consolidation_date_str + ".geojson", "")
             for filename in os.listdir(schema_consolidated_data_path)
-            if filename.endswith(".json") and not filename.startswith(".")
+            if filename.endswith(".geojson") and not filename.startswith(".")
         ]
     )
     if len(geojson_version_names_list) > 1:
