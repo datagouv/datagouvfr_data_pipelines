@@ -329,6 +329,6 @@ def improve_geo_data_quality(
         df.to_csv(filepath, index=False)
         export_to_geojson(
             df,
-            os.path.splitext(filepath)[0] + ".json",
+            os.path.splitext(filepath)[0] + ".geojson",
             coordinates_column=cols_dict["xy_coords"],
         )
