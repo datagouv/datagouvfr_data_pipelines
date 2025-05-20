@@ -4,7 +4,7 @@ from airflow.providers.ssh.operators.ssh import SSHOperator
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
-    schedule_interval="48 16 1,5,10 * *",
+    schedule_interval="48 16 1,2,5,10 * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     tags=["data_processing", "sirene", "geocodage", "etalab" "geocodage"],
