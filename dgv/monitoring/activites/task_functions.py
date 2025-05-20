@@ -461,7 +461,7 @@ def publish_mattermost(ti):
             else:
                 message += ''
             if item['potential_certif']:
-                message += ':ballot_box_with_check: Certification potentielle @clarisse\n'
+                message += ':ballot_box_with_check: Certification potentielle\n'
             else:
                 message += ''
             message += (
