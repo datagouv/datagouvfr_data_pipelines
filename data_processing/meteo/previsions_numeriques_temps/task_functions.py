@@ -374,7 +374,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
-            demo_client.resource().create_remote(
+            local_client.resource().create_remote(
                 dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
                 payload={
                     "url": infos["url"],
@@ -383,12 +383,11 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "format": PACKAGES[model][pack]["extension"],
                     "type": "main",
                 },
-                on_demo=AIRFLOW_ENV == "dev",
             )
         elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
-            demo_client.resource(
+            local_client.resource(
                 dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
                 id=current_resources[file_id]["resource_id"],
                 fetch=False,
@@ -400,7 +399,6 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "format": PACKAGES[model][pack]["extension"],
                     "type": "main",
                 },
-                on_demo=AIRFLOW_ENV == "dev",
             )
 
 
