@@ -608,7 +608,8 @@ def build_reference_table(
         )
         logging.info(f"{len(df_search_word)} resources found with keyword '{search_word}'")
         schemas_report_dict[schema_name]["nb_resources_found_by_search_words"] += len(df_search_word)
-        if len(df_search_word) > 0:
+        # if the keyword is not restrictive enough, skipping
+        if len(df_search_word) > 0 and len(df_search_word) < 1000:
             df_search_word["resource_found_by"] = "3 - search request"
             df_list += [df_search_word]
 
