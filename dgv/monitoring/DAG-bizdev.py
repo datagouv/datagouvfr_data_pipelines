@@ -196,9 +196,8 @@ async def classify_user(user):
 
 async def get_suspect_users():
     users = local_client.get_all_from_api_query(
-        local_client.base_url + 'api/1/users/',
+        "api/1/users/",
         mask="data{id,about,metrics}",
-        auth=True,
     )
     tasks = [asyncio.create_task(classify_user(k)) for k in users]
     results = await asyncio.gather(*tasks)
@@ -288,11 +287,9 @@ def process_potential_spam():
     for obj in search_types:
         print('   - Starting with', obj)
         for word in SPAM_WORDS:
-            data = get_all_from_api_query(
-                f'https://www.data.gouv.fr/api/1/{obj}/?q={word}',
+            data = local_client.get_all_from_api_query(
+                f'api/1/{obj}/?q={word}',
                 mask="data{badges,organization,owner,id,name,title,metrics,created_at,since}",
-                # this WILL fail locally  for users because of token mismath (demo/prod)
-                auth=obj == "users",
             )
             for d in data:
                 should_add = True

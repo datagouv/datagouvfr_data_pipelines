@@ -23,7 +23,7 @@ default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure":
 
 
 def get_pending_harvesters(ti):
-    harvesters = local_client.get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
+    harvesters = local_client.get_all_from_api_query("api/1/harvest/sources/")
     harvesters = [
         {
             "name": harvest["name"],

@@ -24,7 +24,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     load_issues,
     save_issues,
 )
-from datagouvfr_data_pipelines.utils.datagouv import demo_client
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -316,7 +316,7 @@ def build_file_id_and_date(file_name: str):
 def get_current_resources(model: str, pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
-        f"{demo_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{local_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={
             "X-fields": "resources{id,url,type}",
             "X-API-KEY": (
