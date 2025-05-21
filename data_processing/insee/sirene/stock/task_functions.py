@@ -7,7 +7,7 @@ from airflow.providers.sftp.operators.sftp import SFTPOperator
 from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.datagouv import update_dataset_or_resource_metadata
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from datagouvfr_data_pipelines.config import (
@@ -163,12 +163,12 @@ def update_dataset_data_gouv(ti, **kwargs):
                 "type": "sha256",
                 "value": hashes[d["nameFTP"]]
             }
-
-        update_dataset_or_resource_metadata(
+        local_client.resource(
             payload=obj,
             dataset_id=d["dataset_id"],
-            resource_id=d["resource_id"],
-        )
+            id=d["resource_id"],
+            fetch=False,
+        ).update(payload=obj)
 
 
 def publish_mattermost(geoloc):

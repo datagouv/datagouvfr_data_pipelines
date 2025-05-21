@@ -5,6 +5,7 @@ import json
 from itertools import chain
 from datetime import datetime
 import math
+from datagouv import Client
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -13,9 +14,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    get_all_from_api_query,
-    DATAGOUV_URL
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -179,10 +178,10 @@ def process_election_data():
     del results
 
     # getting preprocessed resources
-    resources_url = [r['url'] for r in get_all_from_api_query(
+    resources_url = [r['url'] for r in Client().get_all_from_api_query(
         # due to https://github.com/MongoEngine/mongoengine/issues/2748
         # we have to specify a sort parameter for now
-        'https://www.data.gouv.fr/api/1/datasets/community_resources/'
+        'api/1/datasets/community_resources/'
         '?organization=646b7187b50b2a93b1ae3d45&sort=-created_at_internal'
     )]
     resources = {
@@ -244,9 +243,11 @@ def send_results_to_minio():
 def publish_results_elections():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json") as fp:
         data = json.load(fp)
-    post_remote_resource(
+    local_client.resource(
+        id=data["general"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data["general"][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -263,9 +264,11 @@ def publish_results_elections():
         },
     )
     print('Done with general results')
-    post_remote_resource(
+    local_client.resource(
+        id=data["candidats"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data["candidats"][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -282,9 +285,11 @@ def publish_results_elections():
         },
     )
     print('Done with candidats results')
-    post_remote_resource(
+    local_client.resource(
+        id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -301,9 +306,11 @@ def publish_results_elections():
         },
     )
     print('Done with general results parquet')
-    post_remote_resource(
+    local_client.resource(
+        id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -328,7 +335,7 @@ def send_notification():
         text=(
             ":mega: Données élections mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données référencées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/"
+            f"- Données référencées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/"
             f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
         )
     )

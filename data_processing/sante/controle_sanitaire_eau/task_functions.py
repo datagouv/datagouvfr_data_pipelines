@@ -14,11 +14,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_communautary_resource,
-    check_if_recent_update,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -36,10 +32,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dg
 
 
 def check_if_modif():
-    return check_if_recent_update(
-        reference_resource_id=config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"],
-        dataset_id="5cf8d9ed8b4c4110294c841d",
-    )
+    return local_client.resource(
+        id=config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"]
+    ).check_if_more_recent_update(dataset_id="5cf8d9ed8b4c4110294c841d")
 
 
 def process_data():
@@ -114,9 +109,12 @@ def send_to_minio(file_type):
 def publish_on_datagouv(file_type):
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]:
-        post_remote_communautary_resource(
+        local_client.resource(
             dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
-            resource_id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            is_communautary=True,
+            fetch=False,
+        ).update(
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -130,7 +128,7 @@ def publish_on_datagouv(file_type):
                 "description": (
                     f"{file_type} (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({DATAGOUV_URL}/fr/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f"({local_client.base_url}/fr/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
                     f" (dernière mise à jour le {date})"
                 ),
             },
@@ -143,6 +141,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données du contrôle sanitaire de l'eau mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id}/#/community-resources)"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id}/#/community-resources)"
         )
     )

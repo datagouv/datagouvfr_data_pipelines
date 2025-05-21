@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.datagouv import post_remote_resource, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -1077,9 +1077,11 @@ def send_distribution_to_minio() -> None:
 def publish_stats_dvf(ti) -> None:
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
-    post_remote_resource(
+    local_client.resource(
+        id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["mensuelles"][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -1095,9 +1097,11 @@ def publish_stats_dvf(ti) -> None:
         },
     )
     logging.info("Done with stats mensuelles")
-    post_remote_resource(
+    local_client.resource(
+        id=data["totales"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["totales"][AIRFLOW_ENV]["dataset_id"],
-        resource_id=data["totales"][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -1121,6 +1125,6 @@ def notification_mattermost(ti) -> None:
         f"Stats DVF générées :"
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({DATAGOUV_URL}/fr/datasets/{dataset_id})"
+        f"({local_client.base_url}/fr/datasets/{dataset_id})"
         f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
     )

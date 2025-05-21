@@ -20,7 +20,7 @@ import pandas as pd
 
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
-from datagouvfr_data_pipelines.utils.datagouv import post_resource
+from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 
 ERRORS_REPORT = []
@@ -1277,25 +1277,31 @@ def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
         on="name",
         how="outer",
     )
-    merged.to_csv(tmp_folder + "schemas_catalog_table.csv", index=False)
-    is_demo = (branch != "main") or (AIRFLOW_ENV == "dev")
-    post_resource(
-        file_to_upload=File(
-            source_path=tmp_folder,
-            source_name="schemas_catalog_table.csv",
-        ),
-        dataset_id=(
-            "668282444f9d3f48f2702fcd" if not is_demo
-            else "6682b2f35a23814365024994"
-        ),
-        resource_id=(
-            "31ed3bb3-cab4-48c2-b9b1-cb7095e8a548" if not is_demo
+    file = File(
+        source_path=tmp_folder,
+        source_name="schemas_catalog_table.csv"
+    )
+    merged.to_csv(file.full_source_path, index=False)
+    client = (
+        demo_client if (branch != "main") or (AIRFLOW_ENV == "dev")
+        else prod_client
+    )
+    client.resource(
+        id=(
+            "31ed3bb3-cab4-48c2-b9b1-cb7095e8a548" if not client.environment == "demo"
             else "f03f3dcb-1b23-4565-b02e-6985cb3d2959"
         ),
+        dataset_id=(
+            "668282444f9d3f48f2702fcd" if not client.environment == "demo"
+            else "6682b2f35a23814365024994"
+        ),
+        fetch=False,
+        _from_response={"filetype": "file"},  # to be able to update the file without fetching
+    ).update(
+        file_to_upload=file.full_source_path,
         payload={
             "title": f"Catalogue des schémas de données ({datetime.now().strftime('%Y-%m-%d')})"
         },
-        on_demo=branch != "main",
     )
 
 

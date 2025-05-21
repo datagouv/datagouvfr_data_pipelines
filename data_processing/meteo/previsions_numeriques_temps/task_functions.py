@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     MINIO_BUCKET_PNT,
     SECRET_MINIO_PNT_USER,
@@ -23,10 +24,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     load_issues,
     save_issues,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import demo_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -318,10 +316,13 @@ def build_file_id_and_date(file_name: str):
 def get_current_resources(model: str, pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
-        f"{DATAGOUV_URL}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{demo_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={
             "X-fields": "resources{id,url,type}",
-            "X-API-KEY": DATAGOUV_SECRET_API_KEY,
+            "X-API-KEY": (
+                DATAGOUV_SECRET_API_KEY if AIRFLOW_ENV == "prod"
+                else DEMO_DATAGOUV_SECRET_API_KEY
+            ),
         },
     ).json()["resources"]:
         if r["type"] != "main":
@@ -373,7 +374,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
-            post_remote_resource(
+            demo_client.resource().create_remote(
                 dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
                 payload={
                     "url": infos["url"],
@@ -387,9 +388,11 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
         elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
-            post_remote_resource(
+            demo_client.resource(
                 dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
-                resource_id=current_resources[file_id]["resource_id"],
+                id=current_resources[file_id]["resource_id"],
+                fetch=False,
+            ).update(
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],

@@ -12,11 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    check_if_recent_update,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -30,11 +26,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
 
 
 def check_if_modif():
-    return check_if_recent_update(
-        reference_resource_id=config["import"]["csv"][AIRFLOW_ENV]["resource_id"],
-        dataset_id="58e53811c751df03df38f42d",
-        on_demo=AIRFLOW_ENV == "dev",
-    )
+    return local_client.resource(
+        id=config["import"]["csv"][AIRFLOW_ENV]["resource_id"]
+    ).check_if_more_recent_update(dataset_id="58e53811c751df03df38f42d")
 
 
 def process_rna(ti, file_type):
@@ -109,9 +103,11 @@ def publish_on_datagouv(ti, file_type):
     y, m, d = latest[:4], latest[4:6], latest[6:]
     date = f"{d} {MOIS_FR[m]} {y}"
     for ext in ["csv", "parquet"]:
-        post_remote_resource(
+        local_client.resource(
             dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
-            resource_id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            fetch=False,
+        ).update(
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
@@ -137,6 +133,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données des associations mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id})"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id})"
         )
     )

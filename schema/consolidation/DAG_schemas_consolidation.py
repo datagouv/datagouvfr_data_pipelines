@@ -7,6 +7,7 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
@@ -27,19 +28,14 @@ from datagouvfr_data_pipelines.utils.schema import (
     upload_minio,
     notification_synthese
 )
-from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
-
-# for local dev in order not to mess up with production
-# DATAGOUV_URL = 'https://data.gouv.fr'
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
-API_URL = f"{DATAGOUV_URL}/api/1/"
-GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
-# for local dev without SSH enabled
-# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
+GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
+if AIRFLOW_ENV == "dev":
+    GIT_REPO = GIT_REPO.replace("git@github.com:", "https://github.com/")
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {

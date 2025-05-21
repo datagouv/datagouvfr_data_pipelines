@@ -109,7 +109,7 @@ def import_api_to_grist(ti):
     api_url = "https://grist.numerique.gouv.fr/api/"
     apikey = GRIST_TOKEN
     headers = {
-        "Authorization": "Bearer " +  apikey
+        "Authorization": "Bearer " + apikey
     }
 
     df = get_df("https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records")
@@ -126,7 +126,7 @@ def import_api_to_grist(ti):
             "table": "Api_all",
             "cols": [
                 "api_id", "lien_api_gouv_fr", "title", "base_api_url", "is_restricted", "authorization_request_url",
-                "producer_api", "producer_data", "producer_url", "rate_limiting", "contact_point", 
+                "producer_api", "producer_data", "producer_url", "rate_limiting", "contact_point",
                 "endpoint_description_url", "availability"
             ],
         },

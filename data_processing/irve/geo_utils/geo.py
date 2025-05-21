@@ -8,6 +8,7 @@ import requests
 from shapely.geometry import Point, shape
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 with open(f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/geo_utils/france_bbox.geojson") as f:
@@ -202,13 +203,13 @@ def fix_code_insee(
         "consolidated_commune",
     ]
     sample = pd.read_csv(
-        f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
+        f"{local_client.base_url}/fr/datasets/r/{latest_resource_id}",
         dtype=str,
         nrows=5,
     )
     if all(c in sample.columns for c in process_infos_cols):
         yesterdays_data = pd.read_csv(
-            f"https://www.data.gouv.fr/fr/datasets/r/{latest_resource_id}",
+            f"{local_client.base_url}/fr/datasets/r/{latest_resource_id}",
             dtype={
                 c: bool if "_is_" in c else str for c in process_infos_cols
             } | {

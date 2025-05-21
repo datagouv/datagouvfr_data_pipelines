@@ -18,14 +18,9 @@ import yaml
 from tqdm import tqdm
 
 from datagouvfr_data_pipelines.utils.datagouv import (
-    DATAGOUV_URL,
     ORGA_REFERENCE,
     VALIDATA_BASE_URL,
-    create_dataset,
-    get_all_from_api_query,
-    post_resource,
-    update_dataset_or_resource_extras,
-    update_dataset_or_resource_metadata,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
@@ -36,10 +31,10 @@ tqdm.pandas(desc="pandas progress bar", mininterval=30)
 
 VALIDATA_BASE_URL = VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
-api_url = f"{DATAGOUV_URL}/api/1/"
-schema_url_base = api_url + "datasets/?schema={schema_name}"
-tag_url_base = api_url + "datasets/?tag={tag}"
-search_url_base = api_url.replace("1", "2") + "datasets/search/?q={search_word}"
+api_url = f"{local_client.base_url}/api/1/"
+schema_endpoint_base = "api/1/datasets/?schema={schema_name}"
+tag_endpoint_base = "api/1/datasets/?tag={tag}"
+search_endpoint_base = "api/2/datasets/search/?q={search_word}"
 local_timezone = pytz.timezone("Europe/Paris")
 ignored_datasets = ["5b598be088ee387c0c353714"]
 forced_validation_day = date(2023, 12, 6)
@@ -188,7 +183,10 @@ def parse_api(
     fields = "id,title,slug,page,organization,owner,"
     fields += "resources{schema,url,id,title,last_modified,created_at,"
     fields += "extras{check:headers:content-type,check:available}}"
-    all_datasets = get_all_from_api_query(url, mask=f"data{{{fields}}}" if "api/2" not in url else None)
+    all_datasets = local_client.get_all_from_api_query(
+        url,
+        mask=f"data{{{fields}}}" if "api/2" not in url else None
+    )
     # when using api/2, the resources are not directly accessible, so we use api/1 to get them
     if "api/2" in url:
         session = requests.Session()
@@ -416,7 +414,7 @@ def save_validata_report(
 def is_validata_valid_row(row, schema_url, version, schema_name, validata_reports_path):
     if row["error_type"] is None:  # if no error
         rurl = row["resource_url"]
-        resource_api_url = f"{api_url}datasets/{row['dataset_id']}/resources/{row['resource_id']}"
+        resource_api_url = f"{local_client.base_url}/api/1/datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
         res, report = is_validata_valid(rurl, schema_url, resource_api_url)
         if report and not report.get("report", {}).get("error", False):
             save_validata_report(
@@ -571,7 +569,7 @@ def build_reference_table(
     # Listing resources by schema request
     logging.info("Listing from schema...")
     df_schema = parse_api(
-        schema_url_base.format(schema_name=schema_name.replace("/", "%2F")),
+        schema_endpoint_base.format(schema_name=schema_name.replace("/", "%2F")),
         api_url,
     )
     logging.info(f"{len(df_schema)} resources found.")
@@ -589,7 +587,7 @@ def build_reference_table(
     schemas_report_dict[schema_name]["nb_resources_found_by_tags"] = 0
     for tag in tags_list:
         df_tag = parse_api(
-            tag_url_base.format(tag=tag),
+            tag_endpoint_base.format(tag=tag),
             api_url,
         )
         logging.info(f"{len(df_tag)} resources found with tag '{tag}'")
@@ -603,7 +601,7 @@ def build_reference_table(
     schemas_report_dict[schema_name]["nb_resources_found_by_search_words"] = 0
     for search_word in search_words_list:
         df_search_word = parse_api(
-            search_url_base.format(search_word=search_word),
+            search_endpoint_base.format(search_word=search_word),
             api_url,
         )
         logging.info(f"{len(df_search_word)} resources found with keyword '{search_word}'")
@@ -952,7 +950,7 @@ def create_schema_consolidation_dataset(
 
     schema_title = get_schema_dict(schema_name, schemas_catalogue_list)["title"]
 
-    response = create_dataset(
+    dataset = local_client.dataset().create(
         payload={
             "title": datasets_title_template.format(schema_title=schema_title),
             "description": datasets_description_template.format(schema_name=schema_name),
@@ -961,7 +959,7 @@ def create_schema_consolidation_dataset(
         },
     )
 
-    return response
+    return dataset
 
 
 # Generic function to update a field (key) in the config file
@@ -1051,7 +1049,11 @@ def update_resource_metadata(
             schema_from_resource = r.json()["schema"]
             # if the resource already has a schema mentionned in its metadata, we don't
             # change it, we display how it is, but don't throw an error anymore
-            if schema_from_resource and schema_from_resource.get("name") != schema_name:
+            if (
+                schema_from_resource
+                and schema_from_resource.get("name") is not None
+                and schema_from_resource.get("name") != schema_name
+            ):
                 logging.info(f"For resource {api_url}datasets/{dataset_id}/resources/{resource_id}/")
                 logging.info(f"Schema metadata error, it looks like this: {schema_from_resource}")
                 logging.info(f"while this report is about {schema_name}")
@@ -1064,11 +1066,11 @@ def update_resource_metadata(
             if should_succeed:
                 return False
 
-        reponse_extras = update_dataset_or_resource_extras(
-            payload=validation_report,
+        reponse_extras = local_client.resource(
+            id=resource_id,
             dataset_id=dataset_id,
-            resource_id=resource_id,
-        )
+            fetch=False,
+        ).update_extras(payload=validation_report)
         if reponse_extras.status_code != 200:
             logging.warning("🔴 Schema could not be added to extras")
             if should_succeed:
@@ -1080,11 +1082,11 @@ def update_resource_metadata(
         if update_version and schema_from_resource and version_name != schema_from_resource.get("version"):
             obj = {"schema": schema_from_consolidation}
 
-            response = update_dataset_or_resource_metadata(
-                payload=obj,
+            response = local_client.resource(
+                id=resource_id,
                 dataset_id=dataset_id,
-                resource_id=resource_id,
-            )
+                fetch=False,
+            ).update(payload=obj)
 
             if response.status_code != 200:
                 logging.warning("🔴 Schema could not be added on resource")
@@ -1129,7 +1131,12 @@ def upload_geojson(
     consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
     r_id = config_dict[schema_name]["geojson_resource_id"]
 
-    response = post_resource(
+    response = local_client.resource(
+        id=r_id,
+        dataset_id=consolidated_dataset_id,
+        fetch=False,
+        _from_response={"filetype": "file"},  # to be able to update the file without fetching
+    ).update(
         file_to_upload=File(
             source_path=schema_consolidated_data_path.as_posix(),
             source_name=build_consolidation_name(
@@ -1138,9 +1145,7 @@ def upload_geojson(
                 consolidation_date_str,
                 extension='geojson',
             ),
-        ),
-        dataset_id=consolidated_dataset_id,
-        resource_id=r_id,
+        ).full_source_path,
         payload={
             "type": "main",
             "title": f"Export au format geojson (v{latest_version})",
@@ -1176,11 +1181,11 @@ def upload_consolidated(
         schema_config = config_dict[schema_name]
         if schema_config.get("publication"):
             if "consolidated_dataset_id" not in schema_config.keys():
-                response = create_schema_consolidation_dataset(
+                dataset = create_schema_consolidation_dataset(
                     schema_name,
                     schemas_catalogue_list,
                 )
-                consolidated_dataset_id = response["id"]
+                consolidated_dataset_id = dataset.id
                 update_config_file(
                     schema_name,
                     "consolidated_dataset_id",
@@ -1213,52 +1218,49 @@ def upload_consolidated(
             sorted_version.append("latest")
             for version_name in sorted_version:
                 time.sleep(2)
-                schema = {
-                    "name": schema_name,
-                    "version": latest_mapping.get(version_name, version_name),
-                }
-                obj = {}
-                obj["schema"] = schema
-                obj["type"] = "main"
-                obj["title"] = (
-                    "Consolidation de la v{} du schéma - {}".format(version_name, consolidation_date_str)
-                    if version_name != "latest"
-                    else "Consolidation de la dernière version à date du schéma (v{}) - {}".format(
-                        latest_mapping["latest"], consolidation_date_str
-                    )
-                )
-                obj["format"] = "csv"
 
                 # Uploading file (creating a new resource if version was not there before)
-                try:
-                    r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
-                    r_to_create = False
-
-                except KeyError:
-                    r_id = None
-                    r_to_create = True
-
-                response = post_resource(
-                    file_to_upload=File(
+                kwargs = {
+                    "file_to_upload": File(
                         source_path=schema_consolidated_data_path.as_posix(),
                         source_name=build_consolidation_name(
                             schema_name,
                             latest_mapping.get(version_name, version_name),
                             consolidation_date_str,
                         ),
-                    ),
-                    dataset_id=consolidated_dataset_id,
-                    resource_id=r_id,
-                    payload=obj,
-                )
-                if r_to_create:
-                    r_id = response.json()["id"]
-                    update_config_version_resource_id(schema_name, version_name, r_id, config_path)
-                    logging.info(
-                        f"--- ➕ New latest resource ID created for {schema_name} v{version_name} (id: {r_id})"
-                    )
-                else:
+                    ).full_source_path,
+                    "payload": {
+                        "schema": {
+                            "name": schema_name,
+                            "version": latest_mapping.get(version_name, version_name),
+                        },
+                        "type": "main",
+                        "title": (
+                            "Consolidation de la v{} du schéma - {}".format(version_name, consolidation_date_str)
+                            if version_name != "latest"
+                            else "Consolidation de la dernière version à date du schéma (v{}) - {}".format(
+                                latest_mapping["latest"], consolidation_date_str
+                            )
+                        ),
+                        "format": "csv",
+                    },
+                }
+                try:
+                    r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
+                    local_client.resource(
+                        id=r_id,
+                        dataset_id=consolidated_dataset_id,
+                        fetch=False,
+                        _from_response={"filetype": "file"},  # to be able to update the file without fetching
+                    ).update(**kwargs)
                     logging.info(f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})")
+                except KeyError:
+                    kwargs["dataset_id"] = consolidated_dataset_id
+                    resource = local_client.resource().create_static(**kwargs)
+                    update_config_version_resource_id(schema_name, version_name, resource.id, config_path)
+                    logging.info(
+                        f"--- ➕ New latest resource ID created for {schema_name} v{version_name} (id: {resource.id})"
+                    )
 
             # Upload GeoJSON file (e.g IRVE)
             if bool_upload_geojson:
@@ -1618,48 +1620,41 @@ def update_consolidation_documentation_report(
         if os.path.isfile(ref_table_path):
             if "consolidated_dataset_id" in schema_config.keys():
                 consolidated_dataset_id = schema_config["consolidated_dataset_id"]
-
-                obj = {}
-                obj["type"] = "documentation"
-                obj["title"] = f"Documentation sur la consolidation - {consolidation_date_str}"
-
+                kwargs = {
+                    "file_to_upload": File(
+                        source_path=ref_tables_path,
+                        source_name=build_ref_table_name(schema_name),
+                    ).full_source_path,
+                    "payload": {
+                        "type": "documentation",
+                        "title": f"Documentation sur la consolidation - {consolidation_date_str}",
+                    }
+                }
                 # Uploading documentation file (creating a new resource if version was not there before)
                 try:
                     doc_r_id = config_dict[schema_name]["documentation_resource_id"]
-                    doc_r_to_create = False
-
-                except KeyError:
-                    doc_r_id = None
-                    doc_r_to_create = True
-
-                response = post_resource(
-                    file_to_upload=File(
-                        source_path=ref_tables_path,
-                        source_name=build_ref_table_name(schema_name),
-                    ),
-                    dataset_id=consolidated_dataset_id,
-                    resource_id=doc_r_id,
-                    payload=obj,
-                )
-
-                if response.ok:
-                    if doc_r_to_create:
-                        doc_r_id = response.json()["id"]
-                        update_config_file(
-                            schema_name,
-                            "documentation_resource_id",
-                            doc_r_id,
-                            config_path,
-                        )
-                        logging.info(f"--- ➕ New documentation resource created for {schema_name} (id: {doc_r_id})")
-                    else:
+                    response = local_client.resource(
+                        id=doc_r_id,
+                        dataset_id=consolidated_dataset_id,
+                        fetch=False,
+                        _from_response={"filetype": "file"},  # to be able to update the file without fetching
+                    ).update(**kwargs)
+                    if response.ok:
                         logging.info(f"--- ✅ Updated documentation resource  for {schema_name} (id: {doc_r_id})")
-
-                else:
-                    doc_r_id = None
-                    logging.warning("--- ⚠️ Documentation file could not be uploaded.")
-                    if should_succeed:
-                        return False
+                    else:
+                        logging.warning("--- ⚠️ Documentation file could not be uploaded.")
+                        if should_succeed:
+                            return False
+                except KeyError:
+                    kwargs["dataset_id"] = consolidated_dataset_id
+                    resource = local_client.resource().create_static(**kwargs)
+                    update_config_file(
+                        schema_name,
+                        "documentation_resource_id",
+                        resource.id,
+                        config_path,
+                    )
+                    logging.info(f"--- ➕ New documentation resource created for {schema_name} (id: {resource.id})")
 
             else:
                 logging.info("-- ❌ No consolidation dataset ID for this schema.")

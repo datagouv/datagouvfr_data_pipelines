@@ -21,7 +21,11 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, SPAM_WORDS
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,  # this is still need for metrics API
+    local_client,
+    SPAM_WORDS,
+)
 from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, df_to_grist
 from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.utils import (
@@ -31,7 +35,6 @@ from datagouvfr_data_pipelines.utils.utils import (
 
 DAG_NAME = "dgv_bizdev"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
-datagouv_api_url = 'https://www.data.gouv.fr/api/1/'
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 grist_edito = "4MdJUBsdSgjE"
 grist_curation = "muvJRZ9cTGep"
@@ -192,8 +195,8 @@ async def classify_user(user):
 
 
 async def get_suspect_users():
-    users = get_all_from_api_query(
-        datagouv_api_url + 'users/',
+    users = local_client.get_all_from_api_query(
+        local_client.base_url + 'api/1/users/',
         mask="data{id,about,metrics}",
         auth=True,
     )
@@ -221,7 +224,7 @@ def process_unavailable_reuses():
         except StopIteration:
             restr_reuses[rid].update({'monthly_visit': 0})
 
-        r = RequestRetry.get(datagouv_api_url + 'reuses/' + rid).json()
+        r = RequestRetry.get("https://www.data.gouv.fr/api/1/reuses/" + rid).json()
         restr_reuses[rid].update({
             'title': r.get('title', None),
             'page': r.get('page', None),
@@ -286,7 +289,7 @@ def process_potential_spam():
         print('   - Starting with', obj)
         for word in SPAM_WORDS:
             data = get_all_from_api_query(
-                datagouv_api_url + f'{obj}/?q={word}',
+                f'https://www.data.gouv.fr/api/1/{obj}/?q={word}',
                 mask="data{badges,organization,owner,id,name,title,metrics,created_at,since}",
                 # this WILL fail locally  for users because of token mismath (demo/prod)
                 auth=obj == "users",
@@ -391,7 +394,7 @@ def get_top_orgas_visits():
     }.keys())[:50]
     orga_visited = {k: orga_visited[k] for k in orga_visited if k in tmp or k in tmp2}
     for k in orga_visited:
-        r = RequestRetry.get(datagouv_api_url + 'organizations/' + k).json()
+        r = RequestRetry.get('organizations/' + k).json()
         orga_visited[k].update({'name': r.get('name', None), 'url': r.get('page', None)})
     df = pd.DataFrame(orga_visited.values(), index=orga_visited.keys())
     df.to_csv(DATADIR + 'top50_orgas_most_visits_last_month.csv', index=False)
@@ -412,7 +415,7 @@ def get_top_datasets_visits():
         k: v for k, v in sorted(datasets_visited.items(), key=lambda x: -x[1]['monthly_visit'])
     }
     for k in datasets_visited:
-        r = RequestRetry.get(datagouv_api_url + 'datasets/' + k).json()
+        r = RequestRetry.get('https://www.data.gouv.fr/api/1/datasets/' + k).json()
         datasets_visited[k].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
@@ -508,7 +511,7 @@ def get_top_reuses_visits():
         k: v for k, v in sorted(reuses_visited.items(), key=lambda x: -x[1]['monthly_visit'])
     }
     for k in reuses_visited:
-        r = RequestRetry.get(datagouv_api_url + 'reuses/' + k).json()
+        r = RequestRetry.get('https://www.data.gouv.fr/api/1/reuses/' + k).json()
         reuses_visited[k].update({
             'title': r.get('title', None),
             'url': r.get('page', None),
@@ -537,7 +540,7 @@ def get_top_datasets_discussions():
     discussions_of_interest = {}
     for dataset_id in discussions["subject_id"]:
         if dataset_id not in discussions_of_interest:
-            tmp = RequestRetry.get(datagouv_api_url + f"datasets/{dataset_id}").json()
+            tmp = RequestRetry.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}").json()
             organization_or_owner = (
                 tmp.get('organization', {}).get('name', None) if tmp.get('organization', None)
                 else tmp.get('owner', {}).get('slug', None)
