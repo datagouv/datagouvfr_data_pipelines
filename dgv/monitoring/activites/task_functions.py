@@ -193,10 +193,7 @@ def alert_if_new_reports():
         "previous_report_check",
         (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
     )
-    reports = local_client.get_all_from_api_query(
-        "api/1/reports/",
-        auth=True,
-    )
+    reports = local_client.get_all_from_api_query("api/1/reports/")
     unseen_reports = [
         r for r in reports
         if r["reported_at"] >= previous_report_check
