@@ -266,13 +266,13 @@ def create_edito_post(**kwargs):
     )
 
     post_id = data["id"]
-    print(f"Article créé et éditable à {DATAGOUV_URL}/admin/post/{post_id}")
+    print(f"Article créé et éditable à {DATAGOUV_URL}/beta/admin/posts/{post_id}")
 
     kwargs["ti"].xcom_push(
         key="admin_post_url",
         value=(
             f":rolled_up_newspaper: Article du {name} créé et éditable [dans "
-            f"l'espace admin]({DATAGOUV_URL}/admin/post/{post_id})"
+            f"l'espace admin]({DATAGOUV_URL}/beta/admin/posts/{post_id})"
         ),
     )
 

@@ -7,7 +7,9 @@ import shutil
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    # AIRFLOW_ENV,
+    AIRFLOW_ENV,
+    DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     MINIO_BUCKET_PNT,
     SECRET_MINIO_PNT_USER,
@@ -25,9 +27,11 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 from datagouvfr_data_pipelines.utils.datagouv import demo_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
-# to test the migration, we don't want to interfere with the current production
-AIRFLOW_ENV = "dev"
+# if you want to roll back to dev mode
+# AIRFLOW_ENV = "dev"
+# DATAGOUV_URL = "https://demo.data.gouv.fr"
 
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{DATADIR}logs/"
@@ -60,6 +64,7 @@ def get_last_batch_hour() -> datetime:
     )
 
 
+@simple_connection_retry
 def get_new_batches(batches: list, url: str) -> list:
     r = meteo_client.get(url, timeout=10)
     r.raise_for_status()
@@ -214,6 +219,25 @@ def log_and_send_error(filename):
     logging.info(f"Sent and locally erased log for {filename}")
 
 
+@simple_connection_retry
+def download_file(url: str, local_filename: str) -> int:
+    with meteo_client.get(
+        url,
+        stream=True,
+        timeout=60,
+        # do we actually need these headers? response content type is binary
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    ) as r:
+        if r.status_code == 404:
+            logging.warning(f"Not available yet, skipping. URL is: {url}")
+            return 1
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=32768):
+                f.write(chunk)
+        return 0
+
+
 def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
     url_to_infos = ti.xcom_pull(key="url_to_infos", task_ids="construct_all_possible_files")
     to_get = ti.xcom_pull(key="to_get", task_ids="construct_all_possible_files")
@@ -237,20 +261,9 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             my_packages.add(package)
         local_filename = f"{DATADIR}{path}/{package}/{url_to_infos[url]['filename']}"
         # ideally we'd like to minio_pnt.send_from_url directly but we have to test the file structure first
-        with meteo_client.get(
-            url,
-            stream=True,
-            timeout=60,
-            # do we actually need these headers? response content type is binary
-            headers={"Content-Type": "application/json; charset=utf-8"},
-        ) as r:
-            if r.status_code == 404:
-                logging.warning(f"Not available yet, skipping. URL is: {url}")
-                continue
-            r.raise_for_status()
-            with open(local_filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=32768):
-                    f.write(chunk)
+        download_status = download_file(url, local_filename)
+        if download_status == 1:
+            continue
 
         issues = load_issues(f"{DATADIR}{path}")
         if test_file_structure(local_filename):
@@ -304,7 +317,13 @@ def get_current_resources(model: str, pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
         f"{demo_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
-        headers={"X-fields": "resources{id,url,type}"},
+        headers={
+            "X-fields": "resources{id,url,type}",
+            "X-API-KEY": (
+                DATAGOUV_SECRET_API_KEY if AIRFLOW_ENV == "prod"
+                else DEMO_DATAGOUV_SECRET_API_KEY
+            ),
+        },
     ).json()["resources"]:
         if r["type"] != "main":
             continue
@@ -332,7 +351,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # starting with latest timeslots
     path = build_folder_path(model, pack, grid)
     for batch in reversed(sorted(batches_on_minio)):
-        if len(latest_files) == len(current_resources):
+        if len(latest_files) == len(current_resources) and len(current_resources) > 0:
             # we have found all files
             break
         for obj, size in minio_pnt.get_all_files_names_and_sizes_from_parent_folder(
@@ -346,7 +365,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "title": obj.split("/")[-1],
                     "size": size,
                 }
-            if len(latest_files) == len(current_resources):
+            if len(latest_files) == len(current_resources) and len(current_resources) > 0:
                 # we have found all files
                 break
         logging.info(f"{len(latest_files)}/{len(current_resources)} files found after {batch}")

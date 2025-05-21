@@ -73,7 +73,7 @@ def fill_in_grist(ti):
         usecols=[
             "harvester_id",
             "Lien_ancienne_admin",
-            "Statut",
+            "Statut_config_moissonnage",
         ],
     )
     new = []
@@ -96,15 +96,15 @@ def fill_in_grist(ti):
                     f"https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/"
                     if harvester["owner_type"] else ""
                 ),
-                "Statut": harvester["preview"],
+                "Statut_config_moissonnage": harvester["preview"],
                 "Statut_bizdev": "🆕 Nouveau",
             }
             logging.info(f"New harvester: {harvester['id']}")
         # handling existing ones
         elif len(rows) == 1:
             row = current_table.loc[current_table[pivot] == value].iloc[0]
-            if row["Statut"] != harvester["preview"]:
-                to_update = {"Statut": harvester["preview"]}
+            if row["Statut_config_moissonnage"] != harvester["preview"]:
+                to_update = {"Statut_config_moissonnage": harvester["preview"]}
             if pivot != "harvester_id":
                 # adding the id for future runs, it's cleaner
                 # and will be used to created other columns in grist

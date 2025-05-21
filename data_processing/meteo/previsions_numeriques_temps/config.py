@@ -83,14 +83,14 @@ PACKAGES = {
                 "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.1/packages/SP1",
                 "packages": [SP1_MFWAM],
             },
-            "0.5": {
-                "dataset_id": {
-                    "dev": "65b68c841a2bd22881b8e488",
-                    "prod": "65bd19fe0d61026813636c33",
-                },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.5/packages/SP1",
-                "packages": [SP1_MFWAM],
-            },
+            # "0.5": {
+            #     "dataset_id": {
+            #         "dev": "65b68c841a2bd22881b8e488",
+            #         "prod": "65bd19fe0d61026813636c33",
+            #     },
+            #     "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.5/packages/SP1",
+            #     "packages": [SP1_MFWAM],
+            # },
             "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids",
             "product": "productMFWAM",
             "extension": "grib2",
@@ -119,6 +119,19 @@ PACKAGES = {
             },
             "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARO/grids",
             "product": "productWMARO",
+            "extension": "nc",
+        },
+        "WW3-WARP": {
+            "0.01": {
+                "dataset_id": {
+                    "dev": "65b68c8580a75b6c6bae3d66",
+                    "prod": "65bd197cd4222b0c96db759e",
+                },
+                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids/0.01/packages/SP1",
+                "packages": [SP1_WW3],
+            },
+            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids",
+            "product": "productWWARP",
             "extension": "nc",
         },
         "HYCOM2D-MARP": {
@@ -323,6 +336,7 @@ PACKAGES = {
                     Package(name="IP4", **{"time": ARPEGE025_TIME}),
                     Package(name="SP1", **{"time": ARPEGE025_TIME}),
                     Package(name="SP2", **{"time": ARPEGE025_TIME}),
+                    Package(name="SP3", **{"time": ARPEGE025_TIME}),
                     Package(name="HP1", **{"time": ARPEGE025_TIME}),
                     Package(name="HP2", **{"time": ARPEGE025_TIME}),
                 ],

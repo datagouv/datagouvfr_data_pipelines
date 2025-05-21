@@ -12,7 +12,7 @@ def log_retry_attempt(state):
 def _simple_connection_retry(
     attempts=5,
     func=log_retry_attempt,
-    wait=wait_exponential(multiplier=1, min=4, max=10),
+    wait=wait_exponential(multiplier=10, max=60),
     reraise=True,
     **kwargs,
 ):

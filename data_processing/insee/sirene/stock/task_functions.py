@@ -4,7 +4,7 @@ from datetime import datetime
 import logging
 from airflow.providers.sftp.operators.sftp import SFTPOperator
 
-from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import local_client
@@ -41,6 +41,12 @@ def get_files(**kwargs):
         auth_password=SECRET_INSEE_PASSWORD,
         timeout=1200,
     )
+
+    hashfiles = {}
+    for item in data:
+        hashfiles[item["nameFTP"]] = compute_checksum_from_file(f"{tmp_dir}{item['nameFTP']}")
+
+    kwargs["ti"].xcom_push(key="hashes", value=hashfiles)
 
 
 def upload_files_minio(**kwargs):
@@ -89,7 +95,6 @@ def compare_minio_files(**kwargs):
         data = json.load(json_file)
     logging.info(data)
 
-    nb_same = 0
     for item in data:
         isSame = minio_restricted.compare_files(
             file_path_1=minio_path_latest,
@@ -97,12 +102,9 @@ def compare_minio_files(**kwargs):
             file_name_1=item["nameFTP"],
             file_name_2=item["nameFTP"],
         )
-        if isSame:
-            nb_same = nb_same + 1
-    if nb_same == len(data):
-        return False
-    else:
-        return True
+        if not isSame:
+            return True
+    return False
 
 
 def publish_file_files_data_gouv(**kwargs):
@@ -136,7 +138,8 @@ def publish_file_files_data_gouv(**kwargs):
         put_file_with_date.execute(dict())
 
 
-def update_dataset_data_gouv(**kwargs):
+def update_dataset_data_gouv(ti, **kwargs):
+    hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
     templates_dict = kwargs.get("templates_dict")
     resource_file = templates_dict.get("resource_file")
     day_file = templates_dict.get("day_file")
@@ -149,18 +152,23 @@ def update_dataset_data_gouv(**kwargs):
         data = json.load(json_file)
     logging.info(data)
     for d in data:
+        obj = {
+            "title": (
+                f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
+                f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
+            ),
+        }
+        if d["nameFTP"] in hashes:
+            obj["checksum"] = {
+                "type": "sha256",
+                "value": hashes[d["nameFTP"]]
+            }
         local_client.resource(
+            payload=obj,
             dataset_id=d["dataset_id"],
             id=d["resource_id"],
             fetch=False,
-        ).update(
-            payload={
-                "title": (
-                    f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
-                    f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
-                ),
-            },
-        )
+        ).update(payload=obj)
 
 
 def publish_mattermost(geoloc):

@@ -262,7 +262,10 @@ def check_datapackage(conf, folders):
                     with open(src_folder + "datapackage.json") as out:
                         dp = json.load(out)
 
-                    schemas_dp = [r["schema"] for r in dp["resources"] if "schema" in r]
+                    schemas_dp = [
+                        r["schema"] for r in dp["resources"]
+                        if "schema" in r and isinstance(r["schema"], str)
+                    ]
 
                     for schema in schemas_dp:
 

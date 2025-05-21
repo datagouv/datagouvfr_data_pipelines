@@ -199,7 +199,7 @@ def publish_mattermost(ti):
 
     message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
     message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
-    
+
     missing_hvd = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
     if len(missing_hvd):
         message += f"\n\n{len(missing_hvd)} jeux de données n'ont pas d'ensemble de données renseigné :"
@@ -309,13 +309,13 @@ def build_df_for_grist():
     df_datasets = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
         delimiter=";",
-        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license"],
+        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license", "archived"],
     )
     print("Getting resources")
     df_resources = pd.read_csv(
         "https://www.data.gouv.fr/fr/resources.csv?tag=hvd",
         delimiter=";",
-        usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"]
+        usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"],
     )
     print("Getting dataservices")
     df_dataservices = pd.read_csv(
@@ -335,7 +335,7 @@ def build_df_for_grist():
     ) = zip(*df_datasets["id"].apply(
         lambda _id: dataservice_information(_id, df_dataservices=df_dataservices, df_resources=df_resources)
     ))
-    df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False)
+    df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False, sep=";")
 
 
 def update_grist(ti):
@@ -346,7 +346,7 @@ def update_grist(ti):
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
-    fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv").rename(
+    fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv", sep=";").rename(
         # because the "id" column in grist has the identifier "id2"
         {"id": "id2"},
         axis=1
@@ -367,6 +367,8 @@ def update_grist(ti):
         "organization",
         "license_datagouv",
         "contact_point_datagouv",
+        "archived",
+        "tags",
     ]
     # updating existing rows
     updates = 0

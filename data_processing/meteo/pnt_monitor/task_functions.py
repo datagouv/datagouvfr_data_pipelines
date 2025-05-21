@@ -71,6 +71,9 @@ def scan_pnt_files(ti):
             headers={'X-fields': 'resources{id,url,title}'},
         ).json()['resources']
         for r in resources:
+            if "MFWAM/05" in r['url']:
+                # MFWAM 0.5 is deprecated since April 2025
+                continue
             if 'object.data.gouv.fr' in r['url']:
                 ts, pq = get_timeslot_and_paquet(r['url'])
                 if ts < threshold:
@@ -118,8 +121,8 @@ def notification_mattermost(ti):
     message = ""
     if too_old:
         message += ":warning: "
-        if alert:
-            message += "@geoffrey.aldebert "
+        # if alert:
+        #     message += "@geoffrey.aldebert "
         message += f"Ces {nb_too_old} ressources n'ont pas été mises à jour récemment :"
         for dataset in too_old:
             message += f'\n- {dataset}:'

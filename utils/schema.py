@@ -57,7 +57,10 @@ def build_ref_table_name(schema_name):
 
 def build_consolidation_name(schema_name, version_name, consolidation_date_str, extension="csv"):
     return "consolidation_{}_v_{}_{}.{}".format(
-        schema_name.replace("/", "_"), version_name, consolidation_date_str, extension
+        schema_name.replace("/", "_"),
+        version_name,
+        consolidation_date_str,
+        extension,
     )
 
 
@@ -257,6 +260,11 @@ def parse_api(
 def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL):
     # saves time by not pinging Validata for unchanged resources
     data = requests.get(resource_api_url)
+    if data.status_code == 404:
+        return {'report': {
+            'error': 'ressource not available',
+            'valid': False
+        }}
     data.raise_for_status()
     data = data.json()
     # if resource is a file on data.gouv.fr (not remote, due to hydra async work)
@@ -1110,9 +1118,9 @@ def upload_geojson(
             filename.replace(
                 "consolidation_" + schema_name.replace("/", "_") + "_v_",
                 "",
-            ).replace("_" + consolidation_date_str + ".json", "")
+            ).replace("_" + consolidation_date_str + ".geojson", "")
             for filename in os.listdir(schema_consolidated_data_path)
-            if filename.endswith(".json") and not filename.startswith(".")
+            if filename.endswith(".geojson") and not filename.startswith(".")
         ]
     )
     if len(geojson_version_names_list) > 1:
@@ -1134,13 +1142,12 @@ def upload_geojson(
                 schema_name,
                 geojson_version_names_list[-1],
                 consolidation_date_str,
-                extension="json",
+                extension='geojson',
             ),
         ).full_source_path,
         payload={
             "type": "main",
             "title": f"Export au format geojson (v{latest_version})",
-            "format": "json",
         },
     )
 

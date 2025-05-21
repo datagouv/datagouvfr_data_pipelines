@@ -145,6 +145,9 @@ class MinIOClient:
             both path and name from files to compare
 
         """
+        def get_content_length(response: dict) -> int:
+            return response.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("content-length", None)
+
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         s3 = boto3.client(
@@ -155,19 +158,29 @@ class MinIOClient:
         )
 
         try:
-            logging.info(f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}")
-            logging.info(f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}")
+            logging.info(f"File 1: {AIRFLOW_ENV}/{file_path_1}{file_name_1}")
+            logging.info(f"File 2: {AIRFLOW_ENV}/{file_path_2}{file_name_2}")
             file_1 = s3.head_object(
                 Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}"
             )
             file_2 = s3.head_object(
                 Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}"
             )
-            logging.info(f"Hash file 1 : {file_1['ETag']}")
-            logging.info(f"Hash file 2 : {file_2['ETag']}")
-            logging.info(bool(file_1["ETag"] == file_2["ETag"]))
+            logging.info(f"ETag file 1 : {file_1['ETag']}")
+            logging.info(f"ETag file 2 : {file_2['ETag']}")
+            logging.info(f"Are ETag identical: {file_1['ETag'] == file_2['ETag']}")
+            if file_1["ETag"] == file_2["ETag"]:
+                return True
 
-            return bool(file_1["ETag"] == file_2["ETag"])
+            # upload process (single vs multi part) can lead to different ETags for identical files
+            # so we check content-length too
+            cl1 = get_content_length(file_1)
+            cl2 = get_content_length(file_2)
+            logging.info(f"content-length file 1 : {cl1}")
+            logging.info(f"content-length file 2 : {cl2}")
+            logging.info(f"Are content-lengths equal: {cl1 == cl2}")
+
+            return cl1 == cl2
 
         except botocore.exceptions.ClientError as e:
             logging.info("Error loading files:", e)
@@ -382,6 +395,7 @@ class MinIOClient:
             part_size=10 * 1024 * 1024,
         )
 
+    @simple_connection_retry
     def does_file_exist_on_minio(
         self,
         file: str,

@@ -11,6 +11,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     SECRET_MINIO_METEO_PE_USER,
     SECRET_MINIO_METEO_PE_PASSWORD,
@@ -184,7 +186,13 @@ def get_current_resources(pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
         f"{local_client.base_url}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
-        headers={"X-fields": "resources{id,url,type}"},
+        headers={
+            "X-fields": "resources{id,url,type}",
+            "X-API-KEY": (
+                DATAGOUV_SECRET_API_KEY if AIRFLOW_ENV == "prod"
+                else DEMO_DATAGOUV_SECRET_API_KEY
+            ),
+        },
     ).json()["resources"]:
         if r["type"] != "main":
             continue
@@ -208,14 +216,18 @@ def publish_on_datagouv(pack: str, grid: str):
     for obj, size in minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=f"{AIRFLOW_ENV}/{minio_folder}/{pack}/{grid}/",
     ).items():
-        file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
-        if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
-            latest_files[file_id] = {
-                "date": file_date,
-                "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
-                "title": fix_title(obj.split("/")[-1]),
-                "size": size,
-            }
+        try:
+            file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
+            if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
+                latest_files[file_id] = {
+                    "date": file_date,
+                    "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
+                    "title": fix_title(obj.split("/")[-1]),
+                    "size": size,
+                }
+        except Exception:
+            # skipping cases of relicates folders, not clean though
+            logging.error(f"Issue with {obj}, skipping")
 
     # getting the current state of the resources
     current_resources: dict = get_current_resources(pack, grid)
