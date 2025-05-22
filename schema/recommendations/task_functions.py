@@ -1,4 +1,5 @@
 import json
+import logging
 import requests
 import jsonschema
 import yaml
@@ -27,7 +28,7 @@ def consolidated_schemas():
 def datasets_for_schema(schema):
     """Fetch datasets on datagouv with the schema attribute set to a specific value"""
     r = local_client.get_all_from_api_query(
-        base_query=f"datasets/?schema={schema}",
+        base_query=f"api/1/datasets/?schema={schema}",
         mask='data{slug}'
     )
     return [d['slug'] for d in r]
@@ -56,7 +57,7 @@ def create_and_export_recommendations():
         consolidated_slug = requests.get(
             f"{DATA_GOUV_API}datasets/{consolidated_dataset_id}/"
         ).json()["slug"]
-        print(
+        logging.info(
             f"Working on schema {schema_id}, consolidated at {consolidated_dataset_id}"
         )
         dataset_ids = datasets_for_schema(schema_id)

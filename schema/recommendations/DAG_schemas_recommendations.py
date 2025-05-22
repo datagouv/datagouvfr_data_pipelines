@@ -3,14 +3,17 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 
+from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.schema.recommendations.task_functions import (
     DAG_NAME,
     TMP_FOLDER,
     create_and_export_recommendations,
 )
 
-GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
-# GIT_REPO = "https://github.com/datagouv/schema.data.gouv.fr.git"
+GIT_REPO = (
+    ("git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/")
+    + "datagouv/schema.data.gouv.fr.git"
+)
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 

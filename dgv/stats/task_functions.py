@@ -41,6 +41,7 @@ def create_year_if_missing():
     file = File(
         source_path=DATADIR,
         source_name="placeholder.csv",
+        remote_source=True,  # not remote but not created yet
     )
     with open(file.full_source_path, "w") as f:
         f.write("tmp")
@@ -82,6 +83,7 @@ def update_year():
     file = File(
         source_path=DATADIR,
         source_name=f"{yesterdays_year}-days.csv",
+        remote_source=True,  # not remote but not created yet
     )
     df.to_csv(file.full_source_path)
     local_client.resource(

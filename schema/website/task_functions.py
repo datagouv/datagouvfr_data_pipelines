@@ -1279,7 +1279,8 @@ def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
     )
     file = File(
         source_path=tmp_folder,
-        source_name="schemas_catalog_table.csv"
+        source_name="schemas_catalog_table.csv",
+        remote_source=True,  # not remote but not created yet
     )
     merged.to_csv(file.full_source_path, index=False)
     client = (
