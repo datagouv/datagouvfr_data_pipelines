@@ -180,7 +180,7 @@ def parse_api(
     url: str,
     api_url: str,
 ) -> pd.DataFrame:
-    fields = "id,title,slug,page,organization,owner,"
+    fields = "id,title,slug,page,organization,owner,private,"
     fields += "resources{schema,url,id,title,last_modified,created_at,"
     fields += "extras{check:headers:content-type,check:available}}"
     all_datasets = local_client.get_all_from_api_query(
@@ -200,7 +200,7 @@ def parse_api(
         all_datasets = tmp
     arr = []
     for dataset in all_datasets:
-        if dataset["id"] in ignored_datasets:
+        if dataset["id"] in ignored_datasets or dataset.get("private"):
             continue
         for res in dataset["resources"]:
             if "format=csv" in res["url"]:
