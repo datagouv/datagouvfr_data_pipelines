@@ -299,8 +299,8 @@ def process_resources(
                     # COMP and MF data are processed in the same folder
                     # but we don't want them the interfere
                     if (
-                        ("_COMP" in dataset_name and "_COMP" in file)
-                        or ("_COMP" not in dataset_name and "_COMP" not in file)
+                        ("_COMP" in dataset_name and "-COMP" in file)
+                        or ("_COMP" not in dataset_name and "-COMP" not in file)
                     ):
                         os.remove(f"{parent}/{file}")
             _conn.close()
