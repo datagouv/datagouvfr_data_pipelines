@@ -35,6 +35,7 @@ DATASETS_TO_PROCESS = [
     "BASE/QUOT",
     "BASE/HOR",
     "BASE/MIN",
+    "BASE/MENS_COMP",
 ]
 
 
