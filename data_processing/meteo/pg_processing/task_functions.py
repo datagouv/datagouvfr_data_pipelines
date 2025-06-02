@@ -45,7 +45,7 @@ db_params = {
 TIMEOUT = 60 * 5
 
 
-def smart_cast(value, _type):
+def smart_cast(value: str, _type):
     try:
         return _type(value)
     except:
@@ -75,7 +75,7 @@ DEPIDS = [
 ]
 
 
-def get_hooked_name(file_name):
+def get_hooked_name(file_name: str) -> str:
     # hooked files will change name, we have to consider the unchanged version
     # see DAG ftp_processing for more insight
     for hook in ['latest', 'previous']:
@@ -85,15 +85,15 @@ def get_hooked_name(file_name):
     return file_name
 
 
-def build_old_file_name(file_name):
+def build_old_file_name(file_name: str) -> str:
     return file_name.replace(".csv", "_old.csv")
 
 
-def build_additions_file_name(file_name):
+def build_additions_file_name(file_name: str) -> str:
     return file_name.replace(".csv", "_additions.csv")
 
 
-def build_deletions_file_name(file_name):
+def build_deletions_file_name(file_name: str) -> str:
     return file_name.replace(".csv", "_deletions.csv")
 
 
@@ -177,7 +177,7 @@ def download_data(ti, dataset_name):
     )
 
 
-def fetch_resources(dataset):
+def fetch_resources(dataset: str) -> list[dict]:
     r = requests.get(
         f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}",
         headers={"X-fields": "resources{type,title,url,format}"},
@@ -203,7 +203,6 @@ def process_resources(
             resource["url"].split("/")[-1],
             config[dataset_name]["params"],
         )
-        # within datasets, we now have "normal" and comp stations, they'll be processed separately
         if not regex_infos or regex_infos["DEP"] not in DEPIDS:
             # you can reduce DEPIDS for local dev only, to cut processing time
             continue
@@ -297,11 +296,17 @@ def process_resources(
             if not _failed:
                 parent = file_path.parent.as_posix()
                 for file in os.listdir(parent):
-                    os.remove(f"{parent}/{file}")
+                    # COMP and MF data are processed in the same folder
+                    # but we don't want them the interfere
+                    if (
+                        ("_COMP" in dataset_name and "_COMP" in file)
+                        or ("_COMP" not in dataset_name and "_COMP" not in file)
+                    ):
+                        os.remove(f"{parent}/{file}")
             _conn.close()
 
 
-def get_regex_infos(pattern, filename, params):
+def get_regex_infos(pattern: str, filename: str, params: dict) -> dict:
     match = re.match(pattern, filename)
     mydict = {}
     if match:
@@ -310,7 +315,7 @@ def get_regex_infos(pattern, filename, params):
     return mydict
 
 
-def download_resource(res, dataset):
+def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     if dataset == "BASE/QUOT":
         if "Vent" in res['title']:
             file_path = f"{DATADIR}{config[dataset]['table_name'] + '_vent'}/"
@@ -344,7 +349,7 @@ def download_resource(res, dataset):
     return file_path, csv_path
 
 
-def unzip_csv_gz(file_path):
+def unzip_csv_gz(file_path: str) -> str:
     output_file_path = str(file_path)[:-3]
     with gzip.open(file_path, 'rb') as f_in:
         with open(output_file_path, 'wb') as f_out:
