@@ -164,7 +164,6 @@ def update_dataset_data_gouv(ti, **kwargs):
                 "value": hashes[d["nameFTP"]]
             }
         local_client.resource(
-            payload=obj,
             dataset_id=d["dataset_id"],
             id=d["resource_id"],
             fetch=False,
