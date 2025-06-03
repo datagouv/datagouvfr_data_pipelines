@@ -11,8 +11,6 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_functions import (
     create_tables_if_not_exists,
     retrieve_latest_processed_date,
-    get_latest_ftp_processing,
-    set_max_date,
     download_data,
     insert_latest_date_pg,
     send_notification,
@@ -76,16 +74,6 @@ with DAG(
         python_callable=retrieve_latest_processed_date,
     )
 
-    get_latest_ftp_processing = PythonOperator(
-        task_id='get_latest_ftp_processing',
-        python_callable=get_latest_ftp_processing,
-    )
-
-    set_max_date = PythonOperator(
-        task_id='set_max_date',
-        python_callable=set_max_date,
-    )
-
     process_data = []
     for dataset in DATASETS_TO_PROCESS:
         process_data.append(
@@ -124,11 +112,9 @@ with DAG(
     # clean_previous_outputs.set_upstream(ftp_waiting_room)
     create_tables_if_not_exists.set_upstream(clean_previous_outputs)
     retrieve_latest_processed_date.set_upstream(create_tables_if_not_exists)
-    get_latest_ftp_processing.set_upstream(retrieve_latest_processed_date)
-    set_max_date.set_upstream(get_latest_ftp_processing)
 
     for i in range(0, len(process_data)):
-        process_data[i].set_upstream(set_max_date)
+        process_data[i].set_upstream(retrieve_latest_processed_date)
         process_data_comp[i].set_upstream(process_data[i])
         insert_latest_date_pg.set_upstream(process_data_comp[i])
 
