@@ -163,11 +163,11 @@ def process_resources(
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
-            logging.info(resource['title'], 'is not a main resource')
+            logging.info(resource["title"] + " is not a main resource")
             continue
         # that have been modified since latest insertion
         if resource["internal"]["last_modified_internal"] < latest_db_insertion:
-            logging.info(resource['title'], 'has not been updated since last check')
+            logging.info(resource["title"] + " has not been updated since last check")
             continue
         # regex_infos looks like this: {'DEP': '07', 'AAAAMM': 'latest-2023-2024'} (for BASE/MENS)
         regex_infos = get_regex_infos(
@@ -188,7 +188,7 @@ def process_resources(
         else:
             table_name = config[dataset_name]["table_name"]
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
-        logging.info("Starting with", file_path.name)
+        logging.info("Starting with " + file_path.name)
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
@@ -232,7 +232,7 @@ def process_resources(
                     ],
                     ignore_airflow_env=True
                 )
-            logging.info("=> Completed work for:", regex_infos["name"])
+            logging.info("=> Completed work for: " + regex_infos["name"])
             _conn.commit()
         except Exception as e:
             _failed = True
