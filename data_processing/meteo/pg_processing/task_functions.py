@@ -163,10 +163,11 @@ def process_resources(
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
-            logging.info(resource['title'], 'has not been updated since last check')
+            logging.info(resource['title'], 'is not a main resource')
             continue
         # that have been modified since latest insertion
         if resource["internal"]["last_modified_internal"] < latest_db_insertion:
+            logging.info(resource['title'], 'has not been updated since last check')
             continue
         # regex_infos looks like this: {'DEP': '07', 'AAAAMM': 'latest-2023-2024'} (for BASE/MENS)
         regex_infos = get_regex_infos(
