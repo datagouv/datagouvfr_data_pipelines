@@ -1,17 +1,19 @@
-import json
-import requests
-import os
 from collections import defaultdict
-from pathlib import Path
-import gzip
-import shutil
 import csv
 from datetime import datetime, timedelta
-import re
+import json
+import logging
+import os
+from pathlib import Path
+import shutil
+
+from airflow.hooks.base import BaseHook
+import gzip
 from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 import psycopg2
-from airflow.hooks.base import BaseHook
+import re
+import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -118,69 +120,35 @@ def create_tables_if_not_exists(ti):
 # %%
 def retrieve_latest_processed_date(ti):
     data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
-    print(data)
-    ti.xcom_push(key="latest_processed_date", value=data[0]["max"])
-
-
-# %%
-def get_latest_ftp_processing(ti):
-    r = requests.get("https://object.data.gouv.fr/meteofrance/data/updated_files.json")
-    r.raise_for_status()
-    ti.xcom_push(key="latest_ftp_processing", value=r.json())
-
-
-# %%
-def set_max_date(ti):
-    latest_processed_date = ti.xcom_pull(
-        key="latest_processed_date",
-        task_ids="retrieve_latest_processed_date"
-    )
-    latest_ftp_processing = ti.xcom_pull(
-        key="latest_ftp_processing",
-        task_ids="get_latest_ftp_processing"
-    )
-    dates = None
-    if not latest_processed_date:
-        # Process everything
-        new_latest_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    else:
-        if not re.match(r'\d{4}-\d{2}-\d{2}', latest_processed_date):
-            raise ValueError(
-                "You may want to check what is in the 'dag_processed' table"
-            )
-        # Process subset
-        dates = [item for item in latest_ftp_processing if item != 'latest_update']
-        dates = [item for item in dates if item >= latest_processed_date]
-        new_latest_date = max(dates)
-
-    ti.xcom_push(key="new_latest_date", value=new_latest_date)
-    ti.xcom_push(key="dates", value=dates)
+    logging.info(data)
+    latest_db_insertion = data[0]["max"]
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', latest_db_insertion):
+        raise ValueError(
+            "You may want to check what is in the 'dag_processed' table, "
+            + f"got `{latest_db_insertion}`"
+        )
+    ti.xcom_push(key="latest_db_insertion", value=latest_db_insertion)
 
 
 # %%
 def download_data(ti, dataset_name):
-    latest_ftp_processing = ti.xcom_pull(
-        key="latest_ftp_processing",
-        task_ids="get_latest_ftp_processing"
-    )
-    dates = ti.xcom_pull(
-        key="dates",
-        task_ids="set_max_date"
+    latest_db_insertion = ti.xcom_pull(
+        key="latest_db_insertion",
+        task_ids="retrieve_latest_processed_date"
     )
 
     resources = fetch_resources(dataset_name)
     process_resources(
         resources=resources,
         dataset_name=dataset_name,
-        latest_ftp_processing=latest_ftp_processing,
-        dates=dates,
+        latest_db_insertion=latest_db_insertion,
     )
 
 
 def fetch_resources(dataset: str) -> list[dict]:
     r = requests.get(
         f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}",
-        headers={"X-fields": "resources{type,title,url,format}"},
+        headers={"X-fields": "resources{type,title,url,format,internal{last_modified_internal}}"},
     )
     r.raise_for_status()
     return r.json()["resources"]
@@ -189,13 +157,16 @@ def fetch_resources(dataset: str) -> list[dict]:
 def process_resources(
     resources: list[dict],
     dataset_name: str,
-    latest_ftp_processing: list,
-    dates: list | None = None,
+    latest_db_insertion: str,
 ):
     # going through all resources of the dataset to check which ones to update
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
+            logging.info(resource['title'], 'has not been updated since last check')
+            continue
+        # that have been modified since latest insertion
+        if resource["internal"]["last_modified_internal"] < latest_db_insertion:
             continue
         # regex_infos looks like this: {'DEP': '07', 'AAAAMM': 'latest-2023-2024'} (for BASE/MENS)
         regex_infos = get_regex_infos(
@@ -206,30 +177,7 @@ def process_resources(
         if not regex_infos or regex_infos["DEP"] not in DEPIDS:
             # you can reduce DEPIDS for local dev only, to cut processing time
             continue
-        if dates:
-            file_path = None
-            for d in dates:
-                files = [
-                    item["name"] for item in latest_ftp_processing[d]
-                ]
-                # checking whether the file has been updated on any date since last check
-                if (
-                    resource["url"].replace(
-                        f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/{dataset_name}/",
-                        ""
-                    ) in files
-                ):
-                    file_path, csv_path = download_resource(resource, dataset_name)
-                    # this file has been updated at least once since last check, it will be processd
-                    # no need to check other dates
-                    break
-            if file_path is None:
-                # this file has not been updated since last check, moving on
-                print(resource['title'], 'has not been updated since last check')
-                continue
-        else:
-            # no latest processing date => processing every file
-            file_path, csv_path = download_resource(resource, dataset_name)
+        file_path, csv_path = download_resource(resource, dataset_name)
 
         if "BASE/QUOT" in dataset_name:
             if "_autres" in file_path.name:
@@ -239,7 +187,7 @@ def process_resources(
         else:
             table_name = config[dataset_name]["table_name"]
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
-        print("Starting with", file_path.name)
+        logging.info("Starting with", file_path.name)
 
         _conn = psycopg2.connect(**db_params)
         _conn.autocommit = False
@@ -283,13 +231,13 @@ def process_resources(
                     ],
                     ignore_airflow_env=True
                 )
-            print("=> Completed work for:", regex_infos["name"])
+            logging.info("=> Completed work for:", regex_infos["name"])
             _conn.commit()
         except Exception as e:
             _failed = True
             _conn.rollback()
-            print(f"/!\ An error occurred: {e}")
-            print("Transaction rolled back.")
+            logging.error(f"/!\ An error occurred: {e}")
+            logging.info("Transaction rolled back.")
             raise
         finally:
             # deleting if everything was successful, so that we can check content otherwise
@@ -424,7 +372,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
 
     # if MIN or HOR: files are too big to be handled at once, we build the diff iteratively
     if any(_ in csv_path for _ in ['MN_', 'H_']):
-        print("> Building diff in batches...")
+        logging.info("> Building diff in batches...")
         # files are too big to be handled in one go, so we process them in batches
         # using the fact that the first column (NUM_POSTE) always starts with dep + numbers
         for _filter in create_filters(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"]):
@@ -453,7 +401,7 @@ def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
         maxes[max(counts)] += 1
         if max(counts) < threshold or max(maxes.values()) == 3:
             break
-    print(f"> built filters of length {k} (max occurences: {max(counts)})")
+    logging.info(f"> built filters of length {k} (max occurences: {max(counts)})")
     return [dep + suffix for suffix in counts.index]
 
 
@@ -463,14 +411,14 @@ def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
     nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
     threshold = 20000
     if nb_del > threshold:
-        print(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole period...")
+        logging.info(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole period...")
         replace_whole_period(_conn, table_name, csv_path, regex_infos)
         return
     if nb_del:
-        print(f'> Deleting {nb_del} rows...')
+        logging.info(f'> Deleting {nb_del} rows...')
         delete_old_data(_conn, table_name, deletions)
     if nb_add:
-        print(f'> Inserting {nb_add} rows...')
+        logging.info(f'> Inserting {nb_add} rows...')
         load_new_data(_conn, table_name, csv_path)
 
 
@@ -503,7 +451,7 @@ def build_query_filters(regex_infos: dict):
 
 
 def replace_whole_period(_conn, table_name, csv_path, regex_infos):
-    print("> Deleting period...")
+    logging.info("> Deleting period...")
     cursor = _conn.cursor()
     cursor.execute(f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1=1 " + build_query_filters(regex_infos))
     # the raw source file is missing the DEP column
@@ -516,7 +464,7 @@ def replace_whole_period(_conn, table_name, csv_path, regex_infos):
             else:
                 dep_file.write(line.strip() + f";{dep}\n")
     nb_rows = count_lines_in_file(csv_with_dep)
-    print(f"> Inserting whole file ({nb_rows} rows)...")
+    logging.info(f"> Inserting whole file ({nb_rows} rows)...")
     with open(csv_with_dep, 'r') as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
@@ -571,7 +519,7 @@ def drop_indexes(conn, table_name):
     for col in ["dep", "num_poste", "nom_usuel", "year"]:
         query = f"DROP INDEX IF EXISTS idx_{table_name}_{col}"
         cursor.execute(query)
-    print("DROP INDEXES OK")
+    logging.info("DROP INDEXES OK")
     cursor.close()
 
 
@@ -588,17 +536,14 @@ def create_indexes(conn, table_name, period):
         f" (substring({period}::text, 1, 4))"
     )
     cursor.execute(query)
-    print("CREATE INDEXES OK")
+    logging.info("CREATE INDEXES OK")
     cursor.close()
 
 
 # %%
-def insert_latest_date_pg(ti):
-    new_latest_date = ti.xcom_pull(
-        key="new_latest_date",
-        task_ids="set_max_date"
-    )
-    print(new_latest_date)
+def insert_latest_date_pg():
+    new_latest_date = datetime.now().strftime("%Y-%m-%d")
+    logging.info(new_latest_date)
     pgclient.execute_query(
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
     )
