@@ -101,7 +101,7 @@ with DAG(
     process_data_comp = []
     for dataset in DATASETS_TO_PROCESS:
         dataset_comp = dataset + "_COMP"
-        process_data.append(
+        process_data_comp.append(
             PythonOperator(
                 task_id=f'process_data_{dataset_comp.replace("/","_").lower()}',
                 python_callable=download_data,
