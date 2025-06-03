@@ -231,7 +231,7 @@ def process_resources(
             # no latest processing date => processing every file
             file_path, csv_path = download_resource(resource, dataset_name)
 
-        if dataset_name == "BASE/QUOT":
+        if "BASE/QUOT" in dataset_name:
             if "_autres" in file_path.name:
                 table_name = "base_quot_autres"
             else:
