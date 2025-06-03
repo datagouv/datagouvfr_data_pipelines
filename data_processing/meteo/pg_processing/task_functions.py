@@ -296,13 +296,7 @@ def process_resources(
             if not _failed:
                 parent = file_path.parent.as_posix()
                 for file in os.listdir(parent):
-                    # COMP and MF data are processed in the same folder
-                    # but we don't want them the interfere
-                    if (
-                        ("_COMP" in dataset_name and "-COMP" in file)
-                        or ("_COMP" not in dataset_name and "-COMP" not in file)
-                    ):
-                        os.remove(f"{parent}/{file}")
+                    os.remove(f"{parent}/{file}")
             _conn.close()
 
 

@@ -35,12 +35,6 @@ DATASETS_TO_PROCESS = [
     "BASE/QUOT",
     "BASE/HOR",
     "BASE/MIN",
-    "BASE/MENS_COMP",
-    "BASE/DECAD_COMP",
-    "BASE/DECADAGRO_COMP",
-    "BASE/QUOT_COMP",
-    "BASE/HOR_COMP",
-    "BASE/MIN_COMP",
 ]
 
 
@@ -104,6 +98,19 @@ with DAG(
             )
         )
 
+    process_data_comp = []
+    for dataset in DATASETS_TO_PROCESS:
+        dataset_comp = dataset + "_COMP"
+        process_data.append(
+            PythonOperator(
+                task_id=f'process_data_{dataset_comp.replace("/","_").lower()}',
+                python_callable=download_data,
+                op_kwargs={
+                    "dataset_name": dataset_comp,
+                },
+            )
+        )
+
     insert_latest_date_pg = PythonOperator(
         task_id='insert_latest_date_pg',
         python_callable=insert_latest_date_pg,
@@ -122,6 +129,7 @@ with DAG(
 
     for i in range(0, len(process_data)):
         process_data[i].set_upstream(set_max_date)
-        insert_latest_date_pg.set_upstream(process_data[i])
+        process_data_comp[i].set_upstream(process_data[i])
+        insert_latest_date_pg.set_upstream(process_data_comp[i])
 
     send_notification.set_upstream(insert_latest_date_pg)
