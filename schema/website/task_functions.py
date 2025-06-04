@@ -1286,13 +1286,14 @@ def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
     target_demo = (branch != "main") or (AIRFLOW_ENV == "dev")
     client = demo_client if target_demo else prod_client
     client.resource(
+        # ids are the same now, but keeping syntax in case they unsync
         id=(
             "31ed3bb3-cab4-48c2-b9b1-cb7095e8a548" if not target_demo
-            else "f03f3dcb-1b23-4565-b02e-6985cb3d2959"
+            else "31ed3bb3-cab4-48c2-b9b1-cb7095e8a548"
         ),
         dataset_id=(
             "668282444f9d3f48f2702fcd" if not target_demo
-            else "6682b2f35a23814365024994"
+            else "668282444f9d3f48f2702fcd"
         ),
         fetch=False,
         _from_response={"filetype": "file"},  # to be able to update the file without fetching
