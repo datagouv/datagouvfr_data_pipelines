@@ -10,7 +10,7 @@
             "x": "FLOAT",
             "y": "FLOAT",
             "qualite_xy": "VARCHAR",
-            "epsg": "DATE",
+            "epsg": "VARCHAR",
             "plg_qp24": "VARCHAR",
             "plg_iris": "VARCHAR",
             "plg_zus": "VARCHAR",
