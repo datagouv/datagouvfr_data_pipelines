@@ -334,7 +334,7 @@
         "table_name": "refcc_nivo"
     },
     "REF_STATION": {
-        "source_pattern": " FICHECLIM_(?P<ID>[^_]+).(?P<EXT>[^_]+)",
+        "source_pattern": "FICHECLIM_(?P<ID>[^_.]+).(?P<EXT>[^_]+)",
         "name_template": "Fiche_station_{ID}.{EXT}",
         "doc_pattern": null,
         "description_template": "Fiche climatologique de la station {ID} ({EXT})",
