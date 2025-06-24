@@ -121,10 +121,10 @@ def check_new(ti, **kwargs):
                     print("This dataset has a schema:", item)
                     mydict['first_publication'] = False
                 else:
-                    mydict['first_publication'] = True
+                    # private/draft objects are not counted in metrics, so we can't be sure they're new
+                    mydict['first_publication'] = not item.get("private")
             else:
-                # private/draft objects are not counted in metrics, so we can't be sure they're new
-                mydict['first_publication'] = not item.get("private")
+                mydict['first_publication'] = False
         else:
             mydict['spam'] = detect_spam(item.get('name'), item.get('description'))
             if mydict['spam']:
