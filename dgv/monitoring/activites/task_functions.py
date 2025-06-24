@@ -123,7 +123,8 @@ def check_new(ti, **kwargs):
                 else:
                     mydict['first_publication'] = True
             else:
-                mydict['first_publication'] = False
+                # archived objects are not counted in metrics, so we can't be sure they're new
+                mydict['first_publication'] = not (item.get("archived") or item.get("archived_at"))
         else:
             mydict['spam'] = detect_spam(item.get('name'), item.get('description'))
             if mydict['spam']:
