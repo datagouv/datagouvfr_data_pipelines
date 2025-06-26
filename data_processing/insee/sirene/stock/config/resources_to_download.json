@@ -4,7 +4,7 @@
         "nameFTP": "StockUniteLegaleHistorique_utf8.zip",
         "dataset_id": "5b7ffc618b4c4169d30727e0",
         "resource_id": "0835cd60-2c2a-497b-bc64-404de704ce89",
-        "parquet_resource_id": "",
+        "parquet_resource_id": "1b9290ed-d0bc-461f-ba31-0250a99cc140",
         "dtype": {
             "siren": "VARCHAR",
             "dateFin": "DATE",
@@ -41,7 +41,7 @@
         "nameFTP": "StockEtablissement_utf8.zip",
         "dataset_id": "5b7ffc618b4c4169d30727e0",
         "resource_id": "0651fb76-bcf3-4f6a-a38d-bc04fa708576",
-        "parquet_resource_id": "",
+        "parquet_resource_id": "a29c1297-1f92-4e2a-8f6b-8c902ce96c5f",
         "dtype": {
             "siren": "VARCHAR",
             "nic": "BIGINT",
@@ -103,7 +103,7 @@
         "nameFTP": "StockEtablissementHistorique_utf8.zip",
         "dataset_id": "5b7ffc618b4c4169d30727e0",
         "resource_id": "88fbb6b4-0320-443e-b739-b4376a012c32",
-        "parquet_resource_id": "",
+        "parquet_resource_id": "2b3a0c79-f97b-46b8-ac02-8be6c1f01a8c",
         "dtype": {
             "siren": "VARCHAR",
             "nic": "BIGINT",
@@ -130,7 +130,7 @@
         "nameFTP": "StockUniteLegale_utf8.zip",
         "dataset_id": "5b7ffc618b4c4169d30727e0",
         "resource_id": "825f4199-cadd-486c-ac46-a65a8ea1a047",
-        "parquet_resource_id": "",
+        "parquet_resource_id": "350182c9-148a-46e0-8389-76c2ec1374a3",
         "dtype": {
             "siren": "VARCHAR",
             "statutDiffusionUniteLegale": "VARCHAR",
@@ -173,7 +173,7 @@
         "nameFTP": "StockEtablissementLiensSuccession_utf8.zip",
         "dataset_id": "5b7ffc618b4c4169d30727e0",
         "resource_id": "9c4d5d9c-4bbb-4b9c-837a-6155cb589e26",
-        "parquet_resource_id": "",
+        "parquet_resource_id": "6ea8c0d2-a4b9-4ea2-ba63-7ec89c2dd4f4",
         "dtype": {
             "siretEtablissementPredecesseur": "VARCHAR",
             "siretEtablissementSuccesseur": "VARCHAR",
@@ -188,7 +188,7 @@
         "nameFTP": "StockDoublons_utf8.zip",
         "dataset_id": "5b7ffc618b4c4169d30727e0",
         "resource_id": "d8c31348-8630-4918-b6d1-5dd689b05f29",
-        "parquet_resource_id": "",
+        "parquet_resource_id": "ec0a0d5f-5d52-4603-a712-b6821076abf0",
         "dtype": {
             "siren": "VARCHAR",
             "sirenDoublon": "VARCHAR",
