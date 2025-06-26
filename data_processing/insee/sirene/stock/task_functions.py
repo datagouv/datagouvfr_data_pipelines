@@ -219,6 +219,7 @@ def update_dataset_data_gouv(ti, **kwargs):
                     f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
                     " (format parquet)"
                 ),
+                "url": f"https://files.data.gouv.fr/insee-sirene/{d['nameFTP'].replace('.zip', '.parquet')}",
             },
         )
 
