@@ -1,5 +1,6 @@
 import gzip
 from datetime import date, datetime
+import logging
 
 import duckdb
 from dateutil.relativedelta import relativedelta
@@ -55,13 +56,13 @@ def csv_to_parquet(
         output_name = csv_file_path.split("/")[-1].replace(".csv", ".parquet")
     if output_path is None:
         output_path = "/".join(csv_file_path.split("/")[:-1]) + "/"
-    print(f"Converting {csv_file_path}")
-    print(f"to {output_path + output_name}")
+    logging.info(f"Converting {csv_file_path}")
     db = duckdb.read_csv(
         csv_file_path,
         sep=sep,
         dtype=dtype or {c: "VARCHAR" for c in columns},
     )
+    logging.info(f"to {output_path + output_name}")
     db.write_parquet(output_path + output_name, compression=compression)
 
 
@@ -75,8 +76,8 @@ def csv_to_csvgz(
         output_name = csv_file_path.split("/")[-1].replace(".csv", ".csv.gz")
     if output_path is None:
         output_path = "/".join(csv_file_path.split("/")[:-1]) + "/"
-    print(f"Converting {csv_file_path}")
-    print(f"to {output_path + output_name}")
+    logging.info(f"Converting {csv_file_path}")
+    logging.info(f"to {output_path + output_name}")
     with (
         open(csv_file_path, "r", newline="", encoding="utf-8") as csvfile,
         gzip.open(output_path + output_name, "wt", newline="", encoding="utf-8") as gzfile,
