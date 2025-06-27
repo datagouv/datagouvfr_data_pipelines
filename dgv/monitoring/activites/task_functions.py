@@ -122,7 +122,8 @@ def check_new(ti, **kwargs):
                     mydict['first_publication'] = False
                 else:
                     # private/draft objects are not counted in metrics, so we can't be sure they're new
-                    mydict['first_publication'] = not item.get("private")
+                    # also not counting objects that have been deleted since
+                    mydict['first_publication'] = not item.get("private") and not item.get("deleted") and not item.get("deleted_at")
             else:
                 mydict['first_publication'] = False
         else:
