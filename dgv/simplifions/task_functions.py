@@ -72,11 +72,7 @@ def update_topics(ti):
             method = "post"
         logging.info(
             f"{method} topic '{slug}'"
-            + (
-                f" at {local_client.base_url}/api/1/topics/{grist_topics[slug]}/"
-                if method == "put"
-                else ""
-            )
+            + (f" at {url}" if method == "put" else "")
         )
         r = getattr(requests, method)(
             url,
