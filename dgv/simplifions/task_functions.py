@@ -48,7 +48,7 @@ def update_topics(ti):
     # this will need adapting when we add need objects
     simplifions_tags = [
         "simplifions",
-        "cas-d-usage",
+        "cas-d-usages",
         "simplifions-dag-generated",
     ]
     current_topics = {
