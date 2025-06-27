@@ -47,8 +47,9 @@ def update_topics(ti):
 
     # this will need adapting when we add need objects
     simplifions_tags = [
-        "simplifions-data-gouv-fr",
-        "simplifions-cas-d-usage",
+        "simplifions",
+        "cas-d-usage",
+        "simplifions-dag-generated",
     ]
     current_topics = {
         topic["extras"]["slug"]: topic["id"]
@@ -84,11 +85,15 @@ def update_topics(ti):
                 "name": grist_topics[slug]["Titre"],
                 # description cannot be empty
                 "description": grist_topics[slug]["Description_courte"] or "-",
+                "organization": {
+                    "class": "Organization",
+                    "id": "57fe2a35c751df21e179df72",
+                },
                 "tags": simplifions_tags,
-                "extras": {
+                "extras": {"cas-d-usages": {
                     key: value or False for key, value in grist_topics[slug].items()
                     if key not in ["Titre", "Description_courte"]
-                },
+                },},
             },
         )
         r.raise_for_status()
