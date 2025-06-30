@@ -24,6 +24,7 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.utils import csv_to_csvgz
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
@@ -1117,6 +1118,44 @@ def publish_stats_dvf(ti) -> None:
         },
     )
     ti.xcom_push(key="dataset_id", value=data['mensuelles'][AIRFLOW_ENV]["dataset_id"])
+
+
+def concat_and_publish_whole():
+    years = sorted(
+        [
+            int(f.replace("full_", "").replace(".csv", ""))
+            for f in os.listdir(DATADIR)
+            if "full_" in f and ".gz" not in f
+        ]
+    )
+    for idx, year in enumerate(years):
+        df = pd.read_csv(
+            DATADIR + f"/full_{year}.csv",
+            compression="gzip",
+            dtype=str,
+        )
+        logging.info(f"Exporting {year}...")
+        df.to_csv(
+            DATADIR + "/dvf.csv",
+            index=False,
+            header=idx == 0,
+            mode="w" if idx == 0 else "a",
+        )
+    csv_to_csvgz(DATADIR + "/dvf.csv")
+
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
+        data = json.load(fp)
+    local_client.resource(
+        id=data["concat"][AIRFLOW_ENV]["resource_id"],
+        dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
+    ).update(
+        payload={
+            "title": f"DVF {min(years)}-{max(years)} - fichier unique",
+            "format": "csv",
+        },
+        file_to_upload=DATADIR + "/dvf.csv",
+    )
 
 
 def notification_mattermost(ti) -> None:

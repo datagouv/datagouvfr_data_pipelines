@@ -1,7 +1,5 @@
 {
     "mensuelles": {
-        "name": "stats_mensuelles_dvf",
-        "file": "stats_dvf.csv",
         "dev": {
             "dataset_id": "63ebd4b775d47ab8a75db39a",
             "resource_id": "e9ebf30b-739b-4fa5-bdae-b9a70ba086e8"
@@ -12,8 +10,6 @@
         }
     },
     "totales": {
-        "name": "stats_totales_dvf",
-        "file": "stats_whole_period.csv",
         "dev": {
             "dataset_id": "63ebd4b775d47ab8a75db39a",
             "resource_id": "ad09ae79-a874-472e-8109-703fe4dcaa5f"
@@ -21,6 +17,16 @@
         "prod": {
             "dataset_id": "64998de5926530ebcecc7b15",
             "resource_id": "851d342f-9c96-41c1-924a-11a7a7aae8a6"
+        }
+    },
+    "concat": {
+        "dev": {
+            "dataset_id": "5cc1b94a634f4165e96436c1",
+            "resource_id": "448f917f-8733-482c-b03a-659fcbb07fa4"
+        },
+        "prod": {
+            "dataset_id": "5cc1b94a634f4165e96436c1",
+            "resource_id": "d7933994-2c66-4131-a4da-cf7cd18040a4"
         }
     }
 }
