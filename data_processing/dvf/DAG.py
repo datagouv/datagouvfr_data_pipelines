@@ -31,7 +31,8 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     populate_distribution_table,
     create_whole_period_table,
     populate_whole_period_table,
-    send_distribution_to_minio
+    send_distribution_to_minio,
+    concat_and_publish_whole,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
@@ -198,6 +199,11 @@ with DAG(
         python_callable=publish_stats_dvf,
     )
 
+    concat_and_publish_whole = PythonOperator(
+        task_id='concat_and_publish_whole',
+        python_callable=concat_and_publish_whole,
+    )
+
     clean_up = BashOperator(
         task_id="clean_up",
         bash_command=f"rm -rf {TMP_FOLDER}",
@@ -209,6 +215,8 @@ with DAG(
     )
 
     download_dvf_data.set_upstream(clean_previous_outputs)
+
+    concat_and_publish_whole.set_upstream(download_dvf_data)
 
     download_copro.set_upstream(download_dvf_data)
     create_copro_table.set_upstream(download_copro)
@@ -252,5 +260,6 @@ with DAG(
     clean_up.set_upstream(send_distribution_to_minio)
     clean_up.set_upstream(populate_distribution_table)
     clean_up.set_upstream(populate_whole_period_table)
+    clean_up.set_upstream(concat_and_publish_whole)
 
     notification_mattermost.set_upstream(clean_up)
