@@ -11,21 +11,17 @@ from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, loc
 
 dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 
+GRIST_DOC_ID = "c5pt7QVcKWWe"
+MAIN_TABLE_ID = "SIMPLIFIONS_cas_usages"
+SUBDATA_TABLE_IDS = {
+    "Solutions_publiques_recommandees": "SIMPLIFIONS_reco_solutions_cas_usages",
+    "usagers": "TYPE_usagers",
+}
+
 
 def get_and_format_grist_data(ti):
-    doc_id = "c5pt7QVcKWWe"
-    table_id = "SIMPLIFIONS_cas_usages"
-    r = requests.get(
-        GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
-        headers={
-            'Authorization': 'Bearer ' + SECRET_GRIST_API_KEY,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-    )
-    r.raise_for_status()
-    rows = [row["fields"] for row in r.json()["records"]]
-
+    rows = request_grist_table(MAIN_TABLE_ID)
+    
     grist_topics = {
         row["slug"]: {
             key: (
@@ -41,6 +37,17 @@ def get_and_format_grist_data(ti):
     }
     ti.xcom_push(key="grist_topics", value=grist_topics)
 
+def request_grist_table(table_id: str):
+    r = requests.get(
+        GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
+        headers={
+            'Authorization': 'Bearer ' + SECRET_GRIST_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        },
+    )
+    r.raise_for_status()
+    return [row["fields"] for row in r.json()["records"]]
 
 def update_topics(ti):
     grist_topics: dict = ti.xcom_pull(key="grist_topics", task_ids="get_and_format_grist_data")
