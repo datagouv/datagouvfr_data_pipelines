@@ -51,8 +51,9 @@ def update_topics(ti):
         "cas-d-usages",
         "simplifions-dag-generated",
     ]
+    extras_nested_key = "cas-d-usages"
     current_topics = {
-        topic["extras"]["slug"]: topic["id"]
+        topic["extras"][extras_nested_key]["slug"]: topic["id"]
         for topic in get_all_from_api_query(
             (
                 f"{local_client.base_url}/api/1/topics/?"
@@ -86,7 +87,7 @@ def update_topics(ti):
                     "id": "57fe2a35c751df21e179df72",
                 },
                 "tags": simplifions_tags,
-                "extras": {"cas-d-usages": {
+                "extras": {extras_nested_key: {
                     key: value or False for key, value in grist_topics[slug].items()
                     if key not in ["Titre", "Description_courte"]
                 },},
