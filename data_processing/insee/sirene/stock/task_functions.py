@@ -44,33 +44,27 @@ def get_files(ti, **kwargs):
     )
 
     # parquet conversion (extract zip, convert, delete intermediary step)
-    successful_parquet = []
     for item in data:
-        try:
-            csv_name = item["nameFTP"].replace(".zip", ".csv")
-            logging.info(f"Unzipping {csv_name}")
-            with zipfile.ZipFile(tmp_dir + item["nameFTP"], 'r') as zip_ref:
-                zip_ref.extract(csv_name, tmp_dir)
-            csv_to_parquet(
-                tmp_dir + csv_name,
-                sep=";" if "Geolocalisation" in csv_name else ",",
-                dtype=item["dtype"],
-            )
-            os.remove(tmp_dir + csv_name)
-            successful_parquet.append(item["nameFTP"])
-        except Exception as e:
-            logging.error("Parquet export failed due to: " + str(e))
+        csv_name = item["nameFTP"].replace(".zip", ".csv")
+        logging.info(f"Unzipping {csv_name}")
+        with zipfile.ZipFile(tmp_dir + item["nameFTP"], 'r') as zip_ref:
+            zip_ref.extract(csv_name, tmp_dir)
+        csv_to_parquet(
+            tmp_dir + csv_name,
+            sep=";" if "Geolocalisation" in csv_name else ",",
+            dtype=item["dtype"],
+            strict_mode=False,
+        )
+        os.remove(tmp_dir + csv_name)
 
     hashfiles = {}
     for item in data:
         hashfiles[item["nameFTP"]] = compute_checksum_from_file(f"{tmp_dir}{item['nameFTP']}")
 
     ti.xcom_push(key="hashes", value=hashfiles)
-    ti.xcom_push(key="successful_parquet", value=successful_parquet)
 
 
 def upload_files_minio(ti, **kwargs):
-    successful_parquet = ti.xcom_pull(key="successful_parquet", task_ids="get_files")
     templates_dict = kwargs.get("templates_dict")
     tmp_dir = templates_dict.get("tmp_dir")
     minio_path = templates_dict.get("minio_path")
@@ -99,7 +93,6 @@ def upload_files_minio(ti, **kwargs):
                 dest_path=minio_path,
                 dest_name=item["nameFTP"].replace(".zip", ".parquet"),
             ) for item in data
-            if item["nameFTP"] in successful_parquet
         ],
     )
 
@@ -145,7 +138,6 @@ def compare_minio_files(**kwargs):
 
 
 def publish_file_files_data_gouv(ti, **kwargs):
-    successful_parquet = ti.xcom_pull(key="successful_parquet", task_ids="get_files")
     templates_dict = kwargs.get("templates_dict")
     tmp_dir = templates_dict.get("tmp_dir")
     resource_file = templates_dict.get("resource_file")
@@ -162,14 +154,13 @@ def publish_file_files_data_gouv(ti, **kwargs):
             remote_filepath=f"{FILES_BASE_URL}{files_path}{item['nameFTP']}",
             operation="put",
         )
-        if item["nameFTP"] in successful_parquet:
-            put_parquet = SFTPOperator(
-                task_id="put-file",
-                ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
-                local_filepath=f"{tmp_dir}{item['nameFTP'].replace('.zip', '.parquet')}",
-                remote_filepath=f"{FILES_BASE_URL}{files_path}{item['nameFTP']}",
-                operation="put",
-            )
+        put_parquet = SFTPOperator(
+            task_id="put-file",
+            ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
+            local_filepath=f"{tmp_dir}{item['nameFTP'].replace('.zip', '.parquet')}",
+            remote_filepath=f"{FILES_BASE_URL}{files_path}{item['nameFTP']}",
+            operation="put",
+        )
         # only saving history in zip format
         put_file_with_date = SFTPOperator(
             task_id="put-file",
@@ -187,7 +178,6 @@ def publish_file_files_data_gouv(ti, **kwargs):
 
 
 def update_dataset_data_gouv(ti, **kwargs):
-    successful_parquet = ti.xcom_pull(key="successful_parquet", task_ids="get_files")
     hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
     templates_dict = kwargs.get("templates_dict")
     resource_file = templates_dict.get("resource_file")
@@ -219,21 +209,20 @@ def update_dataset_data_gouv(ti, **kwargs):
         ).update(payload=obj)
 
         # updating parquet
-        if d["nameFTP"] in successful_parquet:
-            local_client.resource(
-                dataset_id=d["dataset_id"],
-                id=d["parquet_resource_id"],
-                fetch=False,
-            ).update(
-                payload={
-                    "title": (
-                        f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
-                        f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
-                        " (format parquet)"
-                    ),
-                    "url": f"https://files.data.gouv.fr/insee-sirene/{d['nameFTP'].replace('.zip', '.parquet')}",
-                },
-            )
+        local_client.resource(
+            dataset_id=d["dataset_id"],
+            id=d["parquet_resource_id"],
+            fetch=False,
+        ).update(
+            payload={
+                "title": (
+                    f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
+                    f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
+                    " (format parquet)"
+                ),
+                "url": f"https://files.data.gouv.fr/insee-sirene/{d['nameFTP'].replace('.zip', '.parquet')}",
+            },
+        )
 
 
 def publish_mattermost(geoloc):

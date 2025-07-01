@@ -46,6 +46,7 @@ def csv_to_parquet(
     output_path: str | None = None,
     sep: str = ";",
     compression: str = "zstd",
+    **kwargs,
 ):
     """
     if dtype is not specified, columns are required to load everything as string (for safety)
@@ -61,6 +62,7 @@ def csv_to_parquet(
         csv_file_path,
         sep=sep,
         dtype=dtype or {c: "VARCHAR" for c in columns},
+        **kwargs,
     )
     logging.info(f"to {output_path + output_name}")
     db.write_parquet(output_path + output_name, compression=compression)
