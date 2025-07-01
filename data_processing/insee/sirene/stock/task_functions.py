@@ -37,6 +37,7 @@ def get_files(ti, **kwargs):
                 dest_path=tmp_dir,
                 dest_name=item["nameFTP"],
             ) for item in data
+            if item["nameFTP"] not in os.listdir(tmp_dir)
         ],
         auth_user=SECRET_INSEE_LOGIN,
         auth_password=SECRET_INSEE_PASSWORD,
