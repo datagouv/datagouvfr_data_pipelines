@@ -55,7 +55,7 @@ def get_files(ti, **kwargs):
             sep=";" if "Geolocalisation" in csv_name else ",",
             dtype=item["dtype"],
             strict_mode=False,
-            escapechar="|",
+            escapechar="µ",
         )
         os.remove(tmp_dir + csv_name)
 
