@@ -68,7 +68,7 @@ def update_topics(ti):
     # this will need adapting when we add need objects
     simplifions_tags = [
         "simplifions",
-        "cas-d-usages",
+        "simplifions-cas-d-usages",
         "simplifions-dag-generated",
     ]
     extras_nested_key = "cas-d-usages"
