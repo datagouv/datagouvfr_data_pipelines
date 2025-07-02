@@ -88,7 +88,7 @@ def update_topics(ti):
         "simplifions-dag-generated",
     ]
     
-    extras_nested_key = "simplifions"
+    extras_nested_key = "simplifions-cas-usages"
 
     current_topics = {
         topic["extras"][extras_nested_key]["slug"]: topic["id"]
