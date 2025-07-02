@@ -115,7 +115,7 @@ def update_topics(ti):
                     "id": "57fe2a35c751df21e179df72",
                 },
                 "tags": simplifions_tags,
-                "extras": { extras_nested_key: grist_topics[slug] },
+                "extras": { extras_nested_key: grist_topics[slug] or False },
             },
         )
         r.raise_for_status()
