@@ -272,7 +272,10 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     # this condition should be removed when hydra and consolidation follow the same schedule (every day).
     # => not for now
     extras = data["extras"]
-    if extras.get("analysis:error") == "File too large to download":
+    if (
+        extras.get("analysis:error") == "File too large to download"
+        or (data["filesize"] or 0) > 1e6
+    ):
         # too large resources will make validata crash
         return {"report": {"error": "ressource is too large", "valid": False}}
     if data["filetype"] == "file":
