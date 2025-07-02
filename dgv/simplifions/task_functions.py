@@ -98,6 +98,7 @@ def update_topics(ti):
                 + "&".join([f"tag={tag}" for tag in simplifions_tags])
             ),
         )
+        if extras_nested_key in topic["extras"]
     }
 
     for slug in grist_topics.keys():
