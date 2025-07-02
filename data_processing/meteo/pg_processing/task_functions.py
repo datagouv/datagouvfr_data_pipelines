@@ -278,7 +278,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
         File(
             url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
             dest_path=file_path.parent.as_posix(),
-            dest_name=build_old_file_name(csv_path),
+            dest_name=build_old_file_name(csv_path).split("/")[-1],
         ).download(timeout=TIMEOUT)
     except Exception:
         logging.warning("> This file is not in postgres mirror, creating an empty one for diff")
