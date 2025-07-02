@@ -1,3 +1,4 @@
+import json
 import logging
 
 import requests
@@ -11,31 +12,58 @@ from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, loc
 
 dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 
+GRIST_DOC_ID = "c5pt7QVcKWWe"
+MAIN_TABLE_ID = "SIMPLIFIONS_cas_usages"
+SUBDATA_TABLE_IDS = {
+    # "Solutions_publiques_recommandees": "SIMPLIFIONS_produitspublics",
+    "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
+    "usagers": "TYPE_usagers",
+    "A_destination_de_": "TYPE_fournisseur_service",
+}
 
-def get_and_format_grist_data(ti):
-    doc_id = "c5pt7QVcKWWe"
-    table_id = "SIMPLIFIONS_cas_usages"
+def request_grist_table(table_id: str, filter: str = None):
     r = requests.get(
-        GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records",
+        GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
         headers={
             'Authorization': 'Bearer ' + SECRET_GRIST_API_KEY,
             'Content-Type': 'application/json',
             'Accept': 'application/json',
         },
+        params={"filter": filter} if filter else None,
     )
     r.raise_for_status()
-    rows = [row["fields"] for row in r.json()["records"]]
+    return [row["fields"] for row in r.json()["records"]]
 
+def clean_row(row):
+    cleaned_row = {}
+    for key, value in row.items():
+        if isinstance(value, list) and value and value[0] == "L":
+            # Remove the "L" prefix and keep the rest of the list
+            cleaned_row[key] = value[1:]
+        else:
+            cleaned_row[key] = value
+    return cleaned_row
+    
+def get_subdata(key, value):
+    if key in SUBDATA_TABLE_IDS.keys():
+        filter = json.dumps({ "id": value }) if value else None
+        return request_grist_table(SUBDATA_TABLE_IDS[key], filter=filter)
+    else:
+        return value
+
+def cleaned_row_with_subdata(row):
+    cleaned_row = clean_row(row)
+    formatted_row = {
+        key: get_subdata(key, cleaned_row[key])
+        for key in cleaned_row.keys()
+    }
+    return formatted_row
+
+def get_and_format_grist_data(ti):
+    rows = request_grist_table(MAIN_TABLE_ID)
+    
     grist_topics = {
-        row["slug"]: {
-            key: (
-                row[key][1:]
-                # cleaning multiple-choice cells
-                if isinstance(row[key], list) and row[key][0] == "L"
-                else row[key]
-            )
-            for key in row.keys()
-        }
+        row["slug"]: cleaned_row_with_subdata(row)
         for row in rows
         if row["slug"]
     }
@@ -48,7 +76,7 @@ def update_topics(ti):
     # this will need adapting when we add need objects
     simplifions_tags = [
         "simplifions",
-        "cas-d-usages",
+        "simplifions-cas-d-usages",
         "simplifions-dag-generated",
     ]
     extras_nested_key = "cas-d-usages"
@@ -87,10 +115,7 @@ def update_topics(ti):
                     "id": "57fe2a35c751df21e179df72",
                 },
                 "tags": simplifions_tags,
-                "extras": {extras_nested_key: {
-                    key: value or False for key, value in grist_topics[slug].items()
-                    if key not in ["Titre", "Description_courte"]
-                },},
+                "extras": { extras_nested_key: grist_topics[slug] or False },
             },
         )
         r.raise_for_status()
