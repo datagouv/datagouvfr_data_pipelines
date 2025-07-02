@@ -15,11 +15,10 @@ dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 GRIST_DOC_ID = "c5pt7QVcKWWe"
 MAIN_TABLE_ID = "SIMPLIFIONS_cas_usages"
 SUBDATA_TABLE_IDS = {
-    # "Solutions_publiques_recommandees": "SIMPLIFIONS_produitspublics",
     "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
-    "usagers": "TYPE_usagers",
-    "A_destination_de_": "TYPE_fournisseur_service",
 }
+
+ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
 
 def request_grist_table(table_id: str, filter: str = None):
     r = requests.get(
@@ -59,6 +58,16 @@ def cleaned_row_with_subdata(row):
     }
     return formatted_row
 
+def generated_search_tags(topic):
+    tags = []
+    for attribute in ATTRIBUTES_FOR_TAGS:
+        for value in topic[attribute]:
+            tags.append(f'simplifions-{attribute}-{value}')
+    return tags
+
+
+# 👇 Methods used by the DAG 👇
+
 def get_and_format_grist_data(ti):
     rows = request_grist_table(MAIN_TABLE_ID)
     
@@ -69,7 +78,6 @@ def get_and_format_grist_data(ti):
     }
     ti.xcom_push(key="grist_topics", value=grist_topics)
 
-
 def update_topics(ti):
     grist_topics: dict = ti.xcom_pull(key="grist_topics", task_ids="get_and_format_grist_data")
 
@@ -79,7 +87,9 @@ def update_topics(ti):
         "simplifions-cas-d-usages",
         "simplifions-dag-generated",
     ]
-    extras_nested_key = "cas-d-usages"
+    
+    extras_nested_key = "simplifions"
+
     current_topics = {
         topic["extras"][extras_nested_key]["slug"]: topic["id"]
         for topic in get_all_from_api_query(
@@ -103,6 +113,9 @@ def update_topics(ti):
             f"{method} topic '{slug}'"
             + (f" at {url}" if method == "put" else "")
         )
+
+        tags = simplifions_tags + generated_search_tags(grist_topics[slug])
+
         r = getattr(requests, method)(
             url,
             headers=dgv_headers,
@@ -114,7 +127,7 @@ def update_topics(ti):
                     "class": "Organization",
                     "id": "57fe2a35c751df21e179df72",
                 },
-                "tags": simplifions_tags,
+                "tags": tags,
                 "extras": { extras_nested_key: grist_topics[slug] or False },
             },
         )
