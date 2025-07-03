@@ -274,7 +274,7 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     extras = data["extras"]
     if (
         extras.get("analysis:error") == "File too large to download"
-        or (data["filesize"] or 0) > 1e6
+        or (data["filesize"] or 0) > 1e8
     ):
         # too large resources will make validata crash
         return {"report": {"error": "ressource is too large", "valid": False}}
