@@ -275,17 +275,19 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     ).download(timeout=TIMEOUT)
     csv_path = unzip_csv_gz(file_path)
     try:
+        old_file = file_path.name.replace(".csv.gz", "_old.csv")
         File(
             url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
             dest_path=file_path.parent.as_posix(),
-            dest_name=build_old_file_name(csv_path).split("/")[-1],
+            dest_name=old_file,
         ).download(timeout=TIMEOUT)
     except Exception:
-        logging.warning("> This file is not in postgres mirror, creating an empty one for diff")
-        with open(csv_path, "r") as f:
-            columns = f.readline()
-        with open(build_old_file_name(csv_path), "w") as f:
-            f.write(columns)
+        raise ValueError(f"Download error for {res['url']}: {e}")
+        # logging.warning("> This file is not in postgres mirror, creating an empty one for diff")
+        # with open(csv_path, "r") as f:
+        #     columns = f.readline()
+        # with open(build_old_file_name(csv_path), "w") as f:
+        #     f.write(columns)
     return file_path, csv_path
 
 
