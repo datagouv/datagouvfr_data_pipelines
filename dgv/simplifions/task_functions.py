@@ -59,11 +59,11 @@ def cleaned_row_with_subdata(row):
     return formatted_row
 
 def generated_search_tags(topic):
-    tags = []
-    for attribute in ATTRIBUTES_FOR_TAGS:
-        for value in topic[attribute]:
-            tags.append(f'simplifions-{attribute}-{value}')
-    return tags
+    return [
+        f"simplifions-{attribute}-{value}"
+        for attribute in ATTRIBUTES_FOR_TAGS
+        for value in topic[attribute]
+    ]
 
 
 # 👇 Methods used by the DAG 👇
