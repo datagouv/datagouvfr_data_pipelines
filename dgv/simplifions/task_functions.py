@@ -13,12 +13,22 @@ from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, loc
 dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 
 GRIST_DOC_ID = "c5pt7QVcKWWe"
-MAIN_TABLE_ID = "SIMPLIFIONS_cas_usages"
+TAGS_AND_TABLES = {
+    "simplifions-cas-d-usages": {
+        "table_id": "SIMPLIFIONS_cas_usages",
+        "title_column": "Titre"
+    },
+    "simplifions-solutions": {
+      "table_id": "SIMPLIFIONS_produitspublics",
+      "title_column": "Ref_Nom_de_la_solution"
+    }
+}
 SUBDATA_TABLE_IDS = {
     "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
 }
 
 ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
+IMAGE_COLUMNS = ['Image_principale']
 
 def request_grist_table(table_id: str, filter: str = None):
     r = requests.get(
@@ -44,9 +54,14 @@ def clean_row(row):
     return cleaned_row
     
 def get_subdata(key, value):
-    if key in SUBDATA_TABLE_IDS.keys():
-        filter = json.dumps({ "id": value }) if value else None
-        return request_grist_table(SUBDATA_TABLE_IDS[key], filter=filter)
+    if not value:
+        return value
+    elif key in SUBDATA_TABLE_IDS.keys():
+        filter = json.dumps({ "id": value })
+        subdata = request_grist_table(SUBDATA_TABLE_IDS[key], filter=filter)
+        return [ clean_row(item) for item in subdata ]
+    elif key in IMAGE_COLUMNS:
+        return [ get_attachment_url(attachment_id) for attachment_id in value ]
     else:
         return value
 
@@ -59,89 +74,102 @@ def cleaned_row_with_subdata(row):
     return formatted_row
 
 def generated_search_tags(topic):
-    return [
-        f"simplifions-{attribute}-{value}"
-        for attribute in ATTRIBUTES_FOR_TAGS
-        for value in topic[attribute]
-    ]
+    tags = []
+    for attribute in ATTRIBUTES_FOR_TAGS:
+        if attribute in topic and topic[attribute]:
+            if isinstance(topic[attribute], list):
+                for value in topic[attribute]:
+                    tags.append(f'simplifions-{attribute}-{value}')
+            else:
+                tags.append(f'simplifions-{attribute}-{topic[attribute]}')
+        
+    return tags
 
+def get_attachment_url(attachment_id: str) -> str:
+    if not attachment_id:
+        return None
+    return f"{GRIST_API_URL}docs/{GRIST_DOC_ID}/attachments/{attachment_id}/download"
 
 # 👇 Methods used by the DAG 👇
 
 def get_and_format_grist_data(ti):
-    rows = request_grist_table(MAIN_TABLE_ID)
+    tag_and_grist_topics = {}
+
+    for tag, table_info in TAGS_AND_TABLES.items():
+        rows = request_grist_table(table_info["table_id"])
+        
+        tag_and_grist_topics[tag] = {
+            row["slug"]: cleaned_row_with_subdata(row)
+            for row in rows
+            if row["slug"]
+        }
     
-    grist_topics = {
-        row["slug"]: cleaned_row_with_subdata(row)
-        for row in rows
-        if row["slug"]
-    }
-    ti.xcom_push(key="grist_topics", value=grist_topics)
+    ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
 
 def update_topics(ti):
-    grist_topics: dict = ti.xcom_pull(key="grist_topics", task_ids="get_and_format_grist_data")
+    tag_and_grist_topics: dict = ti.xcom_pull(key="tag_and_grist_topics", task_ids="get_and_format_grist_data")
 
-    # this will need adapting when we add need objects
     simplifions_tags = [
         "simplifions",
-        "simplifions-cas-d-usages",
         "simplifions-dag-generated",
     ]
-    
-    extras_nested_key = "simplifions-cas-usages"
 
-    current_topics = {
-        topic["extras"][extras_nested_key]["slug"]: topic["id"]
-        for topic in get_all_from_api_query(
-            (
-                f"{local_client.base_url}/api/1/topics/?"
-                + "&".join([f"tag={tag}" for tag in simplifions_tags])
-            ),
-        )
-        if extras_nested_key in topic["extras"]
-    }
+    for tag, grist_topics in tag_and_grist_topics.items():
+        logging.info(f"\n\nUpdating topics for tag: {tag}")
+        
+        extras_nested_key = tag
+        topic_tags = simplifions_tags + [tag]
 
-    for slug in grist_topics.keys():
-        if slug in current_topics.keys():
-            # updating existing topics
-            url = f"{local_client.base_url}/api/1/topics/{current_topics[slug]}/"
-            method = "put"
-        else:
-            # creating a new topic
-            url = f"{local_client.base_url}/api/1/topics/"
-            method = "post"
-        logging.info(
-            f"{method} topic '{slug}'"
-            + (f" at {url}" if method == "put" else "")
-        )
-
-        tags = simplifions_tags + generated_search_tags(grist_topics[slug])
-
-        r = getattr(requests, method)(
-            url,
-            headers=dgv_headers,
-            json={
-                "name": grist_topics[slug]["Titre"],
-                # description cannot be empty
-                "description": grist_topics[slug]["Description_courte"] or "-",
-                "organization": {
-                    "class": "Organization",
-                    "id": "57fe2a35c751df21e179df72",
-                },
-                "tags": tags,
-                "extras": { extras_nested_key: grist_topics[slug] or False },
-            },
-        )
-        r.raise_for_status()
-
-    # deleting topics that are not in the table anymore
-    for slug in current_topics:
-        if slug not in grist_topics:
-            logging.info(
-                f"Deleting topic '{slug}' at {local_client.base_url}/api/1/topics/{current_topics[slug]}/"
+        current_topics = {
+            topic["extras"][extras_nested_key]["slug"]: topic["id"]
+            for topic in get_all_from_api_query(
+                (
+                    f"{local_client.base_url}/api/1/topics/?"
+                    + "&".join([f"tag={tag}" for tag in topic_tags])
+                ),
             )
-            r = requests.delete(
-                f"{local_client.base_url}/api/1/topics/{current_topics[slug]}/",
+            if extras_nested_key in topic["extras"]
+        }
+
+        for slug in grist_topics.keys():
+            if slug in current_topics.keys():
+                # updating existing topics
+                url = f"{local_client.base_url}/api/1/topics/{current_topics[slug]}/"
+                method = "put"
+            else:
+                # creating a new topic
+                url = f"{local_client.base_url}/api/1/topics/"
+                method = "post"
+            logging.info(
+                f"{method} topic '{slug}'"
+                + (f" at {url}" if method == "put" else "")
+            )
+
+            r = getattr(requests, method)(
+                url,
                 headers=dgv_headers,
+                json={
+                    "name": grist_topics[slug][TAGS_AND_TABLES[tag]["title_column"]],
+                    # description cannot be empty
+                    "description": grist_topics[slug]["Description_courte"] or "-",
+                    "organization": {
+                        "class": "Organization",
+                        "id": "57fe2a35c751df21e179df72",
+                    },
+                    "tags": topic_tags + generated_search_tags(grist_topics[slug]),
+                    "extras": { extras_nested_key: grist_topics[slug] or False },
+                },
             )
             r.raise_for_status()
+
+        # deleting topics that are not in the table anymore
+        for slug in current_topics:
+            if slug not in grist_topics:
+                logging.info(
+                    f"Deleting topic '{slug}' at {local_client.base_url}/api/1/topics/{current_topics[slug]}/"
+                )
+                r = requests.delete(
+                    f"{local_client.base_url}/api/1/topics/{current_topics[slug]}/",
+                    headers=dgv_headers,
+                )
+                r.raise_for_status()
