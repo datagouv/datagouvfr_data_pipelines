@@ -17,6 +17,7 @@ TAGS_AND_TABLES = {
     "simplifions-cas-d-usages": {
         "table_id": "SIMPLIFIONS_cas_usages",
         "title_column": "Titre",
+        "image_columns": [],
         "sub_tables": {
             "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
         }
@@ -24,12 +25,12 @@ TAGS_AND_TABLES = {
     "simplifions-solutions": {
       "table_id": "SIMPLIFIONS_produitspublics",
       "title_column": "Ref_Nom_de_la_solution",
+      "image_columns": ["Image_principale"],
       "sub_tables": {}
     }
 }
 
 ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
-IMAGE_COLUMNS = ['Image_principale']
 
 def request_grist_table(table_id: str, filter: str = None):
     r = requests.get(
@@ -54,22 +55,22 @@ def clean_row(row):
             cleaned_row[key] = value
     return cleaned_row
     
-def get_subdata(key, value, subtables):
+def get_subdata(key, value, table_info):
     if not value:
         return value
-    elif key in subtables.keys():
+    elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
         filter = json.dumps({ "id": value })
-        subdata = request_grist_table(subtables[key], filter=filter)
+        subdata = request_grist_table(table_info["sub_tables"][key], filter=filter)
         return [ clean_row(item) for item in subdata ]
-    elif key in IMAGE_COLUMNS:
-        return [ attachment_url(attachment_id) for attachment_id in value ]
+    elif table_info["image_columns"] and key in table_info["image_columns"]:
+        return [ f"{GRIST_API_URL}docs/{GRIST_DOC_ID}/attachments/{attachment_id}/download" for attachment_id in value ]
     else:
         return value
 
-def cleaned_row_with_subdata(row, subtables):
+def cleaned_row_with_subdata(row, table_info):
     cleaned_row = clean_row(row)
     formatted_row = {
-        key: get_subdata(key, cleaned_row[key], subtables)
+        key: get_subdata(key, cleaned_row[key], table_info)
         for key in cleaned_row.keys()
     }
     return formatted_row
@@ -86,11 +87,6 @@ def generated_search_tags(topic):
         
     return tags
 
-def attachment_url(attachment_id: str) -> str:
-    if not attachment_id:
-        return None
-    return f"{GRIST_API_URL}docs/{GRIST_DOC_ID}/attachments/{attachment_id}/download"
-
 # 👇 Methods used by the DAG 👇
 
 def get_and_format_grist_data(ti):
@@ -100,7 +96,7 @@ def get_and_format_grist_data(ti):
         rows = request_grist_table(table_info["table_id"])
         
         tag_and_grist_topics[tag] = {
-            row["slug"]: cleaned_row_with_subdata(row, table_info["sub_tables"])
+            row["slug"]: cleaned_row_with_subdata(row, table_info)
             for row in rows
             if row["slug"]
         }
