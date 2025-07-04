@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.operators.bash import BashOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions import (
     get_files,
@@ -103,6 +104,11 @@ with DAG(
         trigger_rule="none_failed",
     )
 
+    trigger_geocodage = TriggerDagRunOperator(
+        task_id="trigger_geocodage",
+        trigger_dag_id="data_processing_sirene_geocodage",
+    )
+
     get_files.set_upstream(clean_previous_outputs)
     upload_new_files_minio.set_upstream(get_files)
     compare_minio_files.set_upstream(upload_new_files_minio)
@@ -111,3 +117,4 @@ with DAG(
     update_dataset_data_gouv.set_upstream(publish_file_files_data_gouv)
     publish_mattermost.set_upstream(update_dataset_data_gouv)
     clean_up.set_upstream(publish_mattermost)
+    trigger_geocodage.set_upstream(clean_up)
