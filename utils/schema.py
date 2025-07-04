@@ -274,13 +274,15 @@ def make_validata_report(rurl, schema_url, resource_api_url, validata_base_url=V
     extras = data["extras"]
     if (
         extras.get("analysis:error") == "File too large to download"
-        or (data["filesize"] or 0) > 1e6
+        or (data["filesize"] or 0) > 1e8
     ):
         # too large resources will make validata crash
+        logging.warning(f"Skipping validation, file is too large: {resource_api_url}")
         return {"report": {"error": "ressource is too large", "valid": False}}
     if data["filetype"] == "file":
         # check if hydra says the resources is not available, if no check then proceed
         if not extras.get("check:available", True):
+            logging.warning(f"Skipping validation, resource unavailable: {resource_api_url}")
             return {"report": {"error": "ressource not available", "valid": False}}
         # once a year we force scan every file, to compensate for potential anomalies
         if forced_validation:
