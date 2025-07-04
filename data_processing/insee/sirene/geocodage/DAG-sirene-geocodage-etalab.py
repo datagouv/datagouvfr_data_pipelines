@@ -2,6 +2,8 @@ from datetime import datetime
 from airflow import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
 
+SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/geocodage/scripts/"
+
 with DAG(
     dag_id="data_processing_sirene_geocodage",
     schedule_interval=None,  # triggered by data_processing_sirene_publication
@@ -31,10 +33,23 @@ with DAG(
         cmd_timeout=(3600 * 8),
     )
 
+    clone_repo_to_get_scripts = SSHOperator(
+        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
+        task_id="clone_repo_to_get_scripts",
+        command=(
+            "cd /srv/sirene/geocodage-sirene "
+            "&& rm -rf datagouvfr_data_pipelines "
+            "&& git clone https://github.com/datagouv/datagouvfr_data_pipelines.git "
+        ),
+        dag=dag,
+        conn_timeout=(3600 * 8),
+        cmd_timeout=(3600 * 8),
+    )
+
     download_last_sirene_batch = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="download_last_sirene_batch",
-        command="/srv/sirene/geocodage-sirene/1_download_last_sirene_batch.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}1_download_last_sirene_batch.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -43,7 +58,7 @@ with DAG(
     split_departments_files = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="split_departments_files",
-        command="/srv/sirene/geocodage-sirene/2_split_departments_files.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}2_split_departments_files.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -52,7 +67,7 @@ with DAG(
     geocoding = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="geocoding",
-        command="/srv/sirene/geocodage-sirene/3_geocoding_by_increasing_size.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}3_geocoding_by_increasing_size.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -61,7 +76,7 @@ with DAG(
     split_by_locality = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="split_by_locality",
-        command="/srv/sirene/geocodage-sirene/4a_split_by_locality.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4a_split_by_locality.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -70,7 +85,7 @@ with DAG(
     get_geocode_stats = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="get_geocode_stats",
-        command="/srv/sirene/geocodage-sirene/4b_geocode_stats.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4b_geocode_stats.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -88,7 +103,7 @@ with DAG(
     check_stats_coherence = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="check_stats_coherence",
-        command="/srv/sirene/venv/bin/python /srv/sirene/geocodage-sirene/4c_check_stats_coherence.py ",
+        command=f"/srv/sirene/venv/bin/python /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4c_check_stats_coherence.py ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -97,7 +112,7 @@ with DAG(
     national_files_agregation = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="national_files_agregation",
-        command="/srv/sirene/geocodage-sirene/5_national_files_agregation.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}5_national_files_agregation.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -106,7 +121,7 @@ with DAG(
     prepare_to_rsync = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="prepare_to_rsync",
-        command="/srv/sirene/geocodage-sirene/6_prepare_to_rsync.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}6_prepare_to_rsync.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
@@ -115,7 +130,7 @@ with DAG(
     rsync_to_files_data_gouv = SSHOperator(
         ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="rsync_to_files_data_gouv",
-        command="/srv/sirene/geocodage-sirene/7_rsync_to_files_data_gouv.sh ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}7_rsync_to_files_data_gouv.sh ",
         dag=dag,
         conn_timeout=(3600 * 8),
         cmd_timeout=(3600 * 8),
