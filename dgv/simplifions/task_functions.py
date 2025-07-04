@@ -28,6 +28,7 @@ SUBDATA_TABLE_IDS = {
 }
 
 ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
+IMAGE_COLUMNS = ['Image_principale']
 
 def request_grist_table(table_id: str, filter: str = None):
     r = requests.get(
@@ -53,10 +54,14 @@ def clean_row(row):
     return cleaned_row
     
 def get_subdata(key, value):
-    if key in SUBDATA_TABLE_IDS.keys():
-        filter = json.dumps({ "id": value }) if value else None
+    if not value:
+        return value
+    elif key in SUBDATA_TABLE_IDS.keys():
+        filter = json.dumps({ "id": value })
         subdata = request_grist_table(SUBDATA_TABLE_IDS[key], filter=filter)
         return [ clean_row(item) for item in subdata ]
+    elif key in IMAGE_COLUMNS:
+        return [ attachment_url(attachment_id) for attachment_id in value ]
     else:
         return value
 
@@ -80,6 +85,10 @@ def generated_search_tags(topic):
         
     return tags
 
+def attachment_url(attachment_id: str) -> str:
+    if not attachment_id:
+        return None
+    return f"{GRIST_API_URL}docs/{GRIST_DOC_ID}/attachments/{attachment_id}/download"
 
 # 👇 Methods used by the DAG 👇
 
