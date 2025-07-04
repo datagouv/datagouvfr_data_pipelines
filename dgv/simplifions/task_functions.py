@@ -26,7 +26,9 @@ TAGS_AND_TABLES = {
       "table_id": "SIMPLIFIONS_produitspublics",
       "title_column": "Ref_Nom_de_la_solution",
       "image_columns": ["Image_principale"],
-      "sub_tables": {}
+      "sub_tables": {
+          "Solution_publique": "Produitspublics",  # Maybe not needed
+      }
     }
 }
 
@@ -58,12 +60,18 @@ def clean_row(row):
 def get_subdata(key, value, table_info):
     if not value:
         return value
+
     elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
-        filter = json.dumps({ "id": value })
+        is_list = isinstance(value, list)
+        value_as_list = value if is_list else [value]
+        filter = json.dumps({ "id": value_as_list })
         subdata = request_grist_table(table_info["sub_tables"][key], filter=filter)
-        return [ clean_row(item) for item in subdata ]
+        cleaned_subdata = [clean_row(item) for item in subdata]
+        return cleaned_subdata if is_list else cleaned_subdata[0]
+
     elif table_info["image_columns"] and key in table_info["image_columns"]:
         return [ f"{GRIST_API_URL}docs/{GRIST_DOC_ID}/attachments/{attachment_id}/download" for attachment_id in value ]
+   
     else:
         return value
 
