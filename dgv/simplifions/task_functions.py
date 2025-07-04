@@ -16,15 +16,16 @@ GRIST_DOC_ID = "c5pt7QVcKWWe"
 TAGS_AND_TABLES = {
     "simplifions-cas-d-usages": {
         "table_id": "SIMPLIFIONS_cas_usages",
-        "title_column": "Titre"
+        "title_column": "Titre",
+        "sub_tables": {
+            "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
+        }
     },
     "simplifions-solutions": {
       "table_id": "SIMPLIFIONS_produitspublics",
-      "title_column": "Ref_Nom_de_la_solution"
+      "title_column": "Ref_Nom_de_la_solution",
+      "sub_tables": {}
     }
-}
-SUBDATA_TABLE_IDS = {
-    "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
 }
 
 ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
@@ -53,22 +54,22 @@ def clean_row(row):
             cleaned_row[key] = value
     return cleaned_row
     
-def get_subdata(key, value):
+def get_subdata(key, value, subtables):
     if not value:
         return value
-    elif key in SUBDATA_TABLE_IDS.keys():
+    elif key in subtables.keys():
         filter = json.dumps({ "id": value })
-        subdata = request_grist_table(SUBDATA_TABLE_IDS[key], filter=filter)
+        subdata = request_grist_table(subtables[key], filter=filter)
         return [ clean_row(item) for item in subdata ]
     elif key in IMAGE_COLUMNS:
         return [ attachment_url(attachment_id) for attachment_id in value ]
     else:
         return value
 
-def cleaned_row_with_subdata(row):
+def cleaned_row_with_subdata(row, subtables):
     cleaned_row = clean_row(row)
     formatted_row = {
-        key: get_subdata(key, cleaned_row[key])
+        key: get_subdata(key, cleaned_row[key], subtables)
         for key in cleaned_row.keys()
     }
     return formatted_row
@@ -99,7 +100,7 @@ def get_and_format_grist_data(ti):
         rows = request_grist_table(table_info["table_id"])
         
         tag_and_grist_topics[tag] = {
-            row["slug"]: cleaned_row_with_subdata(row)
+            row["slug"]: cleaned_row_with_subdata(row, table_info["sub_tables"])
             for row in rows
             if row["slug"]
         }
