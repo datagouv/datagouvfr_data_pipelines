@@ -72,8 +72,11 @@ def generated_search_tags(topic):
     tags = []
     for attribute in ATTRIBUTES_FOR_TAGS:
         if attribute in topic and topic[attribute]:
-            for value in topic[attribute]:
-                tags.append(f'simplifions-{attribute}-{value}')
+            if isinstance(topic[attribute], list):
+                for value in topic[attribute]:
+                    tags.append(f'simplifions-{attribute}-{value}')
+            else:
+                tags.append(f'simplifions-{attribute}-{topic[attribute]}')
         
     return tags
 
