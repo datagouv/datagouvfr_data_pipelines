@@ -60,7 +60,10 @@ with DAG(
 
     geocoding = SSHOperator(
         task_id="geocoding",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}3_geocoding_by_increasing_size.sh ",
+        command=(
+            f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}3_geocoding_by_increasing_size.sh "
+            f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH[:-1]} "
+        ),
         **common_kwargs,
     )
 
