@@ -15,11 +15,13 @@ from datagouvfr_data_pipelines.config import (
     FILES_BASE_URL,
     INSEE_BASE_URL,
     MINIO_BUCKET_DATA_PIPELINE,
+    MINIO_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_INSEE_LOGIN,
     SECRET_INSEE_PASSWORD,
 )
 
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
+minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def get_files(ti, **kwargs):
@@ -141,44 +143,49 @@ def compare_minio_files(**kwargs):
     return False
 
 
-def publish_file_files_data_gouv(ti, **kwargs):
+def publish_file_minio(**kwargs):
     templates_dict = kwargs.get("templates_dict")
     tmp_dir = templates_dict.get("tmp_dir")
     resource_file = templates_dict.get("resource_file")
-    files_path = templates_dict.get("files_path")
+    minio_path = templates_dict.get("minio_path")
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     logging.info(data)
 
-    for item in data:
-        put_file = SFTPOperator(
-            task_id="put-file",
-            ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
-            local_filepath=f"{tmp_dir}{item['nameFTP']}",
-            remote_filepath=f"{FILES_BASE_URL}{files_path}{item['nameFTP']}",
-            operation="put",
-        )
-        put_parquet = SFTPOperator(
-            task_id="put-file",
-            ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
-            local_filepath=f"{tmp_dir}{item['nameFTP'].replace('.zip', '.parquet')}",
-            remote_filepath=f"{FILES_BASE_URL}{files_path}{item['nameFTP']}",
-            operation="put",
-        )
-        # only saving history in zip format
-        put_file_with_date = SFTPOperator(
-            task_id="put-file",
-            ssh_conn_id="SSH_FILES_DATA_GOUV_FR",
-            local_filepath=tmp_dir + item["nameFTP"],
-            remote_filepath=(
-                f"{FILES_BASE_URL}{files_path}"
-                f"{datetime.today().strftime('%Y-%m')}-01-{item['nameFTP']}"
-            ),
-            operation="put",
-        )
-        put_file.execute(dict())
-        put_parquet.execute(dict())
-        put_file_with_date.execute(dict())
+    minio_open.send_files(
+        list_files=[
+            File(
+                source_path=tmp_dir,
+                source_name=item["nameFTP"],
+                dest_path=minio_path,
+                dest_name=item["nameFTP"],
+            ) for item in data
+        ],
+    )
+
+    # sending parquet
+    minio_open.send_files(
+        list_files=[
+            File(
+                source_path=tmp_dir,
+                source_name=item["nameFTP"].replace(".zip", ".parquet"),
+                dest_path=minio_path,
+                dest_name=item["nameFTP"].replace(".zip", ".parquet"),
+            ) for item in data
+        ],
+    )
+
+    # sending dated files
+    minio_open.send_files(
+        list_files=[
+            File(
+                source_path=tmp_dir,
+                source_name=item["nameFTP"],
+                dest_path=minio_path,
+                dest_name=f"{datetime.today().strftime('%Y-%m')}-01-{item['nameFTP']}",
+            ) for item in data
+        ],
+    )
 
 
 def update_dataset_data_gouv(ti, **kwargs):
@@ -224,7 +231,6 @@ def update_dataset_data_gouv(ti, **kwargs):
                     f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
                     " (format parquet)"
                 ),
-                "url": f"https://files.data.gouv.fr/insee-sirene/{d['nameFTP'].replace('.zip', '.parquet')}",
             },
         )
 
