@@ -40,6 +40,7 @@ with DAG(
             "cd /srv/sirene/geocodage-sirene "
             "&& rm -rf datagouvfr_data_pipelines "
             "&& git clone https://github.com/datagouv/datagouvfr_data_pipelines.git "
+            f"chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}* "
         ),
         dag=dag,
         conn_timeout=(3600 * 8),
