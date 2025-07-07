@@ -152,6 +152,7 @@ with DAG(
 
     wait_addok_to_be_ready.set_upstream(start_addok)
     download_last_sirene_batch.set_upstream(wait_addok_to_be_ready)
+    download_last_sirene_batch.set_upstream(clone_repo_to_get_scripts)
     split_departments_files.set_upstream(download_last_sirene_batch)
     geocoding.set_upstream(split_departments_files)
     split_by_locality.set_upstream(geocoding)
