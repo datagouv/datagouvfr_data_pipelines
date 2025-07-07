@@ -12,29 +12,30 @@ with DAG(
     tags=["data_processing", "sirene", "geocodage", "etalab" "geocodage"],
     params={},
 ) as dag:
+
+    common_kwargs = {
+        "ssh_conn_id": "SSH_DATAENG_ETALAB_STUDIO",
+        "dag": dag,
+        "conn_timeout": (3600 * 8),
+        "cmd_timeout": (3600 * 8),
+    }
+
     start_addok = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="start_addok",
         command=(
             "cd /srv/sirene/addok-docker/ && docker-compose -f docker-compose-ban-poi.yml up "
             "--scale addok-ban=6 --scale addok-redis-ban=6 -d"
         ),
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     wait_addok_to_be_ready = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="wait_addok_to_be_ready",
         command="sleep 120",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     clone_repo_to_get_scripts = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="clone_repo_to_get_scripts",
         command=(
             "cd /srv/sirene/geocodage-sirene "
@@ -42,99 +43,67 @@ with DAG(
             "&& git clone https://github.com/datagouv/datagouvfr_data_pipelines.git "
             f"&& chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}* "
         ),
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     download_last_sirene_batch = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="download_last_sirene_batch",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}1_download_last_sirene_batch.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     split_departments_files = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="split_departments_files",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}2_split_departments_files.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     geocoding = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="geocoding",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}3_geocoding_by_increasing_size.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     split_by_locality = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="split_by_locality",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4a_split_by_locality.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     get_geocode_stats = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="get_geocode_stats",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4b_geocode_stats.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     shutdown_addok = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="shutdown_addok",
         command="cd /srv/sirene/addok-docker/ && docker-compose down --remove-orphans ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     check_stats_coherence = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="check_stats_coherence",
         command=f"/srv/sirene/venv/bin/python /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4c_check_stats_coherence.py ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     national_files_agregation = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="national_files_agregation",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}5_national_files_agregation.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     prepare_to_rsync = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="prepare_to_rsync",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}6_prepare_to_rsync.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     rsync_to_files_data_gouv = SSHOperator(
-        ssh_conn_id="SSH_DATAENG_ETALAB_STUDIO",
         task_id="rsync_to_files_data_gouv",
         command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}7_rsync_to_files_data_gouv.sh ",
-        dag=dag,
-        conn_timeout=(3600 * 8),
-        cmd_timeout=(3600 * 8),
+        **common_kwargs,
     )
 
     mkdir_last_and_symbolic_links = SSHOperator(
