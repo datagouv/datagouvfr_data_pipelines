@@ -2,7 +2,7 @@ from datetime import datetime
 from airflow import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
 
-SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/geocodage/scripts/"
+SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/sirene/geocodage/scripts/"
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
