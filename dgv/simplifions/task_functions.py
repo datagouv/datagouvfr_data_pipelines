@@ -27,7 +27,7 @@ TAGS_AND_TABLES = {
       "title_column": "Ref_Nom_de_la_solution",
       "image_columns": ["Image_principale"],
       "sub_tables": {
-          "Cas_d_usages": "SIMPLIFIONS_cas_usages",
+        #   "Cas_d_usages": "SIMPLIFIONS_cas_usages",
       }
     }
 }
