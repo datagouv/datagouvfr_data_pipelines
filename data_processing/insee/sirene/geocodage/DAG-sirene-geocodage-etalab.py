@@ -9,7 +9,7 @@ with DAG(
     schedule_interval=None,  # triggered by data_processing_sirene_publication
     start_date=datetime(2024, 8, 10),
     catchup=False,
-    tags=["data_processing", "sirene", "geocodage", "etalab" "geocodage"],
+    tags=["data_processing", "sirene", "geocodage"],
     params={},
 ) as dag:
 
