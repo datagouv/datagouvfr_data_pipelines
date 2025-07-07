@@ -171,3 +171,59 @@ def update_topics(ti):
                     headers=dgv_headers,
                 )
                 r.raise_for_status()
+
+def update_topics_references(ti):
+    all_topics = {}
+    for tag in TAGS_AND_TABLES.keys():
+        all_topics[tag] = [topic for topic in get_all_from_api_query(f"{local_client.base_url}/api/2/topics/?tag={tag}")]
+        logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
+
+    solutions_topics = all_topics["simplifions-solutions"]
+    cas_usages_topics = all_topics["simplifions-cas-d-usages"]
+    
+    # Update solutions_topics with cas_usages_topics
+    for solution_topic in solutions_topics:
+        cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_slugs"]
+        matching_topics = [topic for topic in cas_usages_topics if "simplifions-cas-d-usages" in topic["extras"] and topic["extras"]["simplifions-cas-d-usages"]["slug"] in cas_d_usages_slugs]
+        solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_topics_ids"] = [topic["id"] for topic in matching_topics]
+        # update the solution topic with the new extras
+        url = f"{local_client.base_url}/api/1/topics/{solution_topic['id']}/"
+        r = requests.put(
+            url,
+            headers=dgv_headers,
+            json={
+                "name": solution_topic["name"],
+                "description": solution_topic["description"],
+                "organization": solution_topic["organization"],
+                "tags": solution_topic["tags"],
+                "extras": solution_topic["extras"]
+            },
+        )
+        if r.status_code not in [200, 204]:
+            logging.error(f"Failed to update topic {solution_topic['id']}: {r.status_code} - {r.text}")
+        r.raise_for_status()
+        logging.info(f"Updated topic references for solution at {url}")
+
+    # Update cas_usages_topics with solutions_topics
+    for cas_usage_topic in cas_usages_topics:
+        for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"]["reco_solutions"]: 
+            matching_topic = next((topic for topic in solutions_topics if "simplifions-solutions" in topic["extras"] and topic["extras"]["simplifions-solutions"]["slug"] == reco["solution_slug"]), None)
+            if matching_topic:
+                reco["solution_topic_id"] = matching_topic["id"]
+        # update the cas_usage topic with the new extras
+        url = f"{local_client.base_url}/api/1/topics/{cas_usage_topic['id']}/"  
+        r = requests.put(
+            url,
+            headers=dgv_headers,
+            json={
+                "name": cas_usage_topic["name"],
+                "description": cas_usage_topic["description"],
+                "organization": cas_usage_topic["organization"],
+                "tags": cas_usage_topic["tags"],
+                "extras": cas_usage_topic["extras"]
+            },
+        )
+        if r.status_code != 200:
+            logging.error(f"Failed to update cas_usage topic {cas_usage_topic['id']}: {r.status_code} - {r.text}")
+        r.raise_for_status()
+        logging.info(f"Updated topic references for cas_d_usage at {url}")
