@@ -1,0 +1,35 @@
+import os
+import requests
+
+DATAGOUV_SECRET_API_KEY = os.getenv("DATAGOUV_SECRET_API_KEY")
+
+def delete_demo_topic(topic_id: str):
+  requests.delete(
+      f"https://demo.data.gouv.fr/api/1/topics/{topic_id}/",
+      headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+  )
+
+def get_demo_topics(tags: str = None):
+  response = requests.get(
+      "https://demo.data.gouv.fr/api/1/topics/",
+      params={"tags": tags, "page_size": 100, "page": 1},
+      headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+  )
+  return response
+
+response = get_demo_topics("simplifions")
+
+if response.status_code != 200:
+  print(response.status_code, response.json())
+  exit(1)
+
+response_json = response.json() 
+simplifions_topics = response_json['data']
+
+print(f"Found {len(simplifions_topics)} topics out of {response_json['total']}")
+
+for topic in simplifions_topics:
+  print(".", end="", flush=True)
+  delete_demo_topic(topic['id'])
+
+print("Done")
