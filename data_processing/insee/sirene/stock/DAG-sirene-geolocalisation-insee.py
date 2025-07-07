@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions
     upload_files_minio,
     compare_minio_files,
     move_new_files_to_latest,
-    publish_file_files_data_gouv,
+    publish_file_minio,
     update_dataset_data_gouv,
     publish_mattermost,
 )
@@ -72,14 +72,14 @@ with DAG(
         python_callable=move_new_files_to_latest,
     )
 
-    publish_file_files_data_gouv = PythonOperator(
-        task_id="publish_files_data_gouv",
+    publish_file_minio = PythonOperator(
+        task_id="publish_file_minio",
         templates_dict={
             "tmp_dir": TMP_FOLDER,
             "resource_file": "resources_geolocalisation_to_download.json",
-            "files_path": "insee-sirene-geo/",
+            "minio_path": "siren/geoloc/",
         },
-        python_callable=publish_file_files_data_gouv,
+        python_callable=publish_file_minio,
     )
 
     update_dataset_data_gouv = PythonOperator(
@@ -107,7 +107,7 @@ with DAG(
     upload_new_files_minio.set_upstream(get_files)
     compare_minio_files.set_upstream(upload_new_files_minio)
     move_new_files_to_latest.set_upstream(compare_minio_files)
-    publish_file_files_data_gouv.set_upstream(move_new_files_to_latest)
-    update_dataset_data_gouv.set_upstream(publish_file_files_data_gouv)
+    publish_file_minio.set_upstream(move_new_files_to_latest)
+    update_dataset_data_gouv.set_upstream(publish_file_minio)
     publish_mattermost_geoloc.set_upstream(update_dataset_data_gouv)
     clean_up.set_upstream(publish_mattermost_geoloc)
