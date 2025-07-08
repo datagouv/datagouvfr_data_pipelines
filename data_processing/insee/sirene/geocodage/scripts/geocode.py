@@ -5,7 +5,7 @@ import json
 import re
 import gzip
 
-# modules installés par pip
+# modules installés sur le serveur distances
 import requests
 import sqlite3
 import marshal
@@ -13,7 +13,7 @@ import unidecode
 import random
 
 # modules locaux
-from normadresse.normadresse import abrev
+from normadresse import abrev
 
 score_min = 0.30
 
@@ -93,14 +93,14 @@ else:
     conn.execute('DELETE FROM cache_addok WHERE score<0.7')
 
 # chargement de la liste des communes et lat/lon
-communes = csv.DictReader(open('communes-plus-20140630.csv', 'r'))
+communes = csv.DictReader(open('resources/communes-plus-20140630.csv', 'r'))
 commune_insee = {}
 for commune in communes:
     commune_insee[commune['\ufeffinsee']] = {'lat': round(float(commune['lon_centro']), 6),
                                              'lon': round(float(commune['lat_centro']), 6)}
 
 # chargement des changements de codes INSEE
-histo = csv.DictReader(open('histo_depcom.csv', 'r'))
+histo = csv.DictReader(open('resources/histo_depcom.csv', 'r'))
 histo_depcom = {}
 for commune in histo:
     histo_depcom[commune['DEPCOM']] = commune
