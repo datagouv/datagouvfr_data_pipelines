@@ -5,10 +5,13 @@ import csv
 from unidecode import unidecode
 import sys
 import select
+import os
+
+resources_path = os.path.dirname(os.path.abspath(__file__)) + "/resources/"
 
 # chargement des expressions régulières de traitement
 regles = []
-with open('resources/normadresse.csv') as abbrev_csv:
+with open(f'{resources_path}/normadresse.csv') as abbrev_csv:
     for row in csv.DictReader(abbrev_csv):
         row['etape'] = float(row['etape'])
         regles.append(row)

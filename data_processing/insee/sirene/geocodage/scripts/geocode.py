@@ -10,6 +10,7 @@ import requests
 import sqlite3
 import marshal
 import unidecode
+import os
 import random
 
 # modules locaux
@@ -25,6 +26,8 @@ addok_ban = ['http://localhost:7878/search/','http://localhost:7879/search/','ht
 addok_poi = 'http://localhost:7830/search'
 
 geocode_count = 0
+
+resources_path = os.path.dirname(os.path.abspath(__file__)) + "/resources/"
 
 # effecture une req. sur l'API de géocodage
 def geocode(api, params, l4):
@@ -93,14 +96,14 @@ else:
     conn.execute('DELETE FROM cache_addok WHERE score<0.7')
 
 # chargement de la liste des communes et lat/lon
-communes = csv.DictReader(open('resources/communes-plus-20140630.csv', 'r'))
+communes = csv.DictReader(open(f'{resources_path}/communes-plus-20140630.csv', 'r'))
 commune_insee = {}
 for commune in communes:
     commune_insee[commune['\ufeffinsee']] = {'lat': round(float(commune['lon_centro']), 6),
                                              'lon': round(float(commune['lat_centro']), 6)}
 
 # chargement des changements de codes INSEE
-histo = csv.DictReader(open('resources/histo_depcom.csv', 'r'))
+histo = csv.DictReader(open(f'{resources_path}/histo_depcom.csv', 'r'))
 histo_depcom = {}
 for commune in histo:
     histo_depcom[commune['DEPCOM']] = commune
