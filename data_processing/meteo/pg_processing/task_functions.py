@@ -281,13 +281,13 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
             dest_path=file_path.parent.as_posix(),
             dest_name=old_file,
         ).download(timeout=TIMEOUT)
-    except Exception:
-        raise ValueError(f"Download error for {res['url']}: {e}")
-        # logging.warning("> This file is not in postgres mirror, creating an empty one for diff")
-        # with open(csv_path, "r") as f:
-        #     columns = f.readline()
-        # with open(build_old_file_name(csv_path), "w") as f:
-        #     f.write(columns)
+    except Exception as e:
+        # raise ValueError(f"Download error for {res['url']}: {e}")
+        logging.warning("> This file is not in postgres mirror, creating an empty one for diff")
+        with open(csv_path, "r") as f:
+            columns = f.readline()
+        with open(build_old_file_name(csv_path), "w") as f:
+            f.write(columns)
     return file_path, csv_path
 
 
