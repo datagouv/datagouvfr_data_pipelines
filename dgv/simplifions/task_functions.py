@@ -79,7 +79,7 @@ def cleaned_row_with_subdata(row, table_info):
 def generated_search_tags(topic):
     tags = []
     for attribute in ATTRIBUTES_FOR_TAGS:
-        if attribute in topic and topic[attribute]:
+        if topic.get(attribute):
             if isinstance(topic[attribute], list):
                 for value in topic[attribute]:
                     tags.append(f'simplifions-{attribute}-{value}')
