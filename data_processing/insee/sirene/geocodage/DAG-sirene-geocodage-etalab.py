@@ -1,8 +1,11 @@
 from datetime import datetime
 from airflow import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
+from config import AIRFLOW_ENV
 
 SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/sirene/geocodage/scripts/"
+DEV_GIT_BRANCH = "fix-geocodage"  # It is the branch on the remote that will be cloned
+DEV_GIT_ARGS = f"--single-branch --branch {DEV_GIT_BRANCH}" if AIRFLOW_ENV == "dev" else ""
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
@@ -40,7 +43,7 @@ with DAG(
         command=(
             "cd /srv/sirene/geocodage-sirene "
             "&& rm -rf datagouvfr_data_pipelines "
-            "&& git clone https://github.com/datagouv/datagouvfr_data_pipelines.git "
+            f"&& git clone {DEV_GIT_ARGS} https://github.com/datagouv/datagouvfr_data_pipelines.git "
             f"&& chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}* "
         ),
         **common_kwargs,
