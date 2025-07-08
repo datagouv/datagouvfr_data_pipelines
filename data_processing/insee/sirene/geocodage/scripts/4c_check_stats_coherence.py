@@ -141,7 +141,19 @@ def check_stats_coherence(file_prev: str, file_next: str) -> None:
 
 
 if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1:
+        env = sys.argv[1]
+    else:
+        print("Error: No environment variable provided.")
+        exit(1)
+
+
     previous_month_string = get_previous_year_month_string()
     file_prev = f"/srv/sirene/data-sirene/{previous_month_string}/stats.json"
-    file_next = "/srv/sirene/data-sirene/stats.json"
+    if env and env != "prod":
+        file_next = f"/srv/sirene/data-sirene/{env}/stats.json"
+    else:
+        file_next = "/srv/sirene/data-sirene/stats.json"
     check_stats_coherence(file_prev, file_next)
