@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
+import logging
 import requests
 import pandas as pd
 
@@ -57,7 +58,7 @@ def compute_top(_class, date, title):
     PARAMS_TOPS["period"] = "range"
     PARAMS_TOPS["date"] = date
     PARAMS_TOPS["filter_pattern"] = f"/fr/{_class}/"
-    print(PARAMS_TOPS)
+    logging.info(PARAMS_TOPS)
     r = requests.get(BASE_URL, params=PARAMS_TOPS)
     arr = []
     for data in r.json():
@@ -66,13 +67,23 @@ def compute_top(_class, date, title):
                 "https://www.data.gouv.fr/fr/datasets/",
                 "https://www.data.gouv.fr/fr/reuses/",
             ]:
-                r2 = requests.get(
-                    data["url"].replace(
-                        "https://www.data.gouv.fr/fr/",
-                        "https://www.data.gouv.fr/api/1/",
-                    )
+                logging.info(data)
+                url = data["url"].replace(
+                    "https://www.data.gouv.fr/fr/",
+                    "https://www.data.gouv.fr/api/1/",
                 )
-                print(data)
+                r2 = requests.get(url)
+                _stop = False
+                while not r2.ok:
+                    # handling cases like https://www.data.gouv.fr/fr/reuses/{id}/discussions/
+                    url = "/".join(url.split("/")[:-1])
+                    if not url.startswith("https://www.data.gouv.fr/api/1/"):
+                        logging.warning(f"Could not fetch info for: {data['url']}")
+                        _stop = True
+                        break
+                    r2 = requests.get(url)
+                if _stop:
+                    continue
                 arr.append({
                     "value": data["nb_visits"],
                     "url": data["url"],
@@ -93,14 +104,14 @@ def compute_top(_class, date, title):
 
 
 def compute_general(date):
-    print(date)
+    logging.info(date)
     PARAMS_GENERAL["date"] = date
     PARAMS_GENERAL["period"] = "range" if "," in date else "day"
-    print(PARAMS_GENERAL)
+    logging.info(PARAMS_GENERAL)
     r = requests.get(BASE_URL, params=PARAMS_GENERAL)
     pageviews, uniq_pageviews, downloads = [], [], []
     for data in r.json():
-        print(data)
+        logging.info(data)
         pageviews.append({
             "date": date,
             "value": data["nb_pageviews"],
@@ -151,7 +162,7 @@ def get_stats(dates, period):
 
 def publish_top_mattermost(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
-    print(publish_info)
+    logging.info(publish_info)
     for _class in ["datasets", "reuses"]:
         top = ti.xcom_pull(
             key=f"top_{_class}", task_ids=f"get_top_{_class}_" + publish_info["period"]
