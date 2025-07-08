@@ -40,7 +40,5 @@ with DAG(
         python_callable=update_topics_references,
     )
 
-
     update_topics.set_upstream(get_and_format_grist_data)
     update_topics_references.set_upstream(update_topics)
-

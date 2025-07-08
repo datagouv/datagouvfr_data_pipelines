@@ -8,7 +8,12 @@ from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
     SECRET_GRIST_API_KEY,
 )
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, local_client
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    # for now targetting demo
+    # local_client,
+    demo_client,
+)
 
 dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 
@@ -32,6 +37,7 @@ TAGS_AND_TABLES = {
 
 ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
 
+
 def request_grist_table(table_id: str, filter: str = None):
     r = requests.get(
         GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
@@ -45,6 +51,7 @@ def request_grist_table(table_id: str, filter: str = None):
     r.raise_for_status()
     return [row["fields"] for row in r.json()["records"]]
 
+
 def clean_row(row):
     cleaned_row = {}
     for key, value in row.items():
@@ -54,18 +61,20 @@ def clean_row(row):
         else:
             cleaned_row[key] = value
     return cleaned_row
-    
+
+
 def get_subdata(key, value, table_info):
     if not value:
         return value
     elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
         value_as_list = value if isinstance(value, list) else [value]
-        filter = json.dumps({ "id": value_as_list })
+        filter = json.dumps({"id": value_as_list})
         subdata = request_grist_table(table_info["sub_tables"][key], filter=filter)
         cleaned_subdata = [clean_row(item) for item in subdata]
         return cleaned_subdata if isinstance(value, list) else cleaned_subdata[0]
     else:
         return value
+
 
 def cleaned_row_with_subdata(row, table_info):
     cleaned_row = clean_row(row)
@@ -74,6 +83,7 @@ def cleaned_row_with_subdata(row, table_info):
         for key in cleaned_row.keys()
     }
     return formatted_row
+
 
 def generated_search_tags(topic):
     tags = []
@@ -84,27 +94,29 @@ def generated_search_tags(topic):
                     tags.append(f'simplifions-{attribute}-{value}')
             else:
                 tags.append(f'simplifions-{attribute}-{topic[attribute]}')
-        
     return tags
 
-# 👇 Methods used by the DAG 👇
 
+# 👇 Methods used by the DAG 👇
 def get_and_format_grist_data(ti):
     tag_and_grist_topics = {}
 
     for tag, table_info in TAGS_AND_TABLES.items():
         rows = request_grist_table(table_info["table_id"])
-        
+
         tag_and_grist_topics[tag] = {
             row["slug"]: cleaned_row_with_subdata(row, table_info)
             for row in rows
             if row["slug"]
         }
-    
+
     ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
 
+
 def update_topics(ti):
-    tag_and_grist_topics: dict = ti.xcom_pull(key="tag_and_grist_topics", task_ids="get_and_format_grist_data")
+    tag_and_grist_topics: dict = ti.xcom_pull(
+        key="tag_and_grist_topics", task_ids="get_and_format_grist_data"
+    )
 
     simplifions_tags = [
         "simplifions",
@@ -113,7 +125,7 @@ def update_topics(ti):
 
     for tag, grist_topics in tag_and_grist_topics.items():
         logging.info(f"\n\nUpdating topics for tag: {tag}")
-        
+
         extras_nested_key = tag
         topic_tags = simplifions_tags + [tag]
 
@@ -121,7 +133,7 @@ def update_topics(ti):
             topic["extras"][extras_nested_key]["slug"]: topic["id"]
             for topic in get_all_from_api_query(
                 (
-                    f"{local_client.base_url}/api/1/topics/?"
+                    f"{demo_client.base_url}/api/1/topics/?"
                     + "&".join([f"tag={tag}" for tag in topic_tags])
                 ),
             )
@@ -131,11 +143,11 @@ def update_topics(ti):
         for slug in grist_topics.keys():
             if slug in current_topics.keys():
                 # updating existing topics
-                url = f"{local_client.base_url}/api/1/topics/{current_topics[slug]}/"
+                url = f"{demo_client.base_url}/api/1/topics/{current_topics[slug]}/"
                 method = "put"
             else:
                 # creating a new topic
-                url = f"{local_client.base_url}/api/1/topics/"
+                url = f"{demo_client.base_url}/api/1/topics/"
                 method = "post"
             logging.info(
                 f"{method} topic '{slug}'"
@@ -154,7 +166,7 @@ def update_topics(ti):
                         "id": "57fe2a35c751df21e179df72",
                     },
                     "tags": topic_tags + generated_search_tags(grist_topics[slug]),
-                    "extras": { extras_nested_key: grist_topics[slug] or False },
+                    "extras": {extras_nested_key: grist_topics[slug] or False},
                 },
             )
             r.raise_for_status()
@@ -163,30 +175,41 @@ def update_topics(ti):
         for slug in current_topics:
             if slug not in grist_topics:
                 logging.info(
-                    f"Deleting topic '{slug}' at {local_client.base_url}/api/1/topics/{current_topics[slug]}/"
+                    f"Deleting topic '{slug}' at {demo_client.base_url}/api/1/topics/{current_topics[slug]}/"
                 )
                 r = requests.delete(
-                    f"{local_client.base_url}/api/1/topics/{current_topics[slug]}/",
+                    f"{demo_client.base_url}/api/1/topics/{current_topics[slug]}/",
                     headers=dgv_headers,
                 )
                 r.raise_for_status()
 
+
 def update_topics_references(ti):
     all_topics = {}
     for tag in TAGS_AND_TABLES.keys():
-        all_topics[tag] = [topic for topic in get_all_from_api_query(f"{local_client.base_url}/api/2/topics/?tag={tag}")]
+        all_topics[tag] = [
+            topic for topic in get_all_from_api_query(
+                f"{demo_client.base_url}/api/2/topics/?tag={tag}"
+            )
+        ]
         logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
     solutions_topics = all_topics["simplifions-solutions"]
     cas_usages_topics = all_topics["simplifions-cas-d-usages"]
-    
+
     # Update solutions_topics with cas_usages_topics
     for solution_topic in solutions_topics:
         cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_slugs"]
-        matching_topics = [topic for topic in cas_usages_topics if "simplifions-cas-d-usages" in topic["extras"] and topic["extras"]["simplifions-cas-d-usages"]["slug"] in cas_d_usages_slugs]
-        solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_topics_ids"] = [topic["id"] for topic in matching_topics]
+        matching_topics = [
+            topic for topic in cas_usages_topics
+            if "simplifions-cas-d-usages" in topic["extras"]
+            and topic["extras"]["simplifions-cas-d-usages"]["slug"] in cas_d_usages_slugs
+        ]
+        solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_topics_ids"] = [
+            topic["id"] for topic in matching_topics
+        ]
         # update the solution topic with the new extras
-        url = f"{local_client.base_url}/api/1/topics/{solution_topic['id']}/"
+        url = f"{demo_client.base_url}/api/1/topics/{solution_topic['id']}/"
         r = requests.put(
             url,
             headers=dgv_headers,
@@ -206,11 +229,19 @@ def update_topics_references(ti):
     # Update cas_usages_topics with solutions_topics
     for cas_usage_topic in cas_usages_topics:
         for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"]["reco_solutions"]: 
-            matching_topic = next((topic for topic in solutions_topics if "simplifions-solutions" in topic["extras"] and topic["extras"]["simplifions-solutions"]["slug"] == reco["solution_slug"]), None)
+            matching_topic = next(
+                (
+                    topic
+                    for topic in solutions_topics
+                    if "simplifions-solutions" in topic["extras"]
+                    and topic["extras"]["simplifions-solutions"]["slug"] == reco["solution_slug"]
+                ),
+                None
+            )
             if matching_topic:
                 reco["solution_topic_id"] = matching_topic["id"]
         # update the cas_usage topic with the new extras
-        url = f"{local_client.base_url}/api/1/topics/{cas_usage_topic['id']}/"  
+        url = f"{demo_client.base_url}/api/1/topics/{cas_usage_topic['id']}/"
         r = requests.put(
             url,
             headers=dgv_headers,
