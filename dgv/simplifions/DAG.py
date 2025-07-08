@@ -5,6 +5,7 @@ from airflow.operators.python import PythonOperator
 from datagouvfr_data_pipelines.dgv.simplifions.task_functions import (
     get_and_format_grist_data,
     update_topics,
+    update_topics_references,
 )
 
 DAG_NAME = "dgv_simplifions"
@@ -34,4 +35,12 @@ with DAG(
         python_callable=update_topics,
     )
 
+    update_topics_references = PythonOperator(
+        task_id="update_topics_references",
+        python_callable=update_topics_references,
+    )
+
+
     update_topics.set_upstream(get_and_format_grist_data)
+    update_topics_references.set_upstream(update_topics)
+
