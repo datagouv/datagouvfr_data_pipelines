@@ -59,12 +59,11 @@ def get_subdata(key, value, table_info):
     if not value:
         return value
     elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
-        is_list = isinstance(value, list)
-        value_as_list = value if is_list else [value]
+        value_as_list = value if isinstance(value, list) else [value]
         filter = json.dumps({ "id": value_as_list })
         subdata = request_grist_table(table_info["sub_tables"][key], filter=filter)
         cleaned_subdata = [clean_row(item) for item in subdata]
-        return cleaned_subdata if is_list else cleaned_subdata[0]
+        return cleaned_subdata if isinstance(value, list) else cleaned_subdata[0]
     else:
         return value
 
