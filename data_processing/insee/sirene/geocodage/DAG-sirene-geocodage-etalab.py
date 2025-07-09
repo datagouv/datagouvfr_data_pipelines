@@ -72,7 +72,10 @@ with DAG(
 
     split_by_locality = SSHOperator(
         task_id="split_by_locality",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4a_split_by_locality.sh {AIRFLOW_ENV}",
+        command=(
+            f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4a_split_by_locality.sh {AIRFLOW_ENV} "
+            f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH[:-1]}"
+        ),
         **common_kwargs,
     )
 

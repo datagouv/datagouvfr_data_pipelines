@@ -5,7 +5,7 @@ import json
 import re
 import gzip
 
-# modules installés sur le serveur distances
+# modules installés sur le serveur distant
 import requests
 import sqlite3
 import marshal
