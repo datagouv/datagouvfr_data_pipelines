@@ -1,6 +1,6 @@
 # Scripts Distants
 
-Scripts de géocodages exécutés sur un serveur distants distinct de celui d'Airflow.
+Scripts de géocodages exécutés sur un serveur distant distinct de celui d'Airflow.
 
 ## Configuration
 
