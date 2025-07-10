@@ -1,6 +1,8 @@
 from datetime import datetime
+
 from airflow import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
+
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/sirene/geocodage/scripts/"
@@ -15,7 +17,6 @@ with DAG(
     tags=["data_processing", "sirene", "geocodage"],
     params={},
 ) as dag:
-
     common_kwargs = {
         "ssh_conn_id": "SSH_DATAENG_ETALAB_STUDIO",
         "dag": dag,
