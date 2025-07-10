@@ -14,8 +14,8 @@ def get_missing_geo_files(dict_to_compare: Dict, dict_baseline: Dict) -> List[st
         List[str]: list of all the files missing from the dict_to_compare dictionary
     """
     return [
-        geo_file_path.split("/")[-1]
-        for geo_file_path in set(dict_baseline.keys() - set(dict_to_compare.keys()))
+        geo_file_path
+        for geo_file_path in set(dict_baseline.keys()) - set(dict_to_compare.keys())
     ]
 
 
@@ -67,8 +67,8 @@ def compare_stats(
         list: Issues found during comparison.
     """
 
-    stats_prev = {item["fichier"]: item for item in stats_prev_json}
-    stats_next = {item["fichier"]: item for item in stats_next_json}
+    stats_prev = {item["fichier"].split("/")[-1]: item for item in stats_prev_json}
+    stats_next = {item["fichier"].split("/")[-1]: item for item in stats_next_json}
 
     results = []
 
@@ -149,11 +149,11 @@ if __name__ == "__main__":
         print("Error: No environment variable provided.")
         exit(1)
 
-
     previous_month_string = get_previous_year_month_string()
     file_prev = f"/srv/sirene/data-sirene/{previous_month_string}/stats.json"
     if env and env != "prod":
         file_next = f"/srv/sirene/data-sirene/{env}/stats.json"
     else:
         file_next = "/srv/sirene/data-sirene/stats.json"
+
     check_stats_coherence(file_prev, file_next)
