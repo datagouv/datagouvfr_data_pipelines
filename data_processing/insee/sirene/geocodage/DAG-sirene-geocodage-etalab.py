@@ -4,7 +4,7 @@ from airflow.providers.ssh.operators.ssh import SSHOperator
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/sirene/geocodage/scripts/"
-DEV_GIT_BRANCH = "fix-geocodage"  # It is the branch on the remote that will be cloned
+DEV_GIT_BRANCH = "main"  # It is the remote branch that will be cloned when using local Airflow
 DEV_GIT_ARGS = f"--single-branch --branch {DEV_GIT_BRANCH}" if AIRFLOW_ENV == "dev" else ""
 
 with DAG(
@@ -26,7 +26,7 @@ with DAG(
     start_addok = SSHOperator(
         task_id="start_addok",
         command=(
-            "cd /srv/sirene/addok-docker/ && docker-compose -f docker-compose-ban-poi.yml up "
+            "cd /srv/sirene/addok-docker/ && docker-compose -f docker-compose-ban-poi.yml up"
             "--scale addok-ban=6 --scale addok-redis-ban=6 -d"
         ),
         **common_kwargs,
@@ -44,20 +44,20 @@ with DAG(
             "cd /srv/sirene/geocodage-sirene "
             "&& rm -rf datagouvfr_data_pipelines "
             f"&& git clone {DEV_GIT_ARGS} https://github.com/datagouv/datagouvfr_data_pipelines.git "
-            f"&& chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}* "
+            f"&& chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}*"
         ),
         **common_kwargs,
     )
 
     download_last_sirene_batch = SSHOperator(
         task_id="download_last_sirene_batch",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}1_download_last_sirene_batch.sh {AIRFLOW_ENV} ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}1_download_last_sirene_batch.sh {AIRFLOW_ENV}",
         **common_kwargs,
     )
 
     split_departments_files = SSHOperator(
         task_id="split_departments_files",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}2_split_departments_files.sh {AIRFLOW_ENV} ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}2_split_departments_files.sh {AIRFLOW_ENV}",
         **common_kwargs,
     )
 
@@ -81,25 +81,25 @@ with DAG(
 
     get_geocode_stats = SSHOperator(
         task_id="get_geocode_stats",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4b_geocode_stats.sh {AIRFLOW_ENV} ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4b_geocode_stats.sh {AIRFLOW_ENV}",
         **common_kwargs,
     )
 
     shutdown_addok = SSHOperator(
         task_id="shutdown_addok",
-        command="cd /srv/sirene/addok-docker/ && docker-compose down --remove-orphans ",
+        command="cd /srv/sirene/addok-docker/ && docker-compose down --remove-orphans",
         **common_kwargs,
     )
 
     check_stats_coherence = SSHOperator(
         task_id="check_stats_coherence",
-        command=f"/srv/sirene/venv/bin/python /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4c_check_stats_coherence.py {AIRFLOW_ENV} ",
+        command=f"/srv/sirene/venv/bin/python /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4c_check_stats_coherence.py {AIRFLOW_ENV}",
         **common_kwargs,
     )
 
     national_files_agregation = SSHOperator(
         task_id="national_files_agregation",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}5_national_files_agregation.sh {AIRFLOW_ENV} ",
+        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}5_national_files_agregation.sh {AIRFLOW_ENV}",
         **common_kwargs,
     )
 
