@@ -343,5 +343,16 @@
             "dev": "685a5b26f319f9369c09a1c3"
         },
         "table_name": "refstation"
+    },
+    "OBS/SYNOP": {
+        "source_pattern": "synop_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "synop_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Observations SYNOP sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "686f8595b351c06a3a790867",
+            "dev": "686f8781e9fb02cc9f5f7bf9"
+        },
+        "table_name": "obs_synop"
     }
 }
