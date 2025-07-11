@@ -24,6 +24,9 @@ with DAG(
         "cmd_timeout": (3600 * 8),
     }
 
+    if not AIRFLOW_ENV:
+        raise ValueError("AIRFLOW_ENV has to be set (e.g. prod, dev)")
+
     start_addok = SSHOperator(
         task_id="start_addok",
         command=(
