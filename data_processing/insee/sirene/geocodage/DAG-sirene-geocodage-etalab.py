@@ -30,7 +30,7 @@ with DAG(
     start_addok = SSHOperator(
         task_id="start_addok",
         command=(
-            "cd /srv/sirene/addok-docker/ && docker-compose -f docker-compose-ban-poi.yml up"
+            "cd /srv/sirene/addok-docker/ && docker-compose -f docker-compose-ban-poi.yml up "
             "--scale addok-ban=6 --scale addok-redis-ban=6 -d"
         ),
         **common_kwargs,
