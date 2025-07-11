@@ -13,10 +13,7 @@ def get_missing_geo_files(dict_to_compare: Dict, dict_baseline: Dict) -> List[st
     Returns:
         List[str]: list of all the files missing from the dict_to_compare dictionary
     """
-    return [
-        geo_file_path.split("/")[-1]
-        for geo_file_path in set(dict_baseline.keys() - set(dict_to_compare.keys()))
-    ]
+    return [geo_file_path for geo_file_path in set(dict_baseline.keys()) - set(dict_to_compare.keys())]
 
 
 def get_previous_year_month_string() -> str:
@@ -33,9 +30,7 @@ def get_previous_year_month_string() -> str:
     return f"{previous_year}-{previous_month:02d}"
 
 
-def compare_stats(
-    stats_prev_json, stats_next_json, thresholds: Dict[str, int]
-) -> List[str]:
+def compare_stats(stats_prev_json, stats_next_json, thresholds: Dict[str, int]) -> List[str]:
     """
     Compare stats between two JSON files.
     The json looks like:
@@ -67,8 +62,8 @@ def compare_stats(
         list: Issues found during comparison.
     """
 
-    stats_prev = {item["fichier"]: item for item in stats_prev_json}
-    stats_next = {item["fichier"]: item for item in stats_next_json}
+    stats_prev = {item["fichier"].split("/")[-1]: item for item in stats_prev_json}
+    stats_next = {item["fichier"].split("/")[-1]: item for item in stats_next_json}
 
     results = []
 
@@ -80,9 +75,7 @@ def compare_stats(
                 value_prev = stats_prev[geo_file_path][key]
                 value_next = stats_next[geo_file_path][key]
                 if value_prev == 0:  # No division by 0
-                    results.append(
-                        f"[OK]\t{geo_file}: '{key}' went from {value_prev} to {value_next}"
-                    )
+                    results.append(f"[OK]\t{geo_file}: '{key}' went from {value_prev} to {value_next}")
                     continue
                 delta = (value_next - value_prev) / value_prev * 100
                 threshold = thresholds.get(key, 100)
@@ -101,15 +94,11 @@ def compare_stats(
     # Find missing "fichiers" keys
     missing_in_json_prev = get_missing_geo_files(stats_prev, stats_next)
     if missing_in_json_prev:
-        results.append(
-            f"[ERROR] Geo files missing in the old stats: {', '.join(missing_in_json_prev)}"
-        )
+        results.append(f"[ERROR] Geo files missing in the old stats: {', '.join(missing_in_json_prev)}")
 
     missing_in_json_next = get_missing_geo_files(stats_next, stats_prev)
     if missing_in_json_next:
-        results.append(
-            f"[ERROR] Geo files missing in the new stats: {', '.join(missing_in_json_next)}"
-        )
+        results.append(f"[ERROR] Geo files missing in the new stats: {', '.join(missing_in_json_next)}")
 
     return results
 
@@ -141,7 +130,19 @@ def check_stats_coherence(file_prev: str, file_next: str) -> None:
 
 
 if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1:
+        env = sys.argv[1]
+    else:
+        print("Error: No environment variable provided.")
+        exit(1)
+
     previous_month_string = get_previous_year_month_string()
     file_prev = f"/srv/sirene/data-sirene/{previous_month_string}/stats.json"
-    file_next = "/srv/sirene/data-sirene/stats.json"
+    if env and env != "prod":
+        file_next = f"/srv/sirene/data-sirene/{env}/stats.json"
+    else:
+        file_next = "/srv/sirene/data-sirene/stats.json"
+
     check_stats_coherence(file_prev, file_next)
