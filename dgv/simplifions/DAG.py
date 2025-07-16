@@ -17,7 +17,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 2 * * *",
+    schedule_interval="*/30 * * * *",
     start_date=datetime(2024, 10, 1),
     dagrun_timeout=timedelta(minutes=60),
     tags=["simplifions"],
