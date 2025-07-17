@@ -34,8 +34,8 @@ minio_meteo = MinIOClient(bucket='meteofrance')
 
 
 SCHEMA_NAME = 'meteo'
-pgclient = PostgresClient(conn_name="POSTGRES_METEO", schema=SCHEMA_NAME)
-conn = BaseHook.get_connection("POSTGRES_METEO")
+pgclient = PostgresClient(conn_name="POSTGRES_DB_02_INFRA_DATA_GOUV_FR", schema=SCHEMA_NAME)
+conn = BaseHook.get_connection("POSTGRES_DB_02_INFRA_DATA_GOUV_FR")
 db_params = {
     'database': conn.schema,
     'user': conn.login,
