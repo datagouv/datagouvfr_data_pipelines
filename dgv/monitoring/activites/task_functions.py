@@ -218,7 +218,7 @@ def alert_if_new_reports():
             _.raise_for_status()
             _ = _.json()
             subject = (
-                f"[cet objet]({subject.replace('api/1', 'fr')}) : "
+                f"[cet objet]({_.get('page') or _.get('self_web_url ')}) : "
                 f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
             )
         except requests.exceptions.HTTPError:
