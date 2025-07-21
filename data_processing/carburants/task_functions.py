@@ -47,6 +47,7 @@ def get_daily_prices():
                 remote_source=True,
             ),
         ],
+        ignore_airflow_env=True,
     )
 
 
@@ -129,4 +130,5 @@ def send_files_minio():
                 content_type="application/json; charset=utf-8",
             ),
         ],
+        ignore_airflow_env=True,
     )
