@@ -161,6 +161,7 @@ def publish_file_minio(**kwargs):
                 dest_name=item["nameFTP"],
             ) for item in data
         ],
+        ignore_airflow_env=True,
     )
 
     # sending parquet
@@ -173,6 +174,7 @@ def publish_file_minio(**kwargs):
                 dest_name=item["nameFTP"].replace(".zip", ".parquet"),
             ) for item in data
         ],
+        ignore_airflow_env=True,
     )
 
     # sending dated files
@@ -185,6 +187,7 @@ def publish_file_minio(**kwargs):
                 dest_name=f"{datetime.today().strftime('%Y-%m')}-01-{item['nameFTP']}",
             ) for item in data
         ],
+        ignore_airflow_env=True,
     )
 
 
