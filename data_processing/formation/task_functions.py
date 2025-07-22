@@ -119,6 +119,7 @@ def compare_files_minio(ti):
                 dest_name=f"{res['name']}_clean.csv",
             )
         ],
+        ignore_airflow_env=True,
     )
 
     return True

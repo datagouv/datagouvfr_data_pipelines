@@ -158,14 +158,12 @@ class MinIOClient:
         )
 
         try:
-            logging.info(f"File 1: {AIRFLOW_ENV}/{file_path_1}{file_name_1}")
-            logging.info(f"File 2: {AIRFLOW_ENV}/{file_path_2}{file_name_2}")
-            file_1 = s3.head_object(
-                Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}"
-            )
-            file_2 = s3.head_object(
-                Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}"
-            )
+            full_path_file_1 = file_path_1 + file_name_1
+            full_path_file2 = file_path_2 + file_name_2
+            logging.info(f"File 1: {full_path_file_1}")
+            logging.info(f"File 2: {full_path_file2}")
+            file_1 = s3.head_object(Bucket=self.bucket, Key=full_path_file_1)
+            file_2 = s3.head_object(Bucket=self.bucket, Key=full_path_file2)
             logging.info(f"ETag file 1 : {file_1['ETag']}")
             logging.info(f"ETag file 2 : {file_2['ETag']}")
             logging.info(f"Are ETag identical: {file_1['ETag'] == file_2['ETag']}")
@@ -366,13 +364,8 @@ class MinIOClient:
     def get_file_url(
         self,
         file_path,
-        ignore_airflow_env=False,
     ) -> str:
-        return (
-            f"https://{MINIO_URL}/{self.bucket}/"
-            f"{AIRFLOW_ENV + '/' if not ignore_airflow_env else ''}"
-            f"{file_path}"
-        )
+        return f"https://{MINIO_URL}/{self.bucket}/{file_path}"
 
     @simple_connection_retry
     def send_from_url(

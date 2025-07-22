@@ -146,7 +146,7 @@ def publish_mattermost(ti):
     message += f"soit {round(len(hvds) / goal * 100, 1)}% "
     message += f"et un total de {this_week['url'].nunique()} JdD "
     message += "([:arrow_down: télécharger le dernier fichier]"
-    message += f"({minio_open.get_file_url('hvd/' + filename, ignore_airflow_env=True)}))\n"
+    message += f"({minio_open.get_file_url('hvd/' + filename)}))\n"
     if len(new):
         message += (
             f":heavy_plus_sign: {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
