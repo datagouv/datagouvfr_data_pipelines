@@ -296,17 +296,18 @@ def send_stats_to_minio():
             File(
                 source_path=f"{DATADIR}/",
                 source_name="statistiques_impact_datagouvfr.csv",
-                dest_path="dgv/impact/",
+                dest_path="impact/",
                 dest_name="statistiques_impact_datagouvfr.csv",
             ),
             # saving millésimes in case of an emergency
             File(
                 source_path=f"{DATADIR}/",
                 source_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
-                dest_path="dgv/impact/",
+                dest_path="impact/",
                 dest_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
             ),
         ],
+        ignore_airflow_env=True,
     )
 
 
