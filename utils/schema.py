@@ -441,7 +441,6 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
 def get_resource_schema_version(row: pd.Series, api_url: str):
     url = api_url + f"datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
     r = requests.get(url, headers={"X-fields": "schema"})
-    r.raise_for_status()
     if r.status_code == 200:
         r_json = r.json()
         if r_json.get("schema") and r_json.get("schema").get("version", False):
