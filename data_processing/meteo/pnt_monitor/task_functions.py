@@ -120,7 +120,7 @@ def notification_mattermost(ti):
         message += ":warning: "
         # if alert:
         #     message += "@geoffrey.aldebert "
-        message += f"Ces {nb_too_old} ressources n"ont pas été mises à jour récemment :"
+        message += f"Ces {nb_too_old} ressources n'ont pas été mises à jour récemment :"
         for dataset in too_old:
             message += f"\n- {dataset}:"
             for k in too_old[dataset]:
