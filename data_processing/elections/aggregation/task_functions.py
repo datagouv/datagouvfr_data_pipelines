@@ -237,6 +237,7 @@ def send_results_to_minio():
                 dest_name=f"{t}_results.{ext}",
             ) for t in ['general', 'candidats'] for ext in ["csv", "parquet"]
         ],
+        ignore_airflow_env=True,
     )
 
 

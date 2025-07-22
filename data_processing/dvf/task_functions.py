@@ -1059,6 +1059,7 @@ def send_stats_to_minio() -> None:
                 dest_name=f"{file}.csv",
             ) for file in ["stats_dvf", "stats_whole_period"]
         ],
+        ignore_airflow_env=True,
     )
 
 
@@ -1072,6 +1073,7 @@ def send_distribution_to_minio() -> None:
                 dest_name="distribution_prix.csv",
             ),
         ],
+        ignore_airflow_env=True,
     )
 
 
