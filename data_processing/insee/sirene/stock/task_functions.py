@@ -29,7 +29,7 @@ def check_if_already_processed(minio_path: str):
     )
     this_month_prefix = datetime.today().strftime("%Y-%m")
     for file in reversed(sorted(files_in_folder)):
-        if file.startswith(this_month_prefix):
+        if file.startswith(minio_path + this_month_prefix):
             # early stop and don't trigger the following tasks
             return False
     return True
