@@ -201,16 +201,12 @@ class MinIOClient:
         """
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
-        list_objects = []
         if not ignore_airflow_env:
             prefix = f"{AIRFLOW_ENV}/{prefix}"
         objects = self.client.list_objects(
             self.bucket, prefix=prefix, recursive=recursive
         )
-        for obj in objects:
-            # logging.info(obj.object_name)
-            list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
-        return list_objects
+        return [obj.object_name for obj in objects]
 
     @simple_connection_retry
     def copy_object(
