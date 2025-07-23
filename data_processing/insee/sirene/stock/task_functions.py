@@ -35,11 +35,7 @@ def check_if_already_processed(minio_path: str):
     return True
 
 
-def get_files(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    tmp_dir = templates_dict.get("tmp_dir")
-    resource_file = templates_dict.get("resource_file")
-
+def get_files(ti, tmp_dir: str, resource_file: str):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
 
@@ -81,11 +77,7 @@ def get_files(ti, **kwargs):
     ti.xcom_push(key="hashes", value=hashfiles)
 
 
-def publish_file_minio(**kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    tmp_dir = templates_dict.get("tmp_dir")
-    resource_file = templates_dict.get("resource_file")
-    minio_path = templates_dict.get("minio_path")
+def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     logging.info(data)
@@ -129,12 +121,8 @@ def publish_file_minio(**kwargs):
     )
 
 
-def update_dataset_data_gouv(ti, **kwargs):
+def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str):
     hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
-    templates_dict = kwargs.get("templates_dict")
-    resource_file = templates_dict.get("resource_file")
-    day_file = templates_dict.get("day_file")
-    tmp_dir = templates_dict.get("tmp_dir")
 
     liste_mois = [
         m.title() for m in MOIS_FR.values()

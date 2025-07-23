@@ -34,7 +34,7 @@ with DAG(
 
     check_if_already_processed = ShortCircuitOperator(
         task_id="check_if_already_processed",
-        templates_dict={
+        op_kwargs={
             "minio_path": MINIO_BASE_PATH,
         },
         python_callable=check_if_already_processed,
@@ -42,7 +42,7 @@ with DAG(
 
     get_files = PythonOperator(
         task_id="get_files",
-        templates_dict={
+        op_kwargs={
             "tmp_dir": TMP_FOLDER,
             "resource_file": "resources_to_download.json",
         },
@@ -51,7 +51,7 @@ with DAG(
 
     publish_file_minio = PythonOperator(
         task_id="publish_file_minio",
-        templates_dict={
+        op_kwargs={
             "tmp_dir": TMP_FOLDER,
             "resource_file": "resources_to_download.json",
             "minio_path": MINIO_BASE_PATH,
@@ -61,7 +61,7 @@ with DAG(
 
     update_dataset_data_gouv = PythonOperator(
         task_id="update_dataset_data_gouv",
-        templates_dict={
+        op_kwargs={
             "resource_file": "resources_to_download.json",
             "day_file": "01",
             "tmp_dir": TMP_FOLDER,
