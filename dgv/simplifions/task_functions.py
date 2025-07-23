@@ -167,6 +167,7 @@ def update_topics(ti):
                     },
                     "tags": topic_tags + generated_search_tags(grist_topics[slug]),
                     "extras": {extras_nested_key: grist_topics[slug] or False},
+                    "private": not grist_topics[slug]["Visible_sur_simplifions"],
                 },
             )
             r.raise_for_status()
@@ -189,15 +190,15 @@ def update_topics_references(ti):
     for tag in TAGS_AND_TABLES.keys():
         all_topics[tag] = [
             topic for topic in get_all_from_api_query(
-                f"{demo_client.base_url}/api/2/topics/?tag={tag}"
+                f"{demo_client.base_url}/api/2/topics/?tag={tag}&private=false"
             )
         ]
         logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
     solutions_topics = all_topics["simplifions-solutions"]
     cas_usages_topics = all_topics["simplifions-cas-d-usages"]
-
-    # Update solutions_topics with cas_usages_topics
+    
+    # Update solutions_topics with references to cas_usages_topics
     for solution_topic in solutions_topics:
         cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_slugs"]
         matching_topics = [
@@ -218,7 +219,8 @@ def update_topics_references(ti):
                 "description": solution_topic["description"],
                 "organization": solution_topic["organization"],
                 "tags": solution_topic["tags"],
-                "extras": solution_topic["extras"]
+                "extras": solution_topic["extras"],
+                "private": solution_topic["private"]
             },
         )
         if r.status_code not in [200, 204]:
@@ -226,7 +228,7 @@ def update_topics_references(ti):
         r.raise_for_status()
         logging.info(f"Updated topic references for solution at {url}")
 
-    # Update cas_usages_topics with solutions_topics
+    # Update cas_usages_topics with references to solutions_topics
     for cas_usage_topic in cas_usages_topics:
         for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"]["reco_solutions"]: 
             matching_topic = next(
@@ -250,7 +252,8 @@ def update_topics_references(ti):
                 "description": cas_usage_topic["description"],
                 "organization": cas_usage_topic["organization"],
                 "tags": cas_usage_topic["tags"],
-                "extras": cas_usage_topic["extras"]
+                "extras": cas_usage_topic["extras"],
+                "private": cas_usage_topic["private"]
             },
         )
         if r.status_code != 200:
