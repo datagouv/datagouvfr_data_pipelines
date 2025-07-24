@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
@@ -50,7 +51,7 @@ def get_new_logs(ti) -> bool:
     new_logs_path = minio_client.get_files_from_prefix(prefix="metrics-logs/new/")
     if new_logs_path:
         ongoing_logs_path = minio_client.copy_many_objects(
-            new_logs_path, "metrics-logs/ongoing/", remove_source_file=True
+            new_logs_path, f"{AIRFLOW_ENV}/metrics-logs/ongoing/", remove_source_file=True
         )
         ti.xcom_push(key="ongoing_logs_path", value=ongoing_logs_path)
         return True

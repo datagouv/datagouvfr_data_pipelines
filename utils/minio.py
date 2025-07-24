@@ -240,18 +240,18 @@ class MinIOClient:
         ):
             # copy an object from a bucket to another.
             logging.info(
-                f"{'Moving' if remove_source_file else 'Copying'} {minio_bucket_source}/{AIRFLOW_ENV}/{path_source}"
+                f"{'Moving' if remove_source_file else 'Copying'} {minio_bucket_source}/{path_source}"
             )
             self.client.copy_object(
                 minio_bucket_source,
-                f"{AIRFLOW_ENV}/{path_target}",
-                CopySource(minio_bucket_target, f"{AIRFLOW_ENV}/{path_source}"),
+                path_target,
+                CopySource(minio_bucket_target, path_source),
             )
             if remove_source_file:
                 self.client.remove_object(
-                    minio_bucket_source, f"{AIRFLOW_ENV}/{path_source}"
+                    minio_bucket_source, path_source
                 )
-            logging.info(f"> to {minio_bucket_source}/{AIRFLOW_ENV}/{path_target}")
+            logging.info(f"> to {minio_bucket_source}/{path_target}")
         else:
             raise ValueError(
                 f"One bucket does not exist: {minio_bucket_source} or {minio_bucket_target}"
