@@ -119,8 +119,8 @@ def update_extras_of_topic(topic, new_extras):
     r.raise_for_status()
     logging.info(f"Updated topic references at {url}")
 
-
 # 👇 Methods used by the DAG 👇
+
 def get_and_format_grist_data(ti):
     tag_and_grist_topics = {}
 
@@ -138,7 +138,8 @@ def get_and_format_grist_data(ti):
         })
 
     logging_str = "\n".join([f"{tag}: {len(grist_topics)} topics" for tag, grist_topics in tag_and_grist_topics.items()])
-    logging.info(f"Found {len(tag_and_grist_topics)} topics in grist: \n{logging_str}")
+    total_length = sum([len(grist_topics) for grist_topics in tag_and_grist_topics.values()])
+    logging.info(f"Found {total_length} items in grist: \n{logging_str}")
 
     ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
 
@@ -154,7 +155,7 @@ def update_topics(ti):
     ]
 
     for tag, grist_topics in tag_and_grist_topics.items():
-        logging.info(f"\n\nUpdating topics for tag: {tag}")
+        logging.info(f"Updating {len(grist_topics)} topics for tag: {tag}")
 
         title_column = TAG_AND_TITLES_COLUMNS[tag]
         extras_nested_key = tag
@@ -164,12 +165,13 @@ def update_topics(ti):
             topic["extras"][extras_nested_key]["slug"]: topic["id"]
             for topic in get_all_from_api_query(
                 (
-                    f"{demo_client.base_url}/api/1/topics/?include_private=true&"
-                    + "&".join([f"tag={tag}" for tag in topic_tags])
+                    f"{demo_client.base_url}/api/1/topics/?include_private=true&tag={tag}"
                 ),
             )
             if extras_nested_key in topic["extras"]
         }
+
+        logging.info(f"Found {len(current_topics)} existing topics in datagouv")
 
         for slug in grist_topics.keys():
             if slug in current_topics.keys():
