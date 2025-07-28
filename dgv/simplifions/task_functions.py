@@ -122,7 +122,7 @@ def update_extras_of_topic(topic, new_extras):
 def get_all_topics_for_tag(tag):
     return get_all_from_api_query(
         f"{demo_client.base_url}/api/1/topics/?tag={tag}&include_private=true",
-        auth=False,
+        auth=True,
     )
 
 # 👇 Methods used by the DAG 👇
