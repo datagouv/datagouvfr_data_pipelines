@@ -13,7 +13,7 @@ def delete_demo_topic(topic_id: str):
 def get_demo_topics(tags: str = None):
   response = requests.get(
       "https://demo.data.gouv.fr/api/2/topics/",
-      params={"tag": tags, "page_size": 100, "page": 1},
+      params={"tag": tags, "page_size": 1000, "page": 1, "include_private": True},
       headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
   )
   return response

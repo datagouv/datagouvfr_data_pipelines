@@ -18,23 +18,29 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 
 GRIST_DOC_ID = "c5pt7QVcKWWe"
-TAGS_AND_TABLES = {
-    "simplifions-cas-d-usages": {
-        "table_id": "SIMPLIFIONS_cas_usages",
-        "title_column": "Titre",
+GRIST_TABLES_AND_TAGS = {
+    "SIMPLIFIONS_cas_usages": {
+        "tag": "simplifions-cas-d-usages",
         "sub_tables": {
             "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
             "API_et_donnees_utiles": "Apidata",
             "descriptions_api_et_donnees_utiles": "SIMPLIFIONS_description_apidata_cas_usages",
         }
     },
-    "simplifions-solutions": {
-      "table_id": "SIMPLIFIONS_produitspublics",
-      "title_column": "Ref_Nom_de_la_solution",
-      "sub_tables": {
-        #   "Cas_d_usages": "SIMPLIFIONS_cas_usages",
-      }
+    "SIMPLIFIONS_produitspublics": {
+        "tag": "simplifions-solutions",
+        "sub_tables": {}
+    },
+    "SIMPLIFIONS_solutions_editeurs": {
+        "tag": "simplifions-solutions",
+        "sub_tables": {}
+
     }
+}
+
+TAG_AND_TITLES_COLUMNS = {
+    "simplifions-solutions": "Ref_Nom_de_la_solution",
+    "simplifions-cas-d-usages": "Titre",
 }
 
 ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
@@ -113,19 +119,33 @@ def update_extras_of_topic(topic, new_extras):
     r.raise_for_status()
     logging.info(f"Updated topic references at {url}")
 
+def get_all_topics_for_tag(tag):
+    return get_all_from_api_query(
+        f"{demo_client.base_url}/api/1/topics/?tag={tag}&include_private=true",
+        auth=True,
+    )
 
 # 👇 Methods used by the DAG 👇
+
 def get_and_format_grist_data(ti):
     tag_and_grist_topics = {}
 
-    for tag, table_info in TAGS_AND_TABLES.items():
-        rows = request_grist_table(table_info["table_id"])
+    for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
+        tag = table_info["tag"]
+        rows = request_grist_table(table_id)
 
-        tag_and_grist_topics[tag] = {
+        if tag not in tag_and_grist_topics:
+            tag_and_grist_topics[tag] = {}
+
+        tag_and_grist_topics[tag].update({
             row["slug"]: cleaned_row_with_subdata(row, table_info)
             for row in rows
             if row["slug"]
-        }
+        })
+
+    logging_str = "\n".join([f"{tag}: {len(grist_topics)} topics" for tag, grist_topics in tag_and_grist_topics.items()])
+    total_length = sum([len(grist_topics) for grist_topics in tag_and_grist_topics.values()])
+    logging.info(f"Found {total_length} items in grist: \n{logging_str}")
 
     ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
 
@@ -141,21 +161,19 @@ def update_topics(ti):
     ]
 
     for tag, grist_topics in tag_and_grist_topics.items():
-        logging.info(f"\n\nUpdating topics for tag: {tag}")
+        logging.info(f"\n\n\nUpdating {len(grist_topics)} topics for tag: {tag}")
 
+        title_column = TAG_AND_TITLES_COLUMNS[tag]
         extras_nested_key = tag
         topic_tags = simplifions_tags + [tag]
 
         current_topics = {
             topic["extras"][extras_nested_key]["slug"]: topic["id"]
-            for topic in get_all_from_api_query(
-                (
-                    f"{demo_client.base_url}/api/1/topics/?"
-                    + "&".join([f"tag={tag}" for tag in topic_tags])
-                ),
-            )
+            for topic in get_all_topics_for_tag(tag)
             if extras_nested_key in topic["extras"]
         }
+
+        logging.info(f"Found {len(current_topics)} existing topics in datagouv for tag {tag}")
 
         for slug in grist_topics.keys():
             if slug in current_topics.keys():
@@ -175,7 +193,7 @@ def update_topics(ti):
                 url,
                 headers=dgv_headers,
                 json={
-                    "name": grist_topics[slug][TAGS_AND_TABLES[tag]["title_column"]],
+                    "name": grist_topics[slug][title_column],
                     # description cannot be empty
                     "description": grist_topics[slug]["Description_courte"] or "-",
                     "organization": {
@@ -204,22 +222,23 @@ def update_topics(ti):
 
 def update_topics_references(ti):
     all_topics = {}
-    for tag in TAGS_AND_TABLES.keys():
-        all_topics[tag] = [
-            topic for topic in get_all_from_api_query(
-                f"{demo_client.base_url}/api/2/topics/?tag={tag}&private=false"
-            )
-        ]
+    all_tags = ["simplifions-solutions", "simplifions-cas-d-usages"]
+
+    for tag in all_tags:
+        all_topics[tag] = list(get_all_topics_for_tag(tag))
         logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
     solutions_topics = all_topics["simplifions-solutions"]
     cas_usages_topics = all_topics["simplifions-cas-d-usages"]
+
+    visible_solutions_topics = [topic for topic in solutions_topics if topic["private"] == False]
+    visible_cas_usages_topics = [topic for topic in cas_usages_topics if topic["private"] == False]
     
     # Update solutions_topics with references to cas_usages_topics
     for solution_topic in solutions_topics:
         cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_slugs"]
         matching_topics = [
-            topic for topic in cas_usages_topics
+            topic for topic in visible_cas_usages_topics
             if "simplifions-cas-d-usages" in topic["extras"]
             and topic["extras"]["simplifions-cas-d-usages"]["slug"] in cas_d_usages_slugs
         ]
@@ -235,7 +254,7 @@ def update_topics_references(ti):
             matching_topic = next(
                 (
                     topic
-                    for topic in solutions_topics
+                    for topic in visible_solutions_topics
                     if "simplifions-solutions" in topic["extras"]
                     and topic["extras"]["simplifions-solutions"]["slug"] == reco["solution_slug"]
                 ),
