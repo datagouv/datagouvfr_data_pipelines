@@ -171,7 +171,7 @@ def update_topics(ti):
             if extras_nested_key in topic["extras"]
         }
 
-        logging.info(f"Found {len(current_topics)} existing topics in datagouv")
+        logging.info(f"Found {len(current_topics)} existing topics in datagouv for tag {tag}")
 
         for slug in grist_topics.keys():
             if slug in current_topics.keys():
@@ -225,7 +225,7 @@ def update_topics_references(ti):
     for tag in all_tags:
         all_topics[tag] = [
             topic for topic in get_all_from_api_query(
-                f"{demo_client.base_url}/api/2/topics/?tag={tag}&include_private=true"
+                f"{demo_client.base_url}/api/1/topics/?tag={tag}&include_private=true"
             )
         ]
         logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
