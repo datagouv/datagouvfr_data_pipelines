@@ -18,9 +18,9 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 dgv_headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY}
 
 GRIST_DOC_ID = "c5pt7QVcKWWe"
-TAGS_AND_TABLES = {
-    "simplifions-cas-d-usages": {
-        "table_id": "SIMPLIFIONS_cas_usages",
+GRIST_TABLES_AND_TAGS = {
+    "SIMPLIFIONS_cas_usages": {
+        "tag": "simplifions-cas-d-usages",
         "title_column": "Titre",
         "sub_tables": {
             "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
@@ -28,12 +28,12 @@ TAGS_AND_TABLES = {
             "descriptions_api_et_donnees_utiles": "SIMPLIFIONS_description_apidata_cas_usages",
         }
     },
-    "simplifions-solutions": {
-      "table_id": "SIMPLIFIONS_produitspublics",
-      "title_column": "Ref_Nom_de_la_solution",
-      "sub_tables": {
-        #   "Cas_d_usages": "SIMPLIFIONS_cas_usages",
-      }
+    "SIMPLIFIONS_produitspublics": {
+        "tag": "simplifions-solutions",
+        "title_column": "Ref_Nom_de_la_solution",
+        "sub_tables": {
+            #   "Cas_d_usages": "SIMPLIFIONS_cas_usages",
+        }
     }
 }
 
@@ -116,23 +116,24 @@ def update_extras_of_topic(topic, new_extras):
 
 # 👇 Methods used by the DAG 👇
 def get_and_format_grist_data(ti):
-    tag_and_grist_topics = {}
+    table_id_and_grist_topics = {}
 
-    for tag, table_info in TAGS_AND_TABLES.items():
-        rows = request_grist_table(table_info["table_id"])
+    for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
+        tag = table_info["tag"]
+        rows = request_grist_table(table_id)
 
-        tag_and_grist_topics[tag] = {
+        table_id_and_grist_topics[table_id] = {
             row["slug"]: cleaned_row_with_subdata(row, table_info)
             for row in rows
             if row["slug"]
         }
 
-    ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
+    ti.xcom_push(key="table_id_and_grist_topics", value=table_id_and_grist_topics)
 
 
 def update_topics(ti):
-    tag_and_grist_topics: dict = ti.xcom_pull(
-        key="tag_and_grist_topics", task_ids="get_and_format_grist_data"
+    table_id_and_grist_topics: dict = ti.xcom_pull(
+        key="table_id_and_grist_topics", task_ids="get_and_format_grist_data"
     )
 
     simplifions_tags = [
@@ -140,9 +141,13 @@ def update_topics(ti):
         "simplifions-dag-generated",
     ]
 
-    for tag, grist_topics in tag_and_grist_topics.items():
-        logging.info(f"\n\nUpdating topics for tag: {tag}")
+    for table_id, grist_topics in table_id_and_grist_topics.items():
+        logging.info(f"\n\nUpdating topics for table_id: {table_id}")
 
+        table_info = GRIST_TABLES_AND_TAGS[table_id]
+        tag = table_info["tag"]
+        title_column = table_info["title_column"]
+        
         extras_nested_key = tag
         topic_tags = simplifions_tags + [tag]
 
@@ -175,7 +180,7 @@ def update_topics(ti):
                 url,
                 headers=dgv_headers,
                 json={
-                    "name": grist_topics[slug][TAGS_AND_TABLES[tag]["title_column"]],
+                    "name": grist_topics[slug][title_column],
                     # description cannot be empty
                     "description": grist_topics[slug]["Description_courte"] or "-",
                     "organization": {
@@ -204,10 +209,11 @@ def update_topics(ti):
 
 def update_topics_references(ti):
     all_topics = {}
-    for tag in TAGS_AND_TABLES.keys():
+    for table_info in GRIST_TABLES_AND_TAGS.values():
+        tag = table_info["tag"]
         all_topics[tag] = [
             topic for topic in get_all_from_api_query(
-                f"{demo_client.base_url}/api/2/topics/?tag={tag}&private=false"
+                f"{demo_client.base_url}/api/2/topics/?tag={tag}&tag=simplifions-dag-generated&private=false"
             )
         ]
         logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
