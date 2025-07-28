@@ -119,6 +119,12 @@ def update_extras_of_topic(topic, new_extras):
     r.raise_for_status()
     logging.info(f"Updated topic references at {url}")
 
+def get_all_topics_for_tag(tag):
+    return get_all_from_api_query(
+        f"{demo_client.base_url}/api/1/topics/?tag={tag}&include_private=true",
+        auth=False,
+    )
+
 # 👇 Methods used by the DAG 👇
 
 def get_and_format_grist_data(ti):
@@ -155,7 +161,7 @@ def update_topics(ti):
     ]
 
     for tag, grist_topics in tag_and_grist_topics.items():
-        logging.info(f"Updating {len(grist_topics)} topics for tag: {tag}")
+        logging.info(f"\n\n\nUpdating {len(grist_topics)} topics for tag: {tag}")
 
         title_column = TAG_AND_TITLES_COLUMNS[tag]
         extras_nested_key = tag
@@ -163,11 +169,7 @@ def update_topics(ti):
 
         current_topics = {
             topic["extras"][extras_nested_key]["slug"]: topic["id"]
-            for topic in get_all_from_api_query(
-                (
-                    f"{demo_client.base_url}/api/1/topics/?include_private=true&tag={tag}"
-                ),
-            )
+            for topic in get_all_topics_for_tag(tag)
             if extras_nested_key in topic["extras"]
         }
 
@@ -223,11 +225,7 @@ def update_topics_references(ti):
     all_tags = ["simplifions-solutions", "simplifions-cas-d-usages"]
 
     for tag in all_tags:
-        all_topics[tag] = [
-            topic for topic in get_all_from_api_query(
-                f"{demo_client.base_url}/api/1/topics/?tag={tag}&include_private=true"
-            )
-        ]
+        all_topics[tag] = list(get_all_topics_for_tag(tag))
         logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
     solutions_topics = all_topics["simplifions-solutions"]
