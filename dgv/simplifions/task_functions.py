@@ -24,7 +24,8 @@ TAGS_AND_TABLES = {
         "title_column": "Titre",
         "sub_tables": {
             "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
-            "API_et_donnees_utiles": "Apidata"
+            "API_et_donnees_utiles": "Apidata",
+            "descriptions_api_et_donnees_utiles": "SIMPLIFIONS_description_apidata_cas_usages",
         }
     },
     "simplifions-solutions": {
