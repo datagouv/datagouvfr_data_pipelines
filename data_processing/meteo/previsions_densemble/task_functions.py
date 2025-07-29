@@ -289,7 +289,7 @@ def remove_old_occurrences(pack: str, grid: str):
                 ignore_airflow_env=True,
                 recursive=True,
             )
-            logging.info(f"Will delete {len(files_to_delete)} from {path}")
+            logging.info(f"Will delete {len(files_to_delete)} files from {path}")
             for file in files_to_delete:
                 minio_meteo.delete_file(file)
 
