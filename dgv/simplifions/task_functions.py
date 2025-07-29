@@ -248,19 +248,34 @@ def update_topics_references(ti):
         # update the solution topic with the new extras
         update_extras_of_topic(solution_topic, solution_topic["extras"])
 
-    # Update cas_usages_topics with references to solutions_topics
+    # Update cas_usages_topics with references to solution_topic_id and solutions_editeurs_topics
     for cas_usage_topic in cas_usages_topics:
         for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"]["reco_solutions"]: 
-            matching_topic = next(
+            matching_solution_topic = next(
                 (
                     topic
                     for topic in visible_solutions_topics
-                    if "simplifions-solutions" in topic["extras"]
+                    if "simplifions-solutions" in topic["extras"] 
                     and topic["extras"]["simplifions-solutions"]["slug"] == reco["solution_slug"]
                 ),
                 None
             )
-            if matching_topic:
-                reco["solution_topic_id"] = matching_topic["id"]
+            if matching_solution_topic:
+                reco["solution_topic_id"] = matching_solution_topic["id"]
+            
+            matching_editeur_topics = [
+                topic for topic in visible_solutions_topics
+                if "simplifions-solutions" in topic["extras"]
+                and not topic["extras"]["simplifions-solutions"]["is_public"]
+                and topic["extras"]["simplifions-solutions"]["slug"] in reco["solution_editeurs_slugs"]
+            ]
+            reco["solutions_editeurs_topics"] = [
+                { 
+                    "topic_id": topic["id"],
+                    "solution_name": topic["name"],
+                    "editeur_name": topic["extras"]["simplifions-solutions"]["operateur_nom"],
+                } for topic in matching_editeur_topics
+            ]
+
         # update the cas_usage topic with the new extras
         update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"])
