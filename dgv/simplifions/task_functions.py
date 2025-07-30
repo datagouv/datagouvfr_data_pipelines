@@ -29,11 +29,15 @@ GRIST_TABLES_AND_TAGS = {
     },
     "SIMPLIFIONS_produitspublics": {
         "tag": "simplifions-solutions",
-        "sub_tables": {}
+        "sub_tables": {
+            "API_et_data_disponibles": "Apidata"
+        }
     },
     "SIMPLIFIONS_solutions_editeurs": {
         "tag": "simplifions-solutions",
-        "sub_tables": {}
+        "sub_tables": {
+            "API_et_data_disponibles": "Apidata"
+        }
 
     }
 }
