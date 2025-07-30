@@ -1,4 +1,5 @@
 {
+    "data_processing_an_petitions": true,
     "data_processing_controle_sanitaire_eau": true,
     "data_processing_deces_consolidation": true,
     "data_processing_dvf": true,
