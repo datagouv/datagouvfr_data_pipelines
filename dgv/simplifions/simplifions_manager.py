@@ -82,6 +82,18 @@ class SimplifionsManager:
                 cleaned_row[key] = value
         return cleaned_row
 
+    @staticmethod
+    def generated_search_tags(topic: dict) -> list[str]:
+        tags = []
+        for attribute in ATTRIBUTES_FOR_TAGS:
+            if topic.get(attribute):
+                if isinstance(topic[attribute], list):
+                    for value in topic[attribute]:
+                        tags.append(f'simplifions-{attribute}-{value}')
+                else:
+                    tags.append(f'simplifions-{attribute}-{topic[attribute]}')
+        return tags
+
     def get_subdata(self, key: str, value: list | str, table_info: dict) -> list | str:
         if not value:
             return value
@@ -101,18 +113,6 @@ class SimplifionsManager:
             for key in cleaned_row.keys()
         }
         return formatted_row
-
-    @staticmethod
-    def generated_search_tags(topic: dict) -> list[str]:
-        tags = []
-        for attribute in ATTRIBUTES_FOR_TAGS:
-            if topic.get(attribute):
-                if isinstance(topic[attribute], list):
-                    for value in topic[attribute]:
-                        tags.append(f'simplifions-{attribute}-{value}')
-                else:
-                    tags.append(f'simplifions-{attribute}-{topic[attribute]}')
-        return tags
 
     def update_extras_of_topic(self, topic: dict, new_extras: dict):
         url = f"{self.client.base_url}/api/1/topics/{topic['id']}/"
