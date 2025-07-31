@@ -87,8 +87,3 @@ dags_params = [
 dags = [
     create_simplifions_dag(**dag_params) for dag_params in dags_params
 ]
-
-
-
-
-
