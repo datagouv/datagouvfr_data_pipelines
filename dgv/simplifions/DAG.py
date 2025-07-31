@@ -3,14 +3,6 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 from datagouv import Client
 
-# We need to provide the api key in the headers of our requests
-# because the client doesn't have built-in api key management
-# for the topics endpoints for now
-from datagouvfr_data_pipelines.config import (
-    DATAGOUV_SECRET_API_KEY,
-    DEMO_DATAGOUV_SECRET_API_KEY,
-)
-
 # In local, demo_client and local_client are both plugged to demo.datagouv.fr
 # So we need to fill both DATAGOUV_SECRET_API_KEY and DEMO_DATAGOUV_SECRET_API_KEY
 # with a demo api key to avoid hitting the production api.
@@ -31,10 +23,9 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client, api_key: str):
+def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client):
     op_kwargs = {
         "client": client,
-        "api_key": api_key,
     }
 
     with DAG(
@@ -75,13 +66,11 @@ dags_params = [
         "dag_id": "dgv_simplifions_production",
         "schedule_interval": "0 1 * * *", # every day at 1am
         "client": local_client,
-        "api_key": DATAGOUV_SECRET_API_KEY,
     },
     {
         "dag_id": "dgv_simplifions_demo",
         "schedule_interval": "*/30 * * * *", # every 30 minutes
         "client": demo_client,
-        "api_key": DEMO_DATAGOUV_SECRET_API_KEY,
     },
 ]
 

@@ -48,14 +48,15 @@ ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'typ
 
 
 class SimplifionsManager:
-    def __init__(self, client: Client, api_key: str):
+    def __init__(self, client: Client):
         if not client:
             raise ValueError("client is required")
-        if not api_key:
-            raise ValueError("api_key is required")
 
         self.client = client
-        self.dgv_headers = {"X-API-KEY": api_key}
+        # We need to provide the api key in the headers of our requests
+        # because the client doesn't have built-in api key management
+        # for the topics endpoints for now
+        self.dgv_headers = client.session.headers
 
     @staticmethod
     def request_grist_table(table_id: str, filter: str = None) -> list[dict]:
