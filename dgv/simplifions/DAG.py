@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
+from datagouv import Client
 
 # We need to provide the api key in the headers of our requests
 # because the client doesn't have built-in api key management
@@ -30,7 +31,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-def create_simplifions_dag(dag_id=None, schedule_interval=None, client=None, api_key=None):
+def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client, api_key: str):
     op_kwargs = {
         "client": client,
         "api_key": api_key,
