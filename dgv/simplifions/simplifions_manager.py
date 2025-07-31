@@ -57,7 +57,8 @@ class SimplifionsManager:
         self.client = client
         self.dgv_headers = {"X-API-KEY": api_key}
 
-    def request_grist_table(self, table_id: str, filter: str = None) -> list[dict]:
+    @staticmethod
+    def request_grist_table(table_id: str, filter: str = None) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
             headers={
@@ -70,7 +71,8 @@ class SimplifionsManager:
         r.raise_for_status()
         return [row["fields"] for row in r.json()["records"]]
 
-    def clean_row(self, row: dict) -> dict:
+    @staticmethod
+    def clean_row(row: dict) -> dict:
         cleaned_row = {}
         for key, value in row.items():
             if isinstance(value, list) and value and value[0] == "L":
@@ -100,7 +102,8 @@ class SimplifionsManager:
         }
         return formatted_row
 
-    def generated_search_tags(self, topic: dict) -> list[str]:
+    @staticmethod
+    def generated_search_tags(topic: dict) -> list[str]:
         tags = []
         for attribute in ATTRIBUTES_FOR_TAGS:
             if topic.get(attribute):
