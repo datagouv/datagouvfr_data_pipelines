@@ -29,7 +29,7 @@
     "dgv_moderation_utilisateurs": true,
     "dgv_notification_activite": true,
     "dgv_dashboard": true,
-    "dgv_simplifions": true,
+    "dgv_simplifions*": true,
     "dgv_stats": true,
     "dgv_tops": true,
     "schema_consolidation": true,
