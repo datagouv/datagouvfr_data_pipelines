@@ -1,6 +1,7 @@
 import json
 import logging
 
+from datagouv import Client
 import requests
 
 from datagouvfr_data_pipelines.config import (
@@ -47,7 +48,7 @@ ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'typ
 
 
 class SimplifionsManager:
-    def __init__(self, client=None, api_key=None):
+    def __init__(self, client: Client, api_key: str):
         if not client:
             raise ValueError("client is required")
         if not api_key:
@@ -56,7 +57,7 @@ class SimplifionsManager:
         self.client = client
         self.dgv_headers = {"X-API-KEY": api_key}
 
-    def request_grist_table(self, table_id: str, filter: str = None):
+    def request_grist_table(self, table_id: str, filter: str = None) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
             headers={
@@ -69,7 +70,7 @@ class SimplifionsManager:
         r.raise_for_status()
         return [row["fields"] for row in r.json()["records"]]
 
-    def clean_row(self, row):
+    def clean_row(self, row: dict) -> dict:
         cleaned_row = {}
         for key, value in row.items():
             if isinstance(value, list) and value and value[0] == "L":
@@ -79,7 +80,7 @@ class SimplifionsManager:
                 cleaned_row[key] = value
         return cleaned_row
 
-    def get_subdata(self, key, value, table_info):
+    def get_subdata(self, key: str, value: list | str, table_info: dict) -> list | str:
         if not value:
             return value
         elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
@@ -91,7 +92,7 @@ class SimplifionsManager:
         else:
             return value
 
-    def cleaned_row_with_subdata(self, row, table_info):
+    def cleaned_row_with_subdata(self, row: dict, table_info: dict) -> dict:
         cleaned_row = self.clean_row(row)
         formatted_row = {
             key: self.get_subdata(key, cleaned_row[key], table_info)
@@ -99,7 +100,7 @@ class SimplifionsManager:
         }
         return formatted_row
 
-    def generated_search_tags(self, topic):
+    def generated_search_tags(self, topic: dict) -> list[str]:
         tags = []
         for attribute in ATTRIBUTES_FOR_TAGS:
             if topic.get(attribute):
@@ -110,7 +111,7 @@ class SimplifionsManager:
                     tags.append(f'simplifions-{attribute}-{topic[attribute]}')
         return tags
 
-    def update_extras_of_topic(self, topic, new_extras):
+    def update_extras_of_topic(self, topic: dict, new_extras: dict):
         url = f"{self.client.base_url}/api/1/topics/{topic['id']}/"
         r = requests.put(
             url,
@@ -125,7 +126,7 @@ class SimplifionsManager:
         r.raise_for_status()
         logging.info(f"Updated topic references at {url}")
 
-    def get_all_topics_for_tag(self, tag):
+    def get_all_topics_for_tag(self, tag: str) -> list[dict]:
         return get_all_from_api_query(
             f"{self.client.base_url}/api/1/topics/?tag={tag}&include_private=true",
             auth=True,
