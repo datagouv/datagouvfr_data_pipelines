@@ -282,4 +282,4 @@ class SimplifionsManager:
                 ]
 
             # update the cas_usage topic with the new extras
-            self.update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"]) 
+            self.update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"])
