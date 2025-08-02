@@ -7,5 +7,5 @@ if [ -z "$env" ] || [ "$env" = "prod" ]; then
 else
     cd /srv/sirene/data-sirene/$env/data
 fi
-ls -1 geo_siret_*.csv.gz | parallel sh $script_path/communes_split.sh {} "$env"
+ls -1 geo_siret_*.csv.gz | parallel sh $script_path/communes_split.sh {} $env
 echo "Split OK!"
