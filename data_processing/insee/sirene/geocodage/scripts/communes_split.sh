@@ -1,7 +1,7 @@
 #! /bin/bash
 
 env=$2
-if [ -z "$env" ] || [ "$env" == "prod" ]; then
+if [ -z "$env" ] || [ "$env" = "prod" ]; then
     data_path="/srv/sirene/data-sirene"
 else
     data_path="/srv/sirene/data-sirene/$env"

@@ -1,6 +1,6 @@
 #! /bin/bash
 env=$1
-if [ -z "$env" ] || [ "$env" == "prod" ]; then
+if [ -z "$env" ] || [ "$env" = "prod" ]; then
     cd /srv/sirene/data-sirene
 else
     cd /srv/sirene/data-sirene/$env
