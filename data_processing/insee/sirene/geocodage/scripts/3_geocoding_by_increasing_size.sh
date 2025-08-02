@@ -2,7 +2,7 @@
 env=$1
 script_path=$2
 set -e
-if [ -z "$env" ] || [ "$env" == "prod" ]; then
+if [ -z "$env" ] || [ "$env" = "prod" ]; then
     data_path="/srv/sirene/data-sirene"
 else
     data_path="/srv/sirene/data-sirene/$env"
