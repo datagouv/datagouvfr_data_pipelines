@@ -247,6 +247,7 @@ def update_records(
     # col1==val1 & col2==val2 & ...
     # new_values should look like {"col": "new_value", ...}, we update the values of the specified columns
     # see https://support.getgrist.com/api/#tag/records/operation/replaceRecords for query parameters
+    # keys must be ids, not labels
     url_params = "&".join(f"{k}={v}" for k, v in query_params.items())
     r = RequestRetry.put(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records?{url_params}",
