@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_catalog_stats,
     get_hvd_dataservices_stats,
     get_visits,
-    get_zammad_tickets,
+    # get_zammad_tickets,
 )
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
@@ -47,11 +47,11 @@ with DAG(
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
     )
 
-    get_zammad_tickets = PythonOperator(
-        task_id="get_zammad_tickets",
-        python_callable=get_zammad_tickets,
-        op_kwargs={"start_date": one_year_ago},
-    )
+    # get_zammad_tickets = PythonOperator(
+    #     task_id="get_zammad_tickets",
+    #     python_callable=get_zammad_tickets,
+    #     op_kwargs={"start_date": one_year_ago},
+    # )
 
     get_visits = PythonOperator(
         task_id="get_visits",
@@ -92,14 +92,14 @@ with DAG(
         },
     )
 
-    get_zammad_tickets.set_upstream(clean_previous_outputs)
+    # get_zammad_tickets.set_upstream(clean_previous_outputs)
     get_visits.set_upstream(clean_previous_outputs)
     get_and_upload_certification.set_upstream(clean_previous_outputs)
     get_and_upload_reuses_down.set_upstream(clean_previous_outputs)
     get_catalog_stats.set_upstream(clean_previous_outputs)
     get_hvd_dataservices_stats.set_upstream(clean_previous_outputs)
 
-    gather_and_upload.set_upstream(get_zammad_tickets)
+    # gather_and_upload.set_upstream(get_zammad_tickets)
     gather_and_upload.set_upstream(get_visits)
 
     publish_mattermost.set_upstream(gather_and_upload)
