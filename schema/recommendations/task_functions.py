@@ -15,9 +15,9 @@ CONFIG_CONSOLIDATION = 'https://raw.githubusercontent.com/datagouv/schema.data.g
 JSONSCHEMA_URL = "https://raw.githubusercontent.com/opendatateam/udata-recommendations/master/udata_recommendations/schema.json"
 
 
-def consolidated_schemas():
+def consolidated_schemas() -> dict[str, str]:
     """Find TableSchema schemas that are consolidated"""
-    config = yaml.safe_load(requests.get(CONFIG_CONSOLIDATION).content)
+    config: dict = yaml.safe_load(requests.get(CONFIG_CONSOLIDATION).content)
     return {
         name: params['consolidated_dataset_id']
         for name, params in config.items()
@@ -25,7 +25,7 @@ def consolidated_schemas():
     }
 
 
-def datasets_for_schema(schema):
+def datasets_for_schema(schema: str) -> list[str]:
     """Fetch datasets on datagouv with the schema attribute set to a specific value"""
     r = local_client.get_all_from_api_query(
         base_query=f"api/1/datasets/?schema={schema}",
@@ -34,16 +34,18 @@ def datasets_for_schema(schema):
     return [d['slug'] for d in r]
 
 
-def build_recommendation(consolidated_slug, dataset_id):
+def build_recommendation(consolidated_slug: str, dataset_slug: str, schema_name: str) -> dict:
     return {
-        "id": dataset_id,
+        "id": dataset_slug,
         "recommendations": [
             {"id": consolidated_slug, "score": RECOMMENDATION_SCORE}
         ],
+        "type": "dataset",
+        "reason": schema_name,
     }
 
 
-def validate_recommendations(recommendations):
+def validate_recommendations(recommendations: list) -> None:
     """" Validate recommendations according to the JSON schema"""
     r = requests.get(JSONSCHEMA_URL, timeout=10)
     r.raise_for_status()
@@ -51,7 +53,7 @@ def validate_recommendations(recommendations):
     jsonschema.validate(recommendations, schema=schema)
 
 
-def create_and_export_recommendations():
+def create_and_export_recommendations() -> None:
     recommendations = []
     for schema_id, consolidated_dataset_id in consolidated_schemas().items():
         consolidated_slug = requests.get(
@@ -63,7 +65,12 @@ def create_and_export_recommendations():
         dataset_ids = datasets_for_schema(schema_id)
         print(f"Found {len(dataset_ids)} associated with schema {schema_id}")
         recommendations += [
-            build_recommendation(consolidated_slug, d) for d in dataset_ids
+            build_recommendation(
+                consolidated_slug=consolidated_slug,
+                dataset_slug=d,
+                schema_name=schema_id,
+            )
+            for d in dataset_ids
         ]
     validate_recommendations(recommendations)
     with open(TMP_FOLDER + '/recommendations.json', 'w') as fp:
