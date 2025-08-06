@@ -1,0 +1,29 @@
+---
+version: 2.1
+
+parameters:
+  python-version:
+    type: string
+    default: "3.10"
+
+jobs:
+  lint:
+    docker:
+      - image: cimg/python:<< pipeline.parameters.python-version >>
+    steps:
+      - run:
+          name: Lint and format code and sort imports
+          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
+          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install ruff>=0.11.2
+            ruff --version
+            ruff check .
+            ruff format --check .
+
+workflows:
+  check-linting:
+    jobs:
+      - lint
