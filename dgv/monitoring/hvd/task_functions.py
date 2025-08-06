@@ -23,6 +23,7 @@ from datagouvfr_data_pipelines.utils.grist import (
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 DOC_ID = "eJxok2H2va3E"
+TABLE_ID = "Hvd_metadata_res"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
@@ -35,7 +36,7 @@ def get_hvd(ti):
     print("Getting suivi ouverture")
     df_ouverture = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         columns_labels=False,
     )
 
@@ -170,7 +171,7 @@ def publish_mattermost(ti):
 
     df_ouverture = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         columns_labels=False,
     )
     for col in [
@@ -200,10 +201,16 @@ def publish_mattermost(ti):
     message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
     message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
 
-    missing_hvd = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
-    if len(missing_hvd):
-        message += f"\n\n{len(missing_hvd)} jeux de données n'ont pas d'ensemble de données renseigné :"
-    for _, row in missing_hvd.iterrows():
+    missing_hvd_name = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
+    if len(missing_hvd_name):
+        message += f"\n\n{len(missing_hvd_name)} jeux de données n'ont pas d'ensemble de données renseigné :"
+    for _, row in missing_hvd_name.iterrows():
+        message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
+
+    missing_hvd_tag = df_ouverture.loc[df_ouverture["missing_hvd_tag"].isna()]
+    if len(missing_hvd_tag):
+        message += f"\n\n{len(missing_hvd_tag)} jeux de données n'ont plus le tag HVD :"
+    for _, row in missing_hvd_tag:
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
@@ -217,7 +224,7 @@ HVD_CATEGORIES = [
     "observation-de-la-terre-et-environnement",
     "statistiques",
 ]
-API_TABULAIRE_ID = '673b0e6774a23d9eac2af8ce'
+API_TABULAIRE_ID = "673b0e6774a23d9eac2af8ce"
 
 
 def get_hvd_category_from_tags(tags):
@@ -341,7 +348,7 @@ def build_df_for_grist():
 def update_grist(ti):
     old_hvd_metadata = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         columns_labels=False,
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
@@ -390,7 +397,7 @@ def update_grist(ti):
             updates += 1
             update_records(
                 doc_id=DOC_ID,
-                table_id="Hvd_metadata_res",
+                table_id=TABLE_ID,
                 conditions={"id2": dataset_id},
                 new_values=new_values,
             )
@@ -408,7 +415,7 @@ def update_grist(ti):
     df_to_grist(
         df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         append="lazy",
     )
     ti.xcom_push(key="new_rows", value=[(r["title"], r["url"], r["organization"]) for r in new_rows])
@@ -428,6 +435,12 @@ def update_grist(ti):
         message += (
             f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
             f" de l'organisation {orga}"
+        )
+        update_records(
+            doc_id=DOC_ID,
+            table_id=TABLE_ID,
+            conditions={"id2": _id},
+            new_values={"missing_hvd_tag": True}
         )
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
     return len(new_rows)
