@@ -153,7 +153,7 @@ def gather_petitions():
         dtype={"identifiant": float},
     )["identifiant"].dropna().apply(int)
     max_id = max(ids)
-    unused_ids = {k for k in range(1, max_id + 1) if k not in ids}
+    unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
     # we go through all ids except the ones we know are unused
     # we don't know which id is the last one, so we stop:
     # - after we have more than 10 (arbitrary) unused ids in a row
