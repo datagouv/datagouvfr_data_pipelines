@@ -13,18 +13,15 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install ruff
+          name: Install ruff and check linting
+          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
+          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
           command: |
             python -m venv venv
             . venv/bin/activate
             pip install ruff>=0.11.2
             ruff --version
-            pwd
-      - run:
-          name: Check linting and code format
-          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
-          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
-          command: |
+            ls
             ruff check .
             ruff format --check .
 
