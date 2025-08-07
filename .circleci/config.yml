@@ -11,15 +11,20 @@ jobs:
     docker:
       - image: cimg/python:<< pipeline.parameters.python-version >>
     steps:
+      - checkout
       - run:
-          name: Lint and format code and sort imports
-          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
-          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
+          name: Install ruff
           command: |
             python -m venv venv
             . venv/bin/activate
             pip install ruff>=0.11.2
             ruff --version
+            pwd
+      - run:
+          name: Check linting and code format
+          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
+          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
+          command: |
             ruff check .
             ruff format --check .
 
