@@ -21,7 +21,6 @@ jobs:
             . venv/bin/activate
             pip install ruff>=0.11.2
             ruff --version
-            ls
             ruff check .
             ruff format --check .
 
