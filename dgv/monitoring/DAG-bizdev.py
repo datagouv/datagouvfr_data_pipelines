@@ -26,7 +26,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
     SPAM_WORDS,
 )
-from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, df_to_grist
+from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, GristTable
 from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
@@ -245,7 +245,7 @@ def process_unavailable_reuses():
         float_format="%.0f",
         index=False,
     )
-    df_to_grist(df, grist_curation, "Reutilisations_down")
+    GristTable(grist_curation, "Reutilisations_down").from_dataframe(df)
 
 
 def process_empty_datasets():
@@ -295,7 +295,7 @@ def process_empty_datasets():
     empty_datasets.to_csv(
         DATADIR + "empty_datasets.csv", float_format="%.0f", index=False
     )
-    df_to_grist(empty_datasets, grist_curation, "Datasets_vides")
+    GristTable(grist_curation, "Datasets_vides").from_dataframe(empty_datasets)
 
 
 def process_potential_spam():
@@ -358,7 +358,7 @@ def process_potential_spam():
     spam.extend([u for u in suspect_users if u])
     df = pd.DataFrame(spam).drop_duplicates(subset="url")
     df.to_csv(DATADIR + "objects_with_spam_word.csv", index=False)
-    df_to_grist(df, grist_curation, "Spam")
+    GristTable(grist_curation, "Spam").from_dataframe(df)
 
 
 curation_functions = [
@@ -396,7 +396,9 @@ def get_top_orgas_publish():
     count[:50].to_csv(
         DATADIR + "top50_orgas_most_publications_30_days.csv", index=False
     )
-    df_to_grist(count, grist_edito, "Top50_organisations_publications_1mois")
+    GristTable(grist_edito, "Top50_organisations_publications_1mois").from_dataframe(
+        count
+    )
 
 
 def get_top_orgas_visits():
@@ -443,7 +445,7 @@ def get_top_orgas_visits():
         )
     df = pd.DataFrame(orga_visited.values(), index=orga_visited.keys())
     df.to_csv(DATADIR + "top50_orgas_most_visits_last_month.csv", index=False)
-    df_to_grist(df, grist_edito, "Top50_organisations_visites_1mois")
+    GristTable(grist_edito, "Top50_organisations_visites_1mois").from_dataframe(df)
 
 
 def get_top_datasets_visits():
@@ -481,7 +483,7 @@ def get_top_datasets_visits():
         )
     df = pd.DataFrame(datasets_visited.values(), index=datasets_visited.keys())
     df.to_csv(DATADIR + "top50_datasets_most_visits_last_month.csv", index=False)
-    df_to_grist(df, grist_edito, "Top50_datasets_visites_1mois")
+    GristTable(grist_edito, "Top50_datasets_visites_1mois").from_dataframe(df)
 
 
 def get_top_resources_downloads():
@@ -559,7 +561,7 @@ def get_top_resources_downloads():
         float_format="%.0f",
         index=False,
     )
-    df_to_grist(df, grist_edito, "Top50_ressources_telechargees_1mois")
+    GristTable(grist_edito, "Top50_ressources_telechargees_1mois").from_dataframe(df)
 
 
 def get_top_reuses_visits():
@@ -597,7 +599,7 @@ def get_top_reuses_visits():
         )
     df = pd.DataFrame(reuses_visited.values(), index=reuses_visited.keys())
     df.to_csv(DATADIR + "top50_reuses_most_visits_last_month.csv", index=False)
-    df_to_grist(df, grist_edito, "Top50_reutilisations_visites_1mois")
+    GristTable(grist_edito, "Top50_reutilisations_visites_1mois").from_dataframe(df)
 
 
 def get_top_datasets_discussions():
@@ -640,7 +642,7 @@ def get_top_datasets_discussions():
         discussions_of_interest.values(), index=discussions_of_interest.keys()
     )
     df.to_csv(DATADIR + "top50_orgas_most_discussions_30_days.csv", index=False)
-    df_to_grist(df, grist_edito, "Top50_orgas_discutees_30jours")
+    GristTable(grist_edito, "Top50_orgas_discutees_30jours").from_dataframe(df)
 
 
 edito_functions = [
