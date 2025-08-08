@@ -1,9 +1,10 @@
 from datetime import datetime
-from math import isnan
+from io import StringIO
+import logging
+
 import pandas as pd
 import requests
 from unidecode import unidecode
-from io import StringIO
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -23,6 +24,7 @@ from datagouvfr_data_pipelines.utils.grist import (
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 DOC_ID = "eJxok2H2va3E"
+TABLE_ID = "Hvd_metadata_res"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
@@ -31,42 +33,63 @@ def slugify(s):
     return unidecode(s.lower().replace(" ", "-").replace("'", "-"))
 
 
+def has_unavailable_resources(dataset_id: str, df_resources: pd.DataFrame) -> bool:
+    dataset_resources = df_resources.loc[df_resources["dataset.id"] == dataset_id]
+    for _, row in dataset_resources.iterrows():
+        r = requests.head(row["url"])
+        if not r.ok:
+            return True
+    return False
+
+
 def get_hvd(ti):
-    print("Getting suivi ouverture")
+    logging.info("Getting suivi ouverture")
     df_ouverture = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         columns_labels=False,
     )
 
-    print("Getting datasets catalog")
+    logging.info("Getting datasets catalog")
     df_datasets = pd.read_csv(
-        'https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3',
-        delimiter=';',
-        usecols=["url", "tags", "organization_id", "license"],
+        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        sep=";",
+        usecols=["url", "tags", "organization_id", "license", "id"],
     )
 
-    print("Merging")
+    logging.info("Merging")
     df_merge = pd.merge(
         df_ouverture,
         df_datasets,
-        on='url',
-        how='left',
+        on="url",
+        how="left",
     )
+
+    logging.info("Getting HVD datasets with unavailable resources")
+    df_resources = pd.read_csv(
+        "https://www.data.gouv.fr/api/1/datasets/r/4babf5f2-6a9c-45b5-9144-ca5eae6a7a6d",
+        sep=";",
+        usecols=["dataset.id", "url"],
+    )
+    df_merge["has_unavailable_resources"] = df_merge["id"].apply(
+        lambda dataset_id: has_unavailable_resources(dataset_id, df_resources)
+    )
+
     valid_statuses = ["Disponible sur data.gouv.fr", "Partiellement disponible", "Non requis"]
     df_merge = df_merge.loc[
         (
-            df_merge['status_telechargement_automatique'].isin(valid_statuses)
-            | df_merge['status_api_automatique'].isin(valid_statuses)
+            df_merge["status_telechargement_automatique"].isin(valid_statuses)
+            | df_merge["status_api_automatique"].isin(valid_statuses)
         ),
         [
-            'title', 'url', 'hvd_name', 'hvd_category',
-            'organization', 'organization_id', 'license',
-            'endpoint_url_datagouv', 'contact_point_datagouv', 'endpoint_description_datagouv',
+            "title", "url", "hvd_name", "hvd_category",
+            "organization", "organization_id", "license",
+            "endpoint_url_datagouv", "contact_point_datagouv",
+            "endpoint_description_datagouv", "has_unavailable_resources",
         ]
     ]
-    print(df_merge)
-    filename = f'hvd_{datetime.now().strftime("%Y-%m-%d")}.csv'
+    logging.info(df_merge)
+    filename = f"hvd_{datetime.now().strftime('%Y-%m-%d')}.csv"
     df_merge.to_csv(f"{DATADIR}/{filename}", index=False)
     ti.xcom_push(key="filename", value=filename)
 
@@ -87,12 +110,12 @@ def send_to_minio(ti):
 
 
 def markdown_item(row):
-    category = row['hvd_category']
+    category = row["hvd_category"]
     cat_item = (
         f"tagué : _{category}_" if isinstance(category, str)
         else ":warning: tag manquant sur data.gouv"
     )
-    hvd = row['hvd_name']
+    hvd = row["hvd_name"]
     hvd_item = (
         f"HVD : _{hvd}_" if isinstance(hvd, str)
         else ":warning: HVD non renseigné sur ouverture"
@@ -108,8 +131,8 @@ def markdown_item(row):
 
 def publish_mattermost(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    minio_files = sorted(minio_open.get_files_from_prefix('hvd/', ignore_airflow_env=True))
-    print(minio_files)
+    minio_files = sorted(minio_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))
+    logging.info(minio_files)
     if len(minio_files) == 1:
         return
     all_hvd_names = set(get_table_as_df(
@@ -128,16 +151,16 @@ def publish_mattermost(ti):
     )
 
     new = this_week.loc[
-        (~this_week['title'].isin(previous_week['title']))
-        & (~this_week['title'].isna())
+        (~this_week["title"].isin(previous_week["title"]))
+        & (~this_week["title"].isna())
     ]
     removed = previous_week.loc[
-        (~previous_week['title'].isin(this_week['title']))
-        & (~previous_week['title'].isna())
+        (~previous_week["title"].isin(this_week["title"]))
+        & (~previous_week["title"].isna())
     ]
 
     message = "#### :flag-eu: :pokeball: Suivi HVD\n"
-    hvds = get_unique_values_from_multiple_choice_column(this_week['hvd_name'])
+    hvds = get_unique_values_from_multiple_choice_column(this_week["hvd_name"])
 
     if len(hvds) == goal:
         message += f"# :tada: :tada: {len(hvds)}/{goal} HVD référencés :tada: :tada: "
@@ -156,7 +179,7 @@ def publish_mattermost(ti):
             message += markdown_item(row)
     if len(removed):
         if len(new):
-            message += '\n\n'
+            message += "\n\n"
         message += (
             f":heavy_minus_sign: {len(removed)} JDD (pour {len(get_unique_values_from_multiple_choice_column(['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n"
@@ -170,7 +193,7 @@ def publish_mattermost(ti):
 
     df_ouverture = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         columns_labels=False,
     )
     for col in [
@@ -200,10 +223,22 @@ def publish_mattermost(ti):
     message += f"\n- {pct_contact_point}% des APIs ont un point de contact"
     message += f"\n- {pct_endpoint_doc}% des APIs ont un endpoint de documentation"
 
-    missing_hvd = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
-    if len(missing_hvd):
-        message += f"\n\n{len(missing_hvd)} jeux de données n'ont pas d'ensemble de données renseigné :"
-    for _, row in missing_hvd.iterrows():
+    missing_hvd_name = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
+    if len(missing_hvd_name):
+        message += f"\n\n{len(missing_hvd_name)} jeux de données n'ont pas d'ensemble de données renseigné :"
+    for _, row in missing_hvd_name.iterrows():
+        message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
+
+    missing_hvd_tag = df_ouverture.loc[~df_ouverture["missing_hvd_tag"].isna()]
+    if len(missing_hvd_tag):
+        message += f"\n\n{len(missing_hvd_tag)} jeux de données n'ont plus le tag HVD :"
+    for _, row in missing_hvd_tag.iterrows():
+        message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
+
+    have_unavailable_resources = this_week.loc[this_week["has_unavailable_resources"]]
+    if len(have_unavailable_resources):
+        message += f"\n\n{len(have_unavailable_resources)} HVD ont des ressources inaccessibles :"
+    for _, row in have_unavailable_resources.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
@@ -217,7 +252,7 @@ HVD_CATEGORIES = [
     "observation-de-la-terre-et-environnement",
     "statistiques",
 ]
-API_TABULAIRE_ID = '673b0e6774a23d9eac2af8ce'
+API_TABULAIRE_ID = "673b0e6774a23d9eac2af8ce"
 
 
 def get_hvd_category_from_tags(tags):
@@ -305,33 +340,34 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
 
 
 def build_df_for_grist():
-    print("Getting datasets")
+    print(non)
+    logging.info("Getting datasets")
     df_datasets = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
-        delimiter=";",
+        sep=";",
         usecols=["id", "url", "title", "organization", "resources_count", "tags", "license", "archived"],
     )
-    print("Getting resources")
+    logging.info("Getting resources")
     df_resources = pd.read_csv(
         "https://www.data.gouv.fr/fr/resources.csv?tag=hvd",
-        delimiter=";",
+        sep=";",
         usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"],
     )
-    print("Getting dataservices")
+    logging.info("Getting dataservices")
     df_dataservices = pd.read_csv(
         "https://www.data.gouv.fr/fr/dataservices.csv",
-        delimiter=";",
+        sep=";",
         usecols=["id", "datasets", "machine_documentation_url", "base_api_url", "url", "title"],
     ).dropna(subset="datasets")
-    df_datasets['hvd_category'] = df_datasets["tags"].apply(get_hvd_category_from_tags)
+    df_datasets["hvd_category"] = df_datasets["tags"].apply(get_hvd_category_from_tags)
     df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)
-    print("Processing...")
+    logging.info("Processing...")
     (
-        df_datasets['api_title_datagouv'],
-        df_datasets['endpoint_url_datagouv'],
-        df_datasets['endpoint_description_datagouv'],
-        df_datasets['api_web_datagouv'],
-        df_datasets['contact_point_datagouv']
+        df_datasets["api_title_datagouv"],
+        df_datasets["endpoint_url_datagouv"],
+        df_datasets["endpoint_description_datagouv"],
+        df_datasets["api_web_datagouv"],
+        df_datasets["contact_point_datagouv"]
     ) = zip(*df_datasets["id"].apply(
         lambda _id: dataservice_information(_id, df_dataservices=df_dataservices, df_resources=df_resources)
     ))
@@ -341,7 +377,7 @@ def build_df_for_grist():
 def update_grist(ti):
     old_hvd_metadata = get_table_as_df(
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         columns_labels=False,
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
@@ -382,19 +418,19 @@ def update_grist(ti):
             if (
                 (isinstance(row_new[col], str) and row_new[col])
                 or (isinstance(row_new[col], list) and row_new[col])
-                or (isinstance(row_new[col], float) and not isnan(row_new[col]))
+                or (isinstance(row_new[col], float) and not pd.isna(row_new[col]))
             ) and row_old[col] != row_new[col]:
-                print(f"dataset {dataset_id} changing column '{col}':", row_old[col], "for", row_new[col])
+                logging.info(f"dataset {dataset_id} changing column '{col}': {row_old[col]} for {row_new[col]}")
                 new_values[col] = row_new[col]
         if new_values:
             updates += 1
             update_records(
                 doc_id=DOC_ID,
-                table_id="Hvd_metadata_res",
+                table_id=TABLE_ID,
                 conditions={"id2": dataset_id},
                 new_values=new_values,
             )
-    print(f"Updated {updates} rows")
+    logging.info(f"Updated {updates} rows")
     # adding new rows
     new_rows = []
     for dataset_id in (set(fresh_hvd_metadata["id2"]) - set(old_hvd_metadata["id2"])):
@@ -404,11 +440,11 @@ def update_grist(ti):
         ].iloc[0])
     if not new_rows:
         return
-    print(f"Adding {len(new_rows)} rows")
+    logging.info(f"Adding {len(new_rows)} rows")
     df_to_grist(
         df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
         doc_id=DOC_ID,
-        table_id="Hvd_metadata_res",
+        table_id=TABLE_ID,
         append="lazy",
     )
     ti.xcom_push(key="new_rows", value=[(r["title"], r["url"], r["organization"]) for r in new_rows])
@@ -422,12 +458,18 @@ def update_grist(ti):
         )
         r.raise_for_status()
         r = r.json()
-        to_send.append((hvd_id, r['title'], r['organization']['name']))
+        to_send.append((hvd_id, r["title"], r["organization"]["name"]))
     message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
     for _id, title, orga in to_send:
         message += (
             f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
             f" de l'organisation {orga}"
+        )
+        update_records(
+            doc_id=DOC_ID,
+            table_id=TABLE_ID,
+            conditions={"id2": _id},
+            new_values={"missing_hvd_tag": True}
         )
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
     return len(new_rows)

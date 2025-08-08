@@ -16,14 +16,14 @@ headers = {
 }
 
 
-def handle_grist_error(response: requests.Response):
+def handle_grist_error(response: requests.Response) -> None:
     try:
         response.raise_for_status()
     except Exception:
         raise Exception(f"Grist error: '{response.json()['error']}'")
 
 
-def erase_table_content(doc_id: str, table_id: str, ids: list | None = None):
+def erase_table_content(doc_id: str, table_id: str, ids: list | None = None) -> None:
     """Empty some (if specified) or all rows of a table. Doesn't touch the columns"""
     if ids is None:
         records = RequestRetry.get(
@@ -38,7 +38,7 @@ def erase_table_content(doc_id: str, table_id: str, ids: list | None = None):
     handle_grist_error(r)
 
 
-def rename_table_columns(doc_id: str, table_id: str, new_columns: list | dict):
+def rename_table_columns(doc_id: str, table_id: str, new_columns: list | dict) -> dict[str, str]:
     """
     Delete and recreate columns in the table
     Intended to be used when the table is empty to prevent unwanted behaviour
@@ -90,7 +90,7 @@ def chunkify(df: pd.DataFrame, chunk_size: int = 100):
         yield df[start:]
 
 
-def recordify(df: pd.DataFrame, returned_columns: dict | None):
+def recordify(df: pd.DataFrame, returned_columns: dict | None) -> dict[str, list[dict]]:
     """Renames columns (if ids have been changed by grist) and wraps the content as expected"""
     if returned_columns:
         df = df.rename(returned_columns, axis=1)
@@ -98,7 +98,7 @@ def recordify(df: pd.DataFrame, returned_columns: dict | None):
     return {"records": [{"fields": r} for r in records]}
 
 
-def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
+def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool) -> dict[str, str]:
     # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
     # to potentially replace them so that the upload doesn't crash
     r = RequestRetry.get(
@@ -116,7 +116,7 @@ def get_columns_mapping(doc_id: str, table_id: str, id_to_label: bool):
         }
 
 
-def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: bool | str):
+def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, append: bool | str) -> dict:
     """
     Handles cases where the df has more/less columns than the table:
         - more: add missing columns (empty) for the records to be uploaded
@@ -150,7 +150,7 @@ def handle_and_return_columns(doc_id: str, table_id: str, df: pd.DataFrame, appe
     return returned_columns
 
 
-def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: bool | str = False):
+def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: bool | str = False) -> list:
     """
     Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
     If the table(_id) already exists:
@@ -160,7 +160,7 @@ def df_to_grist(df: pd.DataFrame, doc_id: str, table_id: str, append: bool | str
         - else: replace it entirely
     Otherwise create it
     """
-    assert append in [False, "lazy", "exact"]
+    assert append in {False, "lazy", "exact"}
     tables = RequestRetry.get(
         GRIST_API_URL + f"docs/{doc_id}/tables/",
         headers=headers,
@@ -217,7 +217,7 @@ def get_table_as_df(
     table_id: str,
     columns_labels: bool = True,
     usecols: list[str] | None = None,
-):
+) -> pd.DataFrame:
     """
     Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
     Fill in usecols with the list of the columns you want to keep (using their ids).
@@ -242,11 +242,12 @@ def update_records(
     conditions: dict,
     new_values: dict,
     query_params: dict = {"onmany": "all", "noadd": False},
-):
+) -> None:
     # conditions should look like {"col1": "val1", "col2": "val2", ...}, values will be updated where
     # col1==val1 & col2==val2 & ...
     # new_values should look like {"col": "new_value", ...}, we update the values of the specified columns
     # see https://support.getgrist.com/api/#tag/records/operation/replaceRecords for query parameters
+    # keys must be ids, not labels
     url_params = "&".join(f"{k}={v}" for k, v in query_params.items())
     r = RequestRetry.put(
         GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}/records?{url_params}",

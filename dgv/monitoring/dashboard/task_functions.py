@@ -12,8 +12,6 @@ from airflow.models import TaskInstance
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    SECRET_ZAMMAD_API_TOKEN,
-    SECRET_ZAMMAD_API_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     # DATAGOUV_MATOMO_ID,
@@ -37,54 +35,54 @@ minio_open = MinIOClient(bucket="dataeng-open")
 minio_destination_folder = "dashboard/"
 
 
-def try_to_get_ticket_count(
-    year_month: str,
-    tags: list[str] = [],
-    per_page: int = 200,
-) -> int:
-    session = requests.Session()
-    session.headers = {"Authorization": "Bearer " + SECRET_ZAMMAD_API_TOKEN}
+# def try_to_get_ticket_count(
+#     year_month: str,
+#     tags: list[str] = [],
+#     per_page: int = 200,
+# ) -> int:
+#     session = requests.Session()
+#     session.headers = {"Authorization": "Bearer " + SECRET_ZAMMAD_API_TOKEN}
 
-    query = f"created_at:[{year_month}-01 TO {year_month}-31]"
-    query += f" AND (group.name:{' OR group.name:'.join(groups)})"
-    if tags:
-        query += f" AND (tags:{' OR tags:'.join(tags)})"
-    page = 1
-    params: dict[str, str | int] = {
-        "query": query,
-        "page": page,
-        "per_page": per_page,
-    }
-    res = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
-    batch = res
-    while batch == per_page:
-        page += 1
-        params["page"] = page
-        batch = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
-        res += batch
-    logging.info(f"{res} tickets found for month {year_month} across {page} pages")
-    return res
+#     query = f"created_at:[{year_month}-01 TO {year_month}-31]"
+#     query += f" AND (group.name:{' OR group.name:'.join(groups)})"
+#     if tags:
+#         query += f" AND (tags:{' OR tags:'.join(tags)})"
+#     page = 1
+#     params: dict[str, str | int] = {
+#         "query": query,
+#         "page": page,
+#         "per_page": per_page,
+#     }
+#     res = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
+#     batch = res
+#     while batch == per_page:
+#         page += 1
+#         params["page"] = page
+#         batch = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
+#         res += batch
+#     logging.info(f"{res} tickets found for month {year_month} across {page} pages")
+#     return res
 
 
-def get_monthly_tickets(
-    year_month: str,
-    tags: list[str] = [],
-) -> int:
-    # after investigation, it appears that *sometimes* the API doesn't return the
-    # same amount of tickets for a given month if you change the "per_page" parameter
-    # so if we end up in this situation, we try a bunch of values to get closer to the result
-    # but it's still not perfectly accurate...
-    nb_tickets: list[int] = []
-    per_page = 200
-    while len(nb_tickets) < 20 and not (len(nb_tickets) > 3 and len(set(nb_tickets)) == 1):
-        nb_tickets.append(try_to_get_ticket_count(year_month, tags=tags, per_page=per_page))
-        if len(nb_tickets) > 1:
-            if nb_tickets[-1] > nb_tickets[-2]:
-                per_page = round(per_page * 1.3)
-            else:
-                per_page = round(per_page / 1.2)
-    logging.info(f"Number of tickets: {nb_tickets}")
-    return max(nb_tickets)
+# def get_monthly_tickets(
+#     year_month: str,
+#     tags: list[str] = [],
+# ) -> int:
+#     # after investigation, it appears that *sometimes* the API doesn't return the
+#     # same amount of tickets for a given month if you change the "per_page" parameter
+#     # so if we end up in this situation, we try a bunch of values to get closer to the result
+#     # but it's still not perfectly accurate...
+#     nb_tickets: list[int] = []
+#     per_page = 200
+#     while len(nb_tickets) < 20 and not (len(nb_tickets) > 3 and len(set(nb_tickets)) == 1):
+#         nb_tickets.append(try_to_get_ticket_count(year_month, tags=tags, per_page=per_page))
+#         if len(nb_tickets) > 1:
+#             if nb_tickets[-1] > nb_tickets[-2]:
+#                 per_page = round(per_page * 1.3)
+#             else:
+#                 per_page = round(per_page / 1.2)
+#     logging.info(f"Number of tickets: {nb_tickets}")
+#     return max(nb_tickets)
 
 
 def get_zammad_tickets(
@@ -92,36 +90,36 @@ def get_zammad_tickets(
     start_date: datetime,
     end_date: datetime = datetime.today(),
 ):
-    hs_tags = [
-        "HORS-SUJET",
-        '"HORS SUJET"',
-        "RNA",
-        # quotes are mandatory if tag has blanks
-        '"TITRE DE SEJOUR"',
-        "DECES",
-        "QUALIOPI",
-        "IMPOT",
-    ]
+    # hs_tags = [
+    #     "HORS-SUJET",
+    #     '"HORS SUJET"',
+    #     "RNA",
+    #     # quotes are mandatory if tag has blanks
+    #     '"TITRE DE SEJOUR"',
+    #     "DECES",
+    #     "QUALIOPI",
+    #     "IMPOT",
+    # ]
 
-    spam_tags = [
-        "SPAM",
-        "spam",
-    ]
+    # spam_tags = [
+    #     "SPAM",
+    #     "spam",
+    # ]
 
-    all_tickets, hs_tickets, spam_tickets = [], [], []
-    months = list_months_between(start_date, end_date)
-    for month in months:
-        logging.info("Searching all tickets...")
-        all_tickets.append(get_monthly_tickets(month))
-        logging.info("Searching HS tickets...")
-        hs_tickets.append(get_monthly_tickets(month, tags=hs_tags))
-        logging.info("Searching spam tickets...")
-        spam_tickets.append(get_monthly_tickets(month, tags=spam_tags))
+    # all_tickets, hs_tickets, spam_tickets = [], [], []
+    # months = list_months_between(start_date, end_date)
+    # for month in months:
+    #     logging.info("Searching all tickets...")
+    #     all_tickets.append(get_monthly_tickets(month))
+    #     logging.info("Searching HS tickets...")
+    #     hs_tickets.append(get_monthly_tickets(month, tags=hs_tags))
+    #     logging.info("Searching spam tickets...")
+    #     spam_tickets.append(get_monthly_tickets(month, tags=spam_tags))
 
-    ti.xcom_push(key="all_tickets", value=all_tickets)
-    ti.xcom_push(key="hs_tickets", value=hs_tickets)
-    ti.xcom_push(key="spam_tickets", value=spam_tickets)
-    ti.xcom_push(key="months", value=months)
+    ti.xcom_push(key="all_tickets", value=0)
+    ti.xcom_push(key="hs_tickets", value=0)
+    ti.xcom_push(key="spam_tickets", value=0)
+    ti.xcom_push(key="months", value=0)
 
 
 def fill_url(
