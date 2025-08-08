@@ -64,12 +64,12 @@ def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client):
 
 dags_params = [
     {
-        "dag_id": "dgv_simplifions_production",
+        "dag_id": "verticale_simplifions_production",
         "schedule_interval": "0 1 * * *",  # every day at 1am
         "client": local_client,
     },
     {
-        "dag_id": "dgv_simplifions_demo",
+        "dag_id": "verticale_simplifions_demo",
         "schedule_interval": "*/30 * * * *",  # every 30 minutes
         "client": demo_client,
     },

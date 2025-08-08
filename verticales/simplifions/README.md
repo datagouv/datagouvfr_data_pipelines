@@ -1,7 +1,7 @@
 
 # Documentation
 
-## dgv_simplifions
+## verticale_simplifions
 
 | Information | Valeur |
 | -------- | -------- |
