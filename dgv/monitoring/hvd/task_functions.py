@@ -16,16 +16,13 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.grist import (
-    get_table_as_df,
-    update_records,
-    df_to_grist,
+    GristTable,
     get_unique_values_from_multiple_choice_column,
 )
 
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
-DOC_ID = "eJxok2H2va3E"
-TABLE_ID = "Hvd_metadata_res"
+table = GristTable("eJxok2H2va3E", "Hvd_metadata_res")
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
@@ -45,11 +42,7 @@ def has_unavailable_resources(dataset_id: str, df_resources: pd.DataFrame) -> bo
 
 def get_hvd(ti):
     logging.info("Getting suivi ouverture")
-    df_ouverture = get_table_as_df(
-        doc_id=DOC_ID,
-        table_id=TABLE_ID,
-        columns_labels=False,
-    )
+    df_ouverture = table.to_dataframe(columns_labels=False)
 
     logging.info("Getting datasets catalog")
     df_datasets = pd.read_csv(
@@ -151,13 +144,7 @@ def publish_mattermost(ti):
     logging.info(minio_files)
     if len(minio_files) == 1:
         return
-    all_hvd_names = set(
-        get_table_as_df(
-            doc_id=DOC_ID,
-            table_id="Hvd_names",
-            columns_labels=False,
-        )["hvd_name"]
-    )
+    all_hvd_names = set(table.to_dataframe(columns_labels=False)["hvd_name"])
     goal = len(all_hvd_names)
 
     previous_week = pd.read_csv(StringIO(minio_open.get_file_content(minio_files[-2])))
@@ -207,11 +194,7 @@ def publish_mattermost(ti):
         # could also delete the latest file
         message += "Pas de changement par rapport à la semaine dernière"
 
-    df_ouverture = get_table_as_df(
-        doc_id=DOC_ID,
-        table_id=TABLE_ID,
-        columns_labels=False,
-    )
+    df_ouverture = table.to_dataframe(columns_labels=False)
     for col in [
         "hvd_category",
         "endpoint_url_datagouv",
@@ -443,11 +426,7 @@ def build_df_for_grist():
 
 
 def update_grist(ti):
-    old_hvd_metadata = get_table_as_df(
-        doc_id=DOC_ID,
-        table_id=TABLE_ID,
-        columns_labels=False,
-    )
+    old_hvd_metadata = table.to_dataframe(columns_labels=False)
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
     fresh_hvd_metadata = pd.read_csv(
@@ -498,9 +477,7 @@ def update_grist(ti):
                 new_values[col] = row_new[col]
         if new_values:
             updates += 1
-            update_records(
-                doc_id=DOC_ID,
-                table_id=TABLE_ID,
+            table.update_records(
                 conditions={"id2": dataset_id},
                 new_values=new_values,
             )
@@ -517,10 +494,8 @@ def update_grist(ti):
     if not new_rows:
         return
     logging.info(f"Adding {len(new_rows)} rows")
-    df_to_grist(
+    table.from_dataframe(
         df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
-        doc_id=DOC_ID,
-        table_id=TABLE_ID,
         append="lazy",
     )
     ti.xcom_push(
@@ -544,9 +519,7 @@ def update_grist(ti):
             f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
             f" de l'organisation {orga}"
         )
-        update_records(
-            doc_id=DOC_ID,
-            table_id=TABLE_ID,
+        table.update_records(
             conditions={"id2": _id},
             new_values={"missing_hvd_tag": True},
         )

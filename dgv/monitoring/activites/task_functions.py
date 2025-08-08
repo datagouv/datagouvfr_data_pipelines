@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
-from datagouvfr_data_pipelines.utils.grist import df_to_grist
+from datagouvfr_data_pipelines.utils.grist import GristTable
 
 
 DAG_NAME = "dgv_notification_activite"
@@ -403,7 +403,9 @@ def send_spam_to_grist(ti):
     if records:
         df = pd.DataFrame(records)
         df["date"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append="lazy")
+        GristTable(grist_curation, "Alertes_spam_potentiel").from_dataframe(
+            df, append="lazy"
+        )
 
 
 def publish_item(item, item_type):
