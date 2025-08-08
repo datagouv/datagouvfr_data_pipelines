@@ -31,7 +31,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
 DAG_NAME = "dgv_digests"
 TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
 MINIO_PATH = "dgv/"
-today = datetime.today().strftime('%Y-%m-%d')
+today = datetime.today().strftime("%Y-%m-%d")
 
 
 def get_stats_period(TODAY, period, scope):
@@ -40,23 +40,26 @@ def get_stats_period(TODAY, period, scope):
     ) as json_file:
         res = json.load(json_file)
     if scope == "api":
-        if not (res["stats"]["nb_dataservices"] or res["stats"]["nb_discussions_dataservices"]):
+        if not (
+            res["stats"]["nb_dataservices"]
+            or res["stats"]["nb_discussions_dataservices"]
+        ):
             # no message if no new API and no comment
             return
         return (
-            f'- {res["stats"]["nb_dataservices"]} APIs créées\n'
-            f'- {res["stats"]["nb_discussions_dataservices"]} discussions sur les APIs\n'
+            f"- {res['stats']['nb_dataservices']} APIs créées\n"
+            f"- {res['stats']['nb_discussions_dataservices']} discussions sur les APIs\n"
         )
     recap = (
-        f'- {res["stats"]["nb_datasets"]} datasets créés\n'
-        f'- {res["stats"]["nb_reuses"]} reuses créées\n'
-        f'- {res["stats"]["nb_dataservices"]} dataservices créés\n'
+        f"- {res['stats']['nb_datasets']} datasets créés\n"
+        f"- {res['stats']['nb_reuses']} reuses créées\n"
+        f"- {res['stats']['nb_dataservices']} dataservices créés\n"
     )
     if period == "daily":
         recap += (
-            f'- {res["stats"]["nb_orgas"]} orgas créées\n'
-            f'- {res["stats"]["nb_discussions"]} discussions créées\n'
-            f'- {res["stats"]["nb_users"]} utilisateurs créés'
+            f"- {res['stats']['nb_orgas']} orgas créées\n"
+            f"- {res['stats']['nb_discussions']} discussions créées\n"
+            f"- {res['stats']['nb_users']} utilisateurs créés"
         )
     return recap
 
@@ -73,7 +76,8 @@ def publish_mattermost_period(ti, **kwargs):
         return
     message = f"{period.title()} Digest : {report_url} \n{stats}"
     channel = (
-        MATTERMOST_DATAGOUV_ACTIVITES if scope == "general"
+        MATTERMOST_DATAGOUV_ACTIVITES
+        if scope == "general"
         else MATTERMOST_DATASERVICES_ONLY
     )
     send_message(message, channel)
@@ -86,7 +90,11 @@ def send_email_report_period(ti, **kwargs):
     report_url = ti.xcom_pull(
         key="report_url", task_ids=f"run_notebook_and_save_to_minio_{scope}_{period}"
     )
-    message = get_stats_period(templates_dict["TODAY"], period, scope) + "<br/><br/>" + report_url
+    message = (
+        get_stats_period(templates_dict["TODAY"], period, scope)
+        + "<br/><br/>"
+        + report_url
+    )
     send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
@@ -97,8 +105,8 @@ def send_email_report_period(ti, **kwargs):
 
 
 default_args = {
-    'retries': 3,
-    'retry_delay': timedelta(minutes=2),
+    "retries": 3,
+    "retry_delay": timedelta(minutes=2),
 }
 
 with DAG(
@@ -128,13 +136,17 @@ with DAG(
         for freq in freqs:
             tasks[scope][freq] = [
                 PythonOperator(
-                    task_id=f'run_notebook_and_save_to_minio_{scope}_{freq}',
+                    task_id=f"run_notebook_and_save_to_minio_{scope}_{freq}",
                     python_callable=execute_and_upload_notebook,
                     op_kwargs={
-                        "input_nb": AIRFLOW_DAG_HOME + DAG_FOLDER + (
+                        "input_nb": AIRFLOW_DAG_HOME
+                        + DAG_FOLDER
+                        + (
                             "digest.ipynb" if scope == "general" else "digest-api.ipynb"
                         ),
-                        "output_nb": today + ("" if scope == "general" else "-api") + ".ipynb",
+                        "output_nb": today
+                        + ("" if scope == "general" else "-api")
+                        + ".ipynb",
                         "tmp_path": TMP_FOLDER + f"/digest_{freq}/{today}/",
                         "minio_url": MINIO_URL,
                         "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
@@ -144,8 +156,7 @@ with DAG(
                         "parameters": {
                             "WORKING_DIR": AIRFLOW_DAG_HOME,
                             "OUTPUT_DATA_FOLDER": (
-                                TMP_FOLDER
-                                + f"/digest_{freq}/{today}/output/"
+                                TMP_FOLDER + f"/digest_{freq}/{today}/output/"
                             ),
                             "DATE_AIRFLOW": today,
                             "PERIOD_DIGEST": freq,
@@ -169,13 +180,14 @@ with DAG(
                         "period": freq,
                         "scope": scope,
                     },
-                ) if scope == "general" else None,
+                )
+                if scope == "general"
+                else None,
             ]
 
     short_circuits = {
         "weekly": ShortCircuitOperator(
-            task_id="check_if_monday",
-            python_callable=check_if_monday
+            task_id="check_if_monday", python_callable=check_if_monday
         ),
         "monthly": ShortCircuitOperator(
             task_id="check_if_first_day_of_month",

@@ -26,15 +26,24 @@ def get_pending_harvesters(ti):
         {
             "name": harvest["name"],
             "url": harvest["url"],
-            "owner_type": "organization" if harvest["organization"] else "user" if harvest["owner"] else None,
+            "owner_type": "organization"
+            if harvest["organization"]
+            else "user"
+            if harvest["owner"]
+            else None,
             "owner_name": (
-                harvest["organization"]["name"] if harvest["organization"]
+                harvest["organization"]["name"]
+                if harvest["organization"]
                 else f"{harvest['owner']['first_name']} {harvest['owner']['last_name']}"
-                if harvest["owner"] else None
+                if harvest["owner"]
+                else None
             ),
             "owner_id": (
-                harvest["organization"]["id"] if harvest["organization"]
-                else harvest["owner"]["id"] if harvest["owner"] else None
+                harvest["organization"]["id"]
+                if harvest["organization"]
+                else harvest["owner"]["id"]
+                if harvest["owner"]
+                else None
             ),
             "id": harvest["id"],
             "backend": harvest["backend"],
@@ -89,7 +98,8 @@ def fill_in_grist(ti):
                 "Organisation": harvester["owner_name"] or "",
                 "Lien_organisation": (
                     f"https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/"
-                    if harvester["owner_type"] else ""
+                    if harvester["owner_type"]
+                    else ""
                 ),
                 "Statut_config_moissonnage": harvester["preview"],
                 "Statut_bizdev": "🆕 Nouveau",
@@ -98,7 +108,9 @@ def fill_in_grist(ti):
             logging.info(f"New harvester: {harvester['id']}")
         # handling existing ones
         elif len(rows) == 1:
-            row = current_table.loc[current_table["harvester_id"] == harvester["id"]].iloc[0]
+            row = current_table.loc[
+                current_table["harvester_id"] == harvester["id"]
+            ].iloc[0]
             if row["Statut_config_moissonnage"] != harvester["preview"]:
                 to_update = {"Statut_config_moissonnage": harvester["preview"]}
             if to_update:
@@ -117,7 +129,9 @@ def fill_in_grist(ti):
 
 
 def publish_mattermost(ti):
-    pending_harvesters = ti.xcom_pull(key="harvesters_complete", task_ids="get_preview_state")
+    pending_harvesters = ti.xcom_pull(
+        key="harvesters_complete", task_ids="get_preview_state"
+    )
     new = ti.xcom_pull(key="new", task_ids="fill_in_grist")
     issues = ti.xcom_pull(key="issues", task_ids="fill_in_grist")
 

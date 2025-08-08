@@ -23,9 +23,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}an_petitions/"
 minio_folder = "an_petitions/"
 file_name = "petitions.csv"
 dataset_id = (
-    "687e2d07eb1e2ad010d1c1af"
-    if AIRFLOW_ENV != "prod"
-    else "6889cc10e79a25f17ed69acb"
+    "687e2d07eb1e2ad010d1c1af" if AIRFLOW_ENV != "prod" else "6889cc10e79a25f17ed69acb"
 )
 resource_id = (
     "ce3d1e17-b6fe-49d4-bbc6-1ea736eaa360"
@@ -59,11 +57,16 @@ def remove_duplicate_blanks(input_str: str) -> str:
 def get_labels(page: BeautifulSoup) -> dict:
     # there are two possible labels, but they can coexist
     labels = [
-        el for el in page.find_all("a")
+        el
+        for el in page.find_all("a")
         if el.get("href", "").startswith("/initiatives?filter")
     ]
-    commission = next((lab.text for lab in labels if lab.text.startswith("Commission")), None)
-    legislature = next((lab.text for lab in labels if lab.text.startswith("Législature")), None)
+    commission = next(
+        (lab.text for lab in labels if lab.text.startswith("Commission")), None
+    )
+    legislature = next(
+        (lab.text for lab in labels if lab.text.startswith("Législature")), None
+    )
     return {
         "commission": commission if commission else None,
         "legislature": legislature.replace("Législature ", "") if legislature else None,
@@ -79,27 +82,37 @@ def get_limit_date(page: BeautifulSoup) -> str:
 
 def get_decision(page: BeautifulSoup) -> str | None:
     # three possible decisions, but there are not all found at the same spot
-    decision = list(set([
-        el.text.replace("\n", "") for el in page.find_all("p")
-        if any(
-            substr in el.text
-            for substr in [
-                "En application de l’article 148",
-                "Conformément à la décision",
+    decision = list(
+        set(
+            [
+                el.text.replace("\n", "")
+                for el in page.find_all("p")
+                if any(
+                    substr in el.text
+                    for substr in [
+                        "En application de l’article 148",
+                        "Conformément à la décision",
+                    ]
+                )
             ]
         )
-    ]))
+    )
     if decision:
         return decision[0]
-    decision = list(set([
-        el.text.replace("\n", "") for el in page.find_all("h5")
-        if any(
-            substr in el.text
-            for substr in [
-                "Cette pétition a été rejetée",
+    decision = list(
+        set(
+            [
+                el.text.replace("\n", "")
+                for el in page.find_all("h5")
+                if any(
+                    substr in el.text
+                    for substr in [
+                        "Cette pétition a été rejetée",
+                    ]
+                )
             ]
         )
-    ]))
+    )
     return decision[0] if decision else None
 
 
@@ -122,16 +135,23 @@ def get_row(_id: int) -> dict | None:
     r = session.get(url)
     page = BeautifulSoup(r.text, "html.parser")
     labels = get_labels(page)
-    title = page.find_all("h2", attrs={"class": "heading2"})[0].text.replace("\n", "").strip()
+    title = (
+        page.find_all("h2", attrs={"class": "heading2"})[0]
+        .text.replace("\n", "")
+        .strip()
+    )
     logging.info(f"{_id}: {title}")
     # all the fields have been constructed heuristically, hopefully the references won't change
     return {
         "titre": title,
-        "description": page.find(
-            "meta", attrs={"property": "og:description"}
-        ).get("content").replace("\r", "").replace("\n", ""),
+        "description": page.find("meta", attrs={"property": "og:description"})
+        .get("content")
+        .replace("\r", "")
+        .replace("\n", ""),
         "date_publication": standardize_date(
-            page.find("div", attrs={"class": "publish-date"}).text.replace("\n", "").strip()
+            page.find("div", attrs={"class": "publish-date"})
+            .text.replace("\n", "")
+            .strip()
         ),
         "nb_votes": get_votes(page),
         "statut": build_status(page),
@@ -146,12 +166,16 @@ def get_row(_id: int) -> dict | None:
 
 def gather_petitions():
     # getting current file to ignore unused ids
-    ids = pd.read_csv(
-        minio_open.get_file_url(minio_folder + file_name),
-        sep=";",
-        usecols=["identifiant"],
-        dtype={"identifiant": float},
-    )["identifiant"].dropna().apply(int)
+    ids = (
+        pd.read_csv(
+            minio_open.get_file_url(minio_folder + file_name),
+            sep=";",
+            usecols=["identifiant"],
+            dtype={"identifiant": float},
+        )["identifiant"]
+        .dropna()
+        .apply(int)
+    )
     max_id = max(ids)
     unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
     # we go through all ids except the ones we know are unused
@@ -200,7 +224,7 @@ def send_petitions_to_minio():
                 source_name=file_name,
                 dest_path=minio_folder,
                 dest_name=datetime.now().strftime("%Y-%m-%d") + "_" + file_name,
-            )
+            ),
         ],
         ignore_airflow_env=True,
     )
@@ -214,9 +238,7 @@ def publish_on_datagouv():
     ).update(
         payload={
             "filesize": os.path.getsize(DATADIR + file_name),
-            "title": (
-                f"Pétitions au {datetime.now().strftime('%d-%m-%Y')}"
-            ),
+            "title": (f"Pétitions au {datetime.now().strftime('%d-%m-%Y')}"),
             "format": "csv",
             "description": (
                 "Créé à partir de la plateforme https://petitions.assemblee-nationale.fr/"

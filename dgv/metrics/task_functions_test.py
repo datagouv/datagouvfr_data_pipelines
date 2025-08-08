@@ -75,7 +75,7 @@ def test_extract_log_info():
                 "resources",
                 "api2",
             ),
-        }, # /api/2/datasets/resources/$ID
+        },  # /api/2/datasets/resources/$ID
         {
             "log": "2025-01-22T00:00:39.022635+01:00 slb-03 haproxy[2021969]: 127.0.0.1:10036 [22/Jan/2025:00:00:38.891]"
             ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/1/130/+131 200 +2317 - - --NN 203/165/8/0/0 0/0 "GET'

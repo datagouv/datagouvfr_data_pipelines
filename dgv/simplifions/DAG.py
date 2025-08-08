@@ -8,8 +8,8 @@ from datagouv import Client
 # with a demo api key to avoid hitting the production api.
 # In production, local_client is plugged to www.datagouv.fr
 from datagouvfr_data_pipelines.utils.datagouv import (
-  local_client,
-  demo_client,
+    local_client,
+    demo_client,
 )
 
 from datagouvfr_data_pipelines.dgv.simplifions.task_functions import (
@@ -19,9 +19,10 @@ from datagouvfr_data_pipelines.dgv.simplifions.task_functions import (
 )
 
 default_args = {
-    'retries': 0,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 0,
+    "retry_delay": timedelta(minutes=5),
 }
+
 
 def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client):
     op_kwargs = {
@@ -37,7 +38,6 @@ def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client):
         default_args=default_args,
         catchup=False,
     ) as dag:
-
         get_and_format_grist_data_task = PythonOperator(
             task_id="get_and_format_grist_data",
             python_callable=get_and_format_grist_data,
@@ -58,22 +58,21 @@ def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client):
 
         update_topics_task.set_upstream(get_and_format_grist_data_task)
         update_topics_references_task.set_upstream(update_topics_task)
-    
+
     return dag
+
 
 dags_params = [
     {
         "dag_id": "dgv_simplifions_production",
-        "schedule_interval": "0 1 * * *", # every day at 1am
+        "schedule_interval": "0 1 * * *",  # every day at 1am
         "client": local_client,
     },
     {
         "dag_id": "dgv_simplifions_demo",
-        "schedule_interval": "*/30 * * * *", # every 30 minutes
+        "schedule_interval": "*/30 * * * *",  # every 30 minutes
         "client": demo_client,
     },
 ]
 
-dags = [
-    create_simplifions_dag(**dag_params) for dag_params in dags_params
-]
+dags = [create_simplifions_dag(**dag_params) for dag_params in dags_params]

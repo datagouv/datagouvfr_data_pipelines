@@ -23,7 +23,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "assemble_nationale", "petitions"],
 ) as dag:
-
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
@@ -50,7 +49,7 @@ with DAG(
     )
 
     send_notification_mattermost = PythonOperator(
-        task_id='send_notification_mattermost',
+        task_id="send_notification_mattermost",
         python_callable=send_notification_mattermost,
     )
 

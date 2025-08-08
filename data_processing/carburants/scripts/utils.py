@@ -26,19 +26,29 @@ def create_todays_df(path):
         "type": "FeatureCollection",
         "features": [],
     }
-    for d in data['features']:
+    for d in data["features"]:
         feature = {
             "type": "Feature",
             "properties": {
                 "id": d["properties"]["id"],
                 "adr": (
-                    d["properties"]["adresse"].encode('Latin-1', 'ignore').decode('utf-8', 'ignore').lower()
-                    if isinstance(d["properties"]["adresse"], str) else None
+                    d["properties"]["adresse"]
+                    .encode("Latin-1", "ignore")
+                    .decode("utf-8", "ignore")
+                    .lower()
+                    if isinstance(d["properties"]["adresse"], str)
+                    else None
                 ),
                 "cpl_adr": (
-                    d["properties"]["cp"].encode('Latin-1', 'ignore').decode('utf-8', 'ignore').lower()
+                    d["properties"]["cp"]
+                    .encode("Latin-1", "ignore")
+                    .decode("utf-8", "ignore")
+                    .lower()
                     + " "
-                    + d["properties"]["ville"].encode('Latin-1', 'ignore').decode('utf-8', 'ignore').lower()
+                    + d["properties"]["ville"]
+                    .encode("Latin-1", "ignore")
+                    .decode("utf-8", "ignore")
+                    .lower()
                 ),
                 "dep": parseCP(d["properties"]["cp"]),
             },

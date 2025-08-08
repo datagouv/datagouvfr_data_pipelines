@@ -10,7 +10,6 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.utils import (
 
 
 def generate_kpis(path):
-
     print("Building today's table")
     df = create_todays_df(path)
     df = df.where(pd.notnull(df), None)
@@ -38,9 +37,7 @@ def generate_kpis(path):
 
     tab = {
         k: [] if k.endswith("v") else 0
-        for k in [
-            fuel + suffix for fuel in LIST_FUELS for suffix in ["", "r", "v"]
-        ]
+        for k in [fuel + suffix for fuel in LIST_FUELS for suffix in ["", "r", "v"]]
     }
 
     for f in final["features"]:
@@ -56,15 +53,14 @@ def generate_kpis(path):
     for fuel in LIST_FUELS:
         final["properties"][fuel] = [
             np.min(tab[fuel + "v"]),
-            round(np.quantile(tab[fuel + "v"], .333333), 2),
-            round(np.quantile(tab[fuel + "v"], .66666), 2),
-            np.max(tab[fuel + "v"])
+            round(np.quantile(tab[fuel + "v"], 0.333333), 2),
+            round(np.quantile(tab[fuel + "v"], 0.66666), 2),
+            np.max(tab[fuel + "v"]),
         ]
         final["properties"][fuel + "_mean"] = np.mean(tab[fuel + "v"])
         final["properties"][fuel + "_median"] = np.median(tab[fuel + "v"])
         final["properties"][fuel + "_rupture"] = round(
-            (tab[fuel + "r"] / (tab[fuel + "r"] + tab[fuel]) * 100),
-            2
+            (tab[fuel + "r"] / (tab[fuel + "r"] + tab[fuel]) * 100), 2
         )
 
     def getColor(val, fuel):
@@ -85,14 +81,16 @@ def generate_kpis(path):
                 elif d["properties"][fuel] == "N":
                     d["properties"][fuel + "_color"] = "-1"
                 else:
-                    d["properties"][fuel + "_color"] = getColor(float(d["properties"][fuel]), fuel)
+                    d["properties"][fuel + "_color"] = getColor(
+                        float(d["properties"][fuel]), fuel
+                    )
 
-    final["properties"]["maj"] = datetime.now().isoformat(' ')
+    final["properties"]["maj"] = datetime.now().isoformat(" ")
 
     with open(f"{path}latest_france.geojson", "w") as fp:
         json.dump(final, fp)
 
-    with open(f"{path}daily_prices.json", 'r') as fp:
+    with open(f"{path}daily_prices.json", "r") as fp:
         data = json.load(fp)
 
     for d in data:
@@ -105,5 +103,5 @@ def generate_kpis(path):
             mydict[f"{fuel}_{method}"] = final["properties"][f"{fuel}_{method}"]
     data.append(mydict)
 
-    with open(f"{path}daily_prices.json", 'w') as fp:
+    with open(f"{path}daily_prices.json", "w") as fp:
         json.dump(data, fp)

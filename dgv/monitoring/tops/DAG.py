@@ -22,8 +22,8 @@ MINIO_PATH = "tops/"
 yesterday = (datetime.today() + relativedelta(days=-1)).strftime("%Y-%m-%d")
 
 default_args = {
-    'retries': 3,
-    'retry_delay': timedelta(minutes=2),
+    "retries": 3,
+    "retry_delay": timedelta(minutes=2),
 }
 
 with DAG(
@@ -35,7 +35,6 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ) as dag:
-
     check_if_monday = ShortCircuitOperator(
         task_id="check_if_monday", python_callable=check_if_monday
     )
@@ -74,7 +73,8 @@ with DAG(
                     "period": freq,
                     "title": f"Top 10 des {class_label}",
                 },
-            ) for _class, class_label in classes.items()
+            )
+            for _class, class_label in classes.items()
         ]
         tasks[freq]["second"] = [
             PythonOperator(

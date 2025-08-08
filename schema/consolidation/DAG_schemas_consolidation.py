@@ -24,10 +24,7 @@ from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
     create_detailed_reports,
     final_clean_up,
 )
-from datagouvfr_data_pipelines.utils.schema import (
-    upload_minio,
-    notification_synthese
-)
+from datagouvfr_data_pipelines.utils.schema import upload_minio, notification_synthese
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
@@ -39,8 +36,8 @@ if AIRFLOW_ENV == "dev":
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 
@@ -148,10 +145,10 @@ with DAG(
         bash_command=(
             f"cd {TMP_FOLDER.as_posix()}/schema.data.gouv.fr/ && git add config_consolidation.yml "
             ' && git commit -m "Update config consolidation file - '
-            f'{datetime.today().strftime("%Y-%m-%d")}'
+            f"{datetime.today().strftime('%Y-%m-%d')}"
             '" || echo "No changes to commit"'
             " && git push origin main"
-        )
+        ),
     )
 
     notification_synthese = PythonOperator(
@@ -162,7 +159,7 @@ with DAG(
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "list_schema_skip": ['etalab/schema-irve-statique'],
+            "list_schema_skip": ["etalab/schema-irve-statique"],
         },
     )
 

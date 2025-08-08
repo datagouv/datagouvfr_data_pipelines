@@ -2,16 +2,16 @@ from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 
-from datagouvfr_data_pipelines.meta.task_functions import monitor_dags, notification_mattermost
+from datagouvfr_data_pipelines.meta.task_functions import (
+    monitor_dags,
+    notification_mattermost,
+)
 
 DAG_NAME = "meta_dag"
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False,
+    "email": ["pierlou.ramade@data.gouv.fr", "geoffrey.aldebert@data.gouv.fr"],
+    "email_on_failure": False,
 }
 
 

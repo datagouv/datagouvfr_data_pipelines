@@ -15,31 +15,27 @@ from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
-DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
-DAG_NAME = 'data_processing_rna'
+DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
+DAG_NAME = "data_processing_rna"
 DATADIR = f"{TMP_FOLDER}data"
 
 default_args = {
-    'email': [
-        'pierlou.ramade@data.gouv.fr',
-        'geoffrey.aldebert@data.gouv.fr'
-    ],
-    'email_on_failure': False
+    "email": ["pierlou.ramade@data.gouv.fr", "geoffrey.aldebert@data.gouv.fr"],
+    "email_on_failure": False,
 }
 
 with DAG(
     dag_id=DAG_NAME,
     # source files are usually uploaded in the morning of the 1st of the month
-    schedule_interval='0 12 1,2,15 * *',
+    schedule_interval="0 12 1,2,15 * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "rna", "association"],
     default_args=default_args,
 ) as dag:
-
     check_if_modif = ShortCircuitOperator(
-        task_id='check_if_modif',
+        task_id="check_if_modif",
         python_callable=check_if_modif,
     )
 
@@ -52,21 +48,21 @@ with DAG(
     for file_type in ["import", "waldec"]:
         type_tasks[file_type] = [
             PythonOperator(
-                task_id=f'process_rna_{file_type}',
+                task_id=f"process_rna_{file_type}",
                 python_callable=process_rna,
                 op_kwargs={
                     "file_type": file_type,
                 },
             ),
             PythonOperator(
-                task_id=f'send_rna_to_minio_{file_type}',
+                task_id=f"send_rna_to_minio_{file_type}",
                 python_callable=send_rna_to_minio,
                 op_kwargs={
                     "file_type": file_type,
                 },
             ),
             PythonOperator(
-                task_id=f'publish_on_datagouv_{file_type}',
+                task_id=f"publish_on_datagouv_{file_type}",
                 python_callable=publish_on_datagouv,
                 op_kwargs={
                     "file_type": file_type,
@@ -80,7 +76,7 @@ with DAG(
     )
 
     send_notification_mattermost = PythonOperator(
-        task_id='send_notification_mattermost',
+        task_id="send_notification_mattermost",
         python_callable=send_notification_mattermost,
     )
 

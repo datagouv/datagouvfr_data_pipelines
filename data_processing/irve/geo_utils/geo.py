@@ -11,7 +11,9 @@ from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
-with open(f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/geo_utils/france_bbox.geojson") as f:
+with open(
+    f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/geo_utils/france_bbox.geojson"
+) as f:
     FRANCE_BBOXES = geojson.load(f)
 
 # Create a Polygon
@@ -69,7 +71,9 @@ def export_to_geojson(
     coordinates_column: str = "coordonneesXY",
 ) -> None:
     """Export dataframe into Geojson format"""
-    json_result_string = df.to_json(orient="records", double_precision=12, date_format="iso")
+    json_result_string = df.to_json(
+        orient="records", double_precision=12, date_format="iso"
+    )
     json_result = json.loads(json_result_string)
 
     features = []
@@ -116,7 +120,9 @@ def fix_code_insee(
         row["consolidated_is_code_insee_modified"] = False
         # Try getting commune with code INSEE from latitude and longitude alone
         response = session.get(
-            url=(f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}&lon={row[lon_col]}&fields=code,nom,codesPostaux")
+            url=(
+                f"https://geo.api.gouv.fr/communes?lat={row[lat_col]}&lon={row[lon_col]}&fields=code,nom,codesPostaux"
+            )
         )
         commune_results = json.loads(response.content)
         if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
@@ -145,13 +151,19 @@ def fix_code_insee(
             # Lat lon do not match any commune
             enrich_row_address.no_match_coords += 1
 
-        if pd.notna(row[code_insee_col]) and row[code_insee_col] != "" and str(row[code_insee_col]) in row[address_col]:
+        if (
+            pd.notna(row[code_insee_col])
+            and row[code_insee_col] != ""
+            and str(row[code_insee_col]) in row[address_col]
+        ):
             # Code INSEE field actually contains a postcode
             response = session.get(
                 url=f"https://geo.api.gouv.fr/communes?codePostal={row[code_insee_col]}&fields=code,nom"
             )
             commune_results = json.loads(response.content)
-            if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
+            if (response.status_code == requests.codes.ok) and (
+                len(commune_results) > 0
+            ):
                 commune = commune_results[0]
                 row["consolidated_code_postal"] = row[code_insee_col]
                 row["consolidated_commune"] = commune["nom"]
@@ -167,7 +179,9 @@ def fix_code_insee(
                 url=f"https://geo.api.gouv.fr/communes?code={row[code_insee_col]}&fields=codesPostaux,nom"
             )
             commune_results = json.loads(response.content)
-            if (response.status_code == requests.codes.ok) and (len(commune_results) > 0):
+            if (response.status_code == requests.codes.ok) and (
+                len(commune_results) > 0
+            ):
                 commune = commune_results[0]
                 for postcode in commune["codesPostaux"]:
                     if postcode in row[address_col]:
@@ -183,6 +197,7 @@ def fix_code_insee(
         row["consolidated_commune"] = ""
         enrich_row_address.nothing_matches += 1
         return row
+
     cols = list(df.columns)
     total_rows = len(df)
     session = requests.Session()
@@ -210,9 +225,8 @@ def fix_code_insee(
     if all(c in sample.columns for c in process_infos_cols):
         yesterdays_data = pd.read_csv(
             f"{local_client.base_url}/fr/datasets/r/{latest_resource_id}",
-            dtype={
-                c: bool if "_is_" in c else str for c in process_infos_cols
-            } | {
+            dtype={c: bool if "_is_" in c else str for c in process_infos_cols}
+            | {
                 code_insee_col: str,
                 address_col: str,
                 lon_col: float,
@@ -223,7 +237,8 @@ def fix_code_insee(
                 address_col,
                 lon_col,
                 lat_col,
-            ] + process_infos_cols,
+            ]
+            + process_infos_cols,
         )
         yesterdays_data = yesterdays_data.loc[
             (~yesterdays_data[code_insee_col].isna())
@@ -239,7 +254,7 @@ def fix_code_insee(
             df.loc[
                 # we have to exclude the rows that are handled by coords
                 ~df[address_col].isna(),
-                [c for c in df.columns if c not in address.columns] + [address_col]
+                [c for c in df.columns if c not in address.columns] + [address_col],
             ],
             on=address_col,
             how="right",
@@ -277,7 +292,9 @@ def fix_code_insee(
         "Coords not matching code INSEE field as code INSEE or postcode: "
         f"{enrich_row_address.code_coords_mismatch}/{total_rows}"
     )
-    logging.info(f"Coords not matching any commune: {enrich_row_address.no_match_coords}/{total_rows}")
+    logging.info(
+        f"Coords not matching any commune: {enrich_row_address.no_match_coords}/{total_rows}"
+    )
     logging.info(
         "Code INSEE is postcode in address. Fixed and enriched: "
         f"{enrich_row_address.code_insee_is_postcode_in_address}/{total_rows}"
@@ -304,7 +321,9 @@ def improve_geo_data_quality(
         schema_cols = list(df.columns)
 
         df = fix_coordinates_order(df, coordinates_column=cols_dict["xy_coords"])
-        logging.info(f"Done fixing coordinates: ({df['consolidated_coordinates_reordered'].sum()}/{len(df)})")
+        logging.info(
+            f"Done fixing coordinates: ({df['consolidated_coordinates_reordered'].sum()}/{len(df)})"
+        )
 
         df = create_lon_lat_cols(df, coordinates_column=cols_dict["xy_coords"])
         logging.info("Done creating long lat")

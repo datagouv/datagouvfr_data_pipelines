@@ -90,7 +90,9 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
 dags = []
 for model in PACKAGES:
     for pack in PACKAGES[model]:
-        infos = {k: PACKAGES[model][pack][k] for k in ["base_url", "product", "extension"]}
+        infos = {
+            k: PACKAGES[model][pack][k] for k in ["base_url", "product", "extension"]
+        }
         for grid in [_ for _ in PACKAGES[model][pack] if _ not in infos]:
             # for pack in PACKAGES[model][pack][grid] ?
             dags.append(create_dag(model, pack, grid, infos))

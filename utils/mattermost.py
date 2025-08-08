@@ -24,7 +24,9 @@ def send_message(
         with your text. Defaults to None.
     """
     if not force_send and len(text) > MAX_MESSAGE_LENGTH:
-        raise ValueError(f"This message is too long (max {MAX_MESSAGE_LENGTH}), consider reducing")
+        raise ValueError(
+            f"This message is too long (max {MAX_MESSAGE_LENGTH}), consider reducing"
+        )
     text = text[:MAX_MESSAGE_LENGTH]
     if not endpoint_url:
         if AIRFLOW_ENV == "dev":

@@ -25,7 +25,15 @@ DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
     k + "@data.gouv.fr"
-    for k in ["support", "ouverture", "moissonnage", "certification", "geo", "cadastre", "candidature"]
+    for k in [
+        "support",
+        "ouverture",
+        "moissonnage",
+        "certification",
+        "geo",
+        "cadastre",
+        "candidature",
+    ]
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 # max 5 requests/second (rate limiting is 1/7)
@@ -175,7 +183,9 @@ def get_visits(
         for month in months_to_process:
             if month not in df["Date"].values:
                 logging.error(f"Missing month: {month}")
-                new_values = pd.DataFrame({"Date": [month], "Vues de page uniques": [0]})
+                new_values = pd.DataFrame(
+                    {"Date": [month], "Vues de page uniques": [0]}
+                )
                 df = pd.concat([new_values, df], ignore_index=True)
                 df = df.sort_values(by="Date")
 
@@ -251,7 +261,9 @@ def is_SP_or_CT(
         logging.warning("Ambiguous: ", siret)
         issue = "SIRET ambigu : " + siret
     complements = r["results"][0]["complements"]
-    return complements["collectivite_territoriale"] or complements["est_service_public"], issue
+    return complements["collectivite_territoriale"] or complements[
+        "est_service_public"
+    ], issue
 
 
 def get_and_upload_certification() -> None:
@@ -282,7 +294,9 @@ def get_and_upload_certification() -> None:
             File(
                 source_path=DATADIR,
                 source_name=f,
-                dest_path=minio_destination_folder + datetime.now().strftime("%Y-%m-%d") + "/",
+                dest_path=minio_destination_folder
+                + datetime.now().strftime("%Y-%m-%d")
+                + "/",
                 dest_name=f,
             )
             for f in ["certified.json", "SP_or_CT.json", "issues.json"]
@@ -295,9 +309,15 @@ def get_and_upload_reuses_down() -> None:
     client = MinIOClient(bucket="data-pipeline-open")
     # getting latest data
     df = pd.read_csv(
-        StringIO(client.get_file_content("prod/bizdev/all_reuses_most_visits_KO_last_month.csv"))
+        StringIO(
+            client.get_file_content(
+                "prod/bizdev/all_reuses_most_visits_KO_last_month.csv"
+            )
+        )
     )
-    stats = pd.DataFrame(df["error"].apply(lambda x: x if x == "404" else "Autre erreur").value_counts()).T
+    stats = pd.DataFrame(
+        df["error"].apply(lambda x: x if x == "404" else "Autre erreur").value_counts()
+    ).T
     stats["Date"] = [datetime.now().strftime("%Y-%m-%d")]
     stats["Total"] = [
         requests.get(
@@ -308,7 +328,11 @@ def get_and_upload_reuses_down() -> None:
 
     # getting historical data
     output_file_name = "stats_reuses_down.csv"
-    hist = pd.read_csv(StringIO(minio_open.get_file_content(minio_destination_folder + output_file_name)))
+    hist = pd.read_csv(
+        StringIO(
+            minio_open.get_file_content(minio_destination_folder + output_file_name)
+        )
+    )
     start_len = len(hist)
     hist = pd.concat([hist, stats]).drop_duplicates("Date")
     # just in case
@@ -331,7 +355,8 @@ def get_catalog_stats() -> None:
     datasets = []
     resources = []
     crawler = local_client.get_all_from_api_query(
-        "api/1/datasets/", mask="data{id,harvest,quality,tags,resources{id,format,type}}"
+        "api/1/datasets/",
+        mask="data{id,harvest,quality,tags,resources{id,format,type}}",
     )
     processed = 0
     for c in crawler:
@@ -346,8 +371,12 @@ def get_catalog_stats() -> None:
 
     # getting datasets quality and count
     cats = list(max(datasets, key=lambda x: len(x[2]))[2].keys())
-    dataset_quality = {k: {c: [] for c in cats} for k in ["all", "harvested", "local", "hvd"]}
-    dataset_quality.update({"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}})
+    dataset_quality = {
+        k: {c: [] for c in cats} for k in ["all", "harvested", "local", "hvd"]
+    }
+    dataset_quality.update(
+        {"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}}
+    )
     for d in datasets:
         dataset_quality["count"]["all"] += 1
         dataset_quality["count"]["harvested" if d[1] else "local"] += 1
@@ -355,7 +384,9 @@ def get_catalog_stats() -> None:
             dataset_quality["count"]["hvd"] += 1
         for c in cats:
             dataset_quality["all"][c].append(d[2].get(c, False) or False)
-            dataset_quality["harvested" if d[1] else "local"][c].append(d[2].get(c, False) or False)
+            dataset_quality["harvested" if d[1] else "local"][c].append(
+                d[2].get(c, False) or False
+            )
             if "hvd" in d[3]:
                 dataset_quality["hvd"][c].append(d[2].get(c, False) or False)
     for k in dataset_quality.keys():
@@ -382,12 +413,16 @@ def get_catalog_stats() -> None:
 
     resources_stats = {datetime.now().strftime("%Y-%m-%d"): resources_stats}
 
-    hist_dq = json.loads(minio_open.get_file_content(minio_destination_folder + "datasets_quality.json"))
+    hist_dq = json.loads(
+        minio_open.get_file_content(minio_destination_folder + "datasets_quality.json")
+    )
     hist_dq.update(dataset_quality)
     with open(DATADIR + "datasets_quality.json", "w") as f:
         json.dump(hist_dq, f, indent=4)
 
-    hist_rs = json.loads(minio_open.get_file_content(minio_destination_folder + "resources_stats.json"))
+    hist_rs = json.loads(
+        minio_open.get_file_content(minio_destination_folder + "resources_stats.json")
+    )
     hist_rs.update(resources_stats)
     with open(DATADIR + "resources_stats.json", "w") as f:
         json.dump(hist_rs, f, indent=4)
@@ -434,7 +469,9 @@ def get_hvd_dataservices_stats() -> None:
     }
 
     hist_ds = json.loads(
-        minio_open.get_file_content(minio_destination_folder + "hvd_dataservices_quality.json")
+        minio_open.get_file_content(
+            minio_destination_folder + "hvd_dataservices_quality.json"
+        )
     )
     hist_ds.update(dataservices_stats)
     with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:

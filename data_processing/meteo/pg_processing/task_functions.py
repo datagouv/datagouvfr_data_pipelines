@@ -30,18 +30,20 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 
-minio_meteo = MinIOClient(bucket='meteofrance')
+minio_meteo = MinIOClient(bucket="meteofrance")
 
 
-SCHEMA_NAME = 'meteo'
-pgclient = PostgresClient(conn_name="POSTGRES_DB_02_INFRA_DATA_GOUV_FR", schema=SCHEMA_NAME)
+SCHEMA_NAME = "meteo"
+pgclient = PostgresClient(
+    conn_name="POSTGRES_DB_02_INFRA_DATA_GOUV_FR", schema=SCHEMA_NAME
+)
 conn = BaseHook.get_connection("POSTGRES_DB_02_INFRA_DATA_GOUV_FR")
 db_params = {
-    'database': conn.schema,
-    'user': conn.login,
-    'password': conn.password,
-    'host': conn.host,
-    'port': conn.port,
+    "database": conn.schema,
+    "user": conn.login,
+    "password": conn.password,
+    "host": conn.host,
+    "port": conn.port,
 }
 
 TIMEOUT = 60 * 5
@@ -50,37 +52,130 @@ TIMEOUT = 60 * 5
 def smart_cast(value: str, _type):
     try:
         return _type(value)
-    except:
+    except Exception:
         return None
 
 
 type_mapping = {
-    'character varying': str,
-    'double precision': lambda x: smart_cast(x, float),
-    'integer': lambda x: smart_cast(x, int),
+    "character varying": str,
+    "double precision": lambda x: smart_cast(x, float),
+    "integer": lambda x: smart_cast(x, int),
 }
 
 DEPIDS = [
-    '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
-    '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-    '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
-    '31', '32', '33', '34', '35', '36', '37', '38', '39', '40',
-    '41', '42', '43', '44', '45', '46', '47', '48', '49', '50',
-    '51', '52', '53', '54', '55', '56', '57', '58', '59', '60',
-    '61', '62', '63', '64', '65', '66', '67', '68', '69', '70',
-    '71', '72', '73', '74', '75', '76', '77', '78', '79', '80',
-    '81', '82', '83', '84', '85', '86', '87', '88', '89', '90',
-    '91', '92', '93', '94', '95',
-    '971', '972', '973', '974', '975',
-    '984', '985', '986', '987', '988',
-    '99',
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
+    "27",
+    "28",
+    "29",
+    "30",
+    "31",
+    "32",
+    "33",
+    "34",
+    "35",
+    "36",
+    "37",
+    "38",
+    "39",
+    "40",
+    "41",
+    "42",
+    "43",
+    "44",
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51",
+    "52",
+    "53",
+    "54",
+    "55",
+    "56",
+    "57",
+    "58",
+    "59",
+    "60",
+    "61",
+    "62",
+    "63",
+    "64",
+    "65",
+    "66",
+    "67",
+    "68",
+    "69",
+    "70",
+    "71",
+    "72",
+    "73",
+    "74",
+    "75",
+    "76",
+    "77",
+    "78",
+    "79",
+    "80",
+    "81",
+    "82",
+    "83",
+    "84",
+    "85",
+    "86",
+    "87",
+    "88",
+    "89",
+    "90",
+    "91",
+    "92",
+    "93",
+    "94",
+    "95",
+    "971",
+    "972",
+    "973",
+    "974",
+    "975",
+    "984",
+    "985",
+    "986",
+    "987",
+    "988",
+    "99",
 ]
 
 
 def get_hooked_name(file_name: str) -> str:
     # hooked files will change name, we have to consider the unchanged version
     # see DAG ftp_processing for more insight
-    for hook in ['latest', 'previous']:
+    for hook in ["latest", "previous"]:
         hooked = re.findall(f"{hook}-\d+-\d+", file_name)
         if hooked:
             return file_name.replace(hooked[0], hook)
@@ -102,11 +197,13 @@ def build_deletions_file_name(file_name: str) -> str:
 # %%
 def create_tables_if_not_exists(ti):
     ti.xcom_push(key="start", value=datetime.now().timestamp())
-    file_loader = FileSystemLoader(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/")
+    file_loader = FileSystemLoader(
+        f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/"
+    )
     env = Environment(loader=file_loader)
-    template = env.get_template('create.sql.jinja')
+    template = env.get_template("create.sql.jinja")
     output = template.render(depids=DEPIDS)
-    with open(f"{DATADIR}create.sql", 'w') as file:
+    with open(f"{DATADIR}create.sql", "w") as file:
         file.write(output)
 
     pgclient.execute_sql_file(
@@ -122,7 +219,7 @@ def retrieve_latest_processed_date(ti):
     data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
     logging.info(data)
     latest_db_insertion = data[0]["max"]
-    if not re.match(r'^\d{4}-\d{2}-\d{2}$', latest_db_insertion):
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", latest_db_insertion):
         raise ValueError(
             "You may want to check what is in the 'dag_processed' table, "
             + f"got `{latest_db_insertion}`"
@@ -133,8 +230,7 @@ def retrieve_latest_processed_date(ti):
 # %%
 def download_data(ti, dataset_name):
     latest_db_insertion = ti.xcom_pull(
-        key="latest_db_insertion",
-        task_ids="retrieve_latest_processed_date"
+        key="latest_db_insertion", task_ids="retrieve_latest_processed_date"
     )
 
     resources = fetch_resources(dataset_name)
@@ -148,7 +244,9 @@ def download_data(ti, dataset_name):
 def fetch_resources(dataset: str) -> list[dict]:
     r = requests.get(
         f"https://www.data.gouv.fr/api/1/datasets/{config[dataset]['dataset_id']['prod']}",
-        headers={"X-fields": "resources{type,title,url,format,internal{last_modified_internal}}"},
+        headers={
+            "X-fields": "resources{type,title,url,format,internal{last_modified_internal}}"
+        },
     )
     r.raise_for_status()
     return r.json()["resources"]
@@ -224,13 +322,19 @@ def process_resources(
                             # but destination has to be the real file name
                             dest_path=(
                                 "synchro_pg/"
-                                + "/".join(resource["url"].split("synchro_ftp/")[1].split("/")[:-1])
+                                + "/".join(
+                                    resource["url"]
+                                    .split("synchro_ftp/")[1]
+                                    .split("/")[:-1]
+                                )
                                 + "/"
                             ),
-                            dest_name=resource["url"].split("/")[-1].replace(".csv.gz", ".csv"),
+                            dest_name=resource["url"]
+                            .split("/")[-1]
+                            .replace(".csv.gz", ".csv"),
                         )
                     ],
-                    ignore_airflow_env=True
+                    ignore_airflow_env=True,
                 )
             logging.info("=> Completed work for: " + regex_infos["name"])
             _conn.commit()
@@ -260,13 +364,13 @@ def get_regex_infos(pattern: str, filename: str, params: dict) -> dict:
 
 def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     if dataset == "BASE/QUOT":
-        if "Vent" in res['title']:
+        if "Vent" in res["title"]:
             file_path = f"{DATADIR}{config[dataset]['table_name'] + '_vent'}/"
         else:
             file_path = f"{DATADIR}{config[dataset]['table_name'] + '_autres'}/"
     else:
         file_path = f"{DATADIR}{config[dataset]['table_name']}/"
-    file_name = get_hooked_name(res["url"].split('/')[-1])
+    file_name = get_hooked_name(res["url"].split("/")[-1])
     file_path = Path(file_path + file_name)
     File(
         url=res["url"],
@@ -277,13 +381,17 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
         File(
-            url=res["url"].replace("data/synchro_ftp/", "synchro_pg/").replace(".csv.gz", ".csv"),
+            url=res["url"]
+            .replace("data/synchro_ftp/", "synchro_pg/")
+            .replace(".csv.gz", ".csv"),
             dest_path=file_path.parent.as_posix(),
             dest_name=old_file,
         ).download(timeout=TIMEOUT)
-    except Exception as e:
+    except Exception:
         # raise ValueError(f"Download error for {res['url']}: {e}")
-        logging.warning("> This file is not in postgres mirror, creating an empty one for diff")
+        logging.warning(
+            "> This file is not in postgres mirror, creating an empty one for diff"
+        )
         with open(csv_path, "r") as f:
             columns = f.readline()
         with open(build_old_file_name(csv_path), "w") as f:
@@ -293,41 +401,42 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
 
 def unzip_csv_gz(file_path: str) -> str:
     output_file_path = str(file_path)[:-3]
-    with gzip.open(file_path, 'rb') as f_in:
-        with open(output_file_path, 'wb') as f_out:
+    with gzip.open(file_path, "rb") as f_in:
+        with open(output_file_path, "wb") as f_out:
             shutil.copyfileobj(f_in, f_out)
     os.remove(file_path)
     return output_file_path
 
 
 def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
-
     def run_diff(csv_path: str, dep: str, _filter=None):
         old_file = build_old_file_name(csv_path)
         additions_file = build_additions_file_name(csv_path)
         deletions_file = build_deletions_file_name(csv_path)
 
-        with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
+        with open(csv_path, "r") as new_file, open(old_file, "r") as old_file:
             # skipping headers
             new_file.readline()
             old_file.readline()
             # removing carriage return so that if the last row doesn't have one
             # it'll not be considered new when data is appended
             new_lines = set(
-                r.replace("\n", "") for r in new_file
+                r.replace("\n", "")
+                for r in new_file
                 if _filter is None or r.startswith(_filter)
             )
             old_lines = set(
-                r.replace("\n", "") for r in old_file
+                r.replace("\n", "")
+                for r in old_file
                 if _filter is None or r.startswith(_filter)
             )
 
-        with open(additions_file, 'a') as outFile:
+        with open(additions_file, "a") as outFile:
             for line in new_lines:
                 if line not in old_lines:
                     outFile.write(line.strip() + f";{dep}\n")
 
-        with open(deletions_file, 'a') as outFile:
+        with open(deletions_file, "a") as outFile:
             for line in old_lines:
                 if line not in new_lines:
                     outFile.write(line + "\n")
@@ -340,9 +449,7 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
         )
         columns = cursor.fetchall()
         cursor.close()
-        column_types = {
-            c[0]: type_mapping[c[1]] for c in columns
-        }
+        column_types = {c[0]: type_mapping[c[1]] for c in columns}
         # deletions will be a list of lists of tuples (column_name, typed value)
         # we are only keep primary keys: NUM_POSTE and period (AAAA...)
         with open(build_deletions_file_name(csv_path), "r") as f:
@@ -352,31 +459,38 @@ def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
                 yield [
                     (col_name, column_types[col_name.lower()](value))
                     for value, col_name in zip(row, column_names)
-                    if col_name.lower() == "num_poste" or col_name.lower().startswith("aaaa")
+                    if col_name.lower() == "num_poste"
+                    or col_name.lower().startswith("aaaa")
                 ]
 
-    table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
+    table_name = f"{table}_{regex_infos['regex_infos']['DEP']}"
     # creating empty additions and deletions files, we'll fill them up
     old_file = build_old_file_name(csv_path)
     additions_file = build_additions_file_name(csv_path)
     deletions_file = build_deletions_file_name(csv_path)
-    with open(csv_path, 'r') as new_file, open(old_file, 'r') as old_file:
+    with open(csv_path, "r") as new_file, open(old_file, "r") as old_file:
         header = new_file.readline()
-        old_header = old_file.readline()
+        # old_header = old_file.readline()
         # if header != old_header:
         #     raise ValueError("New and old headers differ:", header, "vs", old_header)
-        with open(additions_file, 'w') as outFile:
+        with open(additions_file, "w") as outFile:
             outFile.write(header.strip() + ";DEP\n")
-        with open(deletions_file, 'w') as outFile:
+        with open(deletions_file, "w") as outFile:
             outFile.write(header.strip() + "\n")
 
     # if MIN or HOR: files are too big to be handled at once, we build the diff iteratively
-    if any(_ in csv_path for _ in ['MN_', 'H_']):
+    if any(_ in csv_path for _ in ["MN_", "H_"]):
         logging.info("> Building diff in batches...")
         # files are too big to be handled in one go, so we process them in batches
         # using the fact that the first column (NUM_POSTE) always starts with dep + numbers
-        for _filter in create_filters(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"]):
-            run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"], _filter=_filter)
+        for _filter in create_filters(
+            csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"]
+        ):
+            run_diff(
+                csv_path=csv_path,
+                dep=regex_infos["regex_infos"]["DEP"],
+                _filter=_filter,
+            )
     # for other files it's fine to build diff on the whole file
     else:
         run_diff(csv_path=csv_path, dep=regex_infos["regex_infos"]["DEP"])
@@ -406,24 +520,26 @@ def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
 
 
 def delete_and_insert_into_pg(_conn, deletions, regex_infos, table, csv_path):
-    table_name = f'{table}_{regex_infos["regex_infos"]["DEP"]}'
+    table_name = f"{table}_{regex_infos['regex_infos']['DEP']}"
     nb_add = count_lines_in_file(build_additions_file_name(csv_path))
     nb_del = count_lines_in_file(build_deletions_file_name(csv_path))
     threshold = 20000
     if nb_del > threshold:
-        logging.info(f"> More than {threshold} rows to delete ({nb_del}), replacing the whole period...")
+        logging.info(
+            f"> More than {threshold} rows to delete ({nb_del}), replacing the whole period..."
+        )
         replace_whole_period(_conn, table_name, csv_path, regex_infos)
         return
     if nb_del:
-        logging.info(f'> Deleting {nb_del} rows...')
+        logging.info(f"> Deleting {nb_del} rows...")
         delete_old_data(_conn, table_name, deletions)
     if nb_add:
-        logging.info(f'> Inserting {nb_add} rows...')
+        logging.info(f"> Inserting {nb_add} rows...")
         load_new_data(_conn, table_name, csv_path)
 
 
 def count_lines_in_file(file_path):
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         # skip header
         file.readline()
         line_count = sum(1 for _ in file if _ and _ != "\n")
@@ -453,11 +569,14 @@ def build_query_filters(regex_infos: dict):
 def replace_whole_period(_conn, table_name, csv_path, regex_infos):
     logging.info("> Deleting period...")
     cursor = _conn.cursor()
-    cursor.execute(f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1=1 " + build_query_filters(regex_infos))
+    cursor.execute(
+        f"DELETE FROM {SCHEMA_NAME}.{table_name} WHERE 1=1 "
+        + build_query_filters(regex_infos)
+    )
     # the raw source file is missing the DEP column
     csv_with_dep = csv_path.replace(".csv", "_with_dep.csv")
     dep = regex_infos["regex_infos"]["DEP"]
-    with open(csv_with_dep, 'w') as dep_file, open(csv_path, 'r') as file:
+    with open(csv_with_dep, "w") as dep_file, open(csv_path, "r") as file:
         for idx, line in enumerate(file.readlines()):
             if idx == 0:
                 dep_file.write(line.strip() + ";DEP\n")
@@ -465,20 +584,20 @@ def replace_whole_period(_conn, table_name, csv_path, regex_infos):
                 dep_file.write(line.strip() + f";{dep}\n")
     nb_rows = count_lines_in_file(csv_with_dep)
     logging.info(f"> Inserting whole file ({nb_rows} rows)...")
-    with open(csv_with_dep, 'r') as f:
+    with open(csv_with_dep, "r") as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
-            f
+            f,
         )
     cursor.close()
 
 
 def load_new_data(_conn, table_name, csv_path):
     cursor = _conn.cursor()
-    with open(build_additions_file_name(csv_path), 'r') as f:
+    with open(build_additions_file_name(csv_path), "r") as f:
         cursor.copy_expert(
             f"COPY {SCHEMA_NAME}.{table_name} FROM STDIN WITH CSV HEADER DELIMITER ';'",
-            f
+            f,
         )
     cursor.close()
 
@@ -495,7 +614,7 @@ def delete_old_data(_conn, table_name, deletions):
             filters = []
             for name, value in row:
                 filters.append(f"{name}='{value}'")
-            query += f' OR ({" AND ".join(filters)})'
+            query += f" OR ({' AND '.join(filters)})"
             batch += 1
         # executing deletions in batches for safety
         if batch == batch_size:
@@ -525,7 +644,9 @@ def drop_indexes(conn, table_name):
 
 def create_indexes(conn, table_name, period):
     cursor = conn.cursor()
-    query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_dep ON meteo.{table_name} (DEP)"
+    query = (
+        f"CREATE INDEX IF NOT EXISTS idx_{table_name}_dep ON meteo.{table_name} (DEP)"
+    )
     cursor.execute(query)
     query = f"CREATE INDEX IF NOT EXISTS idx_{table_name}_num_poste ON meteo.{table_name} (NUM_POSTE)"
     cursor.execute(query)
@@ -556,6 +677,4 @@ def send_notification(ti):
     if isinstance(start, datetime):
         start = start.timestamp()
     duration = timedelta(seconds=round(datetime.now().timestamp() - start))
-    send_message(
-        text=f"##### 🌦️ Données météo mises à jour dans postgres en {duration}"
-    )
+    send_message(text=f"##### 🌦️ Données météo mises à jour dans postgres en {duration}")

@@ -27,7 +27,9 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
-with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json") as fp:
+with open(
+    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json"
+) as fp:
     config = json.load(fp)
 
 
@@ -40,9 +42,9 @@ def check_if_modif():
 def process_data():
     # this is done in one task to get the files only once
     resources = requests.get(
-        'https://www.data.gouv.fr/api/1/datasets/5cf8d9ed8b4c4110294c841d/',
-        headers={"X-fields": "resources{title,url}"}
-    ).json()['resources']
+        "https://www.data.gouv.fr/api/1/datasets/5cf8d9ed8b4c4110294c841d/",
+        headers={"X-fields": "resources{title,url}"},
+    ).json()["resources"]
     resources = [r for r in resources if re.search(r"dis-\d{4}.zip", r["title"])]
     columns = {file_type: [] for file_type in config.keys()}
     for idx, resource in enumerate(resources):
@@ -58,7 +60,7 @@ def process_data():
                 with zip_ref.open(file) as f:
                     df = pd.read_csv(
                         f,
-                        sep=',',
+                        sep=",",
                         dtype=str,
                     )
                 if not columns[file_type]:
@@ -66,7 +68,7 @@ def process_data():
                 elif list(df.columns) != columns[file_type]:
                     print(columns[file_type])
                     print(list(df.columns))
-                    raise ValueError('Columns differ between files')
+                    raise ValueError("Columns differ between files")
                 df["annee"] = year
                 df.to_csv(
                     f"{DATADIR}/{file_type}.csv",
@@ -79,12 +81,13 @@ def process_data():
     for file_type in config.keys():
         csv_to_parquet(
             f"{DATADIR}/{file_type}.csv",
-            sep=',',
+            sep=",",
             dtype={
                 # specific dtypes are listed in the config, default to str
                 c: config[file_type]["dtype"].get(c, "VARCHAR")
                 for c in columns[file_type]
-            } | {"annee": "INT32"},
+            }
+            | {"annee": "INT32"},
         )
         if file_type == "RESULT":
             # this one is too big for classic csv
@@ -121,9 +124,7 @@ def publish_on_datagouv(file_type):
                     f"/controle_sanitaire_eau/{file_type}.{ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
-                "title": (
-                    f"Données {file_type} (format {ext})"
-                ),
+                "title": (f"Données {file_type} (format {ext})"),
                 "format": ext,
                 "description": (
                     f"{file_type} (format {ext})"

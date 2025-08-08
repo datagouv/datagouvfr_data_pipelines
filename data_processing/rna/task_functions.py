@@ -34,9 +34,9 @@ def check_if_modif():
 def process_rna(ti, file_type):
     assert file_type in ["import", "waldec"]
     resources = requests.get(
-        'https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d/',
-        headers={"X-fields": "resources{url}"}
-    ).json()['resources']
+        "https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d/",
+        headers={"X-fields": "resources{url}"},
+    ).json()["resources"]
     latest = sorted([r["url"] for r in resources if file_type in r["url"]])[-1]
     r = requests.get(latest)
     r.raise_for_status()
@@ -47,14 +47,14 @@ def process_rna(ti, file_type):
             with zip_ref.open(file) as f:
                 df = pd.read_csv(
                     f,
-                    sep=';',
+                    sep=";",
                     dtype=str,
                     # encoding="ISO-8859-1", # newer files are utf8-encoded
                 )
                 if columns and list(df.columns) != columns:
                     print(columns)
                     print(list(df.columns))
-                    raise ValueError('Columns differ between dep files')
+                    raise ValueError("Columns differ between dep files")
                 columns = list(df.columns)
                 punc_to_remove = "!\"#$%&'()*+/;?@[]^_`{|}~"
                 for c in df.columns:
@@ -77,10 +77,10 @@ def process_rna(ti, file_type):
                 )
     csv_to_parquet(
         f"{DATADIR}/{file_type}.csv",
-        sep=',',
+        sep=",",
         columns=columns,
     )
-    ti.xcom_push(key="latest", value=latest.split('/')[-1].split('.')[0].split('_')[2])
+    ti.xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
 
 
 def send_rna_to_minio(file_type):
@@ -114,9 +114,7 @@ def publish_on_datagouv(ti, file_type):
                     f"/rna/{file_type}.{ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
-                "title": (
-                    f"Données {file_type.title()} au {date} (format {ext})"
-                ),
+                "title": (f"Données {file_type.title()} au {date} (format {ext})"),
                 "format": ext,
                 "description": (
                     f"RNA {file_type.title()} au {date} (format {ext})"

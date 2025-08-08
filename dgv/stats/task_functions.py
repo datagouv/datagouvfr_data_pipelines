@@ -47,7 +47,9 @@ def create_year_if_missing():
         f.write("tmp")
     local_client.resource().create_static(
         file_to_upload=file.full_source_path,
-        payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},
+        payload={
+            "title": f"Statistiques de consultation pour l'année {yesterdays_year}"
+        },
         dataset_id=config[AIRFLOW_ENV]["dataset_id"],
     )
 
@@ -79,7 +81,7 @@ def update_year():
         # this should not happen by construction but we never know
         raise ValueError("Missing current year resource")
     df = get_months(DATAGOUV_MATOMO_ID, yesterdays_year)
-    df.index.name = ("date")
+    df.index.name = "date"
     file = File(
         source_path=DATADIR,
         source_name=f"{yesterdays_year}-days.csv",
@@ -90,8 +92,12 @@ def update_year():
         id=current_year_resource_id,
         dataset_id=config[AIRFLOW_ENV]["dataset_id"],
         fetch=False,
-        _from_response={"filetype": "file"},  # to be able to update the file without fetching
+        _from_response={
+            "filetype": "file"
+        },  # to be able to update the file without fetching
     ).update(
         file_to_upload=file.full_source_path,
-        payload={"title": f"Statistiques de consultation pour l'année {yesterdays_year}"},
+        payload={
+            "title": f"Statistiques de consultation pour l'année {yesterdays_year}"
+        },
     )

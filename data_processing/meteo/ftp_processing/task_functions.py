@@ -63,10 +63,15 @@ def get_resource_lists() -> dict:
         path: {
             r["url"]: {
                 "id": r["id"],
-                "last_modified": datetime.fromisoformat(r["internal"]["last_modified_internal"]),
-            } for r in requests.get(
+                "last_modified": datetime.fromisoformat(
+                    r["internal"]["last_modified_internal"]
+                ),
+            }
+            for r in requests.get(
                 f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
-                headers={"X-fields": "resources{id,url,internal{last_modified_internal}}"}
+                headers={
+                    "X-fields": "resources{id,url,internal{last_modified_internal}}"
+                },
             ).json()["resources"]
         }
         for path in config.keys()
@@ -85,9 +90,7 @@ def build_file_id(file: str, path: str) -> str:
     if config.get(path, {}).get("source_pattern"):
         params = re.match(config[path]["source_pattern"], file)
         params = params.groupdict() if params else {}
-        if "PERIOD" in params and any([
-            h in params["PERIOD"] for h in hooks
-        ]):
+        if "PERIOD" in params and any([h in params["PERIOD"] for h in hooks]):
             # this will have to change if more hooks are added
             params["PERIOD"] = "latest" if "latest" in params["PERIOD"] else "previous"
         if params:
@@ -113,14 +116,18 @@ def build_resource(
     if global_path not in config:
         resource_name = file_with_ext
         description = ""
-    elif config[global_path]["doc_pattern"] and re.match(config[global_path]["doc_pattern"], file_with_ext):
+    elif config[global_path]["doc_pattern"] and re.match(
+        config[global_path]["doc_pattern"], file_with_ext
+    ):
         resource_name = file_with_ext.split(".")[0]
         is_doc = True
     else:
         # peut-être mettre un 'if params else' ici pour publier les ressources
         # qui posent problème en doc quoiqu'il ?
         try:
-            params = re.match(config[global_path]["source_pattern"], file_with_ext).groupdict()
+            params = re.match(
+                config[global_path]["source_pattern"], file_with_ext
+            ).groupdict()
             for k in params:
                 # removing hook names for data.gouv display
                 params[k] = clean_hooks(params[k])
@@ -140,17 +147,21 @@ def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
         current_path = f"{base_path}/{path}" if base_path else path
         ftp.retrlines(
             "LIST",
-            lambda x: files.append((
-                current_path.split("//")[-1],
-                x.split()[-1],
-                int(x.split()[4]),
-                x.split()[5:8],
-            ))
+            lambda x: files.append(
+                (
+                    current_path.split("//")[-1],
+                    x.split()[-1],
+                    int(x.split()[4]),
+                    x.split()[5:8],
+                )
+            ),
         )
         for item in files:
             # assuming no folder contains a dot (we'll make sure it doesn't happen)
             if "." not in item[1]:
-                files += list_ftp_files_recursive(ftp, f"{path}/{item[1]}", current_path)
+                files += list_ftp_files_recursive(
+                    ftp, f"{path}/{item[1]}", current_path
+                )
     except ftplib.error_perm:
         pass
     return files
@@ -164,7 +175,7 @@ def get_current_files_on_ftp(ti, ftp) -> None:
     # qui devient QUOT_SIM2_2020-202310.csv.gz), on utilise des balises afin de cibler ces fichiers
     # et de remplacer l'ancien par le nouveau au lieu d'ajouter le nouveau fichier
     # et de laisser les deux coexister
-    for (path, file, size, date_list) in raw_ftp_files:
+    for path, file, size, date_list in raw_ftp_files:
         if "." in file:
             path = path.lstrip("/")
             # we keep path in the key just in case two files would have the same name/id
@@ -173,7 +184,7 @@ def get_current_files_on_ftp(ti, ftp) -> None:
             ftp_files[path + "/" + build_file_id(file, global_path)] = {
                 "file_path": path + "/" + file,
                 "size": size,
-                "modif_date": previous_date_parse(" ".join(date_list))
+                "modif_date": previous_date_parse(" ".join(date_list)),
             }
     for f in ftp_files:
         print(f, ":", ftp_files[f])
@@ -195,7 +206,7 @@ def get_current_files_on_minio(ti) -> None:
             if params and "PERIOD" in params:
                 period_starts[path] = min(
                     int(clean_hooks(params["PERIOD"]).split("-")[0]),
-                    period_starts.get(path, datetime.today().year)
+                    period_starts.get(path, datetime.today().year),
                 )
     print(period_starts)
 
@@ -219,11 +230,15 @@ def get_current_files_on_minio(ti) -> None:
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
     file_url = f"https://{MINIO_URL}/{bucket}/{minio_folder}{ftp_file['file_path']}"
     _, global_path = get_path(ftp_file["file_path"])
-    last_modified_datagouv = resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
+    last_modified_datagouv = (
+        resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
+    )
     if not last_modified_datagouv:
         print("This file is not on datagouv yet:", ftp_file["file_path"])
         return False
-    has_been_modified = last_modified_datagouv > ftp_file["modif_date"].replace(tzinfo=timezone.utc)
+    has_been_modified = last_modified_datagouv > ftp_file["modif_date"].replace(
+        tzinfo=timezone.utc
+    )
     if has_been_modified:
         print(f"> {ftp_file['file_path']} has already been modified on data.gouv")
     return has_been_modified
@@ -242,7 +257,8 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     # date on datagouv is less recent
     resources_lists = get_resource_lists()
     diff_files = [
-        f for f in ftp_files
+        f
+        for f in ftp_files
         if f not in minio_files
         or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
@@ -265,18 +281,23 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         # one, which will replace its previous version (we change the resource URL).
         print(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
         if file_to_transfer in minio_files:
-            if minio_files[file_to_transfer]["file_path"] != ftp_files[file_to_transfer]["file_path"]:
+            if (
+                minio_files[file_to_transfer]["file_path"]
+                != ftp_files[file_to_transfer]["file_path"]
+            ):
                 print(
                     f"♻️ Old version {minio_files[file_to_transfer]['file_path']}",
-                    f"will be replaced with {ftp_files[file_to_transfer]['file_path']}"
+                    f"will be replaced with {ftp_files[file_to_transfer]['file_path']}",
                 )
                 # storing files that have changed name with update as {"new_name": "old_name"}
-                files_to_update_new_name[
-                    ftp_files[file_to_transfer]["file_path"]
-                ] = minio_files[file_to_transfer]["file_path"]
+                files_to_update_new_name[ftp_files[file_to_transfer]["file_path"]] = (
+                    minio_files[file_to_transfer]["file_path"]
+                )
             else:
                 print("🔃 This file already exists, it will only be updated")
-                files_to_update_same_name.append(minio_files[file_to_transfer]["file_path"])
+                files_to_update_same_name.append(
+                    minio_files[file_to_transfer]["file_path"]
+                )
         else:
             print("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
@@ -299,15 +320,17 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
                         dest_name=file_name,
                     )
                 ],
-                ignore_airflow_env=True
+                ignore_airflow_env=True,
             )
             updated_datasets.add(global_path)
-        except:
+        except Exception:
             print("⚠️ Unable to send file")
         os.remove(f"{DATADIR}/{file_name}")
     print("___________________________")
     print(len(new_files), "new files:", new_files)
-    print(len(files_to_update_same_name), "updated same name:", files_to_update_same_name)
+    print(
+        len(files_to_update_same_name), "updated same name:", files_to_update_same_name
+    )
     print(len(files_to_update_new_name), "updated new name:", files_to_update_new_name)
 
     # re-getting Minio files in case new files have been transfered for downstream tasks
@@ -326,18 +349,22 @@ def get_file_extention(file: str) -> str:
 
 
 def upload_new_files(ti) -> None:
-    new_files = ti.xcom_pull(key="new_files", task_ids="get_and_upload_file_diff_ftp_minio")
-    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
-    minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    new_files = ti.xcom_pull(
+        key="new_files", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    updated_datasets = ti.xcom_pull(
+        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    minio_files = ti.xcom_pull(
+        key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
     )
     # adding files that have been spotted as new files in other processings
-    spotted_new_files = (
-        ti.xcom_pull(key="new_files", task_ids="handle_updated_files_same_name")
-        + ti.xcom_pull(key="new_files", task_ids="handle_updated_files_new_name")
-    )
+    spotted_new_files = ti.xcom_pull(
+        key="new_files", task_ids="handle_updated_files_same_name"
+    ) + ti.xcom_pull(key="new_files", task_ids="handle_updated_files_new_name")
     resources_lists = get_resource_lists()
     new_files += spotted_new_files
     new_files = list(set(new_files))
@@ -366,13 +393,15 @@ def upload_new_files(ti) -> None:
     new_files_datasets = set()
     went_wrong = []
     for idx, clean_file_path in enumerate(new_files):
-        file_with_ext, global_path, resource_name, description, url, is_doc = build_resource(
-            clean_file_path,
-            minio_folder,
+        file_with_ext, global_path, resource_name, description, url, is_doc = (
+            build_resource(
+                clean_file_path,
+                minio_folder,
+            )
         )
         print(
             f"Creating new {'documentation ' if is_doc else ''}resource for:",
-            file_with_ext
+            file_with_ext,
         )
         try:
             local_client.resource().create_remote(
@@ -399,12 +428,15 @@ def upload_new_files(ti) -> None:
 
 
 def handle_updated_files_same_name(ti) -> None:
-    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
-    files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+    updated_datasets = ti.xcom_pull(
+        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    files_to_update_same_name = ti.xcom_pull(
+        key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    minio_files = ti.xcom_pull(
+        key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
     resources_lists = get_resource_lists()
 
     new_files = []
@@ -424,7 +456,7 @@ def handle_updated_files_same_name(ti) -> None:
             continue
         local_client.resource(
             id=resources_lists[global_path][url]["id"],
-            dataset_id=config[global_path]['dataset_id'][AIRFLOW_ENV],
+            dataset_id=config[global_path]["dataset_id"][AIRFLOW_ENV],
             fetch=False,
         ).update(
             payload={
@@ -438,19 +470,21 @@ def handle_updated_files_same_name(ti) -> None:
 
 
 def handle_updated_files_new_name(ti) -> None:
-    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio")
-    files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+    updated_datasets = ti.xcom_pull(
+        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio"
     )
-    minio_files = ti.xcom_pull(key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio")
+    files_to_update_new_name = ti.xcom_pull(
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
+    minio_files = ti.xcom_pull(
+        key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio"
+    )
     resources_lists = get_resource_lists()
 
     new_files = []
     for idx, file_path in enumerate(files_to_update_new_name):
-        file_with_ext, global_path, resource_name, description, url, is_doc = build_resource(
-            file_path,
-            minio_folder
+        file_with_ext, global_path, resource_name, description, url, is_doc = (
+            build_resource(file_path, minio_folder)
         )
         # resource is updated with a new name, we redirect the existing resource, rename it
         # and update size and description
@@ -481,17 +515,18 @@ def handle_updated_files_new_name(ti) -> None:
 
 
 def update_temporal_coverages(ti) -> None:
-    period_starts = ti.xcom_pull(key="period_starts", task_ids="get_current_files_on_minio")
+    period_starts = ti.xcom_pull(
+        key="period_starts", task_ids="get_current_files_on_minio"
+    )
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
     for task in [
         "upload_new_files",
         "handle_updated_files_same_name",
-        "handle_updated_files_new_name"
+        "handle_updated_files_new_name",
     ]:
         updated_datasets = updated_datasets | ti.xcom_pull(
-            key="updated_datasets",
-            task_ids=task
+            key="updated_datasets", task_ids=task
         )
     print("Updating datasets temporal_coverage")
     for path in updated_datasets:
@@ -500,11 +535,15 @@ def update_temporal_coverages(ti) -> None:
             tags = requests.get(
                 f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
             ).json()["tags"]
-            local_client.dataset(config[path]["dataset_id"][AIRFLOW_ENV], fetch=False).update(
+            local_client.dataset(
+                config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
+            ).update(
                 payload={
                     "temporal_coverage": {
-                        "start": datetime(period_starts[path], 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                        "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                        "start": datetime(period_starts[path], 1, 1).strftime(
+                            "%Y-%m-%dT%H:%M:%S.%fZ"
+                        ),
+                        "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                     },
                     "tags": tags,
                 },
@@ -515,44 +554,45 @@ def update_temporal_coverages(ti) -> None:
 def log_modified_files(ti) -> None:
     new_files = ti.xcom_pull(key="new_files", task_ids="upload_new_files")
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
     )
     files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_minio"
     )
     log_file_path = "data/updated_files.json"
-    log_file = json.loads(minio_meteo.get_file_content(
-        log_file_path
-    ))
+    log_file = json.loads(minio_meteo.get_file_content(log_file_path))
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
     if log_file.get(today):
         # the DAG runs more than once a day, we don't want to erase the info
         # from previous runs, so we append what's not already here
-        already_here = set(file["name"]for file in log_file[today])
+        already_here = set(file["name"] for file in log_file[today])
         log_file[today] += [
             {
-                "folder": '/'.join(k.split('/')[:-1]),
-                "name": k.split('/')[-1],
-            } for k in
-            new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
-            if k.split('/')[-1] not in already_here
+                "folder": "/".join(k.split("/")[:-1]),
+                "name": k.split("/")[-1],
+            }
+            for k in new_files
+            + files_to_update_same_name
+            + list(files_to_update_new_name.keys())
+            if k.split("/")[-1] not in already_here
         ]
     else:
         log_file[today] = [
             {
-                "folder": '/'.join(k.split('/')[:-1]),
-                "name": k.split('/')[-1],
-            } for k in
-            new_files + files_to_update_same_name + list(files_to_update_new_name.keys())
+                "folder": "/".join(k.split("/")[:-1]),
+                "name": k.split("/")[-1],
+            }
+            for k in new_files
+            + files_to_update_same_name
+            + list(files_to_update_new_name.keys())
         ]
     # keeping logs for the last month only, and all keys that are not dates
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
     log_file = {
-        k: v for k, v in log_file.items()
-        if not re.match(r'\d+-\d{2}-\d{2}', k) or k >= threshold
+        k: v
+        for k, v in log_file.items()
+        if not re.match(r"\d+-\d{2}-\d{2}", k) or k >= threshold
     }
     print(f"{len(log_file)} clés dans le fichier :", list(log_file.keys()))
     with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
@@ -561,30 +601,31 @@ def log_modified_files(ti) -> None:
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
-                source_name=log_file_path.split('/')[-1],
+                source_name=log_file_path.split("/")[-1],
                 dest_path=get_path(log_file_path)[0] + "/",
-                dest_name=log_file_path.split('/')[-1],
+                dest_name=log_file_path.split("/")[-1],
             )
         ],
-        ignore_airflow_env=True
+        ignore_airflow_env=True,
     )
 
 
 def delete_replaced_minio_files(ti) -> None:
     # files that have been renamed while update will be removed
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name",
-        task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
     )
     for old_file in files_to_update_new_name.values():
-        minio_meteo.delete_file(
-            file_path=minio_folder + old_file
-        )
+        minio_meteo.delete_file(file_path=minio_folder + old_file)
 
 
 def notification_mattermost(ti) -> None:
-    new_files_datasets = ti.xcom_pull(key="new_files_datasets", task_ids="upload_new_files")
-    updated_datasets = ti.xcom_pull(key="updated_datasets", task_ids="update_temporal_coverages")
+    new_files_datasets = ti.xcom_pull(
+        key="new_files_datasets", task_ids="upload_new_files"
+    )
+    updated_datasets = ti.xcom_pull(
+        key="updated_datasets", task_ids="update_temporal_coverages"
+    )
     print(new_files_datasets)
     print(updated_datasets)
 
@@ -605,25 +646,25 @@ def notification_mattermost(ti) -> None:
     allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
-        allowed_patterns[config[path]['dataset_id'][AIRFLOW_ENV]].append(
-            config[path]['name_template']
+        allowed_patterns[config[path]["dataset_id"][AIRFLOW_ENV]].append(
+            config[path]["name_template"]
         )
-        paths[config[path]['dataset_id'][AIRFLOW_ENV]] = path
+        paths[config[path]["dataset_id"][AIRFLOW_ENV]] = path
     for dataset_id in allowed_patterns:
         resources = requests.get(
-            f'{local_client.base_url}/api/1/datasets/{dataset_id}/',
-            headers={'X-fields': 'resources{title,id,type}'}
-        ).json()['resources']
+            f"{local_client.base_url}/api/1/datasets/{dataset_id}/",
+            headers={"X-fields": "resources{title,id,type}"},
+        ).json()["resources"]
         for r in resources:
             if (
-                r['type'] == 'main'
+                r["type"] == "main"
                 and any(k for k in allowed_patterns[dataset_id])
                 and not any(
-                    r['title'].startswith(template.split('_')[0])
+                    r["title"].startswith(template.split("_")[0])
                     for template in allowed_patterns[dataset_id]
                 )
             ):
-                issues[dataset_id][r['id']] = r['title']
+                issues[dataset_id][r["id"]] = r["title"]
     if issues:
         message += "\n:alert: Des ressources semblent mal placées :\n"
         for dataset_id in issues:
@@ -640,7 +681,7 @@ def notification_mattermost(ti) -> None:
 
 
 # %% TO BE REMOVED SOMEWHEN
-import pandas as pd
+import pandas as pd  # noqa
 
 
 def raise_if_duplicates(idx: int) -> None:

@@ -82,7 +82,9 @@ def csv_to_csvgz(
     logging.info(f"to {output_path + output_name}")
     with (
         open(csv_file_path, "r", newline="", encoding="utf-8") as csvfile,
-        gzip.open(output_path + output_name, "wt", newline="", encoding="utf-8") as gzfile,
+        gzip.open(
+            output_path + output_name, "wt", newline="", encoding="utf-8"
+        ) as gzfile,
     ):
         while True:
             chunk = csvfile.read(chunk_size)

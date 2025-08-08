@@ -84,16 +84,14 @@ def compute_top(_class, date, title):
                     r2 = requests.get(url)
                 if _stop:
                     continue
-                arr.append({
-                    "value": data["nb_visits"],
-                    "url": data["url"],
-                    "name": r2.json().get("title", data["url"])
-                })
-                textTop += (
-                    f"`{data['nb_visits']}`".ljust(10)
-                    + data["url"]
-                    + "\n"
+                arr.append(
+                    {
+                        "value": data["nb_visits"],
+                        "url": data["url"],
+                        "name": r2.json().get("title", data["url"]),
+                    }
                 )
+                textTop += f"`{data['nb_visits']}`".ljust(10) + data["url"] + "\n"
     mydict = {
         "name": title,
         "unit": "visites",
@@ -112,18 +110,24 @@ def compute_general(date):
     pageviews, uniq_pageviews, downloads = [], [], []
     for data in r.json():
         logging.info(data)
-        pageviews.append({
-            "date": date,
-            "value": data["nb_pageviews"],
-        })
-        uniq_pageviews.append({
-            "date": date,
-            "value": data["nb_uniq_pageviews"],
-        })
-        downloads.append({
-            "date": date,
-            "value": data["nb_downloads"],
-        })
+        pageviews.append(
+            {
+                "date": date,
+                "value": data["nb_pageviews"],
+            }
+        )
+        uniq_pageviews.append(
+            {
+                "date": date,
+                "value": data["nb_uniq_pageviews"],
+            }
+        )
+        downloads.append(
+            {
+                "date": date,
+                "value": data["nb_downloads"],
+            }
+        )
     return pageviews, uniq_pageviews, downloads
 
 
@@ -172,10 +176,7 @@ def publish_top_mattermost(ti, **kwargs):
             if _class == "datasets"
             else ":artist: **Top 10 réutilisations** - "
         )
-        message = (
-            header
-            + f"{publish_info['label']} (visites)\n\n{top}"
-        )
+        message = header + f"{publish_info['label']} (visites)\n\n{top}"
         send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
 
@@ -183,9 +184,12 @@ def send_tops_to_minio(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
     for _class in ["datasets", "reuses"]:
         top = ti.xcom_pull(
-            key=f"top_{_class}_dict", task_ids=f"get_top_{_class}_" + publish_info["period"]
+            key=f"top_{_class}_dict",
+            task_ids=f"get_top_{_class}_" + publish_info["period"],
         )
-        minio_open.dict_to_bytes_to_minio(top, publish_info["minio"] + f"top_{_class}.json")
+        minio_open.dict_to_bytes_to_minio(
+            top, publish_info["minio"] + f"top_{_class}.json"
+        )
 
 
 def send_stats_to_minio(**kwargs):
@@ -196,8 +200,10 @@ def send_stats_to_minio(**kwargs):
         start,
         end,
         freq=(
-            "MS" if piwik_info["period"] == "month"
-            else "YS" if piwik_info["period"] == "year"
+            "MS"
+            if piwik_info["period"] == "month"
+            else "YS"
+            if piwik_info["period"] == "year"
             else "D"
         ),
     )

@@ -189,8 +189,12 @@ with DAG(
     upload_consolidated_irve.set_upstream(geodata_quality_improvement)
     update_reference_table_irve.set_upstream(upload_consolidated_irve)
     update_resource_send_mail_producer_irve.set_upstream(update_reference_table_irve)
-    update_consolidation_documentation_report_irve.set_upstream(update_resource_send_mail_producer_irve)
-    create_consolidation_reports_irve.set_upstream(update_consolidation_documentation_report_irve)
+    update_consolidation_documentation_report_irve.set_upstream(
+        update_resource_send_mail_producer_irve
+    )
+    create_consolidation_reports_irve.set_upstream(
+        update_consolidation_documentation_report_irve
+    )
     create_detailed_report_irve.set_upstream(create_consolidation_reports_irve)
     final_directory_clean_up_irve.set_upstream(create_detailed_report_irve)
     upload_minio_irve.set_upstream(final_directory_clean_up_irve)

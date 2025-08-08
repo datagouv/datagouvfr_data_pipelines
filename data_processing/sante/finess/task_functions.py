@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
 
-DAG_NAME = 'data_processing_finess'
+DAG_NAME = "data_processing_finess"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}finess/"
 DATADIR = f"{TMP_FOLDER}data"
@@ -37,9 +37,11 @@ def check_if_modif():
 
 def get_finess_columns(ti):
     doc = pymupdf.open(
-        stream=BytesIO(requests.get(
-            "https://www.data.gouv.fr/fr/datasets/r/d06a0924-9931-4a60-83b6-93abdb6acfd6"
-        ).content),
+        stream=BytesIO(
+            requests.get(
+                "https://www.data.gouv.fr/fr/datasets/r/d06a0924-9931-4a60-83b6-93abdb6acfd6"
+            ).content
+        ),
         filetype="pdf",
     )
     xml = ""
@@ -62,26 +64,38 @@ def get_finess_columns(ti):
         if restr.find_all("maxLength"):
             if restriction_clean is not None:
                 restriction_clean += "&"
-                restriction_clean += "maxLength:" + restr.find_all("maxLength")[0]["value"]
+                restriction_clean += (
+                    "maxLength:" + restr.find_all("maxLength")[0]["value"]
+                )
             else:
-                restriction_clean = "maxLength:" + restr.find_all("maxLength")[0]["value"]
+                restriction_clean = (
+                    "maxLength:" + restr.find_all("maxLength")[0]["value"]
+                )
         if restr.find_all("enumeration"):
-            restriction_clean = "enumeration:" + "|".join(t["value"] for t in restr.find_all("enumeration"))
+            restriction_clean = "enumeration:" + "|".join(
+                t["value"] for t in restr.find_all("enumeration")
+            )
         if col["name"][4:] == "NumeroFiness":
             # it's actually two columns
-            columns.append({
-                "column_name": "nofinesset",
-                "constraints": restriction_clean,
-            })
-            columns.append({
-                "column_name": "nofinessej",
-                "constraints": restriction_clean,
-            })
+            columns.append(
+                {
+                    "column_name": "nofinesset",
+                    "constraints": restriction_clean,
+                }
+            )
+            columns.append(
+                {
+                    "column_name": "nofinessej",
+                    "constraints": restriction_clean,
+                }
+            )
         else:
-            columns.append({
-                "column_name": col["name"][4:],
-                "constraints": restriction_clean,
-            })
+            columns.append(
+                {
+                    "column_name": col["name"][4:],
+                    "constraints": restriction_clean,
+                }
+            )
         if all(c["column_name"] != "nofinesset" for c in columns):
             raise ValueError("Columns retrieval went wrong:", columns)
     ti.xcom_push(key="finess_columns", value=columns)
@@ -89,9 +103,11 @@ def get_finess_columns(ti):
 
 def get_geoloc_columns(ti):
     doc = pymupdf.open(
-        stream=BytesIO(requests.get(
-            "https://www.data.gouv.fr/fr/datasets/r/d1a2f35f-8823-400f-9296-6eb7361ddf6f"
-        ).content),
+        stream=BytesIO(
+            requests.get(
+                "https://www.data.gouv.fr/fr/datasets/r/d1a2f35f-8823-400f-9296-6eb7361ddf6f"
+            ).content
+        ),
         filetype="pdf",
     )
     xml = ""
@@ -122,9 +138,13 @@ def build_finess_table(ti):
     )
     # we also retrieve the geolocalised version, because some row can be missing
     print("Getting geolocalised file")
-    rows = requests.get(
-        "https://www.data.gouv.fr/fr/datasets/r/98f3161f-79ff-4f16-8f6a-6d571a80fea2"
-    ).content.decode("utf8").split("\n")
+    rows = (
+        requests.get(
+            "https://www.data.gouv.fr/fr/datasets/r/98f3161f-79ff-4f16-8f6a-6d571a80fea2"
+        )
+        .content.decode("utf8")
+        .split("\n")
+    )
     classic, geoloc, other = [], [], []
     # this file is "divided" into two sections:
     # - the first one is (allegedly) the same as the other file (but sometimes not exactly)
@@ -179,10 +199,14 @@ def build_finess_table(ti):
         for col in finess_columns
     } | {
         name: (
-            "FLOAT" if name in ["coordxet", "coordyet"]
-            else "DATE" if "date" in name
+            "FLOAT"
+            if name in ["coordxet", "coordyet"]
+            else "DATE"
+            if "date" in name
             else "VARCHAR"
-        ) for name in geoloc_columns if name != "nofinesset"
+        )
+        for name in geoloc_columns
+        if name != "nofinesset"
     }
     csv_to_parquet(
         DATADIR + "/finess_geoloc.csv",

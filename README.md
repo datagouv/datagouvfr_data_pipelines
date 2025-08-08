@@ -13,3 +13,10 @@ Ces dags permettent de faire tourner des pipelines de données de différents ty
 
 - réaliser une PR sur ce dépôt en respectant la structure de celui-ci (créer un sous-dossier par traitement réalisé)
 - variabiliser les paramètres de vos DAGs dans des variables Airflow
+
+## Linting
+Ce dépôt est formaté avec [`ruff`](https://docs.astral.sh/ruff/), avant de commit :
+```
+ruff check --fix .
+ruff format .
+```
