@@ -1,4 +1,4 @@
-from datagouvfr_data_pipelines.dgv.simplifions.simplifions_manager import (
+from datagouvfr_data_pipelines.verticales.simplifions.simplifions_manager import (
     SimplifionsManager,
 )
 
