@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     demo_client,
 )
 
-from datagouvfr_data_pipelines.dgv.simplifions.task_functions import (
+from datagouvfr_data_pipelines.verticales.simplifions.task_functions import (
     get_and_format_grist_data,
     update_topics,
     update_topics_references,
