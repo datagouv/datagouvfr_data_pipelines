@@ -35,16 +35,28 @@ SP1_MFWAM = Package(
         "max_hour": 48,
         "nb_char": 3,
         "additional_time": [
-            '051H', '054H', '057H',
-            '060H', '063H', '066H', '069H',
-            '072H', '075H', '078H',
-            '081H', '084H', '087H',
-            '090H', '093H', '096H', '099H',
-            '102H',
+            "051H",
+            "054H",
+            "057H",
+            "060H",
+            "063H",
+            "066H",
+            "069H",
+            "072H",
+            "075H",
+            "078H",
+            "081H",
+            "084H",
+            "087H",
+            "090H",
+            "093H",
+            "096H",
+            "099H",
+            "102H",
         ],
-    }
+    },
 )
-SP1_WW3 = Package(name="SP1", **{"time": ['000H999H']})
+SP1_WW3 = Package(name="SP1", **{"time": ["000H999H"]})
 SP1_HYCOM2D_ARP = Package(name="SP1", **{"min_hour": 0, "max_hour": 102, "nb_char": 3})
 SP1_HYCOM2D_ARO = Package(name="SP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 3})
 IP1 = Package(name="IP1", **{"min_hour": 0, "max_hour": 48, "nb_char": 3})
@@ -59,8 +71,28 @@ HP1 = Package(name="HP1", **{"min_hour": 0, "max_hour": 48, "nb_char": 3})
 HP2 = Package(name="HP2", **{"min_hour": 0, "max_hour": 48, "nb_char": 3})
 HP3 = Package(name="HP3", **{"min_hour": 1, "max_hour": 48, "nb_char": 3})
 
-AROME_TIME = ["00H06H", "07H12H", "13H18H", "19H24H", "25H30H", "31H36H", "37H42H", "43H48H", "49H51H"]
-ARPEGE01_TIME = ["000H012H", "013H024H", "025H036H", "037H048H", "049H060H", "061H072H", "073H084H", "085H096H", "097H102H"]
+AROME_TIME = [
+    "00H06H",
+    "07H12H",
+    "13H18H",
+    "19H24H",
+    "25H30H",
+    "31H36H",
+    "37H42H",
+    "43H48H",
+    "49H51H",
+]
+ARPEGE01_TIME = [
+    "000H012H",
+    "013H024H",
+    "025H036H",
+    "037H048H",
+    "049H060H",
+    "061H072H",
+    "073H084H",
+    "085H096H",
+    "097H102H",
+]
 ARPEGE025_TIME = ["000H024H", "025H048H", "049H072H", "073H102H"]
 
 # model => pack => grid => packages
@@ -73,7 +105,9 @@ PACKAGES = {
                     "prod": "65bd1a505a5b412989a84ca7",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.025/packages/SP1",
-                "packages": [Package(name="SP1", **{"min_hour": 1, "max_hour": 48, "nb_char": 3})],
+                "packages": [
+                    Package(name="SP1", **{"min_hour": 1, "max_hour": 48, "nb_char": 3})
+                ],
             },
             "0.1": {
                 "dataset_id": {
@@ -263,10 +297,18 @@ PACKAGES = {
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids/0.01/packages/SP1",
                 "packages": [
-                    Package(name="SP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}),
-                    Package(name="SP2", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}),
-                    Package(name="SP3", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}),
-                    Package(name="HP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}),
+                    Package(
+                        name="SP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                    ),
+                    Package(
+                        name="SP2", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                    ),
+                    Package(
+                        name="SP3", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                    ),
+                    Package(
+                        name="HP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                    ),
                 ],
             },
             "base_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids",

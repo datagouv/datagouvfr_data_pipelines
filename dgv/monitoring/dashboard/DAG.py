@@ -22,7 +22,10 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
-groups = [k + "@" + ".".join(["data", "gouv", "fr"]) for k in ["support", "ouverture", "moissonnage", "certification"]]
+groups = [
+    k + "@" + ".".join(["data", "gouv", "fr"])
+    for k in ["support", "ouverture", "moissonnage", "certification"]
+]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 
 minio_open = MinIOClient(bucket="dataeng-open")
@@ -88,7 +91,7 @@ with DAG(
         task_id="publish_mattermost",
         python_callable=send_message,
         op_kwargs={
-            'text': ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
+            "text": ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
         },
     )
 

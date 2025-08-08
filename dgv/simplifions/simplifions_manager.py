@@ -20,21 +20,16 @@ GRIST_TABLES_AND_TAGS = {
             "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
             "API_et_donnees_utiles": "Apidata",
             "descriptions_api_et_donnees_utiles": "SIMPLIFIONS_description_apidata_cas_usages",
-        }
+        },
     },
     "SIMPLIFIONS_produitspublics": {
         "tag": "simplifions-solutions",
-        "sub_tables": {
-            "API_et_data_disponibles": "Apidata"
-        }
+        "sub_tables": {"API_et_data_disponibles": "Apidata"},
     },
     "SIMPLIFIONS_solutions_editeurs": {
         "tag": "simplifions-solutions",
-        "sub_tables": {
-            "API_et_data_disponibles": "Apidata"
-        }
-
-    }
+        "sub_tables": {"API_et_data_disponibles": "Apidata"},
+    },
 }
 
 # These columns are used as the title of the topics
@@ -44,7 +39,12 @@ TAG_AND_TITLES_COLUMNS = {
 }
 
 # These attributes are used to generate tags for the topics filters
-ATTRIBUTES_FOR_TAGS = ['fournisseurs_de_service', 'target_users', 'budget', 'types_de_simplification']
+ATTRIBUTES_FOR_TAGS = [
+    "fournisseurs_de_service",
+    "target_users",
+    "budget",
+    "types_de_simplification",
+]
 
 
 class SimplifionsManager:
@@ -63,9 +63,9 @@ class SimplifionsManager:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
             headers={
-                'Authorization': 'Bearer ' + SECRET_GRIST_API_KEY,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
             },
             params={"filter": filter} if filter else None,
         )
@@ -90,9 +90,9 @@ class SimplifionsManager:
             if topic.get(attribute):
                 if isinstance(topic[attribute], list):
                     for value in topic[attribute]:
-                        tags.append(f'simplifions-{attribute}-{value}')
+                        tags.append(f"simplifions-{attribute}-{value}")
                 else:
-                    tags.append(f'simplifions-{attribute}-{topic[attribute]}')
+                    tags.append(f"simplifions-{attribute}-{topic[attribute]}")
         return tags
 
     def get_subdata(self, key: str, value: list | str, table_info: dict) -> list | str:
@@ -101,8 +101,14 @@ class SimplifionsManager:
         elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
             value_as_list = value if isinstance(value, list) else [value]
             filter = json.dumps({"id": value_as_list})
-            subdata = self.request_grist_table(table_info["sub_tables"][key], filter=filter)
-            cleaned_subdata = [self.clean_row(item) for item in subdata if item.get("Visible_sur_simplifions", True)]
+            subdata = self.request_grist_table(
+                table_info["sub_tables"][key], filter=filter
+            )
+            cleaned_subdata = [
+                self.clean_row(item)
+                for item in subdata
+                if item.get("Visible_sur_simplifions", True)
+            ]
             return cleaned_subdata if isinstance(value, list) else cleaned_subdata[0]
         else:
             return value
@@ -126,7 +132,9 @@ class SimplifionsManager:
             },
         )
         if r.status_code != 200:
-            logging.error(f"Failed to update topic references for {topic['id']}: {r.status_code} - {r.text}")
+            logging.error(
+                f"Failed to update topic references for {topic['id']}: {r.status_code} - {r.text}"
+            )
         r.raise_for_status()
         logging.info(f"Updated topic references at {url}")
 
@@ -148,14 +156,23 @@ class SimplifionsManager:
             if tag not in tag_and_grist_topics:
                 tag_and_grist_topics[tag] = {}
 
-            tag_and_grist_topics[tag].update({
-                row["slug"]: self.cleaned_row_with_subdata(row, table_info)
-                for row in rows
-                if row["slug"]
-            })
+            tag_and_grist_topics[tag].update(
+                {
+                    row["slug"]: self.cleaned_row_with_subdata(row, table_info)
+                    for row in rows
+                    if row["slug"]
+                }
+            )
 
-        logging_str = "\n".join([f"{tag}: {len(grist_topics)} topics" for tag, grist_topics in tag_and_grist_topics.items()])
-        total_length = sum([len(grist_topics) for grist_topics in tag_and_grist_topics.values()])
+        logging_str = "\n".join(
+            [
+                f"{tag}: {len(grist_topics)} topics"
+                for tag, grist_topics in tag_and_grist_topics.items()
+            ]
+        )
+        total_length = sum(
+            [len(grist_topics) for grist_topics in tag_and_grist_topics.values()]
+        )
         logging.info(f"Found {total_length} items in grist: \n{logging_str}")
 
         ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
@@ -183,7 +200,9 @@ class SimplifionsManager:
                 if extras_nested_key in topic["extras"]
             }
 
-            logging.info(f"Found {len(current_topics)} existing topics in datagouv for tag {tag}")
+            logging.info(
+                f"Found {len(current_topics)} existing topics in datagouv for tag {tag}"
+            )
 
             for slug in grist_topics.keys():
                 if slug in current_topics.keys():
@@ -210,7 +229,8 @@ class SimplifionsManager:
                             "class": "Organization",
                             "id": "57fe2a35c751df21e179df72",
                         },
-                        "tags": topic_tags + self.generated_search_tags(grist_topics[slug]),
+                        "tags": topic_tags
+                        + self.generated_search_tags(grist_topics[slug]),
                         "extras": {extras_nested_key: grist_topics[slug] or False},
                         "private": not grist_topics[slug]["Visible_sur_simplifions"],
                     },
@@ -240,50 +260,66 @@ class SimplifionsManager:
         solutions_topics = all_topics["simplifions-solutions"]
         cas_usages_topics = all_topics["simplifions-cas-d-usages"]
 
-        visible_solutions_topics = [topic for topic in solutions_topics if topic["private"] == False]
-        visible_cas_usages_topics = [topic for topic in cas_usages_topics if topic["private"] == False]
-        
+        visible_solutions_topics = [
+            topic for topic in solutions_topics if topic["private"] is False
+        ]
+        visible_cas_usages_topics = [
+            topic for topic in cas_usages_topics if topic["private"] is False
+        ]
+
         # Update solutions_topics with references to cas_usages_topics
         for solution_topic in solutions_topics:
-            cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_slugs"]
+            cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"][
+                "cas_d_usages_slugs"
+            ]
             matching_topics = [
-                topic for topic in visible_cas_usages_topics
+                topic
+                for topic in visible_cas_usages_topics
                 if "simplifions-cas-d-usages" in topic["extras"]
-                and topic["extras"]["simplifions-cas-d-usages"]["slug"] in cas_d_usages_slugs
+                and topic["extras"]["simplifions-cas-d-usages"]["slug"]
+                in cas_d_usages_slugs
             ]
-            solution_topic["extras"]["simplifions-solutions"]["cas_d_usages_topics_ids"] = [
-                topic["id"] for topic in matching_topics
-            ]
+            solution_topic["extras"]["simplifions-solutions"][
+                "cas_d_usages_topics_ids"
+            ] = [topic["id"] for topic in matching_topics]
             # update the solution topic with the new extras
             self.update_extras_of_topic(solution_topic, solution_topic["extras"])
 
         # Update cas_usages_topics with references to solution_topic_id and solutions_editeurs_topics
         for cas_usage_topic in cas_usages_topics:
-            for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"]["reco_solutions"]: 
+            for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"][
+                "reco_solutions"
+            ]:
                 matching_solution_topic = next(
                     (
                         topic
                         for topic in visible_solutions_topics
-                        if "simplifions-solutions" in topic["extras"] 
-                        and topic["extras"]["simplifions-solutions"]["slug"] == reco["solution_slug"]
+                        if "simplifions-solutions" in topic["extras"]
+                        and topic["extras"]["simplifions-solutions"]["slug"]
+                        == reco["solution_slug"]
                     ),
-                    None
+                    None,
                 )
                 if matching_solution_topic:
                     reco["solution_topic_id"] = matching_solution_topic["id"]
-                
+
                 matching_editeur_topics = [
-                    topic for topic in visible_solutions_topics
+                    topic
+                    for topic in visible_solutions_topics
                     if "simplifions-solutions" in topic["extras"]
                     and not topic["extras"]["simplifions-solutions"]["is_public"]
-                    and topic["extras"]["simplifions-solutions"]["slug"] in reco["solution_editeurs_slugs"]
+                    and topic["extras"]["simplifions-solutions"]["slug"]
+                    in reco["solution_editeurs_slugs"]
                 ]
                 reco["solutions_editeurs_topics"] = [
-                    { 
+                    {
                         "topic_id": topic["id"],
                         "solution_name": topic["name"],
-                        "editeur_name": topic["extras"]["simplifions-solutions"]["operateur_nom"],
-                    } for topic in matching_editeur_topics
+                        "editeur_name": topic["extras"]["simplifions-solutions"][
+                            "operateur_nom"
+                        ],
+                    }
+                    for topic in matching_editeur_topics
                 ]
 
             # update the cas_usage topic with the new extras

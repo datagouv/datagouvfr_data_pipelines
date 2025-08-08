@@ -24,8 +24,7 @@ SPAM_WORDS = [
     "free",
     "gratuit",
     "allah",
-    "jesus"
-    "call",
+    "jesuscall",
     "promo",
     "argent",
     "reduction",
@@ -108,7 +107,7 @@ def create_post(
             "headline": headline,
             "content": content,
             "body_type": body_type,
-            "tags": tags
+            "tags": tags,
         },
     )
     assert r.status_code == 201
@@ -164,13 +163,15 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
                 continue
             elif posted_ts < start_date.timestamp():
                 break
-            results.append({
-                "comment_id": f"{d['id']}|{comment['posted_on']}",
-                "discussion_subject": d["subject"],
-                "discussion_title": d["title"],
-                "discussion_created": d["created"],
-                "comment": comment,
-            })
+            results.append(
+                {
+                    "comment_id": f"{d['id']}|{comment['posted_on']}",
+                    "discussion_subject": d["subject"],
+                    "discussion_title": d["title"],
+                    "discussion_created": d["created"],
+                    "comment": comment,
+                }
+            )
     return results
 
 
@@ -182,11 +183,13 @@ def get_all_from_api_query(
     auth: bool = False,
 ) -> Iterator[dict]:
     """/!\ only for paginated endpoints"""
+
     def get_link_next_page(elem: dict, separated_keys: str):
         result = elem
         for k in separated_keys.split("."):
             result = result[k]
         return result
+
     # certain endpoints require authentification but otherwise we're not using it
     # when running locally this can trigger 401 (if you use your dev/demo token in prod)
     # to prevent, overwrite the API key with a valid prod key down here
@@ -208,7 +211,9 @@ def get_all_from_api_query(
 
 
 @simple_connection_retry
-def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> requests.Response:
+def post_comment_on_dataset(
+    dataset_id: str, title: str, comment: str
+) -> requests.Response:
     post_object = {
         "title": title,
         "comment": comment,
@@ -216,7 +221,7 @@ def post_comment_on_dataset(dataset_id: str, title: str, comment: str) -> reques
     }
     r = datagouv_session.post(
         f"{local_client.base_url}/fr/datasets/{dataset_id}/discussions/",
-        json=post_object
+        json=post_object,
     )
     r.raise_for_status()
     return r
@@ -234,7 +239,7 @@ def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
     duplicate_slug_pattern = r"-\d+$"
     if re.search(duplicate_slug_pattern, slug) is not None:
         suffix = re.findall(duplicate_slug_pattern, slug)[0]
-        original_orga = slug[:-len(suffix)]
+        original_orga = slug[: -len(suffix)]
         url_dup = f"https://data.gouv.fr/api/1/organizations/{original_orga}/"
         test_orga = requests.get(url_dup)
         # only considering a duplicate if the original slug is taken (not not found or deleted)

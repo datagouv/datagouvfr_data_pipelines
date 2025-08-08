@@ -17,30 +17,31 @@ from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
-DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
-DAG_NAME = 'data_processing_controle_sanitaire_eau'
+DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
+DAG_NAME = "data_processing_controle_sanitaire_eau"
 DATADIR = f"{TMP_FOLDER}data"
 
-with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json") as fp:
+with open(
+    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json"
+) as fp:
     config = json.load(fp)
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='0 7 * * *',
+    schedule_interval="0 7 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "sante", "eau"],
     default_args=default_args,
 ) as dag:
-
     check_if_modif = ShortCircuitOperator(
-        task_id='check_if_modif',
+        task_id="check_if_modif",
         python_callable=check_if_modif,
     )
 
@@ -50,7 +51,7 @@ with DAG(
     )
 
     process_data = PythonOperator(
-        task_id='process_data',
+        task_id="process_data",
         python_callable=process_data,
     )
 
@@ -58,14 +59,14 @@ with DAG(
     for file_type in config.keys():
         type_tasks[file_type] = [
             PythonOperator(
-                task_id=f'send_to_minio_{file_type}',
+                task_id=f"send_to_minio_{file_type}",
                 python_callable=send_to_minio,
                 op_kwargs={
                     "file_type": file_type,
                 },
             ),
             PythonOperator(
-                task_id=f'publish_on_datagouv_{file_type}',
+                task_id=f"publish_on_datagouv_{file_type}",
                 python_callable=publish_on_datagouv,
                 op_kwargs={
                     "file_type": file_type,
@@ -79,7 +80,7 @@ with DAG(
     )
 
     send_notification_mattermost = PythonOperator(
-        task_id='send_notification_mattermost',
+        task_id="send_notification_mattermost",
         python_callable=send_notification_mattermost,
     )
 

@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DATADIR = f"{AIRFLOW_DAG_TMP}stats_meteo/data"
-minio_meteo = MinIOClient(bucket='meteofrance')
+minio_meteo = MinIOClient(bucket="meteofrance")
 
 
 def fill_url(start, end, site_id, label, **kwargs):
@@ -39,41 +39,43 @@ def gather_meteo_stats(ti):
     for dataset in datasets:
         mydict = {}
         r2 = requests.get(
-            "https://metric-api.data.gouv.fr/api/datasets/data/?dataset_id__exact=" + dataset["id"]
+            "https://metric-api.data.gouv.fr/api/datasets/data/?dataset_id__exact="
+            + dataset["id"]
         ).json()["data"]
         mydict["dataset_id"] = dataset["id"]
         mydict["monthly_visit"] = r2[len(r2) - 2]["monthly_visit"]
         mydict["all_visit"] = 0
-        mydict["monthly_download_resource"] = (
-            r2[len(r2) - 2]["monthly_download_resource"]
-        )
+        mydict["monthly_download_resource"] = r2[len(r2) - 2][
+            "monthly_download_resource"
+        ]
         mydict["all_download_resource"] = 0
         for i in range(len(r2)):
             if len(r2) > i:
                 if r2[i]["monthly_visit"]:
                     mydict["all_visit"] += r2[i]["monthly_visit"]
                 if r2[i]["monthly_download_resource"]:
-                    mydict["all_download_resource"] += r2[i]["monthly_download_resource"]
+                    mydict["all_download_resource"] += r2[i][
+                        "monthly_download_resource"
+                    ]
         r3 = requests.get(
             f"https://www.data.gouv.fr/api/1/datasets/{dataset['id']}/",
-            headers={"X-fields": "title"}
+            headers={"X-fields": "title"},
         ).json()
         mydict["dataset_title"] = r3["title"]
         arr.append(mydict)
     df = pd.DataFrame(arr)
-    df = df[[
-        "dataset_title",
-        "dataset_id",
-        "monthly_visit",
-        "all_visit",
-        "monthly_download_resource",
-        "all_download_resource"
-    ]]
+    df = df[
+        [
+            "dataset_title",
+            "dataset_id",
+            "monthly_visit",
+            "all_visit",
+            "monthly_download_resource",
+            "all_download_resource",
+        ]
+    ]
     filename = f"meteo.data.gouv.fr-downloads-{datetime.now().strftime('%Y-%m-%d')}"
-    df.to_csv(
-        f"{DATADIR}/{filename}.csv",
-        index=False
-    )
+    df.to_csv(f"{DATADIR}/{filename}.csv", index=False)
     df.to_json(
         f"{DATADIR}/{filename}.json",
         orient="records",
@@ -92,19 +94,18 @@ def gather_meteo_stats(ti):
     # visites sur meteo.data.gouv.fr
     print("> Stats mensuelles")
     start_date = "2023-12-01"
-    today = datetime.today().strftime('%Y-%m-%d')
-    r = requests.get(fill_url(
-        start=start_date,
-        end=today,
-        site_id=292,
-        label="",
-    ))
-    df = pd.read_csv(StringIO(r.text))
-    df = df.groupby('Date')['Visiteurs uniques (résumé quotidien)'].sum().reset_index()
-    df.to_csv(
-        f"{DATADIR}/visites_meteo.csv",
-        index=False
+    today = datetime.today().strftime("%Y-%m-%d")
+    r = requests.get(
+        fill_url(
+            start=start_date,
+            end=today,
+            site_id=292,
+            label="",
+        )
     )
+    df = pd.read_csv(StringIO(r.text))
+    df = df.groupby("Date")["Visiteurs uniques (résumé quotidien)"].sum().reset_index()
+    df.to_csv(f"{DATADIR}/visites_meteo.csv", index=False)
 
 
 def send_to_minio(ti):
@@ -116,8 +117,10 @@ def send_to_minio(ti):
                 source_name=f"{filename}.{ext}",
                 dest_path=f"metrics/{AIRFLOW_ENV}/",
                 dest_name=f"{filename}.{ext}",
-            ) for ext in ["csv", "json"]
-        ] + [
+            )
+            for ext in ["csv", "json"]
+        ]
+        + [
             File(
                 source_path=f"{DATADIR}/",
                 source_name="visites_meteo.csv",

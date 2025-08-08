@@ -59,8 +59,8 @@ def send_email_report(ti):
 
 
 default_args = {
-    'retries': 3,
-    'retry_delay': timedelta(minutes=2),
+    "retries": 3,
+    "retry_delay": timedelta(minutes=2),
 }
 
 with DAG(

@@ -31,7 +31,7 @@ def calculate_quality_score(ti):
         # this is the catalog
         "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         dtype=str,
-        sep=";"
+        sep=";",
     )
     df_datasets["metric.views"] = df_datasets["metric.views"].astype(float)
     df_datasets = df_datasets.sort_values(by="metric.views", ascending=False)
@@ -39,25 +39,25 @@ def calculate_quality_score(ti):
     final["quality_score"] = final["quality_score"].astype(float)
     average_quality_score = round(100 * final["quality_score"].mean(), 2)
     kpi = {
-        'administration_rattachement': 'DINUM',
-        'nom_service_public_numerique': 'data.gouv.fr',
-        'indicateur': 'Score qualité moyen 1000 JdD les plus vus',
-        'valeur': average_quality_score,
-        'unite_mesure': '%',
-        'est_cible': False,
-        'type_indicateur': 'impact',
-        'frequence_monitoring': 'mensuelle',
-        'date': datetime.today().strftime("%Y-%m-%d"),
-        'est_periode': False,
-        'date_debut': '',
-        'est_automatise': True,
-        'source_collecte': 'script',
-        'code_insee': '',
-        'denom_insee': '',
-        'dataviz_wish': 'barchart',
-        'commentaires': ''
+        "administration_rattachement": "DINUM",
+        "nom_service_public_numerique": "data.gouv.fr",
+        "indicateur": "Score qualité moyen 1000 JdD les plus vus",
+        "valeur": average_quality_score,
+        "unite_mesure": "%",
+        "est_cible": False,
+        "type_indicateur": "impact",
+        "frequence_monitoring": "mensuelle",
+        "date": datetime.today().strftime("%Y-%m-%d"),
+        "est_periode": False,
+        "date_debut": "",
+        "est_automatise": True,
+        "source_collecte": "script",
+        "code_insee": "",
+        "denom_insee": "",
+        "dataviz_wish": "barchart",
+        "commentaires": "",
     }
-    ti.xcom_push(key='kpi', value=kpi)
+    ti.xcom_push(key="kpi", value=kpi)
 
 
 def calculate_time_for_legitimate_answer(ti):
@@ -66,11 +66,10 @@ def calculate_time_for_legitimate_answer(ti):
     datagouv_team = requests.get(
         "https://www.data.gouv.fr/api/1/organizations/646b7187b50b2a93b1ae3d45/"
     ).json()
-    datagouv_team = [m['user']['id'] for m in datagouv_team['members']]
+    datagouv_team = [m["user"]["id"] for m in datagouv_team["members"]]
 
     discussions = Client().get_all_from_api_query(
-        "api/1/discussions/?sort=-created",
-        mask='data{created,subject,discussion}'
+        "api/1/discussions/?sort=-created", mask="data{created,subject,discussion}"
     )
     end_date = datetime.today().strftime("%Y-%m-%d")
     oneyearago = date.today() - relativedelta(years=1)
@@ -80,41 +79,47 @@ def calculate_time_for_legitimate_answer(ti):
     time_to_answer = []
     k = 0
     for discussion in discussions:
-        if discussion['created'] > end_date:
+        if discussion["created"] > end_date:
             continue
-        elif discussion['created'] < start_date:
+        elif discussion["created"] < start_date:
             break
-        if discussion['subject']['class'] == 'Dataset':
+        if discussion["subject"]["class"] == "Dataset":
             k += 1
             if k % 100 == 0:
                 print(f"   > {k} discussions processed")
             nb_discussions += 1
-            if len(discussion['discussion']) > 1:
+            if len(discussion["discussion"]) > 1:
                 # getting legit users
                 r = requests.get(
                     f"https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/",
-                    headers={'X-fields': 'organization,owner'}
+                    headers={"X-fields": "organization,owner"},
                 )
                 if not r.ok:
-                    print(f"Not OK: https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/")
+                    print(
+                        f"Not OK: https://www.data.gouv.fr/api/1/datasets/{discussion['subject']['id']}/"
+                    )
                     continue
                 dataset = r.json()
-                if dataset.get('organization', None):
+                if dataset.get("organization", None):
                     dataset_supervisors = requests.get(
                         f"https://www.data.gouv.fr/api/1/organizations/{dataset['organization']['id']}/",
-                        headers={'X-fields': 'members'}
+                        headers={"X-fields": "members"},
                     ).json()
-                    dataset_supervisors = [m['user']['id'] for m in dataset_supervisors['members']]
+                    dataset_supervisors = [
+                        m["user"]["id"] for m in dataset_supervisors["members"]
+                    ]
                 else:
-                    dataset_supervisors = [dataset['owner']['id']] if dataset['owner'] else []
+                    dataset_supervisors = (
+                        [dataset["owner"]["id"]] if dataset["owner"] else []
+                    )
                 legit = datagouv_team + dataset_supervisors
 
                 # getting time to legit response
-                opening_date = discussion['discussion'][0]['posted_on'][:10]
+                opening_date = discussion["discussion"][0]["posted_on"][:10]
                 answered_date = None
-                for comment in discussion['discussion'][1:]:
-                    if comment['posted_by']['id'] in legit:
-                        answered_date = comment['posted_on'][:10]
+                for comment in discussion["discussion"][1:]:
+                    if comment["posted_by"]["id"] in legit:
+                        answered_date = comment["posted_on"][:10]
                         nb_discussions_with_legit_answer += 1
                 if not answered_date:
                     time_to_answer.append(30)
@@ -128,110 +133,106 @@ def calculate_time_for_legitimate_answer(ti):
     average_time_to_answer = round(np.mean(time_to_answer), 2)
     print(
         "Taux de discussions avec réponse légitime : "
-        f"{(nb_discussions_with_legit_answer/nb_discussions*100)}%"
+        f"{(nb_discussions_with_legit_answer / nb_discussions * 100)}%"
     )
     kpi = {
-        'administration_rattachement': 'DINUM',
-        'nom_service_public_numerique': 'data.gouv.fr',
-        'indicateur': 'Délai moyen pour une réponse légitime à une discussion',
-        'valeur': average_time_to_answer,
-        'unite_mesure': 'jour',
-        'est_cible': False,
-        'type_indicateur': 'impact',
-        'frequence_monitoring': 'mensuelle',
-        'date': end_date,
-        'est_periode': True,
-        'date_debut': start_date,
-        'est_automatise': True,
-        'source_collecte': 'script',
-        'code_insee': '',
-        'denom_insee': '',
-        'dataviz_wish': 'barchart',
-        'commentaires': 'les délais sont écrétés à 30 jours'
+        "administration_rattachement": "DINUM",
+        "nom_service_public_numerique": "data.gouv.fr",
+        "indicateur": "Délai moyen pour une réponse légitime à une discussion",
+        "valeur": average_time_to_answer,
+        "unite_mesure": "jour",
+        "est_cible": False,
+        "type_indicateur": "impact",
+        "frequence_monitoring": "mensuelle",
+        "date": end_date,
+        "est_periode": True,
+        "date_debut": start_date,
+        "est_automatise": True,
+        "source_collecte": "script",
+        "code_insee": "",
+        "denom_insee": "",
+        "dataviz_wish": "barchart",
+        "commentaires": "les délais sont écrétés à 30 jours",
     }
-    ti.xcom_push(key='kpi', value=kpi)
+    ti.xcom_push(key="kpi", value=kpi)
 
 
 def get_quality_reuses(ti):
     print("Getting number of quality reuses among top 100 datasets")
-    notion_api = 'https://api.notion.com/v1/search'
+    notion_api = "https://api.notion.com/v1/search"
     headers = {
-        'Authorization': f"Bearer {SECRET_NOTION_KEY_IMPACT}",
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
+        "Authorization": f"Bearer {SECRET_NOTION_KEY_IMPACT}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
     }
     search_params = {
         "filter": {"value": "page", "property": "object"},
     }
     search_response = requests.post(
-        notion_api,
-        json=search_params,
-        headers=headers
+        notion_api, json=search_params, headers=headers
     ).json()
     results = search_response["results"]
     while search_response.get("next_cursor", False):
         search_params["start_cursor"] = search_response.get("next_cursor")
         search_response = requests.post(
-            notion_api,
-            headers=headers,
-            json=search_params
+            notion_api, headers=headers, json=search_params
         ).json()
         results += search_response["results"]
     # storing reuses as a list [{"reuse_dataset_url": "has_reuse"}]
     output = []
     for r in results:
         if "Lien du jeu de données" in r["properties"]:
-            output.append([
-                [r["properties"]["Lien du jeu de données"]["url"]],
-                r["properties"]["Absence de réutilisations de qualité sur le jdd"]["checkbox"],
-                r["properties"]["Top 100 actuel"]["checkbox"],
-            ])
+            output.append(
+                [
+                    [r["properties"]["Lien du jeu de données"]["url"]],
+                    r["properties"]["Absence de réutilisations de qualité sur le jdd"][
+                        "checkbox"
+                    ],
+                    r["properties"]["Top 100 actuel"]["checkbox"],
+                ]
+            )
     nb_reuses_top100 = 100 - sum([r[1] for r in output if r[2]])
     kpi = {
-        'administration_rattachement': 'DINUM',
-        'nom_service_public_numerique': 'data.gouv.fr',
-        'indicateur': 'Nombre de datasets du top 100 ayant une réutilisation de qualité',
-        'valeur': nb_reuses_top100,
-        'unite_mesure': '%',
-        'est_cible': False,
-        'type_indicateur': 'impact',
-        'frequence_monitoring': 'mensuelle',
-        'date': datetime.today().strftime("%Y-%m-%d"),
-        'est_periode': False,
-        'date_debut': '',
-        'est_automatise': True,
-        'source_collecte': 'script',
-        'code_insee': '',
-        'denom_insee': '',
-        'dataviz_wish': 'barchart',
-        'commentaires': ''
+        "administration_rattachement": "DINUM",
+        "nom_service_public_numerique": "data.gouv.fr",
+        "indicateur": "Nombre de datasets du top 100 ayant une réutilisation de qualité",
+        "valeur": nb_reuses_top100,
+        "unite_mesure": "%",
+        "est_cible": False,
+        "type_indicateur": "impact",
+        "frequence_monitoring": "mensuelle",
+        "date": datetime.today().strftime("%Y-%m-%d"),
+        "est_periode": False,
+        "date_debut": "",
+        "est_automatise": True,
+        "source_collecte": "script",
+        "code_insee": "",
+        "denom_insee": "",
+        "dataviz_wish": "barchart",
+        "commentaires": "",
     }
-    ti.xcom_push(key='kpi', value=kpi)
+    ti.xcom_push(key="kpi", value=kpi)
 
 
 def get_discoverability(ti):
     print("Getting discoverability from poll results")
-    notion_api = 'https://api.notion.com/v1/search'
+    notion_api = "https://api.notion.com/v1/search"
     headers = {
-        'Authorization': f"Bearer {SECRET_NOTION_KEY_IMPACT}",
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
+        "Authorization": f"Bearer {SECRET_NOTION_KEY_IMPACT}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
     }
     search_params = {
         "filter": {"value": "page", "property": "object"},
     }
     search_response = requests.post(
-        notion_api,
-        json=search_params,
-        headers=headers
+        notion_api, json=search_params, headers=headers
     ).json()
     results = search_response["results"]
     while search_response.get("next_cursor", False):
         search_params["start_cursor"] = search_response.get("next_cursor")
         search_response = requests.post(
-            notion_api,
-            headers=headers,
-            json=search_params
+            notion_api, headers=headers, json=search_params
         ).json()
         results += search_response["results"]
     # storing reuses as a list [{"reuse_dataset_url": "has_reuse"}]
@@ -244,50 +245,56 @@ def get_discoverability(ti):
                 has_found += 1
     discoverability = round(has_found / has_answered * 100, 1)
     kpi = {
-        'administration_rattachement': 'DINUM',
-        'nom_service_public_numerique': 'data.gouv.fr',
-        'indicateur': 'Découvrabilité (résultat du sondage dédié sur data.gouv.fr)',
-        'valeur': discoverability,
-        'unite_mesure': '%',
-        'est_cible': False,
-        'type_indicateur': 'impact',
-        'frequence_monitoring': 'mensuelle',
-        'date': datetime.today().strftime("%Y-%m-%d"),
-        'est_periode': False,
-        'date_debut': '',
-        'est_automatise': True,
-        'source_collecte': 'script',
-        'code_insee': '',
-        'denom_insee': '',
-        'dataviz_wish': 'barchart',
-        'commentaires': ''
+        "administration_rattachement": "DINUM",
+        "nom_service_public_numerique": "data.gouv.fr",
+        "indicateur": "Découvrabilité (résultat du sondage dédié sur data.gouv.fr)",
+        "valeur": discoverability,
+        "unite_mesure": "%",
+        "est_cible": False,
+        "type_indicateur": "impact",
+        "frequence_monitoring": "mensuelle",
+        "date": datetime.today().strftime("%Y-%m-%d"),
+        "est_periode": False,
+        "date_debut": "",
+        "est_automatise": True,
+        "source_collecte": "script",
+        "code_insee": "",
+        "denom_insee": "",
+        "dataviz_wish": "barchart",
+        "commentaires": "",
     }
-    ti.xcom_push(key='kpi', value=kpi)
+    ti.xcom_push(key="kpi", value=kpi)
 
 
 def gather_kpis(ti):
     data = [
-        ti.xcom_pull(key='kpi', task_ids=t)
+        ti.xcom_pull(key="kpi", task_ids=t)
         for t in [
-            'calculate_quality_score',
-            'calculate_time_for_legitimate_answer',
-            'get_quality_reuses',
-            'get_discoverability',
+            "calculate_quality_score",
+            "calculate_time_for_legitimate_answer",
+            "get_quality_reuses",
+            "get_discoverability",
         ]
     ]
     df = pd.DataFrame(data)
     df.to_csv(
         os.path.join(DATADIR, f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv"),
         index=False,
-        encoding="utf8"
+        encoding="utf8",
     )
-    history = pd.read_csv(StringIO(
-        minio_open.get_file_content(
-            f"{AIRFLOW_ENV}/dgv/impact/statistiques_impact_datagouvfr.csv"
+    history = pd.read_csv(
+        StringIO(
+            minio_open.get_file_content(
+                f"{AIRFLOW_ENV}/dgv/impact/statistiques_impact_datagouvfr.csv"
+            )
         )
-    ))
+    )
     final = pd.concat([df, history])
-    final.to_csv(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"), index=False, encoding="utf8")
+    final.to_csv(
+        os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"),
+        index=False,
+        encoding="utf8",
+    )
 
 
 def send_stats_to_minio():
@@ -315,8 +322,8 @@ def publish_datagouv(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
         data = json.load(fp)
     local_client.resource(
-        dataset_id=data[AIRFLOW_ENV]['dataset_id'],
-        id=data[AIRFLOW_ENV]['resource_id'],
+        dataset_id=data[AIRFLOW_ENV]["dataset_id"],
+        id=data[AIRFLOW_ENV]["resource_id"],
         fetch=False,
     ).update(
         payload={
@@ -324,17 +331,21 @@ def publish_datagouv(DAG_FOLDER):
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}/"
                 "dgv/impact/statistiques_impact_datagouvfr.csv"
             ),
-            "filesize": os.path.getsize(os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")),
+            "filesize": os.path.getsize(
+                os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")
+            ),
             "title": "Indicateurs d'impact de data.gouv.fr",
             "format": "csv",
             "description": f"Dernière modification : {datetime.today()})",
         },
     )
-    local_client.dataset(id=data[AIRFLOW_ENV]['dataset_id'], fetch=False).update(
-        payload={"temporal_coverage": {
-            "start": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        }},
+    local_client.dataset(id=data[AIRFLOW_ENV]["dataset_id"], fetch=False).update(
+        payload={
+            "temporal_coverage": {
+                "start": datetime(2023, 11, 16).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            }
+        },
     )
 
 

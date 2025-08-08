@@ -9,40 +9,39 @@ from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions 
     consolidate_logs,
 )
 
-DAG_NAME = 'data_processing_pnt_monitor'
+DAG_NAME = "data_processing_pnt_monitor"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='0 */3 * * *',
+    schedule_interval="0 */3 * * *",
     start_date=datetime(2024, 10, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=180),
     tags=["data_processing", "meteo"],
     default_args=default_args,
 ) as dag:
-
     scan_pnt_files = PythonOperator(
-        task_id='scan_pnt_files',
+        task_id="scan_pnt_files",
         python_callable=scan_pnt_files,
     )
 
     notification_mattermost = PythonOperator(
-        task_id='notification_mattermost',
+        task_id="notification_mattermost",
         python_callable=notification_mattermost,
     )
 
     dump_and_send_tree = PythonOperator(
-        task_id='dump_and_send_tree',
+        task_id="dump_and_send_tree",
         python_callable=dump_and_send_tree,
     )
 
     consolidate_logs = PythonOperator(
-        task_id='consolidate_logs',
+        task_id="consolidate_logs",
         python_callable=consolidate_logs,
     )
 

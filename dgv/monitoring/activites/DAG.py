@@ -14,8 +14,8 @@ from datagouvfr_data_pipelines.dgv.monitoring.activites.task_functions import (
 )
 
 default_args = {
-    'retries': 3,
-    'retry_delay': timedelta(minutes=2),
+    "retries": 3,
+    "retry_delay": timedelta(minutes=2),
 }
 
 with DAG(

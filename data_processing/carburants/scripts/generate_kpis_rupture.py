@@ -72,35 +72,40 @@ def get_stats_df(df):
             try:
                 mydict["pourcentage_rupture"] = (
                     df.loc[
-                        (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
-                        "nb"
+                        (df["dep"] == d)
+                        & (df["carburant"] == fuel)
+                        & (df["etat"] == "R"),
+                        "nb",
                     ].iloc[0]
                     / (
                         df.loc[
-                            (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
-                            "nb"
+                            (df["dep"] == d)
+                            & (df["carburant"] == fuel)
+                            & (df["etat"] == "R"),
+                            "nb",
                         ].iloc[0]
                         + df.loc[
-                            (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "S"),
-                            "nb"
+                            (df["dep"] == d)
+                            & (df["carburant"] == fuel)
+                            & (df["etat"] == "S"),
+                            "nb",
                         ].iloc[0]
                     )
                     * 100
                 )
-            except:
+            except Exception:
                 mydict["pourcentage_rupture"] = 0
             mydict["nombre_rupture"] = df.loc[
-                (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
-                "nb"
+                (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"), "nb"
             ].iloc[0]
             mydict["nombre_stations"] = (
                 df.loc[
                     (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "R"),
-                    "nb"
+                    "nb",
                 ].iloc[0]
                 + df.loc[
                     (df["dep"] == d) & (df["carburant"] == fuel) & (df["etat"] == "S"),
-                    "nb"
+                    "nb",
                 ].iloc[0]
             )
             arr.append(mydict)
@@ -113,7 +118,9 @@ def generate_kpis_rupture(path):
 
     print("Detecting shortages")
     mef["essence"] = mef.apply(lambda row: rupture_essence(row), axis=1)
-    mef["au_moins_un_produit"] = mef.apply(lambda row: rupture_au_moins_un_produit(row), axis=1)
+    mef["au_moins_un_produit"] = mef.apply(
+        lambda row: rupture_au_moins_un_produit(row), axis=1
+    )
     mef["deux_produits"] = mef.apply(lambda row: rupture_deux_produits(row), axis=1)
 
     print("Aggreggation")
@@ -195,9 +202,9 @@ def generate_kpis_rupture(path):
             mydict[fuel + "_nbrup"] = df[(df["dep"] == d) & (df["carburant"] == fuel)][
                 "nombre_rupture"
             ].iloc[0]
-            mydict[fuel + "_nbstation"] = df[(df["dep"] == d) & (df["carburant"] == fuel)][
-                "nombre_stations"
-            ].iloc[0]
+            mydict[fuel + "_nbstation"] = df[
+                (df["dep"] == d) & (df["carburant"] == fuel)
+            ]["nombre_stations"].iloc[0]
         arr.append(mydict)
 
     res = pd.DataFrame(arr)

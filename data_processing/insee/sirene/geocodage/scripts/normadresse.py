@@ -67,7 +67,9 @@ def abrev(lib, maxi=32):
     for n in range(0, 2):
         for r in regles:
             if r["etape"] == 2:
-                lib = re.sub(" " + r["long"] + " ", " " + r["court"] + " ", lib, count=1)
+                lib = re.sub(
+                    " " + r["long"] + " ", " " + r["court"] + " ", lib, count=1
+                )
     if debug:
         print("2:", lib)
 
@@ -81,7 +83,12 @@ def abrev(lib, maxi=32):
     for n in range(0, 3):
         for r in regles:
             if r["etape"] == 4:
-                lib = re.sub("(^| )" + r["long"] + " ", " " + r["court"].lower() + " ", lib, count=1).strip()
+                lib = re.sub(
+                    "(^| )" + r["long"] + " ",
+                    " " + r["court"].lower() + " ",
+                    lib,
+                    count=1,
+                ).strip()
     if debug:
         print("4:", lib)
 
@@ -95,10 +102,20 @@ def abrev(lib, maxi=32):
     for n in range(0, 2):
         for r in regles:
             if r["etape"] == 5:
-                lib = re.sub(" " + r["long"].strip() + " ", " " + r["court"].strip().lower() + " ", lib, count=1)
+                lib = re.sub(
+                    " " + r["long"].strip() + " ",
+                    " " + r["court"].strip().lower() + " ",
+                    lib,
+                    count=1,
+                )
         for r in regles:
             if r["etape"] == 1:
-                lib = re.sub(" " + r["long"].strip() + " ", " " + r["court"].strip().lower() + " ", lib, count=1)
+                lib = re.sub(
+                    " " + r["long"].strip() + " ",
+                    " " + r["court"].strip().lower() + " ",
+                    lib,
+                    count=1,
+                )
     if debug:
         print("5:", lib)
 
@@ -157,7 +174,12 @@ def abrev(lib, maxi=32):
     for n in range(0, 1):
         for r in regles:
             if r["etape"] == 5:
-                lib = re.sub("^" + r["long"].strip() + " ", r["court"].strip().lower() + " ", lib, count=1)
+                lib = re.sub(
+                    "^" + r["long"].strip() + " ",
+                    r["court"].strip().lower() + " ",
+                    lib,
+                    count=1,
+                )
     out, ok, prev = abrev_out(prev, lib, maxi)
     if ok:
         return out
@@ -177,7 +199,9 @@ def abrev(lib, maxi=32):
 
     # 10 - élimination des articles
     for r in range(0, 6):
-        lib = re.sub(r" (LE|LA|LES|AU|AUX|DE|DU|DES|D|ET|A|L|SUR|EN) ", " ", lib, count=1)
+        lib = re.sub(
+            r" (LE|LA|LES|AU|AUX|DE|DU|DES|D|ET|A|L|SUR|EN) ", " ", lib, count=1
+        )
         if len(lib) <= maxi:
             return lib
     if debug:
@@ -214,9 +238,9 @@ if __name__ == "__main__":
             0.0,
         )[0]:
             lines = sys.stdin.readlines()
-            for l in lines:
-                l = l.replace("\n", "")
-                print(abrev(l).upper())
+            for line in lines:
+                line = line.replace("\n", "")
+                print(abrev(line).upper())
         else:
             print("""Usage:  normadresse.py adresse ou fichier.csv
         normadresse.py 'BOULEVARD DU MARECHAL JEAN MARIE DE LATTRE DE TASSIGNY'

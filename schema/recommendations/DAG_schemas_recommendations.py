@@ -11,9 +11,8 @@ from datagouvfr_data_pipelines.schema.recommendations.task_functions import (
 )
 
 GIT_REPO = (
-    ("git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/")
-    + "datagouv/schema.data.gouv.fr.git"
-)
+    "git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/"
+) + "datagouv/schema.data.gouv.fr.git"
 
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
@@ -37,7 +36,7 @@ with DAG(
     )
 
     create_and_export_recommendations = PythonOperator(
-        task_id='create_and_export_recommendations',
+        task_id="create_and_export_recommendations",
         python_callable=create_and_export_recommendations,
     )
 
@@ -57,7 +56,7 @@ with DAG(
             f"cd {TMP_FOLDER}schema.data.gouv.fr"
             " && git add site/.vuepress/public/api"
             ' && git commit -m "Update Recommendations '
-            f'{datetime.today().strftime("%Y-%m-%d")}'
+            f"{datetime.today().strftime('%Y-%m-%d')}"
             '" || echo "No changes to commit"'
             " && git push origin main"
         ),

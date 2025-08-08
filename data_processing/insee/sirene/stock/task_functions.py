@@ -45,7 +45,8 @@ def get_files(ti, tmp_dir: str, resource_file: str):
                 url=f"{INSEE_BASE_URL}{item['nameFTP']}",
                 dest_path=tmp_dir,
                 dest_name=item["nameFTP"],
-            ) for item in data
+            )
+            for item in data
             if item["nameFTP"] not in os.listdir(tmp_dir)
         ],
         auth_user=SECRET_INSEE_LOGIN,
@@ -57,7 +58,7 @@ def get_files(ti, tmp_dir: str, resource_file: str):
     for item in data:
         csv_name = item["nameFTP"].replace(".zip", ".csv")
         logging.info(f"Unzipping {csv_name}")
-        with zipfile.ZipFile(tmp_dir + item["nameFTP"], 'r') as zip_ref:
+        with zipfile.ZipFile(tmp_dir + item["nameFTP"], "r") as zip_ref:
             zip_ref.extract(csv_name, tmp_dir)
         csv_to_parquet(
             tmp_dir + csv_name,
@@ -72,7 +73,9 @@ def get_files(ti, tmp_dir: str, resource_file: str):
 
     hashfiles = {}
     for item in data:
-        hashfiles[item["nameFTP"]] = compute_checksum_from_file(f"{tmp_dir}{item['nameFTP']}")
+        hashfiles[item["nameFTP"]] = compute_checksum_from_file(
+            f"{tmp_dir}{item['nameFTP']}"
+        )
 
     ti.xcom_push(key="hashes", value=hashfiles)
 
@@ -89,7 +92,8 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
                 source_name=item["nameFTP"],
                 dest_path=minio_path,
                 dest_name=item["nameFTP"],
-            ) for item in data
+            )
+            for item in data
         ],
         ignore_airflow_env=True,
     )
@@ -102,7 +106,8 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
                 source_name=item["nameFTP"].replace(".zip", ".parquet"),
                 dest_path=minio_path,
                 dest_name=item["nameFTP"].replace(".zip", ".parquet"),
-            ) for item in data
+            )
+            for item in data
         ],
         ignore_airflow_env=True,
     )
@@ -115,7 +120,8 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
                 source_name=item["nameFTP"],
                 dest_path=minio_path,
                 dest_name=f"{datetime.today().strftime('%Y-%m')}-01-{item['nameFTP']}",
-            ) for item in data
+            )
+            for item in data
         ],
         ignore_airflow_env=True,
     )
@@ -124,9 +130,7 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
 def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str):
     hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
 
-    liste_mois = [
-        m.title() for m in MOIS_FR.values()
-    ]
+    liste_mois = [m.title() for m in MOIS_FR.values()]
     mois = datetime.now().date().month
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
@@ -140,10 +144,7 @@ def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str
             "filesize": os.path.getsize(tmp_dir + d["nameFTP"]),
         }
         if d["nameFTP"] in hashes:
-            obj["checksum"] = {
-                "type": "sha256",
-                "value": hashes[d["nameFTP"]]
-            }
+            obj["checksum"] = {"type": "sha256", "value": hashes[d["nameFTP"]]}
         local_client.resource(
             dataset_id=d["dataset_id"],
             id=d["resource_id"],
@@ -162,7 +163,9 @@ def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str
                     f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
                     " (format parquet)"
                 ),
-                "filesize": os.path.getsize(tmp_dir + d["nameFTP"].replace(".zip", ".parquet")),
+                "filesize": os.path.getsize(
+                    tmp_dir + d["nameFTP"].replace(".zip", ".parquet")
+                ),
             },
         )
 

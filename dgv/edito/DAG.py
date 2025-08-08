@@ -10,8 +10,8 @@ from datagouvfr_data_pipelines.dgv.edito.task_functions import (
 DAG_NAME = "dgv_edito_post_and_tweet"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
@@ -29,8 +29,7 @@ with DAG(
     )
 
     mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=publish_mattermost
+        task_id="publish_mattermost", python_callable=publish_mattermost
     )
 
     mattermost.set_upstream(edito)

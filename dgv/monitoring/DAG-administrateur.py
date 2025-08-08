@@ -2,9 +2,7 @@ from datetime import datetime, timedelta
 
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from datagouvfr_data_pipelines.config import (
-    MATTERMOST_MODERATION_NOUVEAUTES
-)
+from datagouvfr_data_pipelines.config import MATTERMOST_MODERATION_NOUVEAUTES
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
@@ -22,9 +20,7 @@ def list_current_admins(ti):
 def publish_mattermost(ti):
     print("Publishing on mattermost")
     admins = ti.xcom_pull(key="admins", task_ids="list_current_admins")
-    message = (
-        f":superhero: Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr"
-    )
+    message = f":superhero: Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr"
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
     print(message)
@@ -32,8 +28,8 @@ def publish_mattermost(ti):
 
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
@@ -46,8 +42,7 @@ with DAG(
     catchup=False,
 ) as dag:
     list_current_admins = PythonOperator(
-        task_id="list_current_admins",
-        python_callable=list_current_admins
+        task_id="list_current_admins", python_callable=list_current_admins
     )
 
     publish_mattermost = PythonOperator(

@@ -6,22 +6,20 @@ from airflow.models import DagRun
 from airflow.utils.state import State
 from airflow.providers.http.hooks.http import HttpHook
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
-    AIRFLOW_ENV,
-    AIRFLOW_URL
-)
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, AIRFLOW_ENV, AIRFLOW_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-local_timezone = pytz.timezone('Europe/Paris')
-http_hook = HttpHook(http_conn_id='HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR', method='GET')
+local_timezone = pytz.timezone("Europe/Paris")
+http_hook = HttpHook(http_conn_id="HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR", method="GET")
 
-with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", 'r') as f:
+with open(
+    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", "r"
+) as f:
     config = json.load(f)
 
 
 def get_ids(config: dict):
-    dags = http_hook.run('api/v1/dags').json()["dags"]
+    dags = http_hook.run("api/v1/dags").json()["dags"]
     ids = []
     for raw_id, included in config.items():
         if not included:
@@ -51,25 +49,31 @@ def monitor_dags(
 
         for dag_run in dag_runs:
             status = dag_run.get_state()
-            end_date = dag_run.end_date.strftime("%Y-%m-%d %H:%M:%S") if dag_run.end_date else None
+            end_date = (
+                dag_run.end_date.strftime("%Y-%m-%d %H:%M:%S")
+                if dag_run.end_date
+                else None
+            )
             if end_date and end_date >= date:
                 if dag_id not in todays_runs.keys():
                     todays_runs[dag_id] = {}
 
                 if status != State.SUCCESS:
-                    failed_task_instances = dag_run.get_task_instances(state=State.FAILED)
+                    failed_task_instances = dag_run.get_task_instances(
+                        state=State.FAILED
+                    )
                     todays_runs[dag_id][end_date] = {
-                        'success': False,
-                        'status': status,
-                        'failed_tasks': {
+                        "success": False,
+                        "status": status,
+                        "failed_tasks": {
                             task.task_id: task.log_url for task in failed_task_instances
-                        }
+                        },
                     }
                 else:
                     duration = dag_run.end_date - dag_run.start_date
                     todays_runs[dag_id][end_date] = {
-                        'success': True,
-                        'duration': duration.total_seconds()
+                        "success": True,
+                        "duration": duration.total_seconds(),
                     }
     ti.xcom_push(key="todays_runs", value=todays_runs)
     return todays_runs
@@ -77,44 +81,60 @@ def monitor_dags(
 
 def notification_mattermost(ti):
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
-    message = '# Récap quotidien DAGs :'
+    message = "# Récap quotidien DAGs :"
     print(todays_runs)
     for dag, attempts in dict(sorted(todays_runs.items())).items():
-        message += f'\n- **{dag}** :'
+        message += f"\n- **{dag}** :"
         successes = {
-            atp_id: attempts[atp_id] for atp_id in attempts if attempts[atp_id]['success']
+            atp_id: attempts[atp_id]
+            for atp_id in attempts
+            if attempts[atp_id]["success"]
         }
         if successes:
-            average_duration = np.mean([i['duration'] for i in successes.values()])
+            average_duration = np.mean([i["duration"] for i in successes.values()])
             hours = int(average_duration // 3600)
             minutes = int((average_duration % 3600) // 60)
-            start_time = datetime.fromisoformat(sorted(successes.keys())[-1]).replace(tzinfo=pytz.UTC)
+            start_time = datetime.fromisoformat(sorted(successes.keys())[-1]).replace(
+                tzinfo=pytz.UTC
+            )
             # setting time to UTC+2
             start_time = start_time.astimezone(local_timezone)
-            message += f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
-            message += f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
+            message += (
+                f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
+            )
+            message += (
+                f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
+            )
             message += f"{' en moyenne' if len(successes) > 1 else ''})."
             message += f" Dernier passage terminé à {start_time.strftime('%H:%M')}."
 
         failures = {
-            atp_id: attempts[atp_id] for atp_id in attempts if not attempts[atp_id]['success']
+            atp_id: attempts[atp_id]
+            for atp_id in attempts
+            if not attempts[atp_id]["success"]
         }
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
-            start_time = datetime.fromisoformat(sorted(failures.keys())[-1]).replace(tzinfo=pytz.UTC)
+            start_time = datetime.fromisoformat(sorted(failures.keys())[-1]).replace(
+                tzinfo=pytz.UTC
+            )
             # setting time to UTC+2
             start_time = start_time.astimezone(local_timezone)
-            message += f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
-            message += f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
+            message += (
+                f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
+            )
+            message += (
+                f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
+            )
             message += f"(status : {last_failure['status']}), "
-            if not last_failure['failed_tasks']:
+            if not last_failure["failed_tasks"]:
                 message += "timeout :hourglass:"
             else:
                 message += "tâches en échec :"
-                for ft in last_failure['failed_tasks']:
-                    url_log = last_failure['failed_tasks'][ft]
-                    if AIRFLOW_ENV == 'prod':
-                        url_log = url_log.replace('http://localhost:8080', AIRFLOW_URL)
+                for ft in last_failure["failed_tasks"]:
+                    url_log = last_failure["failed_tasks"][ft]
+                    if AIRFLOW_ENV == "prod":
+                        url_log = url_log.replace("http://localhost:8080", AIRFLOW_URL)
                     message += f"\n   - {ft} ([voir log]({url_log}))"
             message += "\ncc @geoffrey.aldebert @pierlou_ramade @hadrien_bossard"
     send_message(message)

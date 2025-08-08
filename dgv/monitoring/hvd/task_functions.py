@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import StringIO
+import json
 import logging
 
 import pandas as pd
@@ -75,18 +76,29 @@ def get_hvd(ti):
         lambda dataset_id: has_unavailable_resources(dataset_id, df_resources)
     )
 
-    valid_statuses = ["Disponible sur data.gouv.fr", "Partiellement disponible", "Non requis"]
+    valid_statuses = [
+        "Disponible sur data.gouv.fr",
+        "Partiellement disponible",
+        "Non requis",
+    ]
     df_merge = df_merge.loc[
         (
             df_merge["status_telechargement_automatique"].isin(valid_statuses)
             | df_merge["status_api_automatique"].isin(valid_statuses)
         ),
         [
-            "title", "url", "hvd_name", "hvd_category",
-            "organization", "organization_id", "license",
-            "endpoint_url_datagouv", "contact_point_datagouv",
-            "endpoint_description_datagouv", "has_unavailable_resources",
-        ]
+            "title",
+            "url",
+            "hvd_name",
+            "hvd_category",
+            "organization",
+            "organization_id",
+            "license",
+            "endpoint_url_datagouv",
+            "contact_point_datagouv",
+            "endpoint_description_datagouv",
+            "has_unavailable_resources",
+        ],
     ]
     logging.info(df_merge)
     filename = f"hvd_{datetime.now().strftime('%Y-%m-%d')}.csv"
@@ -112,12 +124,14 @@ def send_to_minio(ti):
 def markdown_item(row):
     category = row["hvd_category"]
     cat_item = (
-        f"tagué : _{category}_" if isinstance(category, str)
+        f"tagué : _{category}_"
+        if isinstance(category, str)
         else ":warning: tag manquant sur data.gouv"
     )
     hvd = row["hvd_name"]
     hvd_item = (
-        f"HVD : _{hvd}_" if isinstance(hvd, str)
+        f"HVD : _{hvd}_"
+        if isinstance(hvd, str)
         else ":warning: HVD non renseigné sur ouverture"
     )
     return (
@@ -131,23 +145,25 @@ def markdown_item(row):
 
 def publish_mattermost(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    minio_files = sorted(minio_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))
+    minio_files = sorted(
+        minio_open.get_files_from_prefix("hvd/", ignore_airflow_env=True)
+    )
     logging.info(minio_files)
     if len(minio_files) == 1:
         return
-    all_hvd_names = set(get_table_as_df(
-        doc_id=DOC_ID,
-        table_id="Hvd_names",
-        columns_labels=False,
-    )["hvd_name"])
+    all_hvd_names = set(
+        get_table_as_df(
+            doc_id=DOC_ID,
+            table_id="Hvd_names",
+            columns_labels=False,
+        )["hvd_name"]
+    )
     goal = len(all_hvd_names)
 
-    previous_week = pd.read_csv(StringIO(
-        minio_open.get_file_content(minio_files[-2])
-    ))
+    previous_week = pd.read_csv(StringIO(minio_open.get_file_content(minio_files[-2])))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
     this_week["hvd_name"] = this_week["hvd_name"].apply(
-        lambda l: eval(l) if isinstance(l, str) else []
+        lambda str_list: json.loads(str_list) if isinstance(str_list, str) else []
     )
 
     new = this_week.loc[
@@ -205,17 +221,39 @@ def publish_mattermost(ti):
         df_ouverture[col] = df_ouverture[col].fillna("")
 
     pct_cat_hvd = round(
-        len(df_ouverture.loc[df_ouverture["hvd_category"] != ""]) / len(df_ouverture) * 100, 1
+        len(df_ouverture.loc[df_ouverture["hvd_category"] != ""])
+        / len(df_ouverture)
+        * 100,
+        1,
     )
     pct_api = round(
-        len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) / len(df_ouverture) * 100, 1
+        len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""])
+        / len(df_ouverture)
+        * 100,
+        1,
     )
-    pct_contact_point = round(len(df_ouverture.loc[
-        (df_ouverture["endpoint_url_datagouv"] != "") & (df_ouverture["contact_point_datagouv"] != "")
-    ]) / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) * 100, 1)
-    pct_endpoint_doc = round(len(df_ouverture.loc[
-        (df_ouverture["endpoint_url_datagouv"] != "") & (df_ouverture["endpoint_description_datagouv"] != "")
-    ]) / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""]) * 100, 1)
+    pct_contact_point = round(
+        len(
+            df_ouverture.loc[
+                (df_ouverture["endpoint_url_datagouv"] != "")
+                & (df_ouverture["contact_point_datagouv"] != "")
+            ]
+        )
+        / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""])
+        * 100,
+        1,
+    )
+    pct_endpoint_doc = round(
+        len(
+            df_ouverture.loc[
+                (df_ouverture["endpoint_url_datagouv"] != "")
+                & (df_ouverture["endpoint_description_datagouv"] != "")
+            ]
+        )
+        / len(df_ouverture.loc[df_ouverture["endpoint_url_datagouv"] != ""])
+        * 100,
+        1,
+    )
 
     message += f"\n- {pct_cat_hvd}% ont une catégorie HVD renseignée"
     message += f"\n- {pct_api}% ont au moins une API"
@@ -260,10 +298,10 @@ def get_hvd_category_from_tags(tags):
     if not tags:
         return "L"
     tags = tags.split(",")
-    return ";".join(["L"] + [
-        tag.replace("-", " ").capitalize()
-        for tag in tags if tag in HVD_CATEGORIES
-    ])
+    return ";".join(
+        ["L"]
+        + [tag.replace("-", " ").capitalize() for tag in tags if tag in HVD_CATEGORIES]
+    )
 
 
 def dataservice_information(dataset_id, df_dataservices, df_resources):
@@ -276,18 +314,24 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         - contact_point_datagouv
     from a dataset_id
     """
-    dataservices = df_dataservices.loc[df_dataservices["datasets"].str.contains(dataset_id)]
+    dataservices = df_dataservices.loc[
+        df_dataservices["datasets"].str.contains(dataset_id)
+    ]
     # Skip tabular for now
     if len(dataservices.loc[dataservices["id"] != API_TABULAIRE_ID]):
-        contact_point = requests.get(
-            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
-        ).json().get("contact_point", {})
+        contact_point = (
+            requests.get(
+                f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
+            )
+            .json()
+            .get("contact_point", {})
+        )
         return (
             dataservices.iloc[0]["title"],
             dataservices.iloc[0]["base_api_url"],
             dataservices.iloc[0]["machine_documentation_url"],
             dataservices.iloc[0]["url"],
-            contact_point.get("name")
+            contact_point.get("name"),
         )
     # coming here means no dataservice is linked to this dataset
     dataset_resources = df_resources.loc[df_resources["dataset.id"] == dataset_id]
@@ -296,14 +340,13 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     for _, row in dataset_resources.iterrows():
         # We return the first one matching
         url = row["url"]
-        if (
-            "request=getcapabilities" in url.lower()
-            or url.endswith(("wms", "wfs"))
-        ):
+        if "request=getcapabilities" in url.lower() or url.endswith(("wms", "wfs")):
             # "fake" resources that are actually dataservices
-            contact_point = requests.get(
-                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
-            ).json().get("contact_point", {})
+            contact_point = (
+                requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
+                .json()
+                .get("contact_point", {})
+            )
             return (
                 row["title"],
                 url,
@@ -314,9 +357,11 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     for _, row in dataset_resources.iterrows():
         url = row["url"]
         if row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
-            contact_point = requests.get(
-                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
-            ).json().get("contact_point", {})
+            contact_point = (
+                requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
+                .json()
+                .get("contact_point", {})
+            )
             return (
                 row["title"],
                 url,
@@ -326,26 +371,38 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
             )
     # Fallback on tabular if available
     if len(dataservices):
-        contact_point = requests.get(
-            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
-        ).json().get("contact_point", {})
+        contact_point = (
+            requests.get(
+                f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
+            )
+            .json()
+            .get("contact_point", {})
+        )
         return (
             dataservices.iloc[0]["title"],
             dataservices.iloc[0]["base_api_url"],
             dataservices.iloc[0]["machine_documentation_url"],
             dataservices.iloc[0]["url"],
-            contact_point.get("name")
+            contact_point.get("name"),
         )
     return None, None, None, None, None
 
 
 def build_df_for_grist():
-    print(non)
     logging.info("Getting datasets")
     df_datasets = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
         sep=";",
-        usecols=["id", "url", "title", "organization", "resources_count", "tags", "license", "archived"],
+        usecols=[
+            "id",
+            "url",
+            "title",
+            "organization",
+            "resources_count",
+            "tags",
+            "license",
+            "archived",
+        ],
     )
     logging.info("Getting resources")
     df_resources = pd.read_csv(
@@ -357,7 +414,14 @@ def build_df_for_grist():
     df_dataservices = pd.read_csv(
         "https://www.data.gouv.fr/fr/dataservices.csv",
         sep=";",
-        usecols=["id", "datasets", "machine_documentation_url", "base_api_url", "url", "title"],
+        usecols=[
+            "id",
+            "datasets",
+            "machine_documentation_url",
+            "base_api_url",
+            "url",
+            "title",
+        ],
     ).dropna(subset="datasets")
     df_datasets["hvd_category"] = df_datasets["tags"].apply(get_hvd_category_from_tags)
     df_datasets.rename({"license": "license_datagouv"}, axis=1, inplace=True)
@@ -367,10 +431,14 @@ def build_df_for_grist():
         df_datasets["endpoint_url_datagouv"],
         df_datasets["endpoint_description_datagouv"],
         df_datasets["api_web_datagouv"],
-        df_datasets["contact_point_datagouv"]
-    ) = zip(*df_datasets["id"].apply(
-        lambda _id: dataservice_information(_id, df_dataservices=df_dataservices, df_resources=df_resources)
-    ))
+        df_datasets["contact_point_datagouv"],
+    ) = zip(
+        *df_datasets["id"].apply(
+            lambda _id: dataservice_information(
+                _id, df_dataservices=df_dataservices, df_resources=df_resources
+            )
+        )
+    )
     df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False, sep=";")
 
 
@@ -382,10 +450,12 @@ def update_grist(ti):
     )
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
-    fresh_hvd_metadata = pd.read_csv(DATADIR + "fresh_hvd_metadata.csv", sep=";").rename(
+    fresh_hvd_metadata = pd.read_csv(
+        DATADIR + "fresh_hvd_metadata.csv", sep=";"
+    ).rename(
         # because the "id" column in grist has the identifier "id2"
         {"id": "id2"},
-        axis=1
+        axis=1,
     )
     fresh_hvd_metadata["hvd_category"] = fresh_hvd_metadata["hvd_category"].apply(
         lambda s: s.split(";")
@@ -412,7 +482,9 @@ def update_grist(ti):
         if dataset_id in removed_hvd:
             continue
         row_old = old_hvd_metadata.loc[old_hvd_metadata["id2"] == dataset_id].iloc[0]
-        row_new = fresh_hvd_metadata.loc[fresh_hvd_metadata["id2"] == dataset_id].iloc[0]
+        row_new = fresh_hvd_metadata.loc[fresh_hvd_metadata["id2"] == dataset_id].iloc[
+            0
+        ]
         new_values = {}
         for col in columns_to_update:
             if (
@@ -420,7 +492,9 @@ def update_grist(ti):
                 or (isinstance(row_new[col], list) and row_new[col])
                 or (isinstance(row_new[col], float) and not pd.isna(row_new[col]))
             ) and row_old[col] != row_new[col]:
-                logging.info(f"dataset {dataset_id} changing column '{col}': {row_old[col]} for {row_new[col]}")
+                logging.info(
+                    f"dataset {dataset_id} changing column '{col}': {row_old[col]} for {row_new[col]}"
+                )
                 new_values[col] = row_new[col]
         if new_values:
             updates += 1
@@ -433,11 +507,13 @@ def update_grist(ti):
     logging.info(f"Updated {updates} rows")
     # adding new rows
     new_rows = []
-    for dataset_id in (set(fresh_hvd_metadata["id2"]) - set(old_hvd_metadata["id2"])):
-        new_rows.append(fresh_hvd_metadata.loc[
-            fresh_hvd_metadata["id2"] == dataset_id,
-            ["id2", "url", "title"] + columns_to_update,
-        ].iloc[0])
+    for dataset_id in set(fresh_hvd_metadata["id2"]) - set(old_hvd_metadata["id2"]):
+        new_rows.append(
+            fresh_hvd_metadata.loc[
+                fresh_hvd_metadata["id2"] == dataset_id,
+                ["id2", "url", "title"] + columns_to_update,
+            ].iloc[0]
+        )
     if not new_rows:
         return
     logging.info(f"Adding {len(new_rows)} rows")
@@ -447,7 +523,10 @@ def update_grist(ti):
         table_id=TABLE_ID,
         append="lazy",
     )
-    ti.xcom_push(key="new_rows", value=[(r["title"], r["url"], r["organization"]) for r in new_rows])
+    ti.xcom_push(
+        key="new_rows",
+        value=[(r["title"], r["url"], r["organization"]) for r in new_rows],
+    )
     if not removed_hvd:
         return len(new_rows)
     to_send = []
@@ -469,7 +548,7 @@ def update_grist(ti):
             doc_id=DOC_ID,
             table_id=TABLE_ID,
             conditions={"id2": _id},
-            new_values={"missing_hvd_tag": True}
+            new_values={"missing_hvd_tag": True},
         )
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
     return len(new_rows)
@@ -481,6 +560,6 @@ def publish_mattermost_grist(ti):
         f"#### {len(new_rows)} nouvelles lignes dans [la table Grist HVD]"
         "(https://grist.numerique.gouv.fr/o/datagouv/eJxok2H2va3E/suivi-des-ouvertures-CITP-et-HVD/p/4)"
     )
-    for (title, url, orga) in new_rows:
+    for title, url, orga in new_rows:
         message += f"\n- [{title}]({url}) de l'organisation {orga}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)

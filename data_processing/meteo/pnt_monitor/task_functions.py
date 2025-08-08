@@ -50,7 +50,9 @@ def threshold_in_the_past(nb_batches_behind=3):
     elif now.hour >= 18:
         batch_hour = 18
     batch_time = now.replace(second=0, microsecond=0, minute=0, hour=batch_hour)
-    return (batch_time - timedelta(hours=6 * nb_batches_behind)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (batch_time - timedelta(hours=6 * nb_batches_behind)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
 def scan_pnt_files(ti):
@@ -96,7 +98,9 @@ def scan_pnt_files(ti):
 
 
 def notification_mattermost(ti):
-    unavailable_resources = ti.xcom_pull(key="unavailable_resources", task_ids="scan_pnt_files")
+    unavailable_resources = ti.xcom_pull(
+        key="unavailable_resources", task_ids="scan_pnt_files"
+    )
     too_old = ti.xcom_pull(key="too_old", task_ids="scan_pnt_files")
     print("Unavailable resources:", unavailable_resources)
     print("Too old resources:", too_old)
@@ -156,27 +160,40 @@ def notification_mattermost(ti):
 
 def update_tree():
     # listing current runs on minio
-    current_runs = sorted([pref for pref in minio_pnt.get_files_from_prefix(
-        prefix="pnt/",
-        ignore_airflow_env=True,
-        recursive=False,
-    )])
+    current_runs = sorted(
+        [
+            pref
+            for pref in minio_pnt.get_files_from_prefix(
+                prefix="pnt/",
+                ignore_airflow_env=True,
+                recursive=False,
+            )
+        ]
+    )
     # getting current tree
-    tree = requests.get("https://www.data.gouv.fr/fr/datasets/r/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb").json()
+    tree = requests.get(
+        "https://www.data.gouv.fr/fr/datasets/r/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb"
+    ).json()
     # removing runs that have been deleted since last DAG run
-    to_delete = [k for k in tree["pnt"] if k not in [r.split("/")[1] for r in current_runs]]
+    to_delete = [
+        k for k in tree["pnt"] if k not in [r.split("/")[1] for r in current_runs]
+    ]
     for run in to_delete:
         print(f"> Deleting {run}")
         del tree["pnt"][run]
     # getting tree for each new run
-    to_add = [r.split("/")[1] for r in current_runs if r.split("/")[1] not in tree["pnt"]]
+    to_add = [
+        r.split("/")[1] for r in current_runs if r.split("/")[1] not in tree["pnt"]
+    ]
     for run in to_add:
         print(f"> Adding {run}")
-        run_tree = build_tree(minio_pnt.get_files_from_prefix(
-            prefix=f"pnt/{run}/",
-            ignore_airflow_env=True,
-            recursive=True,
-        ))
+        run_tree = build_tree(
+            minio_pnt.get_files_from_prefix(
+                prefix=f"pnt/{run}/",
+                ignore_airflow_env=True,
+                recursive=True,
+            )
+        )
         tree["pnt"][run] = run_tree["pnt"][run]
     # just to make sure
     assert len(tree["pnt"]) == len(current_runs)
@@ -213,16 +230,18 @@ def dump_and_send_tree() -> None:
         id="ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb",
         dataset_id="66d02b7174375550d7b10f3f",
         fetch=False,
-        _from_response={"filetype": "file"},  # to be able to update the file without fetching
+        _from_response={
+            "filetype": "file"
+        },  # to be able to update the file without fetching
     ).update(
         file_to_upload="./pnt_tree.json",
-        payload={"title": "Arborescence des dossiers sur le dépôt"}
+        payload={"title": "Arborescence des dossiers sur le dépôt"},
     )
     local_client.dataset("66d02b7174375550d7b10f3f", fetch=False).update(
         payload={
             "temporal_coverage": {
                 "start": oldest + ".000000+00:00",
-                "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             },
             "tags": ["hvd", "meteorologiques"],
         },

@@ -5,9 +5,15 @@ from airflow.providers.ssh.operators.ssh import SSHOperator
 
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
-SCRIPTS_PATH = "datagouvfr_data_pipelines/data_processing/insee/sirene/geocodage/scripts/"
-DEV_GIT_BRANCH = "main"  # It is the remote branch that will be cloned when using local Airflow
-DEV_GIT_ARGS = f"--single-branch --branch {DEV_GIT_BRANCH}" if AIRFLOW_ENV == "dev" else ""
+SCRIPTS_PATH = (
+    "datagouvfr_data_pipelines/data_processing/insee/sirene/geocodage/scripts/"
+)
+DEV_GIT_BRANCH = (
+    "main"  # It is the remote branch that will be cloned when using local Airflow
+)
+DEV_GIT_ARGS = (
+    f"--single-branch --branch {DEV_GIT_BRANCH}" if AIRFLOW_ENV == "dev" else ""
+)
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",

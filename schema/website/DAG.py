@@ -19,13 +19,12 @@ from datagouvfr_data_pipelines.schema.website.task_functions import (
 
 DAG_NAME = "schema_website_publication"
 GIT_REPO = (
-    ("git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/")
-    + "datagouv/schema.data.gouv.fr.git"
-)
+    "git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/"
+) + "datagouv/schema.data.gouv.fr.git"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
@@ -37,7 +36,6 @@ with DAG(
     catchup=False,
     default_args=default_args,
 ) as dag:
-
     branches = ["main", "preprod"]
     tasks = {}
     for branch in branches:

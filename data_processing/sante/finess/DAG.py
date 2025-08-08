@@ -16,25 +16,24 @@ from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions impor
     send_notification_mattermost,
 )
 
-DAG_FOLDER = 'datagouvfr_data_pipelines/data_processing/'
+DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='0 7 * * *',
+    schedule_interval="0 7 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "sante", "finess"],
     default_args=default_args,
 ) as dag:
-
     check_if_modif = ShortCircuitOperator(
-        task_id='check_if_modif',
+        task_id="check_if_modif",
         python_callable=check_if_modif,
     )
 
@@ -44,27 +43,27 @@ with DAG(
     )
 
     get_finess_columns = PythonOperator(
-        task_id='get_finess_columns',
+        task_id="get_finess_columns",
         python_callable=get_finess_columns,
     )
 
     get_geoloc_columns = PythonOperator(
-        task_id='get_geoloc_columns',
+        task_id="get_geoloc_columns",
         python_callable=get_geoloc_columns,
     )
 
     build_finess_table = PythonOperator(
-        task_id='build_finess_table',
+        task_id="build_finess_table",
         python_callable=build_finess_table,
     )
 
     send_to_minio = PythonOperator(
-        task_id='send_to_minio',
+        task_id="send_to_minio",
         python_callable=send_to_minio,
     )
 
     publish_on_datagouv = PythonOperator(
-        task_id='publish_on_datagouv',
+        task_id="publish_on_datagouv",
         python_callable=publish_on_datagouv,
     )
 
@@ -74,7 +73,7 @@ with DAG(
     )
 
     send_notification_mattermost = PythonOperator(
-        task_id='send_notification_mattermost',
+        task_id="send_notification_mattermost",
         python_callable=send_notification_mattermost,
     )
 

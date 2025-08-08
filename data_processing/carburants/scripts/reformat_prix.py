@@ -70,7 +70,9 @@ def reformat_prix(local_path, dest_path, dest_name):
                 pdv_attribs["cp"][0:2] not in ["97", "98"]
                 and latitude_original is not None
                 and latitude_original != ""
-                and bounds["latitude"]["low"] < float(latitude_original) < bounds["latitude"]["up"]
+                and bounds["latitude"]["low"]
+                < float(latitude_original)
+                < bounds["latitude"]["up"]
                 and longitude_original is not None
                 and longitude_original != ""
                 and bounds["longitude"]["low"]
@@ -121,7 +123,9 @@ def reformat_prix(local_path, dest_path, dest_name):
             if (
                 pdv_attribs["cp"][0:2] not in ["97", "98"]
                 and latitude is not None
-                and not bounds["longitude"]["low"] < latitude < bounds["longitude"]["up"]
+                and not bounds["longitude"]["low"]
+                < latitude
+                < bounds["longitude"]["up"]
             ):
                 print("Latitude issue")
                 print(
@@ -282,10 +286,12 @@ def reformat_prix(local_path, dest_path, dest_name):
     ]
 
     # Filter configs to match existing keys in csv_output_content
-    configs = [conf for conf in configs if any(conf["name"] in content for content in contents)]
+    configs = [
+        conf for conf in configs if any(conf["name"] in content for content in contents)
+    ]
 
     for config in configs:
-        with open(f'{config["name"]}.csv', "w", newline="") as csvfile:
+        with open(f"{config['name']}.csv", "w", newline="") as csvfile:
             all_content = [i[config["name"]] for i in contents if config["name"] in i]
             all_content = list(chain(*all_content))
             writer = csv.DictWriter(csvfile, fieldnames=config["fieldnames"])
@@ -302,7 +308,7 @@ def reformat_prix(local_path, dest_path, dest_name):
         all_content = [i["stations"] for i in contents]
         writer = csv.DictWriter(
             csvfile,
-            fieldnames=["id", "latitude", "longitude", "cp", "pop", "adresse", "ville"]
+            fieldnames=["id", "latitude", "longitude", "cp", "pop", "adresse", "ville"],
         )
         writer.writeheader()
         writer.writerows(all_content)

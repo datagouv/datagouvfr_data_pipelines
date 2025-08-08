@@ -82,8 +82,7 @@ class MinIOClient:
                     os.remove(file["source_path"] + file["source_name"])
             else:
                 raise Exception(
-                    f"file {file['source_path']}{file['source_name']} "
-                    "does not exists"
+                    f"file {file['source_path']}{file['source_name']} does not exists"
                 )
 
     @simple_connection_retry
@@ -145,8 +144,13 @@ class MinIOClient:
             both path and name from files to compare
 
         """
+
         def get_content_length(response: dict) -> int:
-            return response.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("content-length", None)
+            return (
+                response.get("ResponseMetadata", {})
+                .get("HTTPHeaders", {})
+                .get("content-length", None)
+            )
 
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
@@ -234,9 +238,8 @@ class MinIOClient:
         if not minio_bucket_target:
             minio_bucket_target = self.bucket
 
-        if (
-            self.client.bucket_exists(minio_bucket_source)
-            and self.client.bucket_exists(minio_bucket_target)
+        if self.client.bucket_exists(minio_bucket_source) and self.client.bucket_exists(
+            minio_bucket_target
         ):
             # copy an object from a bucket to another.
             logging.info(
@@ -248,9 +251,7 @@ class MinIOClient:
                 CopySource(minio_bucket_target, path_source),
             )
             if remove_source_file:
-                self.client.remove_object(
-                    minio_bucket_source, path_source
-                )
+                self.client.remove_object(minio_bucket_source, path_source)
             logging.info(f"> to {minio_bucket_source}/{path_target}")
         else:
             raise ValueError(
@@ -337,7 +338,9 @@ class MinIOClient:
         self,
         prefix: str,
     ) -> None:
-        for file in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
+        for file in self.get_files_from_prefix(
+            prefix, ignore_airflow_env=True, recursive=True
+        ):
             logging.info(f"🔥 '{file}' successfully deleted.")
             self.client.remove_object(self.bucket, file)
 

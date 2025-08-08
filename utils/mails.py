@@ -26,9 +26,7 @@ def send_mail_datagouv(
     sender = email_user
     message = message
     subject = subject
-    message = emails.html(
-        html="<p>%s</p>" % message, subject=subject, mail_from=sender
-    )
+    message = emails.html(html="<p>%s</p>" % message, subject=subject, mail_from=sender)
 
     smtp = {
         "host": "mail.data.gouv.fr",

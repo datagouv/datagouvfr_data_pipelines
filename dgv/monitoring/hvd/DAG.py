@@ -16,8 +16,8 @@ from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
 )
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
@@ -29,7 +29,6 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ) as dag:
-
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",

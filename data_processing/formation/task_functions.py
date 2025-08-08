@@ -71,7 +71,11 @@ def process_organismes_formation(ti):
     df = df[list(mapping.values())]
     df["spe"] = df.apply(lambda row: concat_spe(row), axis=1)
 
-    for col in ["date_derniere_declaration", "date_debut_exercice", "date_fin_exercice"]:
+    for col in [
+        "date_derniere_declaration",
+        "date_debut_exercice",
+        "date_fin_exercice",
+    ]:
         df[col] = df[col].apply(lambda x: convert_date(x))
 
     df = df.drop(["spe1", "spe2", "spe3"], axis=1)
