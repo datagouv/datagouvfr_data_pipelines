@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
-    
+    get_perimeter_orgas,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
