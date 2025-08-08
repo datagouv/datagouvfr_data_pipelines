@@ -5,10 +5,7 @@ from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.grist import (
-    get_table_as_df,
-    update_records,
-)
+from datagouvfr_data_pipelines.utils.grist import GristTable
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_MOISSONNAGE,
@@ -17,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
 DAG_NAME = "dgv_harvester_notification"
 PAD_AWAITING_VALIDATION = "https://pad.incubateur.net/173bEiKKTi2laBNyHwIPlQ"
 doc_id = "6xrGmKARsDFR" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
-table_id = "Moissonneurs"
+table = GristTable(doc_id, "Moissonneurs")
 
 
 def get_pending_harvesters(ti):
@@ -74,9 +71,7 @@ def get_preview_state(ti):
 
 def fill_in_grist(ti):
     harvesters = ti.xcom_pull(key="harvesters_complete", task_ids="get_preview_state")
-    current_table = get_table_as_df(
-        doc_id=doc_id,
-        table_id=table_id,
+    current_table = table.to_dataframe(
         columns_labels=False,
         usecols=[
             "harvester_id",
@@ -118,9 +113,7 @@ def fill_in_grist(ti):
         else:
             issues.append(harvester)
             logging.warning(f"Too many rows for harvester: {harvester['id']}")
-        update_records(
-            doc_id=doc_id,
-            table_id=table_id,
+        table.update_records(
             conditions={"harvester_id": harvester["id"]},
             new_values=to_update,
         )
