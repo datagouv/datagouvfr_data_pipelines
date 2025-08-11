@@ -44,30 +44,57 @@ class TopicsManager:
                 else:
                     tags.append(f"simplifions-{attribute}-{topic[attribute]}")
         return tags
+    
+    # @staticmethod
+    # def _topics_are_similar_so_we_can_skip_update(topic1, topic2):
+    #     keys_to_compare = ["name", "description", "organization", "tags", "extras", "private"]
+    #     for key in keys_to_compare:
+    #         if topic1[key] != topic2[key]:
+    #             return False
+    #     return True
 
-    def _update_extras_of_topic(self, topic: dict, new_extras: dict):
-        url = f"{self.client.base_url}/api/1/topics/{topic['id']}/"
+    def _create_topic(self, topic_data: dict):
+        url = f"{self.client.base_url}/api/1/topics/"
+        r = requests.post(
+            url,
+            headers=self.dgv_headers,
+            json=topic_data,
+        )
+        r.raise_for_status()
+        logging.info(f"Created topic '{topic_data['name']}'")
+
+    def _delete_topic(self, topic_id: str):
+        url = f"{self.client.base_url}/api/1/topics/{topic_id}/"
+        r = requests.delete(
+            url,
+            headers=self.dgv_headers,
+        )
+        r.raise_for_status()
+        logging.info(f"Deleted topic at {url}")
+
+    def _update_topic(self, topic_id: str, topic_data: dict):
+        url = f"{self.client.base_url}/api/1/topics/{topic_id}/"
         r = requests.put(
             url,
             headers=self.dgv_headers,
-            json={
-                "tags": topic["tags"],
-                "extras": new_extras,
-            },
+            json=topic_data,
         )
-        if r.status_code != 200:
-            logging.error(
-                f"Failed to update topic references for {topic['id']}: {r.status_code} - {r.text}"
-            )
         r.raise_for_status()
-        logging.info(f"Updated topic references at {url}")
+        logging.info(f"Updated topic at {url}")
+
+    # We need to send the tags when updating the extras otherwise it fails
+    def _update_extras_of_topic(self, topic: dict, new_extras: dict):
+        self._update_topic(topic["id"], {
+            "tags": topic["tags"],
+            "extras": new_extras,
+        })
 
     def _get_all_topics_for_tag(self, tag: str) -> list[dict]:
         return get_all_from_api_query(
             f"{self.client.base_url}/api/1/topics/?tag={tag}&include_private=true",
             auth=True,
         )
-
+    
     def update_topics(self, ti):
         tag_and_grist_topics: dict = ti.xcom_pull(
             key="tag_and_grist_topics", task_ids="get_and_format_grist_data"
@@ -85,60 +112,43 @@ class TopicsManager:
             extras_nested_key = tag
             topic_tags = simplifions_tags + [tag]
 
-            current_topics = {
+            current_topics_slugs_to_ids = {
                 topic["extras"][extras_nested_key]["slug"]: topic["id"]
                 for topic in self._get_all_topics_for_tag(tag)
-                if extras_nested_key in topic["extras"]
             }
 
             logging.info(
-                f"Found {len(current_topics)} existing topics in datagouv for tag {tag}"
+                f"Found {len(current_topics_slugs_to_ids)} existing topics in datagouv for tag {tag}"
             )
 
             for slug in grist_topics.keys():
-                if slug in current_topics.keys():
-                    # updating existing topics
-                    url = f"{self.client.base_url}/api/1/topics/{current_topics[slug]}/"
-                    method = "put"
-                else:
-                    # creating a new topic
-                    url = f"{self.client.base_url}/api/1/topics/"
-                    method = "post"
-                logging.info(
-                    f"{method} topic '{slug}'"
-                    + (f" at {url}" if method == "put" else "")
-                )
-
-                r = getattr(requests, method)(
-                    url,
-                    headers=self.dgv_headers,
-                    json={
-                        "name": grist_topics[slug][title_column],
-                        # description cannot be empty
-                        "description": grist_topics[slug]["Description_courte"] or "-",
-                        "organization": {
-                            "class": "Organization",
-                            "id": "57fe2a35c751df21e179df72",
-                        },
-                        "tags": topic_tags
-                        + self._generated_search_tags(grist_topics[slug]),
-                        "extras": {extras_nested_key: grist_topics[slug] or False},
-                        "private": not grist_topics[slug]["Visible_sur_simplifions"],
+                topic_data = {
+                    "name": grist_topics[slug][title_column],
+                    # description cannot be empty
+                    "description": grist_topics[slug]["Description_courte"] or "-",
+                    "organization": {
+                        "class": "Organization",
+                        "id": "57fe2a35c751df21e179df72",
                     },
-                )
-                r.raise_for_status()
+                    "tags": topic_tags
+                    + self._generated_search_tags(grist_topics[slug]),
+                    "extras": {extras_nested_key: grist_topics[slug] or False},
+                    "private": not grist_topics[slug]["Visible_sur_simplifions"],
+                }
+
+                # Create or update the topic
+                if slug in current_topics_slugs_to_ids.keys():
+                    logging.info(f"Updating topic {slug} : {current_topics_slugs_to_ids[slug]}")
+                    self._update_topic(current_topics_slugs_to_ids[slug], topic_data)
+                else:
+                    logging.info(f"Creating topic {slug} : {topic_data['name']}")
+                    self._create_topic(topic_data)
 
             # deleting topics that are not in the table anymore
-            for slug in current_topics:
+            for slug in current_topics_slugs_to_ids:
                 if slug not in grist_topics:
-                    logging.info(
-                        f"Deleting topic '{slug}' at {self.client.base_url}/api/1/topics/{current_topics[slug]}/"
-                    )
-                    r = requests.delete(
-                        f"{self.client.base_url}/api/1/topics/{current_topics[slug]}/",
-                        headers=self.dgv_headers,
-                    )
-                    r.raise_for_status()
+                    logging.info(f"Deleting topic {slug} : {current_topics_slugs_to_ids[slug]}")
+                    self._delete_topic(current_topics_slugs_to_ids[slug])
 
     def update_topics_references(self, ti):
         all_topics = {}
