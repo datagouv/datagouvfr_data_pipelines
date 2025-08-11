@@ -34,7 +34,7 @@ class TopicsManager:
         self.dgv_headers = client.session.headers
 
     @staticmethod
-    def generated_search_tags(topic: dict) -> list[str]:
+    def _generated_search_tags(topic: dict) -> list[str]:
         tags = []
         for attribute in ATTRIBUTES_FOR_TAGS:
             if topic.get(attribute):
@@ -45,7 +45,7 @@ class TopicsManager:
                     tags.append(f"simplifions-{attribute}-{topic[attribute]}")
         return tags
 
-    def update_extras_of_topic(self, topic: dict, new_extras: dict):
+    def _update_extras_of_topic(self, topic: dict, new_extras: dict):
         url = f"{self.client.base_url}/api/1/topics/{topic['id']}/"
         r = requests.put(
             url,
@@ -62,7 +62,7 @@ class TopicsManager:
         r.raise_for_status()
         logging.info(f"Updated topic references at {url}")
 
-    def get_all_topics_for_tag(self, tag: str) -> list[dict]:
+    def _get_all_topics_for_tag(self, tag: str) -> list[dict]:
         return get_all_from_api_query(
             f"{self.client.base_url}/api/1/topics/?tag={tag}&include_private=true",
             auth=True,
@@ -87,7 +87,7 @@ class TopicsManager:
 
             current_topics = {
                 topic["extras"][extras_nested_key]["slug"]: topic["id"]
-                for topic in self.get_all_topics_for_tag(tag)
+                for topic in self._get_all_topics_for_tag(tag)
                 if extras_nested_key in topic["extras"]
             }
 
@@ -121,7 +121,7 @@ class TopicsManager:
                             "id": "57fe2a35c751df21e179df72",
                         },
                         "tags": topic_tags
-                        + self.generated_search_tags(grist_topics[slug]),
+                        + self._generated_search_tags(grist_topics[slug]),
                         "extras": {extras_nested_key: grist_topics[slug] or False},
                         "private": not grist_topics[slug]["Visible_sur_simplifions"],
                     },
@@ -145,7 +145,7 @@ class TopicsManager:
         all_tags = ["simplifions-solutions", "simplifions-cas-d-usages"]
 
         for tag in all_tags:
-            all_topics[tag] = list(self.get_all_topics_for_tag(tag))
+            all_topics[tag] = list(self._get_all_topics_for_tag(tag))
             logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
         solutions_topics = all_topics["simplifions-solutions"]
@@ -174,7 +174,7 @@ class TopicsManager:
                 "cas_d_usages_topics_ids"
             ] = [topic["id"] for topic in matching_topics]
             # update the solution topic with the new extras
-            self.update_extras_of_topic(solution_topic, solution_topic["extras"])
+            self._update_extras_of_topic(solution_topic, solution_topic["extras"])
 
         # Update cas_usages_topics with references to solution_topic_id and solutions_editeurs_topics
         for cas_usage_topic in cas_usages_topics:
@@ -214,4 +214,4 @@ class TopicsManager:
                 ]
 
             # update the cas_usage topic with the new extras
-            self.update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"])
+            self._update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"])

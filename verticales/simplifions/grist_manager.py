@@ -34,7 +34,7 @@ class GristManager:
         pass
 
     @staticmethod
-    def request_grist_table(table_id: str, filter: str = None) -> list[dict]:
+    def _request_grist_table(table_id: str, filter: str = None) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
             headers={
@@ -48,7 +48,7 @@ class GristManager:
         return [row["fields"] for row in r.json()["records"]]
 
     @staticmethod
-    def clean_row(row: dict) -> dict:
+    def _clean_row(row: dict) -> dict:
         cleaned_row = {}
         for key, value in row.items():
             if isinstance(value, list) and value and value[0] == "L":
@@ -58,17 +58,17 @@ class GristManager:
                 cleaned_row[key] = value
         return cleaned_row
 
-    def get_subdata(self, key: str, value: list | str, table_info: dict) -> list | str:
+    def _get_subdata(self, key: str, value: list | str, table_info: dict) -> list | str:
         if not value:
             return value
         elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
             value_as_list = value if isinstance(value, list) else [value]
             filter = json.dumps({"id": value_as_list})
-            subdata = self.request_grist_table(
+            subdata = self._request_grist_table(
                 table_info["sub_tables"][key], filter=filter
             )
             cleaned_subdata = [
-                self.clean_row(item)
+                self._clean_row(item)
                 for item in subdata
                 if item.get("Visible_sur_simplifions", True)
             ]
@@ -76,10 +76,10 @@ class GristManager:
         else:
             return value
 
-    def cleaned_row_with_subdata(self, row: dict, table_info: dict) -> dict:
-        cleaned_row = self.clean_row(row)
+    def _cleaned_row_with_subdata(self, row: dict, table_info: dict) -> dict:
+        cleaned_row = self._clean_row(row)
         formatted_row = {
-            key: self.get_subdata(key, cleaned_row[key], table_info)
+            key: self._get_subdata(key, cleaned_row[key], table_info)
             for key in cleaned_row.keys()
         }
         return formatted_row
@@ -89,14 +89,14 @@ class GristManager:
 
         for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
             tag = table_info["tag"]
-            rows = self.request_grist_table(table_id)
+            rows = self._request_grist_table(table_id)
 
             if tag not in tag_and_grist_topics:
                 tag_and_grist_topics[tag] = {}
 
             tag_and_grist_topics[tag].update(
                 {
-                    row["slug"]: self.cleaned_row_with_subdata(row, table_info)
+                    row["slug"]: self._cleaned_row_with_subdata(row, table_info)
                     for row in rows
                     if row["slug"]
                 }
