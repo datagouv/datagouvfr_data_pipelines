@@ -107,7 +107,7 @@ def send_notification_mattermost(ti):
 # Define default arguments for the DAG
 default_args = {
     "depends_on_past": False,
-    "retries": 1,
+    "retries": 4,
     "retry_delay": timedelta(minutes=5),
 }
 
