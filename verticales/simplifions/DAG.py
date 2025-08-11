@@ -34,7 +34,7 @@ def create_simplifions_dag(dag_id: str, schedule_interval: str, client: Client):
         schedule_interval=schedule_interval,
         start_date=datetime(2024, 10, 1),
         dagrun_timeout=timedelta(minutes=60),
-        tags=["simplifions"],
+        tags=["verticale", "simplifions"],
         default_args=default_args,
         catchup=False,
     ) as dag:

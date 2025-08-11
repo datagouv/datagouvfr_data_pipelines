@@ -36,5 +36,6 @@
     "maintenance_clean_logs_and_runs": true,
     "schema_recommendations": true,
     "schema_website_publication": true,
+    "verticale_culture": true,
     "verticale_simplifions*": true
 }
