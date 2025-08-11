@@ -265,7 +265,7 @@ def publish_mattermost(ti):
         message += f"\n\n{len(have_unavailable_resources)} HVD ont des ressources inaccessibles :"
     for _, row in have_unavailable_resources.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES, force_send=True)
 
 
 # %% Grist
