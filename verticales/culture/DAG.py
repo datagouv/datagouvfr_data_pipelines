@@ -27,7 +27,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["verticale", "culture"],
 ) as dag:
-
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",

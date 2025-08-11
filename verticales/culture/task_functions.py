@@ -21,7 +21,9 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DATADIR = f"{AIRFLOW_DAG_TMP}culture/data/"
 
-topic_id = "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
+topic_id = (
+    "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
+)
 parquet_bucket = "hydra" if AIRFLOW_ENV == "prod" else "demo-hydra"
 metrics_api_url = "https://metric-api.data.gouv.fr/api/{}/data/?{}_id__exact={}"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
@@ -29,15 +31,18 @@ minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 objects = {
     "datasets": {
         "catalog_id": "f868cca6-8da1-4369-a78d-47463f19a9a3",
-        "metrics_keys": {"monthly_visit": "visits", "monthly_download_resource": "downloads"}
+        "metrics_keys": {
+            "monthly_visit": "visits",
+            "monthly_download_resource": "downloads",
+        },
     },
     "dataservices": {
         "catalog_id": "322d1475-f36a-472d-97ce-d218c8f79092",
-        "metrics_keys": {"monthly_visit": "visits"}
+        "metrics_keys": {"monthly_visit": "visits"},
     },
     "reuses": {
         "catalog_id": "970aafa0-3778-4d8b-b9d1-de937525e379",
-        "metrics_keys": {"monthly_visit": "visits"}
+        "metrics_keys": {"monthly_visit": "visits"},
     },
     "organizations": {
         # no need for the catalog, it's based on grist for the perimeter
@@ -78,27 +83,36 @@ def get_perimeter_stats(ti, object_type: str):
     ids = ti.xcom_pull(
         key=object_type,
         task_ids=(
-            "get_perimeter_orgas" if object_type == "organizations"
+            "get_perimeter_orgas"
+            if object_type == "organizations"
             else f"get_and_send_perimeter_{object_type}"
         ),
     )
     stats = []
     # we have to do a pirouette to end up with standardized labels
     total = {
-        metric_label: 0 for metric_label in objects[object_type]["metrics_keys"].values()
+        metric_label: 0
+        for metric_label in objects[object_type]["metrics_keys"].values()
     } | {f"nb_{object_type}": 0}
     for idx, obj_id in enumerate(ids):
         if idx and idx % 20 == 0:
             logging.info(f"> Got stats for {idx}/{len(ids)} {object_type}")
         total[f"nb_{object_type}"] += 1
-        obj_stats = {metric_label: 0 for metric_label in objects[object_type]["metrics_keys"].values()}
+        obj_stats = {
+            metric_label: 0
+            for metric_label in objects[object_type]["metrics_keys"].values()
+        }
         for monthly_stats in get_all_from_api_query(
             metrics_api_url.format(object_type, object_type[:-1], obj_id),
             next_page="links.next",
         ):
             for metric_id in objects[object_type]["metrics_keys"].keys():
-                obj_stats[objects[object_type]["metrics_keys"][metric_id]] += monthly_stats[metric_id] or 0
-                total[objects[object_type]["metrics_keys"][metric_id]] += monthly_stats[metric_id] or 0
+                obj_stats[objects[object_type]["metrics_keys"][metric_id]] += (
+                    monthly_stats[metric_id] or 0
+                )
+                total[objects[object_type]["metrics_keys"][metric_id]] += (
+                    monthly_stats[metric_id] or 0
+                )
         stats.append({"id": obj_id} | obj_stats)
 
     ti.xcom_push(key=f"detailed_{object_type}", value=stats)
@@ -172,7 +186,11 @@ def refresh_datasets_tops(ti):
                 break
             table.update_records(
                 conditions={"type": top_type, "ordre": idx + 1},
-                new_values={"titre": row["title"], "slug": row["slug"], "id2": row["id"]},
+                new_values={
+                    "titre": row["title"],
+                    "slug": row["slug"],
+                    "id2": row["id"],
+                },
             )
 
 
