@@ -35,13 +35,10 @@ Add these variables in the Airflow UI, under Admin > Variables :
 GRIST_API_URL=https://grist.numerique.gouv.fr/api/
 SECRET_GRIST_API_KEY=<fetch it on your grist account>
 DEMO_DATAGOUV_SECRET_API_KEY=<fetch it on your demo.data.gouv.fr account>
+# You also need this in dev, but with the demo key. For reasons.
+DATAGOUV_SECRET_API_KEY=<same demo key>
 ```
 
-**In production** you also need :
-
-```
-DATAGOUV_SECRET_API_KEY=<fetch it on your www.data.gouv.fr account>
-```
 
 ## What the simplifions DAG does
 
