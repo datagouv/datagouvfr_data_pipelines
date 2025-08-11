@@ -252,7 +252,7 @@ def publish_mattermost(ti):
     for _, row in missing_hvd_name.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
 
-    missing_hvd_tag = df_ouverture.loc[df_ouverture["missing_hvd_tag"] != "True"]
+    missing_hvd_tag = df_ouverture.loc[df_ouverture["missing_hvd_tag"] == "True"]
     if len(missing_hvd_tag):
         message += f"\n\n{len(missing_hvd_tag)} jeux de données n'ont plus le tag HVD :"
     for _, row in missing_hvd_tag.iterrows():
