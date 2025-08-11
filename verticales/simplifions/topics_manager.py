@@ -1,36 +1,11 @@
-import json
 import logging
 
 from datagouv import Client
 import requests
 
-from datagouvfr_data_pipelines.config import (
-    GRIST_API_URL,
-    SECRET_GRIST_API_KEY,
-)
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_all_from_api_query,
 )
-
-GRIST_DOC_ID = "c5pt7QVcKWWe"
-GRIST_TABLES_AND_TAGS = {
-    "SIMPLIFIONS_cas_usages": {
-        "tag": "simplifions-cas-d-usages",
-        "sub_tables": {
-            "reco_solutions": "SIMPLIFIONS_reco_solutions_cas_usages",
-            "API_et_donnees_utiles": "Apidata",
-            "descriptions_api_et_donnees_utiles": "SIMPLIFIONS_description_apidata_cas_usages",
-        },
-    },
-    "SIMPLIFIONS_produitspublics": {
-        "tag": "simplifions-solutions",
-        "sub_tables": {"API_et_data_disponibles": "Apidata"},
-    },
-    "SIMPLIFIONS_solutions_editeurs": {
-        "tag": "simplifions-solutions",
-        "sub_tables": {"API_et_data_disponibles": "Apidata"},
-    },
-}
 
 # These columns are used as the title of the topics
 TAG_AND_TITLES_COLUMNS = {
@@ -47,7 +22,7 @@ ATTRIBUTES_FOR_TAGS = [
 ]
 
 
-class SimplifionsManager:
+class TopicsManager:
     def __init__(self, client: Client):
         if not client:
             raise ValueError("client is required")
@@ -59,32 +34,7 @@ class SimplifionsManager:
         self.dgv_headers = client.session.headers
 
     @staticmethod
-    def request_grist_table(table_id: str, filter: str = None) -> list[dict]:
-        r = requests.get(
-            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
-            headers={
-                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
-            params={"filter": filter} if filter else None,
-        )
-        r.raise_for_status()
-        return [row["fields"] for row in r.json()["records"]]
-
-    @staticmethod
-    def clean_row(row: dict) -> dict:
-        cleaned_row = {}
-        for key, value in row.items():
-            if isinstance(value, list) and value and value[0] == "L":
-                # Remove the "L" prefix and keep the rest of the list
-                cleaned_row[key] = value[1:]
-            else:
-                cleaned_row[key] = value
-        return cleaned_row
-
-    @staticmethod
-    def generated_search_tags(topic: dict) -> list[str]:
+    def _generated_search_tags(topic: dict) -> list[str]:
         tags = []
         for attribute in ATTRIBUTES_FOR_TAGS:
             if topic.get(attribute):
@@ -95,33 +45,7 @@ class SimplifionsManager:
                     tags.append(f"simplifions-{attribute}-{topic[attribute]}")
         return tags
 
-    def get_subdata(self, key: str, value: list | str, table_info: dict) -> list | str:
-        if not value:
-            return value
-        elif table_info["sub_tables"] and key in table_info["sub_tables"].keys():
-            value_as_list = value if isinstance(value, list) else [value]
-            filter = json.dumps({"id": value_as_list})
-            subdata = self.request_grist_table(
-                table_info["sub_tables"][key], filter=filter
-            )
-            cleaned_subdata = [
-                self.clean_row(item)
-                for item in subdata
-                if item.get("Visible_sur_simplifions", True)
-            ]
-            return cleaned_subdata if isinstance(value, list) else cleaned_subdata[0]
-        else:
-            return value
-
-    def cleaned_row_with_subdata(self, row: dict, table_info: dict) -> dict:
-        cleaned_row = self.clean_row(row)
-        formatted_row = {
-            key: self.get_subdata(key, cleaned_row[key], table_info)
-            for key in cleaned_row.keys()
-        }
-        return formatted_row
-
-    def update_extras_of_topic(self, topic: dict, new_extras: dict):
+    def _update_extras_of_topic(self, topic: dict, new_extras: dict):
         url = f"{self.client.base_url}/api/1/topics/{topic['id']}/"
         r = requests.put(
             url,
@@ -138,44 +62,11 @@ class SimplifionsManager:
         r.raise_for_status()
         logging.info(f"Updated topic references at {url}")
 
-    def get_all_topics_for_tag(self, tag: str) -> list[dict]:
+    def _get_all_topics_for_tag(self, tag: str) -> list[dict]:
         return get_all_from_api_query(
             f"{self.client.base_url}/api/1/topics/?tag={tag}&include_private=true",
             auth=True,
         )
-
-    # 👇 Methods used by the DAG 👇
-
-    def get_and_format_grist_data(self, ti):
-        tag_and_grist_topics = {}
-
-        for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
-            tag = table_info["tag"]
-            rows = self.request_grist_table(table_id)
-
-            if tag not in tag_and_grist_topics:
-                tag_and_grist_topics[tag] = {}
-
-            tag_and_grist_topics[tag].update(
-                {
-                    row["slug"]: self.cleaned_row_with_subdata(row, table_info)
-                    for row in rows
-                    if row["slug"]
-                }
-            )
-
-        logging_str = "\n".join(
-            [
-                f"{tag}: {len(grist_topics)} topics"
-                for tag, grist_topics in tag_and_grist_topics.items()
-            ]
-        )
-        total_length = sum(
-            [len(grist_topics) for grist_topics in tag_and_grist_topics.values()]
-        )
-        logging.info(f"Found {total_length} items in grist: \n{logging_str}")
-
-        ti.xcom_push(key="tag_and_grist_topics", value=tag_and_grist_topics)
 
     def update_topics(self, ti):
         tag_and_grist_topics: dict = ti.xcom_pull(
@@ -196,7 +87,7 @@ class SimplifionsManager:
 
             current_topics = {
                 topic["extras"][extras_nested_key]["slug"]: topic["id"]
-                for topic in self.get_all_topics_for_tag(tag)
+                for topic in self._get_all_topics_for_tag(tag)
                 if extras_nested_key in topic["extras"]
             }
 
@@ -230,7 +121,7 @@ class SimplifionsManager:
                             "id": "57fe2a35c751df21e179df72",
                         },
                         "tags": topic_tags
-                        + self.generated_search_tags(grist_topics[slug]),
+                        + self._generated_search_tags(grist_topics[slug]),
                         "extras": {extras_nested_key: grist_topics[slug] or False},
                         "private": not grist_topics[slug]["Visible_sur_simplifions"],
                     },
@@ -254,7 +145,7 @@ class SimplifionsManager:
         all_tags = ["simplifions-solutions", "simplifions-cas-d-usages"]
 
         for tag in all_tags:
-            all_topics[tag] = list(self.get_all_topics_for_tag(tag))
+            all_topics[tag] = list(self._get_all_topics_for_tag(tag))
             logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
         solutions_topics = all_topics["simplifions-solutions"]
@@ -283,7 +174,7 @@ class SimplifionsManager:
                 "cas_d_usages_topics_ids"
             ] = [topic["id"] for topic in matching_topics]
             # update the solution topic with the new extras
-            self.update_extras_of_topic(solution_topic, solution_topic["extras"])
+            self._update_extras_of_topic(solution_topic, solution_topic["extras"])
 
         # Update cas_usages_topics with references to solution_topic_id and solutions_editeurs_topics
         for cas_usage_topic in cas_usages_topics:
@@ -323,4 +214,4 @@ class SimplifionsManager:
                 ]
 
             # update the cas_usage topic with the new extras
-            self.update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"])
+            self._update_extras_of_topic(cas_usage_topic, cas_usage_topic["extras"])
