@@ -22,7 +22,8 @@ from datagouvfr_data_pipelines.utils.grist import (
 
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
-table = GristTable("eJxok2H2va3E", "Hvd_metadata_res")
+DOC_ID = "eJxok2H2va3E"
+table = GristTable(DOC_ID, "Hvd_metadata_res")
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
@@ -144,7 +145,9 @@ def publish_mattermost(ti):
     logging.info(minio_files)
     if len(minio_files) == 1:
         return
-    all_hvd_names = set(table.to_dataframe(columns_labels=False)["hvd_name"])
+    all_hvd_names = set(
+        GristTable(DOC_ID, "Hvd_names").to_dataframe(columns_labels=False)["hvd_name"]
+    )
     goal = len(all_hvd_names)
 
     previous_week = pd.read_csv(StringIO(minio_open.get_file_content(minio_files[-2])))
