@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.grist import GristTable
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DATADIR = f"{AIRFLOW_DAG_TMP}culture/data/"
@@ -82,7 +83,7 @@ def get_perimeter_stats(ti, object_type: str):
         ),
     )
     stats = []
-    # we have to make a pirouette to end up with standardized labels
+    # we have to do a pirouette to end up with standardized labels
     total = {
         metric_label: 0 for metric_label in objects[object_type]["metrics_keys"].values()
     } | {f"nb_{object_type}": 0}
@@ -136,4 +137,46 @@ def send_stats_to_minio():
         ],
         ignore_airflow_env=True,
         burn_after_sending=True,
+    )
+
+
+def refresh_datasets_tops(ti):
+    orgas = ti.xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
+    logging.info("Loading catalog...")
+    datasets_catalog = pd.read_parquet(
+        f"https://object.files.data.gouv.fr/{parquet_bucket}-parquet/"
+        f"hydra-parquet/{objects['datasets']['catalog_id']}.parquet",
+        columns=[
+            "id",
+            "title",
+            "slug",
+            "organization_id",
+            "created_at",
+            "metric.reuses",
+            "metric.resources_downloads",
+        ],
+        filters=[("organization_id", "in", orgas)],
+    )
+    metrics = {
+        "top-datasets": "metric.resources_downloads",
+        "top-reuses": "metric.reuses",
+        "new-datasets": "created_at",
+    }
+    logging.info("Refreshing table...")
+    table = GristTable("hrDZg8StuE1d", "Tops")
+    for top_type, column in metrics.items():
+        top = datasets_catalog.sort_values(by=column, ascending=False)
+        for idx, row in top.iterrows():
+            if idx > 2:
+                # only looking for top 3
+                break
+            table.update_records(
+                conditions={"type": top_type, "ordre": idx + 1},
+                new_values={"titre": row["title"], "slug": row["slug"], "id2": row["id"]},
+            )
+
+
+def send_notification_mattermost():
+    send_message(
+        text=":performing_arts: Catalogue et stats de la verticale culture mis à jour."
     )
