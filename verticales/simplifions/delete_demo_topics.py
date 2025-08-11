@@ -1,22 +1,23 @@
 import os
 import requests
 
-DATAGOUV_SECRET_API_KEY = os.getenv("DATAGOUV_SECRET_API_KEY")
+DEMO_DATAGOUV_SECRET_API_KEY = os.getenv("DEMO_DATAGOUV_SECRET_API_KEY")
 
 
 def delete_demo_topic(topic_id: str):
     response = requests.delete(
         f"https://demo.data.gouv.fr/api/1/topics/{topic_id}/",
-        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+        headers={"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY},
     )
-    print(response.status_code)
+    if response.status_code != 204:
+        print(response.status_code, response.json())
 
 
 def get_demo_topics(tags: str = None):
     response = requests.get(
         "https://demo.data.gouv.fr/api/2/topics/",
         params={"tag": tags, "page_size": 1000, "page": 1, "include_private": True},
-        headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
+        headers={"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY},
     )
     return response
 
