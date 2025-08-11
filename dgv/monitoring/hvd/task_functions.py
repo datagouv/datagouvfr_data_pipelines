@@ -1,6 +1,5 @@
 from datetime import datetime
 from io import StringIO
-import json
 import logging
 
 import pandas as pd
@@ -153,7 +152,7 @@ def publish_mattermost(ti):
     previous_week = pd.read_csv(StringIO(minio_open.get_file_content(minio_files[-2])))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
     this_week["hvd_name"] = this_week["hvd_name"].apply(
-        lambda str_list: json.loads(str_list.replace("'", '"'))
+        lambda str_list: eval(str_list)
         if isinstance(str_list, str)
         else []
     )
