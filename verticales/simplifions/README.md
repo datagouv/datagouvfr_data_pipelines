@@ -27,6 +27,15 @@ But because of how the `local_client` works, both DAGs are filling the demo when
 
 But both DAGs use the same code from `simplifions_manager.py`.
 
+## Install in airflow
+
+1. Clone the repo with airflow : [data-engineering-stack](https://github.com/datagouv/data-engineering-stack)
+2. Follow its readme to install airflow
+3. Clone this repo in the `dags` folder of `data-engineering-stack`
+4. Launch airflow with docker, log in, and voilà !
+
+![airflow screenshot]()
+
 ## Airflow environment variables
 
 Add these variables in the Airflow UI, under Admin > Variables :
@@ -57,3 +66,24 @@ Create the tags for the filters.
 ### 3. Update the references between simplifions topics
 
 Because we need all simplifions topics to be created before in order to be able to update all references, we have this third task separated from the second task.
+
+## Tests
+
+1. install and activate the python virtual env
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. Install the required dependencies:
+
+```bash
+pip install -r verticales/simplifions/tests/test-requirements.txt
+```
+
+3. Run the tests
+
+```bash
+pytest verticales/simplifions/tests/ -s
+```
