@@ -57,41 +57,48 @@ def compute_top(_class, date, title):
     textTop = ""
     PARAMS_TOPS["period"] = "range"
     PARAMS_TOPS["date"] = date
-    PARAMS_TOPS["filter_pattern"] = f"/fr/{_class}/"
+    PARAMS_TOPS["filter_pattern"] = f"/{_class}/"
     logging.info(PARAMS_TOPS)
     r = requests.get(BASE_URL, params=PARAMS_TOPS)
     arr = []
     for data in r.json():
-        if "url" in data:
-            if data["url"] not in [
-                "https://www.data.gouv.fr/fr/datasets/",
-                "https://www.data.gouv.fr/fr/reuses/",
-            ]:
-                logging.info(data)
-                url = data["url"].replace(
+        if "url" in data and data["url"] not in [
+            "https://www.data.gouv.fr/fr/datasets/",
+            "https://www.data.gouv.fr/fr/reuses/",
+        ]:
+            logging.info(data)
+            url = (
+                # handling switch to no more /fr/
+                data["url"].replace(
                     "https://www.data.gouv.fr/fr/",
                     "https://www.data.gouv.fr/api/1/",
                 )
-                r2 = requests.get(url)
-                _stop = False
-                while not r2.ok:
-                    # handling cases like https://www.data.gouv.fr/fr/reuses/{id}/discussions/
-                    url = "/".join(url.split("/")[:-1])
-                    if not url.startswith("https://www.data.gouv.fr/api/1/"):
-                        logging.warning(f"Could not fetch info for: {data['url']}")
-                        _stop = True
-                        break
-                    r2 = requests.get(url)
-                if _stop:
-                    continue
-                arr.append(
-                    {
-                        "value": data["nb_visits"],
-                        "url": data["url"],
-                        "name": r2.json().get("title", data["url"]),
-                    }
+                if "https://www.data.gouv.fr/fr/" in data["url"]
+                else data["url"].replace(
+                    "https://www.data.gouv.fr/",
+                    "https://www.data.gouv.fr/api/1/",
                 )
-                textTop += f"`{data['nb_visits']}`".ljust(10) + data["url"] + "\n"
+            )
+            r2 = requests.get(url)
+            _stop = False
+            while not r2.ok:
+                # handling cases like https://www.data.gouv.fr/fr/reuses/{id}/discussions/
+                url = "/".join(url.split("/")[:-1])
+                if not url.startswith("https://www.data.gouv.fr/api/1/"):
+                    logging.warning(f"Could not fetch info for: {data['url']}")
+                    _stop = True
+                    break
+                r2 = requests.get(url)
+            if _stop:
+                continue
+            arr.append(
+                {
+                    "value": data["nb_visits"],
+                    "url": data["url"],
+                    "name": r2.json().get("title", data["url"]),
+                }
+            )
+            textTop += f"`{data['nb_visits']}`".ljust(10) + data["url"] + "\n"
     mydict = {
         "name": title,
         "unit": "visites",
