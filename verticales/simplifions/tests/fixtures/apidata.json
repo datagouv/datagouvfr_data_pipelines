@@ -1,0 +1,39 @@
+{
+  "table_id": "Apidata",
+  "total_records_available": 83,
+  "sample_record": {
+    "Nom_donnees_ou_API": "API Certification Qualifelec | Bouquet API Entreprise",
+    "Type": "API",
+    "UID_data_gouv": "672cf6baa316ad54c9a7f19b",
+    "Protected_data_parmi_les_donnees": false,
+    "API_France_connectee": false,
+    "Open_data_parmi_les_donnees": true,
+    "Notes": "",
+    "Visible_sur_simplifions": true,
+    "Modifie_par": "Dorine Lambinet",
+    "Modifie_le_": "2025-08-06 17:22:01.925757+02:00",
+    "Cas_d_usages_simplifions": [
+      "L",
+      1,
+      2,
+      3,
+      4,
+      7,
+      22,
+      23
+    ],
+    "Sous_produits_DINUM_associes": [
+      "L",
+      48,
+      56
+    ],
+    "Sous_produits_DINUM_fournisseur": [
+      "L",
+      48
+    ],
+    "Sous_produits_DINUM_utilisateurs": [
+      "L",
+      56
+    ]
+  }
+}
