@@ -1,7 +1,8 @@
-import json
-import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from io import StringIO
+import json
+import logging
 from time import sleep
 from typing import Iterator
 
@@ -13,8 +14,9 @@ from airflow.models import TaskInstance
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
+from datagouvfr_data_pipelines.utils.crisp import get_all_conversations, get_all_spam_conversations
 from datagouvfr_data_pipelines.utils.datagouv import (
-    # DATAGOUV_MATOMO_ID,
+    DATAGOUV_MATOMO_ID,
     local_client,
 )
 from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
@@ -43,91 +45,105 @@ minio_open = MinIOClient(bucket="dataeng-open")
 minio_destination_folder = "dashboard/"
 
 
-# def try_to_get_ticket_count(
-#     year_month: str,
-#     tags: list[str] = [],
-#     per_page: int = 200,
-# ) -> int:
-#     session = requests.Session()
-#     session.headers = {"Authorization": "Bearer " + SECRET_ZAMMAD_API_TOKEN}
-
-#     query = f"created_at:[{year_month}-01 TO {year_month}-31]"
-#     query += f" AND (group.name:{' OR group.name:'.join(groups)})"
-#     if tags:
-#         query += f" AND (tags:{' OR tags:'.join(tags)})"
-#     page = 1
-#     params: dict[str, str | int] = {
-#         "query": query,
-#         "page": page,
-#         "per_page": per_page,
-#     }
-#     res = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
-#     batch = res
-#     while batch == per_page:
-#         page += 1
-#         params["page"] = page
-#         batch = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
-#         res += batch
-#     logging.info(f"{res} tickets found for month {year_month} across {page} pages")
-#     return res
-
-
-# def get_monthly_tickets(
-#     year_month: str,
-#     tags: list[str] = [],
-# ) -> int:
-#     # after investigation, it appears that *sometimes* the API doesn't return the
-#     # same amount of tickets for a given month if you change the "per_page" parameter
-#     # so if we end up in this situation, we try a bunch of values to get closer to the result
-#     # but it's still not perfectly accurate...
-#     nb_tickets: list[int] = []
-#     per_page = 200
-#     while len(nb_tickets) < 20 and not (len(nb_tickets) > 3 and len(set(nb_tickets)) == 1):
-#         nb_tickets.append(try_to_get_ticket_count(year_month, tags=tags, per_page=per_page))
-#         if len(nb_tickets) > 1:
-#             if nb_tickets[-1] > nb_tickets[-2]:
-#                 per_page = round(per_page * 1.3)
-#             else:
-#                 per_page = round(per_page / 1.2)
-#     logging.info(f"Number of tickets: {nb_tickets}")
-#     return max(nb_tickets)
-
-
-def get_zammad_tickets(
+def get_support_tickets(
     ti: TaskInstance,
     start_date: datetime,
-    end_date: datetime = datetime.today(),
 ):
-    # hs_tags = [
-    #     "HORS-SUJET",
-    #     '"HORS SUJET"',
-    #     "RNA",
-    #     # quotes are mandatory if tag has blanks
-    #     '"TITRE DE SEJOUR"',
-    #     "DECES",
-    #     "QUALIOPI",
-    #     "IMPOT",
-    # ]
+    def get_monthly_count(
+        tickets: list[dict],
+        created_at_key: str,
+        segment_prefixes: list[str] | None = None,
+    ) -> dict[str, int]:
+        # turns a list of tickets into the monthly count
+        months_count = defaultdict(int)
+        for k in range(len(tickets)):
+            tickets[k]["created_at_date"] = datetime.fromtimestamp(
+                tickets[k][created_at_key]/1000
+            ).strftime("%Y-%m-%d")
+            if segment_prefixes is None or any(
+                seg.startswith(pref)
+                for pref in segment_prefixes
+                for seg in tickets[k]["meta"]["segments"]
+            ):
+                months_count[tickets[k]["created_at_date"][:7]] += 1
+        return months_count
 
-    # spam_tags = [
-    #     "SPAM",
-    #     "spam",
-    # ]
+    # to be removed in April 2026
+    if datetime.today().strftime("%Y-%m") > "2026-04":
+        raise ValueError("Time to remove Zammad tickets")
+    remaining_zammad_tickets = {
+        "all": {
+            '2024-07': 1697,
+            '2024-08': 1310,
+            '2024-09': 1933,
+            '2024-10': 1908,
+            '2024-11': 1848,
+            '2024-12': 1657,
+            '2025-01': 2143,
+            '2025-02': 1966,
+            '2025-03': 2124,
+            '2025-04': 1000,
+        },
+        "hs": {
+            '2024-07': 54,
+            '2024-08': 38,
+            '2024-09': 43,
+            '2024-10': 33,
+            '2024-11': 14,
+            '2024-12': 22,
+            '2025-01': 35,
+            '2025-02': 43,
+            '2025-03': 39,
+            '2025-04': 14,
+        },
+        "spam": {
+            '2024-07': 534,
+            '2024-08': 429,
+            '2024-09': 278,
+            '2024-10': 516,
+            '2024-11': 474,
+            '2024-12': 238,
+            '2025-01': 318,
+            '2025-02': 326,
+            '2025-03': 427,
+            '2025-04': 232,
+        },
+    }
 
-    # all_tickets, hs_tickets, spam_tickets = [], [], []
-    # months = list_months_between(start_date, end_date)
-    # for month in months:
-    #     logging.info("Searching all tickets...")
-    #     all_tickets.append(get_monthly_tickets(month))
-    #     logging.info("Searching HS tickets...")
-    #     hs_tickets.append(get_monthly_tickets(month, tags=hs_tags))
-    #     logging.info("Searching spam tickets...")
-    #     spam_tickets.append(get_monthly_tickets(month, tags=spam_tags))
+    not_spam_tickets = get_all_conversations()
+    # /!\ spam tickets are deleted after 1 month in Crisp, so this will be underestimated
+    spam_tickets = get_all_spam_conversations()
+    tickets = {
+        "all": get_monthly_count(not_spam_tickets, "created_at"),
+        "hs": get_monthly_count(not_spam_tickets, "created_at", ["hors sujet"]),
+        "spam": get_monthly_count(spam_tickets, "timestamp"),
+    }
+    # all includes spam
+    tickets["all"] = {
+        # assuming there will always be at least one normal ticket per month
+        month: tickets["all"].get(month, 0) + tickets["spam"].get(month, 0)
+        for month in tickets["all"].keys()
+    }
 
-    ti.xcom_push(key="all_tickets", value=0)
-    ti.xcom_push(key="hs_tickets", value=0)
-    ti.xcom_push(key="spam_tickets", value=0)
-    ti.xcom_push(key="months", value=0)
+    # adding remaining zammad tickets for now
+    for scope in remaining_zammad_tickets.keys():
+        for month in remaining_zammad_tickets[scope].keys():
+            tickets[scope][month] = tickets[scope].get(month, 0) + remaining_zammad_tickets[scope][month]
+
+    # restrain to one year
+    start_month = start_date.strftime("%Y-%m")
+    tickets = {
+        scope: dict(sorted({
+            month: count for month, count in tickets[scope].items()
+            if month >= start_month
+        }.items(),
+            key=lambda i: i[0]
+        ))
+        for scope in tickets.keys()
+    }
+
+    ti.xcom_push(key="tickets", value=tickets)
+    ti.xcom_push(key="months", value=list(tickets["all"].keys()))
 
 
 def fill_url(
@@ -156,15 +172,23 @@ def get_visits(
     # }
 
     months_to_process = list_months_between(start_date, end_date)
-    url_stats_support = {
+    if datetime.today().strftime("%Y-%m") > "2026-07":
+        raise ValueError("Time to remove old support URL")
+    old_url_stats_support = {
         "site_id": "176",
         "label": "%40%252Findex",
+        "title": "old_support",
+    }
+    url_stats_support = {
+        "site_id": DATAGOUV_MATOMO_ID,
+        "label": "support",
         "title": "support",
     }
     for k in [
         # not taking the stats from the homepage, no variation
         # url_stats_home_dgv,
-        url_stats_support
+        url_stats_support,
+        old_url_stats_support,
     ]:
         r = requests.get(
             fill_url(
@@ -197,25 +221,24 @@ def get_visits(
 def gather_and_upload(
     ti: TaskInstance,
 ) -> None:
-    all_tickets = ti.xcom_pull(key="all_tickets", task_ids="get_zammad_tickets")
-    hs_ticket = ti.xcom_pull(key="hs_tickets", task_ids="get_zammad_tickets")
-    spam_tickets = ti.xcom_pull(key="spam_tickets", task_ids="get_zammad_tickets")
-    months = ti.xcom_pull(key="months", task_ids="get_zammad_tickets")
+    tickets = ti.xcom_pull(key="tickets", task_ids="get_support_tickets")
+    months = ti.xcom_pull(key="months", task_ids="get_support_tickets")
     # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
     support = ti.xcom_pull(key="support", task_ids="get_visits")
+    old_support = ti.xcom_pull(key="old_support", task_ids="get_visits")
 
     stats = pd.DataFrame(
         {
-            # 'Homepage': homepage,
-            "Page support": support,
-            "Ouverture de ticket": all_tickets,
-            "Ticket hors-sujet": hs_ticket,
-            "Ticket spam": spam_tickets,
+            # "Homepage": homepage,
+            "Page support": [support[k] + old_support[k] for k in range(len(support))],
+            "Ouverture de ticket": tickets["all"],
+            "Ticket hors-sujet": tickets["hs"],
+            "Ticket spam": tickets["spam"],
         },
         index=months,
     ).T
     # removing current month from stats
-    stats = stats[stats.columns[:-1]]
+    stats = stats[stats.columns[:-1]].fillna(0)
     stats.to_csv(DATADIR + "stats_support.csv")
 
     # sending to minio
@@ -306,6 +329,7 @@ def get_and_upload_certification() -> None:
 
 
 def get_and_upload_reuses_down() -> None:
+    print(non)
     client = MinIOClient(bucket="data-pipeline-open")
     # getting latest data
     df = pd.read_csv(
@@ -352,6 +376,7 @@ def get_and_upload_reuses_down() -> None:
 
 
 def get_catalog_stats() -> None:
+    print(non)
     datasets = []
     resources = []
     crawler = local_client.get_all_from_api_query(
@@ -442,6 +467,7 @@ def get_catalog_stats() -> None:
 
 
 def get_hvd_dataservices_stats() -> None:
+    print(non)
     crawler = local_client.get_all_from_api_query("api/1/dataservices/?tags=hvd")
     count = 0
     # we can add more fields to monitor later

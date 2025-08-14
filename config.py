@@ -85,3 +85,10 @@ SENTRY_BASE_URL = Variable.get("SENTRY_BASE_URL", "")
 
 # ssh
 SECRET_SFTP_HOST = Variable.get("SECRET_SFTP_HOST", "")
+
+# crisp
+CRISP_WEBSITE_ID = Variable.get("CRISP_WEBSITE_ID", "")
+CRISP_PLUGIN_ID = Variable.get("CRISP_PLUGIN_ID", "")
+CRISP_PLUGIN_TOKEN = Variable.get("CRISP_PLUGIN_TOKEN", "")
+CRISP_USER_ID = Variable.get("CRISP_USER_ID", "")
+CRISP_USER_TOKEN = Variable.get("CRISP_USER_TOKEN", "")
