@@ -14,7 +14,10 @@ from airflow.models import TaskInstance
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
-from datagouvfr_data_pipelines.utils.crisp import get_all_conversations, get_all_spam_conversations
+from datagouvfr_data_pipelines.utils.crisp import (
+    get_all_conversations,
+    get_all_spam_conversations,
+)
 from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_MATOMO_ID,
     local_client,
@@ -58,7 +61,7 @@ def get_support_tickets(
         months_count = defaultdict(int)
         for k in range(len(tickets)):
             tickets[k]["created_at_date"] = datetime.fromtimestamp(
-                tickets[k][created_at_key]/1000
+                tickets[k][created_at_key] / 1000
             ).strftime("%Y-%m-%d")
             if segment_prefixes is None or any(
                 seg.startswith(pref)
@@ -73,40 +76,40 @@ def get_support_tickets(
         raise ValueError("Time to remove Zammad tickets")
     remaining_zammad_tickets = {
         "all": {
-            '2024-07': 1697,
-            '2024-08': 1310,
-            '2024-09': 1933,
-            '2024-10': 1908,
-            '2024-11': 1848,
-            '2024-12': 1657,
-            '2025-01': 2143,
-            '2025-02': 1966,
-            '2025-03': 2124,
-            '2025-04': 1000,
+            "2024-07": 1697,
+            "2024-08": 1310,
+            "2024-09": 1933,
+            "2024-10": 1908,
+            "2024-11": 1848,
+            "2024-12": 1657,
+            "2025-01": 2143,
+            "2025-02": 1966,
+            "2025-03": 2124,
+            "2025-04": 1000,
         },
         "hs": {
-            '2024-07': 54,
-            '2024-08': 38,
-            '2024-09': 43,
-            '2024-10': 33,
-            '2024-11': 14,
-            '2024-12': 22,
-            '2025-01': 35,
-            '2025-02': 43,
-            '2025-03': 39,
-            '2025-04': 14,
+            "2024-07": 54,
+            "2024-08": 38,
+            "2024-09": 43,
+            "2024-10": 33,
+            "2024-11": 14,
+            "2024-12": 22,
+            "2025-01": 35,
+            "2025-02": 43,
+            "2025-03": 39,
+            "2025-04": 14,
         },
         "spam": {
-            '2024-07': 534,
-            '2024-08': 429,
-            '2024-09': 278,
-            '2024-10': 516,
-            '2024-11': 474,
-            '2024-12': 238,
-            '2025-01': 318,
-            '2025-02': 326,
-            '2025-03': 427,
-            '2025-04': 232,
+            "2024-07": 534,
+            "2024-08": 429,
+            "2024-09": 278,
+            "2024-10": 516,
+            "2024-11": 474,
+            "2024-12": 238,
+            "2025-01": 318,
+            "2025-02": 326,
+            "2025-03": 427,
+            "2025-04": 232,
         },
     }
 
@@ -128,17 +131,23 @@ def get_support_tickets(
     # adding remaining zammad tickets for now
     for scope in remaining_zammad_tickets.keys():
         for month in remaining_zammad_tickets[scope].keys():
-            tickets[scope][month] = tickets[scope].get(month, 0) + remaining_zammad_tickets[scope][month]
+            tickets[scope][month] = (
+                tickets[scope].get(month, 0) + remaining_zammad_tickets[scope][month]
+            )
 
     # restrain to one year
     start_month = start_date.strftime("%Y-%m")
     tickets = {
-        scope: dict(sorted({
-            month: count for month, count in tickets[scope].items()
-            if month >= start_month
-        }.items(),
-            key=lambda i: i[0]
-        ))
+        scope: dict(
+            sorted(
+                {
+                    month: count
+                    for month, count in tickets[scope].items()
+                    if month >= start_month
+                }.items(),
+                key=lambda i: i[0],
+            )
+        )
         for scope in tickets.keys()
     }
 
@@ -240,7 +249,8 @@ def gather_and_upload(
         {
             # "Homepage": homepage,
             "Page support": [
-                sum(support[k][i] for k in support.keys()) for i in range(len(list(support.values())[0]))
+                sum(support[k][i] for k in support.keys())
+                for i in range(len(list(support.values())[0]))
             ],
             "Ouverture de ticket": tickets["all"],
             "Ticket hors-sujet": tickets["hs"],
@@ -340,7 +350,6 @@ def get_and_upload_certification() -> None:
 
 
 def get_and_upload_reuses_down() -> None:
-    print(non)
     client = MinIOClient(bucket="data-pipeline-open")
     # getting latest data
     df = pd.read_csv(
@@ -387,7 +396,6 @@ def get_and_upload_reuses_down() -> None:
 
 
 def get_catalog_stats() -> None:
-    print(non)
     datasets = []
     resources = []
     crawler = local_client.get_all_from_api_query(
@@ -478,7 +486,6 @@ def get_catalog_stats() -> None:
 
 
 def get_hvd_dataservices_stats() -> None:
-    print(non)
     crawler = local_client.get_all_from_api_query("api/1/dataservices/?tags=hvd")
     count = 0
     # we can add more fields to monitor later

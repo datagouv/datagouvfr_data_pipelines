@@ -45,16 +45,12 @@ def get_all_conversations() -> list[dict]:
     }
     page = 1
     convs = []
-    this_page_convs = get_page_conversations(
-        page=page, **shared_kwargs
-    )
+    this_page_convs = get_page_conversations(page=page, **shared_kwargs)
     while this_page_convs:
         convs += this_page_convs
         logging.info(f"> Got page {page}")
         page += 1
-        this_page_convs = get_page_conversations(
-            page=page, **shared_kwargs
-        )
+        this_page_convs = get_page_conversations(page=page, **shared_kwargs)
     return convs
 
 
@@ -68,14 +64,10 @@ def get_all_spam_conversations() -> list[dict]:
     }
     page = 1
     convs = []
-    this_page_convs = get_page_conversations(
-        page=page, **shared_kwargs
-    )
+    this_page_convs = get_page_conversations(page=page, **shared_kwargs)
     while this_page_convs:
         convs += this_page_convs
         print(f"> Got page {page}")
         page += 1
-        this_page_convs = get_page_conversations(
-            page=page, **shared_kwargs
-        )
+        this_page_convs = get_page_conversations(page=page, **shared_kwargs)
     return convs
