@@ -179,15 +179,22 @@ def get_visits(
         "label": "%40%252Findex",
         "title": "old_support",
     }
+    # stats are spread across /support and /support/
     url_stats_support = {
         "site_id": DATAGOUV_MATOMO_ID,
         "label": "support",
         "title": "support",
     }
+    url_stats_slash_support = {
+        "site_id": DATAGOUV_MATOMO_ID,
+        "label": "%2Fsupport",
+        "title": "/support",
+    }
     for k in [
         # not taking the stats from the homepage, no variation
         # url_stats_home_dgv,
         url_stats_support,
+        url_stats_slash_support,
         old_url_stats_support,
     ]:
         r = requests.get(
@@ -224,13 +231,17 @@ def gather_and_upload(
     tickets = ti.xcom_pull(key="tickets", task_ids="get_support_tickets")
     months = ti.xcom_pull(key="months", task_ids="get_support_tickets")
     # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
-    support = ti.xcom_pull(key="support", task_ids="get_visits")
-    old_support = ti.xcom_pull(key="old_support", task_ids="get_visits")
+    support = {
+        k: ti.xcom_pull(key=k, task_ids="get_visits")
+        for k in ["support", "/support", "old_support"]
+    }
 
     stats = pd.DataFrame(
         {
             # "Homepage": homepage,
-            "Page support": [support[k] + old_support[k] for k in range(len(support))],
+            "Page support": [
+                sum(support[k][i] for k in support.keys()) for i in range(len(list(support.values())[0]))
+            ],
             "Ouverture de ticket": tickets["all"],
             "Ticket hors-sujet": tickets["hs"],
             "Ticket spam": tickets["spam"],
