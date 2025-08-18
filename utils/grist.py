@@ -30,7 +30,7 @@ class GristTable:
         self.table_id = table_id
         self.base_url = GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}"
 
-    def delete_rows(self, ids: list[int] | None) -> None:
+    def delete_rows(self, ids: list[int] | None = None) -> None:
         """Empty some (if specified) or all rows of the table. Doesn't touch the columns"""
         if ids is None:
             records = RequestRetry.get(
