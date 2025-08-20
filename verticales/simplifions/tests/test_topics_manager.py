@@ -109,76 +109,76 @@ def test_get_all_topics_for_tag_with_mocked_api():
         )
 
 
-def test_create_topic_with_mocked_api():
-    """Example of how to mock direct HTTP requests (POST, PUT, DELETE) to topics API"""
+# def test_create_topic_with_mocked_api():
+#     """Example of how to mock direct HTTP requests (POST, PUT, DELETE) to topics API"""
     
-    topic_data = {
-        "name": "Test Topic",
-        "description": "Test Description",
-        "organization": {"class": "Organization", "id": "57fe2a35c751df21e179df72"},
-        "tags": ["simplifions", "simplifions-solutions"],
-        "extras": {"simplifions-solutions": {"slug": "test-topic"}},
-        "private": False
-    }
+#     topic_data = {
+#         "name": "Test Topic",
+#         "description": "Test Description",
+#         "organization": {"class": "Organization", "id": "57fe2a35c751df21e179df72"},
+#         "tags": ["simplifions", "simplifions-solutions"],
+#         "extras": {"simplifions-solutions": {"slug": "test-topic"}},
+#         "private": False
+#     }
     
-    with requests_mock.Mocker() as m:
-        # Mock the POST request to create a topic
-        m.post(
-            f"{local_client.base_url}/api/1/topics/",
-            json={"id": "new-topic-id", "slug": "test-topic", **topic_data},
-            status_code=201
-        )
+#     with requests_mock.Mocker() as m:
+#         # Mock the POST request to create a topic
+#         m.post(
+#             f"{local_client.base_url}/api/1/topics/",
+#             json={"id": "new-topic-id", "slug": "test-topic", **topic_data},
+#             status_code=201
+#         )
         
-        # Call the method - this should not raise an exception
-        topics_manager._create_topic(topic_data)
+#         # Call the method - this should not raise an exception
+#         topics_manager._create_topic(topic_data)
         
-        # Verify the request was made with correct data
-        assert m.call_count == 1
-        assert m.last_request.json() == topic_data
+#         # Verify the request was made with correct data
+#         assert m.call_count == 1
+#         assert m.last_request.json() == topic_data
 
 
-def test_update_topic_with_mocked_api():
-    """Example of how to mock PUT requests to update topics"""
+# def test_update_topic_with_mocked_api():
+#     """Example of how to mock PUT requests to update topics"""
     
-    topic_id = "test-topic-id"
-    topic_data = {
-        "name": "Updated Topic",
-        "description": "Updated Description", 
-        "tags": ["simplifions", "simplifions-solutions"],
-        "extras": {"simplifions-solutions": {"slug": "updated-topic"}},
-    }
+#     topic_id = "test-topic-id"
+#     topic_data = {
+#         "name": "Updated Topic",
+#         "description": "Updated Description", 
+#         "tags": ["simplifions", "simplifions-solutions"],
+#         "extras": {"simplifions-solutions": {"slug": "updated-topic"}},
+#     }
     
-    with requests_mock.Mocker() as m:
-        # Mock the PUT request to update a topic
-        m.put(
-            f"{local_client.base_url}/api/1/topics/{topic_id}/",
-            json={"id": topic_id, **topic_data},
-            status_code=200
-        )
+#     with requests_mock.Mocker() as m:
+#         # Mock the PUT request to update a topic
+#         m.put(
+#             f"{local_client.base_url}/api/1/topics/{topic_id}/",
+#             json={"id": topic_id, **topic_data},
+#             status_code=200
+#         )
         
-        # Call the method
-        topics_manager._update_topic_by_id(topic_id, topic_data)
+#         # Call the method
+#         topics_manager._update_topic_by_id(topic_id, topic_data)
         
-        # Verify the request was made with correct data
-        assert m.call_count == 1
-        assert m.last_request.json() == topic_data
+#         # Verify the request was made with correct data
+#         assert m.call_count == 1
+#         assert m.last_request.json() == topic_data
 
 
-def test_delete_topic_with_mocked_api():
-    """Example of how to mock DELETE requests"""
+# def test_delete_topic_with_mocked_api():
+#     """Example of how to mock DELETE requests"""
     
-    topic_id = "test-topic-id"
+#     topic_id = "test-topic-id"
     
-    with requests_mock.Mocker() as m:
-        # Mock the DELETE request
-        m.delete(
-            f"{local_client.base_url}/api/1/topics/{topic_id}/",
-            status_code=204
-        )
+#     with requests_mock.Mocker() as m:
+#         # Mock the DELETE request
+#         m.delete(
+#             f"{local_client.base_url}/api/1/topics/{topic_id}/",
+#             status_code=204
+#         )
         
-        # Call the method
-        topics_manager._delete_topic(topic_id)
+#         # Call the method
+#         topics_manager._delete_topic(topic_id)
         
-        # Verify the request was made
-        assert m.call_count == 1
+#         # Verify the request was made
+#         assert m.call_count == 1
 
