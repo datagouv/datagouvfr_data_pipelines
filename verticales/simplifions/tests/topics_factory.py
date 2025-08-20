@@ -42,12 +42,13 @@ class TopicsFactory:
         """Clear all topics for a specific tag"""
         if tag in self.records:
             self.records[tag] = []
-            topics_mock.mock_topics_api_with_data(tag, self.records[tag])
+            topics_mock.clear_topics_for_tag(tag)
 
     def clear_all_tags(self):
         """Clear all topics for all tags"""
         for tag in self.records.keys():
-            self.clear_tag(tag)
+            self.records[tag] = []
+        topics_mock.clear_all_topics()
 
     def _initialize_topics_mocks(self):
         """Initialize empty topics storage for each tag"""
