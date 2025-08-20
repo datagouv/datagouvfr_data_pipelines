@@ -1,5 +1,5 @@
 {
-  "table_id": "Apidata",
+  "resource_name": "Apidata",
   "total_records_available": 83,
   "sample_record": {
     "Nom_donnees_ou_API": "API Certification Qualifelec | Bouquet API Entreprise",

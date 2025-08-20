@@ -1,5 +1,5 @@
 {
-  "table_id": "SIMPLIFIONS_produitspublics",
+  "resource_name": "SIMPLIFIONS_produitspublics",
   "total_records_available": 17,
   "sample_record": {
     "Visible_sur_simplifions": true,

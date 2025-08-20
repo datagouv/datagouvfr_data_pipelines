@@ -1,5 +1,5 @@
 {
-  "table_id": "SIMPLIFIONS_solutions_editeurs",
+  "resource_name": "SIMPLIFIONS_solutions_editeurs",
   "total_records_available": 81,
   "sample_record": {
     "Solution_Editeur": 32,

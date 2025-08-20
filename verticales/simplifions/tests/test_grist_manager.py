@@ -1,13 +1,8 @@
-import sys
-from pathlib import Path
 import pytest
 import requests_mock
 
-# Add the parent directory to the path so we can import the module
-sys.path.append(str(Path(__file__).parent.parent))
-
 # The factory must be imported before the manager because it initializes the mocks
-from grist_factory import GristFactory
+from factories.grist_factory import GristFactory
 from grist_manager import GristManager
 
 grist_manager = GristManager()
@@ -17,7 +12,7 @@ grist_factory = GristFactory()
 @pytest.fixture(scope="function")
 def diversified_test_data():
     """Create diversified test data with varying record counts for all tables and subtables"""
-    grist_factory.clear_all_tables()
+    grist_factory.clear_all_resources()
 
     # Create subdata records with different counts
     # Apidata: 3 records (most referenced subtable)
@@ -135,7 +130,7 @@ def test_clean_row():
     }
 
 
-class TestRequestGristTable:
+class TestGristTableMockedRequests:
     def test_request_grist_table(self):
         """Basic tests of mocked grist responses"""
 
@@ -227,7 +222,7 @@ class TestGetSubdata:
         }
 
         # Clear existing data and create a fresh test record
-        grist_factory.clear_table("Apidata")
+        grist_factory.clear_resource("Apidata")
         grist_factory.create_record(
             "Apidata",
             {"Nom_donnees_ou_API": "Test API", "Visible_sur_simplifions": True},
@@ -312,7 +307,7 @@ class TestCleanedRowWithSubdata:
         }
 
         # Clear existing data and create test record with 'L' prefixed list in subdata
-        grist_factory.clear_table("Apidata")
+        grist_factory.clear_resource("Apidata")
         grist_factory.create_record(
             "Apidata",
             {

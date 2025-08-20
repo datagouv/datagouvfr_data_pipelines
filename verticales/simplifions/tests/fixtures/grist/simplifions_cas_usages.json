@@ -1,5 +1,5 @@
 {
-  "table_id": "SIMPLIFIONS_cas_usages",
+  "resource_name": "SIMPLIFIONS_cas_usages",
   "total_records_available": 34,
   "sample_record": {
     "Titre": "Marchés publics | Dépôt et instruction des candidatures",

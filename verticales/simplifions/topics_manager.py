@@ -1,5 +1,6 @@
 import logging
 from copy import deepcopy
+from slugify import slugify
 
 from datagouv import Client
 import requests
@@ -23,23 +24,28 @@ ATTRIBUTES_FOR_TAGS = [
 ]
 
 # These attributes are not used when comparing topics for update
-TOPICS_REFERENCES_ATTRIBUTES = [
-    "simplifions-solutions.cas_d_usages_topics_ids",
-    "simplifions-cas-d-usages.reco_solutions.solution_topic_id",
-    "simplifions-cas-d-usages.reco_solutions.solutions_editeurs_topics",
-]
+TOPICS_REFERENCES_ATTRIBUTES = {
+    "simplifions-solutions": [
+        "simplifions-solutions.cas_d_usages_topics_ids",
+    ],
+    "simplifions-cas-d-usages": [
+        "simplifions-cas-d-usages.reco_solutions[].solution_topic_id",
+        "simplifions-cas-d-usages.reco_solutions[].solutions_editeurs_topics",
+    ],
+}
 
 
 class TopicsManager:
     def __init__(self, client: Client):
-        if not client:
-            raise ValueError("client is required")
-
         self.client = client
         # We need to provide the api key in the headers of our requests
         # because the client doesn't have built-in api key management
         # for the topics endpoints for now
         self.dgv_headers = client.session.headers
+
+    @staticmethod
+    def _slugify_tag(string: str) -> str:
+        return slugify(string.lower())
 
     @staticmethod
     def _generated_search_tags(topic: dict) -> list[str]:
@@ -48,24 +54,88 @@ class TopicsManager:
             if topic.get(attribute):
                 if isinstance(topic[attribute], list):
                     for value in topic[attribute]:
-                        tags.append(f"simplifions-{attribute}-{value}")
+                        tags.append(
+                            TopicsManager._slugify_tag(
+                                f"simplifions-{attribute}-{value}"
+                            )
+                        )
                 else:
-                    tags.append(f"simplifions-{attribute}-{topic[attribute]}")
+                    tags.append(
+                        TopicsManager._slugify_tag(
+                            f"simplifions-{attribute}-{topic[attribute]}"
+                        )
+                    )
         return tags
 
     @staticmethod
-    def _nested_pop(dictionary, key_chain):
+    def _nested_pop(data, key_chain):
+        """
+        Recursively remove a key from nested dictionaries and arrays.
+
+        Args:
+            data: The dictionary or list to modify
+            key_chain: Dot-separated key path. Use '[]' to indicate array processing.
+                      Example: 'level1.array_key[].target_key'
+        """
         keys = key_chain.split(".")
-        current = dictionary
-        for index, key in enumerate(keys):
-            if index == len(keys) - 1:
-                current.pop(key)
-                return
-            elif isinstance(current, dict) and key in current:
-                current = current[key]
-            else:
-                raise KeyError(f"Key {key} of {key_chain} not found in : {current}")
-        return current
+        return TopicsManager._nested_pop_recursive(data, keys, key_chain)
+
+    @staticmethod
+    def _nested_pop_recursive(current, keys, original_key_chain):
+        """
+        Recursive helper function for _nested_pop.
+
+        Args:
+            current: Current level of the data structure
+            keys: Remaining keys to process
+            original_key_chain: Original key chain for error messages
+        """
+        if not keys:
+            return
+
+        key = keys[0]
+        remaining_keys = keys[1:]
+
+        # Handle array notation: key[]
+        if key.endswith("[]"):
+            array_key = key[:-2]
+
+            if not isinstance(current, dict) or array_key not in current:
+                raise KeyError(
+                    f"Key {array_key} of {original_key_chain} not found in : {current}"
+                )
+
+            if not isinstance(current[array_key], list):
+                raise TypeError(
+                    f"Expected list for key {array_key}, got {type(current[array_key])}"
+                )
+
+            # Apply recursively to each dict item in the array
+            for item in current[array_key]:
+                if isinstance(item, dict):
+                    TopicsManager._nested_pop_recursive(
+                        item, remaining_keys, original_key_chain
+                    )
+            return
+
+        # Validate current is a dict
+        if not isinstance(current, dict):
+            raise KeyError(
+                f"Key {key} of {original_key_chain} not found in : {current}"
+            )
+
+        # If this is the final key, pop it (if it exists); otherwise, continue recursion
+        if not remaining_keys:
+            current.pop(key, None)  # Use pop with default to avoid KeyError
+        else:
+            # For intermediate keys, we still need to raise an error if they don't exist
+            if key not in current:
+                raise KeyError(
+                    f"Key {key} of {original_key_chain} not found in : {current}"
+                )
+            TopicsManager._nested_pop_recursive(
+                current[key], remaining_keys, original_key_chain
+            )
 
     def _topics_are_similar_so_we_can_skip_update(
         self, old_topic: dict, new_topic: dict, ignore_topics_references: bool = True
@@ -88,10 +158,11 @@ class TopicsManager:
             # We need to deepcopy the extras because the nested_pop() method modifies pointers in the extras dictionaries
             old_topic_extras = deepcopy(old_topic["extras"])
             new_topic_extras = deepcopy(new_topic["extras"])
+            extra_key = list(old_topic["extras"].keys())[0]
 
-            for key in TOPICS_REFERENCES_ATTRIBUTES:
-                self._nested_pop(old_topic_extras, key)
-                self._nested_pop(new_topic_extras, key)
+            for keychain in TOPICS_REFERENCES_ATTRIBUTES[extra_key]:
+                self._nested_pop(old_topic_extras, keychain)
+                self._nested_pop(new_topic_extras, keychain)
         else:
             old_topic_extras = old_topic["extras"]
             new_topic_extras = new_topic["extras"]
@@ -107,25 +178,38 @@ class TopicsManager:
         )
         r.raise_for_status()
         logging.info(f"Created topic '{topic_data['name']}'")
+        return r
+
+    def topic_url(self, topic_id: str) -> str:
+        return f"{self.client.base_url}/api/1/topics/{topic_id}/"
 
     def _delete_topic(self, topic_id: str):
-        url = f"{self.client.base_url}/api/1/topics/{topic_id}/"
+        url = self.topic_url(topic_id)
         r = requests.delete(
             url,
             headers=self.dgv_headers,
         )
         r.raise_for_status()
         logging.info(f"Deleted topic at {url}")
+        return r
 
     def _update_topic_by_id(self, topic_id: str, topic_data: dict):
-        url = f"{self.client.base_url}/api/1/topics/{topic_id}/"
+        url = self.topic_url(topic_id)
         r = requests.put(
             url,
             headers=self.dgv_headers,
             json=topic_data,
         )
         r.raise_for_status()
-        logging.info(f"Updated topic at {url}")
+        # Extract slug from nested extras structure
+        slug = None
+        if "extras" in topic_data:
+            for key, value in topic_data["extras"].items():
+                if isinstance(value, dict) and "slug" in value:
+                    slug = value["slug"]
+                    break
+        logging.info(f"Updated topic at {url}" + (f" (slug: {slug})" if slug else ""))
+        return r
 
     def _update_topic_if_needed(
         self, topic: dict, topic_data: dict, ignore_topics_references: bool = True
@@ -133,9 +217,11 @@ class TopicsManager:
         if self._topics_are_similar_so_we_can_skip_update(
             topic, topic_data, ignore_topics_references
         ):
-            logging.info(f"Topic {topic['slug']} hasn't changed, skipping update")
+            logging.info(
+                f"Topic hasn't changed, skipping update of {self.topic_url(topic['id'])} (slug: {topic['slug']})"
+            )
             return
-        self._update_topic_by_id(topic["id"], topic_data)
+        return self._update_topic_by_id(topic["id"], topic_data)
 
     # We need to send the tags when updating the extras otherwise it fails
     def _update_extras_of_topic_if_needed(self, topic: dict, new_extras: dict):
@@ -143,9 +229,12 @@ class TopicsManager:
         # because this method is called in update_topics_references()
         # so the extras are complete and can be compared simply
         if topic["extras"] == new_extras:
-            logging.info(f"Topic {topic['slug']} hasn't changed, skipping update")
+            logging.info(
+                f"Topic hasn't changed, skipping update of {self.topic_url(topic['id'])} (slug: {topic['slug']})"
+            )
             return
-        self._update_topic_by_id(
+
+        return self._update_topic_by_id(
             topic["id"],
             {
                 "tags": topic["tags"],
@@ -185,9 +274,7 @@ class TopicsManager:
                 f"Found {len(current_topics_by_simplifions_slug)} existing topics in datagouv for tag {tag}"
             )
 
-            for simplifions_slug in grist_topics.keys():
-                old_topic = current_topics_by_simplifions_slug[simplifions_slug]
-
+            for simplifions_slug in grist_topics:
                 topic_data = {
                     "name": grist_topics[simplifions_slug][title_column],
                     # description cannot be empty
@@ -208,10 +295,8 @@ class TopicsManager:
                 }
 
                 # Create or update the topic
-                if simplifions_slug in current_topics_by_simplifions_slug.keys():
-                    logging.info(
-                        f"Updating topic {simplifions_slug} : {old_topic['id']}"
-                    )
+                if simplifions_slug in current_topics_by_simplifions_slug:
+                    old_topic = current_topics_by_simplifions_slug[simplifions_slug]
                     self._update_topic_if_needed(
                         old_topic, topic_data, ignore_topics_references=True
                     )
@@ -224,6 +309,7 @@ class TopicsManager:
             # deleting topics that are not in the table anymore
             for simplifions_slug in current_topics_by_simplifions_slug:
                 if simplifions_slug not in grist_topics:
+                    old_topic = current_topics_by_simplifions_slug[simplifions_slug]
                     logging.info(
                         f"Deleting topic {simplifions_slug} : {old_topic['id']}"
                     )
@@ -252,6 +338,7 @@ class TopicsManager:
             cas_d_usages_slugs = solution_topic["extras"]["simplifions-solutions"][
                 "cas_d_usages_slugs"
             ]
+
             matching_topics = [
                 topic
                 for topic in visible_cas_usages_topics
@@ -259,19 +346,18 @@ class TopicsManager:
                 and topic["extras"]["simplifions-cas-d-usages"]["slug"]
                 in cas_d_usages_slugs
             ]
-            solution_topic["extras"]["simplifions-solutions"][
-                "cas_d_usages_topics_ids"
-            ] = [topic["id"] for topic in matching_topics]
+
+            new_extras = deepcopy(solution_topic["extras"])
+            new_extras["simplifions-solutions"]["cas_d_usages_topics_ids"] = [
+                topic["id"] for topic in matching_topics
+            ]
             # update the solution topic with the new extras
-            self._update_extras_of_topic_if_needed(
-                solution_topic, solution_topic["extras"]
-            )
+            self._update_extras_of_topic_if_needed(solution_topic, new_extras)
 
         # Update cas_usages_topics with references to solution_topic_id and solutions_editeurs_topics
         for cas_usage_topic in cas_usages_topics:
-            for reco in cas_usage_topic["extras"]["simplifions-cas-d-usages"][
-                "reco_solutions"
-            ]:
+            new_extras = deepcopy(cas_usage_topic["extras"])
+            for reco in new_extras["simplifions-cas-d-usages"]["reco_solutions"]:
                 matching_solution_topic = next(
                     (
                         topic
@@ -305,6 +391,4 @@ class TopicsManager:
                 ]
 
             # update the cas_usage topic with the new extras
-            self._update_extras_of_topic_if_needed(
-                cas_usage_topic, cas_usage_topic["extras"]
-            )
+            self._update_extras_of_topic_if_needed(cas_usage_topic, new_extras)

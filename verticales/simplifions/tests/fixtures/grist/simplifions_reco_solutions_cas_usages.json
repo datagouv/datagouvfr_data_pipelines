@@ -1,5 +1,5 @@
 {
-  "table_id": "SIMPLIFIONS_reco_solutions_cas_usages",
+  "resource_name": "SIMPLIFIONS_reco_solutions_cas_usages",
   "total_records_available": 52,
   "sample_record": {
     "Cas_d_usage": 1,
