@@ -9,8 +9,8 @@ sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 # The factory must be imported before the manager because it initializes the mocks
 from topics_factory import TopicsFactory
-from utils.datagouv import local_client
 from topics_manager import TopicsManager
+from utils.datagouv import local_client
 
 topics_manager = TopicsManager(local_client)
 topics_factory = TopicsFactory()
@@ -27,45 +27,22 @@ def test__generated_search_tags():
 def test_get_all_topics_for_tag_with_mocked_api():
     """Example of how to mock the topics API requests using TopicsFactory"""
     
-    # Clear any existing topics first
-    topics_factory.clear_tag("simplifions-solutions")
+    topics_factory.clear_all_tags()
     
-    # Create topics with custom data for testing
-    topic1_data = {
-        "id": "topic-1",
-        "slug": "test-topic-1", 
-        "name": "Test Topic 1",
-        "extras": {
-            "simplifions-solutions": {
-                "slug": "test-solution-1",
-                "Ref_Nom_de_la_solution": "Test Solution 1"
-            }
-        }
-    }
+    topics_factory.create_topic("simplifions-solutions", { "id": "topic-1" })
+    topics_factory.create_topic("simplifions-solutions", { "id": "topic-2" })
+    topics_factory.create_topic("simplifions-cas-d-usages", { "id": "topic-3" })
     
-    topic2_data = {
-        "id": "topic-2",
-        "slug": "test-topic-2",
-        "name": "Test Topic 2", 
-        "extras": {
-            "simplifions-solutions": {
-                "slug": "test-solution-2",
-                "Ref_Nom_de_la_solution": "Test Solution 2"
-            }
-        }
-    }
+    solutions = topics_manager._get_all_topics_for_tag("simplifions-solutions")
+    cas_usages = topics_manager._get_all_topics_for_tag("simplifions-cas-d-usages")
     
-    # Create the topics using the factory
-    topics_factory.create_topic("simplifions-solutions", topic1_data)
-    topics_factory.create_topic("simplifions-solutions", topic2_data)
+    assert len(solutions) == 2
+    assert solutions[0]["id"] == "topic-1"
+    assert solutions[1]["id"] == "topic-2"
+    assert len(cas_usages) == 1
+    assert cas_usages[0]["id"] == "topic-3"
+
     
-    # Call the method
-    result = topics_manager._get_all_topics_for_tag("simplifions-solutions")
-    
-    # Verify the result
-    assert len(result) == 2
-    assert result[0]["id"] == "topic-1"
-    assert result[1]["id"] == "topic-2"
 
 
 # def test_create_topic_with_mocked_api():
