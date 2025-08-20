@@ -97,10 +97,10 @@ def fetch_and_save_all_fixtures():
 
     # Check that we're in the correct directory
     current_dir = Path.cwd()
-    expected_path_suffix = Path("verticales/simplifions/tests/fixtures")
+    expected_path_suffix = Path("verticales/simplifions/tests/fixtures/grist")
     if not current_dir.parts[-4:] == expected_path_suffix.parts:
         raise RuntimeError(
-            "This script must be executed from the verticales/simplifions/tests/fixtures/ directory"
+            "This script must be executed from the verticales/simplifions/tests/fixtures/grist/ directory"
         )
 
     # Ensure we have the required environment variables

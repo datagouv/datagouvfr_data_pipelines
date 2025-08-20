@@ -53,13 +53,13 @@ class GristFactory:
 
     def _load_all_fixtures(self):
         fixtures_per_table = {}
-        fixtures_folder = Path(__file__).parent / "fixtures"
+        fixtures_folder = Path(__file__).parent / "fixtures" / "grist"
         for file in fixtures_folder.glob("*.json"):
             fixture_data = self._load_fixture(file.stem)
             fixtures_per_table[fixture_data["table_id"]] = fixture_data["sample_record"]
         return fixtures_per_table
 
     def _load_fixture(self, fixture_name: str) -> dict:
-        fixture_path = Path(__file__).parent / "fixtures" / f"{fixture_name}.json"
+        fixture_path = Path(__file__).parent / "fixtures" / "grist" / f"{fixture_name}.json"
         with open(fixture_path) as f:
             return json.load(f)
