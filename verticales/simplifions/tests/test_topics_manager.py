@@ -1,42 +1,19 @@
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch
-import requests_mock
+import pytest
 
 # Add the parent directory to the path so we can import the module
 sys.path.append(str(Path(__file__).parent.parent))
 # Add the root directory to the path so we can import utils
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
-# Mock the datagouvfr_data_pipelines modules before importing anything
-mock_utils = Mock()
-mock_utils.get_all_from_api_query = Mock()
-
-# Mock the config module
-mock_config = Mock()
-mock_config.AIRFLOW_ENV = "dev"
-mock_config.DATAGOUV_SECRET_API_KEY = "test-key"
-mock_config.DEMO_DATAGOUV_SECRET_API_KEY = "test-demo-key"
-
-# Mock the retry module
-mock_retry = Mock()
-mock_retry.simple_connection_retry = lambda func: func
-mock_retry.RequestRetry = Mock()
-
-with patch.dict(
-    "sys.modules",
-    {
-        "datagouvfr_data_pipelines": Mock(),
-        "datagouvfr_data_pipelines.config": mock_config,
-        "datagouvfr_data_pipelines.utils": mock_utils,
-        "datagouvfr_data_pipelines.utils.datagouv": mock_utils,
-        "datagouvfr_data_pipelines.utils.retry": mock_retry,
-    },
-):
-    from utils.datagouv import local_client
-    from topics_manager import TopicsManager
+# The factory must be imported before the manager because it initializes the mocks
+from topics_factory import TopicsFactory
+from utils.datagouv import local_client
+from topics_manager import TopicsManager
 
 topics_manager = TopicsManager(local_client)
+topics_factory = TopicsFactory()
 
 def test__generated_search_tags():
     topic = {
@@ -48,65 +25,47 @@ def test__generated_search_tags():
 
 
 def test_get_all_topics_for_tag_with_mocked_api():
-    """Example of how to mock the topics API requests while using the real local_client"""
+    """Example of how to mock the topics API requests using TopicsFactory"""
     
-    # Mock response for the topics API
-    mock_topics_response = {
-        "data": [
-            {
-                "id": "topic-1",
-                "slug": "test-topic-1",
-                "name": "Test Topic 1",
-                "tags": ["simplifions", "simplifions-solutions"],
-                "extras": {
-                    "simplifions-solutions": {
-                        "slug": "test-solution-1",
-                        "Ref_Nom_de_la_solution": "Test Solution 1"
-                    }
-                }
-            },
-            {
-                "id": "topic-2", 
-                "slug": "test-topic-2",
-                "name": "Test Topic 2",
-                "tags": ["simplifions", "simplifions-solutions"],
-                "extras": {
-                    "simplifions-solutions": {
-                        "slug": "test-solution-2",
-                        "Ref_Nom_de_la_solution": "Test Solution 2"
-                    }
-                }
+    # Clear any existing topics first
+    topics_factory.clear_tag("simplifions-solutions")
+    
+    # Create topics with custom data for testing
+    topic1_data = {
+        "id": "topic-1",
+        "slug": "test-topic-1", 
+        "name": "Test Topic 1",
+        "extras": {
+            "simplifions-solutions": {
+                "slug": "test-solution-1",
+                "Ref_Nom_de_la_solution": "Test Solution 1"
             }
-        ],
-        "page": 1,
-        "page_size": 20,
-        "total": 2
+        }
     }
     
-    with requests_mock.Mocker() as m:
-        # Mock the topics API endpoint 
-        # The URL pattern matches what _get_all_topics_for_tag calls
-        m.get(
-            f"{local_client.base_url}/api/1/topics/?tag=simplifions-solutions&include_private=true",
-            json=mock_topics_response
-        )
-        
-        # Mock the get_all_from_api_query dependency that we already mocked during import
-        mock_utils.get_all_from_api_query.return_value = mock_topics_response["data"]
-        
-        # Call the method
-        result = topics_manager._get_all_topics_for_tag("simplifions-solutions")
-        
-        # Verify the result
-        assert len(result) == 2
-        assert result[0]["id"] == "topic-1"
-        assert result[1]["id"] == "topic-2"
-        
-        # Verify the API was called with correct URL
-        mock_utils.get_all_from_api_query.assert_called_once_with(
-            f"{local_client.base_url}/api/1/topics/?tag=simplifions-solutions&include_private=true",
-            auth=True,
-        )
+    topic2_data = {
+        "id": "topic-2",
+        "slug": "test-topic-2",
+        "name": "Test Topic 2", 
+        "extras": {
+            "simplifions-solutions": {
+                "slug": "test-solution-2",
+                "Ref_Nom_de_la_solution": "Test Solution 2"
+            }
+        }
+    }
+    
+    # Create the topics using the factory
+    topics_factory.create_topic("simplifions-solutions", topic1_data)
+    topics_factory.create_topic("simplifions-solutions", topic2_data)
+    
+    # Call the method
+    result = topics_manager._get_all_topics_for_tag("simplifions-solutions")
+    
+    # Verify the result
+    assert len(result) == 2
+    assert result[0]["id"] == "topic-1"
+    assert result[1]["id"] == "topic-2"
 
 
 # def test_create_topic_with_mocked_api():
