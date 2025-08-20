@@ -21,7 +21,11 @@ def test__generated_search_tags():
         "budget": ["aucun-developpement-ni-budget", "avec-des-moyens-techniques"],
         "other_attribute": "some_value",
     }
-    assert topics_manager._generated_search_tags(topic) == ["simplifions-target_users-particuliers", "simplifions-budget-aucun-developpement-ni-budget", "simplifions-budget-avec-des-moyens-techniques"]
+    assert topics_manager._generated_search_tags(topic) == [
+        "simplifions-target_users-particuliers",
+        "simplifions-budget-aucun-developpement-ni-budget",
+        "simplifions-budget-avec-des-moyens-techniques",
+    ]
 
 
 def test_get_all_topics_for_tag_with_mocked_api():
