@@ -3,7 +3,6 @@ from factories.external_resources_factory import ExternalResourcesFactory
 from copy import deepcopy
 
 datagouvfr_mock = DatagouvfrMock()
-datagouvfr_mock.mock_config()
 
 
 class TopicsFactory(ExternalResourcesFactory):

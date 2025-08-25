@@ -1,4 +1,3 @@
-from unittest.mock import Mock
 from .external_resources_mock import ExternalResourcesMock
 import requests_mock
 import re
@@ -6,10 +5,6 @@ import json
 
 
 class GristMock(ExternalResourcesMock):
-    def mock_environment_variables(self, config_mock: Mock):
-        config_mock.GRIST_API_URL = "https://grist.example.com/api/"
-        config_mock.SECRET_GRIST_API_KEY = "test-api-key"
-
     def match_resource_list_url(self, resource_name: str):
         return re.compile(
             rf"https://grist\.example\.com/api/docs/[^/]+/tables/{re.escape(resource_name)}/records"

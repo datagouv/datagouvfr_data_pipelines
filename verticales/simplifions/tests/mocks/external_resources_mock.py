@@ -1,4 +1,3 @@
-from unittest.mock import Mock, patch
 import requests_mock
 import json
 
@@ -8,12 +7,8 @@ class ExternalResourcesMock:
     _data_mocker = None
 
     def __init__(self):
-        self._config_mocker = None
         self.records = {}  # Store records per resource
         self.initialize_data_mocker()
-
-    def mock_environment_variables(self, config_mock: Mock):
-        raise NotImplementedError("Not implemented")
 
     def match_resource_list_url(self, resource_name: str):
         raise NotImplementedError("Not implemented")
@@ -112,25 +107,6 @@ class ExternalResourcesMock:
         raise ValueError(
             f"Record with ID {record_id} not found in resource {resource_name}"
         )
-
-    def mock_config(self):
-        self.stop_config_mocks()
-        config_mock = Mock()
-        self.mock_environment_variables(config_mock)
-
-        self._config_mocker = patch.dict(
-            "sys.modules",
-            {
-                "datagouvfr_data_pipelines": Mock(spec=[]),
-                "datagouvfr_data_pipelines.config": config_mock,
-            },
-        )
-        self._config_mocker.start()
-
-    def stop_config_mocks(self):
-        if self._config_mocker:
-            self._config_mocker.stop()
-            self._config_mocker = None
 
     def initialize_data_mocker(self):
         if ExternalResourcesMock._data_mocker is None:

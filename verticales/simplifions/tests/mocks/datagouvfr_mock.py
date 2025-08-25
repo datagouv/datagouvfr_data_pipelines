@@ -1,15 +1,9 @@
 import re
 from .external_resources_mock import ExternalResourcesMock
-from unittest.mock import Mock
 import requests_mock
 
 
 class DatagouvfrMock(ExternalResourcesMock):
-    def mock_environment_variables(self, config_mock: Mock):
-        config_mock.AIRFLOW_ENV = "dev"
-        config_mock.DATAGOUV_SECRET_API_KEY = "test-key"
-        config_mock.DEMO_DATAGOUV_SECRET_API_KEY = "test-demo-key"
-
     def match_resource_list_url(self, resource_name: str):
         return f"https://demo.data.gouv.fr/api/1/{resource_name}/"
 
