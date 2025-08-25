@@ -1,0 +1,139 @@
+{
+  "resource_name": "simplifions-solutions",
+  "total_records_available": 8,
+  "sample_record": {
+    "created_at": "2025-08-11T14:30:26.550000+00:00",
+    "datasets": [],
+    "description": "Portail permettant aux établissements d'inscrire et de mettre à jour le statut de leurs étudiants, dans l'objectif vertueux de constituer une base à jour du statut des étudiants, base qui permet ensuite d'éviter aux étudiants de fournir leur certificat de scolarité pour de nombreuses démarches.",
+    "extras": {
+      "simplifions-solutions": {
+        "API_et_data_disponibles": [
+          {
+            "API_France_connectee": false,
+            "Cas_d_usages_simplifions": [
+              25
+            ],
+            "Modifie_le_": "2025-08-05 17:25:04.755054+02:00",
+            "Modifie_par": "Dorine Lambinet",
+            "Nom_donnees_ou_API": "API Statut étudiant - écriture",
+            "Notes": "",
+            "Open_data_parmi_les_donnees": false,
+            "Protected_data_parmi_les_donnees": true,
+            "Sous_produits_DINUM_associes": [
+              50,
+              65
+            ],
+            "Sous_produits_DINUM_fournisseur": null,
+            "Sous_produits_DINUM_utilisateurs": [
+              50,
+              65
+            ],
+            "Type": "API",
+            "UID_data_gouv": "672cf65fc3488a0c533f7090",
+            "Visible_sur_simplifions": true
+          }
+        ],
+        "A_destination_de_": [
+          5
+        ],
+        "Cas_d_usages": [
+          25
+        ],
+        "Cette_solution_ne_permet_pas_": "- d'automatiser le processus, il est en effet nécessaire de revenir régulièrement sur le portail pour refaire un export des données afin de les mettre à jour.",
+        "Cette_solution_permet_": "- de déverser les inscriptions et statuts des étudiants sans nécessité de savoir intégrer une API.",
+        "Description_courte": "Portail permettant aux établissements d'inscrire et de mettre à jour le statut de leurs étudiants, dans l'objectif vertueux de constituer une base à jour du statut des étudiants, base qui permet ensuite d'éviter aux étudiants de fournir leur certificat de scolarité pour de nombreuses démarches.",
+        "Description_longue": "Ce portail permet aux établissements de remonter leurs inscriptions dans le référentiel national du StatutÉtudiant, en exportant leurs données via ce portail web. Cette option ne nécessite pas de compétence informatique particulière.\n\nSi l'établissement est en mesure d'intégrer une API, il est préférable d'utiliser l'[API statut étudiant en écriture](https://www.data.gouv.fr/dataservices/api-statut-etudiant-ecriture/).",
+        "Image_principale": null,
+        "Legende_image_principale": "",
+        "Logiciels_prives_qui_ont_integre_le_produit": [],
+        "Modifie_le_": "2025-08-08 17:47:30.629746+02:00",
+        "Modifie_par_": "Dorine Lambinet",
+        "Moyens_requis_pour_la_mise_en_oeuvre": [
+          "Aucun développement, ni budget"
+        ],
+        "Operateur": [
+          15
+        ],
+        "Pour_simplifier_les_demarches_de_2": [
+          1
+        ],
+        "Prix_": "Solution gratuite",
+        "Produits_publics_qui_ont_integre_le_produit": [],
+        "Ref_Nom_de_la_solution": "Portail \"statut étudiant\" pour les établissements",
+        "Solution_publique": 65,
+        "Titre": null,
+        "Type_de_solution_": [
+          3
+        ],
+        "URL_Consulter_la_solution_": "https://statutetudiant.esr.gouv.fr/pages/etablissement",
+        "URL_Demander_un_acces_": "",
+        "URL_demo": "",
+        "Visible_sur_simplifions": true,
+        "budget": [
+          "Aucun développement, ni budget"
+        ],
+        "cas_d_usages_slugs": [
+          "gestion_de_l_inscription_d_un_etudiant_dans_un_etablissement"
+        ],
+        "cas_d_usages_topics_ids": [
+          "6899fe80c4b4555fa4626221"
+        ],
+        "fournisseurs_de_service": [
+          "administrations-centrales"
+        ],
+        "is_public": true,
+        "operateur_nom": "Ministère de l'enseignement supérieur et de la recherche",
+        "operateur_nom_long": "",
+        "slug": "portail_statut_etudiant_pour_les_etablissements",
+        "solution_editeurs_slugs": null,
+        "target_users": [
+          "Particuliers"
+        ],
+        "types_de_simplification": [
+          "⭐️⭐️ DLNUF"
+        ],
+        "types_de_solution": [
+          "Portail agent"
+        ]
+      }
+    },
+    "featured": false,
+    "id": "6899fe82d9ca65dde24771d4",
+    "last_modified": "2025-08-20T08:31:19.896000+00:00",
+    "name": "Portail \"statut étudiant\" pour les établissements",
+    "organization": {
+      "acronym": "DINUM",
+      "badges": [
+        {
+          "kind": "certified"
+        },
+        {
+          "kind": "public-service"
+        }
+      ],
+      "class": "Organization",
+      "id": "57fe2a35c751df21e179df72",
+      "logo": "https://demo-static.data.gouv.fr/avatars/a0/16eb04d7754b989b7dcd21d77699bd-original.png",
+      "logo_thumbnail": "https://demo-static.data.gouv.fr/avatars/a0/16eb04d7754b989b7dcd21d77699bd-100.png",
+      "name": "Direction interministérielle du numérique",
+      "page": "https://demo.data.gouv.fr/organizations/direction-interministerielle-du-numerique/",
+      "slug": "direction-interministerielle-du-numerique",
+      "uri": "https://demo.data.gouv.fr/api/1/organizations/direction-interministerielle-du-numerique/"
+    },
+    "owner": null,
+    "private": false,
+    "reuses": [],
+    "slug": "portail-statut-etudiant-pour-les-etablissements",
+    "spatial": null,
+    "tags": [
+      "simplifions",
+      "simplifions-dag-generated",
+      "simplifions-solutions",
+      "simplifions-fournisseurs-de-service-administrations-centrales",
+      "simplifions-target-users-particuliers",
+      "simplifions-budget-aucun-developpement-ni-budget",
+      "simplifions-types-de-simplification-dlnuf"
+    ],
+    "uri": "/api/1/topics/portail-statut-etudiant-pour-les-etablissements/"
+  }
+}
