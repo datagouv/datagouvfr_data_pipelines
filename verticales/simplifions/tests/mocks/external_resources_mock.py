@@ -43,14 +43,12 @@ class ExternalResourcesMock:
 
     def add_record(self, resource_name: str, record: dict):
         """Add a record to the mock's storage and update the list endpoint"""
-        self.initialize_resource_records(resource_name)
         self.records[resource_name].append(record)
         self.mock_resource_list(resource_name, self.records[resource_name])
         return record
 
     def update_record(self, resource_name: str, record_id: str, updated_data: dict):
         """Update a record in the mock's storage and refresh the list endpoint"""
-        self.initialize_resource_records(resource_name)
         id_column = self.resource_id_column()
 
         for i, record in enumerate(self.records[resource_name]):
@@ -64,7 +62,6 @@ class ExternalResourcesMock:
 
     def delete_record(self, resource_name: str, record_id: str):
         """Delete a record from the mock's storage and refresh the list endpoint"""
-        self.initialize_resource_records(resource_name)
         id_column = self.resource_id_column()
         original_count = len(self.records[resource_name])
 
@@ -81,7 +78,6 @@ class ExternalResourcesMock:
 
     def clear_resource_records(self, resource_name: str):
         """Clear all records for a specific resource"""
-        self.initialize_resource_records(resource_name)
         self.records[resource_name] = []
         self.mock_resource_list(resource_name, self.records[resource_name])
 
@@ -92,12 +88,10 @@ class ExternalResourcesMock:
 
     def get_records(self, resource_name: str) -> list[dict]:
         """Get all records for a resource"""
-        self.initialize_resource_records(resource_name)
         return self.records[resource_name]
 
     def get_record_by_id(self, resource_name: str, record_id: str) -> dict:
         """Get a specific record by its ID"""
-        self.initialize_resource_records(resource_name)
         id_column = self.resource_id_column()
 
         for record in self.records[resource_name]:
