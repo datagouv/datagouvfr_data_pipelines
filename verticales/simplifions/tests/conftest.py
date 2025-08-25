@@ -38,7 +38,6 @@ config_mock.SECRET_GRIST_API_KEY = "test-api-key"
 _config_patcher = patch.dict(
     "sys.modules",
     {
-        "datagouvfr_data_pipelines": Mock(spec=[]),
         "datagouvfr_data_pipelines.config": config_mock,
     },
 )
