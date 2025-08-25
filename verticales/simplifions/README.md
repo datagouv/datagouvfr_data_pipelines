@@ -21,9 +21,9 @@ But because of how the `local_client` works, both DAGs are filling the demo when
   - On local environment, fills demo.data.gouv.fr
   - On production environment, fills www.data.gouv.fr
 
-- `verticale_simplifions_demo` : Runs once every 15 minutes
+- `verticale_simplifions_demo` : Runs once every 30 minutes
   - On local environment, fills demo.data.gouv.fr
-  - On production environment, fills www.data.gouv.fr
+  - On production environment, fills demo.data.gouv.fr
 
 But both DAGs use the same code from `simplifions_manager.py`.
 
@@ -33,8 +33,6 @@ But both DAGs use the same code from `simplifions_manager.py`.
 2. Follow its readme to install airflow
 3. Clone this repo in the `dags` folder of `data-engineering-stack`
 4. Launch airflow with docker, log in, and voilà !
-
-![airflow screenshot]()
 
 ## Airflow environment variables
 
