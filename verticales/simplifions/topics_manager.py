@@ -3,11 +3,7 @@ from copy import deepcopy
 from slugify import slugify
 
 from datagouv import Client
-import requests
-
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-)
+from datagouvfr_data_pipelines.verticales.simplifions.topics_api import TopicsAPI
 
 # These columns are used as the title of the topics
 TAG_AND_TITLES_COLUMNS = {
@@ -37,11 +33,7 @@ TOPICS_REFERENCES_ATTRIBUTES = {
 
 class TopicsManager:
     def __init__(self, client: Client):
-        self.client = client
-        # We need to provide the api key in the headers of our requests
-        # because the client doesn't have built-in api key management
-        # for the topics endpoints for now
-        self.dgv_headers = client.session.headers
+        self.topics_api = TopicsAPI(client)
 
     @staticmethod
     def _slugify_tag(string: str) -> str:
@@ -169,48 +161,6 @@ class TopicsManager:
 
         return old_topic_extras == new_topic_extras
 
-    def _create_topic(self, topic_data: dict):
-        url = f"{self.client.base_url}/api/1/topics/"
-        r = requests.post(
-            url,
-            headers=self.dgv_headers,
-            json=topic_data,
-        )
-        r.raise_for_status()
-        logging.info(f"Created topic '{topic_data['name']}'")
-        return r
-
-    def topic_url(self, topic_id: str) -> str:
-        return f"{self.client.base_url}/api/1/topics/{topic_id}/"
-
-    def _delete_topic(self, topic_id: str):
-        url = self.topic_url(topic_id)
-        r = requests.delete(
-            url,
-            headers=self.dgv_headers,
-        )
-        r.raise_for_status()
-        logging.info(f"Deleted topic at {url}")
-        return r
-
-    def _update_topic_by_id(self, topic_id: str, topic_data: dict):
-        url = self.topic_url(topic_id)
-        r = requests.put(
-            url,
-            headers=self.dgv_headers,
-            json=topic_data,
-        )
-        r.raise_for_status()
-        # Extract slug from nested extras structure
-        slug = None
-        if "extras" in topic_data:
-            for key, value in topic_data["extras"].items():
-                if isinstance(value, dict) and "slug" in value:
-                    slug = value["slug"]
-                    break
-        logging.info(f"Updated topic at {url}" + (f" (slug: {slug})" if slug else ""))
-        return r
-
     def _update_topic_if_needed(
         self, topic: dict, topic_data: dict, ignore_topics_references: bool = True
     ):
@@ -218,10 +168,10 @@ class TopicsManager:
             topic, topic_data, ignore_topics_references
         ):
             logging.info(
-                f"Topic hasn't changed, skipping update of {self.topic_url(topic['id'])} (slug: {topic['slug']})"
+                f"Topic hasn't changed, skipping update of slug: {topic['slug']}"
             )
             return
-        return self._update_topic_by_id(topic["id"], topic_data)
+        return self.topics_api.update_topic_by_id(topic["id"], topic_data)
 
     # We need to send the tags when updating the extras otherwise it fails
     def _update_extras_of_topic_if_needed(self, topic: dict, new_extras: dict):
@@ -230,22 +180,16 @@ class TopicsManager:
         # so the extras are complete and can be compared simply
         if topic["extras"] == new_extras:
             logging.info(
-                f"Topic hasn't changed, skipping update of {self.topic_url(topic['id'])} (slug: {topic['slug']})"
+                f"Topic hasn't changed, skipping update of slug: {topic['slug']}"
             )
             return
 
-        return self._update_topic_by_id(
+        return self.topics_api.update_topic_by_id(
             topic["id"],
             {
                 "tags": topic["tags"],
                 "extras": new_extras,
             },
-        )
-
-    def _get_all_topics_for_tag(self, tag: str) -> list[dict]:
-        return get_all_from_api_query(
-            f"{self.client.base_url}/api/1/topics/?tag={tag}&include_private=true",
-            auth=True,
         )
 
     def update_topics(self, ti):
@@ -267,7 +211,7 @@ class TopicsManager:
 
             current_topics_by_simplifions_slug = {
                 topic["extras"][extras_nested_key]["slug"]: topic
-                for topic in self._get_all_topics_for_tag(tag)
+                for topic in self.topics_api.get_all_topics_for_tag(tag)
             }
 
             logging.info(
@@ -304,7 +248,7 @@ class TopicsManager:
                     logging.info(
                         f"Creating topic {simplifions_slug} : {topic_data['name']}"
                     )
-                    self._create_topic(topic_data)
+                    self.topics_api.create_topic(topic_data)
 
             # deleting topics that are not in the table anymore
             for simplifions_slug in current_topics_by_simplifions_slug:
@@ -313,14 +257,14 @@ class TopicsManager:
                     logging.info(
                         f"Deleting topic {simplifions_slug} : {old_topic['id']}"
                     )
-                    self._delete_topic(old_topic["id"])
+                    self.topics_api.delete_topic(old_topic["id"])
 
     def update_topics_references(self, ti):
         all_topics = {}
         all_tags = ["simplifions-solutions", "simplifions-cas-d-usages"]
 
         for tag in all_tags:
-            all_topics[tag] = list(self._get_all_topics_for_tag(tag))
+            all_topics[tag] = list(self.topics_api.get_all_topics_for_tag(tag))
             logging.info(f"Found {len(all_topics[tag])} topics for tag {tag}")
 
         solutions_topics = all_topics["simplifions-solutions"]
