@@ -35,7 +35,7 @@ datagouv_logs:
       fr: /fr/datasets/r/([^/?\s]*)
       en: /en/datasets/r/([^/?\s]*)
       es: /es/datasets/r/([^/?\s]*)
-      api: /api/1/datasets/r/([^/?\s]*)
+      api_permalink: /api/1/datasets/r/([^/?\s]*)
       api1: /api/1/datasets/.*/resources/([^/?\s]*)
       api2: /api/2/datasets/resources/([^/?\s]*)
       static_resource: "(?:https://static\\.data\\.gouv\\.fr)?/resources/([^?\\s]*)"
