@@ -14,6 +14,7 @@ web_segments:
   - "fr"
   - "en"
   - "es"
+  - ""
 # DATAGOUVFR_RGS: service behind the RGS certificate so
 # this is production www.data.gouv.fr
 # This pattern is appended before any other
