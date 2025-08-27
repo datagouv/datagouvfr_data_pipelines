@@ -8,13 +8,13 @@ database_excluded_column:
 # Such as: https://www.data.gouv.fr/<segment>/
 # They need to match the postgres tables columns
 api_segments:
-  - "api/1"
-  - "api/2"
+  - "/api/1"
+  - "/api/2"
 web_segments:
-  - "fr"
-  - "en"
-  - "es"
-  - ""
+  - "/fr"
+  - "/en"
+  - "/es"
+  - "/"
 # DATAGOUVFR_RGS: service behind the RGS certificate so
 # this is production www.data.gouv.fr
 # This pattern is appended before any other

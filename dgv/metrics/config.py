@@ -35,7 +35,7 @@ class DataGouvLog:
         self.log_patterns = {
             segment.replace(
                 "/", ""
-            ): rf"{global_pattern}/{segment}/{self.type}/([^/?\s]*)"
+            ): rf"{global_pattern}{segment}/{self.type}/([^/?\s]*)"
             for segment in segments
         }
         if additional_patterns:
