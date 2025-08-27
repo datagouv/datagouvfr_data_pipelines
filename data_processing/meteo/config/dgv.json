@@ -354,5 +354,27 @@
             "dev": "686f8781e9fb02cc9f5f7bf9"
         },
         "table_name": "obs_synop"
+    },
+    "OBS/NIVOSE": {
+        "source_pattern": "nivo_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "nivo_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Archive stations nivologiques sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "68aeced879316c333d564f95",
+            "dev": "68aecf7ca96b932fba67b810"
+        },
+        "table_name": "obs_nivose"
+    },
+    "OBS/BOUEES": {
+        "source_pattern": "marine_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "marine_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Archive bouées marines sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "68aecf1dd2d11c92c4fafe53",
+            "dev": "68aecf5b6cfee01b5784986e"
+        },
+        "table_name": "obs_bouees"
     }
 }
