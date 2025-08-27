@@ -21,7 +21,7 @@ DAG_NAME = "verticale_culture"
 with DAG(
     dag_id=DAG_NAME,
     # every monday morning
-    schedule_interval="0 1 * * 1",
+    schedule_interval="0 1 * * *",
     start_date=datetime(2025, 8, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
@@ -96,3 +96,4 @@ with DAG(
     gather_stats.set_upstream(get_perimeter_stats_organizations)
     send_stats_to_minio.set_upstream(gather_stats)
     send_notification_mattermost.set_upstream(send_stats_to_minio)
+
