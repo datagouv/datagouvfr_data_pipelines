@@ -157,10 +157,6 @@ def send_stats_to_minio():
 def refresh_datasets_tops(ti):
     orgas = ti.xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
     logging.info("Loading catalog...")
-    print(
-        f"catalog at: https://object.files.data.gouv.fr/{parquet_bucket}-parquet/"
-        f"hydra-parquet/{objects['datasets']['catalog_id']}.parquet"
-    )
     datasets_catalog = pd.read_parquet(
         f"https://object.files.data.gouv.fr/{parquet_bucket}-parquet/"
         f"hydra-parquet/{objects['datasets']['catalog_id']}.parquet",
@@ -183,12 +179,11 @@ def refresh_datasets_tops(ti):
     logging.info("Refreshing table...")
     table = GristTable("hrDZg8StuE1d", "Tops")
     for top_type, column in metrics.items():
-        top = datasets_catalog.sort_values(by=column, ascending=False)
-        for idx, row in top.iterrows():
+        top = datasets_catalog.sort_values(by=column, ascending=False).reset_index(drop=True)
+        for idx, (_, row) in enumerate(top.iterrows()):
             if idx > 2:
                 # only looking for top 3
                 break
-            print(f"{top_type} at {idx + 1}: {row['title']} ({row['id']})")
             table.update_records(
                 conditions={"type": top_type, "ordre": idx + 1},
                 new_values={
@@ -203,4 +198,5 @@ def send_notification_mattermost():
     send_message(
         text=":performing_arts: Catalogue et stats de la verticale culture mis à jour."
     )
+
 
