@@ -279,10 +279,6 @@ def make_validata_report(
     if not data.ok:
         return {"report": {"error": "ressource not available", "valid": False}}
     data = data.json()
-    # if resource is a file on data.gouv.fr (not remote, due to hydra async work)
-    # as of today (2023-09-04), hydra processes a check every week and we want a consolidation every day,
-    # this condition should be removed when hydra and consolidation follow the same schedule (every day).
-    # => not for now
     extras = data["extras"]
     if (
         extras.get("analysis:error") == "File too large to download"
@@ -310,41 +306,28 @@ def make_validata_report(
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
             time.sleep(0.5)
             return r.json()
-        # if it has, check whether hydra has detected a change since last validation
-        elif extras.get("analysis:last-modified-at", False):
-            last_modification_date = datetime.fromisoformat(
-                extras["analysis:last-modified-at"]
+        # if it has, check whether it has changed since last validation
+        last_modification_date = datetime.fromisoformat(
+            extras["analysis:last-modified-at"]
+        )
+        last_validation_date = datetime.fromisoformat(
+            data["last_modified"]
+        )
+        # progressively switching to timezone-aware dates
+        if not last_validation_date.tzinfo:
+            last_validation_date = local_timezone.localize(last_validation_date)
+        if last_modification_date > last_validation_date:
+            logging.info(f"recent hydra check: validation for {resource_api_url}")
+            # resource has been changed since last validation: validate again
+            r = requests.get(
+                validata_base_url.format(schema_url=schema_url, rurl=rurl)
             )
-            last_validation_date = datetime.fromisoformat(
-                extras["validation-report:validation_date"]
-            )
-            # progressively switching to timezone-aware dates
-            if not last_validation_date.tzinfo:
-                last_validation_date = local_timezone.localize(last_validation_date)
-            if last_modification_date > last_validation_date:
-                logging.info(f"recent hydra check: validation for {resource_api_url}")
-                # resource has been changed since last validation: validate again
-                r = requests.get(
-                    validata_base_url.format(schema_url=schema_url, rurl=rurl)
-                )
-                time.sleep(0.5)
-                return r.json()
-            else:
-                # resource has not changed since last validation, validation report from metadata
-                # NB: only recreating the keys required for downstream processes
-                logging.info(f"old hydra check: no validation for {resource_api_url}")
-                return {
-                    "report": {
-                        "stats": {"errors": extras.get("validation-report:nb_errors")},
-                        "valid": extras.get("validation-report:valid_resource"),
-                        "tasks": [{"errors": extras.get("validation-report:errors")}],
-                        "date": extras.get("validation-report:validation_date"),
-                        "from_metadata": True,
-                    }
-                }
-        # no analysis: no (detectable) change since the crawler has started
+            time.sleep(0.5)
+            return r.json()
         else:
-            logging.info(f"no hydra check: no validation for {resource_api_url}")
+            # resource has not changed since last validation, validation report from metadata
+            # NB: only recreating the keys required for downstream processes
+            logging.info(f"no recent change: no validation for {resource_api_url}")
             return {
                 "report": {
                     "stats": {"errors": extras.get("validation-report:nb_errors")},
