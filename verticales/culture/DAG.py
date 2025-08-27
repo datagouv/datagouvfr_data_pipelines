@@ -96,4 +96,3 @@ with DAG(
     gather_stats.set_upstream(get_perimeter_stats_organizations)
     send_stats_to_minio.set_upstream(gather_stats)
     send_notification_mattermost.set_upstream(send_stats_to_minio)
-
