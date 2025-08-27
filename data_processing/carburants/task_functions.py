@@ -9,10 +9,10 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_and_files import (
-    generate_kpis
+    generate_kpis,
 )
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_rupture import (
-    generate_kpis_rupture
+    generate_kpis_rupture,
 )
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix import (
     reformat_prix,
@@ -47,6 +47,7 @@ def get_daily_prices():
                 remote_source=True,
             ),
         ],
+        ignore_airflow_env=True,
     )
 
 
@@ -76,7 +77,7 @@ def convert_utf8_files(ti):
         files_converted.append(file_name)
         convert_file = BashOperator(
             task_id="convert_file",
-            bash_command=(f"iconv -f iso-8859-1 -t utf-8 " f"{file} >| {file_name}"),
+            bash_command=(f"iconv -f iso-8859-1 -t utf-8 {file} >| {file_name}"),
         )
         convert_file.execute(dict())
 
@@ -112,15 +113,19 @@ def send_files_minio():
                 dest_path=f"carburants/{folder}",
                 dest_name=name,
                 content_type=(
-                    "application/json; charset=utf-8" if name.endswith("json")
+                    "application/json; charset=utf-8"
+                    if name.endswith("json")
                     else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ),
-            ) for name in [
+            )
+            for name in [
                 "latest_france.geojson",
                 "latest_france_ruptures.json",
                 "synthese_ruptures_latest.xlsx",
-            ] for folder in ["", f"{today}/"]
-        ] + [
+            ]
+            for folder in ["", f"{today}/"]
+        ]
+        + [
             File(
                 source_path=f"{AIRFLOW_DAG_TMP}carburants/",
                 source_name="daily_prices.json",
@@ -129,4 +134,5 @@ def send_files_minio():
                 content_type="application/json; charset=utf-8",
             ),
         ],
+        ignore_airflow_env=True,
     )

@@ -1,7 +1,9 @@
 .vscode/
+.cursor/
 __pycache__/
 */__pycache__/
 schema/tmp/
 .DS_Store
 .pre-commit-config.yaml
 local-tmp/
+venv/

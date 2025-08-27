@@ -1,7 +1,8 @@
-import json
-import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
 from io import StringIO
+import json
+import logging
 from time import sleep
 from typing import Iterator
 
@@ -12,12 +13,14 @@ from airflow.models import TaskInstance
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    SECRET_ZAMMAD_API_TOKEN,
-    SECRET_ZAMMAD_API_URL,
+)
+from datagouvfr_data_pipelines.utils.crisp import (
+    get_all_conversations,
+    get_all_spam_conversations,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-    # DATAGOUV_MATOMO_ID,
+    DATAGOUV_MATOMO_ID,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
 from datagouvfr_data_pipelines.utils.utils import list_months_between
@@ -27,7 +30,15 @@ DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
     k + "@data.gouv.fr"
-    for k in ["support", "ouverture", "moissonnage", "certification", "geo", "cadastre", "candidature"]
+    for k in [
+        "support",
+        "ouverture",
+        "moissonnage",
+        "certification",
+        "geo",
+        "cadastre",
+        "candidature",
+    ]
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 # max 5 requests/second (rate limiting is 1/7)
@@ -37,91 +48,111 @@ minio_open = MinIOClient(bucket="dataeng-open")
 minio_destination_folder = "dashboard/"
 
 
-def try_to_get_ticket_count(
-    year_month: str,
-    tags: list[str] = [],
-    per_page: int = 200,
-) -> int:
-    session = requests.Session()
-    session.headers = {"Authorization": "Bearer " + SECRET_ZAMMAD_API_TOKEN}
-
-    query = f"created_at:[{year_month}-01 TO {year_month}-31]"
-    query += f" AND (group.name:{' OR group.name:'.join(groups)})"
-    if tags:
-        query += f" AND (tags:{' OR tags:'.join(tags)})"
-    page = 1
-    params: dict[str, str | int] = {
-        "query": query,
-        "page": page,
-        "per_page": per_page,
-    }
-    res = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
-    batch = res
-    while batch == per_page:
-        page += 1
-        params["page"] = page
-        batch = session.get(f"{SECRET_ZAMMAD_API_URL}tickets/search", params=params).json()["tickets_count"]
-        res += batch
-    logging.info(f"{res} tickets found for month {year_month} across {page} pages")
-    return res
-
-
-def get_monthly_tickets(
-    year_month: str,
-    tags: list[str] = [],
-) -> int:
-    # after investigation, it appears that *sometimes* the API doesn't return the
-    # same amount of tickets for a given month if you change the "per_page" parameter
-    # so if we end up in this situation, we try a bunch of values to get closer to the result
-    # but it's still not perfectly accurate...
-    nb_tickets: list[int] = []
-    per_page = 200
-    while len(nb_tickets) < 20 and not (len(nb_tickets) > 3 and len(set(nb_tickets)) == 1):
-        nb_tickets.append(try_to_get_ticket_count(year_month, tags=tags, per_page=per_page))
-        if len(nb_tickets) > 1:
-            if nb_tickets[-1] > nb_tickets[-2]:
-                per_page = round(per_page * 1.3)
-            else:
-                per_page = round(per_page / 1.2)
-    logging.info(f"Number of tickets: {nb_tickets}")
-    return max(nb_tickets)
-
-
-def get_zammad_tickets(
+def get_support_tickets(
     ti: TaskInstance,
     start_date: datetime,
-    end_date: datetime = datetime.today(),
 ):
-    hs_tags = [
-        "HORS-SUJET",
-        '"HORS SUJET"',
-        "RNA",
-        # quotes are mandatory if tag has blanks
-        '"TITRE DE SEJOUR"',
-        "DECES",
-        "QUALIOPI",
-        "IMPOT",
-    ]
+    def get_monthly_count(
+        tickets: list[dict],
+        created_at_key: str,
+        segment_prefixes: list[str] | None = None,
+    ) -> dict[str, int]:
+        # turns a list of tickets into the monthly count
+        months_count = defaultdict(int)
+        for k in range(len(tickets)):
+            tickets[k]["created_at_date"] = datetime.fromtimestamp(
+                tickets[k][created_at_key] / 1000
+            ).strftime("%Y-%m-%d")
+            if segment_prefixes is None or any(
+                seg.startswith(pref)
+                for pref in segment_prefixes
+                for seg in tickets[k]["meta"]["segments"]
+            ):
+                months_count[tickets[k]["created_at_date"][:7]] += 1
+        return months_count
 
-    spam_tags = [
-        "SPAM",
-        "spam",
-    ]
+    # to be removed in April 2026
+    if datetime.today().strftime("%Y-%m") > "2026-04":
+        raise ValueError("Time to remove Zammad tickets")
+    remaining_zammad_tickets = {
+        "all": {
+            "2024-07": 1697,
+            "2024-08": 1310,
+            "2024-09": 1933,
+            "2024-10": 1908,
+            "2024-11": 1848,
+            "2024-12": 1657,
+            "2025-01": 2143,
+            "2025-02": 1966,
+            "2025-03": 2124,
+            "2025-04": 1000,
+        },
+        "hs": {
+            "2024-07": 54,
+            "2024-08": 38,
+            "2024-09": 43,
+            "2024-10": 33,
+            "2024-11": 14,
+            "2024-12": 22,
+            "2025-01": 35,
+            "2025-02": 43,
+            "2025-03": 39,
+            "2025-04": 14,
+        },
+        "spam": {
+            "2024-07": 534,
+            "2024-08": 429,
+            "2024-09": 278,
+            "2024-10": 516,
+            "2024-11": 474,
+            "2024-12": 238,
+            "2025-01": 318,
+            "2025-02": 326,
+            "2025-03": 427,
+            "2025-04": 232,
+        },
+    }
 
-    all_tickets, hs_tickets, spam_tickets = [], [], []
-    months = list_months_between(start_date, end_date)
-    for month in months:
-        logging.info("Searching all tickets...")
-        all_tickets.append(get_monthly_tickets(month))
-        logging.info("Searching HS tickets...")
-        hs_tickets.append(get_monthly_tickets(month, tags=hs_tags))
-        logging.info("Searching spam tickets...")
-        spam_tickets.append(get_monthly_tickets(month, tags=spam_tags))
+    not_spam_tickets = get_all_conversations()
+    # /!\ spam tickets are deleted after 1 month in Crisp, so this will be underestimated
+    spam_tickets = get_all_spam_conversations()
+    tickets = {
+        "all": get_monthly_count(not_spam_tickets, "created_at"),
+        "hs": get_monthly_count(not_spam_tickets, "created_at", ["hors sujet"]),
+        "spam": get_monthly_count(spam_tickets, "timestamp"),
+    }
+    # all includes spam
+    tickets["all"] = {
+        # assuming there will always be at least one normal ticket per month
+        month: tickets["all"].get(month, 0) + tickets["spam"].get(month, 0)
+        for month in tickets["all"].keys()
+    }
 
-    ti.xcom_push(key="all_tickets", value=all_tickets)
-    ti.xcom_push(key="hs_tickets", value=hs_tickets)
-    ti.xcom_push(key="spam_tickets", value=spam_tickets)
-    ti.xcom_push(key="months", value=months)
+    # adding remaining zammad tickets for now
+    for scope in remaining_zammad_tickets.keys():
+        for month in remaining_zammad_tickets[scope].keys():
+            tickets[scope][month] = (
+                tickets[scope].get(month, 0) + remaining_zammad_tickets[scope][month]
+            )
+
+    # restrain to one year
+    start_month = start_date.strftime("%Y-%m")
+    tickets = {
+        scope: dict(
+            sorted(
+                {
+                    month: count
+                    for month, count in tickets[scope].items()
+                    if month >= start_month
+                }.items(),
+                key=lambda i: i[0],
+            )
+        )
+        for scope in tickets.keys()
+    }
+
+    ti.xcom_push(key="tickets", value=tickets)
+    ti.xcom_push(key="months", value=list(tickets["all"].keys()))
 
 
 def fill_url(
@@ -150,15 +181,30 @@ def get_visits(
     # }
 
     months_to_process = list_months_between(start_date, end_date)
-    url_stats_support = {
+    if datetime.today().strftime("%Y-%m") > "2026-07":
+        raise ValueError("Time to remove old support URL")
+    old_url_stats_support = {
         "site_id": "176",
         "label": "%40%252Findex",
+        "title": "old_support",
+    }
+    # stats are spread across /support and /support/
+    url_stats_support = {
+        "site_id": DATAGOUV_MATOMO_ID,
+        "label": "support",
         "title": "support",
+    }
+    url_stats_slash_support = {
+        "site_id": DATAGOUV_MATOMO_ID,
+        "label": "%2Fsupport",
+        "title": "/support",
     }
     for k in [
         # not taking the stats from the homepage, no variation
         # url_stats_home_dgv,
-        url_stats_support
+        url_stats_support,
+        url_stats_slash_support,
+        old_url_stats_support,
     ]:
         r = requests.get(
             fill_url(
@@ -177,7 +223,9 @@ def get_visits(
         for month in months_to_process:
             if month not in df["Date"].values:
                 logging.error(f"Missing month: {month}")
-                new_values = pd.DataFrame({"Date": [month], "Vues de page uniques": [0]})
+                new_values = pd.DataFrame(
+                    {"Date": [month], "Vues de page uniques": [0]}
+                )
                 df = pd.concat([new_values, df], ignore_index=True)
                 df = df.sort_values(by="Date")
 
@@ -189,25 +237,29 @@ def get_visits(
 def gather_and_upload(
     ti: TaskInstance,
 ) -> None:
-    all_tickets = ti.xcom_pull(key="all_tickets", task_ids="get_zammad_tickets")
-    hs_ticket = ti.xcom_pull(key="hs_tickets", task_ids="get_zammad_tickets")
-    spam_tickets = ti.xcom_pull(key="spam_tickets", task_ids="get_zammad_tickets")
-    months = ti.xcom_pull(key="months", task_ids="get_zammad_tickets")
+    tickets = ti.xcom_pull(key="tickets", task_ids="get_support_tickets")
+    months = ti.xcom_pull(key="months", task_ids="get_support_tickets")
     # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
-    support = ti.xcom_pull(key="support", task_ids="get_visits")
+    support = {
+        k: ti.xcom_pull(key=k, task_ids="get_visits")
+        for k in ["support", "/support", "old_support"]
+    }
 
     stats = pd.DataFrame(
         {
-            # 'Homepage': homepage,
-            "Page support": support,
-            "Ouverture de ticket": all_tickets,
-            "Ticket hors-sujet": hs_ticket,
-            "Ticket spam": spam_tickets,
+            # "Homepage": homepage,
+            "Page support": [
+                sum(support[k][i] for k in support.keys())
+                for i in range(len(list(support.values())[0]))
+            ],
+            "Ouverture de ticket": tickets["all"],
+            "Ticket hors-sujet": tickets["hs"],
+            "Ticket spam": tickets["spam"],
         },
         index=months,
     ).T
     # removing current month from stats
-    stats = stats[stats.columns[:-1]]
+    stats = stats[stats.columns[:-1]].fillna(0)
     stats.to_csv(DATADIR + "stats_support.csv")
 
     # sending to minio
@@ -241,7 +293,7 @@ def is_SP_or_CT(
     try:
         sleep(rate_limiting_delay)
         r = session.get(entreprises_api_url + siret).json()
-    except Exception as _:
+    except Exception:
         logging.warning("Sleeping a bit more")
         sleep(1)
         r = session.get(entreprises_api_url + siret).json()
@@ -253,13 +305,15 @@ def is_SP_or_CT(
         logging.warning("Ambiguous: ", siret)
         issue = "SIRET ambigu : " + siret
     complements = r["results"][0]["complements"]
-    return complements["collectivite_territoriale"] or complements["est_service_public"], issue
+    return complements["collectivite_territoriale"] or complements[
+        "est_service_public"
+    ], issue
 
 
 def get_and_upload_certification() -> None:
     session = requests.Session()
-    orgas = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/organizations", mask="data{id,badges,business_number_id}"
+    orgas = local_client.get_all_from_api_query(
+        "api/1/organizations", mask="data{id,badges,business_number_id}"
     )
     certified = []
     SP_or_CT = []
@@ -284,7 +338,9 @@ def get_and_upload_certification() -> None:
             File(
                 source_path=DATADIR,
                 source_name=f,
-                dest_path=minio_destination_folder + datetime.now().strftime("%Y-%m-%d") + "/",
+                dest_path=minio_destination_folder
+                + datetime.now().strftime("%Y-%m-%d")
+                + "/",
                 dest_name=f,
             )
             for f in ["certified.json", "SP_or_CT.json", "issues.json"]
@@ -296,8 +352,16 @@ def get_and_upload_certification() -> None:
 def get_and_upload_reuses_down() -> None:
     client = MinIOClient(bucket="data-pipeline-open")
     # getting latest data
-    df = pd.read_csv(StringIO(client.get_file_content("prod/bizdev/all_reuses_most_visits_KO_last_month.csv")))
-    stats = pd.DataFrame(df["error"].apply(lambda x: x if x == "404" else "Autre erreur").value_counts()).T
+    df = pd.read_csv(
+        StringIO(
+            client.get_file_content(
+                "prod/bizdev/all_reuses_most_visits_KO_last_month.csv"
+            )
+        )
+    )
+    stats = pd.DataFrame(
+        df["error"].apply(lambda x: x if x == "404" else "Autre erreur").value_counts()
+    ).T
     stats["Date"] = [datetime.now().strftime("%Y-%m-%d")]
     stats["Total"] = [
         requests.get(
@@ -308,7 +372,11 @@ def get_and_upload_reuses_down() -> None:
 
     # getting historical data
     output_file_name = "stats_reuses_down.csv"
-    hist = pd.read_csv(StringIO(minio_open.get_file_content(minio_destination_folder + output_file_name)))
+    hist = pd.read_csv(
+        StringIO(
+            minio_open.get_file_content(minio_destination_folder + output_file_name)
+        )
+    )
     start_len = len(hist)
     hist = pd.concat([hist, stats]).drop_duplicates("Date")
     # just in case
@@ -330,8 +398,9 @@ def get_and_upload_reuses_down() -> None:
 def get_catalog_stats() -> None:
     datasets = []
     resources = []
-    crawler = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/datasets/", mask="data{id,harvest,quality,tags,resources{id,format,type}}"
+    crawler = local_client.get_all_from_api_query(
+        "api/1/datasets/",
+        mask="data{id,harvest,quality,tags,resources{id,format,type}}",
     )
     processed = 0
     for c in crawler:
@@ -346,8 +415,12 @@ def get_catalog_stats() -> None:
 
     # getting datasets quality and count
     cats = list(max(datasets, key=lambda x: len(x[2]))[2].keys())
-    dataset_quality = {k: {c: [] for c in cats} for k in ["all", "harvested", "local", "hvd"]}
-    dataset_quality.update({"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}})
+    dataset_quality = {
+        k: {c: [] for c in cats} for k in ["all", "harvested", "local", "hvd"]
+    }
+    dataset_quality.update(
+        {"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}}
+    )
     for d in datasets:
         dataset_quality["count"]["all"] += 1
         dataset_quality["count"]["harvested" if d[1] else "local"] += 1
@@ -355,7 +428,9 @@ def get_catalog_stats() -> None:
             dataset_quality["count"]["hvd"] += 1
         for c in cats:
             dataset_quality["all"][c].append(d[2].get(c, False) or False)
-            dataset_quality["harvested" if d[1] else "local"][c].append(d[2].get(c, False) or False)
+            dataset_quality["harvested" if d[1] else "local"][c].append(
+                d[2].get(c, False) or False
+            )
             if "hvd" in d[3]:
                 dataset_quality["hvd"][c].append(d[2].get(c, False) or False)
     for k in dataset_quality.keys():
@@ -382,12 +457,16 @@ def get_catalog_stats() -> None:
 
     resources_stats = {datetime.now().strftime("%Y-%m-%d"): resources_stats}
 
-    hist_dq = json.loads(minio_open.get_file_content(minio_destination_folder + "datasets_quality.json"))
+    hist_dq = json.loads(
+        minio_open.get_file_content(minio_destination_folder + "datasets_quality.json")
+    )
     hist_dq.update(dataset_quality)
     with open(DATADIR + "datasets_quality.json", "w") as f:
         json.dump(hist_dq, f, indent=4)
 
-    hist_rs = json.loads(minio_open.get_file_content(minio_destination_folder + "resources_stats.json"))
+    hist_rs = json.loads(
+        minio_open.get_file_content(minio_destination_folder + "resources_stats.json")
+    )
     hist_rs.update(resources_stats)
     with open(DATADIR + "resources_stats.json", "w") as f:
         json.dump(hist_rs, f, indent=4)
@@ -407,7 +486,7 @@ def get_catalog_stats() -> None:
 
 
 def get_hvd_dataservices_stats() -> None:
-    crawler = get_all_from_api_query("https://www.data.gouv.fr/api/1/dataservices/?tags=hvd")
+    crawler = local_client.get_all_from_api_query("api/1/dataservices/?tags=hvd")
     count = 0
     # we can add more fields to monitor later
     of_interest = {
@@ -433,7 +512,11 @@ def get_hvd_dataservices_stats() -> None:
         },
     }
 
-    hist_ds = json.loads(minio_open.get_file_content(minio_destination_folder + "hvd_dataservices_quality.json"))
+    hist_ds = json.loads(
+        minio_open.get_file_content(
+            minio_destination_folder + "hvd_dataservices_quality.json"
+        )
+    )
     hist_ds.update(dataservices_stats)
     with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:
         json.dump(hist_ds, f, indent=4)

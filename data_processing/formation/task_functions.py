@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
@@ -22,7 +22,7 @@ def download_latest_data(ti):
     download_files(
         list_urls=[
             File(
-                url=f"{DATAGOUV_URL}/fr/datasets/r/{config['resource_id']}",
+                url=f"{local_client.base_url}/fr/datasets/r/{config['resource_id']}",
                 dest_path=f"{AIRFLOW_DAG_TMP}formation/",
                 dest_name=f"{config['name']}.csv",
             )
@@ -71,7 +71,11 @@ def process_organismes_formation(ti):
     df = df[list(mapping.values())]
     df["spe"] = df.apply(lambda row: concat_spe(row), axis=1)
 
-    for col in ["date_derniere_declaration", "date_debut_exercice", "date_fin_exercice"]:
+    for col in [
+        "date_derniere_declaration",
+        "date_debut_exercice",
+        "date_fin_exercice",
+    ]:
         df[col] = df[col].apply(lambda x: convert_date(x))
 
     df = df.drop(["spe1", "spe2", "spe3"], axis=1)
@@ -119,6 +123,7 @@ def compare_files_minio(ti):
                 dest_name=f"{res['name']}_clean.csv",
             )
         ],
+        ignore_airflow_env=True,
     )
 
     return True

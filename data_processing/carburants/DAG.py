@@ -38,37 +38,29 @@ with DAG(
     )
 
     get_daily_prices = PythonOperator(
-        task_id="get_daily_prices",
-        python_callable=get_daily_prices
+        task_id="get_daily_prices", python_callable=get_daily_prices
     )
 
-    unzip_files = PythonOperator(
-        task_id="unzip_files", python_callable=unzip_files
-    )
+    unzip_files = PythonOperator(task_id="unzip_files", python_callable=unzip_files)
 
     convert_utf8_files = PythonOperator(
-        task_id="convert_utf8_files",
-        python_callable=convert_utf8_files
+        task_id="convert_utf8_files", python_callable=convert_utf8_files
     )
 
     reformat_file = PythonOperator(
-        task_id="reformat_file",
-        python_callable=reformat_file
+        task_id="reformat_file", python_callable=reformat_file
     )
 
     generate_latest_france = PythonOperator(
-        task_id="generate_latest_france",
-        python_callable=generate_latest_france
+        task_id="generate_latest_france", python_callable=generate_latest_france
     )
 
     generate_rupture_france = PythonOperator(
-        task_id="generate_rupture_france",
-        python_callable=generate_rupture_france
+        task_id="generate_rupture_france", python_callable=generate_rupture_france
     )
 
     send_files_minio = PythonOperator(
-        task_id="send_files_minio",
-        python_callable=send_files_minio
+        task_id="send_files_minio", python_callable=send_files_minio
     )
 
     download_latest_data.set_upstream(clean_previous_outputs)

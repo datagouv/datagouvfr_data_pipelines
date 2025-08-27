@@ -1,0 +1,85 @@
+{
+  "resource_name": "SIMPLIFIONS_solutions_editeurs",
+  "total_records_available": 81,
+  "sample_record": {
+    "Solution_Editeur": 32,
+    "Description_courte": "Outil de dématérialisation des appels d’offres des marchés publics",
+    "types_de_simplification": [
+      "L",
+      "⭐️⭐️ DLNUF"
+    ],
+    "Type_de_solution_": [
+      "L",
+      7,
+      8
+    ],
+    "Description_longue": "",
+    "Image_principale": null,
+    "slug": "local_trust_march_s_publics",
+    "Visible_sur_simplifions": false,
+    "Modifie_par_": null,
+    "Modifie_le_": "",
+    "Prix__Contractualisation": null,
+    "Pour_simplifier_les_demarches_de_": [
+      "L"
+    ],
+    "Moyens_requis_pour_la_mise_en_oeuvre_": [
+      "L",
+      "Avec solution éditeur"
+    ],
+    "Cette_solution_permet_": null,
+    "Cette_solution_ne_permet_pas_": null,
+    "URL_demo": null,
+    "Legende_image_principale": null,
+    "URL_Consulter_la_solution_": "https://www.atexo.com/solutions/solutions-achats-et-marches-publics/",
+    "Ref_Nom_de_la_solution": "Local Trust Marchés Publics",
+    "Operateur_": 21,
+    "A_destination_de_": [
+      "L",
+      4,
+      1
+    ],
+    "Prix_": "",
+    "API_et_data_disponibles": [
+      "L",
+      2,
+      3,
+      4
+    ],
+    "Produits_publics_integres": [
+      "L",
+      48
+    ],
+    "Cas_d_usages_simplifiables2": [
+      "L",
+      1,
+      5,
+      4
+    ],
+    "fournisseurs_de_service": [
+      "L",
+      "administrations-de-l-etat",
+      "communes"
+    ],
+    "target_users": [
+      "L"
+    ],
+    "budget": [
+      "L",
+      "Avec solution éditeur"
+    ],
+    "operateur_nom": "Atexo",
+    "types_de_solution": [
+      "L",
+      "Profil acheteur",
+      "Espace usager authentifié"
+    ],
+    "cas_d_usages_slugs": [
+      "L",
+      "marches_publics_attribution",
+      "marches_publics_suivi_de_confirmite_du_titulaire",
+      "marches_public_sourcing"
+    ],
+    "is_public": false
+  }
+}

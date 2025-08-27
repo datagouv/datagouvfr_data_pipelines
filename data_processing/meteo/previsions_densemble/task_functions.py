@@ -12,15 +12,12 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     SECRET_MINIO_METEO_PE_USER,
     SECRET_MINIO_METEO_PE_PASSWORD,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    delete_dataset_or_resource,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
@@ -38,7 +35,9 @@ minio_meteo = MinIOClient(
 minio_folder = "data"
 upload_dir = "/uploads/"
 
-with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/previsions_densemble/config.json") as fp:
+with open(
+    f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/previsions_densemble/config.json"
+) as fp:
     CONFIG = json.load(fp)
 
 
@@ -79,7 +78,9 @@ def get_files_list_on_sftp(ti, pack: str, grid: str):
                 infos["pack"] not in CONFIG
                 or infos["grid"] not in CONFIG[infos["pack"]]
             ):
-                raise ValueError(f"Got an unexpected pack: {infos['pack']}_{infos['grid']}")
+                raise ValueError(
+                    f"Got an unexpected pack: {infos['pack']}_{infos['grid']}"
+                )
             if infos["pack"] == pack and infos["grid"] == grid:
                 to_process.update({f: infos})
                 nb += 1
@@ -91,7 +92,9 @@ def get_files_list_on_sftp(ti, pack: str, grid: str):
     ti.xcom_push(key="timestamp", value=timestamp)
 
 
-def process_members(members: list[str], date: str, echeance: str, pack: str, grid: str, sftp):
+def process_members(
+    members: list[str], date: str, echeance: str, pack: str, grid: str, sftp
+):
     tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
     if os.path.isdir(DATADIR + tmp_folder):
         logging.info(f"{tmp_folder} is already being processed by another run")
@@ -188,10 +191,14 @@ def build_file_id_and_date(file_name: str):
 def get_current_resources(pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
-        f"{DATAGOUV_URL}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{local_client.base_url}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={
             "X-fields": "resources{id,url,type}",
-            "X-API-KEY": DATAGOUV_SECRET_API_KEY,
+            "X-API-KEY": (
+                DATAGOUV_SECRET_API_KEY
+                if AIRFLOW_ENV == "prod"
+                else DEMO_DATAGOUV_SECRET_API_KEY
+            ),
         },
     ).json()["resources"]:
         if r["type"] != "main":
@@ -236,8 +243,8 @@ def publish_on_datagouv(pack: str, grid: str):
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
-            post_remote_resource(
-                dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
+            local_client.resource().create_remote(
+                dataset_id=CONFIG[pack][grid]["dataset_id"][AIRFLOW_ENV],
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
@@ -249,9 +256,11 @@ def publish_on_datagouv(pack: str, grid: str):
         elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
-            post_remote_resource(
-                dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
-                resource_id=current_resources[file_id]["resource_id"],
+            local_client.resource(
+                dataset_id=CONFIG[pack][grid]["dataset_id"][AIRFLOW_ENV],
+                id=current_resources[file_id]["resource_id"],
+                fetch=False,
+            ).update(
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
@@ -284,11 +293,12 @@ def remove_old_occurrences(pack: str, grid: str):
         if date < threshold:
             files_to_delete = minio_meteo.get_files_from_prefix(
                 prefix=path,
-                ignore_airflow_env=False,
+                ignore_airflow_env=True,
                 recursive=True,
             )
+            logging.info(f"Will delete {len(files_to_delete)} files from {path}")
             for file in files_to_delete:
-                minio_meteo.delete_file(f"{AIRFLOW_ENV}/{file}")
+                minio_meteo.delete_file(file)
 
 
 def handle_cyclonic_alert(pack: str, grid: str):
@@ -296,12 +306,15 @@ def handle_cyclonic_alert(pack: str, grid: str):
     # so when a cyclonic alert is stopped, we have to remove the additional resources from the dataset
     current_resources: dict = get_current_resources(pack, grid)
     if len(current_resources) not in [49, 79]:
-        raise ValueError(f"{pack}_{grid} has an unexpected number of resources: {len(current_resources)}")
+        raise ValueError(
+            f"{pack}_{grid} has an unexpected number of resources: {len(current_resources)}"
+        )
     if len(current_resources) == 49:
         logging.info("Nothing to do here")
         return
     latest_date = max(
-        path.split("/")[-2] for path in minio_meteo.get_files_from_prefix(
+        path.split("/")[-2]
+        for path in minio_meteo.get_files_from_prefix(
             prefix=f"{minio_folder}/{pack}/{grid}/",
             ignore_airflow_env=False,
             recursive=False,
@@ -324,10 +337,10 @@ def handle_cyclonic_alert(pack: str, grid: str):
             echeance = int(echeance.replace(":", ""))
             if echeance > 4800:
                 logging.info(f"Deleting {file_id}")
-                delete_dataset_or_resource(
-                    dataset_id=CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV],
-                    resource_id=infos["resource_id"],
-                )
+                local_client.resource(
+                    dataset_id=CONFIG[pack][grid]["dataset_id"][AIRFLOW_ENV],
+                    id=infos["resource_id"],
+                ).delete()
 
 
 def clean_directory():
@@ -341,4 +354,6 @@ def clean_directory():
                 shutil.rmtree(DATADIR + f)
             except NotADirectoryError:
                 os.remove(DATADIR + f)
-            logging.warning(f"Deleted {f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})")
+            logging.warning(
+                f"Deleted {f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
+            )

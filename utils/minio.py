@@ -82,8 +82,7 @@ class MinIOClient:
                     os.remove(file["source_path"] + file["source_name"])
             else:
                 raise Exception(
-                    f"file {file['source_path']}{file['source_name']} "
-                    "does not exists"
+                    f"file {file['source_path']}{file['source_name']} does not exists"
                 )
 
     @simple_connection_retry
@@ -145,8 +144,13 @@ class MinIOClient:
             both path and name from files to compare
 
         """
+
         def get_content_length(response: dict) -> int:
-            return response.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("content-length", None)
+            return (
+                response.get("ResponseMetadata", {})
+                .get("HTTPHeaders", {})
+                .get("content-length", None)
+            )
 
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
@@ -158,14 +162,12 @@ class MinIOClient:
         )
 
         try:
-            logging.info(f"File 1: {AIRFLOW_ENV}/{file_path_1}{file_name_1}")
-            logging.info(f"File 2: {AIRFLOW_ENV}/{file_path_2}{file_name_2}")
-            file_1 = s3.head_object(
-                Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_1}{file_name_1}"
-            )
-            file_2 = s3.head_object(
-                Bucket=self.bucket, Key=f"{AIRFLOW_ENV}/{file_path_2}{file_name_2}"
-            )
+            full_path_file_1 = file_path_1 + file_name_1
+            full_path_file2 = file_path_2 + file_name_2
+            logging.info(f"File 1: {full_path_file_1}")
+            logging.info(f"File 2: {full_path_file2}")
+            file_1 = s3.head_object(Bucket=self.bucket, Key=full_path_file_1)
+            file_2 = s3.head_object(Bucket=self.bucket, Key=full_path_file2)
             logging.info(f"ETag file 1 : {file_1['ETag']}")
             logging.info(f"ETag file 2 : {file_2['ETag']}")
             logging.info(f"Are ETag identical: {file_1['ETag'] == file_2['ETag']}")
@@ -203,16 +205,12 @@ class MinIOClient:
         """
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
-        list_objects = []
         if not ignore_airflow_env:
             prefix = f"{AIRFLOW_ENV}/{prefix}"
         objects = self.client.list_objects(
             self.bucket, prefix=prefix, recursive=recursive
         )
-        for obj in objects:
-            # logging.info(obj.object_name)
-            list_objects.append(obj.object_name.replace(f"{AIRFLOW_ENV}/", ""))
-        return list_objects
+        return [obj.object_name for obj in objects]
 
     @simple_connection_retry
     def copy_object(
@@ -240,24 +238,21 @@ class MinIOClient:
         if not minio_bucket_target:
             minio_bucket_target = self.bucket
 
-        if (
-            self.client.bucket_exists(minio_bucket_source)
-            and self.client.bucket_exists(minio_bucket_target)
+        if self.client.bucket_exists(minio_bucket_source) and self.client.bucket_exists(
+            minio_bucket_target
         ):
             # copy an object from a bucket to another.
             logging.info(
-                f"{'Moving' if remove_source_file else 'Copying'} {minio_bucket_source}/{AIRFLOW_ENV}/{path_source}"
+                f"{'Moving' if remove_source_file else 'Copying'} {minio_bucket_source}/{path_source}"
             )
             self.client.copy_object(
                 minio_bucket_source,
-                f"{AIRFLOW_ENV}/{path_target}",
-                CopySource(minio_bucket_target, f"{AIRFLOW_ENV}/{path_source}"),
+                path_target,
+                CopySource(minio_bucket_target, path_source),
             )
             if remove_source_file:
-                self.client.remove_object(
-                    minio_bucket_source, f"{AIRFLOW_ENV}/{path_source}"
-                )
-            logging.info(f"> to {minio_bucket_source}/{AIRFLOW_ENV}/{path_target}")
+                self.client.remove_object(minio_bucket_source, path_source)
+            logging.info(f"> to {minio_bucket_source}/{path_target}")
         else:
             raise ValueError(
                 f"One bucket does not exist: {minio_bucket_source} or {minio_bucket_target}"
@@ -343,7 +338,9 @@ class MinIOClient:
         self,
         prefix: str,
     ) -> None:
-        for file in self.get_files_from_prefix(prefix, ignore_airflow_env=True, recursive=True):
+        for file in self.get_files_from_prefix(
+            prefix, ignore_airflow_env=True, recursive=True
+        ):
             logging.info(f"🔥 '{file}' successfully deleted.")
             self.client.remove_object(self.bucket, file)
 
@@ -366,13 +363,8 @@ class MinIOClient:
     def get_file_url(
         self,
         file_path,
-        ignore_airflow_env=False,
     ) -> str:
-        return (
-            f"https://{MINIO_URL}/{self.bucket}/"
-            f"{AIRFLOW_ENV + '/' if not ignore_airflow_env else ''}"
-            f"{file_path}"
-        )
+        return f"https://{MINIO_URL}/{self.bucket}/{file_path}"
 
     @simple_connection_retry
     def send_from_url(

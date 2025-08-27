@@ -4,14 +4,11 @@ from io import StringIO
 import paramiko
 from airflow.hooks.base import BaseHook
 
-from datagouvfr_data_pipelines.config import (
-    SECRET_SFTP_HOST
-)
+from datagouvfr_data_pipelines.config import SECRET_SFTP_HOST
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
 class SFTPClient:
-
     @simple_connection_retry
     def __init__(
         self,
@@ -25,14 +22,12 @@ class SFTPClient:
             raise ValueError(f"{key_type} is not a valid key type")
         conn_infos = BaseHook.get_connection(conn_name).extra_dejson
         if "private_key" in conn_infos:
-            private_key = (
-                getattr(paramiko, key_type + "Key")
-                .from_private_key(StringIO(conn_infos["private_key"]))
+            private_key = getattr(paramiko, key_type + "Key").from_private_key(
+                StringIO(conn_infos["private_key"])
             )
         elif "key_file" in conn_infos:
-            private_key = (
-                getattr(paramiko, key_type + "Key")
-                .from_private_key_file(conn_infos["key_file"])
+            private_key = getattr(paramiko, key_type + "Key").from_private_key_file(
+                conn_infos["key_file"]
             )
         else:
             raise KeyError("None of the required keys could be found")

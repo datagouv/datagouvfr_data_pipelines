@@ -47,7 +47,9 @@ async def async_download_files(
     async with aiohttp.ClientSession(timeout=timeout) as session:
         tasks = []
         for url in list_urls:
-            task = download_file(session, url["url"], url["dest_path"], url["dest_name"], auth)
+            task = download_file(
+                session, url["url"], url["dest_path"], url["dest_name"], auth
+            )
             tasks.append(task)
         await asyncio.gather(*tasks)
 
@@ -60,7 +62,9 @@ def download_files(
     timeout: int = 300,
 ):
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(async_download_files(list_urls, auth_user, auth_password, timeout))
+    loop.run_until_complete(
+        async_download_files(list_urls, auth_user, auth_password, timeout)
+    )
 
 
 # def download_files(

@@ -26,9 +26,11 @@ class File:
         if dest_path and dest_name:
             self.dest_path = self.add_trailing_slash(dest_path)
             self.dest_name = dest_name
+            self.full_dest_path = self.dest_path + self.dest_name
         if source_path and source_name:
             self.source_path = self.add_trailing_slash(source_path)
             self.source_name = source_name
+            self.full_source_path = self.source_path + self.source_name
             if not remote_source:
                 self.assert_file_exists(self.source_path, self.source_name)
                 if not content_type:

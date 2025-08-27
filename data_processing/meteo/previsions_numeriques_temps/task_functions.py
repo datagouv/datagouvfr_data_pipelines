@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     MINIO_BUCKET_PNT,
     SECRET_MINIO_PNT_USER,
@@ -23,10 +24,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     load_issues,
     save_issues,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -84,20 +82,24 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
     if model == "arome":
         # arome runs every 3h
         for i in range(MAX_LAST_BATCHES * 2):
-            batches.append((
-                get_last_batch_hour() - timedelta(hours=3 * i)
-            ).strftime("%Y-%m-%dT%H:%M:%SZ"))
-        batch3hlater = datetime.strptime(
-            batches[0], "%Y-%m-%dT%H:%M:%SZ"
-        ) + timedelta(hours=3)
+            batches.append(
+                (get_last_batch_hour() - timedelta(hours=3 * i)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+            )
+        batch3hlater = datetime.strptime(batches[0], "%Y-%m-%dT%H:%M:%SZ") + timedelta(
+            hours=3
+        )
         if batch3hlater < datetime.now():
             batches.append(batch3hlater.strftime("%Y-%m-%dT%H:%M:%SZ"))
     else:
         # the others run every 6h
         for i in range(MAX_LAST_BATCHES):
-            batches.append((
-                get_last_batch_hour() - timedelta(hours=6 * i)
-            ).strftime("%Y-%m-%dT%H:%M:%SZ"))
+            batches.append(
+                (get_last_batch_hour() - timedelta(hours=6 * i)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+            )
     logging.info(f"All batches: {batches}")
     tested_batches: list = get_new_batches(
         batches,
@@ -121,7 +123,7 @@ def clean_old_runs_in_minio(ti):
     keep_dates = set()
     for run_path in runs:
         # run.object_name looks like "{minio_folder}/2024-10-02T00:00:00Z/"
-        run = run_path.split('/')[-2]
+        run = run_path.split("/")[-2]
         if run < batches[-1]:
             old_dates.add(run)
         else:
@@ -137,7 +139,9 @@ def build_folder_path(model: str, pack: str, grid: str) -> str:
 
 
 def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs):
-    tested_batches = ti.xcom_pull(key="tested_batches", task_ids="get_latest_theorical_batches")
+    tested_batches = ti.xcom_pull(
+        key="tested_batches", task_ids="get_latest_theorical_batches"
+    )
     nb_files = 0
     minio_paths = []
     url_to_infos = {}
@@ -170,7 +174,8 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
 
     issues = load_issues(f"{DATADIR}{path}")
     to_get = [
-        minio_path for minio_path in minio_paths
+        minio_path
+        for minio_path in minio_paths
         if (
             not minio_pnt.does_file_exist_on_minio(minio_path)
             # the urls are stored in issues, we get them from the minio path
@@ -234,16 +239,20 @@ def download_file(url: str, local_filename: str) -> int:
             logging.warning(f"Not available yet, skipping. URL is: {url}")
             return 1
         r.raise_for_status()
-        with open(local_filename, 'wb') as f:
+        with open(local_filename, "wb") as f:
             for chunk in r.iter_content(chunk_size=32768):
                 f.write(chunk)
         return 0
 
 
 def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
-    url_to_infos = ti.xcom_pull(key="url_to_infos", task_ids="construct_all_possible_files")
+    url_to_infos = ti.xcom_pull(
+        key="url_to_infos", task_ids="construct_all_possible_files"
+    )
     to_get = ti.xcom_pull(key="to_get", task_ids="construct_all_possible_files")
-    minio_path_to_url = ti.xcom_pull(key="minio_path_to_url", task_ids="construct_all_possible_files")
+    minio_path_to_url = ti.xcom_pull(
+        key="minio_path_to_url", task_ids="construct_all_possible_files"
+    )
     path = build_folder_path(model, pack, grid)
     logging.info(f"Getting {len(to_get)} files")
     # we could also put the content of the loop within an async function and process the files simultaneously
@@ -251,11 +260,13 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
     my_packages = set()
     for minio_path in to_get:
         url = minio_path_to_url[minio_path]
-        package = url_to_infos[url]['package']
+        package = url_to_infos[url]["package"]
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
         if os.path.isdir(f"{DATADIR}{path}/{package}") and package not in my_packages:
-            logging.info(f"{url_to_infos[url]['package']} is already being processed by another run")
+            logging.info(
+                f"{url_to_infos[url]['package']} is already being processed by another run"
+            )
             continue
         else:
             # this is to make sure concurrent runs don't interfere or process the same data
@@ -285,7 +296,10 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             # if the test is not successful and the file wasn't already flagged as an issue we:
             # - send it anyway (specifically requested by Météo France)
             # - add it to the issues
-            logging.warning(url_to_infos[url]["filename"] + " is badly structured, but sending anyway")
+            logging.warning(
+                url_to_infos[url]["filename"]
+                + " is badly structured, but sending anyway"
+            )
             minio_pnt.send_from_url(
                 url=url,
                 destination_file_path=minio_path,
@@ -318,10 +332,14 @@ def build_file_id_and_date(file_name: str):
 def get_current_resources(model: str, pack: str, grid: str):
     current_resources = {}
     for r in requests.get(
-        f"{DATAGOUV_URL}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{local_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={
             "X-fields": "resources{id,url,type}",
-            "X-API-KEY": DATAGOUV_SECRET_API_KEY,
+            "X-API-KEY": (
+                DATAGOUV_SECRET_API_KEY
+                if AIRFLOW_ENV == "prod"
+                else DEMO_DATAGOUV_SECRET_API_KEY
+            ),
         },
     ).json()["resources"]:
         if r["type"] != "main":
@@ -340,11 +358,14 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 
     # getting the latest available occurrence of each file on Minio
     latest_files = {}
-    batches_on_minio = [path.split("/")[-2] for path in minio_pnt.get_files_from_prefix(
-        prefix=f"{minio_folder}/",
-        ignore_airflow_env=True,
-        recursive=False,
-    )]
+    batches_on_minio = [
+        path.split("/")[-2]
+        for path in minio_pnt.get_files_from_prefix(
+            prefix=f"{minio_folder}/",
+            ignore_airflow_env=True,
+            recursive=False,
+        )
+    ]
     logging.info(f"Current batches on Minio: {batches_on_minio}")
 
     # starting with latest timeslots
@@ -364,17 +385,22 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "title": obj.split("/")[-1],
                     "size": size,
                 }
-            if len(latest_files) == len(current_resources) and len(current_resources) > 0:
+            if (
+                len(latest_files) == len(current_resources)
+                and len(current_resources) > 0
+            ):
                 # we have found all files
                 break
-        logging.info(f"{len(latest_files)}/{len(current_resources)} files found after {batch}")
+        logging.info(
+            f"{len(latest_files)}/{len(current_resources)} files found after {batch}"
+        )
 
     for file_id, infos in latest_files.items():
         if file_id not in current_resources:
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
-            post_remote_resource(
-                dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
+            local_client.resource().create_remote(
+                dataset_id=PACKAGES[model][pack][grid]["dataset_id"][AIRFLOW_ENV],
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
@@ -382,14 +408,15 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "format": PACKAGES[model][pack]["extension"],
                     "type": "main",
                 },
-                on_demo=AIRFLOW_ENV == "dev",
             )
         elif infos["date"] > current_resources[file_id]["date"]:
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
-            post_remote_resource(
-                dataset_id=PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV],
-                resource_id=current_resources[file_id]["resource_id"],
+            local_client.resource(
+                dataset_id=PACKAGES[model][pack][grid]["dataset_id"][AIRFLOW_ENV],
+                id=current_resources[file_id]["resource_id"],
+                fetch=False,
+            ).update(
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
@@ -397,7 +424,6 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "format": PACKAGES[model][pack]["extension"],
                     "type": "main",
                 },
-                on_demo=AIRFLOW_ENV == "dev",
             )
 
 

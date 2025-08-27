@@ -35,7 +35,8 @@ with DAG(
     )
 
     process_organismes_formation = PythonOperator(
-        task_id="process_organismes_formation", python_callable=process_organismes_formation
+        task_id="process_organismes_formation",
+        python_callable=process_organismes_formation,
     )
 
     send_file_to_minio = PythonOperator(

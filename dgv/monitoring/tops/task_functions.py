@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
+import logging
 import requests
 import pandas as pd
 
@@ -56,33 +57,48 @@ def compute_top(_class, date, title):
     textTop = ""
     PARAMS_TOPS["period"] = "range"
     PARAMS_TOPS["date"] = date
-    PARAMS_TOPS["filter_pattern"] = f"/fr/{_class}/"
-    print(PARAMS_TOPS)
+    PARAMS_TOPS["filter_pattern"] = f"/{_class}/"
+    logging.info(PARAMS_TOPS)
     r = requests.get(BASE_URL, params=PARAMS_TOPS)
     arr = []
     for data in r.json():
-        if "url" in data:
-            if data["url"] not in [
-                "https://www.data.gouv.fr/fr/datasets/",
-                "https://www.data.gouv.fr/fr/reuses/",
-            ]:
-                r2 = requests.get(
-                    data["url"].replace(
-                        "https://www.data.gouv.fr/fr/",
-                        "https://www.data.gouv.fr/api/1/",
-                    )
+        if "url" in data and data["url"] not in [
+            "https://www.data.gouv.fr/fr/datasets/",
+            "https://www.data.gouv.fr/fr/reuses/",
+        ]:
+            logging.info(data)
+            url = (
+                # handling switch to no more /fr/
+                data["url"].replace(
+                    "https://www.data.gouv.fr/fr/",
+                    "https://www.data.gouv.fr/api/1/",
                 )
-                print(data)
-                arr.append({
+                if "https://www.data.gouv.fr/fr/" in data["url"]
+                else data["url"].replace(
+                    "https://www.data.gouv.fr/",
+                    "https://www.data.gouv.fr/api/1/",
+                )
+            )
+            r2 = requests.get(url)
+            _stop = False
+            while not r2.ok:
+                # handling cases like https://www.data.gouv.fr/fr/reuses/{id}/discussions/
+                url = "/".join(url.split("/")[:-1])
+                if not url.startswith("https://www.data.gouv.fr/api/1/"):
+                    logging.warning(f"Could not fetch info for: {data['url']}")
+                    _stop = True
+                    break
+                r2 = requests.get(url)
+            if _stop:
+                continue
+            arr.append(
+                {
                     "value": data["nb_visits"],
                     "url": data["url"],
-                    "name": r2.json().get("title", data["url"])
-                })
-                textTop += (
-                    f"`{data['nb_visits']}`".ljust(10)
-                    + data["url"]
-                    + "\n"
-                )
+                    "name": r2.json().get("title", data["url"]),
+                }
+            )
+            textTop += f"`{data['nb_visits']}`".ljust(10) + data["url"] + "\n"
     mydict = {
         "name": title,
         "unit": "visites",
@@ -93,26 +109,32 @@ def compute_top(_class, date, title):
 
 
 def compute_general(date):
-    print(date)
+    logging.info(date)
     PARAMS_GENERAL["date"] = date
     PARAMS_GENERAL["period"] = "range" if "," in date else "day"
-    print(PARAMS_GENERAL)
+    logging.info(PARAMS_GENERAL)
     r = requests.get(BASE_URL, params=PARAMS_GENERAL)
     pageviews, uniq_pageviews, downloads = [], [], []
     for data in r.json():
-        print(data)
-        pageviews.append({
-            "date": date,
-            "value": data["nb_pageviews"],
-        })
-        uniq_pageviews.append({
-            "date": date,
-            "value": data["nb_uniq_pageviews"],
-        })
-        downloads.append({
-            "date": date,
-            "value": data["nb_downloads"],
-        })
+        logging.info(data)
+        pageviews.append(
+            {
+                "date": date,
+                "value": data["nb_pageviews"],
+            }
+        )
+        uniq_pageviews.append(
+            {
+                "date": date,
+                "value": data["nb_uniq_pageviews"],
+            }
+        )
+        downloads.append(
+            {
+                "date": date,
+                "value": data["nb_downloads"],
+            }
+        )
     return pageviews, uniq_pageviews, downloads
 
 
@@ -151,7 +173,7 @@ def get_stats(dates, period):
 
 def publish_top_mattermost(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
-    print(publish_info)
+    logging.info(publish_info)
     for _class in ["datasets", "reuses"]:
         top = ti.xcom_pull(
             key=f"top_{_class}", task_ids=f"get_top_{_class}_" + publish_info["period"]
@@ -161,10 +183,7 @@ def publish_top_mattermost(ti, **kwargs):
             if _class == "datasets"
             else ":artist: **Top 10 réutilisations** - "
         )
-        message = (
-            header
-            + f"{publish_info['label']} (visites)\n\n{top}"
-        )
+        message = header + f"{publish_info['label']} (visites)\n\n{top}"
         send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
 
@@ -172,9 +191,12 @@ def send_tops_to_minio(ti, **kwargs):
     publish_info = kwargs.get("templates_dict")
     for _class in ["datasets", "reuses"]:
         top = ti.xcom_pull(
-            key=f"top_{_class}_dict", task_ids=f"get_top_{_class}_" + publish_info["period"]
+            key=f"top_{_class}_dict",
+            task_ids=f"get_top_{_class}_" + publish_info["period"],
         )
-        minio_open.dict_to_bytes_to_minio(top, publish_info["minio"] + f"top_{_class}.json")
+        minio_open.dict_to_bytes_to_minio(
+            top, publish_info["minio"] + f"top_{_class}.json"
+        )
 
 
 def send_stats_to_minio(**kwargs):
@@ -185,8 +207,10 @@ def send_stats_to_minio(**kwargs):
         start,
         end,
         freq=(
-            "MS" if piwik_info["period"] == "month"
-            else "YS" if piwik_info["period"] == "year"
+            "MS"
+            if piwik_info["period"] == "month"
+            else "YS"
+            if piwik_info["period"] == "year"
             else "D"
         ),
     )

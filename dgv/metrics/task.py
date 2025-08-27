@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
@@ -50,7 +51,9 @@ def get_new_logs(ti) -> bool:
     new_logs_path = minio_client.get_files_from_prefix(prefix="metrics-logs/new/")
     if new_logs_path:
         ongoing_logs_path = minio_client.copy_many_objects(
-            new_logs_path, "metrics-logs/ongoing/", remove_source_file=True
+            new_logs_path,
+            f"{AIRFLOW_ENV}/metrics-logs/ongoing/",
+            remove_source_file=True,
         )
         ti.xcom_push(key="ongoing_logs_path", value=ongoing_logs_path)
         return True
@@ -112,7 +115,7 @@ def process_log(ti) -> None:
                     if not log_data:
                         logging.info("Empty file!")
                         break
-                    batch_size = 300_000_000 # One log line is around 290 bytes
+                    batch_size = 300_000_000  # One log line is around 290 bytes
                     n_logs_found_total = 0
                     while True:
                         lines = log_data.readlines(batch_size)
@@ -123,8 +126,12 @@ def process_log(ti) -> None:
                             lines, isoformat_log_date, config.logs_config, FOUND_FOLDER
                         )
                         n_logs_found_total += n_logs_found
-                        logging.info(f">> {n_logs_processed} log processed. {n_logs_found} ({n_logs_found/n_logs_processed*100:.1f}%) relevant logs found.")
-                    logging.info(f">> Total of {n_logs_found_total} relevant log found.")
+                        logging.info(
+                            f">> {n_logs_processed} log processed. {n_logs_found} ({n_logs_found / n_logs_processed * 100:.1f}%) relevant logs found."
+                        )
+                    logging.info(
+                        f">> Total of {n_logs_found_total} relevant log found."
+                    )
 
 
 def aggregate_log(ti) -> None:

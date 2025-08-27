@@ -332,5 +332,27 @@
             "dev": "68244550505b067d9cc89ddb"
         },
         "table_name": "refcc_nivo"
+    },
+    "REF_STATION": {
+        "source_pattern": "FICHECLIM_(?P<ID>[^_.]+).(?P<EXT>[^_]+)",
+        "name_template": "Fiche_station_{ID}.{EXT}",
+        "doc_pattern": null,
+        "description_template": "Fiche climatologique de la station {ID} ({EXT})",
+        "dataset_id": {
+            "prod": "684c2d56f3861808c0a5d465",
+            "dev": "685a5b26f319f9369c09a1c3"
+        },
+        "table_name": "refstation"
+    },
+    "OBS/SYNOP": {
+        "source_pattern": "synop_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "synop_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Observations SYNOP sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "686f8595b351c06a3a790867",
+            "dev": "686f8781e9fb02cc9f5f7bf9"
+        },
+        "table_name": "obs_synop"
     }
 }

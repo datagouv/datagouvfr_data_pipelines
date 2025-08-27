@@ -1,4 +1,5 @@
 {
+    "data_processing_an_petitions": true,
     "data_processing_controle_sanitaire_eau": true,
     "data_processing_deces_consolidation": true,
     "data_processing_dvf": true,
@@ -34,5 +35,7 @@
     "irve_consolidation": true,
     "maintenance_clean_logs_and_runs": true,
     "schema_recommendations": true,
-    "schema_website_publication": true
+    "schema_website_publication": true,
+    "verticale_culture": true,
+    "verticale_simplifions*": true
 }

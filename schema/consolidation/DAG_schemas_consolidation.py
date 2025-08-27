@@ -7,6 +7,7 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_URL,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
@@ -23,28 +24,20 @@ from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
     create_detailed_reports,
     final_clean_up,
 )
-from datagouvfr_data_pipelines.utils.schema import (
-    upload_minio,
-    notification_synthese
-)
-from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_URL
-
-# for local dev in order not to mess up with production
-# DATAGOUV_URL = 'https://data.gouv.fr'
+from datagouvfr_data_pipelines.utils.schema import upload_minio, notification_synthese
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
-API_URL = f"{DATAGOUV_URL}/api/1/"
-GIT_REPO = "git@github.com:etalab/schema.data.gouv.fr.git"
-# for local dev without SSH enabled
-# GIT_REPO = "https://github.com/etalab/schema.data.gouv.fr.git"
+GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
+if AIRFLOW_ENV == "dev":
+    GIT_REPO = GIT_REPO.replace("git@github.com:", "https://github.com/")
 output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 
@@ -52,7 +45,7 @@ with DAG(
     dag_id=DAG_NAME,
     schedule_interval="0 5 * * *",
     start_date=datetime(2024, 8, 10),
-    dagrun_timeout=timedelta(minutes=240),
+    dagrun_timeout=timedelta(minutes=360),
     tags=["schemas", "consolidation", "datagouv"],
     catchup=False,
     default_args=default_args,
@@ -152,10 +145,10 @@ with DAG(
         bash_command=(
             f"cd {TMP_FOLDER.as_posix()}/schema.data.gouv.fr/ && git add config_consolidation.yml "
             ' && git commit -m "Update config consolidation file - '
-            f'{datetime.today().strftime("%Y-%m-%d")}'
+            f"{datetime.today().strftime('%Y-%m-%d')}"
             '" || echo "No changes to commit"'
             " && git push origin main"
-        )
+        ),
     )
 
     notification_synthese = PythonOperator(
@@ -166,7 +159,7 @@ with DAG(
             "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-            "list_schema_skip": ['etalab/schema-irve-statique'],
+            "list_schema_skip": ["etalab/schema-irve-statique"],
         },
     )
 

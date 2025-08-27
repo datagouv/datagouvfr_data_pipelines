@@ -11,10 +11,11 @@ from datagouvfr_data_pipelines.config import (
     # TWITTER_SECRET_TOKEN,
     MATTERMOST_DATAGOUV_EDITO,
 )
-from datagouvfr_data_pipelines.utils.datagouv import create_post, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import create_post
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 
+DATAGOUV_URL = "https://www.data.gouv.fr"
 NOW = date.today()
 LAST_MONTH_DATE = NOW + relativedelta(months=-1)
 LAST_MONTH_DATE_FMT = LAST_MONTH_DATE.strftime("%Y-%m")
@@ -34,7 +35,7 @@ MONTHS = [
 ]
 LAST_MONTH_DATE_STR_SHORT = f"{MONTHS[LAST_MONTH_DATE.month - 1]}"
 LAST_MONTH_DATE_STR = (
-    f'{MONTHS[LAST_MONTH_DATE.month - 1]} {LAST_MONTH_DATE.strftime("%Y")}'
+    f"{MONTHS[LAST_MONTH_DATE.month - 1]} {LAST_MONTH_DATE.strftime('%Y')}"
 )
 
 
@@ -124,7 +125,7 @@ def create_edito_post(**kwargs):
         df = pd.read_csv(
             f"https://www.data.gouv.fr/fr/datasets/r/{mapping[object_type]['catalog_id']}",
             sep=";",
-            usecols=["id", "slug", "created_at", "featured"]
+            usecols=["id", "slug", "created_at", "featured"],
         )
         recent = df.loc[df.created_at.str.match(LAST_MONTH_DATE_FMT)]
         slugs = recent.loc[recent.featured, "slug"].values
@@ -138,21 +139,25 @@ def create_edito_post(**kwargs):
                 f"&{object_type[:-1]}_id__exact={i}"
             ).json()["data"]
             if r:
-                visits.append(r[0]['monthly_visit'])
+                visits.append(r[0]["monthly_visit"])
             else:
                 visits.append(0)
-        visits = pd.DataFrame({
-            "id": ids,
-            "slug": recent["slug"].to_list(),
-            "visits": visits,
-        })
+        visits = pd.DataFrame(
+            {
+                "id": ids,
+                "slug": recent["slug"].to_list(),
+                "visits": visits,
+            }
+        )
         visits.sort_values(by="visits", ascending=False, inplace=True)
         print(visits)
-        mapping[object_type].update({
-            "featured_slugs": slugs,
-            "count": count,
-            "trending_slugs": visits["slug"].to_list()[:6],
-        })
+        mapping[object_type].update(
+            {
+                "featured_slugs": slugs,
+                "count": count,
+                "trending_slugs": visits["slug"].to_list()[:6],
+            }
+        )
     print(mapping)
 
     # Generate HTML
@@ -181,8 +186,8 @@ def create_edito_post(**kwargs):
             defer
         ></script>
         <h3>
-            En {LAST_MONTH_DATE_STR}, {mapping['datasets']['count']}
-             jeux de données et {mapping['reuses']['count']}
+            En {LAST_MONTH_DATE_STR}, {mapping["datasets"]["count"]}
+             jeux de données et {mapping["reuses"]["count"]}
              réutilisations ont été publiés sur data.gouv.fr.
         </h3>
         <a
@@ -193,17 +198,19 @@ def create_edito_post(**kwargs):
         </a>.
         <p>
             Retrouvez-ici nos jeux de données et réutilisations coups de coeur du mois,&nbsp;
-            ainsi que les publications récentes les plus populaires en {LAST_MONTH_DATE_STR}.
+            ainsi que les publications récentes les plus populaires en {
+        LAST_MONTH_DATE_STR
+    }.
         </p>
         <div class="fr-my-6w">
             <h3 >Les jeux de données du mois</h3>
             <p>Les jeux de données qui ont retenu notre attention ce mois-ci :</p>
-            {list_datasets(mapping['datasets']['featured_slugs'])}
+            {list_datasets(mapping["datasets"]["featured_slugs"])}
         </div>
         <div class="fr-my-6w">
             <h3>Les réutilisations du mois</h3>
             <p>Les réutilisations qui ont retenu notre attention ce mois-ci :</p>
-            {list_reuses(mapping['reuses']['featured_slugs'])}
+            {list_reuses(mapping["reuses"]["featured_slugs"])}
         </div>
         <div class="fr-my-6w">
             <h3>Les tendances du mois sur data.gouv.fr</h3>
@@ -212,16 +219,17 @@ def create_edito_post(**kwargs):
                     Il s'agit des jeux de données et des réutilisations créés récemment&nbsp;
                     les plus consultés au mois&nbsp;
                     {
-                        'd’' if LAST_MONTH_DATE_STR.startswith('a') or LAST_MONTH_DATE_STR.startswith('o')
-                        else 'de '
-                    }
+        "d’"
+        if LAST_MONTH_DATE_STR.startswith("a") or LAST_MONTH_DATE_STR.startswith("o")
+        else "de "
+    }
                     {LAST_MONTH_DATE_STR}.
                 </i>
             </p>
             <p>Les jeux de données publiés ce mois-ci les plus populaires :</p>
-            {list_datasets(mapping['datasets']['trending_slugs'])}
+            {list_datasets(mapping["datasets"]["trending_slugs"])}
             <p>Les réutilisations publiées ce mois-ci les plus populaires :</p>
-            {list_reuses(mapping['reuses']['trending_slugs'])}
+            {list_reuses(mapping["reuses"]["trending_slugs"])}
         </div>
         <h3>Suivez l’actualité de la plateforme</h3>
         <p>
@@ -265,13 +273,13 @@ def create_edito_post(**kwargs):
     )
 
     post_id = data["id"]
-    print(f"Article créé et éditable à {DATAGOUV_URL}/beta/admin/posts/{post_id}")
+    print(f"Article créé et éditable à {DATAGOUV_URL}/admin/posts/{post_id}")
 
     kwargs["ti"].xcom_push(
         key="admin_post_url",
         value=(
             f":rolled_up_newspaper: Article du {name} créé et éditable [dans "
-            f"l'espace admin]({DATAGOUV_URL}/beta/admin/posts/{post_id})"
+            f"l'espace admin]({DATAGOUV_URL}/admin/posts/{post_id})"
         ),
     )
 
@@ -285,5 +293,5 @@ def publish_mattermost(ti):
 
     send_message(
         ":mega: @agarrone @thanh-ha.le \n - " + admin_post_url,
-        MATTERMOST_DATAGOUV_EDITO
+        MATTERMOST_DATAGOUV_EDITO,
     )

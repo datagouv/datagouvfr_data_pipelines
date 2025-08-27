@@ -17,13 +17,13 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     VALIDATA_BASE_URL,
     get_last_items,
     get_latest_comments,
-    get_all_from_api_query,
     get_awaiting_spam_comments,
     check_duplicated_orga,
+    local_client,
     SPAM_WORDS,
 )
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
-from datagouvfr_data_pipelines.utils.grist import df_to_grist
+from datagouvfr_data_pipelines.utils.grist import GristTable
 
 
 DAG_NAME = "dgv_notification_activite"
@@ -45,8 +45,8 @@ def detect_spam(name, description):
     else:
         try:
             lang = detect(description.lower())
-            if lang not in ['fr', 'ca']:
-                return 'language:' + lang
+            if lang not in ["fr", "ca"]:
+                return "language:" + lang
         except LangDetectException:
             return
     return
@@ -57,16 +57,18 @@ def detect_potential_certif(siret):
         return False
     try:
         r = requests.get(entreprises_api_url + siret).json()
-    except:
+    except Exception:
         sleep(1)
         r = requests.get(entreprises_api_url + siret).json()
-    if len(r['results']) == 0:
-        print('No match for: ', siret)
+    if len(r["results"]) == 0:
+        print("No match for: ", siret)
         return False
-    if len(r['results']) > 1:
-        print('Ambiguous: ', siret)
-    complements = r['results'][0]['complements']
-    return bool(complements['collectivite_territoriale'] or complements['est_service_public'])
+    if len(r["results"]) > 1:
+        print("Ambiguous: ", siret)
+    complements = r["results"][0]["complements"]
+    return bool(
+        complements["collectivite_territoriale"] or complements["est_service_public"]
+    )
 
 
 def check_new(ti, **kwargs):
@@ -86,51 +88,66 @@ def check_new(ti, **kwargs):
                 mydict[k.replace("self_web_url", "page")] = item[k]
         # add field to check if it's the first publication of this type
         # for this organization/user, and check for potential spam
-        mydict['duplicated'] = False
-        mydict['potential_certif'] = False
-        if templates_dict["type"] != 'organizations':
-            mydict['spam'] = False
+        mydict["duplicated"] = False
+        mydict["potential_certif"] = False
+        if templates_dict["type"] != "organizations":
+            mydict["spam"] = False
             # if certified orga, no spam check
-            badges = item['organization'].get('badges', []) if item.get('organization', None) else []
-            if 'certified' not in [badge['kind'] for badge in badges]:
-                mydict['spam'] = detect_spam(item['title'], item['description'])
-            if item.get('organization'):
+            badges = (
+                item["organization"].get("badges", [])
+                if item.get("organization", None)
+                else []
+            )
+            if "certified" not in [badge["kind"] for badge in badges]:
+                mydict["spam"] = detect_spam(item["title"], item["description"])
+            if item.get("organization"):
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/organizations/{item['organization']['id']}/"
                 ).json()
-                mydict['owner_type'] = "organization"
-                mydict['owner_name'] = owner['name']
-                mydict['owner_id'] = owner['id']
-            elif item.get('owner'):
+                mydict["owner_type"] = "organization"
+                mydict["owner_name"] = owner["name"]
+                mydict["owner_id"] = owner["id"]
+            elif item.get("owner"):
                 owner = requests.get(
                     f"https://data.gouv.fr/api/1/users/{item['owner']['id']}/"
                 ).json()
-                mydict['owner_type'] = "user"
-                mydict['owner_name'] = owner['slug']
-                mydict['owner_id'] = owner['id']
+                mydict["owner_type"] = "user"
+                mydict["owner_name"] = owner["slug"]
+                mydict["owner_id"] = owner["id"]
             else:
-                mydict['owner_type'] = None
-            if mydict['owner_type'] and owner['metrics'].get(templates_dict["type"], 0) < 2:
+                mydict["owner_type"] = None
+            if (
+                mydict["owner_type"]
+                and owner["metrics"].get(templates_dict["type"], 0) < 2
+            ):
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
-                    templates_dict["type"] == 'datasets'
-                    and any([r['schema'] for r in item.get('resources')])
-                    and not mydict['spam']
+                    templates_dict["type"] == "datasets"
+                    and any([r["schema"] for r in item.get("resources")])
+                    and not mydict["spam"]
                 ):
                     print("This dataset has a schema:", item)
-                    mydict['first_publication'] = False
+                    mydict["first_publication"] = False
                 else:
-                    mydict['first_publication'] = True
+                    # private/draft objects are not counted in metrics, so we can't be sure they're new
+                    # also not counting objects that have been deleted since
+                    mydict["first_publication"] = (
+                        not item.get("private")
+                        and not item.get("deleted")
+                        and not item.get("deleted_at")
+                    )
             else:
-                mydict['first_publication'] = False
+                mydict["first_publication"] = False
         else:
-            mydict['spam'] = detect_spam(item.get('name'), item.get('description'))
-            if mydict['spam']:
-                mydict['description'] = item.get('description')
-            mydict['potential_certif'] = detect_potential_certif(item['business_number_id'])
+            mydict["spam"] = detect_spam(item.get("name"), item.get("description"))
+            if mydict["spam"]:
+                mydict["description"] = item.get("description")
+            mydict["potential_certif"] = detect_potential_certif(
+                item["business_number_id"]
+            )
             # checking for potential duplicates in organization creation
-            mydict['duplicated'], _ = check_duplicated_orga(item["slug"])
+            mydict["duplicated"], _ = check_duplicated_orga(item["slug"])
         arr.append(mydict)
     ti.xcom_push(key=templates_dict["type"], value=arr)
 
@@ -141,13 +158,15 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     if not (check_if_monday() and time_is_between(start, end)):
         print("Not running now")
         return
-    orgas = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/organizations/?sort=-created",
+    orgas = local_client.get_all_from_api_query(
+        "api/1/organizations/?sort=-created",
         mask="data{id,metrics,created_at,name}",
     )
     inactive = {}
     threshold = (datetime.today() - timedelta(days=cutoff_days)).strftime("%Y-%m-%d")
-    too_soon = (datetime.today() - timedelta(days=days_before_flag)).strftime("%Y-%m-%d")
+    too_soon = (datetime.today() - timedelta(days=days_before_flag)).strftime(
+        "%Y-%m-%d"
+    )
     for o in orgas:
         if o["created_at"] < threshold:
             print("Too old:", o["id"])
@@ -162,11 +181,11 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
             f"#### :sloth: Organisations créées il y a entre {days_before_flag} et "
             f"{cutoff_days} jours, sans dataset ni réutilisation\n- "
         )
-        message += (
-            "\n- ".join([
+        message += "\n- ".join(
+            [
                 f"[{n}](https://www.data.gouv.fr/fr/organizations/{i}/)"
                 for i, n in inactive.items()
-            ])
+            ]
         )
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
@@ -191,16 +210,10 @@ def alert_if_new_reports():
     # DAG runs every 5min but if it fails we catch up with this variable
     previous_report_check = Variable.get(
         "previous_report_check",
-        (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat()
+        (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat(),
     )
-    reports = get_all_from_api_query(
-        "https://www.data.gouv.fr/api/1/reports/",
-        auth=True,
-    )
-    unseen_reports = [
-        r for r in reports
-        if r["reported_at"] >= previous_report_check
-    ]
+    reports = local_client.get_all_from_api_query("api/1/reports/")
+    unseen_reports = [r for r in reports if r["reported_at"] >= previous_report_check]
     if not unseen_reports:
         return
     Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
@@ -219,17 +232,13 @@ def alert_if_new_reports():
             _.raise_for_status()
             _ = _.json()
             subject = (
-                f"[cet objet]({subject.replace('api/1', 'fr')}) : "
+                f"[cet objet]({_.get('page') or _.get('self_web_url ')}) : "
                 f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
             )
         except requests.exceptions.HTTPError:
-            subject = (
-                f"[cet objet qui a été supprimé depuis]({subject})"
-            )
-        user_message = r['message'].replace('\n', ' ')
-        message += (
-            f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{user_message}`"
-        )
+            subject = f"[cet objet qui a été supprimé depuis]({subject})"
+        user_message = r["message"].replace("\n", " ")
+        message += f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{user_message}`"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
@@ -238,7 +247,9 @@ def check_new_comments(ti):
         start_date=datetime.now() - timedelta(**TIME_PERIOD)
     )
     spam_comments = [
-        k for k in latest_comments if detect_spam('', k['comment']['content'].replace('\n', ' '))
+        k
+        for k in latest_comments
+        if detect_spam("", k["comment"]["content"].replace("\n", " "))
     ]
     ti.xcom_push(key="spam_comments", value=spam_comments)
 
@@ -296,7 +307,7 @@ def parse_schema_catalog(
                     f"{VALIDATA_BASE_URL}/table-schema?input=url&url="
                     f"{resource['url']}&schema_url={schema['schema_url']}"
                 )
-            except:
+            except Exception:
                 res = False
         else:
             schema_type = "other"
@@ -365,7 +376,7 @@ def check_schema(ti):
 
                 if not is_schema:
                     schema_suspicion(catalog, item, orga)
-            except:
+            except Exception:
                 pass
 
 
@@ -391,8 +402,10 @@ def send_spam_to_grist(ti):
                 records.append(obj)
     if records:
         df = pd.DataFrame(records)
-        df['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        df_to_grist(df, grist_curation, "Alertes_spam_potentiel", append="lazy")
+        df["date"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        GristTable(grist_curation, "Alertes_spam_potentiel").from_dataframe(
+            df, append="lazy"
+        )
 
 
 def publish_item(item, item_type):
@@ -403,22 +416,26 @@ def publish_item(item, item_type):
     else:
         message = ":loudspeaker: :robot_face: Nouvelle **API** : \n"
 
-    if item['owner_type'] == "organization":
+    if item["owner_type"] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
-        message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
-    elif item['owner_type'] == "user":
+        message += (
+            f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+        )
+    elif item["owner_type"] == "user":
         message += f"Utilisateur : [{item['owner_name']}]"
-        message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+        message += (
+            f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+        )
     else:
         message += "**/!\\ sans rattachement**"
     message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
-    if item['first_publication']:
-        if item['spam']:
-            message = f':warning: @all Spam potentiel ({item["spam"]})\n'
+    if item["first_publication"]:
+        if item["spam"]:
+            message = f":warning: @all Spam potentiel ({item['spam']})\n"
         else:
-            message = ''
+            message = ""
 
         if item_type == "dataset":
             message += ":loudspeaker: :one: Premier jeu de données "
@@ -427,12 +444,16 @@ def publish_item(item, item_type):
         else:
             message += ":loudspeaker: :one: Première API "
 
-        if item['owner_type'] == "organization":
+        if item["owner_type"] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
-            message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
-        elif item['owner_type'] == "user":
+            message += (
+                f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+            )
+        elif item["owner_type"] == "user":
             message += f"de l'utilisateur : [{item['owner_name']}]"
-            message += f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+            message += (
+                f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+            )
         else:
             message += "**/!\\ sans rattachement**"
         message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
@@ -452,18 +473,18 @@ def publish_mattermost(ti):
 
     if nb_orgas > 0:
         for item in orgas:
-            if item['spam']:
-                message = f':warning: @all Spam potentiel ({item["spam"]})\n'
+            if item["spam"]:
+                message = f":warning: @all Spam potentiel ({item['spam']})\n"
             else:
-                message = ''
-            if item['duplicated']:
-                message += ':busts_in_silhouette: Duplicata potentiel\n'
+                message = ""
+            if item["duplicated"]:
+                message += ":busts_in_silhouette: Duplicata potentiel\n"
             else:
-                message += ''
-            if item['potential_certif']:
-                message += ':ballot_box_with_check: Certification potentielle @clarisse\n'
+                message += ""
+            if item["potential_certif"]:
+                message += ":ballot_box_with_check: Certification potentielle\n"
             else:
-                message += ''
+                message += ""
             message += (
                 ":loudspeaker: :office: Nouvelle **organisation** : "
                 f"*{item['name'].strip()}* \n\n\n:point_right: {item['page']}"

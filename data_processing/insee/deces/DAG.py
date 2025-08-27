@@ -18,9 +18,9 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}deces/"
 DAG_NAME = "data_processing_deces_consolidation"
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
-    'provide_context': True,
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
+    "provide_context": True,
 }
 
 

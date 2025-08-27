@@ -30,7 +30,11 @@ def get_directory_size(directory):
 # Define the Python function to delete old logs and directories
 def delete_old_logs_and_directories(ti):
     total_size_bytes = 0
-    log_dir = "/opt/airflow/logs" if AIRFLOW_ENV == "dev" else f"{'/'.join(AIRFLOW_DAG_HOME.split('/')[:-2])}/logs"
+    log_dir = (
+        "/opt/airflow/logs"
+        if AIRFLOW_ENV == "dev"
+        else f"{'/'.join(AIRFLOW_DAG_HOME.split('/')[:-2])}/logs"
+    )
     cutoff_date = datetime.now() - timedelta(days=nb_days_to_keep)
 
     # Check if the directory exists
@@ -53,7 +57,7 @@ def delete_old_logs_and_directories(ti):
                     logging.info(f"Deleted file: {file_path}")
     else:
         logging.error(f"Log directory not found: {log_dir}")
-    ti.xcom_push(key='total_size_bytes', value=total_size_bytes)
+    ti.xcom_push(key="total_size_bytes", value=total_size_bytes)
 
 
 def delete_old_runs():
@@ -86,11 +90,8 @@ def delete_old_runs():
 
 
 def send_notification_mattermost(ti):
-    total_size_bytes = ti.xcom_pull(
-        key='total_size_bytes',
-        task_ids="delete_logs"
-    )
-    units = ['octets', 'ko', 'Mo', 'Go', 'To']
+    total_size_bytes = ti.xcom_pull(key="total_size_bytes", task_ids="delete_logs")
+    units = ["octets", "ko", "Mo", "Go", "To"]
     k = 0
     while total_size_bytes > 1e3 and k < len(units):
         k += 1
@@ -106,7 +107,7 @@ def send_notification_mattermost(ti):
 # Define default arguments for the DAG
 default_args = {
     "depends_on_past": False,
-    "retries": 1,
+    "retries": 4,
     "retry_delay": timedelta(minutes=5),
 }
 
@@ -115,8 +116,8 @@ with DAG(
     dag_id="maintenance_clean_logs_and_runs",
     default_args=default_args,
     description=f"Delete Airflow logs and runs older than {nb_days_to_keep} days",
-    schedule_interval="0 16 2 * *",  # run every 2nd of month at 4:00 PM (UTC)
-    dagrun_timeout=timedelta(minutes=120),
+    schedule_interval="0 16 */2 * *",  # run every 2nd of month at 4:00 PM (UTC)
+    dagrun_timeout=timedelta(minutes=1200),
     start_date=datetime(2024, 1, 25),
     catchup=False,  # False to ignore past runs
     max_active_runs=1,  # Allow only one execution at a time

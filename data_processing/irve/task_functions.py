@@ -68,7 +68,9 @@ def get_all_irve_resources(
     )
 
     config_dict = load_config(config_path)
-    config_dict = remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=True)
+    config_dict = remove_old_schemas(
+        config_dict, schemas_catalogue_list, single_schema=True
+    )
 
     if AIRFLOW_ENV == "dev":  # to consolidate on demo
         schemas_catalogue_list = [
@@ -170,11 +172,15 @@ def get_all_irve_resources(
 def download_irve_resources(
     ti: TaskInstance,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
     data_path = ti.xcom_pull(key="data_path", task_ids="get_all_irve_resources")
     logging.debug(f"ref_tables_pat={ref_tables_path} -- {type(ref_tables_path)}")
     logging.debug(f"data_path={data_path} -- {type(data_path)}")
-    success = download_schema_files(schema_name, ref_tables_path, data_path, should_succeed=True)
+    success = download_schema_files(
+        schema_name, ref_tables_path, data_path, should_succeed=True
+    )
     assert success
 
 
@@ -182,12 +188,22 @@ def consolidate_irve(
     ti: TaskInstance,
     tmp_path: Path,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
     data_path = ti.xcom_pull(key="data_path", task_ids="get_all_irve_resources")
-    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
-    consolidated_data_path = ti.xcom_pull(key="consolidated_data_path", task_ids="get_all_irve_resources")
-    schemas_report_dict = literal_eval(ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources"))
-    schemas_catalogue_list = ti.xcom_pull(key="schemas_catalogue_list", task_ids="get_all_irve_resources")
+    consolidation_date_str = ti.xcom_pull(
+        key="consolidation_date_str", task_ids="get_all_irve_resources"
+    )
+    consolidated_data_path = ti.xcom_pull(
+        key="consolidated_data_path", task_ids="get_all_irve_resources"
+    )
+    schemas_report_dict = literal_eval(
+        ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources")
+    )
+    schemas_catalogue_list = ti.xcom_pull(
+        key="schemas_catalogue_list", task_ids="get_all_irve_resources"
+    )
     success = consolidate_data(
         data_path,
         schema_name,
@@ -205,16 +221,28 @@ def consolidate_irve(
 def custom_filters_irve(
     ti: TaskInstance,
 ) -> None:
-    consolidated_data_path = ti.xcom_pull(key="consolidated_data_path", task_ids="get_all_irve_resources")
-    schema_consolidated_data_path = Path(consolidated_data_path) / schema_name.replace("/", "_")
+    consolidated_data_path = ti.xcom_pull(
+        key="consolidated_data_path", task_ids="get_all_irve_resources"
+    )
+    schema_consolidated_data_path = Path(consolidated_data_path) / schema_name.replace(
+        "/", "_"
+    )
     consolidated_file = [
-        f for f in os.listdir(schema_consolidated_data_path) if f.startswith("consolidation") and f.endswith(".csv")
+        f
+        for f in os.listdir(schema_consolidated_data_path)
+        if f.startswith("consolidation") and f.endswith(".csv")
     ][0]
-    logging.info(f"Consolidated IRVE file is here: {os.path.join(schema_consolidated_data_path, consolidated_file)}")
-    df_conso = pd.read_csv(os.path.join(schema_consolidated_data_path, consolidated_file), dtype=str)
+    logging.info(
+        f"Consolidated IRVE file is here: {os.path.join(schema_consolidated_data_path, consolidated_file)}"
+    )
+    df_conso = pd.read_csv(
+        os.path.join(schema_consolidated_data_path, consolidated_file), dtype=str
+    )
     df_filtered = df_conso.copy()
     # on enlève les lignes publiées par des utilisateurs (aka pas par des organisations)
-    df_filtered = df_filtered.loc[df_filtered["is_orga"] == "True"].drop("is_orga", axis=1)
+    df_filtered = df_filtered.loc[df_filtered["is_orga"] == "True"].drop(
+        "is_orga", axis=1
+    )
 
     # pour un id_pdc_itinerance publié plusieurs fois par le même producteur
     # on garde la ligne du fichier le plus récent (si un id_pdc est en double
@@ -249,8 +277,12 @@ def improve_irve_geo_data_quality(
         version = str(version_lookup[0]) if version_lookup else "inf"
         return comparer_versions(version)
 
-    config_dict = literal_eval(ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources"))
-    latest_resource_id = config_dict["etalab/schema-irve-statique"]["latest_resource_ids"]["latest"]
+    config_dict = literal_eval(
+        ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
+    )
+    latest_resource_id = config_dict["etalab/schema-irve-statique"][
+        "latest_resource_ids"
+    ]["latest"]
     schema_irve_cols = {
         "xy_coords": "coordonneesXY",
         "code_insee": "code_insee_commune",
@@ -258,16 +290,24 @@ def improve_irve_geo_data_quality(
         "longitude": "consolidated_longitude",
         "latitude": "consolidated_latitude",
     }
-    schema_irve_path = os.path.join(tmp_path, "consolidated_data", "etalab_schema-irve-statique")
+    schema_irve_path = os.path.join(
+        tmp_path, "consolidated_data", "etalab_schema-irve-statique"
+    )
 
     latest_version_consolidation = sorted(
         [file for file in os.listdir(schema_irve_path) if file.endswith(".csv")],
         key=sort_consolidated_from_version,
     )[-1]
 
-    logging.info(f"Only processing the latest version (too time-consuming): {latest_version_consolidation}")
+    logging.info(
+        f"Only processing the latest version (too time-consuming): {latest_version_consolidation}"
+    )
     improve_geo_data_quality(
-        file_cols_mapping={os.path.join(schema_irve_path, latest_version_consolidation): schema_irve_cols},
+        file_cols_mapping={
+            os.path.join(
+                schema_irve_path, latest_version_consolidation
+            ): schema_irve_cols
+        },
         latest_resource_id=latest_resource_id,
     )
 
@@ -276,11 +316,21 @@ def upload_consolidated_irve(
     ti: TaskInstance,
     config_path: Path,
 ) -> None:
-    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
-    consolidated_data_path = ti.xcom_pull(key="consolidated_data_path", task_ids="get_all_irve_resources")
-    schemas_report_dict = literal_eval(ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources"))
-    config_dict = literal_eval(ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources"))
-    schemas_catalogue_list = ti.xcom_pull(key="schemas_catalogue_list", task_ids="get_all_irve_resources")
+    consolidation_date_str = ti.xcom_pull(
+        key="consolidation_date_str", task_ids="get_all_irve_resources"
+    )
+    consolidated_data_path = ti.xcom_pull(
+        key="consolidated_data_path", task_ids="get_all_irve_resources"
+    )
+    schemas_report_dict = literal_eval(
+        ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources")
+    )
+    config_dict = literal_eval(
+        ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
+    )
+    schemas_catalogue_list = ti.xcom_pull(
+        key="schemas_catalogue_list", task_ids="get_all_irve_resources"
+    )
 
     success = upload_consolidated(
         schema_name,
@@ -299,7 +349,9 @@ def upload_consolidated_irve(
 def update_reference_table_irve(
     ti: TaskInstance,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
     success = update_reference_table(ref_tables_path, schema_name, should_succeed=True)
     assert success
 
@@ -307,8 +359,12 @@ def update_reference_table_irve(
 def update_resource_send_mail_producer_irve(
     ti: TaskInstance,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
-    validata_reports_path = ti.xcom_pull(key="validata_reports_path", task_ids="get_all_irve_resources")
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
+    validata_reports_path = ti.xcom_pull(
+        key="validata_reports_path", task_ids="get_all_irve_resources"
+    )
     success = update_resource_send_mail_producer(
         ref_tables_path, schema_name, validata_reports_path, should_succeed=True
     )
@@ -319,9 +375,15 @@ def update_consolidation_documentation_report_irve(
     ti: TaskInstance,
     config_path: Path,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
-    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
-    config_dict = literal_eval(ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources"))
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
+    consolidation_date_str = ti.xcom_pull(
+        key="consolidation_date_str", task_ids="get_all_irve_resources"
+    )
+    config_dict = literal_eval(
+        ti.xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
+    )
     success = update_consolidation_documentation_report(
         schema_name,
         ref_tables_path,
@@ -336,10 +398,18 @@ def update_consolidation_documentation_report_irve(
 def create_consolidation_reports_irve(
     ti: TaskInstance,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
-    report_tables_path = ti.xcom_pull(key="report_tables_path", task_ids="get_all_irve_resources")
-    consolidation_date_str = ti.xcom_pull(key="consolidation_date_str", task_ids="get_all_irve_resources")
-    schemas_report_dict = literal_eval(ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources"))
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
+    report_tables_path = ti.xcom_pull(
+        key="report_tables_path", task_ids="get_all_irve_resources"
+    )
+    consolidation_date_str = ti.xcom_pull(
+        key="consolidation_date_str", task_ids="get_all_irve_resources"
+    )
+    schemas_report_dict = literal_eval(
+        ti.xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources")
+    )
 
     reports_list = []
 
@@ -350,7 +420,9 @@ def create_consolidation_reports_irve(
 
     reports_df = pd.DataFrame(reports_list)
 
-    reports_df = reports_df[["schema_name"] + [col for col in reports_df.columns if col != "schema_name"]].rename(
+    reports_df = reports_df[
+        ["schema_name"] + [col for col in reports_df.columns if col != "schema_name"]
+    ].rename(
         columns={"config_created": "new_config_created"}
     )  # rename to drop at next launch
 
@@ -382,9 +454,15 @@ def create_consolidation_reports_irve(
 def create_detailed_report_irve(
     ti: TaskInstance,
 ) -> None:
-    ref_tables_path = ti.xcom_pull(key="ref_tables_path", task_ids="get_all_irve_resources")
-    report_tables_path = ti.xcom_pull(key="report_tables_path", task_ids="get_all_irve_resources")
-    success = create_detailed_report(ref_tables_path, schema_name, report_tables_path, should_succeed=True)
+    ref_tables_path = ti.xcom_pull(
+        key="ref_tables_path", task_ids="get_all_irve_resources"
+    )
+    report_tables_path = ti.xcom_pull(
+        key="report_tables_path", task_ids="get_all_irve_resources"
+    )
+    success = create_detailed_report(
+        ref_tables_path, schema_name, report_tables_path, should_succeed=True
+    )
     assert success
 
 

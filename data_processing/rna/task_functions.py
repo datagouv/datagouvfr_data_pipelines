@@ -12,11 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    post_remote_resource,
-    check_if_recent_update,
-    DATAGOUV_URL,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -30,19 +26,17 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
 
 
 def check_if_modif():
-    return check_if_recent_update(
-        reference_resource_id=config["import"]["csv"][AIRFLOW_ENV]["resource_id"],
-        dataset_id="58e53811c751df03df38f42d",
-        on_demo=AIRFLOW_ENV == "dev",
-    )
+    return local_client.resource(
+        id=config["import"]["csv"][AIRFLOW_ENV]["resource_id"]
+    ).check_if_more_recent_update(dataset_id="58e53811c751df03df38f42d")
 
 
 def process_rna(ti, file_type):
     assert file_type in ["import", "waldec"]
     resources = requests.get(
-        'https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d/',
-        headers={"X-fields": "resources{url}"}
-    ).json()['resources']
+        "https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d/",
+        headers={"X-fields": "resources{url}"},
+    ).json()["resources"]
     latest = sorted([r["url"] for r in resources if file_type in r["url"]])[-1]
     r = requests.get(latest)
     r.raise_for_status()
@@ -53,14 +47,14 @@ def process_rna(ti, file_type):
             with zip_ref.open(file) as f:
                 df = pd.read_csv(
                     f,
-                    sep=';',
+                    sep=";",
                     dtype=str,
                     # encoding="ISO-8859-1", # newer files are utf8-encoded
                 )
                 if columns and list(df.columns) != columns:
                     print(columns)
                     print(list(df.columns))
-                    raise ValueError('Columns differ between dep files')
+                    raise ValueError("Columns differ between dep files")
                 columns = list(df.columns)
                 punc_to_remove = "!\"#$%&'()*+/;?@[]^_`{|}~"
                 for c in df.columns:
@@ -83,10 +77,10 @@ def process_rna(ti, file_type):
                 )
     csv_to_parquet(
         f"{DATADIR}/{file_type}.csv",
-        sep=',',
+        sep=",",
         columns=columns,
     )
-    ti.xcom_push(key="latest", value=latest.split('/')[-1].split('.')[0].split('_')[2])
+    ti.xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
 
 
 def send_rna_to_minio(file_type):
@@ -109,18 +103,18 @@ def publish_on_datagouv(ti, file_type):
     y, m, d = latest[:4], latest[4:6], latest[6:]
     date = f"{d} {MOIS_FR[m]} {y}"
     for ext in ["csv", "parquet"]:
-        post_remote_resource(
+        local_client.resource(
             dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
-            resource_id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
+            fetch=False,
+        ).update(
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/rna/{file_type}.{ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
-                "title": (
-                    f"Données {file_type.title()} au {date} (format {ext})"
-                ),
+                "title": (f"Données {file_type.title()} au {date} (format {ext})"),
                 "format": ext,
                 "description": (
                     f"RNA {file_type.title()} au {date} (format {ext})"
@@ -137,6 +131,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données des associations mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({DATAGOUV_URL}/fr/datasets/{dataset_id})"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id})"
         )
     )

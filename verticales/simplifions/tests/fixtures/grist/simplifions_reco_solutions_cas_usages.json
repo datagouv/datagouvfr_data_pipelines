@@ -1,0 +1,48 @@
+{
+  "resource_name": "SIMPLIFIONS_reco_solutions_cas_usages",
+  "total_records_available": 52,
+  "sample_record": {
+    "Cas_d_usage": 1,
+    "Solution_publique": 6,
+    "En_quoi_cette_solution_est_elle_utile_pour_ce_cas_d_usage_": "Ce annuaire en ligne permet à vos agents de consulter de nombreuses informations légales des opérateurs économiques candidats depuis un même site internet, officiel et gratuit. Un espace uniquement accessible aux agents publics donne accès à des données protégées.\nLes informations mises à disposition par l'annuaire des entreprises proviennent directement des administrations ou des organismes producteurs de la donnée, par conséquent la donnée est fiable.",
+    "Concretement_pour_les_usagers_": "Les entreprises et les associations peuvent consulter la partie publique de l'annuaire et y trouver certaines des informations demandées pour la candidature. Surtout, si l'annuaire est utilisée par l'acheteur, les informations requises dans la candidature peuvent être réduites, l'agent les retrouvant par lui-même, via le numéro d'identification (Siret, Siren ou RNA).",
+    "Concretement_pour_vos_agents_": "Pour instruire une candidature, les agents se rendent sur le site et se connectent à l'espace agent via Proconnect. Depuis l'annuaire, ils peuvent rechercher les informations légales de l'opérateur économique candidat en saisissant son numéro unique d'identification dans la barre de recherche. Ils obtiennent alors différentes données dont des données protégées telles que les attestations fiscales ou de paiements de cotisations. ",
+    "Ce_que_ne_fait_pas_cette_solution_": "Cette solution est un site en ligne, elle ne s'intègre pas à votre système d'information et ne permet donc pas de pré-remplir les candidatures et les back-office des instructeurs. Ils doivent ressaisir l'information par eux-mêmes.",
+    "Visible_sur_simplifions": true,
+    "URL_d_acces_specifique": "",
+    "Modifie_par_": "Dorine Lambinet",
+    "Modifie_le_": "2025-08-08 16:02:56.869640+02:00",
+    "Type_de_simplification": [
+      "L",
+      "⭐️ Accès facile"
+    ],
+    "Chapitre_H3": "1. Sans développement, ni budget",
+    "Liste_des_editeurs_de_la_solution": [
+      "L"
+    ],
+    "API_et_data_utiles_fournies_par_la_solution": null,
+    "Liste_des_editeurs": null,
+    "Nom_de_la_recommandation": "Marchés publics | Dépôt et instruction des candidatures → Annuaire des entreprises",
+    "Liste_des_produits_publics_proposant_la_solution": [
+      "L"
+    ],
+    "Liste_des_produits_publics": null,
+    "Moyens_requis_pour_la_mise_en_oeuvre": [
+      "L",
+      "Aucun développement, ni budget"
+    ],
+    "Nom_de_la_solution_publique": "Annuaire des entreprises",
+    "image_principale": [
+      "L",
+      12
+    ],
+    "solution_slug": "annuaire_des_entreprises",
+    "url_solution": "https://annuaire-entreprises.data.gouv.fr/",
+    "solution_editeurs_slugs": [
+      "L"
+    ],
+    "API_et_data_utiles_fournies_par_la_solution_datagouv_slugs": [
+      "L"
+    ]
+  }
+}

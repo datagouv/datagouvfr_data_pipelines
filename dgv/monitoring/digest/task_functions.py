@@ -48,7 +48,12 @@ def get_url(about: str):
 
 
 def show_users(start_date: datetime, end_date: datetime | None = None):
-    users = get_last_items("users", start_date, end_date, date_key="since",)
+    users = get_last_items(
+        "users",
+        start_date,
+        end_date,
+        date_key="since",
+    )
 
     show_html(
         f"<h3>{len(users)} utilisateur{'s' if len(users) > 1 else ''} "
@@ -88,11 +93,13 @@ def accorde(object_class: str, nb: int):
     return (
         params[object_class]["label_plural"]
         if nb > 1
-        else params[object_class]['label_singular']
+        else params[object_class]["label_singular"]
     )
 
 
-def show_objects(object_class: str, start_date: datetime, end_date: datetime | None = None):
+def show_objects(
+    object_class: str, start_date: datetime, end_date: datetime | None = None
+):
     feminin = "e" if object_class in ["reuses", "dataservices"] else ""
     objects = get_last_items(
         object_class,
@@ -131,7 +138,8 @@ def show_objects(object_class: str, start_date: datetime, end_date: datetime | N
             )
         html = (
             make_link(obj["title"], obj.get("page", obj.get("self_web_url")))
-            + " par " + make_link(owner, owner_url)
+            + " par "
+            + make_link(owner, owner_url)
         )
         if is_first:
             first_objects.append(html)
@@ -210,21 +218,25 @@ def show_discussions(
         )
 
     for d in discussions:
-        subject = d['discussion_subject']
+        subject = d["discussion_subject"]
         if subjects_of_interest and subject["class"] not in subjects_of_interest:
             continue
-        comment = d['comment']
+        comment = d["comment"]
         try:
             object_title = requests.get(
-                f'https://www.data.gouv.fr/api/1/{subject["class"].lower()}s/{subject["id"]}/'
-            ).json()['title']
-        except:
+                f"https://www.data.gouv.fr/api/1/{subject['class'].lower()}s/{subject['id']}/"
+            ).json()["title"]
+        except Exception:
             object_title = None
         url = "#"
         if subject["class"] in ["Dataset", "Reuse", "Dataservice"]:
             url = f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
         user = make_link(fullname(comment["posted_by"]), comment["posted_by"]["page"])
-        to_be_shown = object_title + f" ({subject['class']})" if object_title else subject['class']
+        to_be_shown = (
+            object_title + f" ({subject['class']})"
+            if object_title
+            else subject["class"]
+        )
         show_html(
             f"<span>{d['discussion_title']}</span> sur {make_link(to_be_shown, url)} par {user}"
         )

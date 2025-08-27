@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     SECRET_FTP_METEO_USER,
     SECRET_FTP_METEO_PASSWORD,
-    SECRET_FTP_METEO_ADDRESS
+    SECRET_FTP_METEO_ADDRESS,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functions import (
     get_current_files_on_ftp,
@@ -24,20 +24,20 @@ from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functio
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo/"
-DAG_NAME = 'data_processing_meteo'
+DAG_NAME = "data_processing_meteo"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
 
 ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
 ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval='30 7,10 * * *',
+    schedule_interval="30 7,10 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=900),
@@ -45,14 +45,13 @@ with DAG(
     max_active_runs=1,
     default_args=default_args,
 ) as dag:
-
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {DATADIR}",
     )
 
     get_current_files_on_ftp = PythonOperator(
-        task_id='get_current_files_on_ftp',
+        task_id="get_current_files_on_ftp",
         python_callable=get_current_files_on_ftp,
         op_kwargs={
             "ftp": ftp,
@@ -60,12 +59,12 @@ with DAG(
     )
 
     get_current_files_on_minio = PythonOperator(
-        task_id='get_current_files_on_minio',
+        task_id="get_current_files_on_minio",
         python_callable=get_current_files_on_minio,
     )
 
     get_and_upload_file_diff_ftp_minio = PythonOperator(
-        task_id='get_and_upload_file_diff_ftp_minio',
+        task_id="get_and_upload_file_diff_ftp_minio",
         python_callable=get_and_upload_file_diff_ftp_minio,
         op_kwargs={
             "ftp": ftp,
@@ -73,37 +72,37 @@ with DAG(
     )
 
     upload_new_files = PythonOperator(
-        task_id='upload_new_files',
+        task_id="upload_new_files",
         python_callable=upload_new_files,
     )
 
     handle_updated_files_same_name = PythonOperator(
-        task_id='handle_updated_files_same_name',
+        task_id="handle_updated_files_same_name",
         python_callable=handle_updated_files_same_name,
     )
 
     handle_updated_files_new_name = PythonOperator(
-        task_id='handle_updated_files_new_name',
+        task_id="handle_updated_files_new_name",
         python_callable=handle_updated_files_new_name,
     )
 
     delete_replaced_minio_files = PythonOperator(
-        task_id='delete_replaced_minio_files',
+        task_id="delete_replaced_minio_files",
         python_callable=delete_replaced_minio_files,
     )
 
     log_modified_files = PythonOperator(
-        task_id='log_modified_files',
+        task_id="log_modified_files",
         python_callable=log_modified_files,
     )
 
     update_temporal_coverages = PythonOperator(
-        task_id='update_temporal_coverages',
+        task_id="update_temporal_coverages",
         python_callable=update_temporal_coverages,
     )
 
     notification_mattermost = PythonOperator(
-        task_id='notification_mattermost',
+        task_id="notification_mattermost",
         python_callable=notification_mattermost,
     )
 

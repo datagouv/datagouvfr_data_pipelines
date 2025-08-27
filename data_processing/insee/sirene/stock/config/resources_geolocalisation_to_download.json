@@ -3,6 +3,28 @@
         "name": "GeolocalisationEtablissement_Sirene_pour_etudes_statistiques_utf8.zip",
         "nameFTP": "GeolocalisationEtablissement_Sirene_pour_etudes_statistiques_utf8.zip",
         "dataset_id": "61d5e2d372a52d9f9411ff88",
-        "resource_id": "ba6a4e4c-aac6-4764-bbd2-f80ae345afc5"
+        "resource_id": "ba6a4e4c-aac6-4764-bbd2-f80ae345afc5",
+        "parquet_resource_id": "672007af-0146-491f-835c-8314d63fa44e",
+        "dtype": {
+            "siret": "VARCHAR",
+            "x": "FLOAT",
+            "y": "FLOAT",
+            "qualite_xy": "VARCHAR",
+            "epsg": "VARCHAR",
+            "plg_qp24": "VARCHAR",
+            "plg_iris": "VARCHAR",
+            "plg_zus": "VARCHAR",
+            "plg_qp15": "VARCHAR",
+            "plg_qva": "VARCHAR",
+            "plg_code_commune": "VARCHAR",
+            "distance_precision": "FLOAT",
+            "qualite_qp24": "VARCHAR",
+            "qualite_iris": "VARCHAR",
+            "qualite_zus": "VARCHAR",
+            "qualite_qp15": "VARCHAR",
+            "qualite_qva": "VARCHAR",
+            "y_latitude": "FLOAT",
+            "x_longitude": "FLOAT"
+        }
     }
 ]

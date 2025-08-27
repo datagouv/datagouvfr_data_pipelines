@@ -3,15 +3,9 @@ import logging
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
 
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-    datagouv_session,
-)
+from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.grist import (
-    get_table_as_df,
-    update_records,
-)
+from datagouvfr_data_pipelines.utils.grist import GristTable
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_MOISSONNAGE,
@@ -20,29 +14,37 @@ from datagouvfr_data_pipelines.config import (
 DAG_NAME = "dgv_harvester_notification"
 PAD_AWAITING_VALIDATION = "https://pad.incubateur.net/173bEiKKTi2laBNyHwIPlQ"
 doc_id = "6xrGmKARsDFR" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
-table_id = "Moissonneurs"
-
-default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
+table = GristTable(doc_id, "Moissonneurs")
 
 
 def get_pending_harvesters(ti):
-    harvesters = get_all_from_api_query("https://www.data.gouv.fr/api/1/harvest/sources/")
+    harvesters = local_client.get_all_from_api_query("api/1/harvest/sources/")
     harvesters = [
         {
             "name": harvest["name"],
             "url": harvest["url"],
-            "owner_type": "organization" if harvest["organization"] else "user" if harvest["owner"] else None,
+            "owner_type": "organization"
+            if harvest["organization"]
+            else "user"
+            if harvest["owner"]
+            else None,
             "owner_name": (
-                harvest['organization']['name'] if harvest["organization"]
+                harvest["organization"]["name"]
+                if harvest["organization"]
                 else f"{harvest['owner']['first_name']} {harvest['owner']['last_name']}"
-                if harvest["owner"] else None
+                if harvest["owner"]
+                else None
             ),
             "owner_id": (
-                harvest['organization']['id'] if harvest["organization"]
-                else harvest['owner']['id'] if harvest["owner"] else None
+                harvest["organization"]["id"]
+                if harvest["organization"]
+                else harvest["owner"]["id"]
+                if harvest["owner"]
+                else None
             ),
             "id": harvest["id"],
             "backend": harvest["backend"],
+            "created_at": harvest["created_at"][:10],
         }
         for harvest in harvesters
         if harvest["validation"]["state"] == "pending"
@@ -61,7 +63,7 @@ def get_preview_state(ti):
                 timeout=60,
             )
             harvester["preview"] = r.json()["status"]
-        except:
+        except Exception:
             logging.warning("error on " + harvester["id"])
             harvester["preview"] = "timeout"
     ti.xcom_push(key="harvesters_complete", value=harvesters)
@@ -69,13 +71,11 @@ def get_preview_state(ti):
 
 def fill_in_grist(ti):
     harvesters = ti.xcom_pull(key="harvesters_complete", task_ids="get_preview_state")
-    current_table = get_table_as_df(
-        doc_id=doc_id,
-        table_id=table_id,
+    current_table = table.to_dataframe(
         columns_labels=False,
         usecols=[
             "harvester_id",
-            "Lien_ancienne_admin",
+            "Lien_admin",
             "Statut_config_moissonnage",
         ],
     )
@@ -83,11 +83,7 @@ def fill_in_grist(ti):
     issues = []
     for harvester in harvesters:
         to_update = {}
-        if harvester["id"] not in current_table["harvester_id"].to_list():
-            pivot, value = "Lien_ancienne_admin", f"https://www.data.gouv.fr/fr/admin/harvester/{harvester['id']}"
-        else:
-            pivot, value = "harvester_id", harvester["id"]
-        rows = current_table.loc[current_table[pivot] == value]
+        rows = current_table.loc[current_table["harvester_id"] == harvester["id"]]
         # handling new harvesters
         if len(rows) == 0:
             new.append(harvester)
@@ -97,30 +93,31 @@ def fill_in_grist(ti):
                 "Organisation": harvester["owner_name"] or "",
                 "Lien_organisation": (
                     f"https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/"
-                    if harvester["owner_type"] else ""
+                    if harvester["owner_type"]
+                    else ""
                 ),
                 "Statut_config_moissonnage": harvester["preview"],
                 "Statut_bizdev": "🆕 Nouveau",
+                "Date_de_creation": harvester["created_at"],
+                "Nom": harvester["name"],
             }
             logging.info(f"New harvester: {harvester['id']}")
         # handling existing ones
         elif len(rows) == 1:
-            row = current_table.loc[current_table[pivot] == value].iloc[0]
+            row = current_table.loc[
+                current_table["harvester_id"] == harvester["id"]
+            ].iloc[0]
             if row["Statut_config_moissonnage"] != harvester["preview"]:
                 to_update = {"Statut_config_moissonnage": harvester["preview"]}
-            if pivot != "harvester_id":
-                # adding the id for future runs, it's cleaner
-                # and will be used to created other columns in grist
-                to_update["harvester_id"] = harvester["id"]
+            # to be removed, just filling in the stock
+            to_update["Nom"] = harvester["name"]
             if to_update:
                 logging.info(f"Updating harvester: {harvester['id']}")
         else:
             issues.append(harvester)
             logging.warning(f"Too many rows for harvester: {harvester['id']}")
-        update_records(
-            doc_id=doc_id,
-            table_id=table_id,
-            conditions={pivot: value},
+        table.update_records(
+            conditions={"harvester_id": harvester["id"]},
             new_values=to_update,
         )
     ti.xcom_push(key="new", value=new)
@@ -128,7 +125,9 @@ def fill_in_grist(ti):
 
 
 def publish_mattermost(ti):
-    pending_harvesters = ti.xcom_pull(key="harvesters_complete", task_ids="get_preview_state")
+    pending_harvesters = ti.xcom_pull(
+        key="harvesters_complete", task_ids="get_preview_state"
+    )
     new = ti.xcom_pull(key="new", task_ids="fill_in_grist")
     issues = ti.xcom_pull(key="issues", task_ids="fill_in_grist")
 
@@ -143,7 +142,7 @@ def publish_mattermost(ti):
             text += (
                 f"   * [{harvester['owner_name']}](https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/)"
                 f" - moissonneur {harvester['backend'].upper()}"
-                f" - [admin](https://www.data.gouv.fr/fr/beta/admin/harvesters/{harvester['id']})\n"
+                f" - [admin](https://www.data.gouv.fr/fr/admin/harvesters/{harvester['id']})\n"
             )
     if issues:
         text += "\n\n"
@@ -158,7 +157,6 @@ with DAG(
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["weekly", "harvester", "mattermost", "notification"],
-    default_args=default_args,
     catchup=False,
 ) as dag:
     _get_pending_harvesters = PythonOperator(

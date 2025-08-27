@@ -2,22 +2,17 @@ from datetime import datetime, timedelta
 
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator
-from datagouvfr_data_pipelines.config import (
-    MATTERMOST_MODERATION_NOUVEAUTES
-)
+from datagouvfr_data_pipelines.config import MATTERMOST_MODERATION_NOUVEAUTES
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, DATAGOUV_URL
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 DAG_NAME = "dgv_administrateur"
 
 
 def list_current_admins(ti):
     # We want the list of all current users with an admin role
-    print(f"Fetching admins from {DATAGOUV_URL}/api/1/users/")
-    users = get_all_from_api_query(
-        f"{DATAGOUV_URL}/api/1/users/?page_size=100",
-        auth=True,
-    )
+    print(f"Fetching admins from {local_client.base_url}/api/1/users/")
+    users = local_client.get_all_from_api_query("api/1/users/?page_size=100")
     admins = [user for user in users if "admin" in user["roles"]]
     ti.xcom_push(key="admins", value=admins)
 
@@ -25,9 +20,7 @@ def list_current_admins(ti):
 def publish_mattermost(ti):
     print("Publishing on mattermost")
     admins = ti.xcom_pull(key="admins", task_ids="list_current_admins")
-    message = (
-        f":superhero: Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr"
-    )
+    message = f":superhero: Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr"
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
     print(message)
@@ -35,8 +28,8 @@ def publish_mattermost(ti):
 
 
 default_args = {
-    'retries': 5,
-    'retry_delay': timedelta(minutes=5),
+    "retries": 5,
+    "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
@@ -49,8 +42,7 @@ with DAG(
     catchup=False,
 ) as dag:
     list_current_admins = PythonOperator(
-        task_id="list_current_admins",
-        python_callable=list_current_admins
+        task_id="list_current_admins", python_callable=list_current_admins
     )
 
     publish_mattermost = PythonOperator(
