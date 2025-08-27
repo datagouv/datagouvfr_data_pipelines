@@ -99,6 +99,7 @@ def fill_in_grist(ti):
                 "Statut_config_moissonnage": harvester["preview"],
                 "Statut_bizdev": "🆕 Nouveau",
                 "Date_de_creation": harvester["created_at"],
+                "Nom": harvester["name"],
             }
             logging.info(f"New harvester: {harvester['id']}")
         # handling existing ones
@@ -108,6 +109,8 @@ def fill_in_grist(ti):
             ].iloc[0]
             if row["Statut_config_moissonnage"] != harvester["preview"]:
                 to_update = {"Statut_config_moissonnage": harvester["preview"]}
+            # to be removed, just filling in the stock
+            to_update["Nom"] = harvester["name"]
             if to_update:
                 logging.info(f"Updating harvester: {harvester['id']}")
         else:
