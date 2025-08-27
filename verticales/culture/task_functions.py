@@ -179,7 +179,7 @@ def refresh_datasets_tops(ti):
     logging.info("Refreshing table...")
     table = GristTable("hrDZg8StuE1d", "Tops")
     for top_type, column in metrics.items():
-        top = datasets_catalog.sort_values(by=column, ascending=False).reset_index(drop=True)
+        top = datasets_catalog.sort_values(by=column, ascending=False)
         for idx, (_, row) in enumerate(top.iterrows()):
             if idx > 2:
                 # only looking for top 3
@@ -198,5 +198,3 @@ def send_notification_mattermost():
     send_message(
         text=":performing_arts: Catalogue et stats de la verticale culture mis à jour."
     )
-
-
