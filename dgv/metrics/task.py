@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
@@ -47,14 +48,11 @@ def create_metrics_tables() -> None:
 
 
 def get_new_logs(ti) -> bool:
-    new_logs_path = minio_client.get_files_from_prefix(
-        prefix="metrics-logs/new/",
-        ignore_airflow_env=True,
-    )
+    new_logs_path = minio_client.get_files_from_prefix(prefix="metrics-logs/new/")
     if new_logs_path:
         ongoing_logs_path = minio_client.copy_many_objects(
             new_logs_path,
-            "metrics-logs/ongoing/",
+            f"{AIRFLOW_ENV}/metrics-logs/ongoing/",
             remove_source_file=True,
         )
         ti.xcom_push(key="ongoing_logs_path", value=ongoing_logs_path)
@@ -90,8 +88,7 @@ def download_log(ti):
                     dest_name=path.split("/")[-1],
                     remote_source=True,
                 )
-            ],
-            ignore_airflow_env=True,
+            ]
         )
 
     dates_to_process = set(d.split("/")[-1].split("-")[2] for d in ongoing_logs_path)
@@ -290,7 +287,7 @@ def save_metrics_to_postgres() -> None:
 def copy_logs_to_processed_folder(ti) -> None:
     ongoing_logs_path = ti.xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
     minio_client.copy_many_objects(
-        ongoing_logs_path, "metrics-logs/processed/", remove_source_file=True
+        ongoing_logs_path, f"{AIRFLOW_ENV}/metrics-logs/processed/", remove_source_file=True
     )
 
 
