@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS metric.visits_resources
     nb_visit_es INTEGER DEFAULT 0,
     nb_visit_static INTEGER DEFAULT 0,
     nb_visit_ INTEGER DEFAULT 0,
-    nb_visit__api_permalink INTEGER DEFAULT 0
+    nb_visit_api_permalink INTEGER DEFAULT 0
 );
 
 -- Matomo tables
