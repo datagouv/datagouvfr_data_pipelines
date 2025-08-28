@@ -200,6 +200,10 @@ def aggregate_log(ti) -> None:
                         ]
                     ).sum(),
                 ),
+                nb_visit_api_permalink=(
+                    "segment",
+                    lambda x: x.isin(["api_permalink"]).sum(),
+                ),
                 nb_visit=(
                     "segment",
                     lambda x: x.isin(
@@ -207,6 +211,7 @@ def aggregate_log(ti) -> None:
                             segment.replace("/", "")
                             for segment in config.web_segments
                             + config.all_static_segments
+                            + ["api_permalink"]  # To refactor. This is only for ressources.
                         ]
                     ).sum(),
                 ),

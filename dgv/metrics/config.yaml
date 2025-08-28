@@ -8,12 +8,13 @@ database_excluded_column:
 # Such as: https://www.data.gouv.fr/<segment>/
 # They need to match the postgres tables columns
 api_segments:
-  - "api/1"
-  - "api/2"
+  - "/api/1"
+  - "/api/2"
 web_segments:
-  - "fr"
-  - "en"
-  - "es"
+  - "/fr"
+  - "/en"
+  - "/es"
+  - "/"
 # DATAGOUVFR_RGS: service behind the RGS certificate so
 # this is production www.data.gouv.fr
 # This pattern is appended before any other
@@ -35,6 +36,7 @@ datagouv_logs:
       fr: /fr/datasets/r/([^/?\s]*)
       en: /en/datasets/r/([^/?\s]*)
       es: /es/datasets/r/([^/?\s]*)
+      api_permalink: /api/1/datasets/r/([^/?\s]*)
       api1: /api/1/datasets/.*/resources/([^/?\s]*)
       api2: /api/2/datasets/resources/([^/?\s]*)
       static_resource: "(?:https://static\\.data\\.gouv\\.fr)?/resources/([^?\\s]*)"

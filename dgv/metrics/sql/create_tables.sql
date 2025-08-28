@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_datasets
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0
+    nb_visit_static INTEGER DEFAULT 0,
+    nb_visit_ INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_reuses
 (
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_reuses
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0
+    nb_visit_static INTEGER DEFAULT 0,
+    nb_visit_ INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_organizations
 (
@@ -44,7 +46,25 @@ CREATE TABLE IF NOT EXISTS metric.visits_organizations
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0
+    nb_visit_static INTEGER DEFAULT 0,
+    nb_visit_ INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS metric.visits_dataservices
+(
+    __id SERIAL PRIMARY KEY,
+    date_metric DATE,
+    dataservice_id CHARACTER VARYING,
+    organization_id CHARACTER VARYING,
+    nb_visit INTEGER DEFAULT 0,
+    nb_visit_apis INTEGER DEFAULT 0,
+    nb_visit_total INTEGER DEFAULT 0,
+    nb_visit_api1 INTEGER DEFAULT 0,
+    nb_visit_api2 INTEGER DEFAULT 0,
+    nb_visit_fr INTEGER DEFAULT 0,
+    nb_visit_en INTEGER DEFAULT 0,
+    nb_visit_es INTEGER DEFAULT 0,
+    nb_visit_static INTEGER DEFAULT 0,
+    nb_visit_ INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_resources
 (
@@ -61,24 +81,9 @@ CREATE TABLE IF NOT EXISTS metric.visits_resources
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS metric.visits_dataservices
-(
-    __id SERIAL PRIMARY KEY,
-    date_metric DATE,
-    dataservice_id CHARACTER VARYING,
-    organization_id CHARACTER VARYING,
-    nb_visit INTEGER DEFAULT 0,
-    nb_visit_apis INTEGER DEFAULT 0,
-    nb_visit_total INTEGER DEFAULT 0,
-    nb_visit_api1 INTEGER DEFAULT 0,
-    nb_visit_api2 INTEGER DEFAULT 0,
-    nb_visit_fr INTEGER DEFAULT 0,
-    nb_visit_en INTEGER DEFAULT 0,
-    nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0
+    nb_visit_static INTEGER DEFAULT 0,
+    nb_visit_ INTEGER DEFAULT 0,
+    nb_visit_api_permalink INTEGER DEFAULT 0
 );
 
 -- Matomo tables
