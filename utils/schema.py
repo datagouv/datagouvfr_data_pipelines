@@ -313,7 +313,7 @@ def make_validata_report(
         if not last_validation_date.tzinfo:
             last_validation_date = local_timezone.localize(last_validation_date)
         if last_modification_date > last_validation_date:
-            logging.info(f"recent hydra check: validation for {resource_api_url}")
+            logging.info(f"recent change: validation for {resource_api_url}")
             # resource has been changed since last validation: validate again
             r = requests.get(validata_base_url.format(schema_url=schema_url, rurl=rurl))
             time.sleep(0.5)
