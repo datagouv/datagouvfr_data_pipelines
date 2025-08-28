@@ -200,6 +200,10 @@ def aggregate_log(ti) -> None:
                         ]
                     ).sum(),
                 ),
+                nb_visit_api_permalink=(
+                    "segment",
+                    lambda x: x.isin(["api_permalink"]).sum(),
+                ),
                 nb_visit=(
                     "segment",
                     lambda x: x.isin(

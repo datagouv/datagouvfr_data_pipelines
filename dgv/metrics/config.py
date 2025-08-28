@@ -32,6 +32,8 @@ class DataGouvLog:
             + [f"nb_visit_{segment.replace('/', '')}" for segment in segments]
             + ["nb_visit_static"]
         )
+        if self.type == "resources":
+            self.output_columns += ["nb_visit_api_permalink"]
         self.log_patterns = {
             segment.replace(
                 "/", ""
