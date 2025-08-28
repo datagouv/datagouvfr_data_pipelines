@@ -308,7 +308,9 @@ def make_validata_report(
             return r.json()
         # if it has, check whether it has changed since last validation
         last_modification_date = datetime.fromisoformat(data["last_modified"])
-        last_validation_date = datetime.fromisoformat(extras["validation-report:validation_date"])
+        last_validation_date = datetime.fromisoformat(
+            extras["validation-report:validation_date"]
+        )
         # progressively switching to timezone-aware dates
         if not last_validation_date.tzinfo:
             last_validation_date = local_timezone.localize(last_validation_date)
