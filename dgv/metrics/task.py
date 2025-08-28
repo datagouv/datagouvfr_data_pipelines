@@ -287,7 +287,9 @@ def save_metrics_to_postgres() -> None:
 def copy_logs_to_processed_folder(ti) -> None:
     ongoing_logs_path = ti.xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
     minio_client.copy_many_objects(
-        ongoing_logs_path, "metrics-logs/processed/", remove_source_file=True
+        ongoing_logs_path,
+        f"{AIRFLOW_ENV}/metrics-logs/processed/",
+        remove_source_file=True,
     )
 
 
