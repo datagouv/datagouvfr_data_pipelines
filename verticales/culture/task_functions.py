@@ -171,7 +171,9 @@ def refresh_datasets_tops(ti):
             "metric.resources_downloads",
         ],
     )
-    datasets_catalog = datasets_catalog.loc[datasets_catalog["organization_id"].isin(orgas)]
+    datasets_catalog = datasets_catalog.loc[
+        datasets_catalog["organization_id"].isin(orgas)
+    ]
     metrics = {
         "top-datasets": "metric.resources_downloads",
         "top-reuses": "metric.reuses",
