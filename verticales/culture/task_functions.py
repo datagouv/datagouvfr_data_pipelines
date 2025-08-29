@@ -157,10 +157,11 @@ def send_stats_to_minio():
 def refresh_datasets_tops(ti):
     orgas = ti.xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
     logging.info("Loading catalog...")
-    datasets_catalog = pd.read_parquet(
-        f"https://object.files.data.gouv.fr/{parquet_bucket}-parquet/"
-        f"hydra-parquet/{objects['datasets']['catalog_id']}.parquet",
-        columns=[
+    datasets_catalog = pd.read_csv(
+        f"https://www.data.gouv.fr/api/1/datasets/r/{objects['datasets']['catalog_id']}",
+        sep=";",
+        dtype=str,
+        usecols=[
             "id",
             "title",
             "slug",
@@ -169,8 +170,8 @@ def refresh_datasets_tops(ti):
             "metric.reuses",
             "metric.resources_downloads",
         ],
-        filters=[("organization_id", "in", orgas)],
     )
+    datasets_catalog = datasets_catalog.loc[datasets_catalog["organization_id"].isin(orgas)]
     metrics = {
         "top-datasets": "metric.resources_downloads",
         "top-reuses": "metric.reuses",
