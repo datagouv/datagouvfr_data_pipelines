@@ -35,7 +35,7 @@ with DAG(
     schedule_interval="15 6 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=60 * 24),
+    dagrun_timeout=timedelta(minutes=60 * 8),
     max_active_runs=1,
     tags=["dgv", "metrics"],
     default_args=default_args,
