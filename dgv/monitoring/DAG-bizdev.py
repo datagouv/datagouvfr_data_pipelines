@@ -439,7 +439,7 @@ def get_top_orgas_visits():
     )[:50]
     orga_visited = {k: orga_visited[k] for k in orga_visited if k in tmp or k in tmp2}
     for k in orga_visited:
-        r = RequestRetry.get("organizations/" + k).json()
+        r = RequestRetry.get("https://www.data.gouv.fr/api/1/organizations/" + k).json()
         orga_visited[k].update(
             {"name": r.get("name", None), "url": r.get("page", None)}
         )
