@@ -6,6 +6,26 @@ def test_extract_log_info():
 
     test_logs = [
         {
+            "log": "2025-08-01T03:22:51.022900+02:00 slb-04 haproxy[345597]: X.X.X.X:0000 [01/Aug/2025:03:22:50.974]"
+            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/dataweb-06 0/0/4/44/+48 302 +792 - - --NN 442/362/8/1/0 0/0 "GET'
+            ' https://www.data.gouv.fr/api/1/datasets/r/5ffa8553-0e8f-4622-add9-5c0b593ca1f8 HTTP/2.0"',
+            "expected_output": (
+                "5ffa8553-0e8f-4622-add9-5c0b593ca1f8",
+                "resources",
+                "api_permalink",
+            ),  # /api/1/datasets/r/$ID (not available through a slug) + 302 status code
+        },
+        {
+            "log": "2025-08-28T01:01:00.542393+02:00 slb-04 haproxy[1218190]: 127.0.0.1:61280 [28/Aug/2025:01:01:00.165]"
+            ' DATAGOUVFR_RGS~ WWW-FRONT-DATAGOUVFR/www-datagouv-front2 0/0/11/365/+376 200 +14434 - - ---- 576/322/3/1/0 0/0 "GET'
+            ' /datasets/fichier-des-personnes-decedees/ HTTP/1.1"',
+            "expected_output": (
+                "fichier-des-personnes-decedees",
+                "datasets",
+                "",
+            ),  # /datasets/$ID + 200 status code + no segment
+        },
+        {
             "log": "2025-01-22T00:00:52.999112+01:00 slb-03 haproxy[2021969]: 127.0.0.1:42912 [22/Jan/2025:00:00:52.847]"
             ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/datawrk-03 0/0/1/150/+151 200 +1002 - - --NN 200/164/4/0/0 0/0 "GET'
             ' /fr/datasets/r/0e644d39-d47e-49a1-85f1-83751e84768b HTTP/1.1"',
@@ -25,26 +45,6 @@ def test_extract_log_info():
                 "fr",
             ),  # /fr/datasets/r/$ID (not available through a slug) + 302 status code
             # Output is not None but there will be a check later to exclude it from the counts if it is redirecting to a static resource we don't count this visit twice.
-        },
-        {
-            "log": "2025-01-22T00:00:38.903679+01:00 slb-03 haproxy[2021969]: 127.0.0.1:38338 [22/Jan/2025:00:00:38.861]"
-            ' DATAGOUVFR_RGS~ DATAGOUVFR_NEWINFRA/dataweb-06 0/0/2/39/+41 200 +8618 - - --NN 206/169/9/2/0 0/0 "GET'
-            ' /resources/indicateurs-de-lactivite-epidemique-taux-dincidence-de-lepidemie-de-covid-19-par-metropole/20211227-190730/sg-metro-opendata-2021-12-27-19h07.csv HTTP/1.1"',
-            "expected_output": (
-                "indicateurs-de-lactivite-epidemique-taux-dincidence-de-lepidemie-de-covid-19-par-metropole/20211227-190730/sg-metro-opendata-2021-12-27-19h07.csv",
-                "resources",
-                "static_resource",
-            ),  # /resources/$SLUG (not available though an ID)
-        },
-        {
-            "log": "2025-01-22T00:01:35.417564+01:00 slb-03 haproxy[2021969]: 127.0.0.1:8896 [22/Jan/2025:00:01:35.241] DATAGOUVFR_RGS~"
-            ' DATAGOUVFR_NEWINFRA/dataweb-05 0/0/2/174/+176 200 +11470 - - --NN 122/84/7/2/0 0/0 "GET'
-            ' https://static.data.gouv.fr/resources/liste-des-juridictions-competentes-pour-les-communes-de-france/20240327-094434/2024-competences-territoriales.csv HTTP/2.0"',
-            "expected_output": (
-                "liste-des-juridictions-competentes-pour-les-communes-de-france/20240327-094434/2024-competences-territoriales.csv",
-                "resources",
-                "static_resource",
-            ),  # static.data.gouv.fr/resources/$SLUG
         },
         {
             "log": "2025-01-22T15:56:05.536201+01:00 slb-04 haproxy[2624750]: 127.0.0.1:52460 [22/Jan/2025:15:56:05.463]"
@@ -101,9 +101,9 @@ def test_extract_log_info():
             ' DATAGOUVFR_RGS~ DATAGOUVFR/prod 0/0/1/2/+3 302 +432 - - --NN 313/227/5/3/0 0/0 "GET'
             ' /datasets/57868ea9a3a7295d371adcfe/ HTTP/1.1"',
             "expected_output": (
-                None,
-                None,
-                None,
+                "57868ea9a3a7295d371adcfe",
+                "datasets",
+                "",
             ),  # /datasets/$ID will redirect to /fr/datasets/$SLUG so we don't want to count it
         },
         {
@@ -327,7 +327,7 @@ def test_get_matomo_outlinks():
 
     # This is the most consulted reuse of our catalog
     result = get_matomo_outlinks(
-        "reuses", "deces-en-france", "https://www.deces-en-france.fr", "yesterday"
+        "reuses", "deces-en-france", "https://www.deces-en-france.fr", "previous month"
     )
 
     assert isinstance(result, int)

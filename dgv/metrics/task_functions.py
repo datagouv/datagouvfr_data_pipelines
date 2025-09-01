@@ -166,7 +166,7 @@ def get_matomo_outlinks(
         "module": "API",
         "method": "Actions.getOutlinks",
         "actionType": "url",
-        "segment": f"actionUrl==https://www.data.gouv.fr/fr/{model}/{slug}/",
+        "segment": f"actionUrl==https://www.data.gouv.fr/{model}/{slug}/",
         "format": "JSON",
         "token_auth": "anonymous",
         "idSite": 109,
