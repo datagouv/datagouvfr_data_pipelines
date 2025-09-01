@@ -136,5 +136,10 @@ def notification_mattermost(ti):
                     if AIRFLOW_ENV == "prod":
                         url_log = url_log.replace("http://localhost:8080", AIRFLOW_URL)
                     message += f"\n   - {ft} ([voir log]({url_log}))"
-            message += "\ncc @geoffrey.aldebert @pierlou_ramade @hadrien_bossard"
+            # ping only if more than 10 failures or more than 2% failures
+            if (
+                len(failures) > 10
+                or len(failures) / (len(failures) + len(successes)) > 0.02
+            ):
+                message += "\ncc @geoffrey.aldebert @pierlou_ramade @hadrien_bossard"
     send_message(message)
