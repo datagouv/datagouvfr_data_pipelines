@@ -327,7 +327,7 @@ def publish_datagouv(DAG_FOLDER):
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/"
-                "dgv/impact/statistiques_impact_datagouvfr.csv"
+                "impact/statistiques_impact_datagouvfr.csv"
             ),
             "filesize": os.path.getsize(
                 os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")
@@ -355,7 +355,7 @@ def send_notification_mattermost(DAG_FOLDER):
             ":mega: KPI de data.gouv mises à jour.\n"
             f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
             f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-            f"/dgv/impact)\n"
+            f"impact)\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/"
             f"datasets/{data[AIRFLOW_ENV]['dataset_id']})"
         )
