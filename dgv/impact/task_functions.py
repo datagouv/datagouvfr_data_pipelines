@@ -284,7 +284,7 @@ def gather_kpis(ti):
     )
     history = pd.read_csv(
         StringIO(
-            minio_open.get_file_content("/dgv/impact/statistiques_impact_datagouvfr.csv")
+            minio_open.get_file_content("dgv/impact/statistiques_impact_datagouvfr.csv")
         )
     )
     final = pd.concat([df, history])
