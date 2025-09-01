@@ -74,7 +74,9 @@ def get_fields(row):
         "commune_naissance": row[94:124].strip(),
         # quite some issues in the countries, maybe a cleaning func?
         # or do we want to stick to the original?
-        "pays_naissance": row[124:154].strip() or "FRANCE OU ANCIENS TERRITOIRES FRANCAIS",
+        "pays_naissance": (
+            row[124:154].strip() or "FRANCE OU ANCIENS TERRITOIRES FRANCAIS"
+        ),
         "date_deces": row[154:162],
         "code_insee_deces": row[162:167],
         "numero_acte_deces": row[167:176].strip(),
