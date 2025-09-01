@@ -1,9 +1,9 @@
 database_schema: "metric"
 database_excluded_column:
-- url
-- slug
-- archived
-- created_at
+  - url
+  - slug
+  - archived
+  - created_at
 # Segments are the first url element we would like to track
 # Such as: https://www.data.gouv.fr/<segment>/
 # They need to match the postgres tables columns
@@ -14,16 +14,16 @@ web_segments:
   - "/fr"
   - "/en"
   - "/es"
-  - "/"
+  - ""
 # DATAGOUVFR_RGS: service behind the RGS certificate so
 # this is production www.data.gouv.fr
 # This pattern is appended before any other
-global_pattern: " DATAGOUVFR_RGS~ .* (?:200|302) .* \"GET .*"
+global_pattern: ' DATAGOUVFR_RGS~ .* (?:200|302) .* "GET .*'
 datagouv_logs:
   - type: resources
     catalog_resource_id: 4babf5f2-6a9c-45b5-9144-ca5eae6a7a6d
     catalog_columns:
-    # original_column: renamed_column
+      # original_column: renamed_column
       url: url
       id: resource_id
       dataset.id: dataset_id
