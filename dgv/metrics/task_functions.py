@@ -27,7 +27,9 @@ def get_catalog_id_mapping(df: pd.DataFrame, column: str) -> dict[str, str]:
 
 
 def save_log_infos_to_csv(
-    logs_info_per_type: dict[str, list[dict[str, str]]], output_path: str
+    logs_info_per_type: dict[str, list[dict[str, str]]],
+    output_path: str,
+    date: str,
 ) -> None:
     """
     Saves the logs info to disk, each type's list in a separate file.
@@ -37,7 +39,7 @@ def save_log_infos_to_csv(
             and the values are lists of objects of that type.
     """
     for type, list_obj in logs_info_per_type.items():
-        destination_file = f"{output_path}found_{type}.csv"
+        destination_file = f"{output_path}found_{type}-{date}.csv"
         save_list_of_dict_to_csv(list_obj, destination_file)
 
 
@@ -70,15 +72,15 @@ def parse_logs(
                         "segment": segment,
                     }
                 )
-                if n_logs == 20000:
-                    save_log_infos_to_csv(lists_per_type, output_path)
+                if n_logs == 20_000:
+                    save_log_infos_to_csv(lists_per_type, output_path, date)
                     lists_per_type = defaultdict(list)
                     n_logs_total += n_logs
                     n_logs = 0
         except Exception as err:
             raise Exception(f"Problem parsing the log: {b_log!r}\n{err}")
 
-    save_log_infos_to_csv(lists_per_type, output_path)
+    save_log_infos_to_csv(lists_per_type, output_path, date)
     n_logs_total += n_logs
 
     return n_logs_total

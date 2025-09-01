@@ -101,10 +101,10 @@ def process_log(ti) -> None:
     dates_to_process = ti.xcom_pull(key="dates_to_process", task_ids="download_log")
 
     remove_files_from_directory(OUTPUT_FOLDER)
+    remove_files_from_directory(FOUND_FOLDER)
 
     # analyser toutes les dates différentes
     for log_date in dates_to_process:
-        remove_files_from_directory(FOUND_FOLDER)
         isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
         logging.info(f"Processing {isoformat_log_date} date...")
         for file_name in glob.glob(f"{TMP_FOLDER}*{log_date}*.tar.gz"):
@@ -139,6 +139,7 @@ def aggregate_log(ti) -> None:
     dates_processed: list[str] = []
 
     for log_date in dates_to_process:
+        isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
         for obj_config in config.logs_config:
             logging.info(f"Aggregating {obj_config.type} objects...")
             df_catalog = pd.read_csv(
@@ -148,7 +149,7 @@ def aggregate_log(ti) -> None:
                 usecols=list(obj_config.catalog_columns.keys()),
             )
             df = pd.read_csv(
-                f"{FOUND_FOLDER}found_{obj_config.type}.csv",
+                f"{FOUND_FOLDER}found_{obj_config.type}-{isoformat_log_date}.csv",
                 dtype="string",
                 sep=";",
             )
@@ -241,12 +242,12 @@ def aggregate_log(ti) -> None:
             )
             df = df.rename(columns=obj_config.catalog_columns)
             df[obj_config.output_columns].to_csv(
-                path_or_buf=f"{OUTPUT_FOLDER}{obj_config.type}-{log_date}.csv",
+                path_or_buf=f"{OUTPUT_FOLDER}{obj_config.type}-{isoformat_log_date}.csv",
                 index=False,
                 header=False,
             )
             logging.info(
-                f"> Output saved in {obj_config.type}-{log_date}.csv ({df.shape[0]} rows)."
+                f"> Output saved in {obj_config.type}-{isoformat_log_date}.csv ({df.shape[0]} rows)."
                 f" With columns: {obj_config.output_columns}"
             )
             processed_dates = list(df["date_metric"].unique())
