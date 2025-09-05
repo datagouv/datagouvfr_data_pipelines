@@ -363,7 +363,7 @@ def check_schema(ti):
     if nb_datasets > 0:
         for item in datasets:
             r = requests.get(
-                item["page"].replace("data.gouv.fr/fr/", "data.gouv.fr/api/1/")
+                item["page"].replace("data.gouv.fr/", "data.gouv.fr/api/1/")
             )
             data = r.json()
             orga = get_organization(data)
