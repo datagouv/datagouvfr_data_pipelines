@@ -1,14 +1,11 @@
-import pandas as pd
 import re
-import requests
 import json
-import os
-from datetime import datetime, timedelta
 import logging
 from email.message import Message
 from zipfile import ZipFile
 from pathlib import Path
 
+import pandas as pd
 import requests
 import py7zr
 import duckdb
@@ -20,17 +17,15 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MINIO_BUCKET_DATA_PIPELINE,
 )
-from datagouvfr_data_pipelines.utils.utils import csv_to_parquet, MOIS_FR
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dfi"
-METADATA_FILE = 'metadata.json'
+METADATA_FILE = "metadata.json"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 minio_process = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
@@ -75,7 +70,7 @@ queries = [
     CREATE_DATE_VALID_DFI_IDX,
     CREATE_NATURE_DFI_CODES,
     EXPORT_DFI_TO_PARQUET,
-    EXPORT_NATURE_DFI_CODES_TO_PARQUET
+    EXPORT_NATURE_DFI_CODES_TO_PARQUET,
 ]
 
 
@@ -142,11 +137,13 @@ def reformat_dfi(filenames, output_name):
                                     lines = []
                     Path(file).unlink()
 
+
 def download_as_stream(remote_url, output_name):
     with requests.get(remote_url, stream=True) as response:
         with open(output_name, "wb") as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
+
 
 def get_real_name_from_content_disposition(url):
     r_head = requests.head(url)
@@ -154,6 +151,7 @@ def get_real_name_from_content_disposition(url):
     msg = Message()
     msg["content-disposition"] = content_disposition_header
     return msg.get_filename()
+
 
 def download_ressources(urls, destination_dir):
     filenames = []
@@ -166,12 +164,13 @@ def download_ressources(urls, destination_dir):
             print(f"{destination_dir}/{zip_file_output_name}" + " already exists!")
     return filenames
 
+
 def send_metadata_to_minio():
     minio_process.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
-                source_name=f'{METADATA_FILE}',
+                source_name=f"{METADATA_FILE}",
                 dest_path="dev/dfi/",
                 dest_name=f"{METADATA_FILE}",
             )
@@ -179,23 +178,36 @@ def send_metadata_to_minio():
         ignore_airflow_env=True,
     )
 
+
 def check_if_modif():
     # minio_process.get_file_content
     dataset_content = local_client.dataset(
         id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
     last_2_files = sorted(dataset_content.resources, key=lambda d: d.last_modified)[-2:]
-    metadata = [{'title': resource.title, 'url': resource.url, 'id': resource.id, 'last_modified': resource.last_modified} for resource in last_2_files]
-    with open(f'{DATADIR}/{METADATA_FILE}', 'w') as infile:
+    metadata = [
+        {
+            "title": resource.title,
+            "url": resource.url,
+            "id": resource.id,
+            "last_modified": resource.last_modified,
+        }
+        for resource in last_2_files
+    ]
+    with open(f"{DATADIR}/{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
-    metadata_does_exist = minio_process.does_file_exist_on_minio('dev/dfi/metadata.json')
+    metadata_does_exist = minio_process.does_file_exist_on_minio(
+        "dev/dfi/metadata.json"
+    )
     if not metadata_does_exist:
         send_metadata_to_minio()
         return True
     else:
-        metadata_content = json.loads(minio_process.get_file_content('dev/dfi/metadata.json'))
-        previous = sorted([i.get('last_modified') for i in metadata_content])
-        current = sorted([i.get('last_modified') for i in metadata])
+        metadata_content = json.loads(
+            minio_process.get_file_content("dev/dfi/metadata.json")
+        )
+        previous = sorted([i.get("last_modified") for i in metadata_content])
+        current = sorted([i.get("last_modified") for i in metadata])
         if len(set(previous).intersection(current)) != 2:
             send_metadata_to_minio()
             return True
@@ -205,8 +217,10 @@ def check_if_modif():
 
 def gather_data(ti):
     print("Getting resources list")
-    metadata_content = json.loads(minio_process.get_file_content('dev/dfi/metadata.json'))
-    urls_resources = [i.get('url') for i in metadata_content]
+    metadata_content = json.loads(
+        minio_process.get_file_content("dev/dfi/metadata.json")
+    )
+    urls_resources = [i.get("url") for i in metadata_content]
     logging.info("Start downloading DFI files")
     filenames = download_ressources(urls_resources, DATADIR)
     logging.info("End downloading DFI files")
@@ -221,17 +235,20 @@ def gather_data(ti):
     Path(output_duckdb_database_name).unlink()
     Path(f"{DATADIR}/dfi.csv").unlink()
 
-    parquets = [f'{DATADIR}/dfi.parquet' , f'{DATADIR}/nature_dfi_codes.parquet']
-    logging.info("Convert parquet to get the exact structure beetween parquet and CSV contrary to reformated CSV")
+    parquets = [f"{DATADIR}/dfi.parquet", f"{DATADIR}/nature_dfi_codes.parquet"]
+    logging.info(
+        "Convert parquet to get the exact structure beetween parquet and CSV contrary to reformated CSV"
+    )
     for parquet in parquets:
         df = pd.read_parquet(parquet)
-        df.to_csv(parquet.replace('.parquet', '.csv'), index=False)
+        df.to_csv(parquet.replace(".parquet", ".csv"), index=False)
         logging.info(f"Convert parquet file {parquet} to CSV")
+
 
 def send_to_minio():
     logging.info("Start to send files to Minio")
-    names = ['dfi', 'nature_dfi_codes']
-    exts = ['csv', 'parquet']
+    names = ["dfi", "nature_dfi_codes"]
+    exts = ["csv", "parquet"]
     fileslist = [
         File(
             source_path=f"{DATADIR}/",
@@ -239,14 +256,15 @@ def send_to_minio():
             dest_path="dfi/",
             dest_name=f"{filename}",
         )
-        for filename in [i for g in [[f'{name}.{ext}' for name in names] for ext in exts] for i in g]
+        for filename in [
+            i for g in [[f"{name}.{ext}" for name in names] for ext in exts] for i in g
+        ]
     ]
     minio_open.send_files(
         list_files=fileslist,
         ignore_airflow_env=True,
     )
     logging.info("End sending files to Minio Open")
-
 
 
 # def publish_on_datagouv(ti):
