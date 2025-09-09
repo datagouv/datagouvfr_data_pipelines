@@ -6,5 +6,25 @@
         "prod": {
             "dataset_id": "5a576fda88ee381c9d4e3304"
         }
+    },
+    "dfi_publi_parquet": {
+        "dev": {
+            "dataset_id": "68c01933ba7ee16b72651549",
+            "resource_id": "37f481c0-4ac0-443b-9e76-057406e94a16"
+        },
+        "prod": {
+            "dataset_id": "68c01933ba7ee16b72651549",
+            "resource_id": "37f481c0-4ac0-443b-9e76-057406e94a16"
+        }
+    },
+    "dfi_publi_csv": {
+        "dev": {
+            "dataset_id": "68c01933ba7ee16b72651549",
+            "resource_id": "acbfa641-2beb-47c3-9354-68747d13af15"
+        },
+        "prod": {
+            "dataset_id": "68c01933ba7ee16b72651549",
+            "resource_id": "acbfa641-2beb-47c3-9354-68747d13af15"
+        }
     }
 }

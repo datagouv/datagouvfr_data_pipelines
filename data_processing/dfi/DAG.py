@@ -10,8 +10,8 @@ from datagouvfr_data_pipelines.data_processing.dfi.task_functions import (
     check_if_modif,
     gather_data,
     send_to_minio,
-    # publish_on_datagouv,
-    # notification_mattermost,
+    publish_on_datagouv,
+    notification_mattermost,
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
@@ -26,7 +26,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 * * * *",
+    schedule_interval="0 */4 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
     tags=["dfi", "consolidation", "datagouv"],
@@ -53,24 +53,24 @@ with DAG(
         python_callable=send_to_minio,
     )
 
-    # publish_on_datagouv = PythonOperator(
-    #     task_id="publish_on_datagouv",
-    #     python_callable=publish_on_datagouv,
-    # )
+    publish_on_datagouv = PythonOperator(
+        task_id="publish_on_datagouv",
+        python_callable=publish_on_datagouv,
+    )
 
-    # clean_up = BashOperator(
-    #     task_id="clean_up",
-    #     bash_command=f"rm -rf {TMP_FOLDER}",
-    # )
+    clean_up = BashOperator(
+        task_id="clean_up",
+        bash_command=f"rm -rf {TMP_FOLDER}",
+    )
 
-    # notification_mattermost = PythonOperator(
-    #     task_id="notification_mattermost",
-    #     python_callable=notification_mattermost,
-    # )
+    notification_mattermost = PythonOperator(
+        task_id="notification_mattermost",
+        python_callable=notification_mattermost,
+    )
 
     check_if_modif.set_upstream(clean_previous_outputs)
     gather_data.set_upstream(check_if_modif)
     send_to_minio.set_upstream(gather_data)
-    # publish_on_datagouv.set_upstream(send_to_minio)
-    # clean_up.set_upstream(publish_on_datagouv)
-    # notification_mattermost.set_upstream(clean_up)
+    publish_on_datagouv.set_upstream(send_to_minio)
+    clean_up.set_upstream(publish_on_datagouv)
+    notification_mattermost.set_upstream(clean_up)

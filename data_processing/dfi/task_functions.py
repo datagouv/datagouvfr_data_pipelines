@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import logging
@@ -31,19 +32,15 @@ minio_process = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
     config = json.load(fp)
 
-# EDNC = Extraction_domaine_non_cadastre
-# PDP = Passage_domaine_public
-CREATE_DFI_TABLE = f"""CREATE OR REPLACE TABLE dfi AS
-SELECT CAST(code_insee AS VARCHAR) AS code_insee, CAST(code_dept AS VARCHAR) AS code_dept, code_com,prefixe_section,id_dfi,nature_dfi,
-       CAST(CAST(date_valid_dfi AS VARCHAR)[0:4] || '-' || CAST(date_valid_dfi AS VARCHAR)[5:6] || '-' || CAST(date_valid_dfi AS VARCHAR)[7:8] AS DATE) AS date_valid_dfi,
-       CASE WHEN p_mere = 'EDNC' THEN p_mere ELSE CAST(code_insee AS VARCHAR) || prefixe_section || lpad(p_mere, 6, '0') END AS p_mere,
-       CASE WHEN p_fille = 'PDP' THEN p_fille ELSE CAST(code_insee AS VARCHAR) || prefixe_section || lpad(p_fille, 6, '0') END AS p_fille
-FROM read_csv("{DATADIR}/dfi.csv", names = ['code_insee', 'code_dept', 'code_com', 'prefixe_section', 'id_dfi', 'nature_dfi', 'date_valid_dfi', 'p_mere', 'p_fille'], types = {{'code_insee': 'VARCHAR', 'code_dept': 'VARCHAR', 'code_com': 'VARCHAR', 'prefixe_section': 'VARCHAR', 'id_dfi': 'VARCHAR', 'nature_dfi': 'BIGINT', 'date_valid_dfi': 'VARCHAR', 'p_mere': 'VARCHAR', 'p_fille': 'VARCHAR'}})
-"""
-# Need duckdb 1.3.3 or later or may got https://github.com/duckdb/duckdb/issues/18190 when running below query
-CREATE_CODE_INSEE_IDX = "CREATE INDEX code_insee_idx ON dfi(code_insee);"
-CREATE_CODE_DEPT_IDX = "CREATE INDEX code_dept_idx ON dfi(code_dept);"
-CREATE_DATE_VALID_DFI_IDX = "CREATE INDEX date_valid_dfi_idx ON dfi(date_valid_dfi);"
+mapping_code_nature_nom_nature_dfi = {
+   2: 'croquis de conservation',
+   4: 'remaniement',
+   5: 'document d’arpentage numérique',
+   6: 'lotissement numérique',
+   7: 'lotissement',
+   8: 'rénovation'
+}
+
 CREATE_NATURE_DFI_CODES = """CREATE OR REPLACE TABLE nature_dfi_codes AS 
    SELECT data.code_nature_dfi::INTEGER AS code_nature_dfi, data.nom_nature_dfi
    FROM (VALUES (1,'document d’arpentage'),
@@ -54,25 +51,54 @@ CREATE_NATURE_DFI_CODES = """CREATE OR REPLACE TABLE nature_dfi_codes AS
    (7,'lotissement'),
    (8,'rénovation')) data(code_nature_dfi, nom_nature_dfi);
 """
+# EDNC = Extraction_domaine_non_cadastre
+# PDP = Passage_domaine_public
+CREATE_DFI_TABLE = f"""CREATE OR REPLACE TABLE dfi AS
+SELECT CAST(code_insee AS VARCHAR) AS code_insee, CAST(code_dept AS VARCHAR) AS code_departement, code_com AS code_commune,prefixe_section,id_dfi AS identifiant_dfi,nature_dfi AS code_nature_dfi, nom_nature_dfi,
+       CAST(CAST(date_valid_dfi AS VARCHAR)[0:4] || '-' || CAST(date_valid_dfi AS VARCHAR)[5:6] || '-' || CAST(date_valid_dfi AS VARCHAR)[7:8] AS DATE) AS date_validation_dfi,
+       CASE WHEN p_mere = 'EDNC' THEN p_mere ELSE lpad(p_mere, 6, '0') END AS parcelle_mere,
+       CASE WHEN p_fille = 'PDP' THEN p_fille ELSE lpad(p_fille, 6, '0') END AS parcelle_fille
+FROM read_csv("{DATADIR}/dfi.csv",
+  names = ['code_insee', 'code_dept', 'code_com', 'prefixe_section', 'id_dfi', 'nature_dfi', 'date_valid_dfi', 'p_mere', 'p_fille'],
+  types = {{'code_insee': 'VARCHAR', 'code_dept': 'VARCHAR', 'code_com': 'VARCHAR', 'prefixe_section': 'VARCHAR', 'id_dfi': 'VARCHAR', 'nature_dfi': 'BIGINT', 'date_valid_dfi': 'VARCHAR', 'p_mere': 'VARCHAR', 'p_fille': 'VARCHAR'}}
+) LEFT JOIN nature_dfi_codes ON code_nature_dfi = nature_dfi
+"""
+
+# Need duckdb 1.3.3 or later or may got https://github.com/duckdb/duckdb/issues/18190 when running below query
+CREATE_CODE_INSEE_IDX = "CREATE INDEX code_insee_idx ON dfi(code_insee);"
+CREATE_CODE_DEPT_IDX = "CREATE INDEX code_departement_idx ON dfi(code_departement);"
+CREATE_DATE_VALID_DFI_IDX = "CREATE INDEX date_validation_dfi_idx ON dfi(date_validation_dfi);"
+
 EXPORT_DFI_TO_PARQUET = f"""COPY dfi
 TO '{DATADIR}/dfi.parquet'
 (FORMAT parquet, COMPRESSION zstd);"""
-EXPORT_NATURE_DFI_CODES_TO_PARQUET = f"""COPY nature_dfi_codes
-TO '{DATADIR}/nature_dfi_codes.parquet'
-(FORMAT parquet, COMPRESSION zstd);"""
+
+QUERY_MIN_MAX_DATE = """
+SELECT min(date_validation_dfi), max(date_validation_dfi) FROM dfi;
+"""
 
 output_duckdb_database_name = f"{DATADIR}/dfi.duckdb"
 
 queries = [
+    CREATE_NATURE_DFI_CODES,
     CREATE_DFI_TABLE,
     CREATE_CODE_INSEE_IDX,
     CREATE_CODE_DEPT_IDX,
     CREATE_DATE_VALID_DFI_IDX,
-    CREATE_NATURE_DFI_CODES,
     EXPORT_DFI_TO_PARQUET,
-    EXPORT_NATURE_DFI_CODES_TO_PARQUET,
+    # EXPORT_NATURE_DFI_CODES_TO_PARQUET,
 ]
 
+def build_temporal_coverage(min_date, max_date):
+    # min_date is just a year
+    min_iso = f"{min_date}-01-01T00:00:00.000000Z"
+    # max_date looks like YYYY-mMM, we're setting the end to the end of the month
+    tmp_max = datetime.strptime(f"{max_date.replace('m', '')}-01", "%Y-%m-%d")
+    tmp_max = (tmp_max.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(
+        days=1
+    )
+    max_iso = f"{tmp_max.strftime('%Y-%m-%d')}T00:00:00.000000Z"
+    return min_iso, max_iso
 
 def reformat_dfi(filenames, output_name):
     lines = []
@@ -180,7 +206,6 @@ def send_metadata_to_minio():
 
 
 def check_if_modif():
-    # minio_process.get_file_content
     dataset_content = local_client.dataset(
         id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
@@ -212,7 +237,7 @@ def check_if_modif():
             send_metadata_to_minio()
             return True
         else:
-            return True
+            return False
 
 
 def gather_data(ti):
@@ -221,6 +246,7 @@ def gather_data(ti):
         minio_process.get_file_content("dev/dfi/metadata.json")
     )
     urls_resources = [i.get("url") for i in metadata_content]
+    information_date_about_dataset = re.findall(r'\((.*?)\)', metadata_content[0].get('title'))
     logging.info("Start downloading DFI files")
     filenames = download_ressources(urls_resources, DATADIR)
     logging.info("End downloading DFI files")
@@ -231,23 +257,27 @@ def gather_data(ti):
         for query in queries:
             logging.info(query)
             con.sql(query)
+        min_date, max_date = con.sql(QUERY_MIN_MAX_DATE).fetchone()
 
+    
     Path(output_duckdb_database_name).unlink()
     Path(f"{DATADIR}/dfi.csv").unlink()
 
-    parquets = [f"{DATADIR}/dfi.parquet", f"{DATADIR}/nature_dfi_codes.parquet"]
+    parquet_dfi = f"{DATADIR}/dfi.parquet"
     logging.info(
         "Convert parquet to get the exact structure beetween parquet and CSV contrary to reformated CSV"
     )
-    for parquet in parquets:
-        df = pd.read_parquet(parquet)
-        df.to_csv(parquet.replace(".parquet", ".csv"), index=False)
-        logging.info(f"Convert parquet file {parquet} to CSV")
+    df = pd.read_parquet(parquet_dfi)
+    df.to_csv(parquet_dfi.replace(".parquet", ".csv"), index=False)
+    logging.info(f"Convert parquet file {parquet_dfi} to CSV")
+    ti.xcom_push(key="min_date", value=f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z")
+    ti.xcom_push(key="max_date", value=f"{max_date.strftime('%Y-%m-%d')}T00:00:00.000000Z")
+    ti.xcom_push(key="information_date_about_dataset", value=information_date_about_dataset)
 
 
 def send_to_minio():
     logging.info("Start to send files to Minio")
-    names = ["dfi", "nature_dfi_codes"]
+    names = ["dfi"]
     exts = ["csv", "parquet"]
     fileslist = [
         File(
@@ -267,50 +297,61 @@ def send_to_minio():
     logging.info("End sending files to Minio Open")
 
 
-# def publish_on_datagouv(ti):
-#     min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
-#     max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
-#     for _ext in ["csv", "parquet"]:
-#         local_client.resource(
-#             id=config[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
-#             dataset_id=config[f"deces_{_ext}"][AIRFLOW_ENV]["dataset_id"],
-#             fetch=False,
-#         ).update(
-#             payload={
-#                 "url": (
-#                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-#                     f"/deces/deces.{_ext}"
-#                 ),
-#                 "filesize": os.path.getsize(DATADIR + f"/deces.{_ext}"),
-#                 "title": (
-#                     f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"
-#                 ),
-#                 "format": _ext,
-#                 "description": (
-#                     f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"
-#                     " (créé à partir des [fichiers de l'INSEE]"
-#                     "(https://www.data.gouv.fr/fr/datasets/5de8f397634f4164071119c5/))"
-#                 ),
-#             },
-#         )
-#     min_iso, max_iso = build_temporal_coverage(min_date, max_date)
-#     local_client.dataset(
-#         config["deces_csv"][AIRFLOW_ENV]["dataset_id"], fetch=False
-#     ).update(
-#         payload={
-#             "temporal_coverage": {
-#                 "start": min_iso,
-#                 "end": max_iso,
-#             },
-#         },
-#     )
+def publish_on_datagouv(ti):
+    min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
+    max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
+    information_date_about_dataset =  ti.xcom_pull(key="information_date_about_dataset", task_ids="gather_data")
+    information_date_about_dataset = f", {information_date_about_dataset[0]}" if len(information_date_about_dataset) == 1 else ''
+    for _ext in ["csv", "parquet"]:
+        local_client.resource(
+            id=config[f"dfi_publi_{_ext}"][AIRFLOW_ENV]["resource_id"],
+            dataset_id=config[f"dfi_publi_{_ext}"][AIRFLOW_ENV]["dataset_id"],
+            fetch=False,
+        ).update(
+            payload={
+                "url": (
+                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"/dfi/dfi.{_ext}"
+                ),
+                "filesize": os.path.getsize(DATADIR + f"/dfi.{_ext}"),
+                "title": (
+                    f"Documents de filiation informatisés (DFI) des parcelles{information_date_about_dataset} (format {_ext})"
+                ),
+                "format": _ext,
+                "description": (
+                    f"Documents de filiation informatisés (DFI) des parcelles, {information_date_about_dataset} (format {_ext})"
+                    " (créé à partir des [fichiers des Documents de filiation informatisés (DFI) des parcelles]"
+                    "(https://www.data.gouv.fr/datasets/documents-de-filiation-informatises-dfi-des-parcelles/))"
+                ),
+            },
+        )
+    local_client.dataset(
+        config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"], fetch=False
+    ).update(
+        payload={
+            "temporal_coverage": {
+                "start": min_date,
+                "end": max_date,
+            },
+            "tags": [
+                "administration",
+                "arpentage",
+                "cadastre",
+                "dfi",
+                "filiations",
+                "geometres-experts",
+                "parcelles",
+                "plan-cadastral"
+            ],
+        },
+    )
 
 
-# def notification_mattermost():
-#     dataset_id = config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
-#     send_message(
-#         f"Données DFI agrégées :"
-#         f"\n- uploadées sur Minio"
-#         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-#         f"({local_client.base_url}/fr/datasets/{dataset_id}/)"
-#     )
+def notification_mattermost():
+    dataset_id = config["deces_publi_csv"][AIRFLOW_ENV]["dataset_id"]
+    send_message(
+        f"Données DFI agrégées :"
+        f"\n- uploadées sur Minio"
+        f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
+        f"({local_client.base_url}/fr/datasets/{dataset_id}/)"
+    )
