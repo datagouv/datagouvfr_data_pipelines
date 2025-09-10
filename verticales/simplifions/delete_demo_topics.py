@@ -6,7 +6,7 @@ DEMO_DATAGOUV_SECRET_API_KEY = os.getenv("DEMO_DATAGOUV_SECRET_API_KEY")
 
 def delete_demo_topic(topic_id: str):
     response = requests.delete(
-        f"https://demo.data.gouv.fr/api/1/topics/{topic_id}/",
+        f"https://demo.data.gouv.fr/api/2/topics/{topic_id}/",
         headers={"X-API-KEY": DEMO_DATAGOUV_SECRET_API_KEY},
     )
     if response.status_code != 204:

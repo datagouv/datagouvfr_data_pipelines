@@ -23,7 +23,7 @@ TAGS_TO_FETCH = [
 
 def get_one_topic_for_tag(tag: str) -> dict:
     """Standalone function to get API response for topics with a specific tag (public data only)."""
-    url = f"{BASE_URL}/api/1/topics/?tag={tag}&page_size=1"
+    url = f"{BASE_URL}/api/2/topics/?tag={tag}&page_size=1"
 
     r = requests.get(url)
     r.raise_for_status()

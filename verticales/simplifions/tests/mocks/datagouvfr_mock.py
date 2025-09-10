@@ -5,13 +5,13 @@ import requests_mock
 
 class DatagouvfrMock(ExternalResourcesMock):
     def match_resource_list_url(self, resource_name: str):
-        return f"https://demo.data.gouv.fr/api/1/{resource_name}/"
+        return f"https://demo.data.gouv.fr/api/2/{resource_name}/"
 
     def match_resource_creation_url(self, resource_name: str):
-        return f"https://demo.data.gouv.fr/api/1/{resource_name}/"
+        return f"https://demo.data.gouv.fr/api/2/{resource_name}/"
 
     def match_resource_url(self, resource_name: str):
-        return re.compile(rf"https://demo\.data\.gouv\.fr/api/1/{resource_name}/.+")
+        return re.compile(rf"https://demo\.data\.gouv\.fr/api/2/{resource_name}/.+")
 
     def build_filtered_response_for_records(
         self, records: list[dict], request: requests_mock.Mocker
