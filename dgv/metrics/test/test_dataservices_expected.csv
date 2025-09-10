@@ -1,0 +1,3 @@
+date_metric,dataservice_id,organization_id,nb_visit,nb_visit_apis,nb_visit_total,nb_visit_api1,nb_visit_api2,nb_visit_fr,nb_visit_en,nb_visit_es,nb_visit_,nb_visit_static
+1900-01-01,669072c71f100ac2481ff6c7,534fff8ea3a7292c64a77f02,1,0,1,0,0,0,0,0,1,0
+1900-01-01,673b0e6774a23d9eac2af8ce,646b7187b50b2a93b1ae3d45,1,0,1,0,0,0,0,0,1,0
