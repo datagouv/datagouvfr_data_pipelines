@@ -345,7 +345,7 @@ def publish_on_datagouv(ti):
 
 
 def notification_mattermost():
-    dataset_id = config["deces_publi_csv"][AIRFLOW_ENV]["dataset_id"]
+    dataset_id = config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         f"Données DFI agrégées :"
         f"\n- uploadées sur Minio"
