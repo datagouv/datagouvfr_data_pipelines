@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_datasets
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0,
-    nb_visit_ INTEGER DEFAULT 0
+    nb_visit_ INTEGER DEFAULT 0,
+    nb_visit_static INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_reuses
 (
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_reuses
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0,
-    nb_visit_ INTEGER DEFAULT 0
+    nb_visit_ INTEGER DEFAULT 0,
+    nb_visit_static INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_organizations
 (
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_organizations
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0,
-    nb_visit_ INTEGER DEFAULT 0
+    nb_visit_ INTEGER DEFAULT 0,
+    nb_visit_static INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_dataservices
 (
@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_dataservices
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0,
-    nb_visit_ INTEGER DEFAULT 0
+    nb_visit_ INTEGER DEFAULT 0,
+    nb_visit_static INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS metric.visits_resources
 (
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS metric.visits_resources
     nb_visit_fr INTEGER DEFAULT 0,
     nb_visit_en INTEGER DEFAULT 0,
     nb_visit_es INTEGER DEFAULT 0,
-    nb_visit_static INTEGER DEFAULT 0,
     nb_visit_ INTEGER DEFAULT 0,
+    nb_visit_static INTEGER DEFAULT 0,
     nb_visit_api_permalink INTEGER DEFAULT 0
 );
 
