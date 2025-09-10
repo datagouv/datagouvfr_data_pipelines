@@ -13,7 +13,7 @@ class TopicsAPI:
         # because the client doesn't have built-in api key management
         # for the topics endpoints for now
         self.dgv_headers = client.session.headers
-        self.resource_url = f"{self.client.base_url}/api/1/topics/"
+        self.resource_url = f"{self.client.base_url}/api/2/topics/"
 
     def _topic_url(self, topic_id: str) -> str:
         return f"{self.resource_url}/{topic_id}/"
