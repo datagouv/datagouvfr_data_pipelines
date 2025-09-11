@@ -19,6 +19,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
@@ -137,13 +138,6 @@ def reformat_dfi(filenames, output_name):
                     Path(file).unlink()
 
 
-def download_as_stream(remote_url, output_name):
-    with requests.get(remote_url, stream=True) as response:
-        with open(output_name, "wb") as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-
-
 def get_real_name_from_content_disposition(url):
     r_head = requests.head(url)
     content_disposition_header = r_head.headers["content-disposition"]
@@ -152,15 +146,17 @@ def get_real_name_from_content_disposition(url):
     return msg.get_filename()
 
 
-def download_ressources(urls, destination_dir):
+def get_download_ressources_infos(urls, destination_dir):
     filenames = []
     for remote_url in reversed(urls):
         zip_file_output_name = get_real_name_from_content_disposition(remote_url)
-        filenames.append(f"{destination_dir}/{zip_file_output_name}")
-        if not Path(zip_file_output_name).is_file():
-            download_as_stream(remote_url, f"{destination_dir}/{zip_file_output_name}")
-        else:
-            print(f"{destination_dir}/{zip_file_output_name}" + " already exists!")
+        filenames.append(
+            {
+                "url": remote_url,
+                "dest_path": destination_dir,
+                "dest_name": zip_file_output_name,
+            }
+        )
     return filenames
 
 
@@ -223,7 +219,12 @@ def gather_data(ti):
         r"\((.*?)\)", metadata_content[0].get("title")
     )
     logging.info("Start downloading DFI files")
-    filenames = download_ressources(urls_resources, DATADIR)
+    filenames_infos = get_download_ressources_infos(urls_resources, DATADIR)
+    download_files(filenames_infos)
+    filenames = [
+        f"{filename_info.get('dest_path')}/{filename_info.get('dest_name')}"
+        for filename_info in filenames_infos
+    ]
     logging.info("End downloading DFI files")
     logging.info("Reformat CSV to get a child and parent parcelle for each line")
     reformat_dfi(filenames, f"{DATADIR}/dfi.csv")
