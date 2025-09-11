@@ -56,13 +56,6 @@ FROM read_csv("{DATADIR}/dfi.csv",
 ) LEFT JOIN nature_dfi_codes ON code_nature_dfi = nature_dfi
 """
 
-# Need duckdb 1.3.3 or later or may got https://github.com/duckdb/duckdb/issues/18190 when running below query
-CREATE_CODE_INSEE_IDX = "CREATE INDEX code_insee_idx ON dfi(code_insee);"
-CREATE_CODE_DEPT_IDX = "CREATE INDEX code_departement_idx ON dfi(code_departement);"
-CREATE_DATE_VALID_DFI_IDX = (
-    "CREATE INDEX date_validation_dfi_idx ON dfi(date_validation_dfi);"
-)
-
 EXPORT_DFI_TO_PARQUET = f"""COPY dfi
 TO '{DATADIR}/dfi.parquet'
 (FORMAT parquet, COMPRESSION zstd);"""
@@ -76,11 +69,7 @@ output_duckdb_database_name = f"{DATADIR}/dfi.duckdb"
 queries = [
     CREATE_NATURE_DFI_CODES,
     CREATE_DFI_TABLE,
-    CREATE_CODE_INSEE_IDX,
-    CREATE_CODE_DEPT_IDX,
-    CREATE_DATE_VALID_DFI_IDX,
     EXPORT_DFI_TO_PARQUET,
-    # EXPORT_NATURE_DFI_CODES_TO_PARQUET,
 ]
 
 
