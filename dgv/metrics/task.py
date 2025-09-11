@@ -1,4 +1,3 @@
-from collections import defaultdict
 import glob
 import logging
 import os
@@ -14,7 +13,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
-    get_catalog_id_mapping,
+    aggregate_metrics,
     parse_logs,
     sum_outlinks_by_orga,
     get_matomo_outlinks,
@@ -149,109 +148,23 @@ def aggregate_log(ti) -> None:
                 usecols=list(obj_config.catalog_columns.keys()),
             )
             df = pd.read_csv(
-                f"{FOUND_FOLDER}found_{obj_config.type}-{isoformat_log_date}.csv",
+                f"{FOUND_FOLDER}{obj_config.type}_found.csv",
                 dtype="string",
                 sep=";",
             )
 
-            if obj_config.type in ["resources"]:
-                catalog_dict: dict[str, str] = defaultdict()
-                static_uri = "https://static.data.gouv.fr/resources/"
-
-                # Resource catalog has no slug column but static
-                # URLs starting with https://static.data.gouv.fr/resources/$SLUG
-                # Using a resource ID will trigger a redirect to its static URL so we want:
-                # 1. All the slugs from the static URLs
-                df_slugs = (
-                    df_catalog.loc[lambda df: df["url"].str.contains(static_uri)]
-                    .assign(slug=lambda df: df["url"].str.replace(static_uri, ""))
-                    .filter(items=["slug", "id"])
-                )
-                catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
-
-                # 2. All the IDs that don't have any static URL
-                #  Note: a few resource_id are common to multiple datasets
-                #  They need to be deduplicated with a priority to
-                #  "dataset.archived" as False otherwise keep the last one created
-                df_ids = (
-                    df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
-                    .sort_values(
-                        by=["dataset.archived", "created_at"], ascending=[True, False]
-                    )
-                    .drop_duplicates(subset=["id"], keep="first")
-                    .filter(items=["id"])
-                )
-                catalog_dict.update({id: id for id in df_ids["id"].to_list()})
-            else:
-                # Get all slugs and IDs
-                catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
-
-            # Replace slugs by their ID and make sure all IDs do exist in the catalog
-            df["id"] = df["id"].apply(
-                lambda x: catalog_dict[x] if x in catalog_dict else None
-            )
-
-            df = df.groupby(["date_metric", "id"], as_index=False).aggregate(
-                nb_visit_static=(
-                    "segment",
-                    lambda x: x.isin(
-                        [
-                            segment.replace("/", "")
-                            for segment in config.all_static_segments
-                        ]
-                    ).sum(),
-                ),
-                nb_visit_api_permalink=(
-                    "segment",
-                    lambda x: x.isin(["api_permalink"]).sum(),
-                ),
-                nb_visit=(
-                    "segment",
-                    lambda x: x.isin(
-                        [
-                            segment.replace("/", "")
-                            for segment in config.web_segments
-                            + config.all_static_segments
-                            + [
-                                "api_permalink"
-                            ]  # To refactor. This is only for ressources.
-                        ]
-                    ).sum(),
-                ),
-                nb_visit_apis=(
-                    "segment",
-                    lambda x: x.isin(
-                        [segment.replace("/", "") for segment in config.api_segments]
-                    ).sum(),
-                ),
-                nb_visit_total=("segment", "count"),
-                **{
-                    f"nb_visit_{segment.replace('/', '')}": (
-                        "segment",
-                        lambda x, s=segment.replace("/", ""): (x == s).sum(),
-                    )
-                    for segment in config.all_segments
-                },  # type: ignore
-            )
-            df.sort_values(by="nb_visit", ascending=False)
-            df = pd.merge(
+            processed_dates, n_rows = aggregate_metrics(
                 df,
                 df_catalog,
-                on="id",
-                how="left",
+                obj_config,
+                config,
+                f"{OUTPUT_FOLDER}{obj_config.type}-{log_date}.csv",
             )
-            df = df.rename(columns=obj_config.catalog_columns)
-            df[obj_config.output_columns].to_csv(
-                path_or_buf=f"{OUTPUT_FOLDER}{obj_config.type}-{isoformat_log_date}.csv",
-                index=False,
-                header=False,
-            )
+            dates_processed = get_unique_list(dates_processed, processed_dates)
             logging.info(
-                f"> Output saved in {obj_config.type}-{isoformat_log_date}.csv ({df.shape[0]} rows)."
+                f"> Output saved in {obj_config.type}-{log_date}.csv ({n_rows} rows)."
                 f" With columns: {obj_config.output_columns}"
             )
-            processed_dates = list(df["date_metric"].unique())
-            dates_processed = get_unique_list(dates_processed, processed_dates)
 
     logging.info(f"Processed dates: {dates_processed}")
     ti.xcom_push(key="dates_processed", value=dates_processed)
@@ -288,7 +201,7 @@ def save_metrics_to_postgres() -> None:
                         column_order="(" + ", ".join(obj_config.output_columns) + ")",
                     ),
                     table=f"{config.database_schema}.visits_{obj_config.type}",
-                    has_header=False,
+                    has_header=True,
                 )
 
 

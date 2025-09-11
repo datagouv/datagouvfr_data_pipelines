@@ -1,11 +1,12 @@
 from collections import defaultdict
 import re
+from collections import defaultdict
 from typing import Any
 
 import pandas as pd
 import requests
 
-from datagouvfr_data_pipelines.dgv.metrics.config import DataGouvLog
+from datagouvfr_data_pipelines.dgv.metrics.config import DataGouvLog, MetricsConfig
 from datagouvfr_data_pipelines.utils.filesystem import save_list_of_dict_to_csv
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
@@ -39,7 +40,7 @@ def save_log_infos_to_csv(
             and the values are lists of objects of that type.
     """
     for type, list_obj in logs_info_per_type.items():
-        destination_file = f"{output_path}found_{type}-{date}.csv"
+        destination_file = f"{output_path}{type}_found.csv"
         save_list_of_dict_to_csv(list_obj, destination_file)
 
 
@@ -166,7 +167,7 @@ def get_matomo_outlinks(
         "module": "API",
         "method": "Actions.getOutlinks",
         "actionType": "url",
-        "segment": f"actionUrl==https://www.data.gouv.fr/fr/{model}/{slug}/",
+        "segment": f"actionUrl==https://www.data.gouv.fr/{model}/{slug}/",
         "format": "JSON",
         "token_auth": "anonymous",
         "idSite": 109,
@@ -180,3 +181,107 @@ def get_matomo_outlinks(
         for outlink in matomo_res.json()
         if outlink["label"] in target
     )
+
+
+def aggregate_metrics(
+    df: pd.DataFrame,
+    df_catalog: pd.DataFrame,
+    obj_config: DataGouvLog,
+    config: MetricsConfig,
+    output_path: str,
+    ) -> tuple[list[str], int]:
+
+    if obj_config.type in ["resources"]:
+        catalog_dict: dict[str, str] = defaultdict()
+        static_uri = "https://static.data.gouv.fr/resources/"
+
+        # Resource catalog has no slug column but static
+        # URLs starting with https://static.data.gouv.fr/resources/$SLUG
+        # Using a resource ID will trigger a redirect to its static URL so we want:
+        # 1. All the slugs from the static URLs
+        df_slugs = (
+            df_catalog.loc[lambda df: df["url"].str.contains(static_uri)]
+            .assign(slug=lambda df: df["url"].str.replace(static_uri, ""))
+            .filter(items=["slug", "id"])
+        )
+        catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
+
+        # 2. All the IDs that don't have any static URL
+        #  Note: a few resource_id are common to multiple datasets
+        #  They need to be deduplicated with a priority to
+        #  "dataset.archived" as False otherwise keep the last one created
+        df_ids = (
+            df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
+            .sort_values(
+                by=["dataset.archived", "created_at"], ascending=[True, False]
+            )
+            .drop_duplicates(subset=["id"], keep="first")
+            .filter(items=["id"])
+        )
+        catalog_dict.update({id: id for id in df_ids["id"].to_list()})
+    else:
+        # Get all slugs and IDs
+        catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
+
+    # Replace slugs by their ID and make sure all IDs do exist in the catalog
+    df["id"] = df["id"].apply(
+        lambda x: catalog_dict[x] if x in catalog_dict else None
+    )
+    df["segment"] = df["segment"].fillna("")
+
+    df = df.groupby(["date_metric", "id"], as_index=False).aggregate(
+        nb_visit_static=(
+            "segment",
+            lambda x: x.isin(
+                [
+                    segment.replace("/", "")
+                    for segment in config.all_static_segments
+                ]
+            ).sum(),
+        ),
+        nb_visit_api_permalink=(
+            "segment",
+            lambda x: x.isin(["api_permalink"]).sum(),
+        ),
+        nb_visit=(
+            "segment",
+            lambda x: x.isin(
+                [
+                    segment.replace("/", "")
+                    for segment in config.web_segments
+                    + config.all_static_segments
+                    + ["api_permalink"]  # To refactor. This is only for ressources.
+                ]
+            ).sum(),
+        ),
+        nb_visit_apis=(
+            "segment",
+            lambda x: x.isin(
+                [segment.replace("/", "") for segment in config.api_segments]
+            ).sum(),
+        ),
+        nb_visit_total=("segment", "count"),
+        **{
+            f"nb_visit_{segment.replace('/', '')}": (
+                "segment",
+                lambda x, s=segment.replace("/", ""): (x == s).sum(),
+            )
+            for segment in config.all_segments
+        },  # type: ignore
+    )
+    df.sort_values(by="nb_visit", ascending=False)
+    df = pd.merge(
+        df,
+        df_catalog,
+        on="id",
+        how="left",
+    )
+    df = df.rename(columns=obj_config.catalog_columns)
+    df[obj_config.output_columns].to_csv(
+        path_or_buf=output_path,
+        sep=",",
+        index=False,
+        header=True,
+    )
+
+    return list(df["date_metric"].unique()), df.shape[0]
