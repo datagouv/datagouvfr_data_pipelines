@@ -268,7 +268,6 @@ def gather_data(ti):
 
 def send_to_minio():
     logging.info("Start to send files to Minio")
-    names = ["dfi"]
     exts = ["csv", "parquet"]
     fileslist = [
         File(
@@ -277,9 +276,7 @@ def send_to_minio():
             dest_path="dfi/",
             dest_name=f"{filename}",
         )
-        for filename in [
-            i for g in [[f"{name}.{ext}" for name in names] for ext in exts] for i in g
-        ]
+        for filename in [f"dfi.{ext}" for ext in exts]
     ]
     minio_open.send_files(
         list_files=fileslist,
