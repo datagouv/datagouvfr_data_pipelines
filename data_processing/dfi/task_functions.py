@@ -225,7 +225,7 @@ def check_if_modif():
 
 
 def gather_data(ti):
-    print("Getting resources list")
+    logging.info("Getting resources list")
     metadata_content = json.loads(
         minio_process.get_file_content("dev/dfi/metadata.json")
     )
