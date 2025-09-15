@@ -16,7 +16,10 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query, local_client
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    local_client,
+)
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 minio_pnt = MinIOClient(
@@ -90,7 +93,9 @@ def scan_pnt_files(ti):
             elif r["url"] == "http://test.com":
                 if resp["title"] not in unavailable_resources:
                     unavailable_resources[resp["title"]] = []
-                unavailable_resources[resp["title"]].append([r["title"], resp["id"], r["id"]])
+                unavailable_resources[resp["title"]].append(
+                    [r["title"], resp["id"], r["id"]]
+                )
 
     with open(AIRFLOW_DAG_TMP + too_old_filename, "w") as f:
         json.dump(too_old, f, ensure_ascii=False)
