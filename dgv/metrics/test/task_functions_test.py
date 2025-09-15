@@ -41,13 +41,16 @@ def test_parse_logs():
         lines = log_data.readlines()
         parse_logs(
             logs=lines,
-            date = "1900-01-01",
+            date="1900-01-01",
             logs_config=config.logs_config,
             output_path=test_path,
         )
 
     for log_config in config.logs_config:
-        with open(test_path + f"{log_config.type}_found.csv", "rb") as out_f, open(test_path + f"{log_config.type}_found_expected.csv", "rb") as exp_f:
+        with (
+            open(test_path + f"{log_config.type}_found.csv", "rb") as out_f,
+            open(test_path + f"{log_config.type}_found_expected.csv", "rb") as exp_f,
+        ):
             output_content = out_f.read()
             expected_content = exp_f.read()
 
@@ -90,7 +93,10 @@ def test_aggregate_metrics():
             f"{test_path}{log_config.type}.csv",
         )
 
-        with open(test_path + f"{log_config.type}.csv", "rb") as out_f, open(test_path + f"{log_config.type}_expected.csv", "rb") as exp_f:
+        with (
+            open(test_path + f"{log_config.type}.csv", "rb") as out_f,
+            open(test_path + f"{log_config.type}_expected.csv", "rb") as exp_f,
+        ):
             output_content = out_f.read()
             expected_content = exp_f.read()
 
