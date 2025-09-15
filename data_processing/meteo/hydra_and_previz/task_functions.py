@@ -51,9 +51,8 @@ def get_and_send_errors():
     catalog = [
         el["element"]["id"]
         for el in get_all_from_api_query(
-            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/"
+            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/?class=Dataset"
         )
-        if el["element"]["class"] == "Dataset"
     ]
 
     print("Getting infos for all resources...")

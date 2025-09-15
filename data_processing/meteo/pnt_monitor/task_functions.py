@@ -63,9 +63,8 @@ def scan_pnt_files(ti):
     pnt_datasets = [
         el["element"]["id"]
         for el in get_all_from_api_query(
-            "https://www.data.gouv.fr/api/2/topics/65e0c82c2da27c1dff5fa66f/elements/"
+            "https://www.data.gouv.fr/api/2/topics/65e0c82c2da27c1dff5fa66f/elements/?class=Dataset"
         )
-        if el["element"]["class"] == "Dataset"
     ]
 
     time_slots = {}

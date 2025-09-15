@@ -40,9 +40,8 @@ def gather_meteo_stats(ti):
     datasets = [
         el["element"]["id"]
         for el in get_all_from_api_query(
-            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/"
+            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/?class=Dataset"
         )
-        if el["element"]["class"] == "Dataset"
     ]
     # pour chaque dataset on récupère la métrique du mois précédent
     # qu'on indique comme monthly visit
