@@ -63,7 +63,9 @@ def get_and_send_perimeter_objects(ti, object_type: str):
         sep=";",
         dtype=str,
     )
-    catalog_ids = catalog_ids.loc[catalog_ids["organization_id"].isin(orgas), "id"].to_list()
+    catalog_ids = catalog_ids.loc[
+        catalog_ids["organization_id"].isin(orgas), "id"
+    ].to_list()
     # getting tags to put them back
     tags = requests.get(
         f"{local_client.base_url}/api/2/topics/{topic_id}/",
