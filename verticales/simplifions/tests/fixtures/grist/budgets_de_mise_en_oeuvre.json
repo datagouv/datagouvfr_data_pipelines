@@ -1,0 +1,8 @@
+{
+  "resource_name": "Budgets_de_mise_en_oeuvre",
+  "total_records_available": 3,
+  "sample_record": {
+    "Label": "Aucun développement, ni budget",
+    "slug": "aucun-developpement-ni-budget"
+  }
+}

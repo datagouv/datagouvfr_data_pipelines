@@ -11,7 +11,7 @@ import requests
 from pathlib import Path
 
 # Grist configuration (copied from grist_manager.py to make this script standalone)
-GRIST_DOC_ID = "c5pt7QVcKWWe"
+GRIST_DOC_ID = "ofSVjCSAnMb6"
 
 # Get configuration from environment variables
 GRIST_API_URL = os.getenv("GRIST_API_URL", "")
@@ -19,12 +19,12 @@ SECRET_GRIST_API_KEY = os.getenv("SECRET_GRIST_API_KEY", "")
 
 # All tables to fetch fixtures for
 TABLES_TO_FETCH = [
-    "SIMPLIFIONS_cas_usages",
-    "SIMPLIFIONS_produitspublics",
-    "SIMPLIFIONS_solutions_editeurs",
-    "SIMPLIFIONS_reco_solutions_cas_usages",
-    "Apidata",
-    "SIMPLIFIONS_description_apidata_cas_usages",
+    "Cas_d_usages",
+    "Solutions",
+    "Fournisseurs_de_services",
+    "Types_de_simplification",
+    "Usagers",
+    "Budgets_de_mise_en_oeuvre",
 ]
 
 
@@ -40,7 +40,7 @@ def request_grist_table(table_id: str, filter: str = None) -> list[dict]:
         params={"filter": filter} if filter else None,
     )
     r.raise_for_status()
-    return [row["fields"] for row in r.json()["records"]]
+    return [record["fields"] for record in r.json()["records"]]
 
 
 def fetch_and_save_table_fixture(table_id: str):

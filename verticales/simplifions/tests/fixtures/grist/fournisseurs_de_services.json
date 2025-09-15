@@ -1,0 +1,8 @@
+{
+  "resource_name": "Fournisseurs_de_services",
+  "total_records_available": 10,
+  "sample_record": {
+    "Label": "Communes",
+    "slug": "communes"
+  }
+}

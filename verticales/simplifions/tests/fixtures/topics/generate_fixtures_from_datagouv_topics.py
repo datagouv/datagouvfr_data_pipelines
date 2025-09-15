@@ -16,8 +16,8 @@ BASE_URL = "https://demo.data.gouv.fr"
 
 # Tags to fetch fixtures for
 TAGS_TO_FETCH = [
-    "simplifions-cas-d-usages",
-    "simplifions-solutions",
+    "simplifions-v2-cas-d-usages",
+    "simplifions-v2-solutions",
 ]
 
 
