@@ -58,7 +58,7 @@ def threshold_in_the_past(nb_batches_behind=3):
 def scan_pnt_files(ti):
     threshold = threshold_in_the_past()
     pnt_datasets = requests.get(
-        "https://www.data.gouv.fr/api/1/topics/65e0c82c2da27c1dff5fa66f/",
+        "https://www.data.gouv.fr/api/2/topics/65e0c82c2da27c1dff5fa66f/",
         headers={"X-fields": "datasets{id,title}"},
     ).json()["datasets"]
 

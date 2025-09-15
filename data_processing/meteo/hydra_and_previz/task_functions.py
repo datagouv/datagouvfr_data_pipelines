@@ -48,7 +48,7 @@ def build_resource_url(dataset_id, resource_id):
 def get_and_send_errors():
     print("Getting all datasets of meteo.data.gouv...")
     catalog = requests.get(
-        "https://www.data.gouv.fr/api/1/topics/6571f222129681e83de11aa2/",
+        "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/",
         headers={"X-fields": "datasets{id}"},
     ).json()["datasets"]
 

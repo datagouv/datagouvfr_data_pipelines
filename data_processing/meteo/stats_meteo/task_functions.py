@@ -29,7 +29,7 @@ def gather_meteo_stats(ti):
     print("> Stats détaillées")
     # on récupère tous les datasets de meteo.data.gouv
     datasets = requests.get(
-        "https://www.data.gouv.fr/api/1/topics/6571f222129681e83de11aa2"
+        "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/"
     ).json()["datasets"]
     # pour chaque dataset on récupère la métrique du mois précédent
     # qu'on indique comme monthly visit
