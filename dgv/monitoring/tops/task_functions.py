@@ -60,11 +60,12 @@ def compute_top(_class, date, title):
     textTop = ""
     r = requests.post(
         BASE_URL,
-        data=PARAMS_TOPS | {
+        data=PARAMS_TOPS
+        | {
             "period": "range",
             "date": date,
             "filter_pattern": f"/{_class}/",
-        }
+        },
     )
     logging.info(r.url)
     r.raise_for_status()
@@ -120,7 +121,8 @@ def compute_general(date):
     logging.info(date)
     r = requests.post(
         BASE_URL,
-        data=PARAMS_GENERAL | {
+        data=PARAMS_GENERAL
+        | {
             "date": date,
             "period": "range" if "," in date else "day",
         },

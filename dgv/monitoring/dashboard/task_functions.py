@@ -225,7 +225,8 @@ def get_visits(
     ]:
         r = requests.post(
             "https://stats.data.gouv.fr/index.php",
-            data=MATOMO_PARAMS | {
+            data=MATOMO_PARAMS
+            | {
                 "date": f"{start_date.strftime('%Y-%m-%d')},{end_date.strftime('%Y-%m-%d')}",
                 "label": k["label"],
                 "idSite": k["site_id"],

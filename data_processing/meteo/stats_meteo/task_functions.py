@@ -105,7 +105,8 @@ def gather_meteo_stats(ti):
     today = datetime.today().strftime("%Y-%m-%d")
     r = requests.post(
         "https://stats.data.gouv.fr/index.php",
-        data=MATOMO_PARAMS | {
+        data=MATOMO_PARAMS
+        | {
             "date": f"{start_date},{today}",
             "label": "",
         },
