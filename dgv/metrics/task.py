@@ -138,7 +138,7 @@ def aggregate_log(ti) -> None:
     dates_processed: list[str] = []
 
     for log_date in dates_to_process:
-        isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
+        # isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
         for obj_config in config.logs_config:
             logging.info(f"Aggregating {obj_config.type} objects...")
             df_catalog = pd.read_csv(

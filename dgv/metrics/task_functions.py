@@ -1,6 +1,5 @@
 from collections import defaultdict
 import re
-from collections import defaultdict
 from typing import Any
 
 import pandas as pd
@@ -189,8 +188,7 @@ def aggregate_metrics(
     obj_config: DataGouvLog,
     config: MetricsConfig,
     output_path: str,
-    ) -> tuple[list[str], int]:
-
+) -> tuple[list[str], int]:
     if obj_config.type in ["resources"]:
         catalog_dict: dict[str, str] = defaultdict()
         static_uri = "https://static.data.gouv.fr/resources/"
@@ -212,9 +210,7 @@ def aggregate_metrics(
         #  "dataset.archived" as False otherwise keep the last one created
         df_ids = (
             df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
-            .sort_values(
-                by=["dataset.archived", "created_at"], ascending=[True, False]
-            )
+            .sort_values(by=["dataset.archived", "created_at"], ascending=[True, False])
             .drop_duplicates(subset=["id"], keep="first")
             .filter(items=["id"])
         )
@@ -224,19 +220,14 @@ def aggregate_metrics(
         catalog_dict = get_catalog_id_mapping(df_catalog, "slug")
 
     # Replace slugs by their ID and make sure all IDs do exist in the catalog
-    df["id"] = df["id"].apply(
-        lambda x: catalog_dict[x] if x in catalog_dict else None
-    )
+    df["id"] = df["id"].apply(lambda x: catalog_dict[x] if x in catalog_dict else None)
     df["segment"] = df["segment"].fillna("")
 
     df = df.groupby(["date_metric", "id"], as_index=False).aggregate(
         nb_visit_static=(
             "segment",
             lambda x: x.isin(
-                [
-                    segment.replace("/", "")
-                    for segment in config.all_static_segments
-                ]
+                [segment.replace("/", "") for segment in config.all_static_segments]
             ).sum(),
         ),
         nb_visit_api_permalink=(
