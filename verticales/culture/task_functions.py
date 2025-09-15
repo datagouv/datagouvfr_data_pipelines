@@ -24,7 +24,6 @@ DATADIR = f"{AIRFLOW_DAG_TMP}culture/data/"
 topic_id = (
     "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
 )
-parquet_bucket = "hydra" if AIRFLOW_ENV == "prod" else "demo-hydra"
 metrics_api_url = "https://metric-api.data.gouv.fr/api/{}/data/?{}_id__exact={}"
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
@@ -58,12 +57,13 @@ def get_perimeter_orgas(ti):
 
 def get_and_send_perimeter_objects(ti, object_type: str):
     orgas = ti.xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
-    catalog_ids = pd.read_parquet(
-        f"https://object.files.data.gouv.fr/{parquet_bucket}-parquet/"
-        f"hydra-parquet/{objects[object_type]['catalog_id']}.parquet",
-        columns=["id", "organization_id"],
-        filters=[("organization_id", "in", orgas)],
-    )["id"].to_list()
+    catalog_ids = pd.read_csv(
+        f"https://www.data.gouv.fr/api/1/datasets/r/{objects[object_type]['catalog_id']}",
+        usecols=["id", "organization_id"],
+        sep=";",
+        dtype=str,
+    )
+    catalog_ids = catalog_ids.loc[catalog_ids["organization_id"].isin(orgas), "id"].to_list()
     # getting tags to put them back
     tags = requests.get(
         f"{local_client.base_url}/api/2/topics/{topic_id}/",
