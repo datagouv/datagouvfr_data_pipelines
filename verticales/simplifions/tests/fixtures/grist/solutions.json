@@ -1,0 +1,66 @@
+{
+  "resource_name": "Solutions",
+  "total_records_available": 119,
+  "sample_record": {
+    "Visible_sur_simplifions": true,
+    "Modifie_par": "Valentin Shamsnejad",
+    "Modifie_le": 1757666891.35368,
+    "Description_courte": "API distribuant les données des particuliers détenues par différentes administrations.",
+    "Description_longue": "API Particulier est un bouquet d'API permettant d'accéder aux informations des particuliers détenues par différentes administrations.\n\nUne fois l'API Entreprise intégrée dans le système d'information de votre administration, à partir des données d'identité, d'un identifiant ou de FranceConect, les informations du particulier sont automatiquement disponibles pour vos usagers et en back-office pour vos agents. ",
+    "Nom": "Bouquet API Particulier",
+    "Operateur": [
+      "L",
+      4
+    ],
+    "Site_internet": "https://particulier.api.gouv.fr/",
+    "Prix": "Gratuit",
+    "Budget_requis": [
+      "L",
+      3,
+      2
+    ],
+    "Types_de_simplification": [
+      "L",
+      2
+    ],
+    "A_destination_de": [
+      "L",
+      1
+    ],
+    "Pour_simplifier_les_demarches_de": [
+      "L",
+      1,
+      2,
+      6,
+      4,
+      5,
+      3
+    ],
+    "Cette_solution_permet": "- d'accéder à des données certifiées des particuliers. Terminé les fautes de frappes et la vérification manuelle de l'authenticité d'une attestation, l’information fait foi ;\n- d'accéder aux données de nombreuses administrations (CAF, MSA, FranceTravail, Éducation nationale, Enseignement supérieur, Cnous etc.) ;\n- d'avoir un seul interfaçage technique à réaliser et un seul interlocuteur ;\n- de réellement simplifier le parcours des particuliers, en mettant en place un vrai [dîtes-le nous une fois](TODO).\n",
+    "Cette_solution_ne_permet_pas": "- d'accéder, à ce jour, au revenu fiscal de référence des particuliers. Pour accéder à cette donnée, veuillez utiliser l'[API impôt particulier](https://www.data.gouv.fr/fr/dataservices/api-impot-particulier/).\n- de télécharger l'ensemble des bases de données. Elle est conçue pour permettre un appel par particulier effectuant une démarche administrative.\n- Cette solution est une brique informatique, pour mettre en place correctement un service appliquant le dîtes-le nous une fois, il est impératif de concevoir une interface utilisateur exploitant correctement les possibilités de l'API Particulier. La DINUM, qui opère ce produit, peut vous conseiller d'un point de vue \"expérience utilisateur\" et \"conception produit\".\n",
+    "Image": [
+      "L",
+      265
+    ],
+    "Legende_de_l_image": "Swagger API Particulier",
+    "Public_ou_prive": "Public",
+    "APIs_ou_datasets_fournis": [
+      "L",
+      1,
+      9,
+      10,
+      11,
+      5,
+      4,
+      2,
+      3,
+      8,
+      7,
+      6,
+      12,
+      14,
+      13
+    ],
+    "API_ou_datasets_integres": null
+  }
+}

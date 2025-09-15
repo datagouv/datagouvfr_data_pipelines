@@ -1,0 +1,8 @@
+{
+  "resource_name": "Usagers",
+  "total_records_available": 3,
+  "sample_record": {
+    "Label": "Particuliers",
+    "slug": "particuliers"
+  }
+}
