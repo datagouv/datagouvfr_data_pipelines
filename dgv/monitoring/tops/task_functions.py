@@ -6,6 +6,7 @@ import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_REPORTING,
+    MATOMO_TOKEN,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
@@ -26,6 +27,7 @@ PARAMS_TOPS = {
     "flat": 1,
     "filter_limit": 12,
     "filter_column": "label",
+    "token_auth": MATOMO_TOKEN,
 }
 
 PARAMS_GENERAL = {
@@ -37,6 +39,7 @@ PARAMS_GENERAL = {
     "method": "Actions.get",
     "expanded": 1,
     "flat": 1,
+    "token_auth": MATOMO_TOKEN,
 }
 
 
@@ -55,11 +58,17 @@ def build_start(end, freq):
 
 def compute_top(_class, date, title):
     textTop = ""
-    PARAMS_TOPS["period"] = "range"
-    PARAMS_TOPS["date"] = date
-    PARAMS_TOPS["filter_pattern"] = f"/{_class}/"
-    logging.info(PARAMS_TOPS)
-    r = requests.get(BASE_URL, params=PARAMS_TOPS)
+    r = requests.post(
+        BASE_URL,
+        data=PARAMS_TOPS
+        | {
+            "period": "range",
+            "date": date,
+            "filter_pattern": f"/{_class}/",
+        },
+    )
+    logging.info(r.url)
+    r.raise_for_status()
     arr = []
     for data in r.json():
         if "url" in data and data["url"] not in [
@@ -110,10 +119,16 @@ def compute_top(_class, date, title):
 
 def compute_general(date):
     logging.info(date)
-    PARAMS_GENERAL["date"] = date
-    PARAMS_GENERAL["period"] = "range" if "," in date else "day"
-    logging.info(PARAMS_GENERAL)
-    r = requests.get(BASE_URL, params=PARAMS_GENERAL)
+    r = requests.post(
+        BASE_URL,
+        data=PARAMS_GENERAL
+        | {
+            "date": date,
+            "period": "range" if "," in date else "day",
+        },
+    )
+    logging.info(r.url)
+    r.raise_for_status()
     pageviews, uniq_pageviews, downloads = [], [], []
     for data in r.json():
         logging.info(data)

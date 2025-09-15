@@ -7,6 +7,7 @@ from io import StringIO
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    MATOMO_TOKEN,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -15,14 +16,21 @@ from datagouvfr_data_pipelines.utils.minio import MinIOClient
 DATADIR = f"{AIRFLOW_DAG_TMP}stats_meteo/data"
 minio_meteo = MinIOClient(bucket="meteofrance")
 
-
-def fill_url(start, end, site_id, label, **kwargs):
-    return (
-        f"https://stats.data.gouv.fr/index.php?module=API&format=CSV&idSite={site_id}"
-        f"&period=month&date={start},{end}&method=Actions.getPageUrls&label={label}"
-        "&filter_limit=100&format_metrics=1&expanded=1&translateColumnNames=1"
-        "&language=fr&token_auth=anonymous"
-    )
+MATOMO_PARAMS = {
+    "module": "API",
+    "format": "CSV",
+    "idSite": 292,
+    "period": "month",
+    "method": "Actions.getPageUrls",
+    "filter_limit": 100,
+    "format_metrics": 1,
+    "expanded": 1,
+    "translateColumnNames": 1,
+    "language": "fr",
+    "token_auth": MATOMO_TOKEN,
+    # "date": "{start},{end}",
+    # "label": "{label}",
+}
 
 
 def gather_meteo_stats(ti):
@@ -95,13 +103,13 @@ def gather_meteo_stats(ti):
     print("> Stats mensuelles")
     start_date = "2023-12-01"
     today = datetime.today().strftime("%Y-%m-%d")
-    r = requests.get(
-        fill_url(
-            start=start_date,
-            end=today,
-            site_id=292,
-            label="",
-        )
+    r = requests.post(
+        "https://stats.data.gouv.fr/index.php",
+        data=MATOMO_PARAMS
+        | {
+            "date": f"{start_date},{today}",
+            "label": "",
+        },
     )
     df = pd.read_csv(StringIO(r.text))
     df = df.groupby("Date")["Visiteurs uniques (résumé quotidien)"].sum().reset_index()

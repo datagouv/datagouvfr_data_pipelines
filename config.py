@@ -92,3 +92,6 @@ CRISP_PLUGIN_ID = Variable.get("CRISP_PLUGIN_ID", "")
 CRISP_PLUGIN_TOKEN = Variable.get("CRISP_PLUGIN_TOKEN", "")
 CRISP_USER_ID = Variable.get("CRISP_USER_ID", "")
 CRISP_USER_TOKEN = Variable.get("CRISP_USER_TOKEN", "")
+
+# matomo
+MATOMO_TOKEN = Variable.get("MATOMO_TOKEN", "")
