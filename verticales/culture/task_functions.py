@@ -66,12 +66,12 @@ def get_and_send_perimeter_objects(ti, object_type: str):
     )["id"].to_list()
     # getting tags to put them back
     tags = requests.get(
-        f"{local_client.base_url}/api/1/topics/{topic_id}/",
+        f"{local_client.base_url}/api/2/topics/{topic_id}/",
         headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY, "X-fields": "tags"},
     ).json()["tags"]
     # replacing topic field with fresh data
     r = requests.put(
-        f"{local_client.base_url}/api/1/topics/{topic_id}/",
+        f"{local_client.base_url}/api/2/topics/{topic_id}/",
         headers={"X-API-KEY": DATAGOUV_SECRET_API_KEY},
         json={object_type: catalog_ids, "tags": tags},
     )
