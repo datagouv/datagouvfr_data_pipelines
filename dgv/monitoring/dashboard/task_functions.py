@@ -13,6 +13,7 @@ from airflow.models import TaskInstance
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    MATOMO_TOKEN,
 )
 from datagouvfr_data_pipelines.utils.crisp import (
     get_all_conversations,
@@ -46,6 +47,22 @@ rate_limiting_delay = 1 / 5
 
 minio_open = MinIOClient(bucket="dataeng-open")
 minio_destination_folder = "dashboard/"
+
+MATOMO_PARAMS = {
+    "module": "API",
+    "format": "CSV",
+    "period": "month",
+    "method": "Actions.getPageUrls",
+    "filter_limit": 100,
+    "format_metrics": 1,
+    "expanded": 1,
+    "translateColumnNames": 1,
+    "language": "fr",
+    "token_auth": MATOMO_TOKEN,
+    # "idSite": {site_id},
+    # "date": "{start},{end}",
+    # "label": "{label}",
+}
 
 
 def get_support_tickets(
@@ -206,13 +223,13 @@ def get_visits(
         url_stats_slash_support,
         old_url_stats_support,
     ]:
-        r = requests.get(
-            fill_url(
-                start=start_date.strftime("%Y-%m-%d"),
-                end=end_date.strftime("%Y-%m-%d"),
-                site_id=k["site_id"],
-                label=k["label"],
-            )
+        r = requests.post(
+            "https://stats.data.gouv.fr/index.php",
+            data=MATOMO_PARAMS | {
+                "date": f"{start_date.strftime('%Y-%m-%d')},{end_date.strftime('%Y-%m-%d')}",
+                "label": k["label"],
+                "idSite": k["site_id"],
+            },
         )
         df = pd.read_csv(
             filepath_or_buffer=StringIO(r.text),
