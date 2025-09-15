@@ -7,6 +7,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_SENTRY_API_TOKEN,
     SENTRY_BASE_URL,
 )
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 max_csvgz_size = 104857600
@@ -47,16 +48,18 @@ def build_resource_url(dataset_id, resource_id):
 
 def get_and_send_errors():
     print("Getting all datasets of meteo.data.gouv...")
-    catalog = requests.get(
-        "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/",
-        headers={"X-fields": "datasets{id}"},
-    ).json()["datasets"]
+    catalog = [
+        el["element"]["id"]
+        for el in get_all_from_api_query(
+            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/?class=Dataset"
+        )
+    ]
 
     print("Getting infos for all resources...")
     data = []
-    for d in catalog:
+    for did in catalog:
         r = requests.get(
-            f"https://www.data.gouv.fr/api/1/datasets/{d['id']}/",
+            f"https://www.data.gouv.fr/api/1/datasets/{did}/",
             headers={
                 "X-fields": "resources{id,extras,filesize,format,type,internal,preview_url,title}"
             },
@@ -64,7 +67,7 @@ def get_and_send_errors():
         for res in r["resources"]:
             if "csv" in res["format"] and res["type"] == "main":
                 row = {
-                    "dataset_id": d["id"],
+                    "dataset_id": did,
                     "rid": res["id"],
                     "title": res["title"],
                     "filesize": res["filesize"],

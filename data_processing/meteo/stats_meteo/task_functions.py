@@ -9,6 +9,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATOMO_TOKEN,
 )
+from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
@@ -36,21 +37,24 @@ MATOMO_PARAMS = {
 def gather_meteo_stats(ti):
     print("> Stats détaillées")
     # on récupère tous les datasets de meteo.data.gouv
-    datasets = requests.get(
-        "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/"
-    ).json()["datasets"]
+    datasets = [
+        el["element"]["id"]
+        for el in get_all_from_api_query(
+            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/?class=Dataset"
+        )
+    ]
     # pour chaque dataset on récupère la métrique du mois précédent
     # qu'on indique comme monthly visit
     # on concatène tous les mois pour avoir la somme des visites
     # pour chaque dataset depuis le début
     arr = []
-    for dataset in datasets:
+    for did in datasets:
         mydict = {}
         r2 = requests.get(
             "https://metric-api.data.gouv.fr/api/datasets/data/?dataset_id__exact="
-            + dataset["id"]
+            + did
         ).json()["data"]
-        mydict["dataset_id"] = dataset["id"]
+        mydict["dataset_id"] = did
         mydict["monthly_visit"] = r2[len(r2) - 2]["monthly_visit"]
         mydict["all_visit"] = 0
         mydict["monthly_download_resource"] = r2[len(r2) - 2][
@@ -66,7 +70,7 @@ def gather_meteo_stats(ti):
                         "monthly_download_resource"
                     ]
         r3 = requests.get(
-            f"https://www.data.gouv.fr/api/1/datasets/{dataset['id']}/",
+            f"https://www.data.gouv.fr/api/1/datasets/{did}/",
             headers={"X-fields": "title"},
         ).json()
         mydict["dataset_title"] = r3["title"]

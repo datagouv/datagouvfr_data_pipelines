@@ -16,7 +16,10 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.datagouv import (
+    get_all_from_api_query,
+    local_client,
+)
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 minio_pnt = MinIOClient(
@@ -57,37 +60,41 @@ def threshold_in_the_past(nb_batches_behind=3):
 
 def scan_pnt_files(ti):
     threshold = threshold_in_the_past()
-    pnt_datasets = requests.get(
-        "https://www.data.gouv.fr/api/2/topics/65e0c82c2da27c1dff5fa66f/",
-        headers={"X-fields": "datasets{id,title}"},
-    ).json()["datasets"]
+    pnt_datasets = [
+        el["element"]["id"]
+        for el in get_all_from_api_query(
+            "https://www.data.gouv.fr/api/2/topics/65e0c82c2da27c1dff5fa66f/elements/?class=Dataset"
+        )
+    ]
 
     time_slots = {}
     unavailable_resources = {}
     too_old = defaultdict(list)
-    for d in pnt_datasets:
-        print(d)
-        resources = requests.get(
-            f"https://www.data.gouv.fr/api/1/datasets/{d['id']}/",
-            headers={"X-fields": "resources{id,url,title}"},
-        ).json()["resources"]
-        for r in resources:
+    for did in pnt_datasets:
+        print(did)
+        resp = requests.get(
+            f"https://www.data.gouv.fr/api/1/datasets/{did}/",
+            headers={"X-fields": "title,resources{id,url,title}"},
+        ).json()
+        for r in resp["resources"]:
             if "MFWAM/05" in r["url"]:
                 # MFWAM 0.5 is deprecated since April 2025
                 continue
             if "object.data.gouv.fr" in r["url"]:
                 ts, pq = get_timeslot_and_paquet(r["url"])
                 if ts < threshold:
-                    too_old[d["title"]].append([r["title"], d["id"], r["id"]])
+                    too_old[resp["title"]].append([r["title"], did, r["id"]])
                 if ts not in time_slots:
                     time_slots[ts] = {}
                 if pq not in time_slots[ts]:
                     time_slots[ts][pq] = 0
                 time_slots[ts][pq] += 1
             elif r["url"] == "http://test.com":
-                if d["title"] not in unavailable_resources:
-                    unavailable_resources[d["title"]] = []
-                unavailable_resources[d["title"]].append([r["title"], d["id"], r["id"]])
+                if resp["title"] not in unavailable_resources:
+                    unavailable_resources[resp["title"]] = []
+                unavailable_resources[resp["title"]].append(
+                    [r["title"], resp["id"], r["id"]]
+                )
 
     with open(AIRFLOW_DAG_TMP + too_old_filename, "w") as f:
         json.dump(too_old, f, ensure_ascii=False)
