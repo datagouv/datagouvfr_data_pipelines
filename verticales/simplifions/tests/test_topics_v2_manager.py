@@ -138,6 +138,7 @@ class TestUpdateTopics:
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
+                    "Image": ["https://example.com/image.png"],
                 },
             },
         }
@@ -167,6 +168,9 @@ class TestUpdateTopics:
             "simplifions-v2-target-users-u2",
         ]
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
+        assert topics[0]["extras"]["simplifions-v2-solutions"]["image"] == [
+            "https://example.com/image.png"
+        ]
 
     def test_with_one_new_cas_d_usage(self, grist_tables_for_filters):
         cas_usages_data = {

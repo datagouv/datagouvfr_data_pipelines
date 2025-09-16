@@ -82,6 +82,15 @@ class TopicsV2Manager:
             return f"{icon} {grist_row['fields']['Nom']}"
         return grist_row["fields"]["Nom"]
 
+    def _topic_extras(self, grist_row: dict) -> dict:
+        extras = {
+            "id": grist_row["id"],
+        }
+        image = grist_row["fields"].get("Image")
+        if image:
+            extras["image"] = image
+        return extras
+
     def update_topics(self, ti):
         tag_and_grist_rows: dict = ti.xcom_pull(
             key="tag_and_grist_rows_v2", task_ids="get_and_format_grist_v2_data"
@@ -123,7 +132,7 @@ class TopicsV2Manager:
                     },
                     "tags": topic_tags
                     + self._generated_search_tags(grist_row, grist_tables_for_filters),
-                    "extras": {extras_nested_key: {"id": grist_row["id"]}},
+                    "extras": {extras_nested_key: self._topic_extras(grist_row)},
                     "private": not grist_row["fields"]["Visible_sur_simplifions"],
                 }
 
