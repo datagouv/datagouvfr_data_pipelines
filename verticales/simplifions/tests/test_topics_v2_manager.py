@@ -180,6 +180,7 @@ class TestUpdateTopics:
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
+                    "Icone_du_titre": "👋",
                 },
             },
         }
@@ -196,7 +197,7 @@ class TestUpdateTopics:
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 1
-        assert topics[0]["name"] == "Cas usage 1"
+        assert topics[0]["name"] == "👋 Cas usage 1"
         assert topics[0]["description"] == "Blabla"
         assert not topics[0]["private"]
         assert topics[0]["tags"] == [

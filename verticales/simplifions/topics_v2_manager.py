@@ -76,6 +76,14 @@ class TopicsV2Manager:
             return
         return self.topics_api.update_topic_by_id(topic["id"], topic_data)
 
+
+    def _topic_name(self, grist_row: dict) -> str:
+        icon = grist_row["fields"].get('Icone_du_titre')
+        if icon:
+            return f"{icon} {grist_row['fields']['Nom']}"
+        return grist_row["fields"]["Nom"]
+
+
     def update_topics(self, ti):
         tag_and_grist_rows: dict = ti.xcom_pull(
             key="tag_and_grist_rows_v2", task_ids="get_and_format_grist_v2_data"
@@ -106,9 +114,10 @@ class TopicsV2Manager:
             )
 
             for grist_id in grist_rows:
+                grist_row = grist_rows[grist_id]
                 topic_data = {
-                    "name": grist_rows[grist_id]["fields"]["Nom"],
-                    "description": grist_rows[grist_id]["fields"]["Description_courte"]
+                    "name": self._topic_name(grist_row),
+                    "description": grist_row["fields"]["Description_courte"]
                     or "-",
                     "organization": {
                         "class": "Organization",
@@ -116,10 +125,10 @@ class TopicsV2Manager:
                     },
                     "tags": topic_tags
                     + self._generated_search_tags(
-                        grist_rows[grist_id], grist_tables_for_filters
+                        grist_row, grist_tables_for_filters
                     ),
-                    "extras": {extras_nested_key: {"id": grist_id}},
-                    "private": not grist_rows[grist_id]["fields"][
+                    "extras": {extras_nested_key: {"id": grist_row["id"]}},
+                    "private": not grist_row["fields"][
                         "Visible_sur_simplifions"
                     ],
                 }
