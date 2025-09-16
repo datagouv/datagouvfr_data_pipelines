@@ -113,8 +113,9 @@ class TopicsV2Manager:
                 f"Found {len(current_topics_by_grist_id)} existing topics in datagouv for tag {tag}"
             )
 
-            for grist_id in grist_rows:
-                grist_row = grist_rows[grist_id]
+            for grist_id_str in grist_rows:
+                grist_row = grist_rows[grist_id_str]
+                grist_id = int(grist_id_str)
                 topic_data = {
                     "name": self._topic_name(grist_row),
                     "description": grist_row["fields"]["Description_courte"]
@@ -145,7 +146,8 @@ class TopicsV2Manager:
 
             # deleting topics that are not in the table anymore
             for grist_id in current_topics_by_grist_id:
-                if grist_id not in grist_rows:
+                grist_id_str = str(grist_id)
+                if grist_id_str not in grist_rows:
                     old_topic = current_topics_by_grist_id[grist_id]
                     logging.info(
                         f"Deleting topic grist_id: {grist_id}, slug: {old_topic['slug']}"
