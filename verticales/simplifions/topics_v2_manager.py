@@ -76,13 +76,11 @@ class TopicsV2Manager:
             return
         return self.topics_api.update_topic_by_id(topic["id"], topic_data)
 
-
     def _topic_name(self, grist_row: dict) -> str:
-        icon = grist_row["fields"].get('Icone_du_titre')
+        icon = grist_row["fields"].get("Icone_du_titre")
         if icon:
             return f"{icon} {grist_row['fields']['Nom']}"
         return grist_row["fields"]["Nom"]
-
 
     def update_topics(self, ti):
         tag_and_grist_rows: dict = ti.xcom_pull(
@@ -118,20 +116,15 @@ class TopicsV2Manager:
                 grist_id = int(grist_id_str)
                 topic_data = {
                     "name": self._topic_name(grist_row),
-                    "description": grist_row["fields"]["Description_courte"]
-                    or "-",
+                    "description": grist_row["fields"]["Description_courte"] or "-",
                     "organization": {
                         "class": "Organization",
                         "id": "57fe2a35c751df21e179df72",
                     },
                     "tags": topic_tags
-                    + self._generated_search_tags(
-                        grist_row, grist_tables_for_filters
-                    ),
+                    + self._generated_search_tags(grist_row, grist_tables_for_filters),
                     "extras": {extras_nested_key: {"id": grist_row["id"]}},
-                    "private": not grist_row["fields"][
-                        "Visible_sur_simplifions"
-                    ],
+                    "private": not grist_row["fields"]["Visible_sur_simplifions"],
                 }
 
                 # Create or update the topic
