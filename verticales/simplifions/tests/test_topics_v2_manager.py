@@ -139,6 +139,8 @@ class TestUpdateTopics:
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
                     "Image": ["https://example.com/image.png"],
+                    "Public_ou_prive": "Public",
+                    "Nom_de_l_operateur": "Operateur 1",
                 },
             },
         }
@@ -168,9 +170,11 @@ class TestUpdateTopics:
             "simplifions-v2-target-users-u2",
         ]
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
-        assert topics[0]["extras"]["simplifions-v2-solutions"]["image"] == [
+        assert topics[0]["extras"]["simplifions-v2-solutions"]["Image"] == [
             "https://example.com/image.png"
         ]
+        assert topics[0]["extras"]["simplifions-v2-solutions"]["Public_ou_prive"] == "Public"
+        assert topics[0]["extras"]["simplifions-v2-solutions"]["Nom_de_l_operateur"] == "Operateur 1"
 
     def test_with_one_new_cas_d_usage(self, grist_tables_for_filters):
         cas_usages_data = {

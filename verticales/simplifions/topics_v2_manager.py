@@ -82,13 +82,23 @@ class TopicsV2Manager:
             return f"{icon} {grist_row['fields']['Nom']}"
         return grist_row["fields"]["Nom"]
 
+    def _add_attribute_if_it_exists(
+        self, source_dict: dict, target_dict: dict, attribute_name: str
+    ):
+        attribute_value = source_dict.get(attribute_name)
+        if attribute_value:
+            target_dict[attribute_name] = attribute_value
+
     def _topic_extras(self, grist_row: dict) -> dict:
         extras = {
             "id": grist_row["id"],
         }
-        image = grist_row["fields"].get("Image")
-        if image:
-            extras["image"] = image
+        self._add_attribute_if_it_exists(grist_row["fields"], extras, "Image")
+        self._add_attribute_if_it_exists(grist_row["fields"], extras, "Public_ou_prive")
+        self._add_attribute_if_it_exists(
+            grist_row["fields"], extras, "Nom_de_l_operateur"
+        )
+
         return extras
 
     def update_topics(self, ti):
