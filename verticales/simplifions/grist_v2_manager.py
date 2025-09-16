@@ -1,5 +1,6 @@
 import logging
 import requests
+from collections import defaultdict
 
 from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
@@ -54,14 +55,11 @@ class GristV2Manager:
         return row
 
     def get_and_format_grist_v2_data(self, ti):
-        tag_and_grist_topics = {}
+        tag_and_grist_topics = defaultdict(dict)
 
         for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
             tag = table_info["tag"]
             rows = self._request_grist_table(table_id)
-
-            if tag not in tag_and_grist_topics:
-                tag_and_grist_topics[tag] = {}
 
             tag_and_grist_topics[tag].update(
                 {row["id"]: self._clean_row(row) for row in rows}
