@@ -75,12 +75,14 @@ def delete_old_runs():
         runs_to_delete = (
             session.query(DagRun).filter(DagRun.execution_date <= oldest_run_date).all()
         )
-        for run in runs_to_delete:
+        for idx, run in enumerate(runs_to_delete):
             logging.info(
                 f"Deleting run: dag_id={run.dag_id}, "
                 f"execution_date={run.execution_date}"
             )
             session.delete(run)
+            if idx and idx % 50 == 0:
+                session.commit()
         session.commit()
     except Exception as e:
         logging.error(f"Error deleting old runs: {str(e)}")
