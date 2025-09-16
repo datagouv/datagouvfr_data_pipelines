@@ -173,8 +173,14 @@ class TestUpdateTopics:
         assert topics[0]["extras"]["simplifions-v2-solutions"]["Image"] == [
             "https://example.com/image.png"
         ]
-        assert topics[0]["extras"]["simplifions-v2-solutions"]["Public_ou_prive"] == "Public"
-        assert topics[0]["extras"]["simplifions-v2-solutions"]["Nom_de_l_operateur"] == "Operateur 1"
+        assert (
+            topics[0]["extras"]["simplifions-v2-solutions"]["Public_ou_prive"]
+            == "Public"
+        )
+        assert (
+            topics[0]["extras"]["simplifions-v2-solutions"]["Nom_de_l_operateur"]
+            == "Operateur 1"
+        )
 
     def test_with_one_new_cas_d_usage(self, grist_tables_for_filters):
         cas_usages_data = {
