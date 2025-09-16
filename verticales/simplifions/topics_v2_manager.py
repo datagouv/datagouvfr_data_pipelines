@@ -133,6 +133,12 @@ class TopicsV2Manager:
             for grist_id_str in grist_rows:
                 grist_row = grist_rows[grist_id_str]
                 grist_id = int(grist_id_str)
+                all_tags = (
+                    topic_tags
+                    + [f"{tag}-{grist_id_str}"]
+                    + self._generated_search_tags(grist_row, grist_tables_for_filters)
+                )
+
                 topic_data = {
                     "name": self._topic_name(grist_row),
                     "description": grist_row["fields"]["Description_courte"] or "-",
@@ -140,8 +146,7 @@ class TopicsV2Manager:
                         "class": "Organization",
                         "id": "57fe2a35c751df21e179df72",
                     },
-                    "tags": topic_tags
-                    + self._generated_search_tags(grist_row, grist_tables_for_filters),
+                    "tags": all_tags,
                     "extras": {extras_nested_key: self._topic_extras(grist_row)},
                     "private": not grist_row["fields"]["Visible_sur_simplifions"],
                 }
