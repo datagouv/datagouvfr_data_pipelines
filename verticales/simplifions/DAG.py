@@ -116,6 +116,8 @@ v2_dags_params = [
     },
 ]
 
-v1_dags = [create_simplifions_dag(**dag_params) for dag_params in dags_params]
-v2_dags = [create_simplifions_v2_dag(**dag_params) for dag_params in v2_dags_params]
-dags = v1_dags + v2_dags
+for dag_params in dags_params:
+    create_simplifions_dag(**dag_params)
+
+for dag_params in v2_dags_params:
+    create_simplifions_v2_dag(**dag_params)
