@@ -89,7 +89,6 @@ def fill_in_grist(ti):
             new.append(harvester)
             to_update = {
                 "harvester_id": harvester["id"],
-                "Lien_ancienne_admin": f"https://www.data.gouv.fr/fr/admin/harvester/{harvester['id']}",
                 "Organisation": harvester["owner_name"] or "",
                 "Lien_organisation": (
                     f"https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/"
