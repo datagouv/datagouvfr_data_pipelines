@@ -7,6 +7,6 @@ class TaskInstanceFactory:
 
         class MockTI:
             def xcom_pull(self, key, task_ids):
-                return data
+                return data[key]
 
         return MockTI()

@@ -85,3 +85,19 @@ pip install -r verticales/simplifions/tests/test-requirements.txt
 ```bash
 pytest verticales/simplifions/tests/ -s
 ```
+
+### ATTENTION
+
+Le venv pour les tests interfère avec airflow. Pour que airflow puisse correctement lister les DAGs, il faut supprimer le dossier venv.
+
+```bash
+rm -rf venv/
+```
+
+Pour forcer airflow à lister ses DAGs : 
+
+```bash
+docker exec -it airflow-demo-test /bin/bash
+# Puis dans le conteneur :
+airflow dags list
+```
