@@ -40,7 +40,7 @@ def save_log_infos_to_csv(
             and the values are lists of objects of that type.
     """
     for type, list_obj in logs_info_per_type.items():
-        destination_file = f"{output_path}{type}_found.csv"
+        destination_file = f"{output_path}{date}_{type}_found.csv"
         save_list_of_dict_to_csv(list_obj, destination_file)
 
 
