@@ -137,18 +137,18 @@ def aggregate_log(ti) -> None:
 
     remove_files_from_directory(OUTPUT_FOLDER)
 
-    for log_date in dates_to_process:
-        # isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
-        for obj_config in config.logs_config:
+    for obj_config in config.logs_config:
+        df_catalog = pd.read_csv(
+            f"{TMP_FOLDER}{obj_config.catalog_destination_name}",
+            dtype="string",
+            sep=";",
+            usecols=list(obj_config.catalog_columns.keys()),
+        )
+        for log_date in dates_to_process:
+            isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
             logging.info(f"Aggregating {obj_config.type} objects...")
-            df_catalog = pd.read_csv(
-                f"{TMP_FOLDER}{obj_config.catalog_destination_name}",
-                dtype="string",
-                sep=";",
-                usecols=list(obj_config.catalog_columns.keys()),
-            )
             df = pd.read_csv(
-                f"{FOUND_FOLDER}{obj_config.type}_found.csv",
+                f"{FOUND_FOLDER}{isoformat_log_date}_{obj_config.type}_found.csv",
                 dtype="string",
                 sep=";",
             )
@@ -158,11 +158,11 @@ def aggregate_log(ti) -> None:
                 df_catalog,
                 obj_config,
                 config,
-                f"{OUTPUT_FOLDER}{obj_config.type}-{log_date}.csv",
+                f"{OUTPUT_FOLDER}{isoformat_log_date}_{obj_config.type}.csv",
             )
             dates_processed = get_unique_list(dates_processed, processed_dates)
             logging.info(
-                f"> Output saved in {obj_config.type}-{log_date}.csv ({n_rows} rows)."
+                f"> Output saved in {isoformat_log_date}_{obj_config.type}.csv ({n_rows} rows)."
                 f" With columns: {obj_config.output_columns}"
             )
 
@@ -192,7 +192,8 @@ def visit_postgres_duplication_safety(ti) -> None:
 
 def save_metrics_to_postgres() -> None:
     for obj_config in config.logs_config:
-        for lf in glob.glob(f"{OUTPUT_FOLDER}{obj_config.type}-*"):
+        # Looking for files such as 2025-09-24_resources.csv
+        for lf in glob.glob(f"{OUTPUT_FOLDER}????-??-??_{obj_config.type}.csv"):
             if "-id-" not in lf and "-static-" not in lf:
                 pgclient.copy_file(
                     file=File(

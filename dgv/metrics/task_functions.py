@@ -40,7 +40,7 @@ def save_log_infos_to_csv(
             and the values are lists of objects of that type.
     """
     for type, list_obj in logs_info_per_type.items():
-        destination_file = f"{output_path}{type}_found.csv"
+        destination_file = f"{output_path}{date}_{type}_found.csv"
         save_list_of_dict_to_csv(list_obj, destination_file)
 
 
@@ -194,6 +194,13 @@ def aggregate_metrics(
         catalog_dict: dict[str, str] = defaultdict()
         static_uri = "https://static.data.gouv.fr/resources/"
 
+        # A few resource_id are common to multiple datasets
+        # Deduplication priority is : "dataset.archived" as False otherwise keep the last one created
+        df_catalog = (
+            df_catalog.sort_values(by=["dataset.archived", "created_at"], ascending=[True, False])
+            .drop_duplicates(subset=["id"], keep="first")
+        )
+
         # Resource catalog has no slug column but static
         # URLs starting with https://static.data.gouv.fr/resources/$SLUG
         # Using a resource ID will trigger a redirect to its static URL so we want:
@@ -206,13 +213,8 @@ def aggregate_metrics(
         catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
 
         # 2. All the IDs that don't have any static URL
-        #  Note: a few resource_id are common to multiple datasets
-        #  They need to be deduplicated with a priority to
-        #  "dataset.archived" as False otherwise keep the last one created
         df_ids = (
             df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
-            .sort_values(by=["dataset.archived", "created_at"], ascending=[True, False])
-            .drop_duplicates(subset=["id"], keep="first")
             .filter(items=["id"])
         )
         catalog_dict.update({id: id for id in df_ids["id"].to_list()})
