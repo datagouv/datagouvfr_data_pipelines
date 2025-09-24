@@ -192,7 +192,8 @@ def visit_postgres_duplication_safety(ti) -> None:
 
 def save_metrics_to_postgres() -> None:
     for obj_config in config.logs_config:
-        for lf in glob.glob(f"{OUTPUT_FOLDER}??????????_{obj_config.type}.csv"):
+        # Looking for files such as 2025-09-24_resources.csv
+        for lf in glob.glob(f"{OUTPUT_FOLDER}????-??-??_{obj_config.type}.csv"):
             if "-id-" not in lf and "-static-" not in lf:
                 pgclient.copy_file(
                     file=File(
