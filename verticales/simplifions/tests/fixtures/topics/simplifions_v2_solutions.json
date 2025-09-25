@@ -1,0 +1,52 @@
+{
+  "resource_name": "simplifions-v2-solutions",
+  "total_records_available": 31,
+  "sample_record": {
+    "id": "68c7e578b57fe2217a5ff879",
+    "name": "iNoé",
+    "slug": "inoe-1",
+    "description": "-",
+    "tags": [
+      "simplifions-v2",
+      "simplifions-v2-dag-generated",
+      "simplifions-v2-solutions"
+    ],
+    "elements": {
+      "rel": "subsection",
+      "href": "https://demo.data.gouv.fr/api/2/topics/68c7e578b57fe2217a5ff879/elements/?page=1&page_size=20",
+      "type": "GET",
+      "total": 0
+    },
+    "featured": false,
+    "private": false,
+    "created_at": "2025-09-15T10:07:52.441000+00:00",
+    "spatial": null,
+    "last_modified": "2025-09-15T10:09:56.358000+00:00",
+    "organization": {
+      "name": "Direction interministérielle du numérique",
+      "acronym": "DINUM",
+      "slug": "direction-interministerielle-du-numerique",
+      "uri": "https://demo.data.gouv.fr/api/1/organizations/direction-interministerielle-du-numerique/",
+      "page": "https://demo.data.gouv.fr/organizations/direction-interministerielle-du-numerique/",
+      "logo": "https://demo-static.data.gouv.fr/avatars/a0/16eb04d7754b989b7dcd21d77699bd-original.png",
+      "logo_thumbnail": "https://demo-static.data.gouv.fr/avatars/a0/16eb04d7754b989b7dcd21d77699bd-100.png",
+      "badges": [
+        {
+          "kind": "certified"
+        },
+        {
+          "kind": "public-service"
+        }
+      ],
+      "id": "57fe2a35c751df21e179df72",
+      "class": "Organization"
+    },
+    "owner": null,
+    "uri": "/api/2/topics/inoe-1/",
+    "extras": {
+      "simplifions-v2-solutions": {
+        "id": "108"
+      }
+    }
+  }
+}

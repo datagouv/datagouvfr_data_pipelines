@@ -331,20 +331,26 @@ def expected_cas_usage_tags():
 
 def create_mock_ti_with_solutions(solutions_data):
     """Helper function to create mock task instance with solutions data"""
-    return task_instance_factory.build_ti({"simplifions-solutions": solutions_data})
+    return task_instance_factory.build_ti(
+        {"tag_and_grist_topics": {"simplifions-solutions": solutions_data}}
+    )
 
 
 def create_mock_ti_with_cas_usages(cas_usages_data):
     """Helper function to create mock task instance with cas d'usages data"""
-    return task_instance_factory.build_ti({"simplifions-cas-d-usages": cas_usages_data})
+    return task_instance_factory.build_ti(
+        {"tag_and_grist_topics": {"simplifions-cas-d-usages": cas_usages_data}}
+    )
 
 
 def create_mock_ti_with_mixed_data(solutions_data, cas_usages_data):
     """Helper function to create mock task instance with both solutions and cas d'usages data"""
     return task_instance_factory.build_ti(
         {
-            "simplifions-solutions": solutions_data,
-            "simplifions-cas-d-usages": cas_usages_data,
+            "tag_and_grist_topics": {
+                "simplifions-solutions": solutions_data,
+                "simplifions-cas-d-usages": cas_usages_data,
+            }
         }
     )
 
