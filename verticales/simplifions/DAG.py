@@ -110,6 +110,11 @@ dags_params = [
 
 v2_dags_params = [
     {
+        "dag_id": "verticale_simplifions_v2_production",
+        "schedule_interval": "0 1 * * *",  # every day at 1am
+        "client": local_client,
+    },
+    {
         "dag_id": "verticale_simplifions_v2_demo",
         "schedule_interval": "*/30 * * * *",  # every 30 minutes
         "client": demo_client,
