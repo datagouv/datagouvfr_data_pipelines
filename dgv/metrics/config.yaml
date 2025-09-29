@@ -30,17 +30,17 @@ datagouv_logs:
       dataset.organization_id: organization_id
       dataset.archived: archived
       created_at: created_at
-    all_segments: api_segments
     static_segments:
       - "static_resource"
     additional_patterns:
-      fr: /fr/datasets/r/([^/?\s]*)
-      en: /en/datasets/r/([^/?\s]*)
-      es: /es/datasets/r/([^/?\s]*)
+      # Patterns order matter so any logic is not overwritten by a more generic one
       api_permalink: /api/1/datasets/r/([^/?\s]*)
       api1: /api/1/datasets/.*/resources/([^/?\s]*)
       api2: /api/2/datasets/resources/([^/?\s]*)
       static_resource: "(?:https://static\\.data\\.gouv\\.fr)?/resources/([^?\\s]*)"
+      fr: /fr/datasets/r/([^/?\s]*)
+      en: /en/datasets/r/([^/?\s]*)
+      es: /es/datasets/r/([^/?\s]*)
 
   - type: datasets
     # Any datagouv_logs elements has a default pattern

@@ -36,18 +36,24 @@ class DataGouvLog:
         )
         if self.type == "resources":
             self.output_columns += ["nb_visit_api_permalink"]
-        self.log_patterns = {
-            segment.replace(
-                "/", ""
-            ): rf"{global_pattern}{segment}/{self.type}/([^/?\s]*)"
-            for segment in segments
-        }
+        # Dict is an ordered object so..
+        # First add additional_patterns in the same order as in config.yml
         if additional_patterns:
             additional_patterns = {
                 segment: global_pattern + pattern
                 for segment, pattern in additional_patterns.items()
             }
-            self.log_patterns.update(additional_patterns)
+            self.log_patterns = additional_patterns.copy()
+        else:
+            self.log_patterns = {}
+
+        # And then add regular segment patterns not already included in the additional ones
+        regular_patterns = {
+            segment.replace("/", ""): rf"{global_pattern}{segment}/{self.type}/([^/?\s]*)"
+            for segment in segments
+            if segment.replace("/", "") not in self.log_patterns
+        }
+        self.log_patterns.update(regular_patterns)
 
 
 class MetricsConfig:
@@ -65,9 +71,7 @@ class MetricsConfig:
             self.all_segments = self.api_segments + self.web_segments
             self.logs_config = [
                 DataGouvLog(
-                    segments=getattr(
-                        self, obj.get("all_segments", "all_segments")
-                    ),  # all_segments may be overwritten in obj config
+                    segments=self.all_segments,
                     global_pattern=config_data["global_pattern"],
                     database_excluded_column=config_data["database_excluded_column"],
                     **obj,
