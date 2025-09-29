@@ -1,0 +1,30 @@
+{
+    "dfi_info": {
+        "dev": {
+            "dataset_id": "5a576fda88ee381c9d4e3304"
+        },
+        "prod": {
+            "dataset_id": "5a576fda88ee381c9d4e3304"
+        }
+    },
+    "dfi_publi_parquet": {
+        "dev": {
+            "dataset_id": "68c01933ba7ee16b72651549",
+            "resource_id": "37f481c0-4ac0-443b-9e76-057406e94a16"
+        },
+        "prod": {
+            "dataset_id": "68c80917e1ba08f1fd12a899",
+            "resource_id": "7c9b81bd-eebe-48da-b6cc-e0b974770f9d"
+        }
+    },
+    "dfi_publi_csv": {
+        "dev": {
+            "dataset_id": "68c01933ba7ee16b72651549",
+            "resource_id": "acbfa641-2beb-47c3-9354-68747d13af15"
+        },
+        "prod": {
+            "dataset_id": "68c80917e1ba08f1fd12a899",
+            "resource_id": "adf846d4-ad54-4d57-a015-968e33423216"
+        }
+    }
+}
