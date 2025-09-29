@@ -34,8 +34,8 @@ def test_parse_logs():
     test_path = os.path.join(os.path.dirname(__file__), "test_")
 
     for log_config in config.logs_config:
-        if os.path.exists(test_path + f"{log_config.type}_found.csv"):
-            os.remove(test_path + f"{log_config.type}_found.csv")
+        if os.path.exists(test_path + f"1900-01-01_{log_config.type}_found.csv"):
+            os.remove(test_path + f"1900-01-01_{log_config.type}_found.csv")
 
     with open(test_path + "raw.log", "rb") as log_data:
         lines = log_data.readlines()
@@ -48,7 +48,7 @@ def test_parse_logs():
 
     for log_config in config.logs_config:
         with (
-            open(test_path + f"{log_config.type}_found.csv", "rb") as out_f,
+            open(test_path + f"1900-01-01_{log_config.type}_found.csv", "rb") as out_f,
             open(test_path + f"{log_config.type}_found_expected.csv", "rb") as exp_f,
         ):
             output_content = out_f.read()
@@ -56,7 +56,7 @@ def test_parse_logs():
 
             assert output_content == expected_content
 
-        os.remove(test_path + f"{log_config.type}_found.csv")
+        os.remove(test_path + f"1900-01-01_{log_config.type}_found.csv")
 
 
 def test_aggregate_metrics():
