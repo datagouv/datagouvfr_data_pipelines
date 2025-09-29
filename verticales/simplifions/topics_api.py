@@ -47,7 +47,8 @@ class TopicsAPI:
             json=topic_data,
         )
         r.raise_for_status()
-        logging.info(f"Updated topic at {url}")
+
+        logging.info(f"Updated topic {topic_data.get('name')} at {url}")
         return r
 
     def get_all_topics_for_tag(self, tag: str) -> list[dict]:
