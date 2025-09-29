@@ -20,7 +20,7 @@ class DataGouvLog:
         self.catalog_columns = catalog_columns
         self.catalog_destination_name = f"catalog_{self.type}.csv"
         self.catalog_download_url = (
-            f"https://www.data.gouv.fr/fr/datasets/r/{catalog_resource_id}"
+            f"https://www.data.gouv.fr/api/1/datasets/r/{catalog_resource_id}"
         )
         self.static_segments = static_segments
         self.output_columns = (
