@@ -17,15 +17,15 @@
 Two dags are running to fill demo and production.
 But because of how the `local_client` works, both DAGs are filling the demo when running on local.
 
-- `verticale_simplifions_production` : Runs once a day
+- `verticale_simplifions_v2_production` : Runs once a day
   - On local environment, fills demo.data.gouv.fr
   - On production environment, fills www.data.gouv.fr
 
-- `verticale_simplifions_demo` : Runs once every 30 minutes
+- `verticale_simplifions_v2_demo` : Runs once every 30 minutes
   - On local environment, fills demo.data.gouv.fr
   - On production environment, fills demo.data.gouv.fr
 
-But both DAGs use the same code from `simplifions_manager.py`.
+But both DAGs use the same code.
 
 ## Install in airflow
 
@@ -49,21 +49,13 @@ DATAGOUV_SECRET_API_KEY=<same demo key>
 
 ## What the simplifions DAG does
 
-The `SimplifionsManager` has 3 main functions called by the DAG
-
 ### 1. Get the data from grist
 
-Fetch data from grist tables.
-Fetch their sub-data too when needed.
+The `GristV2Manager` : Fetch data from grist tables `Solutions` and `Cas d'usages`, and the 4 tables of filters.
 
 ### 2. Create and update simplifions topics
 
-Create `cas d'usages` and `solutions` topics from the fetched data.
-Create the tags for the filters.
-
-### 3. Update the references between simplifions topics
-
-Because we need all simplifions topics to be created before in order to be able to update all references, we have this third task separated from the second task.
+The `TopicV2Manager` :  Create or update (if changes detected) `cas d'usages` and `solutions` topics from the fetched data. Create the tags for the filters.
 
 ## Tests
 
