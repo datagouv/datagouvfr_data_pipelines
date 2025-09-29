@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 import yaml
 
 
@@ -13,6 +14,7 @@ class DataGouvLog:
         database_excluded_column: list[str],
         static_segments: list[str] = [],
         additional_patterns: dict[str, str] | None = None,
+        ** kwargs : Any,
     ) -> None:
         self.type = type
         self.catalog_columns = catalog_columns
@@ -63,7 +65,7 @@ class MetricsConfig:
             self.all_segments = self.api_segments + self.web_segments
             self.logs_config = [
                 DataGouvLog(
-                    segments=self.all_segments,
+                    segments=getattr(self, obj.get("all_segments", "all_segments")),  # all_segments may be overwritten in obj config
                     global_pattern=config_data["global_pattern"],
                     database_excluded_column=config_data["database_excluded_column"],
                     **obj,

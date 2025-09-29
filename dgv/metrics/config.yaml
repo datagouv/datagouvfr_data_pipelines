@@ -30,6 +30,7 @@ datagouv_logs:
       dataset.organization_id: organization_id
       dataset.archived: archived
       created_at: created_at
+    all_segments: api_segments
     static_segments:
       - "static_resource"
     additional_patterns:
