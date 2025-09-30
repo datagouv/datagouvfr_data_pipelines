@@ -80,6 +80,15 @@ class TestWatchGristData:
     def setup_method(self):
         grist_factory.clear_all_resources()
 
+    @staticmethod
+    def create_backup_mock_side_effect(backup_data):
+        def side_effect(table_id, filter=None, document_id=None):
+            if document_id and document_id != "ofSVjCSAnMb6SGZSb7GGrv":
+                return backup_data
+            raise Exception("Unexpected call to _request_table_records")
+
+        return side_effect
+
     @patch("task_functions.send_message")
     def test_watch_grist_data(self, mock_send_message):
         # Mock the table metadata endpoints that watch_grist_data uses
@@ -114,6 +123,181 @@ class TestWatchGristData:
         assert "Test Case Modified" in message_text
 
         assert "Solutions" not in message_text
+
+    @patch("task_functions.send_message")
+    @patch("task_functions.GristV2Manager._request_table_records")
+    def test_watch_grist_data_with_diff(
+        self, mock_request_table_records, mock_send_message
+    ):
+        # Mock the table metadata endpoints
+        grist_factory.resource_mock().mock_table_metadata()
+
+        # Create the modified record - it will have id=1 (first record in Cas_d_usages)
+        grist_factory.create_record(
+            "Cas_d_usages",
+            {
+                "Nom": "Test Case Modified",
+                "Description_courte": "New description",
+                "Modifie_le": time.time() - 3600,  # Modified 1 hour ago
+                "Modifie_par": "Testman the tester",
+                "technical_title": "Test Case Modified",
+                "anchor_link": "https://example.com/test",
+            },
+        )
+
+        # Define backup data with old values - id=1 matches the first record
+        backup_data = [
+            {
+                "id": 1,
+                "fields": {
+                    "Nom": "Test Case Original",
+                    "Description_courte": "Old description",
+                    "Modifie_le": time.time() - 86400,  # Modified 24 hours ago
+                    "Modifie_par": "Original author",
+                    "technical_title": "Test Case Modified",
+                    "anchor_link": "https://example.com/test",
+                },
+            }
+        ]
+
+        # Mock _request_table_records to return backup data when called with backup document_id
+        mock_request_table_records.side_effect = self.create_backup_mock_side_effect(
+            backup_data
+        )
+
+        ti_mock = Mock()
+        watch_grist_data(ti_mock)
+
+        # Verify that send_message was called
+        mock_send_message.assert_called_once()
+
+        # Get the call arguments
+        call_args = mock_send_message.call_args
+        message_text = call_args.kwargs["text"]
+
+        # Assert message content contains expected information
+        assert "Cas_d_usages" in message_text
+        assert "Testman the tester" in message_text
+        assert "Test Case Modified" in message_text
+
+        # Assert diff information is present
+        assert "Nom" in message_text
+        assert "Backup: `Test Case Original`" in message_text
+        assert "Nouveau: `Test Case Modified`" in message_text
+        assert "Description_courte" in message_text
+        assert "Backup: `Old description`" in message_text
+        assert "Nouveau: `New description`" in message_text
+
+    @patch("task_functions.send_message")
+    @patch("task_functions.GristV2Manager._request_table_records")
+    def test_watch_grist_data_with_new_record(
+        self, mock_request_table_records, mock_send_message
+    ):
+        # Mock the table metadata endpoints
+        grist_factory.resource_mock().mock_table_metadata()
+
+        # Create a recently modified record that is new (doesn't exist in backup)
+        grist_factory.create_record(
+            "Cas_d_usages",
+            {
+                "Nom": "Brand New Case",
+                "Description_courte": "This is a new record",
+                "Modifie_le": time.time() - 3600,  # Modified 1 hour ago
+                "Modifie_par": "Testman the tester",
+                "technical_title": "Brand New Case",
+                "anchor_link": "https://example.com/new",
+            },
+        )
+
+        # Mock _request_table_records to return empty backup data (record doesn't exist in backup)
+        mock_request_table_records.side_effect = self.create_backup_mock_side_effect([])
+
+        ti_mock = Mock()
+        watch_grist_data(ti_mock)
+
+        # Verify that send_message was called
+        mock_send_message.assert_called_once()
+
+        # Get the call arguments
+        call_args = mock_send_message.call_args
+        message_text = call_args.kwargs["text"]
+
+        # Assert message content contains expected information
+        assert "Cas_d_usages" in message_text
+        assert "Testman the tester" in message_text
+        assert "Brand New Case" in message_text
+
+        # Assert that the new line prefix is present
+        assert "(Nouvelle ligne)" in message_text
+
+        # Assert that no diff information is present (since it's a new record, not modified)
+        assert "Backup:" not in message_text
+        assert "Nouveau:" not in message_text
+
+    @patch("task_functions.send_message")
+    @patch("task_functions.GristV2Manager._request_table_records")
+    def test_watch_grist_data_with_deleted_record(
+        self, mock_request_table_records, mock_send_message
+    ):
+        # Mock the table metadata endpoints
+        grist_factory.resource_mock().mock_table_metadata()
+
+        # Create one current record (id=1)
+        grist_factory.create_record(
+            "Cas_d_usages",
+            {
+                "Nom": "Current Case",
+                "Modifie_le": time.time() - 7200,  # Modified 2 hours ago
+                "Modifie_par": "Current author",
+                "technical_title": "Current Case",
+                "anchor_link": "https://example.com/current",
+            },
+        )
+
+        # Define backup data with two records: the current one + a deleted one
+        backup_data = [
+            {
+                "id": 1,
+                "fields": {
+                    "Nom": "Current Case",
+                    "Modifie_le": time.time() - 7200,
+                    "Modifie_par": "Current author",
+                    "technical_title": "Current Case",
+                    "anchor_link": "https://example.com/current",
+                },
+            },
+            {
+                "id": 2,
+                "fields": {
+                    "Nom": "Deleted Case",
+                    "Description_courte": "This record was deleted",
+                    "Modifie_le": time.time() - 3600,  # Modified 1 hour ago
+                    "Modifie_par": "Deleter Person",
+                    "technical_title": "Deleted Case",
+                    "anchor_link": "https://example.com/deleted",
+                },
+            },
+        ]
+
+        # Mock _request_table_records to return appropriate data
+        mock_request_table_records.side_effect = self.create_backup_mock_side_effect(
+            backup_data
+        )
+
+        ti_mock = Mock()
+        watch_grist_data(ti_mock)
+
+        # Verify that send_message was called
+        mock_send_message.assert_called_once()
+
+        # Get the call arguments
+        call_args = mock_send_message.call_args
+        message_text = call_args.kwargs["text"]
+
+        # Assert message content contains expected information about the deleted record
+        assert "Lignes supprimées" in message_text
+        assert "Cas_d_usages" in message_text
+        assert "Deleted Case" in message_text
 
 
 class TestUpdateTopicsV2:

@@ -5,7 +5,8 @@ from datagouvfr_data_pipelines.config import (
     SECRET_GRIST_API_KEY,
 )
 
-GRIST_DOC_ID = "ofSVjCSAnMb6"
+GRIST_DOC_ID = "ofSVjCSAnMb6SGZSb7GGrv"
+GRIST_WORKSPACE_ID = 51287
 
 
 class GristV2Manager:
@@ -53,6 +54,66 @@ class GristV2Manager:
         return r.json()["columns"]
 
     @staticmethod
+    def _request_table_records(
+        table_id: str, filter: str = None, document_id: str = GRIST_DOC_ID
+    ) -> list[dict]:
+        r = requests.get(
+            GRIST_API_URL + f"docs/{document_id}/tables/{table_id}/records",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            params={"filter": filter} if filter else None,
+        )
+        r.raise_for_status()
+        return r.json()["records"]
+
+    @staticmethod
+    def _copy_document(document_name: str, as_template: bool = False):
+        r = requests.post(
+            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/copy",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json={
+                "workspaceId": GRIST_WORKSPACE_ID,
+                "documentName": document_name,
+                "asTemplate": as_template,
+            },
+        )
+        r.raise_for_status()
+        return r.json()
+
+    @staticmethod
+    def _list_workspace_documents() -> dict:
+        r = requests.get(
+            GRIST_API_URL + f"workspaces/{GRIST_WORKSPACE_ID}",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        r.raise_for_status()
+        return r.json()["docs"]
+
+    @staticmethod
+    def _delete_document(document_id: str):
+        r = requests.delete(
+            GRIST_API_URL + f"docs/{document_id}",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        r.raise_for_status()
+        return r.json()
+
+    @staticmethod
     def _clean_row(row: dict) -> dict:
         cleaned_fields = {}
         for key, value in row["fields"].items():
@@ -63,11 +124,3 @@ class GristV2Manager:
                 cleaned_fields[key] = value
         row["fields"] = cleaned_fields
         return row
-
-    @staticmethod
-    def _boldify_last_section(description: str) -> str:
-        if " > " not in description:
-            return description
-        first_section = description.split(" > ")[0]
-        last_section = description.split(" > ")[-1]
-        return f"{first_section} > **{last_section}**"
