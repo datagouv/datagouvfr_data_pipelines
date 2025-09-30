@@ -196,10 +196,9 @@ def aggregate_metrics(
 
         # A few resource_id are common to multiple datasets
         # Deduplication priority is : "dataset.archived" as False otherwise keep the last one created
-        df_catalog = (
-            df_catalog.sort_values(by=["dataset.archived", "created_at"], ascending=[True, False])
-            .drop_duplicates(subset=["id"], keep="first")
-        )
+        df_catalog = df_catalog.sort_values(
+            by=["dataset.archived", "created_at"], ascending=[True, False]
+        ).drop_duplicates(subset=["id"], keep="first")
 
         # Resource catalog has no slug column but static
         # URLs starting with https://static.data.gouv.fr/resources/$SLUG
@@ -213,9 +212,8 @@ def aggregate_metrics(
         catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
 
         # 2. All the IDs that don't have any static URL
-        df_ids = (
-            df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)]
-            .filter(items=["id"])
+        df_ids = df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)].filter(
+            items=["id"]
         )
         catalog_dict.update({id: id for id in df_ids["id"].to_list()})
     else:
