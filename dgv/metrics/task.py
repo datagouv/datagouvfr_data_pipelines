@@ -131,6 +131,7 @@ def process_log(ti) -> None:
                         f">> Total of {n_logs_found_total} relevant log found."
                     )
 
+
 def aggregate_log(ti) -> None:
     dates_to_process = ti.xcom_pull(key="dates_to_process", task_ids="download_log")
     dates_processed: list[str] = []
@@ -145,7 +146,9 @@ def aggregate_log(ti) -> None:
             usecols=list(obj_config.catalog_columns.keys()),
         )
         for log_date in dates_to_process:
-            isoformat_log_date = datetime.strptime(log_date, "%d%m%Y").date().isoformat()
+            isoformat_log_date = (
+                datetime.strptime(log_date, "%d%m%Y").date().isoformat()
+            )
             logging.info(f"Aggregating {obj_config.type} objects...")
             df = pd.read_csv(
                 f"{FOUND_FOLDER}{isoformat_log_date}_{obj_config.type}_found.csv",

@@ -12,3 +12,7 @@ def get_and_format_grist_v2_data(ti, client=None):
 
 def update_topics_v2(ti, client=None):
     return TopicsV2Manager(client).update_topics(ti)
+
+
+def watch_grist_data(ti):
+    return GristV2Manager().watch_grist_data(ti)
