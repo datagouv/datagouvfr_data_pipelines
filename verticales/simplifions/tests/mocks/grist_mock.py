@@ -50,3 +50,39 @@ class GristMock(ExternalResourcesMock):
             {"id": index + 1, "fields": record} for index, record in enumerate(records)
         ]
         return {"records": records_with_ids}
+
+    def mock_table_metadata(self):
+        """Mock the table metadata endpoints used by watch_grist_data"""
+
+        # Mock the /tables endpoint to list all tables
+        tables_response = {
+            "tables": [
+                {"id": "Cas_d_usages"},
+                {"id": "Solutions"},
+            ]
+        }
+
+        ExternalResourcesMock._data_mocker.register_uri(
+            "GET",
+            re.compile(r"https://grist\.example\.com/api/docs/[^/]+/tables$"),
+            json=tables_response,
+            status_code=200,
+        )
+
+        # Mock the /tables/{table_id}/columns endpoint to always return these columns
+        columns_response = {
+            "columns": [
+                {"id": "technical_title", "type": "Text"},
+                {"id": "Modifie_le", "type": "Numeric"},
+                {"id": "Modifie_par", "type": "Text"},
+            ]
+        }
+
+        ExternalResourcesMock._data_mocker.register_uri(
+            "GET",
+            re.compile(
+                r"https://grist\.example\.com/api/docs/[^/]+/tables/[^/]+/columns$"
+            ),
+            json=columns_response,
+            status_code=200,
+        )

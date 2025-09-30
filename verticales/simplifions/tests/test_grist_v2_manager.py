@@ -1,4 +1,5 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+import time
 
 # The factory must be imported before the manager because it initializes the mocks
 from factories.grist_factory import GristFactory
@@ -84,3 +85,43 @@ class TestGetAndFormatGristV2Data:
         assert len(second_call["Types_de_simplification"]) == 2
         assert len(second_call["Usagers"]) == 3
         assert len(second_call["Budgets_de_mise_en_oeuvre"]) == 4
+
+
+class TestWatchGristData:
+    def setup_method(self):
+        grist_factory.clear_all_resources()
+
+    @patch("grist_v2_manager.send_message")
+    def test_watch_grist_data(self, mock_send_message):
+        # Mock the table metadata endpoints that watch_grist_data uses
+        grist_factory.resource_mock().mock_table_metadata()
+
+        # Create test data with a recently modified record
+        grist_factory.create_records("Cas_d_usages", 2)
+        grist_factory.create_records("Solutions", 2)
+        grist_factory.create_record(
+            "Cas_d_usages",
+            {
+                "Modifie_le": time.time()
+                - 3600,  # Modified 1 hour ago (within 24h window)
+                "Modifie_par": "Testman the tester",
+                "technical_title": "Test Case Modified",
+            },
+        )
+
+        ti_mock = Mock()
+        grist_v2_manager.watch_grist_data(ti_mock)
+
+        # Verify that send_message was called
+        mock_send_message.assert_called_once()
+
+        # Get the call arguments
+        call_args = mock_send_message.call_args
+        message_text = call_args.kwargs["text"]
+
+        # Assert message content contains expected information
+        assert "Cas_d_usages" in message_text
+        assert "Testman the tester" in message_text
+        assert "Test Case Modified" in message_text
+
+        assert "Solutions" not in message_text
