@@ -220,3 +220,14 @@ def watch_grist_data(ti):
         text=message,
         endpoint_url=MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
     )
+    return TopicsV2Manager(client).update_topics(ti)
+
+def clone_grist_document(ti):
+    logging.info("Cloning grist document")
+    new_name = "Simplifions Copy - " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    new_doc_id = GristV2Manager._copy_document({
+        "workspaceId": 51287, # Simplifions workspace
+        "documentName": new_name,
+        "asTemplate": False,
+    })
+    logging.info("Grist document cloned to " + new_doc_id + " : " + new_name)

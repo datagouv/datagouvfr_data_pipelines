@@ -26,6 +26,44 @@ class GristV2Manager:
         r.raise_for_status()
         return r.json()["records"]
 
+    def _request_all_tables(self) -> dict:
+        r = requests.get(
+            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        r.raise_for_status()
+        return r.json()["tables"]
+
+    def _request_table_columns(self, table_id: str) -> dict:
+        r = requests.get(
+            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/columns",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        r.raise_for_status()
+        return r.json()["columns"]
+    
+    @staticmethod
+    def _copy_document(body):
+        r = requests.post(
+            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/copy",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json=body,
+        )
+        r.raise_for_status()
+        return r.json()
+
     @staticmethod
     def _request_all_tables() -> dict:
         r = requests.get(
@@ -71,3 +109,4 @@ class GristV2Manager:
         first_section = description.split(" > ")[0]
         last_section = description.split(" > ")[-1]
         return f"{first_section} > **{last_section}**"
+
