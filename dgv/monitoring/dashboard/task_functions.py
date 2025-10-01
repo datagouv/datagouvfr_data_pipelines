@@ -197,7 +197,7 @@ def get_visits(
     #     "title": "Homepage",
     # }
 
-    months_to_process = list_months_between(start_date, end_date)
+    months_to_process = list_months_between(start_date, end_date)[:-1]  # to remove the current month that has just started
     if datetime.today().strftime("%Y-%m") > "2026-07":
         raise ValueError("Time to remove old support URL")
     old_url_stats_support = {
