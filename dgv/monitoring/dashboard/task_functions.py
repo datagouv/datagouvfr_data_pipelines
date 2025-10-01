@@ -189,7 +189,7 @@ def fill_url(
 def get_visits(
     ti: TaskInstance,
     start_date: datetime,
-    end_date: datetime = datetime.today(),
+    end_date: datetime = datetime.today() - timedelta(days=1),
 ) -> None:
     # url_stats_home_dgv = {
     #     "site_id": DATAGOUV_MATOMO_ID,
@@ -197,7 +197,7 @@ def get_visits(
     #     "title": "Homepage",
     # }
 
-    months_to_process = list_months_between(start_date, end_date)[:-1]  # to remove the current month that has just started
+    months_to_process = list_months_between(start_date, end_date)
     if datetime.today().strftime("%Y-%m") > "2026-07":
         raise ValueError("Time to remove old support URL")
     old_url_stats_support = {
