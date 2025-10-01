@@ -440,11 +440,7 @@ def update_grist(ti):
         dataset_quality = r.json()["quality"]
         table.update_records(
             conditions={"id2": dataset_id},
-            new_values={
-                k: v
-                for k, v in dataset_quality.items()
-                if k != "score"
-            }
+            new_values={k: v for k, v in dataset_quality.items() if k != "score"},
         )
 
     old_hvd_metadata = table.to_dataframe(columns_labels=False)
@@ -532,7 +528,9 @@ def update_grist(ti):
             r.raise_for_status()
             r = r.json()
             to_send.append((hvd_id, r["title"], r["organization"]["name"]))
-        message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
+        message = (
+            ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
+        )
         for _id, title, orga in to_send:
             message += (
                 f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
