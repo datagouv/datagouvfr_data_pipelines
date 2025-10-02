@@ -193,6 +193,10 @@ def watch_grist_data(ti):
 
     # Format the message
 
+    if not tables_with_modified_rows:
+        logging.info("No modified rows found")
+        return
+
     tables_messages = []
     message = "# Modifications du grist Simplifions\n"
     message += f"Les données suivantes ont reçu des modifications pendant les {time_delta} dernières heures:\n\n\n"
