@@ -88,6 +88,9 @@ def update_topics_v2(ti, client=None):
     for tag, grist_rows in tag_and_grist_rows.items():
         logging.info(f"\n\n\nUpdating {len(grist_rows)} topics for tag: {tag}")
 
+        # Normalize grist_rows keys to integers (handles both string keys from JSON and int keys from tests)
+        grist_rows = {int(k): v for k, v in grist_rows.items()}
+
         extras_nested_key = tag
         topic_tags = simplifions_tags + [tag]
 
@@ -138,8 +141,7 @@ def update_topics_v2(ti, client=None):
 
         # deleting topics that are not in the table anymore
         for grist_id in current_topics_by_grist_id:
-            grist_id_str = str(grist_id)
-            if grist_id_str not in grist_rows:
+            if grist_id not in grist_rows:
                 old_topic = current_topics_by_grist_id[grist_id]
                 logging.info(
                     f"Deleting topic grist_id: {grist_id}, slug: {old_topic['slug']}"

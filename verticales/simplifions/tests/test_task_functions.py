@@ -337,7 +337,7 @@ class TestUpdateTopicsV2:
                     "simplifions-v2-dag-generated",
                     "simplifions-v2-solutions",
                 ],
-                "extras": {"id": 1},
+                "extras": { "simplifions-v2-solutions": { "id": 1 } },
             },
         )
 
