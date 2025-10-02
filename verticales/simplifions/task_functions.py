@@ -191,6 +191,10 @@ def watch_grist_data(ti):
         else:
             logging.info(f"> No modified rows found for table {table['id']}")
 
+    if not tables_with_modified_rows:
+        logging.info("No modified rows found")
+        return
+
     # Format the message
 
     tables_messages = []
@@ -206,7 +210,8 @@ def watch_grist_data(ti):
 
         for modifier, rows in modified_rows_grouped_by_modifier.items():
             table_message += f"- **{modifier}**\n"
-            for row in rows:
+            sorted_rows = sorted(rows, key=lambda row: row["fields"]["technical_title"])
+            for row in sorted_rows:
                 table_message += f"  - {GristV2Manager._boldify_last_section(row['fields']['technical_title'])}\n"
 
         tables_messages.append(table_message + "\n")
