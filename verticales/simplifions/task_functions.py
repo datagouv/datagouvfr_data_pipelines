@@ -210,7 +210,7 @@ def watch_grist_data(ti):
 
         for modifier, rows in modified_rows_grouped_by_modifier.items():
             table_message += f"- **{modifier}**\n"
-            sorted_rows = sorted(rows, key=lambda row: row['fields']['technical_title'])
+            sorted_rows = sorted(rows, key=lambda row: row["fields"]["technical_title"])
             for row in sorted_rows:
                 table_message += f"  - {GristV2Manager._boldify_last_section(row['fields']['technical_title'])}\n"
 

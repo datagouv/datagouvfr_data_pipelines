@@ -49,7 +49,9 @@ class DataGouvLog:
 
         # And then add regular segment patterns not already included in the additional ones
         regular_patterns = {
-            segment.replace("/", ""): rf"{global_pattern}{segment}/{self.type}/([^/?\s]*)"
+            segment.replace(
+                "/", ""
+            ): rf"{global_pattern}{segment}/{self.type}/([^/?\s]*)"
             for segment in segments
             if segment.replace("/", "") not in self.log_patterns
         }
