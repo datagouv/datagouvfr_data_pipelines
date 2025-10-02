@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.verticales.simplifions.task_functions import (
     get_and_format_grist_v2_data,
     update_topics_v2,
+    watch_grist_data,
 )
 
 default_args = {
@@ -69,3 +70,20 @@ v2_dags_params = [
 
 for dag_params in v2_dags_params:
     create_simplifions_v2_dag(**dag_params)
+
+# Grist watcher DAG - runs independently to monitor Grist data changes
+verticale_simplifions_grist_watcher = DAG(
+    dag_id="verticale_simplifions_grist_watcher",
+    schedule_interval="0 5 * * *",  # every day at 5am
+    start_date=datetime(2024, 10, 1),
+    dagrun_timeout=timedelta(minutes=30),
+    tags=["verticale", "simplifions"],
+    default_args=default_args,
+    catchup=False,
+)
+
+watch_grist_data_task = PythonOperator(
+    task_id="watch_grist_data",
+    python_callable=watch_grist_data,
+    dag=verticale_simplifions_grist_watcher,
+)

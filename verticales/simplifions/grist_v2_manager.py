@@ -1,6 +1,4 @@
-import logging
 import requests
-from collections import defaultdict
 
 from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
@@ -8,28 +6,14 @@ from datagouvfr_data_pipelines.config import (
 )
 
 GRIST_DOC_ID = "ofSVjCSAnMb6"
-GRIST_TABLES_AND_TAGS = {
-    "Cas_d_usages": {
-        "tag": "simplifions-v2-cas-d-usages",
-    },
-    "Solutions": {
-        "tag": "simplifions-v2-solutions",
-    },
-}
-
-GRIST_TABLES_FOR_FILTERS = [
-    "Fournisseurs_de_services",
-    "Types_de_simplification",
-    "Usagers",
-    "Budgets_de_mise_en_oeuvre",
-]
 
 
 class GristV2Manager:
     def __init__(self):
         pass
 
-    def _request_grist_table(self, table_id: str, filter: str = None) -> list[dict]:
+    @staticmethod
+    def _request_grist_table(table_id: str, filter: str = None) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
             headers={
@@ -43,6 +27,32 @@ class GristV2Manager:
         return r.json()["records"]
 
     @staticmethod
+    def _request_all_tables() -> dict:
+        r = requests.get(
+            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        r.raise_for_status()
+        return r.json()["tables"]
+
+    @staticmethod
+    def _request_table_columns(table_id: str) -> dict:
+        r = requests.get(
+            GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/columns",
+            headers={
+                "Authorization": "Bearer " + SECRET_GRIST_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        r.raise_for_status()
+        return r.json()["columns"]
+
+    @staticmethod
     def _clean_row(row: dict) -> dict:
         cleaned_fields = {}
         for key, value in row["fields"].items():
@@ -54,37 +64,10 @@ class GristV2Manager:
         row["fields"] = cleaned_fields
         return row
 
-    def get_and_format_grist_v2_data(self, ti):
-        tag_and_grist_topics = defaultdict(dict)
-
-        for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
-            tag = table_info["tag"]
-            rows = self._request_grist_table(table_id)
-
-            tag_and_grist_topics[tag].update(
-                {row["id"]: self._clean_row(row) for row in rows}
-            )
-
-        logging_str = "\n".join(
-            [
-                f"{tag}: {len(grist_topics)} topics"
-                for tag, grist_topics in tag_and_grist_topics.items()
-            ]
-        )
-        total_length = sum(
-            [len(grist_topics) for grist_topics in tag_and_grist_topics.values()]
-        )
-        logging.info(f"Found {total_length} items in grist: \n{logging_str}")
-
-        ti.xcom_push(key="tag_and_grist_rows_v2", value=tag_and_grist_topics)
-
-        logging.info("Get grist_tables_for_filters...")
-
-        grist_tables_for_filters = {}
-        for table_id in GRIST_TABLES_FOR_FILTERS:
-            rows = self._request_grist_table(table_id)
-            grist_tables_for_filters[table_id] = rows
-
-        logging.info("grist_tables_for_filters done.")
-
-        ti.xcom_push(key="grist_tables_for_filters", value=grist_tables_for_filters)
+    @staticmethod
+    def _boldify_last_section(description: str) -> str:
+        if " > " not in description:
+            return description
+        first_section = description.split(" > ")[0]
+        last_section = description.split(" > ")[-1]
+        return f"{first_section} > **{last_section}**"
