@@ -6,7 +6,11 @@ import time
 from factories.grist_factory import GristFactory
 from factories.topics_factory import TopicsFactory
 from factories.task_instance_factory import TaskInstanceFactory
-from task_functions import get_and_format_grist_v2_data, update_topics_v2, watch_grist_data
+from task_functions import (
+    get_and_format_grist_v2_data,
+    update_topics_v2,
+    watch_grist_data,
+)
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 grist_factory = GristFactory()
@@ -337,7 +341,7 @@ class TestUpdateTopicsV2:
                     "simplifions-v2-dag-generated",
                     "simplifions-v2-solutions",
                 ],
-                "extras": { "simplifions-v2-solutions": { "id": 1 } },
+                "extras": {"simplifions-v2-solutions": {"id": 1}},
             },
         )
 

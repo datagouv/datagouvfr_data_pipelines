@@ -63,4 +63,3 @@ class GristV2Manager:
                 cleaned_fields[key] = value
         row["fields"] = cleaned_fields
         return row
-

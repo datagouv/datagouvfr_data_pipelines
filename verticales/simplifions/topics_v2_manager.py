@@ -100,4 +100,3 @@ class TopicsV2Manager:
         )
 
         return extras
-
