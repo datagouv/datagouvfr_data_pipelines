@@ -207,7 +207,7 @@ def watch_grist_data(ti):
         for modifier, rows in modified_rows_grouped_by_modifier.items():
             table_message += f"- **{modifier}**\n"
             for row in rows:
-                table_message += f"  - {row['fields']['technical_title']}\n"
+                table_message += f"  - {GristV2Manager._boldify_last_section(row['fields']['technical_title'])}\n"
 
         tables_messages.append(table_message + "\n")
 
