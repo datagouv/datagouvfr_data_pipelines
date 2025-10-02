@@ -63,3 +63,11 @@ class GristV2Manager:
                 cleaned_fields[key] = value
         row["fields"] = cleaned_fields
         return row
+
+    @staticmethod
+    def _boldify_last_section(description: str) -> str:
+        if " > " not in description:
+            return description
+        first_section = description.split(" > ")[0]
+        last_section = description.split(" > ")[-1]
+        return f"{first_section} > **{last_section}**"

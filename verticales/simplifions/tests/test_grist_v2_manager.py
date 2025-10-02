@@ -1,4 +1,3 @@
-
 # The factory must be imported before the manager because it initializes the mocks
 from factories.grist_factory import GristFactory
 from grist_v2_manager import GristV2Manager
