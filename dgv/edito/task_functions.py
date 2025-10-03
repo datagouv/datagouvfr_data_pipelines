@@ -162,29 +162,23 @@ def create_edito_post(**kwargs):
 
     # Generate HTML
     def list_datasets(datasets):
-        out = '<div class="fr-my-2w">\n'
+        out = '<div class="my-4 not-prose space-y-4">\n'
         for slug in datasets:
-            out += f'        <div class="udata-oembed--border-bottom" data-udata-dataset="{slug}"></div>\n'
+            out += f'        <div data-udata-dataset="{slug}"></div>\n'
         out += "    </div>\n"
         return out
 
     def list_reuses(reuses):
-        out = '<div class="fr-my-2w fr-grid-row fr-grid-row--gutters">\n'
+        out = '<div class="my-4 not-prose grid gap-4 md:grid-cols-2">\n'
         for slug in reuses:
             out += (
-                f'        <div class="udata-oembed--border-bottom fr-col-lg-3 fr-col-sm-6 fr-col-12" '
+                f'        <div class="flex-1" '
                 f'data-udata-reuse="{slug}"></div>\n'
             )
         out += "    </div>\n"
         return out
 
     content = f"""
-        <script
-            data-udata="https://www.data.gouv.fr/"
-            src="https://static.data.gouv.fr/static/oembed.js"
-            async
-            defer
-        ></script>
         <h3>
             En {LAST_MONTH_DATE_STR}, {mapping["datasets"]["count"]}
              jeux de données et {mapping["reuses"]["count"]}
