@@ -402,7 +402,7 @@ def upload_new_files(ti) -> None:
 
     new_files_datasets = set()
     went_wrong = []
-    for idx, clean_file_path in enumerate(new_files):
+    for idx, clean_file_path in enumerate(reversed(sorted(new_files))):
         file_with_ext, global_path, resource_name, description, url, is_doc = (
             build_resource(
                 clean_file_path,
