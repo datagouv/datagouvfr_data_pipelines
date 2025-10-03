@@ -67,14 +67,17 @@ def get_resource_lists() -> dict:
                     r["internal"]["last_modified_internal"]
                 ),
             }
-            for r in requests.get(
+            for r in resp.json()["resources"]
+        }
+        for path in config.keys()
+        if (
+            resp := requests.get(
                 f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
                 headers={
                     "X-fields": "resources{id,url,internal{last_modified_internal}}"
                 },
-            ).json()["resources"]
-        }
-        for path in config.keys()
+            )
+        ).ok
     }
     return resources_lists
 
