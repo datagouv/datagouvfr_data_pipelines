@@ -244,7 +244,9 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
         tzinfo=timezone.utc
     )
     if has_been_modified:
-        logging.info(f"> {ftp_file['file_path']} has already been modified on data.gouv")
+        logging.info(
+            f"> {ftp_file['file_path']} has already been modified on data.gouv"
+        )
     return has_been_modified
 
 
@@ -266,7 +268,9 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         if f not in minio_files
         or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
-    logging.info(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
+    logging.info(
+        f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}"
+    )
     logging.info(diff_files)
     if len(diff_files) == 0:
         raise ValueError("No new file today, is that normal?")
@@ -335,7 +339,9 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     logging.info(
         f"{len(files_to_update_same_name)} updated same name: {files_to_update_same_name}"
     )
-    logging.info(f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}")
+    logging.info(
+        f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}"
+    )
 
     # re-getting Minio files in case new files have been transfered for downstream tasks
     minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
