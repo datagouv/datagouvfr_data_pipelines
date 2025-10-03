@@ -337,6 +337,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.dataservices_total AS
     GROUP BY dataservice_id
 ;
 
+-- Index on visits table
 CREATE INDEX IF NOT EXISTS visits_datasets_dataset_id ON metric.visits_datasets USING btree (dataset_id);
 CREATE INDEX IF NOT EXISTS visits_datasets_date_metric ON metric.visits_datasets USING btree (date_metric);
 CREATE INDEX IF NOT EXISTS visits_datasets_organization_id ON metric.visits_datasets USING btree (organization_id);
@@ -355,3 +356,26 @@ CREATE INDEX IF NOT EXISTS visits_resources_dataset_id ON metric.visits_resource
 CREATE INDEX IF NOT EXISTS visits_dataservices_dataservice_id ON metric.visits_dataservices USING btree (dataservice_id);
 CREATE INDEX IF NOT EXISTS visits_dataservices_organization_id ON metric.visits_dataservices USING btree (organization_id);
 CREATE INDEX IF NOT EXISTS visits_dataservices_date_metric ON metric.visits_dataservices USING btree (date_metric);
+
+-- Index on monthly aggregated tables
+CREATE INDEX IF NOT EXISTS datasets_dataset_id ON metric.datasets USING btree (dataset_id);
+CREATE INDEX IF NOT EXISTS datasets_metric_month ON metric.datasets USING btree (metric_month);
+
+CREATE INDEX IF NOT EXISTS organizations_organization_id ON metric.organizations USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS organizations_metric_month ON metric.organizations USING btree (metric_month);
+
+CREATE INDEX IF NOT EXISTS reuses_reuse_id ON metric.reuses USING btree (reuse_id);
+CREATE INDEX IF NOT EXISTS reuses_metric_month ON metric.reuses USING btree (metric_month);
+
+CREATE INDEX IF NOT EXISTS resources_resource_id ON metric.resources USING btree (resource_id);
+CREATE INDEX IF NOT EXISTS resources_metric_month ON metric.resources USING btree (metric_month);
+
+CREATE INDEX IF NOT EXISTS dataservices_dataservice_id ON metric.dataservices USING btree (dataservice_id);
+CREATE INDEX IF NOT EXISTS dataservices_metric_month ON metric.dataservices USING btree (metric_month);
+
+-- Index on total tables
+CREATE INDEX IF NOT EXISTS datasets_total_dataset_id ON metric.datasets_total USING btree (dataset_id);
+CREATE INDEX IF NOT EXISTS organizations_total_organization_id ON metric.organizations_total USING btree (organization_id);
+CREATE INDEX IF NOT EXISTS reuses_total_reuse_id ON metric.reuses_total USING btree (reuse_id);
+CREATE INDEX IF NOT EXISTS resources_total_resource_id ON metric.resources_total USING btree (resource_id);
+CREATE INDEX IF NOT EXISTS dataservices_total_dataservice_id ON metric.dataservices_total USING btree (dataservice_id);
