@@ -1,4 +1,5 @@
 import ftplib
+import logging
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -137,7 +138,7 @@ def build_resource(
             resource_name = config[global_path]["name_template"].format(**params)
             description = config[global_path]["description_template"].format(**params)
         except AttributeError:
-            print("File is not matching pattern")
+            logging.warning("File is not matching pattern")
             resource_name = file_with_ext
             description = ""
     return file_with_ext, global_path, resource_name, description, url, is_doc
@@ -190,7 +191,7 @@ def get_current_files_on_ftp(ti, ftp) -> None:
                 "modif_date": previous_date_parse(" ".join(date_list)),
             }
     for f in ftp_files:
-        print(f, ":", ftp_files[f])
+        logging.info(f"{f}: {ftp_files[f]}")
     ti.xcom_push(key="ftp_files", value=ftp_files)
 
 
@@ -211,7 +212,7 @@ def get_current_files_on_minio(ti) -> None:
                     int(clean_hooks(params["PERIOD"]).split("-")[0]),
                     period_starts.get(path, datetime.today().year),
                 )
-    print(period_starts)
+    logging.info(period_starts)
 
     # de même ici, on utilise les balises pour cibler les fichiers du Minio
     # qui devront être remplacés
@@ -225,7 +226,7 @@ def get_current_files_on_minio(ti) -> None:
             "size": minio_files[file_path],
         }
     for f in final_minio_files:
-        print(f, ":", final_minio_files[f])
+        logging.info(f"{f}: {final_minio_files[f]}")
     ti.xcom_push(key="minio_files", value=final_minio_files)
     ti.xcom_push(key="period_starts", value=period_starts)
 
@@ -237,13 +238,13 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
     )
     if not last_modified_datagouv:
-        print("This file is not on datagouv yet:", ftp_file["file_path"])
+        logging.info(f"This file is not on datagouv yet: {ftp_file['file_path']}")
         return False
     has_been_modified = last_modified_datagouv > ftp_file["modif_date"].replace(
         tzinfo=timezone.utc
     )
     if has_been_modified:
-        print(f"> {ftp_file['file_path']} has already been modified on data.gouv")
+        logging.info(f"> {ftp_file['file_path']} has already been modified on data.gouv")
     return has_been_modified
 
 
@@ -265,8 +266,8 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         if f not in minio_files
         or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
-    print(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
-    print(diff_files)
+    logging.info(f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}")
+    logging.info(diff_files)
     if len(diff_files) == 0:
         raise ValueError("No new file today, is that normal?")
 
@@ -276,33 +277,33 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     updated_datasets = set()
     # doing it one file at a time in order not to overload production server
     for file_to_transfer in diff_files:
-        print("___________________________")
+        logging.info("___________________________")
         # if the file_id is in minio_files, it means that the current file is not
         # a true new file, but an updated file. We delete the old file at the end of
         # the process (to prevent downtimes) only if the file's name has changed
         # (otherwise the new one will just overwrite the old one) and upload the new
         # one, which will replace its previous version (we change the resource URL).
-        print(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
+        logging.info(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
         if file_to_transfer in minio_files:
             if (
                 minio_files[file_to_transfer]["file_path"]
                 != ftp_files[file_to_transfer]["file_path"]
             ):
-                print(
-                    f"♻️ Old version {minio_files[file_to_transfer]['file_path']}",
-                    f"will be replaced with {ftp_files[file_to_transfer]['file_path']}",
+                logging.info(
+                    f"♻️ Old version {minio_files[file_to_transfer]['file_path']} "
+                    f"will be replaced with {ftp_files[file_to_transfer]['file_path']}"
                 )
                 # storing files that have changed name with update as {"new_name": "old_name"}
                 files_to_update_new_name[ftp_files[file_to_transfer]["file_path"]] = (
                     minio_files[file_to_transfer]["file_path"]
                 )
             else:
-                print("🔃 This file already exists, it will only be updated")
+                logging.info("🔃 This file already exists, it will only be updated")
                 files_to_update_same_name.append(
                     minio_files[file_to_transfer]["file_path"]
                 )
         else:
-            print("🆕 This is a completely new file")
+            logging.info("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
         # we are recreating the file structure from FTP to Minio
         true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
@@ -327,14 +328,14 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
             )
             updated_datasets.add(global_path)
         except Exception:
-            print("⚠️ Unable to send file")
+            logging.error("⚠️ Unable to send file")
         os.remove(f"{DATADIR}/{file_name}")
-    print("___________________________")
-    print(len(new_files), "new files:", new_files)
-    print(
-        len(files_to_update_same_name), "updated same name:", files_to_update_same_name
+    logging.info("___________________________")
+    logging.info(f"{len(new_files)} new files: {new_files}")
+    logging.info(
+        f"{len(files_to_update_same_name)} updated same name: {files_to_update_same_name}"
     )
-    print(len(files_to_update_new_name), "updated new name:", files_to_update_new_name)
+    logging.info(f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}")
 
     # re-getting Minio files in case new files have been transfered for downstream tasks
     minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
@@ -390,7 +391,7 @@ def upload_new_files(ti) -> None:
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
-            print("This file is not on data.gouv, uploading:", clean_file_path)
+            logging.info(f"This file is not on data.gouv, uploading: {clean_file_path}")
             new_files.append(clean_file_path)
 
     new_files_datasets = set()
@@ -402,9 +403,9 @@ def upload_new_files(ti) -> None:
                 minio_folder,
             )
         )
-        print(
-            f"Creating new {'documentation ' if is_doc else ''}resource for:",
-            file_with_ext,
+        logging.info(
+            f"Creating new {'documentation ' if is_doc else ''}resource for: "
+            + file_with_ext
         )
         try:
             local_client.resource().create_remote(
@@ -422,7 +423,7 @@ def upload_new_files(ti) -> None:
             new_files_datasets.add(global_path)
             updated_datasets.add(global_path)
         except KeyError:
-            print("⚠️ no config for this file")
+            logging.warning("⚠️ no config for this file")
             # the file was not uploaded, removing it from the list of new files
             went_wrong.append(clean_file_path)
     ti.xcom_push(key="new_files_datasets", value=new_files_datasets)
@@ -446,15 +447,17 @@ def handle_updated_files_same_name(ti) -> None:
     for idx, file_path in enumerate(files_to_update_same_name):
         _, global_path = get_path(file_path)
         if global_path not in resources_lists:
-            print("⚠️ no config for this file:", file_path)
+            logging.warning(f"⚠️ no config for this file: {file_path}")
             continue
         file_with_ext = file_path.split("/")[-1]
         url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
-        print("Resource already exists and name unchanged:", file_with_ext)
+        logging.info(f"Resource already exists and name unchanged: {file_with_ext}")
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
         if not resources_lists[global_path].get(url):
-            print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
+            logging.info(
+                "⚠️ this file is not on data.gouv yet, it will be added as a new file"
+            )
             # new_files.append(file_path)
             continue
         local_client.resource(
@@ -491,12 +494,14 @@ def handle_updated_files_new_name(ti) -> None:
         )
         # resource is updated with a new name, we redirect the existing resource, rename it
         # and update size and description
-        print("Updating URL and metadata for:", file_with_ext)
+        logging.info(f"Updating URL and metadata for: {file_with_ext}")
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
         old_url = f"https://{MINIO_URL}/{bucket}/{minio_folder + old_file_path}"
         if not resources_lists[global_path].get(old_url):
-            print("⚠️ this file is not on data.gouv yet, it will be added as a new file")
+            logging.info(
+                "⚠️ this file is not on data.gouv yet, it will be added as a new file"
+            )
             new_files.append(file_path)
             continue
         local_client.resource(
@@ -531,7 +536,7 @@ def update_temporal_coverages(ti) -> None:
         updated_datasets = updated_datasets | ti.xcom_pull(
             key="updated_datasets", task_ids=task
         )
-    print("Updating datasets temporal_coverage")
+    logging.info("Updating datasets temporal_coverage")
     for path in updated_datasets:
         if path in period_starts:
             # for now the tags are erased when touching the metadata so we save them and put them back
@@ -597,7 +602,7 @@ def log_modified_files(ti) -> None:
         for k, v in log_file.items()
         if not re.match(r"\d+-\d{2}-\d{2}", k) or k >= threshold
     }
-    print(f"{len(log_file)} clés dans le fichier :", list(log_file.keys()))
+    logging.info(f"{len(log_file)} clés dans le fichier : {list(log_file.keys())}")
     with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
         json.dump(log_file, f)
     minio_meteo.send_files(
@@ -629,8 +634,8 @@ def notification_mattermost(ti) -> None:
     updated_datasets = ti.xcom_pull(
         key="updated_datasets", task_ids="update_temporal_coverages"
     )
-    print(new_files_datasets)
-    print(updated_datasets)
+    logging.info(new_files_datasets)
+    logging.info(updated_datasets)
 
     message = "##### 🌦️ Données météo mises à jour :"
     if not (new_files_datasets or updated_datasets):
