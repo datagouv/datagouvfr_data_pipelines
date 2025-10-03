@@ -171,10 +171,7 @@ def create_edito_post(**kwargs):
     def list_reuses(reuses):
         out = '<div class="my-4 not-prose grid gap-4 md:grid-cols-2">\n'
         for slug in reuses:
-            out += (
-                f'        <div class="flex-1" '
-                f'data-udata-reuse="{slug}"></div>\n'
-            )
+            out += f'        <div class="flex-1" data-udata-reuse="{slug}"></div>\n'
         out += "    </div>\n"
         return out
 
