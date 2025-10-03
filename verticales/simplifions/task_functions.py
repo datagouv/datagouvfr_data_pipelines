@@ -212,7 +212,7 @@ def watch_grist_data(ti):
             table_message += f"- **{modifier}**\n"
             sorted_rows = sorted(rows, key=lambda row: row["fields"]["technical_title"])
             for row in sorted_rows:
-                table_message += f"  - {GristV2Manager._boldify_last_section(row['fields']['technical_title'])}\n"
+                table_message += f"  - [{GristV2Manager._boldify_last_section(row['fields']['technical_title'])}]({row['fields']['anchor_link']})\n"
 
         tables_messages.append(table_message + "\n")
 
