@@ -665,10 +665,14 @@ def notification_mattermost(ti) -> None:
         )
         paths[config[path]["dataset_id"][AIRFLOW_ENV]] = path
     for dataset_id in allowed_patterns:
-        resources = requests.get(
+        resp = requests.get(
             f"{local_client.base_url}/api/1/datasets/{dataset_id}/",
             headers={"X-fields": "resources{title,id,type}"},
-        ).json()["resources"]
+        )
+        if not resp.ok:
+            logging.warning(f"Could not access dataset {local_client.base_url}/api/1/datasets/{dataset_id}/")
+            continue
+        resources = resp.json()["resources"]
         for r in resources:
             if (
                 r["type"] == "main"
