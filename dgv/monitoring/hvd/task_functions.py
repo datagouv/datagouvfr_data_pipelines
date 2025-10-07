@@ -8,6 +8,7 @@ from unidecode import unidecode
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
 )
@@ -21,7 +22,7 @@ from datagouvfr_data_pipelines.utils.grist import (
 
 DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
-DOC_ID = "eJxok2H2va3E"
+DOC_ID = "eJxok2H2va3E" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(DOC_ID, "Hvd_metadata_res")
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
@@ -428,6 +429,20 @@ def build_df_for_grist():
 
 
 def update_grist(ti):
+    def update_quality(dataset_id: str):
+        r = requests.get(
+            f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/",
+            headers={"X-fields": "quality"},
+        )
+        if not r.ok:
+            logging.error(f"Issue with {dataset_id}")
+            return
+        dataset_quality = r.json()["quality"]
+        table.update_records(
+            conditions={"id2": dataset_id},
+            new_values={k: v for k, v in dataset_quality.items() if k != "score"},
+        )
+
     old_hvd_metadata = table.to_dataframe(columns_labels=False)
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
@@ -493,39 +508,58 @@ def update_grist(ti):
                 ["id2", "url", "title"] + columns_to_update,
             ].iloc[0]
         )
-    if not new_rows:
-        return
-    logging.info(f"Adding {len(new_rows)} rows")
-    table.from_dataframe(
-        df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
-        append="lazy",
+    if new_rows:
+        logging.info(f"Adding {len(new_rows)} rows")
+        table.from_dataframe(
+            df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
+            append="lazy",
+        )
+        ti.xcom_push(
+            key="new_rows",
+            value=[(r["title"], r["url"], r["organization"]) for r in new_rows],
+        )
+    if removed_hvd:
+        to_send = []
+        for hvd_id in removed_hvd:
+            r = requests.get(
+                f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
+                headers={"X-fields": "title,organization{name}"},
+            )
+            r.raise_for_status()
+            r = r.json()
+            to_send.append((hvd_id, r["title"], r["organization"]["name"]))
+        message = (
+            ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
+        )
+        for _id, title, orga in to_send:
+            message += (
+                f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
+                f" de l'organisation {orga}"
+            )
+            table.update_records(
+                conditions={"id2": _id},
+                new_values={"missing_hvd_tag": True},
+            )
+        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
+    # updating quality metrics
+    logging.info("Updating datasets quality metrics columns")
+    df = table.to_dataframe(columns_labels=False, usecols=["id2"])
+    df["id2"].apply(update_quality)
+    file_name = "grist_hvd.csv"
+    table.to_dataframe().to_csv(DATADIR + file_name, sep=";", index=False)
+    minio_open.send_files(
+        [
+            File(
+                source_path=DATADIR,
+                source_name=file_name,
+                dest_path="hvd/",
+                dest_name=f"{datetime.today().strftime('%Y-%m')}_" + file_name,
+            )
+        ],
+        ignore_airflow_env=True,
+        burn_after_sending=True,
     )
-    ti.xcom_push(
-        key="new_rows",
-        value=[(r["title"], r["url"], r["organization"]) for r in new_rows],
-    )
-    if not removed_hvd:
-        return len(new_rows)
-    to_send = []
-    for hvd_id in removed_hvd:
-        r = requests.get(
-            f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
-            headers={"X-fields": "title,organization{name}"},
-        )
-        r.raise_for_status()
-        r = r.json()
-        to_send.append((hvd_id, r["title"], r["organization"]["name"]))
-    message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
-    for _id, title, orga in to_send:
-        message += (
-            f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
-            f" de l'organisation {orga}"
-        )
-        table.update_records(
-            conditions={"id2": _id},
-            new_values={"missing_hvd_tag": True},
-        )
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
     return len(new_rows)
 
 
