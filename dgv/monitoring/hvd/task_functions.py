@@ -432,7 +432,6 @@ def update_grist(ti):
     def update_quality(dataset_id: str):
         r = requests.get(
             f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/",
-
             headers={"X-fields": "quality"},
         )
         if not r.ok:
