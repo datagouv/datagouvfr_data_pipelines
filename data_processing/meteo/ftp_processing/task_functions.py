@@ -670,7 +670,9 @@ def notification_mattermost(ti) -> None:
             headers={"X-fields": "resources{title,id,type}"},
         )
         if not resp.ok:
-            logging.warning(f"Could not access dataset {local_client.base_url}/api/1/datasets/{dataset_id}/")
+            logging.warning(
+                f"Could not access dataset {local_client.base_url}/api/1/datasets/{dataset_id}/"
+            )
             continue
         resources = resp.json()["resources"]
         for r in resources:
