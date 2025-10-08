@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 from datetime import datetime, timedelta
 import numpy as np
@@ -12,6 +13,11 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 local_timezone = pytz.timezone("Europe/Paris")
 http_hook = HttpHook(http_conn_id="HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR", method="GET")
 
+DEFAULT_DAG_OWNERS = [
+    "geoffrey.aldebert",
+    "pierlou_ramade",
+    "hadrien_bossard",
+]
 with open(
     f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", "r"
 ) as f:
@@ -39,7 +45,7 @@ def monitor_dags(
     print("DAG list:", dag_ids_to_monitor)
 
     print("Start date considered:", date)
-    todays_runs = {}
+    todays_runs = defaultdict(dict)
     for dag_id in dag_ids_to_monitor:
         dag_runs = DagRun.find(
             dag_id=dag_id,
@@ -55,9 +61,6 @@ def monitor_dags(
                 else None
             )
             if end_date and end_date >= date:
-                if dag_id not in todays_runs.keys():
-                    todays_runs[dag_id] = {}
-
                 if status != State.SUCCESS:
                     failed_task_instances = dag_run.get_task_instances(
                         state=State.FAILED
@@ -141,5 +144,11 @@ def notification_mattermost(ti):
                 len(failures) > 10
                 or len(failures) / (len(failures) + len(successes)) > 0.02
             ):
-                message += "\ncc @geoffrey.aldebert @pierlou_ramade @hadrien_bossard"
+                message += "\n" + (
+                    " ".join(["@" + owner for owner in (
+                        config[dag]
+                        if isinstance(config[dag], list)
+                        else DEFAULT_DAG_OWNERS
+                    )])
+                )
     send_message(message)
