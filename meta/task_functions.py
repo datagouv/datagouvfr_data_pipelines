@@ -145,10 +145,15 @@ def notification_mattermost(ti):
                 or len(failures) / (len(failures) + len(successes)) > 0.02
             ):
                 message += "\n" + (
-                    " ".join(["@" + owner for owner in (
-                        config[dag]
-                        if isinstance(config[dag], list)
-                        else DEFAULT_DAG_OWNERS
-                    )])
+                    " ".join(
+                        [
+                            "@" + owner
+                            for owner in (
+                                config[dag]
+                                if isinstance(config[dag], list)
+                                else DEFAULT_DAG_OWNERS
+                            )
+                        ]
+                    )
                 )
     send_message(message)
