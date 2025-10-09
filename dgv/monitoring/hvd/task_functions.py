@@ -525,9 +525,11 @@ def update_grist(ti):
                 f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
                 headers={"X-fields": "title,organization{name}"},
             )
-            r.raise_for_status()
-            r = r.json()
-            to_send.append((hvd_id, r["title"], r["organization"]["name"]))
+            if r.ok:
+                r = r.json()
+                to_send.append((hvd_id, r["title"], r["organization"]["name"]))
+            else:
+                to_send.append((hvd_id, "Jeu de données introuvable", "???"))
         message = (
             ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
         )
