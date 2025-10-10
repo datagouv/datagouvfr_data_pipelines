@@ -105,7 +105,7 @@ def build_file_id(file: str, path: str) -> str:
 def build_resource(
     file_path: str,
     minio_folder: str,
-) -> tuple[str, str, str, str, str, bool]:
+) -> tuple[str, str, str | None, str | None, str, bool]:
     # file_path has to be the full file path as structured on the FTP
     # for files on minio, removing the minio folder upstream is required
     _, global_path = get_path(file_path)
@@ -139,8 +139,7 @@ def build_resource(
             description = config[global_path]["description_template"].format(**params)
         except AttributeError:
             logging.warning("File is not matching pattern")
-            resource_name = file_with_ext
-            description = ""
+            resource_name, description = None, None
     return file_with_ext, global_path, resource_name, description, url, is_doc
 
 
@@ -419,10 +418,10 @@ def upload_new_files(ti) -> None:
                 payload={
                     "url": url,
                     "filesize": minio_files[minio_folder + clean_file_path],
-                    "title": resource_name if not is_doc else file_with_ext,
+                    "title": (resource_name or file_with_ext) if not is_doc else file_with_ext,
                     "type": "main" if not is_doc else "documentation",
                     "format": get_file_extention(file_with_ext),
-                    "description": description,
+                    "description": description or "",
                 },
             )
             raise_if_duplicates(idx)
@@ -517,10 +516,16 @@ def handle_updated_files_new_name(ti) -> None:
         ).update(
             payload={
                 "url": url,
-                "title": resource_name if not is_doc else file_with_ext,
-                "description": description,
                 "filesize": minio_files[minio_folder + file_path],
-            },
+            } | (
+                # for resources that we want to keep the same name
+                {}
+                if resource_name is None
+                else {
+                    "title": resource_name if not is_doc else file_with_ext,
+                    "description": description,
+                }
+            ),
         )
         raise_if_duplicates(idx)
         updated_datasets.add(global_path)
