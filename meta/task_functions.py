@@ -1,4 +1,5 @@
 from collections import defaultdict
+from curses import raw
 import json
 from datetime import datetime, timedelta
 import numpy as np
@@ -24,17 +25,20 @@ with open(
     config = json.load(f)
 
 
-def get_ids(config: dict):
+def get_ids(config: dict) -> dict[str, str]:
     dags = http_hook.run("api/v1/dags").json()["dags"]
-    ids = []
+    ids = {}
     for raw_id, included in config.items():
         if not included:
             continue
         if raw_id.endswith("*"):
-            ids += [d["dag_id"] for d in dags if d["dag_id"].startswith(raw_id[:-1])]
+            ids |= {
+                d["dag_id"] : raw_id
+                for d in dags if d["dag_id"].startswith(raw_id[:-1])
+            }
         else:
-            ids.append(raw_id)
-    return list(set(ids))
+            ids[raw_id] = raw_id
+    return ids
 
 
 def monitor_dags(
@@ -79,11 +83,14 @@ def monitor_dags(
                         "duration": duration.total_seconds(),
                     }
     ti.xcom_push(key="todays_runs", value=todays_runs)
+    # sending the mapping between dag ids and prefixes in the config
+    ti.xcom_push(key="dag_ids", value=dag_ids_to_monitor)
     return todays_runs
 
 
 def notification_mattermost(ti):
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
+    dag_ids = ti.xcom_pull(key="dag_ids", task_ids="monitor_dags")
     message = "# Récap quotidien DAGs :"
     print(todays_runs)
     for dag, attempts in dict(sorted(todays_runs.items())).items():
@@ -149,7 +156,7 @@ def notification_mattermost(ti):
                         [
                             "@" + owner
                             for owner in (
-                                config[dag]
+                                config[dag_ids[dag]]
                                 if isinstance(config[dag], list)
                                 else DEFAULT_DAG_OWNERS
                             )
