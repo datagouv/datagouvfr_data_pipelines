@@ -157,7 +157,7 @@ def notification_mattermost(ti):
                             "@" + owner
                             for owner in (
                                 config[dag_ids[dag]]
-                                if isinstance(config[dag], list)
+                                if isinstance(config[dag_ids[dag]], list)
                                 else DEFAULT_DAG_OWNERS
                             )
                         ]
