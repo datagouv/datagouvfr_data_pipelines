@@ -418,7 +418,11 @@ def upload_new_files(ti) -> None:
                 payload={
                     "url": url,
                     "filesize": minio_files[minio_folder + clean_file_path],
-                    "title": (resource_name or file_with_ext) if not is_doc else file_with_ext,
+                    "title": (
+                        (resource_name or file_with_ext)
+                        if not is_doc
+                        else file_with_ext
+                    ),
                     "type": "main" if not is_doc else "documentation",
                     "format": get_file_extention(file_with_ext),
                     "description": description or "",
@@ -517,7 +521,8 @@ def handle_updated_files_new_name(ti) -> None:
             payload={
                 "url": url,
                 "filesize": minio_files[minio_folder + file_path],
-            } | (
+            }
+            | (
                 # for resources that we want to keep the same name
                 {}
                 if resource_name is None
