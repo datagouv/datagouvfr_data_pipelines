@@ -665,6 +665,9 @@ def notification_mattermost(ti) -> None:
     allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
+        if config[path]["name_template"] is None:
+            # can't use source_pattern for METADONNEES_STATIONS, a shame
+            continue
         allowed_patterns[config[path]["dataset_id"][AIRFLOW_ENV]].append(
             config[path]["name_template"]
         )
