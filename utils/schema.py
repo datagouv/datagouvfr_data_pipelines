@@ -197,9 +197,11 @@ def parse_api(
     url: str,
     api_url: str,
 ) -> pd.DataFrame:
-    fields = "id,title,slug,page,organization,owner,private,"
-    fields += "resources{schema,url,id,title,last_modified,created_at,"
-    fields += "extras{check:headers:content-type,check:available}}"
+    fields = (
+        "id,title,slug,page,organization,owner,private,"
+        "resources{schema,url,id,title,last_modified,created_at,"
+        "extras{check:headers:content-type,check:available}}"
+    )
     all_datasets = local_client.get_all_from_api_query(
         url, mask=f"data{{{fields}}}" if "api/2" not in url else None
     )
@@ -209,7 +211,7 @@ def parse_api(
         session.headers.update({"X-fields": fields})
         tmp = []
         for d in all_datasets:
-            r = session.get(api_url + "datasets/" + d["id"])
+            r = session.get(api_url + f"datasets/{d['id']}/")
             r.raise_for_status()
             tmp.append(r.json())
         session.close()
@@ -827,242 +829,240 @@ def consolidate_data(
 
     schema_data_path = Path(data_path) / schema_name.replace("/", "_")
 
-    if os.path.exists(schema_data_path):
-        schema_consolidated_data_path = Path(
-            consolidated_data_path
-        ) / schema_name.replace("/", "_")
-        schema_consolidated_data_path.mkdir(exist_ok=True)
+    if not os.path.exists(schema_data_path):
+        logging.warning("-- ❌ No data downloaded for this schema.")
+        return False if should_succeed else True
 
-        ref_table_path = os.path.join(
-            ref_tables_path,
-            build_ref_table_name(schema_name),
-        )
-        df_ref = pd.read_csv(
-            ref_table_path
-        )  # (This file necessarily exists if data folder exists)
+    schema_consolidated_data_path = Path(
+        consolidated_data_path
+    ) / schema_name.replace("/", "_")
+    schema_consolidated_data_path.mkdir(exist_ok=True)
 
-        # We will test if downloaded files are empty or not (so we set default values)
-        df_ref["is_empty"] = np.nan
-        df_ref.loc[df_ref["is_downloaded"], "is_empty"] = False
+    ref_table_path = os.path.join(
+        ref_tables_path,
+        build_ref_table_name(schema_name),
+    )
+    df_ref = pd.read_csv(
+        ref_table_path
+    )  # (This file necessarily exists if data folder exists)
 
-        schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
+    # We will test if downloaded files are empty or not (so we set default values)
+    df_ref["is_empty"] = np.nan
+    df_ref.loc[df_ref["is_downloaded"], "is_empty"] = False
 
-        version_names_list = [
-            col.replace("is_valid_v_", "")
-            for col in df_ref.columns
-            if col.startswith("is_valid_v_")
-        ]
+    schema_dict = get_schema_dict(schema_name, schemas_catalogue_list)
 
-        for version in schema_dict["versions"]:
-            version_name = version["version_name"]
-            if version_name in version_names_list:
-                df_ref_v = df_ref[
-                    (df_ref["is_valid_v_" + version_name]) & (df_ref["is_downloaded"])
-                ]
+    version_names_list = [
+        col.replace("is_valid_v_", "")
+        for col in df_ref.columns
+        if col.startswith("is_valid_v_")
+    ]
 
-                if len(df_ref_v) > 0:
-                    # Get schema version parameters for ddup
-                    version_dict = requests.get(version["schema_url"])
-                    version_dict.raise_for_status()
-                    version_dict = version_dict.json()
-                    version_all_cols_list = [
-                        field_dict["name"] for field_dict in version_dict["fields"]
-                    ]
-                    version_required_cols_list = [
-                        field_dict["name"]
-                        for field_dict in version_dict["fields"]
-                        if field_dict.get("constraints", {}).get("required")
-                    ]
+    for version in schema_dict["versions"]:
+        version_name = version["version_name"]
+        if version_name in version_names_list:
+            df_ref_v = df_ref[
+                (df_ref["is_valid_v_" + version_name]) & (df_ref["is_downloaded"])
+            ]
 
-                    if "primaryKey" in version_dict.keys():
-                        primary_key = version_dict["primaryKey"]
+            if len(df_ref_v) == 0:
+                logging.warning(
+                    f"-- ⚠️ No valid resource for version {version_name} of this schema"
+                )
+                if should_succeed:
+                    return False
+                continue
+
+            # Get schema version parameters for ddup
+            version_dict = requests.get(version["schema_url"])
+            version_dict.raise_for_status()
+            version_dict = version_dict.json()
+            version_all_cols_list = [
+                field_dict["name"] for field_dict in version_dict["fields"]
+            ]
+            version_required_cols_list = [
+                field_dict["name"]
+                for field_dict in version_dict["fields"]
+                if field_dict.get("constraints", {}).get("required")
+            ]
+
+            if "primaryKey" in version_dict.keys():
+                primary_key = version_dict["primaryKey"]
+            else:
+                primary_key = None
+
+            df_r_list = []
+
+            for _, row in df_ref_v.iterrows():
+                file_extension = row["resource_extension"]
+                file_path = os.path.join(
+                    schema_data_path,
+                    row["dataset_slug"],
+                    f"{row['resource_id']}.{file_extension}",
+                )
+
+                try:
+                    if file_path.endswith(".csv"):
+                        with open(file_path, "rb") as f:
+                            encoding = chardet.detect(f.read()).get("encoding")
+                        if encoding == "Windows-1254":
+                            encoding = "iso-8859-1"
+
+                        df_r = pd.read_csv(
+                            file_path,
+                            sep=None,
+                            engine="python",
+                            dtype="str",
+                            encoding=encoding,
+                            na_filter=False,
+                            keep_default_na=False,
+                        )
                     else:
-                        primary_key = None
-
-                    df_r_list = []
-
-                    for index, row in df_ref_v.iterrows():
-                        file_extension = row["resource_extension"]
-                        file_path = os.path.join(
-                            schema_data_path,
-                            row["dataset_slug"],
-                            f"{row['resource_id']}.{file_extension}",
+                        df_r = pd.read_excel(
+                            file_path,
+                            dtype="str",
+                            na_filter=False,
+                            keep_default_na=False,
+                            engine="openpyxl",
                         )
+                except Exception as e:
+                    logging.warning(f"Pb on reading resource: {file_path}")
+                    logging.warning(e)
 
-                        try:
-                            if file_path.endswith(".csv"):
-                                with open(file_path, "rb") as f:
-                                    encoding = chardet.detect(f.read()).get("encoding")
-                                if encoding == "Windows-1254":
-                                    encoding = "iso-8859-1"
-
-                                df_r = pd.read_csv(
-                                    file_path,
-                                    sep=None,
-                                    engine="python",
-                                    dtype="str",
-                                    encoding=encoding,
-                                    na_filter=False,
-                                    keep_default_na=False,
+                try:
+                    # Remove potential blanks in column names, assert there's no duplicate
+                    df_r.columns = [
+                        c.replace(" ", "")
+                        if c.replace(" ", "") not in df_r.columns
+                        else c
+                        for c in df_r.columns
+                    ]
+                    # Remove potential unwanted characters
+                    # (eg https://www.data.gouv.fr/fr/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
+                    for c in df_r.columns:
+                        df_r[c] = df_r[c].apply(
+                            lambda s: s.replace("\n", "").replace("\r", "")
+                            if isinstance(s, str)
+                            else s
+                        )
+                    if len(df_r) == 0:  # Keeping only non empty files
+                        df_ref.loc[
+                            (df_ref["resource_id"] == row["resource_id"]),
+                            "is_empty",
+                        ] = True
+                        continue
+                    # Discard columns that are not in the current schema version
+                    df_r = df_r[
+                        [
+                            col
+                            for col in version_all_cols_list
+                            if col in df_r.columns
+                        ]
+                    ]
+                    # Assert all required columns are in the file
+                    # Add optional columns to fit the schema
+                    # /!\ THIS REQUIRES THAT COLUMNS CONSTRAINTS ARE PROPERLY SET UPSTREAM
+                    if all(
+                        [
+                            rq_col in df_r.columns
+                            for rq_col in version_required_cols_list
+                        ]
+                    ):
+                        for col in version_all_cols_list:
+                            if col not in df_r.columns:
+                                df_r[col] = np.nan
+                        df_r["last_modified"] = row[
+                            "resource_last_modified"
+                        ]
+                        df_r["datagouv_dataset_id"] = row["dataset_id"]
+                        df_r["datagouv_resource_id"] = row["resource_id"]
+                        df_r["datagouv_organization_or_owner"] = row[
+                            "organization_or_owner"
+                        ]
+                        df_r["is_orga"] = row["is_orga"]
+                        df_r["created_at"] = row["resource_created_at"]
+                        # Discard rows where any of the required columns is empty
+                        # (NaN or empty string)
+                        df_r = df_r.loc[
+                            (
+                                ~(
+                                    df_r[version_required_cols_list]
+                                    .isna()
+                                    .any(axis=1)
                                 )
-                            else:
-                                df_r = pd.read_excel(
-                                    file_path,
-                                    dtype="str",
-                                    na_filter=False,
-                                    keep_default_na=False,
-                                    engine="openpyxl",
+                            )
+                            & (
+                                ~(
+                                    (
+                                        df_r[version_required_cols_list]
+                                        == ""
+                                    ).any(axis=1)
                                 )
-                        except Exception as e:
-                            logging.warning(f"Pb on reading resource: {file_path}")
-                            logging.warning(e)
-
-                        try:
-                            # Remove potential blanks in column names, assert there's no duplicate
-                            df_r.columns = [
-                                c.replace(" ", "")
-                                if c.replace(" ", "") not in df_r.columns
-                                else c
-                                for c in df_r.columns
-                            ]
-                            # Remove potential unwanted characters
-                            # (eg https://www.data.gouv.fr/fr/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
-                            for c in df_r.columns:
-                                df_r[c] = df_r[c].apply(
-                                    lambda s: s.replace("\n", "").replace("\r", "")
-                                    if isinstance(s, str)
-                                    else s
-                                )
-                            if len(df_r) > 0:  # Keeping only non empty files
-                                # Discard columns that are not in the current schema version
-                                df_r = df_r[
-                                    [
-                                        col
-                                        for col in version_all_cols_list
-                                        if col in df_r.columns
-                                    ]
-                                ]
-                                # Assert all required columns are in the file
-                                # Add optional columns to fit the schema
-                                # /!\ THIS REQUIRES THAT COLUMNS CONSTRAINTS ARE PROPERLY SET UPSTREAM
-                                if all(
-                                    [
-                                        rq_col in df_r.columns
-                                        for rq_col in version_required_cols_list
-                                    ]
-                                ):
-                                    for col in version_all_cols_list:
-                                        if col not in df_r.columns:
-                                            df_r[col] = np.nan
-                                    df_r["last_modified"] = row[
-                                        "resource_last_modified"
-                                    ]
-                                    df_r["datagouv_dataset_id"] = row["dataset_id"]
-                                    df_r["datagouv_resource_id"] = row["resource_id"]
-                                    df_r["datagouv_organization_or_owner"] = row[
-                                        "organization_or_owner"
-                                    ]
-                                    df_r["is_orga"] = row["is_orga"]
-                                    df_r["created_at"] = row["resource_created_at"]
-                                    # Discard rows where any of the required columns is empty
-                                    # (NaN or empty string)
-                                    df_r = df_r.loc[
-                                        (
-                                            ~(
-                                                df_r[version_required_cols_list]
-                                                .isna()
-                                                .any(axis=1)
-                                            )
-                                        )
-                                        & (
-                                            ~(
-                                                (
-                                                    df_r[version_required_cols_list]
-                                                    == ""
-                                                ).any(axis=1)
-                                            )
-                                        )
-                                    ]
-                                    df_r_list += [df_r]
-                                else:
-                                    logging.info(
-                                        f"This file is missing required columns: {file_path}"
-                                    )
-                                    missing_columns = [
-                                        rq_col
-                                        for rq_col in version_required_cols_list
-                                        if rq_col not in df_r.columns
-                                    ]
-                                    logging.info(f"> {missing_columns}")
-                                    df_ref.loc[
-                                        (df_ref["resource_id"] == row["resource_id"]),
-                                        "columns_issue",
-                                    ] = True
-                            else:
-                                df_ref.loc[
-                                    (df_ref["resource_id"] == row["resource_id"]),
-                                    "is_empty",
-                                ] = True
-                        except Exception as e:
-                            logging.warning(f"Pb on cleaning resource: {file_path}")
-                            logging.warning(e)
-
-                    if len(df_r_list) >= MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE:
-                        df_conso = pd.concat(df_r_list, ignore_index=True)
-
-                        # Sorting by most recent (resource last modification date at the moment)
-                        df_conso = df_conso.sort_values(
-                            "last_modified", ascending=False
-                        )
-
-                        # Deduplication
-                        if primary_key is not None:
-                            ddup_cols = primary_key
-                        else:
-                            ddup_cols = version_all_cols_list
-
-                        df_conso = df_conso.drop_duplicates(
-                            ddup_cols, keep="first"
-                        ).reset_index(drop=True)
-
-                        df_conso.to_csv(
-                            os.path.join(
-                                schema_consolidated_data_path,
-                                build_consolidation_name(
-                                    schema_name, version_name, consolidation_date_str
-                                ),
-                            ),
-                            index=False,
-                            encoding="utf-8",
-                        )
-                        logging.info(
-                            f"-- ✅ DONE: {schema_name} version {version_name}"
-                        )
-
+                            )
+                        ]
+                        df_r_list += [df_r]
                     else:
                         logging.info(
-                            f"-- ⚠️ Less than {MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE}"
-                            f" (non-empty) valid resources for version {version_name} :"
-                            " consolidation file is not built"
+                            f"This file is missing required columns: {file_path}"
                         )
-                        if should_succeed:
-                            return False
+                        missing_columns = [
+                            rq_col
+                            for rq_col in version_required_cols_list
+                            if rq_col not in df_r.columns
+                        ]
+                        logging.info(f"> {missing_columns}")
+                        df_ref.loc[
+                            (df_ref["resource_id"] == row["resource_id"]),
+                            "columns_issue",
+                        ] = True
+                except Exception as e:
+                    logging.warning(f"Pb on cleaning resource: {file_path}")
+                    logging.warning(e)
 
+            if len(df_r_list) >= MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE:
+                df_conso = pd.concat(df_r_list, ignore_index=True)
+
+                # Sorting by most recent (resource last modification date at the moment)
+                df_conso = df_conso.sort_values(
+                    "last_modified", ascending=False
+                )
+
+                # Deduplication
+                if primary_key is not None:
+                    ddup_cols = primary_key
                 else:
-                    logging.info(
-                        f"-- ⚠️ No valid resource for version {version_name} of this schema"
-                    )
-                    if should_succeed:
-                        return False
+                    ddup_cols = version_all_cols_list
 
-        if should_succeed and len(df_ref) == 0:
-            return False
-        df_ref.to_csv(ref_table_path, index=False)
+                df_conso = df_conso.drop_duplicates(
+                    ddup_cols, keep="first"
+                ).reset_index(drop=True)
 
-    else:
-        logging.info("-- ❌ No data downloaded for this schema.")
-        if should_succeed:
-            return False
+                df_conso.to_csv(
+                    os.path.join(
+                        schema_consolidated_data_path,
+                        build_consolidation_name(
+                            schema_name, version_name, consolidation_date_str
+                        ),
+                    ),
+                    index=False,
+                    encoding="utf-8",
+                )
+                logging.info(
+                    f"-- ✅ DONE: {schema_name} version {version_name}"
+                )
+
+            else:
+                logging.info(
+                    f"-- ⚠️ Less than {MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE}"
+                    f" (non-empty) valid resources for version {version_name} :"
+                    " consolidation file is not built"
+                )
+                if should_succeed:
+                    return False
+
+    if should_succeed and len(df_ref) == 0:
+        return False
+    df_ref.to_csv(ref_table_path, index=False)
 
     with open(tmp_path / "schemas_report_dict.pickle", "wb") as f:
         pickle.dump(schemas_report_dict, f, pickle.HIGHEST_PROTOCOL)
