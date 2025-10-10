@@ -7,8 +7,10 @@ import time
 from datetime import date, datetime
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any, Literal
 
 import chardet
+from datagouv import Dataset
 import emails
 import numpy as np
 import pandas as pd
@@ -44,20 +46,23 @@ if datetime.today().date().month == forced_validation_day.month:
         forced_validation = True
 
 
-def load_config(config_path):
+def load_config(config_path: Path) -> dict:
     if os.path.exists(config_path):
         with open(config_path, "r") as infile:
             return yaml.safe_load(infile)
     return {}
 
 
-def build_ref_table_name(schema_name):
+def build_ref_table_name(schema_name: str) -> str:
     return "ref_table_{}.csv".format(schema_name.replace("/", "_"))
 
 
 def build_consolidation_name(
-    schema_name, version_name, consolidation_date_str, extension="csv"
-):
+    schema_name: str,
+    version_name: str,
+    consolidation_date_str: str,
+    extension: str = "csv",
+) -> str:
     return "consolidation_{}_v_{}_{}.{}".format(
         schema_name.replace("/", "_"),
         version_name,
@@ -67,11 +72,11 @@ def build_consolidation_name(
 
 
 def build_report_prefix(
-    validata_reports_path,
-    schema_name,
-    dataset_id,
-    resource_id,
-):
+    validata_reports_path: Path,
+    schema_name: str,
+    dataset_id: str,
+    resource_id: str,
+) -> str:
     return (
         str(validata_reports_path)
         + "/"
@@ -84,7 +89,9 @@ def comparer_versions(version: str) -> list[int | float]:
     return [int(part) if part.isnumeric() else np.inf for part in version.split(".")]
 
 
-def drop_versions_sample(versions, nb_to_keep=5, level=0):
+def drop_versions_sample(
+    versions: list[str], nb_to_keep: int = 5, level: int = 0
+) -> list[str]:
     _versions = sorted(versions, key=comparer_versions)
     majors = set(".".join(v.split(".")[0 : level + 1]) for v in _versions)
     # if only one major: consider each minor as a major and run again
@@ -114,7 +121,9 @@ def drop_versions_sample(versions, nb_to_keep=5, level=0):
     return [v for v in versions if v not in latest_each_major]
 
 
-def remove_old_schemas(config_dict, schemas_catalogue_list, single_schema=False):
+def remove_old_schemas(
+    config_dict: dict, schemas_catalogue_list: list[dict], single_schema: bool = False
+) -> dict:
     schemas_list = [schema["name"] for schema in schemas_catalogue_list]
     mydict = {}
     # Remove old schemas still in yaml
@@ -272,8 +281,11 @@ def parse_api(
 # the schema url and validation url
 @simple_connection_retry
 def make_validata_report(
-    rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL
-):
+    rurl: str,
+    schema_url: str,
+    resource_api_url: str,
+    validata_base_url: str = VALIDATA_BASE_URL,
+) -> dict[str, dict]:
     # saves time by not pinging Validata for unchanged resources
     data = requests.get(resource_api_url)
     if not data.ok:
@@ -342,8 +354,11 @@ def make_validata_report(
 
 # Returns if a resource is valid or not regarding a schema (version)
 def is_validata_valid(
-    rurl, schema_url, resource_api_url, validata_base_url=VALIDATA_BASE_URL
-):
+    rurl: str,
+    schema_url: str,
+    resource_api_url: str,
+    validata_base_url: str = VALIDATA_BASE_URL,
+) -> tuple[bool, dict[str, dict] | None]:
     try:
         report = make_validata_report(
             rurl, schema_url, resource_api_url, validata_base_url
@@ -364,14 +379,14 @@ def is_validata_valid(
 
 
 def save_validata_report(
-    res,
-    full_report,
-    version,
-    schema_name,
-    dataset_id,
-    resource_id,
-    validata_reports_path,
-):
+    res: bool,
+    full_report: dict[str, dict],
+    version: str,
+    schema_name: str,
+    dataset_id: str,
+    resource_id: str,
+    validata_reports_path: Path,
+) -> None:
     _report = full_report.get("report", {})
 
     if not _report:
@@ -423,7 +438,13 @@ def save_validata_report(
 
 
 # Returns if a resource is valid based on its "ref_table" row
-def is_validata_valid_row(row, schema_url, version, schema_name, validata_reports_path):
+def is_validata_valid_row(
+    row: pd.Series,
+    schema_url: str,
+    version: str,
+    schema_name: str,
+    validata_reports_path: Path,
+) -> bool:
     if row["error_type"] is None:  # if no error
         rurl = row["resource_url"]
         resource_api_url = f"{local_client.base_url}/api/1/datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
@@ -445,7 +466,7 @@ def is_validata_valid_row(row, schema_url, version, schema_name, validata_report
 
 # Gets the current metadata of schema version of a resource (based of ref_table row)
 @simple_connection_retry
-def get_resource_schema_version(row: pd.Series, api_url: str):
+def get_resource_schema_version(row: pd.Series, api_url: str) -> str | np.nan:
     url = api_url + f"datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
     r = requests.get(url, headers={"X-fields": "schema"})
     if r.status_code == 200:
@@ -725,8 +746,8 @@ def build_reference_table(
 
 
 def download_schema_files(
-    schema_name, ref_tables_path, data_path, should_succeed=False
-):
+    schema_name: str, ref_tables_path: str, data_path: str, should_succeed: bool = False
+) -> bool:
     logging.info(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     ref_table_path = os.path.join(
@@ -792,16 +813,16 @@ def download_schema_files(
 
 
 def consolidate_data(
-    data_path,
-    schema_name,
-    consolidated_data_path,
-    ref_tables_path,
-    schemas_catalogue_list,
-    consolidation_date_str,
-    tmp_path,
-    schemas_report_dict,
-    should_succeed=False,
-):
+    data_path: str,
+    schema_name: str,
+    consolidated_data_path: str,
+    ref_tables_path: str,
+    schemas_catalogue_list: list[dict],
+    consolidation_date_str: str,
+    tmp_path: Path,
+    schemas_report_dict: dict,
+    should_succeed: bool = False,
+) -> bool:
     logging.info(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     schema_data_path = Path(data_path) / schema_name.replace("/", "_")
@@ -1051,9 +1072,9 @@ def consolidate_data(
 
 # Creates a dataset on data.gouv.fr for consolidation files (used only if does not exist yet in config file)
 def create_schema_consolidation_dataset(
-    schema_name,
-    schemas_catalogue_list,
-):
+    schema_name: str,
+    schemas_catalogue_list: list[dict],
+) -> Dataset:
     global datasets_description_template, datasets_title_template
 
     schema_title = get_schema_dict(schema_name, schemas_catalogue_list)["title"]
@@ -1073,7 +1094,9 @@ def create_schema_consolidation_dataset(
 
 
 # Generic function to update a field (key) in the config file
-def update_config_file(schema_name, key, value, config_path):
+def update_config_file(
+    schema_name: str, key: str, value: str, config_path: Path
+) -> None:
     config_dict = load_config(config_path)
 
     config_dict[schema_name][key] = value
@@ -1083,7 +1106,9 @@ def update_config_file(schema_name, key, value, config_path):
 
 
 # Adds the resource ID of the consolidated file for a given schema version in the config file
-def update_config_version_resource_id(schema_name, version_name, r_id, config_path):
+def update_config_version_resource_id(
+    schema_name: str, version_name: str, r_id: str, config_path: Path
+) -> None:
     config_dict = load_config(config_path)
 
     if "latest_resource_ids" not in config_dict[schema_name]:
@@ -1097,7 +1122,7 @@ def update_config_version_resource_id(schema_name, version_name, r_id, config_pa
 
 # Returns if resource schema (version) metadata should
 # be updated or not based on what we know about the resource
-def is_schema_version_to_update(row):
+def is_schema_version_to_update(row: pd.Series) -> bool:
     initial_version_name = row["initial_version_name"]
     most_recent_valid_version = row["most_recent_valid_version"]
     resource_found_by = row["resource_found_by"]
@@ -1109,7 +1134,7 @@ def is_schema_version_to_update(row):
 
 # Returns if resource schema (version) metadata should
 # be deleted or not based on what we know about the resource
-def is_schema_to_drop(row):
+def is_schema_to_drop(row: pd.Series) -> bool:
     resource_found_by = row["resource_found_by"]
     is_valid_one_version = row["is_valid_one_version"]
 
@@ -1119,15 +1144,15 @@ def is_schema_to_drop(row):
 
 
 def update_resource_metadata(
-    schema_name,
-    version_name,
-    dataset_id,
-    resource_id,
-    validata_report_path,
-    api_url,
-    update_version,
-    should_succeed,
-):
+    schema_name: str,
+    version_name: str,
+    dataset_id: str,
+    resource_id: str,
+    validata_report_path: Path,
+    api_url: str,
+    update_version: bool,
+    should_succeed: bool,
+) -> bool:
     """
     What we are doing here:
     - if validation_report is made from the resource's metadata (see make_validata_report
@@ -1291,15 +1316,15 @@ def upload_geojson(
 
 
 def upload_consolidated(
-    schema_name,
-    consolidated_data_path,
-    config_dict,
-    schemas_catalogue_list,
-    config_path,
-    schemas_report_dict,
-    consolidation_date_str,
-    bool_upload_geojson,
-    should_succeed=False,
+    schema_name: str,
+    consolidated_data_path: Path,
+    config_dict: dict,
+    schemas_catalogue_list: list,
+    config_path: Path,
+    schemas_report_dict: dict,
+    consolidation_date_str: str,
+    bool_upload_geojson: bool,
+    should_succeed: bool = False,
 ):
     logging.info(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
@@ -1430,7 +1455,9 @@ def upload_consolidated(
     return True
 
 
-def update_reference_table(ref_tables_path, schema_name, should_succeed=False):
+def update_reference_table(
+    ref_tables_path: str, schema_name: str, should_succeed: bool = False
+) -> bool:
     # this is done after table is uploaded, in order not to publish these columns
     ref_table_path = os.path.join(
         ref_tables_path,
@@ -1457,7 +1484,9 @@ def update_reference_table(ref_tables_path, schema_name, should_succeed=False):
 
 
 # Get the (list of) e-mail address(es) of the owner or of the admin(s) of the owner organization of a dataset
-def get_owner_or_admin_mails(dataset_id, api_url, headers):
+def get_owner_or_admin_mails(
+    dataset_id: str, api_url: str, headers: dict
+) -> tuple[Literal["organisation_admins", "owner"] | None, list[Any]]:
     r = requests.get(api_url + f"datasets/{dataset_id}/")
     r.raise_for_status()
     r_dict = r.json()
@@ -1521,12 +1550,12 @@ def send_email(
 
 
 def update_resource_send_mail_producer(
-    ref_tables_path,
-    schema_name,
-    validata_reports_path,
-    should_succeed=False,
-    send_mails=False,
-):
+    ref_tables_path: Path,
+    schema_name: str,
+    validata_reports_path: Path,
+    should_succeed: bool = False,
+    send_mails: bool = False,
+) -> bool:
     logging.info(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     ref_table_path = os.path.join(
@@ -1755,13 +1784,13 @@ def update_resource_send_mail_producer(
 
 
 def update_consolidation_documentation_report(
-    schema_name,
-    ref_tables_path,
-    config_path,
-    consolidation_date_str,
-    config_dict,
-    should_succeed=False,
-):
+    schema_name: str,
+    ref_tables_path: str,
+    config_path: Path,
+    consolidation_date_str: str,
+    config_dict: dict,
+    should_succeed: bool = False,
+) -> bool:
     ref_table_path = os.path.join(
         ref_tables_path,
         build_ref_table_name(schema_name),
@@ -1835,7 +1864,9 @@ def update_consolidation_documentation_report(
     return True
 
 
-def append_stats_list(ref_tables_path, schema_name, stats_df_list):
+def append_stats_list(
+    ref_tables_path: str, schema_name: str, stats_df_list: list[pd.DataFrame]
+) -> None:
     ref_table_path = os.path.join(
         ref_tables_path,
         build_ref_table_name(schema_name),
@@ -1877,8 +1908,11 @@ def append_stats_list(ref_tables_path, schema_name, stats_df_list):
 
 
 def create_detailed_report(
-    ref_tables_path, schema_name: str, report_tables_path, should_succeed: bool = False
-):
+    ref_tables_path: str,
+    schema_name: str,
+    report_tables_path: str,
+    should_succeed: bool = False,
+) -> bool:
     ref_table_path = os.path.join(
         ref_tables_path,
         build_ref_table_name(schema_name),
@@ -1918,7 +1952,7 @@ def create_detailed_report(
 def final_directory_clean_up(
     tmp_folder: str,
     output_data_folder: str,
-):
+) -> None:
     shutil.move(tmp_folder + "consolidated_data", output_data_folder)
     shutil.move(tmp_folder + "ref_tables", output_data_folder)
     shutil.move(tmp_folder + "report_tables", output_data_folder)
@@ -1928,7 +1962,7 @@ def upload_minio(
     TMP_FOLDER: str,
     MINIO_BUCKET_DATA_PIPELINE_OPEN: str,
     minio_output_filepath: str,
-):
+) -> None:
     minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
     minio_open.send_files(
         list_files=[
@@ -1954,7 +1988,7 @@ def notification_synthese(
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE: str,
     schema_name: str = "",
     list_schema_skip: list = [],
-):
+) -> None:
     """
     For single schema processing (e.g IRVE): specify schema_name as string
     For general case: specify list_schema_skip as a list of schemas to ignore
