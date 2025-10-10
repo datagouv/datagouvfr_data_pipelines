@@ -89,16 +89,16 @@
             "PERIOD": "AAAAMM"
         }
     },
-    "BASE/POSTES": {
-        "source_pattern": "POSTES_MF.csv",
-        "name_template": "Postes",
-        "doc_pattern": "POSTES_descriptif_champs.csv",
-        "description_template": "Liste de tous les postes ayant des données publiques",
+    "BASE/METADONNEES_STATION": {
+        "source_pattern": "fiches.json",
+        "name_template": "Informations basiques sur les stations du réseau Météo France",
+        "doc_pattern": null,
+        "description_template": "Informations sur les stations du réseau Météo France au format geojson",
         "dataset_id": {
-            "prod": "66ebf2cb9dd6916802ae90a1",
+            "prod": "656dab84db1bdf627a40eaae",
             "dev": "66ebf3bdf39617f668f995e5"
         },
-        "table_name": "base_postes"
+        "table_name": null
     },
     "BASE/MENS_COMP": {
         "source_pattern": "MENSQ-COMP_(?P<DEP>[^_]+)_(?P<PERIOD>[^_]+).csv.gz",
@@ -190,16 +190,16 @@
             "PERIOD": "AAAAMM"
         }
     },
-    "BASE/POSTES_COMP": {
-        "source_pattern": "POSTES-COMP.csv",
-        "name_template": "Postes - stations type 5",
+    "BASE/METADONNEES_STATION": {
+        "source_pattern": "fiches_types5.json",
+        "name_template": "Informations basiques sur les stations complémentaires (type 5)",
         "doc_pattern": null,
-        "description_template": "Liste de tous les postes ayant des données publiques pour les stations de type 5",
+        "description_template": "Informations sur les stations complémentaires au format geojson",
         "dataset_id": {
-            "prod": "66ebf2cb9dd6916802ae90a1",
+            "prod": "656dab84db1bdf627a40eaae",
             "dev": "66ebf3bdf39617f668f995e5"
         },
-        "table_name": "base_postes"
+        "table_name": null
     },
     "REF_CC/SQR": {
         "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
