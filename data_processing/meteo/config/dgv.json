@@ -90,10 +90,10 @@
         }
     },
     "BASE/METADONNEES_STATION": {
-        "source_pattern": "fiches.json",
-        "name_template": "Informations basiques sur les stations du réseau Météo France",
+        "source_pattern": "fiches(_type5)?.json",
+        "name_template": null,
         "doc_pattern": null,
-        "description_template": "Informations sur les stations du réseau Météo France au format geojson",
+        "description_template": null,
         "dataset_id": {
             "prod": "656dab84db1bdf627a40eaae",
             "dev": "66ebf3bdf39617f668f995e5"
@@ -189,17 +189,6 @@
             "DEP": "DEP",
             "PERIOD": "AAAAMM"
         }
-    },
-    "BASE/METADONNEES_STATION": {
-        "source_pattern": "fiches_types5.json",
-        "name_template": "Informations basiques sur les stations complémentaires (type 5)",
-        "doc_pattern": null,
-        "description_template": "Informations sur les stations complémentaires au format geojson",
-        "dataset_id": {
-            "prod": "656dab84db1bdf627a40eaae",
-            "dev": "66ebf3bdf39617f668f995e5"
-        },
-        "table_name": null
     },
     "REF_CC/SQR": {
         "source_pattern": "SQR_(?P<TYPE>[^_]+)_(?P<GEO>[^_]+).zip",
