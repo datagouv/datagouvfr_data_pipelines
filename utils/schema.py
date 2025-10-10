@@ -468,7 +468,7 @@ def is_validata_valid_row(
 
 # Gets the current metadata of schema version of a resource (based of ref_table row)
 @simple_connection_retry
-def get_resource_schema_version(row: pd.Series, api_url: str) -> str | np.nan:
+def get_resource_schema_version(row: pd.Series, api_url: str):
     url = api_url + f"datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
     r = requests.get(url, headers={"X-fields": "schema"})
     if r.status_code == 200:
@@ -902,32 +902,52 @@ def consolidate_data(
                 )
 
                 try:
-                    if file_path.endswith(".csv"):
-                        with open(file_path, "rb") as f:
-                            encoding = chardet.detect(f.read()).get("encoding")
-                        if encoding == "Windows-1254":
-                            encoding = "iso-8859-1"
-
+                    # checking if csv-detective has some hints for us
+                    inspection = requests.get(
+                    f"https://tabular-api.data.gouv.fr/api/resources/{row['resource_id']}/profile/"
+                    )
+                    csv_kwargs = {"encoding": None, "sep": None}
+                    excel_kwargs = {"engine": "openpyxl"}
+                    if inspection.ok:
+                        profile = inspection.json()["profile"]
+                        if profile.get("engine"):
+                            excel_kwargs = {
+                                "engine": profile["engine"],
+                                "sheet_name": profile["sheet_name"],
+                            }
+                        else:
+                            csv_kwargs = {
+                                "encoding": profile["encoding"],
+                                "sep": profile["separator"],
+                            }
+                    if csv_kwargs.get("sep") or file_path.endswith(".csv"):
+                        if not csv_kwargs.get("encoding"):
+                            with open(file_path, "rb") as f:
+                                encoding = chardet.detect(f.read()).get("encoding")
+                            if encoding == "Windows-1254":
+                                encoding = "iso-8859-1"
+                            csv_kwargs["encoding"] = encoding
+                        if not csv_kwargs.get("sep"):
+                            csv_kwargs["engine"] = "python"
                         df_r = pd.read_csv(
                             file_path,
-                            sep=None,
-                            engine="python",
-                            dtype="str",
-                            encoding=encoding,
+                            dtype=str,
                             na_filter=False,
                             keep_default_na=False,
+                            **csv_kwargs,
                         )
                     else:
                         df_r = pd.read_excel(
                             file_path,
-                            dtype="str",
+                            dtype=str,
                             na_filter=False,
                             keep_default_na=False,
-                            engine="openpyxl",
+                            **excel_kwargs,
                         )
                 except Exception as e:
-                    logging.warning(f"Pb on reading resource: {file_path}")
-                    logging.warning(e)
+                    logging.error(f"Pb on reading resource: {file_path}")
+                    logging.error(e)
+                    continue
 
                 try:
                     # Remove potential blanks in column names, assert there's no duplicate
@@ -1018,6 +1038,7 @@ def consolidate_data(
                 except Exception as e:
                     logging.warning(f"Pb on cleaning resource: {file_path}")
                     logging.warning(e)
+                    continue
 
             if len(df_r_list) >= MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE:
                 df_conso = pd.concat(df_r_list, ignore_index=True)
