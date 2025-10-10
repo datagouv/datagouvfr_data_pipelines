@@ -833,9 +833,9 @@ def consolidate_data(
         logging.warning("-- ❌ No data downloaded for this schema.")
         return False if should_succeed else True
 
-    schema_consolidated_data_path = Path(
-        consolidated_data_path
-    ) / schema_name.replace("/", "_")
+    schema_consolidated_data_path = Path(consolidated_data_path) / schema_name.replace(
+        "/", "_"
+    )
     schema_consolidated_data_path.mkdir(exist_ok=True)
 
     ref_table_path = os.path.join(
@@ -904,7 +904,7 @@ def consolidate_data(
                 try:
                     # checking if csv-detective has some hints for us
                     inspection = requests.get(
-                    f"https://tabular-api.data.gouv.fr/api/resources/{row['resource_id']}/profile/"
+                        f"https://tabular-api.data.gouv.fr/api/resources/{row['resource_id']}/profile/"
                     )
                     csv_kwargs = {"encoding": None, "sep": None}
                     excel_kwargs = {"engine": "openpyxl"}
@@ -973,11 +973,7 @@ def consolidate_data(
                         continue
                     # Discard columns that are not in the current schema version
                     df_r = df_r[
-                        [
-                            col
-                            for col in version_all_cols_list
-                            if col in df_r.columns
-                        ]
+                        [col for col in version_all_cols_list if col in df_r.columns]
                     ]
                     # Assert all required columns are in the file
                     # Add optional columns to fit the schema
@@ -991,9 +987,7 @@ def consolidate_data(
                         for col in version_all_cols_list:
                             if col not in df_r.columns:
                                 df_r[col] = np.nan
-                        df_r["last_modified"] = row[
-                            "resource_last_modified"
-                        ]
+                        df_r["last_modified"] = row["resource_last_modified"]
                         df_r["datagouv_dataset_id"] = row["dataset_id"]
                         df_r["datagouv_resource_id"] = row["resource_id"]
                         df_r["datagouv_organization_or_owner"] = row[
@@ -1004,21 +998,8 @@ def consolidate_data(
                         # Discard rows where any of the required columns is empty
                         # (NaN or empty string)
                         df_r = df_r.loc[
-                            (
-                                ~(
-                                    df_r[version_required_cols_list]
-                                    .isna()
-                                    .any(axis=1)
-                                )
-                            )
-                            & (
-                                ~(
-                                    (
-                                        df_r[version_required_cols_list]
-                                        == ""
-                                    ).any(axis=1)
-                                )
-                            )
+                            (~(df_r[version_required_cols_list].isna().any(axis=1)))
+                            & (~((df_r[version_required_cols_list] == "").any(axis=1)))
                         ]
                         df_r_list += [df_r]
                     else:
@@ -1044,9 +1025,7 @@ def consolidate_data(
                 df_conso = pd.concat(df_r_list, ignore_index=True)
 
                 # Sorting by most recent (resource last modification date at the moment)
-                df_conso = df_conso.sort_values(
-                    "last_modified", ascending=False
-                )
+                df_conso = df_conso.sort_values("last_modified", ascending=False)
 
                 # Deduplication
                 if primary_key is not None:
@@ -1068,9 +1047,7 @@ def consolidate_data(
                     index=False,
                     encoding="utf-8",
                 )
-                logging.info(
-                    f"-- ✅ DONE: {schema_name} version {version_name}"
-                )
+                logging.info(f"-- ✅ DONE: {schema_name} version {version_name}")
 
             else:
                 logging.info(
