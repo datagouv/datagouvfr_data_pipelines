@@ -1,5 +1,4 @@
 from collections import defaultdict
-from curses import raw
 import json
 from datetime import datetime, timedelta
 import numpy as np
@@ -33,8 +32,7 @@ def get_ids(config: dict) -> dict[str, str]:
             continue
         if raw_id.endswith("*"):
             ids |= {
-                d["dag_id"] : raw_id
-                for d in dags if d["dag_id"].startswith(raw_id[:-1])
+                d["dag_id"]: raw_id for d in dags if d["dag_id"].startswith(raw_id[:-1])
             }
         else:
             ids[raw_id] = raw_id
