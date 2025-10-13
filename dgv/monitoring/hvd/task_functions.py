@@ -43,7 +43,21 @@ def has_unavailable_resources(dataset_id: str, df_resources: pd.DataFrame) -> bo
 
 def get_hvd(ti):
     logging.info("Getting suivi ouverture")
-    df_ouverture = table.to_dataframe(columns_labels=False)
+    df_ouverture = table.to_dataframe(
+        columns_labels=False,
+        usecols=[
+            "title",
+            "url",
+            "hvd_name",
+            "hvd_category",
+            "organization",
+            "endpoint_url_datagouv",
+            "contact_point_datagouv",
+            "endpoint_description_datagouv",
+            "status_telechargement_automatique",
+            "status_api_automatique",
+        ],
+    )
 
     logging.info("Getting datasets catalog")
     df_datasets = pd.read_csv(
