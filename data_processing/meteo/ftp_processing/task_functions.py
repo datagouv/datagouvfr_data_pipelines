@@ -660,7 +660,7 @@ def notification_mattermost(ti) -> None:
         for path in updated_datasets:
             if path in config:
                 message += f"\n- [{path}]"
-                message += f"({local_client.base_url}/fr/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
+                message += f"({local_client.base_url}/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
                 if path in new_files_datasets:
                     message += "nouvelles données :new:"
                 else:
@@ -703,11 +703,11 @@ def notification_mattermost(ti) -> None:
         for dataset_id in issues:
             message += (
                 f"- [{paths[dataset_id]}]"
-                f"({local_client.base_url}/fr/datasets/{dataset_id}/) :\n"
+                f"({local_client.base_url}/datasets/{dataset_id}/) :\n"
             )
             for rid in issues[dataset_id]:
                 message += (
-                    f"   - [{issues[dataset_id][rid]}]({local_client.base_url}/fr/datasets/"
+                    f"   - [{issues[dataset_id][rid]}]({local_client.base_url}/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)
@@ -723,7 +723,7 @@ def raise_if_duplicates(idx: int) -> None:
         # or every 10 files processed
         return
     catalog = pd.read_csv(
-        "https://www.data.gouv.fr/fr/organizations/meteo-france/datasets-resources.csv",
+        "https://www.data.gouv.fr/api/1/organizations/meteo-france/datasets-resources.csv",
         sep=";",
         usecols=["url", "id", "dataset.id"],
     )

@@ -219,7 +219,7 @@ def publish_on_datagouv(ti):
                 "description": (
                     f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"
                     " (créé à partir des [fichiers de l'INSEE]"
-                    "(https://www.data.gouv.fr/fr/datasets/5de8f397634f4164071119c5/))"
+                    "(https://www.data.gouv.fr/datasets/5de8f397634f4164071119c5/))"
                 ),
             },
         )
@@ -242,5 +242,5 @@ def notification_mattermost():
         f"Données décès agrégées :"
         f"\n- uploadées sur Minio"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({local_client.base_url}/fr/datasets/{dataset_id}/)"
+        f"({local_client.base_url}/datasets/{dataset_id}/)"
     )

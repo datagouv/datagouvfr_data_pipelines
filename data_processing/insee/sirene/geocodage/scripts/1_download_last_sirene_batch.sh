@@ -11,5 +11,5 @@ rm -rf data/*
 rm Stock*
 rm -rf communes/*
 echo "Downloading last SIRENE batch..." # ------------------------------------------------------
-wget -N https://www.data.gouv.fr/fr/datasets/r/0651fb76-bcf3-4f6a-a38d-bc04fa708576 -O StockEtablissement_utf8.zip
+wget -N https://www.data.gouv.fr/api/1/datasets/r/0651fb76-bcf3-4f6a-a38d-bc04fa708576 -O StockEtablissement_utf8.zip
 echo "Download OK!"

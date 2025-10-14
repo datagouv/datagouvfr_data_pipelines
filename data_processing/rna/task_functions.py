@@ -119,7 +119,7 @@ def publish_on_datagouv(ti, file_type):
                 "description": (
                     f"RNA {file_type.title()} au {date} (format {ext})"
                     " (créé à partir des [fichiers du Ministère de l'intérieur]"
-                    "(https://www.data.gouv.fr/fr/datasets/58e53811c751df03df38f42d/))"
+                    "(https://www.data.gouv.fr/datasets/58e53811c751df03df38f42d/))"
                 ),
             },
         )
@@ -131,6 +131,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données des associations mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id})"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id})"
         )
     )

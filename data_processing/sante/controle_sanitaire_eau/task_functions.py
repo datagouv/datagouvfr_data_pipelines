@@ -129,7 +129,7 @@ def publish_on_datagouv(file_type):
                 "description": (
                     f"{file_type} (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({local_client.base_url}/fr/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f"({local_client.base_url}/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
                     f" (dernière mise à jour le {date})"
                 ),
             },
@@ -142,6 +142,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données du contrôle sanitaire de l'eau mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id}/#/community-resources)"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id}/#/community-resources)"
         )
     )
