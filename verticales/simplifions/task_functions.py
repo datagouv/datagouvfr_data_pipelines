@@ -111,6 +111,14 @@ def update_topics_v2(ti, client=None):
         for grist_id_str in grist_rows:
             grist_row = grist_rows[grist_id_str]
             grist_id = int(grist_id_str)
+
+            # Skip if the name is empty
+            if not grist_row["fields"]["Nom"]:
+                logging.info(
+                    f"⚠️ Skipping topic {tag} with grist_id: {grist_id} because of empty name ⚠️"
+                )
+                continue
+
             all_tags = (
                 topic_tags
                 + [f"{tag}-{grist_id_str}"]
@@ -137,7 +145,7 @@ def update_topics_v2(ti, client=None):
                 topics_manager._update_topic_if_needed(old_topic, topic_data)
             else:
                 logging.info(
-                    f"Creating topic grist_id: {grist_id}, name: {topic_data['name']}"
+                    f"Creating topic {tag} with grist_id: {grist_id}, name: {topic_data['name']}"
                 )
                 topics_api.create_topic(topic_data)
 

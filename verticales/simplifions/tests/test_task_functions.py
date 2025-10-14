@@ -433,3 +433,78 @@ class TestUpdateTopicsV2:
         assert len(topics) == 1
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 2
         assert topics[0]["name"] == "New Solution"
+
+    def test_skip_topics_with_empty_names(self, grist_tables_for_filters):
+        solutions_data = {
+            1: {
+                "id": 1,
+                "fields": {
+                    "Nom": "",  # Empty name
+                    "Description_courte": "Solution with empty name",
+                    "Visible_sur_simplifions": True,
+                },
+            },
+            2: {
+                "id": 2,
+                "fields": {
+                    "Nom": None,  # None name
+                    "Description_courte": "Solution with None name",
+                    "Visible_sur_simplifions": True,
+                },
+            },
+            3: {
+                "id": 3,
+                "fields": {
+                    "Nom": "Valid Solution",  # Valid name
+                    "Description_courte": "Solution with valid name",
+                    "Visible_sur_simplifions": True,
+                },
+            },
+        }
+        cas_usages_data = {
+            1: {
+                "id": 1,
+                "fields": {
+                    "Nom": "Valid Cas Usage",  # Valid name
+                    "Description_courte": "Cas usage with valid name",
+                    "Visible_sur_simplifions": True,
+                    "Icone_du_titre": "📋",
+                },
+            },
+            2: {
+                "id": 2,
+                "fields": {
+                    "Nom": "",  # Empty name
+                    "Description_courte": "Cas usage with empty name but with icon",
+                    "Visible_sur_simplifions": True,
+                    "Icone_du_titre": "📋",  # With icon present
+                },
+            },
+        }
+        mock_ti = task_instance_factory.build_ti(
+            {
+                "tag_and_grist_rows_v2": {
+                    "simplifions-v2-solutions": solutions_data,
+                    "simplifions-v2-cas-d-usages": cas_usages_data,
+                },
+                "grist_tables_for_filters": grist_tables_for_filters,
+            }
+        )
+
+        update_topics_v2(mock_ti, local_client)
+
+        topics = topics_factory.get_records("topics")
+        # Should only create 2 topics: 1 valid solution + 1 valid cas d'usage
+        # Should skip: 1 empty solution + 1 None solution
+        assert len(topics) == 2
+
+        topic_names = [topic["name"] for topic in topics]
+
+        # Check that only valid topics were created
+        assert "Valid Solution" in topic_names
+        assert "📋 Valid Cas Usage" in topic_names
+
+        # Ensure empty/None names are not in created topics
+        assert "" not in topic_names
+        assert None not in topic_names
+        assert "📋 " not in topic_names
