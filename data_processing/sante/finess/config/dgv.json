@@ -1,22 +1,50 @@
 {
-    "csv" : {
-        "dev": {
-            "dataset_id": "",
-            "resource_id": ""
+    "etablissements": {
+        "source_dataset": "53699569a3a729239d2046eb",
+        "source_doc": "d06a0924-9931-4a60-83b6-93abdb6acfd6",
+        "csv" : {
+            "dev": {
+                "dataset_id": "68ee294549988277f2dd0399",
+                "resource_id": "be1dd455-a661-49de-b71e-86c9ef8b8453"
+            },
+            "prod": {
+                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+                "resource_id": "935e1dc5-afce-4d45-9fda-47b18f7444e6"
+            }
         },
-        "prod": {
-            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-            "resource_id": "935e1dc5-afce-4d45-9fda-47b18f7444e6"
+        "parquet" : {
+            "dev": {
+                "dataset_id": "68ee294549988277f2dd0399",
+                "resource_id": "3d5d01a1-4605-4cb4-a79f-8f8ec2ed99a2"
+            },
+            "prod": {
+                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+                "resource_id": "5eb67ddc-b58c-4531-a3f2-2c2843cf3986"
+            }
         }
     },
-    "parquet" : {
-        "dev": {
-            "dataset_id": "",
-            "resource_id": ""
+    "entites_juridiques": {
+        "source_dataset": "5369956ba3a729239d2046fc",
+        "source_doc": "9c2bfada-8339-4dcb-aec2-af0be16c99c0",
+        "csv" : {
+            "dev": {
+                "dataset_id": "68ee294549988277f2dd0399",
+                "resource_id": "b8ebb8f7-6576-44d5-ab65-c820231397da"
+            },
+            "prod": {
+                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+                "resource_id": ""
+            }
         },
-        "prod": {
-            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-            "resource_id": "5eb67ddc-b58c-4531-a3f2-2c2843cf3986"
+        "parquet" : {
+            "dev": {
+                "dataset_id": "68ee294549988277f2dd0399",
+                "resource_id": "17d6ad4d-7f77-49ce-a860-1a86e1d66be2"
+            },
+            "prod": {
+                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+                "resource_id": ""
+            }
         }
     }
 }
