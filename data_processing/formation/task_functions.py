@@ -22,7 +22,7 @@ def download_latest_data(ti):
     download_files(
         list_urls=[
             File(
-                url=f"{local_client.base_url}/fr/datasets/r/{config['resource_id']}",
+                url=f"{local_client.base_url}/api/1/datasets/r/{config['resource_id']}",
                 dest_path=f"{AIRFLOW_DAG_TMP}formation/",
                 dest_name=f"{config['name']}.csv",
             )

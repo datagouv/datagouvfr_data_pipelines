@@ -39,7 +39,7 @@ def get_finess_columns(ti):
     doc = pymupdf.open(
         stream=BytesIO(
             requests.get(
-                "https://www.data.gouv.fr/fr/datasets/r/d06a0924-9931-4a60-83b6-93abdb6acfd6"
+                "https://www.data.gouv.fr/api/1/datasets/r/d06a0924-9931-4a60-83b6-93abdb6acfd6"
             ).content
         ),
         filetype="pdf",
@@ -105,7 +105,7 @@ def get_geoloc_columns(ti):
     doc = pymupdf.open(
         stream=BytesIO(
             requests.get(
-                "https://www.data.gouv.fr/fr/datasets/r/d1a2f35f-8823-400f-9296-6eb7361ddf6f"
+                "https://www.data.gouv.fr/api/1/datasets/r/d1a2f35f-8823-400f-9296-6eb7361ddf6f"
             ).content
         ),
         filetype="pdf",
@@ -130,7 +130,7 @@ def build_finess_table(ti):
     # this one is the "normal" Finess file
     print("Getting standard Finess")
     df_finess = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/2ce43ade-8d2c-4d1d-81da-ca06c82abc68",
+        "https://www.data.gouv.fr/api/1/datasets/r/2ce43ade-8d2c-4d1d-81da-ca06c82abc68",
         sep=";",
         skiprows=1,
         names=["index"] + [c["column_name"] for c in finess_columns],
@@ -140,7 +140,7 @@ def build_finess_table(ti):
     print("Getting geolocalised file")
     rows = (
         requests.get(
-            "https://www.data.gouv.fr/fr/datasets/r/98f3161f-79ff-4f16-8f6a-6d571a80fea2"
+            "https://www.data.gouv.fr/api/1/datasets/r/98f3161f-79ff-4f16-8f6a-6d571a80fea2"
         )
         .content.decode("utf8")
         .split("\n")
@@ -251,7 +251,7 @@ def publish_on_datagouv():
                 "description": (
                     f"Finess des établissements géolocalisés (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({local_client.base_url}/fr/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f"({local_client.base_url}/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
                     f" (dernière mise à jour le {date})"
                 ),
             },
@@ -264,6 +264,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données Finess mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id}/)"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id}/)"
         )
     )

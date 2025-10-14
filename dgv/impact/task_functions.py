@@ -29,7 +29,7 @@ def calculate_quality_score(ti):
     print("Calculating average quality score")
     df_datasets = pd.read_csv(
         # this is the catalog
-        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         dtype=str,
         sep=";",
     )
@@ -356,7 +356,7 @@ def send_notification_mattermost(DAG_FOLDER):
             f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
             f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
             f"impact)\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/"
             f"datasets/{data[AIRFLOW_ENV]['dataset_id']})"
         )
     )

@@ -135,7 +135,7 @@ def notification_mattermost(ti):
         for dataset in too_old:
             message += f"\n- {dataset}:"
             for k in too_old[dataset]:
-                message += f"\n   - [{k[0]}](https://www.data.gouv.fr/fr/datasets/{k[1]}/#/resources/{k[2]})"
+                message += f"\n   - [{k[0]}](https://www.data.gouv.fr/datasets/{k[1]}/#/resources/{k[2]})"
 
     if unavailable_resources:
         if message:
@@ -144,7 +144,7 @@ def notification_mattermost(ti):
         for dataset in unavailable_resources:
             message += f"\n- {dataset}:"
             for k in unavailable_resources[dataset]:
-                message += f"\n   - [{k[0]}](https://www.data.gouv.fr/fr/datasets/{k[1]}/#/resources/{k[2]})"
+                message += f"\n   - [{k[0]}](https://www.data.gouv.fr/datasets/{k[1]}/#/resources/{k[2]})"
 
     minio_open.send_files(
         list_files=[
@@ -179,7 +179,7 @@ def update_tree():
     )
     # getting current tree
     tree = requests.get(
-        "https://www.data.gouv.fr/fr/datasets/r/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb"
+        "https://www.data.gouv.fr/api/1/datasets/r/ab77c9d0-3db4-4c2f-ae56-5a52ae824eeb"
     ).json()
     # removing runs that have been deleted since last DAG run
     to_delete = [

@@ -220,7 +220,7 @@ def post_comment_on_dataset(
         "subject": {"class": "Dataset", "id": dataset_id},
     }
     r = datagouv_session.post(
-        f"{local_client.base_url}/fr/datasets/{dataset_id}/discussions/",
+        f"{local_client.base_url}/datasets/{dataset_id}/discussions/",
         json=post_object,
     )
     r.raise_for_status()
