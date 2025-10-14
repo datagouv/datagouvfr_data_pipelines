@@ -418,14 +418,10 @@ def publish_item(item, item_type):
 
     if item["owner_type"] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
-        message += (
-            f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
-        )
+        message += f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
     elif item["owner_type"] == "user":
         message += f"Utilisateur : [{item['owner_name']}]"
-        message += (
-            f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
-        )
+        message += f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
     else:
         message += "**/!\\ sans rattachement**"
     message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
