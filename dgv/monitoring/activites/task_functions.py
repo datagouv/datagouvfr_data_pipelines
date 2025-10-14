@@ -183,7 +183,7 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
         )
         message += "\n- ".join(
             [
-                f"[{n}](https://www.data.gouv.fr/fr/organizations/{i}/)"
+                f"[{n}](https://www.data.gouv.fr/organizations/{i}/)"
                 for i, n in inactive.items()
             ]
         )
@@ -419,12 +419,12 @@ def publish_item(item, item_type):
     if item["owner_type"] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
         message += (
-            f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+            f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
         )
     elif item["owner_type"] == "user":
         message += f"Utilisateur : [{item['owner_name']}]"
         message += (
-            f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+            f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
         )
     else:
         message += "**/!\\ sans rattachement**"
@@ -447,12 +447,12 @@ def publish_item(item, item_type):
         if item["owner_type"] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
             message += (
-                f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+                f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
             )
         elif item["owner_type"] == "user":
             message += f"de l'utilisateur : [{item['owner_name']}]"
             message += (
-                f"(https://data.gouv.fr/fr/{item['owner_type']}s/{item['owner_id']}/)"
+                f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
             )
         else:
             message += "**/!\\ sans rattachement**"
@@ -508,7 +508,7 @@ def publish_mattermost(ti):
     #     for comment in spam_comments:
     #         if comment['discussion_subject']['class'] in ['Dataset', 'Reuse']:
     #             discussion_url = (
-    #                 f"https://www.data.gouv.fr/fr/{comment['discussion_subject']['class'].lower()}s/"
+    #                 f"https://www.data.gouv.fr/{comment['discussion_subject']['class'].lower()}s/"
     #                 f"{comment['discussion_subject']['id']}/#/"
     #                 f"discussions/{comment['comment_id'].split('|')[0]}"
     #             )
@@ -517,7 +517,7 @@ def publish_mattermost(ti):
     #                 f"https://www.data.gouv.fr/api/1/discussions/{comment['comment_id'].split('|')[0]}"
     #             )
     #         owner_url = (
-    #             f"https://www.data.gouv.fr/fr/{comment['comment']['posted_by']['class'].lower()}s/"
+    #             f"https://www.data.gouv.fr/{comment['comment']['posted_by']['class'].lower()}s/"
     #             f"{comment['comment']['posted_by']['id']}/"
     #         )
     #         message = (

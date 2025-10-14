@@ -1196,6 +1196,6 @@ def notification_mattermost(ti) -> None:
         f"Stats DVF générées :"
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({local_client.base_url}/fr/datasets/{dataset_id})"
+        f"({local_client.base_url}/datasets/{dataset_id})"
         f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
     )

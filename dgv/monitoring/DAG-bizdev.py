@@ -132,7 +132,7 @@ def get_unavailable_reuses():
     print("Fetching reuse list from https://www.data.gouv.fr/api/1/reuses/")
     reuses = json.loads(
         pd.read_csv(
-            "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
+            "https://www.data.gouv.fr/api/1/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
             sep=";",
             usecols=["id", "url"],
         ).to_json(orient="records")
@@ -159,7 +159,7 @@ async def classify_user(user):
             if any([sus in user["about"] for sus in ["http", "www."]]):
                 return {
                     "type": "users",
-                    "url": f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
+                    "url": f"https://www.data.gouv.fr/admin/users/{user['id']}/profile",
                     "name_or_title": None,
                     "creator": None,
                     "id": user["id"],
@@ -171,7 +171,7 @@ async def classify_user(user):
             elif detect(user["about"]) != "fr":
                 return {
                     "type": "users",
-                    "url": f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
+                    "url": f"https://www.data.gouv.fr/admin/users/{user['id']}/profile",
                     "name_or_title": None,
                     "creator": None,
                     "id": user["id"],
@@ -185,7 +185,7 @@ async def classify_user(user):
     except Exception:
         return {
             "type": "users",
-            "url": f"https://www.data.gouv.fr/fr/admin/user/{user['id']}/",
+            "url": f"https://www.data.gouv.fr/admin/users/{user['id']}/profile",
             "name_or_title": None,
             "creator": None,
             "id": user["id"],
@@ -264,7 +264,7 @@ def process_empty_datasets():
             return 0
 
     empty_datasets = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         sep=";",
         usecols=[
             "id",
@@ -278,7 +278,7 @@ def process_empty_datasets():
     empty_datasets = empty_datasets.loc[empty_datasets["resources_count"] == 0]
     del empty_datasets["resources_count"]
     empty_datasets["url"] = empty_datasets["id"].apply(
-        lambda _id: f"https://www.data.gouv.fr/fr/admin/dataset/{_id}"
+        lambda _id: f"https://www.data.gouv.fr/admin/datasets/{_id}"
     )
     empty_datasets["created_at"] = empty_datasets["created_at"].str.slice(0, 10)
     empty_datasets["organization_or_owner"] = empty_datasets.apply(
@@ -334,7 +334,7 @@ def process_potential_spam():
                     spam.append(
                         {
                             "type": obj,
-                            "url": f"https://www.data.gouv.fr/fr/admin/{obj[:-1]}/{d['id']}/",
+                            "url": f"https://www.data.gouv.fr/admin/{obj}/{d['id']}",
                             "name_or_title": d.get("name", d.get("title", None)),
                             "creator": (
                                 d["organization"].get("name", None)
@@ -372,14 +372,14 @@ curation_functions = [
 def get_top_orgas_publish():
     # Top 50 des orgas ayant produits le plus de JDD
     datasets = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         sep=";",
         usecols=["organization", "organization_id", "created_at"],
     ).rename({"organization": "name"}, axis=1)
     threshold = (datetime.today() - timedelta(days=30)).strftime("%Y-%m-%d")
     restr = datasets.loc[datasets["created_at"] >= threshold]
     restr["url"] = restr["organization_id"].apply(
-        lambda _id: f"www.data.gouv.fr/fr/organizations/{_id}/"
+        lambda _id: f"www.data.gouv.fr/organizations/{_id}/"
     )
     count = (
         restr["organization_id"]
@@ -525,7 +525,7 @@ def get_top_resources_downloads():
                         "monthly_download_resourced": d["monthly_download_resource"],
                         "resource_title": resource_title,
                         "dataset_url": (
-                            f"https://www.data.gouv.fr/fr/datasets/{d['dataset_id']}/"
+                            f"https://www.data.gouv.fr/datasets/{d['dataset_id']}/"
                             if d["dataset_id"] != "COMMUNAUTARY"
                             else None
                         ),
@@ -605,7 +605,7 @@ def get_top_reuses_visits():
 def get_top_datasets_discussions():
     # Top 50 des JDD les plus discutés
     discussions = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/d77705e1-4ecd-461c-8c24-662d47c4c2f9",
+        "https://www.data.gouv.fr/api/1/datasets/r/d77705e1-4ecd-461c-8c24-662d47c4c2f9",
         sep=";",
         usecols=["created", "subject_class", "subject_id"],
     )
@@ -628,7 +628,7 @@ def get_top_datasets_discussions():
             discussions_of_interest[dataset_id] = {
                 "discussions_created": 0,
                 "dataset_id": dataset_id,
-                "dataset_url": f"https://www.data.gouv.fr/fr/datasets/{dataset_id}",
+                "dataset_url": f"https://www.data.gouv.fr/datasets/{dataset_id}",
                 "organization_or_owner": organization_or_owner,
             }
         discussions_of_interest[dataset_id]["discussions_created"] += 1

@@ -361,7 +361,7 @@ def send_notification():
         text=(
             ":mega: Données élections mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données référencées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/"
+            f"- Données référencées [sur data.gouv.fr]({local_client.base_url}/datasets/"
             f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
         )
     )

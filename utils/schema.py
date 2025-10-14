@@ -958,7 +958,7 @@ def consolidate_data(
                         for c in df_r.columns
                     ]
                     # Remove potential unwanted characters
-                    # (eg https://www.data.gouv.fr/fr/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
+                    # (eg https://www.data.gouv.fr/api/1/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
                     for c in df_r.columns:
                         df_r[c] = df_r[c].apply(
                             lambda s: s.replace("\n", "").replace("\r", "")

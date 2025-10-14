@@ -91,7 +91,7 @@ def fill_in_grist(ti):
                 "harvester_id": harvester["id"],
                 "Organisation": harvester["owner_name"] or "",
                 "Lien_organisation": (
-                    f"https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/"
+                    f"https://www.data.gouv.fr/{harvester['owner_type']}s/{harvester['owner_id']}/"
                     if harvester["owner_type"]
                     else ""
                 ),
@@ -139,9 +139,9 @@ def publish_mattermost(ti):
         text += f"- {len(new)} nouveaux moissonneurs :new:\n"
         for harvester in new:
             text += (
-                f"   * [{harvester['owner_name']}](https://www.data.gouv.fr/fr/{harvester['owner_type']}s/{harvester['owner_id']}/)"
+                f"   * [{harvester['owner_name']}](https://www.data.gouv.fr/{harvester['owner_type']}s/{harvester['owner_id']}/)"
                 f" - moissonneur {harvester['backend'].upper()}"
-                f" - [admin](https://www.data.gouv.fr/fr/admin/harvesters/{harvester['id']})\n"
+                f" - [admin](https://www.data.gouv.fr/admin/harvesters/{harvester['id']})\n"
             )
     if issues:
         text += "\n\n"

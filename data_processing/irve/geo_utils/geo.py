@@ -218,13 +218,13 @@ def fix_code_insee(
         "consolidated_commune",
     ]
     sample = pd.read_csv(
-        f"{local_client.base_url}/fr/datasets/r/{latest_resource_id}",
+        f"{local_client.base_url}/api/1/datasets/r/{latest_resource_id}",
         dtype=str,
         nrows=5,
     )
     if all(c in sample.columns for c in process_infos_cols):
         yesterdays_data = pd.read_csv(
-            f"{local_client.base_url}/fr/datasets/r/{latest_resource_id}",
+            f"{local_client.base_url}/api/1/datasets/r/{latest_resource_id}",
             dtype={c: bool if "_is_" in c else str for c in process_infos_cols}
             | {
                 code_insee_col: str,
