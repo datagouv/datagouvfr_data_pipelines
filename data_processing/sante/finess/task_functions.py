@@ -130,8 +130,7 @@ def get_geoloc_columns(ti):
 def build_finess_table_etablissements(ti):
     scope = "etablissements"
     finess_columns = ti.xcom_pull(
-        key=f"finess_columns_{scope}",
-        task_ids=f"get_finess_columns_{scope}"
+        key=f"finess_columns_{scope}", task_ids=f"get_finess_columns_{scope}"
     )
     # this one is the "normal" Finess file
     logging.info(f"Getting standard Finess {scope}")
@@ -224,8 +223,7 @@ def build_finess_table_etablissements(ti):
 def build_finess_table_entites_juridiques(ti):
     scope = "entites_juridiques"
     finess_columns = ti.xcom_pull(
-        key=f"finess_columns_{scope}",
-        task_ids=f"get_finess_columns_{scope}"
+        key=f"finess_columns_{scope}", task_ids=f"get_finess_columns_{scope}"
     )
     logging.info(f"Getting standard Finess {scope}")
     df_finess = pd.read_csv(

@@ -33,7 +33,6 @@ with DAG(
     tags=["data_processing", "sante", "finess"],
     default_args=default_args,
 ) as dag:
-
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {DATADIR}",
@@ -85,7 +84,6 @@ with DAG(
     send_to_minio_etablissements.set_upstream(build_finess_table_etablissements)
     publish_on_datagouv_etablissements.set_upstream(send_to_minio_etablissements)
 
-
     # pipeline entités juridiques
     check_if_modif_entites_juridiques = ShortCircuitOperator(
         task_id="check_if_modif_entites_juridiques",
@@ -117,11 +115,16 @@ with DAG(
     )
 
     check_if_modif_entites_juridiques.set_upstream(clean_previous_outputs)
-    get_finess_columns_entites_juridiques.set_upstream(check_if_modif_entites_juridiques)
-    build_finess_table_entites_juridiques.set_upstream(get_finess_columns_entites_juridiques)
+    get_finess_columns_entites_juridiques.set_upstream(
+        check_if_modif_entites_juridiques
+    )
+    build_finess_table_entites_juridiques.set_upstream(
+        get_finess_columns_entites_juridiques
+    )
     send_to_minio_entites_juridiques.set_upstream(build_finess_table_entites_juridiques)
-    publish_on_datagouv_entites_juridiques.set_upstream(send_to_minio_entites_juridiques)
-
+    publish_on_datagouv_entites_juridiques.set_upstream(
+        send_to_minio_entites_juridiques
+    )
 
     # final steps
     clean_up = BashOperator(
@@ -135,8 +138,8 @@ with DAG(
         python_callable=send_notification_mattermost,
         trigger_rule="none_failed",
     )
-    
+
     clean_up.set_upstream(publish_on_datagouv_etablissements)
     clean_up.set_upstream(publish_on_datagouv_entites_juridiques)
-    
+
     send_notification_mattermost.set_upstream(clean_up)
