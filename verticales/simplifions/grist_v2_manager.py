@@ -101,7 +101,7 @@ class GristV2Manager:
         return r.json()["docs"]
 
     @staticmethod
-    def _delete_document(document_id: str):
+    def _delete_document(document_id: str) -> dict:
         r = requests.delete(
             GRIST_API_URL + f"docs/{document_id}",
             headers={
