@@ -450,12 +450,19 @@ def update_grist(ti):
             headers={"X-fields": "quality"},
         )
         if not r.ok:
-            logging.error(f"Issue with {dataset_id}")
+            logging.error(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/ is unreachable"
+            )
+            table.update_records(
+                conditions={"id2": dataset_id},
+                new_values={"unreachable": True},
+            )
             return
         dataset_quality = r.json()["quality"]
         table.update_records(
             conditions={"id2": dataset_id},
-            new_values={k: v for k, v in dataset_quality.items() if k != "score"},
+            new_values={k: v for k, v in dataset_quality.items() if k != "score"}
+            | {"unreachable": False},
         )
 
     old_hvd_metadata = table.to_dataframe(columns_labels=False)
@@ -497,14 +504,6 @@ def update_grist(ti):
             0
         ]
         new_values = {}
-        ping = requests.head(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
-        if not ping.ok:
-            logging.warning(
-                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/ is unreachable"
-            )
-            new_values["unreachable"] = True
-        else:
-            new_values["unreachable"] = False
         for col in columns_to_update:
             if (
                 (isinstance(row_new[col], str) and row_new[col])
@@ -552,7 +551,9 @@ def update_grist(ti):
                 r = r.json()
                 to_send.append((hvd_id, r["title"], r["organization"]["name"]))
             else:
-                logging.info(f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}")
+                logging.warning(
+                    f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}"
+                )
                 table.update_records(
                     conditions={"id2": hvd_id},
                     new_values={"unreachable": True},
