@@ -9,6 +9,9 @@ from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
 from datagouvfr_data_pipelines.verticales.simplifions.topics_v2_manager import (
     TopicsV2Manager,
 )
+from datagouvfr_data_pipelines.verticales.simplifions.diff_manager import (
+    DiffManager,
+)
 from datagouvfr_data_pipelines.verticales.simplifions.topics_api import TopicsAPI
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
@@ -170,6 +173,11 @@ def watch_grist_data(ti):
     cutoff_timestamp = (datetime.now() - timedelta(hours=time_delta)).timestamp()
     tables_with_modified_rows = {}
 
+    # Get the last backup for diffing
+    last_backup = DiffManager._get_last_simplifions_backup()
+    last_backup_id = last_backup["id"]
+    logging.info(f"Using last backup: {last_backup_id}, name: {last_backup['name']}")
+
     # Get all tables data
 
     for table in all_tables:
@@ -207,9 +215,34 @@ def watch_grist_data(ti):
 
     tables_messages = []
     message = "# Modifications du grist Simplifions\n"
-    message += f"Les données suivantes ont reçu des modifications pendant les {time_delta} dernières heures:\n\n\n"
+    message += f"Les données suivantes ont reçu des modifications pendant les {time_delta} dernières heures:\n"
+    message += f"Diff effectué avec le backup `{last_backup['name']}`\n\n\n"
 
+    logging.info("\n")
+    logging.info("Processing diffs...")
     for table_id, modified_rows in tables_with_modified_rows.items():
+        logging.info(
+            f"Processing table {table_id} with {len(modified_rows)} modified rows"
+        )
+
+        # Get all rows from current document and backup to detect deletions and get backup data
+        all_current_rows = GristV2Manager._request_grist_table(table_id)
+        all_current_ids = {row["id"] for row in all_current_rows}
+
+        # Get all backup rows (used for both diff comparison and deletion detection)
+        all_backup_rows = GristV2Manager._request_table_records(
+            table_id, document_id=last_backup_id
+        )
+        logging.info(f"Found {len(all_backup_rows)} total backup rows")
+        deleted_rows = [
+            row
+            for row in all_backup_rows
+            if row["id"] not in all_current_ids
+            and row["fields"].get("Modifie_le")
+            and row["fields"]["Modifie_le"] > cutoff_timestamp
+        ]
+        logging.info(f"Found {len(deleted_rows)} deleted rows")
+
         modified_rows_grouped_by_modifier = defaultdict(list)
         for row in modified_rows:
             modified_rows_grouped_by_modifier[row["fields"]["Modifie_par"]].append(row)
@@ -219,8 +252,39 @@ def watch_grist_data(ti):
         for modifier, rows in modified_rows_grouped_by_modifier.items():
             table_message += f"- **{modifier}**\n"
             sorted_rows = sorted(rows, key=lambda row: row["fields"]["technical_title"])
+
             for row in sorted_rows:
-                table_message += f"  - [{GristV2Manager._boldify_last_section(row['fields']['technical_title'])}]({row['fields']['anchor_link']})\n"
+                # Find the corresponding backup row from all backup rows
+                backup_row = next(
+                    (r for r in all_backup_rows if r["id"] == row["id"]), None
+                )
+                new_line_prefix = "" if backup_row else "(Nouvelle ligne) "
+                table_message += (
+                    f"  - {new_line_prefix}{DiffManager.format_row_link(row)}\n"
+                )
+
+                if not backup_row:
+                    continue
+
+                diff = DiffManager.get_diff(row["fields"], backup_row["fields"])
+                if diff:
+                    for key, value in diff.items():
+                        table_message += f"    - `{key}`:\n"
+                        table_message += f"      - Backup: {DiffManager.format_diff_value(value['old'])}\n"
+                        table_message += f"      - Nouveau: {DiffManager.format_diff_value(value['new'])}\n"
+                else:
+                    table_message += "    - _(Aucune modification détectée)_\n"
+
+        # Add deleted rows section (not grouped by modifier)
+        if deleted_rows:
+            table_message += (
+                "\n- **Lignes supprimées** (liens vers le grist de backup)\n"
+            )
+            sorted_deleted_rows = sorted(
+                deleted_rows, key=lambda row: row["fields"]["technical_title"]
+            )
+            for row in sorted_deleted_rows:
+                table_message += f"  - ~~{DiffManager.format_row_link(row)}~~\n"
 
         tables_messages.append(table_message + "\n")
 
@@ -233,3 +297,23 @@ def watch_grist_data(ti):
         text=message,
         endpoint_url=MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
     )
+
+
+def clone_grist_document(ti):
+    logging.info("Cloning grist document")
+    new_doc_info = DiffManager._create_simplifions_backup()
+    logging.info(
+        f"Grist document cloned. Id: {new_doc_info['id']}, name: {new_doc_info['name']}"
+    )
+
+    logging.info("Cleaning old backups")
+    number_of_backups = 7
+    backups = DiffManager._list_simplifions_backups()
+    logging.info(f"Found {len(backups)} backups")
+
+    sorted_backups = sorted(backups, key=lambda x: x["name"], reverse=True)
+    obsolete_backups = sorted_backups[number_of_backups:]
+    for backup in obsolete_backups:
+        logging.info(f"Deleting backup: {backup['id']}, name: {backup['name']}")
+        GristV2Manager._delete_document(backup["id"])
+    logging.info(f"{len(obsolete_backups)} obsolete backups deleted.")

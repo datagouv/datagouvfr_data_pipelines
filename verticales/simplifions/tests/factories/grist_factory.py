@@ -5,6 +5,10 @@ grist_mock = GristMock()
 
 
 class GristFactory(ExternalResourcesFactory):
+    def __init__(self):
+        super().__init__()
+        grist_mock.mock_workspace()
+
     def fixture_folder(self):
         return "grist"
 

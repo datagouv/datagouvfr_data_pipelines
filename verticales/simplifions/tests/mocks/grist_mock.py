@@ -86,3 +86,26 @@ class GristMock(ExternalResourcesMock):
             json=columns_response,
             status_code=200,
         )
+
+    def mock_workspace(self):
+        workspace_response = {
+            "id": "51287",
+            "name": "Simplifions",
+            "docs": [
+                {
+                    "id": "backup_1",
+                    "name": "Simplifions Copy - 2025-10-16 10:00:00",
+                },
+                {
+                    "id": "backup_2",
+                    "name": "Simplifions Copy - 2025-10-17 10:00:00",
+                },
+            ],
+        }
+
+        ExternalResourcesMock._data_mocker.register_uri(
+            "GET",
+            re.compile(r"https://grist\.example\.com/api/workspaces/\d+$"),
+            json=workspace_response,
+            status_code=200,
+        )
