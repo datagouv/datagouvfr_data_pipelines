@@ -497,12 +497,14 @@ def update_grist(ti):
             0
         ]
         new_values = {}
-        ping = requests.head(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}")
+        ping = requests.head(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
         if not ping.ok:
             logging.warning(
-                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id} is unreachable"
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/ is unreachable"
             )
             new_values["unreachable"] = True
+        else:
+            new_values["unreachable"] = False
         for col in columns_to_update:
             if (
                 (isinstance(row_new[col], str) and row_new[col])
@@ -555,19 +557,20 @@ def update_grist(ti):
                     conditions={"id2": hvd_id},
                     new_values={"unreachable": True},
                 )
-        message = (
-            ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
-        )
-        for _id, title, orga in to_send:
-            message += (
-                f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
-                f" de l'organisation {orga}"
+        if to_send:
+            message = (
+                ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
             )
-            table.update_records(
-                conditions={"id2": _id},
-                new_values={"missing_hvd_tag": True},
-            )
-        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+            for _id, title, orga in to_send:
+                message += (
+                    f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
+                    f" de l'organisation {orga}"
+                )
+                table.update_records(
+                    conditions={"id2": _id},
+                    new_values={"missing_hvd_tag": True},
+                )
+            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
     # updating quality metrics
     logging.info("Updating datasets quality metrics columns")
