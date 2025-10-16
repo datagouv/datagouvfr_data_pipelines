@@ -497,8 +497,9 @@ def update_grist(ti):
             0
         ]
         new_values = {}
-        ping = requests.get(f"https://www.data.gouv.fr/api/1/{dataset_id}")
+        ping = requests.head(f"https://www.data.gouv.fr/api/1/{dataset_id}")
         if not ping.ok:
+            logging.warning(f"https://www.data.gouv.fr/api/1/{dataset_id} is unreachable")
             new_values["unreachable"] = True
         for col in columns_to_update:
             if (
