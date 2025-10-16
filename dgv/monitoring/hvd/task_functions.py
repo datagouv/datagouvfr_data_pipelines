@@ -1,6 +1,7 @@
 from datetime import datetime
 from io import StringIO
 import logging
+from urllib import request
 
 import pandas as pd
 import requests
@@ -496,6 +497,9 @@ def update_grist(ti):
             0
         ]
         new_values = {}
+        ping = requests.get(f"https://www.data.gouv.fr/api/1/{dataset_id}")
+        if not ping.ok:
+            new_values["unreachable"] = True
         for col in columns_to_update:
             if (
                 (isinstance(row_new[col], str) and row_new[col])
