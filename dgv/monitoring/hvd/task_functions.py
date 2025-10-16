@@ -534,6 +534,7 @@ def update_grist(ti):
         )
     if removed_hvd:
         to_send = []
+        unreachable = []
         for hvd_id in removed_hvd:
             r = requests.get(
                 f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
@@ -543,7 +544,11 @@ def update_grist(ti):
                 r = r.json()
                 to_send.append((hvd_id, r["title"], r["organization"]["name"]))
             else:
-                to_send.append((hvd_id, "Jeu de données introuvable", "???"))
+                logging.info(f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}")
+                table.update_records(
+                    conditions={"id2": _id},
+                    new_values={"unreachable": True},
+                )
         message = (
             ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
         )
