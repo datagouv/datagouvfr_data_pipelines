@@ -70,7 +70,7 @@ class GristV2Manager:
         return r.json()["records"]
 
     @staticmethod
-    def _copy_document(document_name: str, as_template: bool = False):
+    def _copy_document(document_name: str, as_template: bool = False) -> dict:
         r = requests.post(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/copy",
             headers={
