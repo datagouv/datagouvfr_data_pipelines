@@ -1,6 +1,7 @@
 from collections import defaultdict
 import json
 from datetime import datetime, timedelta
+import logging
 import numpy as np
 import pytz
 from airflow.models import DagRun
@@ -54,6 +55,9 @@ def monitor_dags(
             # /!\ this filters based on execution date and not start date, so we filter manually afterwards
             # execution_start_date=start_date
         )
+        if len(dag_runs) < 5:
+            logging.info(f"{len(dag_runs)} runs for {dag_id}, not erasing")
+            continue
 
         for dag_run in dag_runs:
             status = dag_run.get_state()
