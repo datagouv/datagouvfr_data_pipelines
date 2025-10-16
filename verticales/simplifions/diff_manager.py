@@ -55,8 +55,10 @@ class DiffManager:
     def _boldify_last_section(description: str) -> str:
         if " > " not in description:
             return description
-        first_section = description.split(" > ")[0]
-        last_section = description.split(" > ")[-1]
+        split_description = description.split(" > ")
+        first_section = " > ".join(split_description[:-1])
+        last_section = split_description[-1]
+
         return f"{first_section} > **{last_section}**"
 
     @staticmethod
