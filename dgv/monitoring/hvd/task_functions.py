@@ -558,9 +558,7 @@ def update_grist(ti):
                     new_values={"unreachable": True},
                 )
         if to_send:
-            message = (
-                ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
-            )
+            message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
             for _id, title, orga in to_send:
                 message += (
                     f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
