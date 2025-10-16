@@ -62,9 +62,9 @@ def delete_old_logs_and_directories(ti):
 
 def delete_old_runs():
     """
-    Query and delete runs older than the threshold date (2 weeks ago).
+    Query and delete runs older than the threshold date (2 months ago).
     """
-    oldest_run_date = datetime.utcnow().replace(tzinfo=timezone.utc) - timedelta(
+    oldest_run_date = datetime.now(tz=timezone.utc) - timedelta(
         days=nb_days_to_keep
     )
 
@@ -72,16 +72,18 @@ def delete_old_runs():
     session = Session()
 
     try:
-        runs_to_delete = (
-            session.query(DagRun).filter(DagRun.execution_date <= oldest_run_date).all()
-        )
-        for idx, run in enumerate(runs_to_delete):
+        all_runs = (session.query(DagRun).all())
+        idx = 0
+        for run in all_runs:
+            if run.end_date > oldest_run_date:
+                continue
+            idx += 1
             logging.info(
                 f"Deleting run: dag_id={run.dag_id}, "
-                f"execution_date={run.execution_date}"
+                f"end_date={run.end_date}"
             )
             session.delete(run)
-            if idx and idx % 50 == 0:
+            if idx % 50 == 0:
                 session.commit()
         session.commit()
     except Exception as e:
@@ -122,7 +124,7 @@ with DAG(
     dagrun_timeout=timedelta(minutes=1200),
     start_date=datetime(2024, 1, 25),
     catchup=False,  # False to ignore past runs
-    max_active_runs=1,  # Allow only one execution at a time
+    max_active_runs=1,
 ) as dag:
     delete_old_logs_task = PythonOperator(
         task_id="delete_logs",
@@ -139,6 +141,5 @@ with DAG(
         python_callable=send_notification_mattermost,
     )
 
-    # Set the task dependency
-    delete_old_runs_task.set_upstream(delete_old_logs_task)
+    send_notification_mattermost.set_upstream(delete_old_logs_task)
     send_notification_mattermost.set_upstream(delete_old_runs_task)
