@@ -534,7 +534,6 @@ def update_grist(ti):
         )
     if removed_hvd:
         to_send = []
-        unreachable = []
         for hvd_id in removed_hvd:
             r = requests.get(
                 f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
@@ -546,7 +545,7 @@ def update_grist(ti):
             else:
                 logging.info(f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}")
                 table.update_records(
-                    conditions={"id2": _id},
+                    conditions={"id2": hvd_id},
                     new_values={"unreachable": True},
                 )
         message = (
