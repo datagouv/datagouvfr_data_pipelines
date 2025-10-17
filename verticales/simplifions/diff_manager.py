@@ -78,6 +78,7 @@ class DiffManager:
         if isinstance(value, list) and value and value[0] == "L":
             formatted_value = f"`{value[1:]}`"
         elif isinstance(value, str) and len(value) > 100:
-            formatted_value = f"`{value[:100].replace('`', "'")}...` _(tronqué)_"
+            truncated_value = value[:100].replace("`", "'")
+            formatted_value = f"`{truncated_value}...` _(tronqué)_"
 
         return formatted_value
