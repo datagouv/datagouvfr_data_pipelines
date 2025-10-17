@@ -290,8 +290,8 @@ def watch_grist_data(ti):
                     if diff:
                         for key, value in diff.items():
                             table_message += f"    - `{key}`:\n"
-                            table_message += f"      - Backup: {DiffManager.format_diff_value(value['old'])}\n"
-                            table_message += f"      - Nouveau: {DiffManager.format_diff_value(value['new'])}\n"
+                            table_message += f"      - :heavy_minus_sign: {DiffManager.format_diff_value(value['old'])}\n"
+                            table_message += f"      - :heavy_plus_sign: {DiffManager.format_diff_value(value['new'])}\n"
                     else:
                         table_message += "    - _(Aucune modification détectée)_\n"
 

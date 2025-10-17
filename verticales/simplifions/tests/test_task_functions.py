@@ -182,11 +182,11 @@ class TestWatchGristData:
 
         # Assert diff information is present
         assert "Nom" in message_text
-        assert "Backup: `Test Case Original`" in message_text
-        assert "Nouveau: `Test Case Modified`" in message_text
+        assert ":heavy_minus_sign: `Test Case Original`" in message_text
+        assert ":heavy_plus_sign: `Test Case Modified`" in message_text
         assert "Description_courte" in message_text
-        assert "Backup: `Old description`" in message_text
-        assert "Nouveau: `New description`" in message_text
+        assert ":heavy_minus_sign: `Old description`" in message_text
+        assert ":heavy_plus_sign: `New description`" in message_text
 
     @patch("task_functions.send_message")
     @patch("task_functions.GristV2Manager._request_table_records")
