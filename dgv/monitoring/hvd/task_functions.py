@@ -1,7 +1,6 @@
 from datetime import datetime
 from io import StringIO
 import logging
-from urllib import request
 
 import pandas as pd
 import requests

@@ -71,6 +71,14 @@ class DiffManager:
     @staticmethod
     def format_diff_value(value) -> str:
         """Format a diff value for display: wrap in backticks if exists, otherwise return '(vide)'."""
+        if not value:
+            return "(vide)"
+        formatted_value = f"`{value}`"
+
         if isinstance(value, list) and value and value[0] == "L":
-            value = value[1:]
-        return f"`{value}`" if value else "(vide)"
+            formatted_value = f"`{value[1:]}`"
+        elif isinstance(value, str) and len(value) > 100:
+            truncated_value = value[:100].replace("`", "'")
+            formatted_value = f"`{truncated_value}...` _(tronqué)_"
+
+        return formatted_value
