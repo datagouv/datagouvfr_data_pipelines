@@ -1,7 +1,6 @@
 from collections import defaultdict
 import json
 from datetime import datetime, timedelta
-import logging
 import numpy as np
 import pytz
 from airflow.models import DagRun
