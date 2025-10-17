@@ -73,7 +73,7 @@ def delete_old_runs():
         all_runs = session.query(DagRun).all()
         idx = 0
         for run in all_runs:
-            if run.end_date > oldest_run_date:
+            if run.end_date is None or run.end_date > oldest_run_date:
                 continue
             idx += 1
             logging.info(f"Deleting run: dag_id={run.dag_id}, end_date={run.end_date}")
