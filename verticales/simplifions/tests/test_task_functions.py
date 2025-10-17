@@ -299,6 +299,79 @@ class TestWatchGristData:
         assert "Cas_d_usages" in message_text
         assert "Deleted Case" in message_text
 
+    @patch("task_functions.send_message")
+    @patch("task_functions.GristV2Manager._request_table_records")
+    def test_watch_grist_data_with_only_deleted_rows(
+        self, mock_request_table_records, mock_send_message
+    ):
+        """Test that tables with only deleted rows (no modified rows) are still reported"""
+        # Mock the table metadata endpoints
+        grist_factory.resource_mock().mock_table_metadata()
+
+        # Create a record in Cas_d_usages that is NOT recently modified
+        # (this ensures Cas_d_usages won't be in tables_with_modified_rows)
+        grist_factory.create_record(
+            "Cas_d_usages",
+            {
+                "Nom": "Old Case",
+                "Modifie_le": time.time()
+                - 86400 * 2,  # Modified 2 days ago (outside 24h window)
+                "Modifie_par": "Old author",
+                "technical_title": "Old Case",
+                "anchor_link": "https://example.com/old",
+            },
+        )
+
+        # Define backup data with records that were deleted (exist in backup but not in current)
+        # The backup contains two records, but current only has one
+        backup_data = [
+            {
+                "id": 1,
+                "fields": {
+                    "Nom": "Old Case",
+                    "Modifie_le": time.time() - 86400 * 2,
+                    "Modifie_par": "Old author",
+                    "technical_title": "Old Case",
+                    "anchor_link": "https://example.com/old",
+                },
+            },
+            {
+                "id": 2,
+                "fields": {
+                    "Nom": "Recently Deleted Case",
+                    "Description_courte": "This was recently deleted",
+                    "Modifie_le": time.time()
+                    - 3600,  # Modified 1 hour ago (within 24h window)
+                    "Modifie_par": "Deleter Person",
+                    "technical_title": "Recently Deleted Case",
+                    "anchor_link": "https://example.com/deleted-case",
+                },
+            },
+        ]
+
+        # Mock _request_table_records to return backup data when called with backup document_id
+        mock_request_table_records.side_effect = self.create_backup_mock_side_effect(
+            backup_data
+        )
+
+        ti_mock = Mock()
+        watch_grist_data(ti_mock)
+
+        # Verify that send_message was called
+        mock_send_message.assert_called_once()
+
+        # Get the call arguments
+        call_args = mock_send_message.call_args
+        message_text = call_args.kwargs["text"]
+
+        # Assert that Cas_d_usages table is in the message (even though it has no modified rows)
+        assert "Cas_d_usages" in message_text
+        assert "Lignes supprimées" in message_text
+        assert "Recently Deleted Case" in message_text
+
+        # Assert that the old case (not recently modified) is NOT mentioned in deleted rows
+        assert "Old Case" not in message_text or "Recently Deleted Case" in message_text
+
 
 class TestUpdateTopicsV2:
     def setup_method(self):

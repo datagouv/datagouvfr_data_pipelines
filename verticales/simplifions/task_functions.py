@@ -172,6 +172,7 @@ def watch_grist_data(ti):
     time_delta = 24  # in hours
     cutoff_timestamp = (datetime.now() - timedelta(hours=time_delta)).timestamp()
     tables_with_modified_rows = {}
+    tables_with_deleted_rows = {}
 
     # Get the last backup for diffing
     last_backup = DiffManager._get_last_simplifions_backup()
@@ -207,8 +208,24 @@ def watch_grist_data(ti):
         else:
             logging.info(f"> No modified rows found for table {table['id']}")
 
-    if not tables_with_modified_rows:
-        logging.info("No modified rows found")
+        # Check for deleted rows
+        all_current_ids = {row["id"] for row in all_rows}
+        all_backup_rows = GristV2Manager._request_table_records(
+            table["id"], document_id=last_backup_id
+        )
+        deleted_rows = [
+            row
+            for row in all_backup_rows
+            if row["id"] not in all_current_ids
+            and row["fields"].get("Modifie_le")
+            and row["fields"]["Modifie_le"] > cutoff_timestamp
+        ]
+        if deleted_rows:
+            logging.info(f"> Found {len(deleted_rows)} deleted rows")
+            tables_with_deleted_rows[table["id"]] = deleted_rows
+
+    if not tables_with_modified_rows and not tables_with_deleted_rows:
+        logging.info("No modified or deleted rows found")
         return
 
     # Format the message
@@ -220,60 +237,63 @@ def watch_grist_data(ti):
 
     logging.info("\n")
     logging.info("Processing diffs...")
-    for table_id, modified_rows in tables_with_modified_rows.items():
+
+    # Get all tables that need to be processed (either modified or deleted rows)
+    all_table_ids = set(tables_with_modified_rows.keys()) | set(
+        tables_with_deleted_rows.keys()
+    )
+
+    for table_id in all_table_ids:
+        modified_rows = tables_with_modified_rows.get(table_id, [])
+        deleted_rows = tables_with_deleted_rows.get(table_id, [])
+
         logging.info(
-            f"Processing table {table_id} with {len(modified_rows)} modified rows"
+            f"Processing table {table_id} with {len(modified_rows)} modified rows "
+            f"and {len(deleted_rows)} deleted rows"
         )
-
-        # Get all rows from current document and backup to detect deletions and get backup data
-        all_current_rows = GristV2Manager._request_grist_table(table_id)
-        all_current_ids = {row["id"] for row in all_current_rows}
-
-        # Get all backup rows (used for both diff comparison and deletion detection)
-        all_backup_rows = GristV2Manager._request_table_records(
-            table_id, document_id=last_backup_id
-        )
-        logging.info(f"Found {len(all_backup_rows)} total backup rows")
-        deleted_rows = [
-            row
-            for row in all_backup_rows
-            if row["id"] not in all_current_ids
-            and row["fields"].get("Modifie_le")
-            and row["fields"]["Modifie_le"] > cutoff_timestamp
-        ]
-        logging.info(f"Found {len(deleted_rows)} deleted rows")
-
-        modified_rows_grouped_by_modifier = defaultdict(list)
-        for row in modified_rows:
-            modified_rows_grouped_by_modifier[row["fields"]["Modifie_par"]].append(row)
 
         table_message = f"### **{table_id}**\n"
 
-        for modifier, rows in modified_rows_grouped_by_modifier.items():
-            table_message += f"- **{modifier}**\n"
-            sorted_rows = sorted(rows, key=lambda row: row["fields"]["technical_title"])
+        # Process modified rows if any
+        if modified_rows:
+            # Get all backup rows (used for diff comparison)
+            all_backup_rows = GristV2Manager._request_table_records(
+                table_id, document_id=last_backup_id
+            )
 
-            for row in sorted_rows:
-                # Find the corresponding backup row from all backup rows
-                backup_row = next(
-                    (r for r in all_backup_rows if r["id"] == row["id"]), None
+            modified_rows_grouped_by_modifier = defaultdict(list)
+            for row in modified_rows:
+                modified_rows_grouped_by_modifier[row["fields"]["Modifie_par"]].append(
+                    row
                 )
-                new_line_prefix = "" if backup_row else "(Nouvelle ligne) "
-                table_message += (
-                    f"  - {new_line_prefix}{DiffManager.format_row_link(row)}\n"
+
+            for modifier, rows in modified_rows_grouped_by_modifier.items():
+                table_message += f"- **{modifier}**\n"
+                sorted_rows = sorted(
+                    rows, key=lambda row: row["fields"]["technical_title"]
                 )
 
-                if not backup_row:
-                    continue
+                for row in sorted_rows:
+                    # Find the corresponding backup row from all backup rows
+                    backup_row = next(
+                        (r for r in all_backup_rows if r["id"] == row["id"]), None
+                    )
+                    new_line_prefix = "" if backup_row else "(Nouvelle ligne) "
+                    table_message += (
+                        f"  - {new_line_prefix}{DiffManager.format_row_link(row)}\n"
+                    )
 
-                diff = DiffManager.get_diff(row["fields"], backup_row["fields"])
-                if diff:
-                    for key, value in diff.items():
-                        table_message += f"    - `{key}`:\n"
-                        table_message += f"      - Backup: {DiffManager.format_diff_value(value['old'])}\n"
-                        table_message += f"      - Nouveau: {DiffManager.format_diff_value(value['new'])}\n"
-                else:
-                    table_message += "    - _(Aucune modification détectée)_\n"
+                    if not backup_row:
+                        continue
+
+                    diff = DiffManager.get_diff(row["fields"], backup_row["fields"])
+                    if diff:
+                        for key, value in diff.items():
+                            table_message += f"    - `{key}`:\n"
+                            table_message += f"      - Backup: {DiffManager.format_diff_value(value['old'])}\n"
+                            table_message += f"      - Nouveau: {DiffManager.format_diff_value(value['new'])}\n"
+                    else:
+                        table_message += "    - _(Aucune modification détectée)_\n"
 
         # Add deleted rows section (not grouped by modifier)
         if deleted_rows:
