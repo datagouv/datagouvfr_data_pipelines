@@ -216,7 +216,7 @@ def watch_grist_data(ti):
     tables_messages = []
     message = "# Modifications du grist Simplifions\n"
     message += f"Les données suivantes ont reçu des modifications pendant les {time_delta} dernières heures:\n"
-    message += f"Diff effectué avec le backup `{last_backup['name']}`\n\n\n"
+    message += f"Diff effectué avec le backup `{last_backup['name']} (GMT)`\n\n\n"
 
     logging.info("\n")
     logging.info("Processing diffs...")
