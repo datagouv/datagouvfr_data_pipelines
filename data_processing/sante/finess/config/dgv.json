@@ -33,7 +33,7 @@
             },
             "prod": {
                 "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-                "resource_id": ""
+                "resource_id": "35d75f72-3ae5-4c4a-abd2-9aad340576a1"
             }
         },
         "parquet" : {
@@ -43,7 +43,7 @@
             },
             "prod": {
                 "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-                "resource_id": ""
+                "resource_id": "69cb3e2f-dc0a-4cee-800a-cf98901d257d"
             }
         }
     }
