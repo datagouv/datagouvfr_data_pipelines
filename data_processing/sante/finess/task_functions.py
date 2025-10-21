@@ -77,19 +77,20 @@ def get_finess_columns(ti, scope: str):
                 t["value"] for t in restr.find_all("enumeration")
             )
         if col["name"][4:] == "NumeroFiness":
-            # it's actually two columns
             columns.append(
                 {
                     "column_name": "nofinesset",
                     "constraints": restriction_clean,
                 }
             )
-            columns.append(
-                {
-                    "column_name": "nofinessej",
-                    "constraints": restriction_clean,
-                }
-            )
+            if scope == "etablissements":
+                # it's actually two columns in this case
+                columns.append(
+                    {
+                        "column_name": "nofinessej",
+                        "constraints": restriction_clean,
+                    }
+                )
         else:
             columns.append(
                 {
@@ -230,9 +231,9 @@ def build_finess_table_entites_juridiques(ti):
         "https://www.data.gouv.fr/fr/datasets/r/2cba77b2-f1de-4ef8-8428-bfe660e86844",
         sep=";",
         skiprows=1,
-        names=[c["column_name"] for c in finess_columns],
+        names=["index"] + [c["column_name"] for c in finess_columns],
         dtype=str,
-    )
+    ).drop("index", axis=1)
     df_finess.to_csv(
         DATADIR + f"/finess_{scope}.csv",
         index=False,
