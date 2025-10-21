@@ -56,7 +56,7 @@ LAST_MONTH_DATE_STR = (
 #         lambda x: x[:215] + "[...]" if len(x) > 215 else x
 #     )
 #     df["tweet"] = (
-#         df["title_bis"] + " https://data.gouv.fr/fr/" + obj_type + "/" + df["id"]
+#         df["title_bis"] + " https://data.gouv.fr/" + obj_type + "/" + df["id"]
 #     )
 
 #     tweets = list(df["tweet"].unique())
@@ -94,12 +94,12 @@ LAST_MONTH_DATE_STR = (
 
 # def process_tweeting(**kwargs):
 #     dataset_thread = tweet_featured_from_catalog(
-#         "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+#         "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
 #         "datasets",
 #         "jeux de données ont été publiés",
 #     )
 #     reuse_thread = tweet_featured_from_catalog(
-#         "https://www.data.gouv.fr/fr/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
+#         "https://www.data.gouv.fr/api/1/datasets/r/970aafa0-3778-4d8b-b9d1-de937525e379",
 #         "reuses",
 #         "réutilisations ont été publiées",
 #     )
@@ -123,7 +123,7 @@ def create_edito_post(**kwargs):
     for object_type in mapping.keys():
         print("Gathering infos about", object_type)
         df = pd.read_csv(
-            f"https://www.data.gouv.fr/fr/datasets/r/{mapping[object_type]['catalog_id']}",
+            f"https://www.data.gouv.fr/api/1/datasets/r/{mapping[object_type]['catalog_id']}",
             sep=";",
             usecols=["id", "slug", "created_at", "featured"],
         )

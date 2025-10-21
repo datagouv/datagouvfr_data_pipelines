@@ -252,6 +252,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données des pétitions de l'AN mises à jour.\n"
             f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/fr/datasets/{dataset_id})"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id})"
         )
     )

@@ -95,7 +95,7 @@ def download_and_process_geozones():
 
     # get countries (with ISO alpha 2 code) from another source
     countries = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/2b38f28d-15e7-4f0c-b61d-6ca1d9b1cfa2",
+        "https://www.data.gouv.fr/api/1/datasets/r/2b38f28d-15e7-4f0c-b61d-6ca1d9b1cfa2",
         sep=";",
         encoding="cp1252",
         dtype=str,
@@ -302,7 +302,7 @@ def post_geozones():
         payload={
             "description": (
                 "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
-                "(https://www.data.gouv.fr/fr/datasets/64959ecae2bdc5448631a59c/)"
+                "(https://www.data.gouv.fr/datasets/64959ecae2bdc5448631a59c/)"
             ),
             "filesize": os.path.getsize(countries_file.full_source_path),
             "mime": "application/json",
@@ -324,5 +324,5 @@ def post_geozones():
 
 def notification_mattermost():
     message = "Données Géozones mises à jours [ici]"
-    message += f"({local_client.base_url}/fr/datasets/{dataset_id})"
+    message += f"({local_client.base_url}/datasets/{dataset_id})"
     send_message(message)

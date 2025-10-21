@@ -61,7 +61,7 @@ def get_hvd(ti):
 
     logging.info("Getting datasets catalog")
     df_datasets = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
+        "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
         sep=";",
         usecols=["url", "tags", "organization_id", "license", "id"],
     )
@@ -145,7 +145,7 @@ def markdown_item(row):
     return (
         f"- [{row['title']}]({row['url']})\n"
         f"   - publié par [{row['organization']}]"
-        f"(https://www.data.gouv.fr/fr/organizations/{row['organization_id']}/)\n"
+        f"(https://www.data.gouv.fr/organizations/{row['organization_id']}/)\n"
         f"   - {cat_item}\n"
         f"   - {hvd_item}\n"
     )
@@ -391,7 +391,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
 def build_df_for_grist():
     logging.info("Getting datasets")
     df_datasets = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets.csv?tag=hvd",
+        "https://www.data.gouv.fr/api/1/datasets.csv?tag=hvd",
         sep=";",
         usecols=[
             "id",
@@ -406,13 +406,13 @@ def build_df_for_grist():
     )
     logging.info("Getting resources")
     df_resources = pd.read_csv(
-        "https://www.data.gouv.fr/fr/resources.csv?tag=hvd",
+        "https://www.data.gouv.fr/api/1/resources.csv?tag=hvd",
         sep=";",
         usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"],
     )
     logging.info("Getting dataservices")
     df_dataservices = pd.read_csv(
-        "https://www.data.gouv.fr/fr/dataservices.csv",
+        "https://www.data.gouv.fr/api/1/dataservices.csv",
         sep=";",
         usecols=[
             "id",
@@ -551,7 +551,7 @@ def update_grist(ti):
                 to_send.append((hvd_id, r["title"], r["organization"]["name"]))
             else:
                 logging.warning(
-                    f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}"
+                    f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}/"
                 )
                 table.update_records(
                     conditions={"id2": hvd_id},
@@ -561,7 +561,7 @@ def update_grist(ti):
             message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
             for _id, title, orga in to_send:
                 message += (
-                    f"\n- [{title}](https://www.data.gouv.fr/fr/datasets/{_id}/)"
+                    f"\n- [{title}](https://www.data.gouv.fr/datasets/{_id}/)"
                     f" de l'organisation {orga}"
                 )
                 table.update_records(

@@ -230,7 +230,9 @@ def show_discussions(
             object_title = None
         url = "#"
         if subject["class"] in ["Dataset", "Reuse", "Dataservice"]:
-            url = f"https://www.data.gouv.fr/fr/{subject['class'].lower()}s/{subject['id']}/"
+            url = (
+                f"https://www.data.gouv.fr/{subject['class'].lower()}s/{subject['id']}/"
+            )
         user = make_link(fullname(comment["posted_by"]), comment["posted_by"]["page"])
         to_be_shown = (
             object_title + f" ({subject['class']})"

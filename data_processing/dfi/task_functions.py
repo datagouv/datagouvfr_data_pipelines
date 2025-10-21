@@ -337,5 +337,5 @@ def notification_mattermost():
         f"Données DFI agrégées :"
         f"\n- uploadées sur Minio"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({local_client.base_url}/fr/datasets/{dataset_id}/)"
+        f"({local_client.base_url}/datasets/{dataset_id}/)"
     )
