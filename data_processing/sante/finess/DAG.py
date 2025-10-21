@@ -130,13 +130,13 @@ with DAG(
     clean_up = BashOperator(
         task_id="clean_up",
         bash_command=f"rm -rf {TMP_FOLDER}",
-        trigger_rule="none_failed",
+        trigger_rule="none_failed_or_skipped",
     )
 
     send_notification_mattermost = PythonOperator(
         task_id="send_notification_mattermost",
         python_callable=send_notification_mattermost,
-        trigger_rule="none_failed",
+        trigger_rule="none_failed_or_skipped",
     )
 
     clean_up.set_upstream(publish_on_datagouv_etablissements)
