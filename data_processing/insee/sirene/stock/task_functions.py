@@ -175,7 +175,7 @@ def publish_mattermost(geoloc):
         text = (
             "Sirene géolocalisé INSEE mis à jour\n- [Stockage données]"
             "(https://object.infra.data.gouv.fr/browser/data-pipeline-open/siren%2Fgeoloc%2F)"
-            "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.datasets/geolocalisation-"
+            "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/datasets/geolocalisation-"
             "des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques/) "
         )
     else:

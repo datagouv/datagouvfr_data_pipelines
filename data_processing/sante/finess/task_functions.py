@@ -286,7 +286,7 @@ def publish_on_datagouv(scope: str):
                 "description": (
                     f"Finess des {scope.replace('_', ' ')} (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({local_client.base_url}/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f"({local_client.base_url}/datasets/{config[scope]['source_dataset']}/))"
                     f" (dernière mise à jour le {date})"
                 ),
             },
