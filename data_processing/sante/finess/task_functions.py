@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 import os
 import json
 import requests
@@ -29,17 +30,17 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
     config = json.load(fp)
 
 
-def check_if_modif():
+def check_if_modif(scope: str):
     return local_client.resource(
-        id=config["csv"]["prod"]["resource_id"]
-    ).check_if_more_recent_update(dataset_id="53699569a3a729239d2046eb")
+        id=config[scope]["csv"]["prod"]["resource_id"]
+    ).check_if_more_recent_update(dataset_id=config[scope]["source_dataset"])
 
 
-def get_finess_columns(ti):
+def get_finess_columns(ti, scope: str):
     doc = pymupdf.open(
         stream=BytesIO(
             requests.get(
-                "https://www.data.gouv.fr/fr/datasets/r/d06a0924-9931-4a60-83b6-93abdb6acfd6"
+                f"https://www.data.gouv.fr/fr/datasets/r/{config[scope]['source_doc']}"
             ).content
         ),
         filetype="pdf",
@@ -76,19 +77,20 @@ def get_finess_columns(ti):
                 t["value"] for t in restr.find_all("enumeration")
             )
         if col["name"][4:] == "NumeroFiness":
-            # it's actually two columns
             columns.append(
                 {
                     "column_name": "nofinesset",
                     "constraints": restriction_clean,
                 }
             )
-            columns.append(
-                {
-                    "column_name": "nofinessej",
-                    "constraints": restriction_clean,
-                }
-            )
+            if scope == "etablissements":
+                # it's actually two columns in this case
+                columns.append(
+                    {
+                        "column_name": "nofinessej",
+                        "constraints": restriction_clean,
+                    }
+                )
         else:
             columns.append(
                 {
@@ -98,7 +100,8 @@ def get_finess_columns(ti):
             )
         if all(c["column_name"] != "nofinesset" for c in columns):
             raise ValueError("Columns retrieval went wrong:", columns)
-    ti.xcom_push(key="finess_columns", value=columns)
+    logging.info(columns)
+    ti.xcom_push(key=f"finess_columns_{scope}", value=columns)
 
 
 def get_geoloc_columns(ti):
@@ -125,10 +128,13 @@ def get_geoloc_columns(ti):
     ti.xcom_push(key="geoloc_columns", value=columns_geoloc)
 
 
-def build_finess_table(ti):
-    finess_columns = ti.xcom_pull(key="finess_columns", task_ids="get_finess_columns")
+def build_finess_table_etablissements(ti):
+    scope = "etablissements"
+    finess_columns = ti.xcom_pull(
+        key=f"finess_columns_{scope}", task_ids=f"get_finess_columns_{scope}"
+    )
     # this one is the "normal" Finess file
-    print("Getting standard Finess")
+    logging.info(f"Getting standard Finess {scope}")
     df_finess = pd.read_csv(
         "https://www.data.gouv.fr/fr/datasets/r/2ce43ade-8d2c-4d1d-81da-ca06c82abc68",
         sep=";",
@@ -137,7 +143,7 @@ def build_finess_table(ti):
         dtype=str,
     )
     # we also retrieve the geolocalised version, because some row can be missing
-    print("Getting geolocalised file")
+    logging.info("Getting geolocalised file")
     rows = (
         requests.get(
             "https://www.data.gouv.fr/fr/datasets/r/98f3161f-79ff-4f16-8f6a-6d571a80fea2"
@@ -170,10 +176,10 @@ def build_finess_table(ti):
         ~(df_finess_geoloc["nofinesset"].isin(set(df_finess["nofinesset"].to_list())))
         | ~(df_finess_geoloc["nofinessej"].isin(set(df_finess["nofinessej"].to_list())))
     ]
-    print(f"Adding {len(missing)} rows from geoloc")
+    logging.info(f"Adding {len(missing)} rows from geoloc")
     final_finess = pd.concat([df_finess, missing], ignore_index=True)
     # processing the geloc part of the file
-    print("Creating geoloc table")
+    logging.info("Creating geoloc table")
     geoloc_columns = ti.xcom_pull(key="geoloc_columns", task_ids="get_geoloc_columns")
     df_geoloc = pd.read_csv(
         StringIO("\n".join(geoloc)),
@@ -182,7 +188,7 @@ def build_finess_table(ti):
         dtype=str,
     )
     # merging the two parts
-    print("> Merging")
+    logging.info("> Merging")
     merged = pd.merge(
         final_finess.drop("index", axis=1),
         df_geoloc.drop("index", axis=1),
@@ -190,7 +196,7 @@ def build_finess_table(ti):
         how="outer",
     )
     merged.to_csv(
-        DATADIR + "/finess_geoloc.csv",
+        DATADIR + f"/finess_{scope}.csv",
         index=False,
         sep=";",  # because "," is in the sourcecoordet column
     )
@@ -209,20 +215,49 @@ def build_finess_table(ti):
         if name != "nofinesset"
     }
     csv_to_parquet(
-        DATADIR + "/finess_geoloc.csv",
+        DATADIR + f"/finess_{scope}.csv",
         dtype=dtype,
         sep=";",
     )
 
 
-def send_to_minio():
+def build_finess_table_entites_juridiques(ti):
+    scope = "entites_juridiques"
+    finess_columns = ti.xcom_pull(
+        key=f"finess_columns_{scope}", task_ids=f"get_finess_columns_{scope}"
+    )
+    logging.info(f"Getting standard Finess {scope}")
+    df_finess = pd.read_csv(
+        "https://www.data.gouv.fr/fr/datasets/r/2cba77b2-f1de-4ef8-8428-bfe660e86844",
+        sep=";",
+        skiprows=1,
+        names=["index"] + [c["column_name"] for c in finess_columns],
+        dtype=str,
+    ).drop("index", axis=1)
+    df_finess.to_csv(
+        DATADIR + f"/finess_{scope}.csv",
+        index=False,
+        sep=";",  # to match the other file
+    )
+    dtype = {
+        col["column_name"]: "DATE" if col["constraints"] == "date" else "VARCHAR"
+        for col in finess_columns
+    }
+    csv_to_parquet(
+        DATADIR + f"/finess_{scope}.csv",
+        dtype=dtype,
+        sep=";",
+    )
+
+
+def send_to_minio(scope: str):
     minio_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
-                source_name=f"finess_geoloc.{_ext}",
+                source_name=f"finess_{scope}.{_ext}",
                 dest_path="finess/",
-                dest_name=f"finess_geoloc.{_ext}",
+                dest_name=f"finess_{scope}.{_ext}",
             )
             for _ext in ["csv", "parquet"]
         ],
@@ -230,28 +265,28 @@ def send_to_minio():
     )
 
 
-def publish_on_datagouv():
+def publish_on_datagouv(scope: str):
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv", "parquet"]:
         local_client.resource(
-            dataset_id=config[ext][AIRFLOW_ENV]["dataset_id"],
-            id=config[ext][AIRFLOW_ENV]["resource_id"],
+            dataset_id=config[scope][ext][AIRFLOW_ENV]["dataset_id"],
+            id=config[scope][ext][AIRFLOW_ENV]["resource_id"],
             fetch=False,
         ).update(
             payload={
                 "url": (
                     f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/finess/finess_geoloc.{ext}"
+                    f"/finess/finess_{scope}.{ext}"
                 ),
-                "filesize": os.path.getsize(DATADIR + f"/finess_geoloc.{ext}"),
+                "filesize": os.path.getsize(DATADIR + f"/finess_{scope}.{ext}"),
                 "title": (
-                    f"Finess des établissements géolocalisés au {date} (format {ext})"
+                    f"Finess des {scope.replace('_', ' ')} au {date} (format {ext})"
                 ),
                 "format": ext,
                 "description": (
-                    f"Finess des établissements géolocalisés (format {ext})"
+                    f"Finess des {scope.replace('_', ' ')} (format {ext})"
                     " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({local_client.base_url}/fr/datasets/{config[ext][AIRFLOW_ENV]['dataset_id']}/))"
+                    f"({local_client.base_url}/fr/datasets/{config[scope]['source_dataset']}/))"
                     f" (dernière mise à jour le {date})"
                 ),
             },
@@ -259,7 +294,7 @@ def publish_on_datagouv():
 
 
 def send_notification_mattermost():
-    dataset_id = config["csv"][AIRFLOW_ENV]["dataset_id"]
+    dataset_id = config["etablissements"]["csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
             ":mega: Données Finess mises à jour.\n"
