@@ -1163,7 +1163,6 @@ def concat_and_publish_whole():
     for idx, year in enumerate(years):
         df = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
-            compression="gzip",
             dtype=str,
         )
         logging.info(f"Exporting {year}...")
