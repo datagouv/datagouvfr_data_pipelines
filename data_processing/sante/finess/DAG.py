@@ -4,14 +4,13 @@ from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions import (
+    config,
     DAG_NAME,
     TMP_FOLDER,
     DATADIR,
     check_if_modif,
-    get_finess_columns,
-    get_geoloc_columns,
-    build_finess_table_entites_juridiques,
     build_finess_table_etablissements,
+    build_and_save,
     send_to_minio,
     publish_on_datagouv,
     send_notification_mattermost,
@@ -38,93 +37,36 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {DATADIR}",
     )
 
-    # pipeline établissements
-    check_if_modif_etablissements = ShortCircuitOperator(
-        task_id="check_if_modif_etablissements",
-        python_callable=check_if_modif,
-        op_kwargs={"scope": "etablissements"},
-    )
-
-    get_finess_columns_etablissements = PythonOperator(
-        task_id="get_finess_columns_etablissements",
-        python_callable=get_finess_columns,
-        op_kwargs={"scope": "etablissements"},
-    )
-
-    get_geoloc_columns = PythonOperator(
-        task_id="get_geoloc_columns",
-        python_callable=get_geoloc_columns,
-    )
-
-    build_finess_table_etablissements = PythonOperator(
-        task_id="build_finess_table_etablissements",
-        python_callable=build_finess_table_etablissements,
-    )
-
-    send_to_minio_etablissements = PythonOperator(
-        task_id="send_to_minio_etablissements",
-        python_callable=send_to_minio,
-        op_kwargs={"scope": "etablissements"},
-    )
-
-    publish_on_datagouv_etablissements = PythonOperator(
-        task_id="publish_on_datagouv_etablissements",
-        python_callable=publish_on_datagouv,
-        op_kwargs={"scope": "etablissements"},
-    )
-
-    check_if_modif_etablissements.set_upstream(clean_previous_outputs)
-
-    get_finess_columns_etablissements.set_upstream(check_if_modif_etablissements)
-    get_geoloc_columns.set_upstream(check_if_modif_etablissements)
-
-    build_finess_table_etablissements.set_upstream(get_finess_columns_etablissements)
-    build_finess_table_etablissements.set_upstream(get_geoloc_columns)
-
-    send_to_minio_etablissements.set_upstream(build_finess_table_etablissements)
-    publish_on_datagouv_etablissements.set_upstream(send_to_minio_etablissements)
-
-    # pipeline entités juridiques
-    check_if_modif_entites_juridiques = ShortCircuitOperator(
-        task_id="check_if_modif_entites_juridiques",
-        python_callable=check_if_modif,
-        op_kwargs={"scope": "entites_juridiques"},
-    )
-
-    get_finess_columns_entites_juridiques = PythonOperator(
-        task_id="get_finess_columns_entites_juridiques",
-        python_callable=get_finess_columns,
-        op_kwargs={"scope": "entites_juridiques"},
-    )
-
-    build_finess_table_entites_juridiques = PythonOperator(
-        task_id="build_finess_table_entites_juridiques",
-        python_callable=build_finess_table_entites_juridiques,
-    )
-
-    send_to_minio_entites_juridiques = PythonOperator(
-        task_id="send_to_minio_entites_juridiques",
-        python_callable=send_to_minio,
-        op_kwargs={"scope": "entites_juridiques"},
-    )
-
-    publish_on_datagouv_entites_juridiques = PythonOperator(
-        task_id="publish_on_datagouv_entites_juridiques",
-        python_callable=publish_on_datagouv,
-        op_kwargs={"scope": "entites_juridiques"},
-    )
-
-    check_if_modif_entites_juridiques.set_upstream(clean_previous_outputs)
-    get_finess_columns_entites_juridiques.set_upstream(
-        check_if_modif_entites_juridiques
-    )
-    build_finess_table_entites_juridiques.set_upstream(
-        get_finess_columns_entites_juridiques
-    )
-    send_to_minio_entites_juridiques.set_upstream(build_finess_table_entites_juridiques)
-    publish_on_datagouv_entites_juridiques.set_upstream(
-        send_to_minio_entites_juridiques
-    )
+    scope_tasks = {}
+    for scope in config:
+        if scope == "geoloc":
+            continue
+        scope_tasks[scope] = [
+            ShortCircuitOperator(
+                task_id=f"check_if_modif_{scope}",
+                python_callable=check_if_modif,
+                op_kwargs={"scope": scope},
+            ),
+            PythonOperator(
+                task_id=f"build_finess_table_{scope}",
+                python_callable=(
+                    build_finess_table_etablissements
+                    if scope == "etablissements"
+                    else build_and_save
+                ),
+                op_kwargs=({} if scope == "etablissements" else {"scope": scope}),
+            ),
+            PythonOperator(
+                task_id=f"send_to_minio_{scope}",
+                python_callable=send_to_minio,
+                op_kwargs={"scope": scope},
+            ),
+            PythonOperator(
+                task_id=f"publish_on_datagouv_{scope}",
+                python_callable=publish_on_datagouv,
+                op_kwargs={"scope": scope},
+            ),
+        ]
 
     # final steps
     clean_up = BashOperator(
@@ -139,7 +81,11 @@ with DAG(
         trigger_rule="none_failed_or_skipped",
     )
 
-    clean_up.set_upstream(publish_on_datagouv_etablissements)
-    clean_up.set_upstream(publish_on_datagouv_entites_juridiques)
-
+    for scope in config:
+        if scope == "geoloc":
+            continue
+        scope_tasks[scope][0].set_upstream(clean_previous_outputs)
+        for idx, task in enumerate(scope_tasks[scope][:-1]):
+            scope_tasks[scope][idx + 1].set_upstream(task)
+        clean_up.set_upstream(scope_tasks[scope][-1])
     send_notification_mattermost.set_upstream(clean_up)

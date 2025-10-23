@@ -1,50 +1,268 @@
 {
     "etablissements": {
-        "source_dataset": "53699569a3a729239d2046eb",
-        "source_doc": "d06a0924-9931-4a60-83b6-93abdb6acfd6",
-        "csv" : {
-            "dev": {
-                "dataset_id": "68ee294549988277f2dd0399",
-                "resource_id": "be1dd455-a661-49de-b71e-86c9ef8b8453"
-            },
-            "prod": {
-                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-                "resource_id": "935e1dc5-afce-4d45-9fda-47b18f7444e6"
-            }
+        "source_resource": "2ce43ade-8d2c-4d1d-81da-ca06c82abc68",
+        "title": "Etablissements",
+        "dev": {
+            "dataset_id": "68ee294549988277f2dd0399",
+            "resource_id": "be1dd455-a661-49de-b71e-86c9ef8b8453"
         },
-        "parquet" : {
-            "dev": {
-                "dataset_id": "68ee294549988277f2dd0399",
-                "resource_id": "3d5d01a1-4605-4cb4-a79f-8f8ec2ed99a2"
-            },
-            "prod": {
-                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-                "resource_id": "5eb67ddc-b58c-4531-a3f2-2c2843cf3986"
-            }
-        }
+        "prod": {
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "935e1dc5-afce-4d45-9fda-47b18f7444e6"
+        },
+        "columns": [
+            [
+                "nofinesset",
+                "nofinessej",
+                "rs",
+                "rslongue",
+                "complrs",
+                "compldistrib",
+                "numvoie",
+                "typvoie",
+                "voie",
+                "compvoie",
+                "lieuditbp",
+                "commune",
+                "departement",
+                "libdepartement",
+                "ligneacheminement",
+                "telephone",
+                "telecopie",
+                "categetab",
+                "libcategetab",
+                "categagretab",
+                "libcategagretab",
+                "siret",
+                "codeape",
+                "codemft",
+                "libmft",
+                "codesph",
+                "libsph",
+                "dateouv",
+                "dateautor",
+                "datemaj",
+                "numuai"
+            ]
+        ]
+    },
+    "geoloc": {
+        "source_resource": "98f3161f-79ff-4f16-8f6a-6d571a80fea2",
+        "columns": [
+            [
+                "nofinesset",
+                "nofinessej",
+                "rs",
+                "rslongue",
+                "complrs",
+                "compldistrib",
+                "numvoie",
+                "typvoie",
+                "voie",
+                "compvoie",
+                "lieuditbp",
+                "commune",
+                "departement",
+                "libdepartement",
+                "ligneacheminement",
+                "telephone",
+                "telecopie",
+                "categetab",
+                "libcategetab",
+                "categagretab",
+                "libcategagretab",
+                "siret",
+                "codeape",
+                "codemft",
+                "libmft",
+                "codesph",
+                "libsph",
+                "dateouv",
+                "dateautor",
+                "datemaj",
+                "numuai"
+            ],
+            [
+                "nofinesset",
+                "coordxet",
+                "coordyet",
+                "sourcecoordet",
+                "datemaj_geoloc"
+            ]
+        ]
     },
     "entites_juridiques": {
-        "source_dataset": "5369956ba3a729239d2046fc",
-        "source_doc": "9c2bfada-8339-4dcb-aec2-af0be16c99c0",
-        "csv" : {
-            "dev": {
-                "dataset_id": "68ee294549988277f2dd0399",
-                "resource_id": "b8ebb8f7-6576-44d5-ab65-c820231397da"
-            },
-            "prod": {
-                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-                "resource_id": "35d75f72-3ae5-4c4a-abd2-9aad340576a1"
-            }
+        "source_resource": "2cba77b2-f1de-4ef8-8428-bfe660e86844",
+        "title": "Entités juridiques",
+        "dev": {
+            "dataset_id": "68ee294549988277f2dd0399",
+            "resource_id": "b8ebb8f7-6576-44d5-ab65-c820231397da"
         },
-        "parquet" : {
-            "dev": {
-                "dataset_id": "68ee294549988277f2dd0399",
-                "resource_id": "17d6ad4d-7f77-49ce-a860-1a86e1d66be2"
-            },
-            "prod": {
-                "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-                "resource_id": "69cb3e2f-dc0a-4cee-800a-cf98901d257d"
-            }
-        }
+        "prod": {
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "35d75f72-3ae5-4c4a-abd2-9aad340576a1"
+        },
+        "columns": [
+            [
+                "nofiness",
+                "rs",
+                "rslongue",
+                "complrs",
+                "numvoie",
+                "typvoie",
+                "voie",
+                "compvoie",
+                "compldistrib",
+                "lieuditbp",
+                "commune",
+                "ligneacheminement",
+                "departement",
+                "libdepartement",
+                "telephone",
+                "statutjuridique",
+                "libstatutjuridique",
+                "categetab",
+                "libcategetab",
+                "siren",
+                "codeape",
+                "datecrea"
+            ]
+        ]
+    },
+    "equipements_sociaux": {
+        "source_resource": "1c295b5d-6575-467c-abe9-32e7753ca1cb",
+        "title": "Equipements sociaux et médico-sociaux",
+        "dev": {
+            "dataset_id": "68ee294549988277f2dd0399",
+            "resource_id": "3d5d01a1-4605-4cb4-a79f-8f8ec2ed99a2"
+        },
+        "prod": {
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "5eb67ddc-b58c-4531-a3f2-2c2843cf3986"
+        },
+        "columns": [
+            ["nofinesset", "nofinessej"],
+            [
+                "nofinesset",
+                "de",
+                "libde",
+                "ta",
+                "libta",
+                "client",
+                "libclient",
+                "sourceinfo",
+                "capinstot",
+                "capinstm",
+                "capinstf",
+                "capinsthab",
+                "ageminiinst",
+                "agemaxiinst",
+                "indsupinst",
+                "datederinst",
+                "datepremautor",
+                "capautot",
+                "capautm",
+                "capautf",
+                "capauthab",
+                "ageminiaut",
+                "agemaxiaut",
+                "indsupaut",
+                "dateautor",
+                "datemajaut",
+                "datemajinst"
+            ]
+        ]
+    },
+    "activites_soin": {
+        "source_resource": "89324560-4ab4-4596-8af6-c285cb3b9e67",
+        "title": "Autorisations d'activités de soin",
+        "dev": {
+            "dataset_id": "68ee294549988277f2dd0399",
+            "resource_id": "79b9cc8a-7b65-442b-a159-b9d630fea202"
+        },
+        "prod": {
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "69cb3e2f-dc0a-4cee-800a-cf98901d257d"
+        },
+        "columns": [
+            ["nofinesset", "nofinessej"],
+            [
+                "nofinessej",
+                "rsej",
+                "activite",
+                "libactivite",
+                "modalite",
+                "libmodalite",
+                "forme",
+                "libforme",
+                "noautor",
+                "dateautor",
+                "nofinesset",
+                "rset",
+                "noligautor",
+                "noligautoranc",
+                "noautorarhgos",
+                "noimplarhgos",
+                "sectpsy",
+                "libsectpsy",
+                "datemeo",
+                "datefin"
+            ]
+        ]
+    },
+    "materiels_lourds": {
+        "source_resource": "4407ac9a-134b-4ba3-807f-1e779f55de36",
+        "title": "Equipements matériels lourds",
+        "dev": {
+            "dataset_id": "68ee294549988277f2dd0399",
+            "resource_id": "2b42b448-5fa6-4b25-84a5-11e7895be7b5"
+        },
+        "prod": {
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "9bcccec3-5f5d-43ef-a0d7-cc9b70f6308d"
+        },
+        "columns": [
+            ["nofinesset", "nofinessej"],
+            [
+                "nofinessej",
+                "rsej",
+                "eml",
+                "libeml",
+                "noautor",
+                "noautorarhgos",
+                "noimplarhgos",
+                "dateautor",
+                "nofinesset",
+                "datemeo"
+            ]
+        ]
+    },
+    "disciplines_enseignement": {
+        "source_resource": "e48eddee-bd07-4165-a433-1d2dcc201df9",
+        "title": "Disciplines d'enseignement",
+        "dev": {
+            "dataset_id": "68ee294549988277f2dd0399",
+            "resource_id": "74c43eaa-cee9-4052-bdd6-7a7525a436ac"
+        },
+        "prod": {
+            "dataset_id": "67e43007cd5e91b9fdcbc7b3",
+            "resource_id": "21b9301a-3764-45f7-9107-17e64ba2a7d7"
+        },
+        "columns": [
+            ["nofinesset", "nofinessej"],
+            [
+                "nofinessej",
+                "rsej",
+                "nofinesset",
+                "rset",
+                "noautor",
+                "de",
+                "libde",
+                "ta",
+                "libta",
+                "capaut",
+                "dateautor"
+            ]
+        ]
     }
 }
