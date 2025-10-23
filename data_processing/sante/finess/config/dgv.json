@@ -138,7 +138,7 @@
         },
         "prod": {
             "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-            "resource_id": ""
+            "resource_id": "5eb67ddc-b58c-4531-a3f2-2c2843cf3986"
         },
         "columns": [
             ["nofinesset", "nofinessej"],
@@ -182,7 +182,7 @@
         },
         "prod": {
             "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-            "resource_id": ""
+            "resource_id": "69cb3e2f-dc0a-4cee-800a-cf98901d257d"
         },
         "columns": [
             ["nofinesset", "nofinessej"],
@@ -219,7 +219,7 @@
         },
         "prod": {
             "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-            "resource_id": ""
+            "resource_id": "9bcccec3-5f5d-43ef-a0d7-cc9b70f6308d"
         },
         "columns": [
             ["nofinesset", "nofinessej"],
@@ -246,7 +246,7 @@
         },
         "prod": {
             "dataset_id": "67e43007cd5e91b9fdcbc7b3",
-            "resource_id": ""
+            "resource_id": "21b9301a-3764-45f7-9107-17e64ba2a7d7"
         },
         "columns": [
             ["nofinesset", "nofinessej"],
