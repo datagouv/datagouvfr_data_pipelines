@@ -4,9 +4,8 @@ import os
 import json
 import requests
 import pandas as pd
-from io import BytesIO, StringIO
-from bs4 import BeautifulSoup
-import pymupdf
+from io import StringIO
+from datagouv import Resource
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -14,11 +13,10 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.utils import csv_to_parquet
 
 DAG_NAME = "data_processing_finess"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -31,146 +29,61 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
 
 
 def check_if_modif(scope: str):
-    return local_client.resource(
-        id=config[scope]["csv"]["prod"]["resource_id"]
-    ).check_if_more_recent_update(dataset_id=config[scope]["source_dataset"])
-
-
-def get_finess_columns(ti, scope: str):
-    doc = pymupdf.open(
-        stream=BytesIO(
-            requests.get(
-                f"https://www.data.gouv.fr/api/1/datasets/r/{config[scope]['source_doc']}"
-            ).content
-        ),
-        filetype="pdf",
+    return prod_client.resource(
+        id=config[scope]["prod"]["resource_id"]
+    ).check_if_more_recent_update(
+        dataset_id=Resource(config[scope]["source_resource"]).dataset_id
     )
-    xml = ""
-    for page in doc:
-        content = page.get_text().split("\n")
-        for row in content:
-            if row.strip().startswith("<"):
-                xml += row + "\n"
-    schema = BeautifulSoup(xml, "xml")
-    columns = []
-    for col in schema.find_all("xs:simpleType"):
-        restr = col.find_next("xs:restriction")
-        restriction_clean = None
-        if restr["base"] == "xs:date":
-            restriction_clean = "date"
-        if restr.find_all("pattern"):
-            restriction_clean = "pattern:" + restr.find_all("pattern")[0]["value"]
-        if restr.find_all("minLength"):
-            restriction_clean = "minLength:" + restr.find_all("minLength")[0]["value"]
-        if restr.find_all("maxLength"):
-            if restriction_clean is not None:
-                restriction_clean += "&"
-                restriction_clean += (
-                    "maxLength:" + restr.find_all("maxLength")[0]["value"]
-                )
-            else:
-                restriction_clean = (
-                    "maxLength:" + restr.find_all("maxLength")[0]["value"]
-                )
-        if restr.find_all("enumeration"):
-            restriction_clean = "enumeration:" + "|".join(
-                t["value"] for t in restr.find_all("enumeration")
-            )
-        if col["name"][4:] == "NumeroFiness":
-            columns.append(
-                {
-                    "column_name": "nofinesset",
-                    "constraints": restriction_clean,
-                }
-            )
-            if scope == "etablissements":
-                # it's actually two columns in this case
-                columns.append(
-                    {
-                        "column_name": "nofinessej",
-                        "constraints": restriction_clean,
-                    }
-                )
-        else:
-            columns.append(
-                {
-                    "column_name": col["name"][4:],
-                    "constraints": restriction_clean,
-                }
-            )
-        if all(c["column_name"] != "nofinesset" for c in columns):
-            raise ValueError("Columns retrieval went wrong:", columns)
-    logging.info(columns)
-    ti.xcom_push(key=f"finess_columns_{scope}", value=columns)
 
 
-def get_geoloc_columns(ti):
-    doc = pymupdf.open(
-        stream=BytesIO(
-            requests.get(
-                "https://www.data.gouv.fr/api/1/datasets/r/d1a2f35f-8823-400f-9296-6eb7361ddf6f"
-            ).content
-        ),
-        filetype="pdf",
-    )
-    xml = ""
-    for page in doc:
-        content = page.get_text().split("\n")
-        for row in content:
-            # the condition is slightly different because the file is not structured the same way
-            if row.strip().startswith(("<", "-<")) or "=" in row:
-                xml += row.replace("-<", "<") + "\n"
-    schema = BeautifulSoup(xml, "xml")
-    for el in schema.find_all("xs:element"):
-        if el.get("name") == "geolocalisation":
-            break
-    columns_geoloc = [c["name"] for c in el.find_all("xs:element")]
-    ti.xcom_push(key="geoloc_columns", value=columns_geoloc)
-
-
-def build_finess_table_etablissements(ti):
-    scope = "etablissements"
-    finess_columns = ti.xcom_pull(
-        key=f"finess_columns_{scope}", task_ids=f"get_finess_columns_{scope}"
-    )
-    # this one is the "normal" Finess file
+def load_df_sections(scope: str) -> list[pd.DataFrame]:
     logging.info(f"Getting standard Finess {scope}")
-    df_finess = pd.read_csv(
-        "https://www.data.gouv.fr/api/1/datasets/r/2ce43ade-8d2c-4d1d-81da-ca06c82abc68",
-        sep=";",
-        skiprows=1,
-        names=["index"] + [c["column_name"] for c in finess_columns],
-        dtype=str,
-    )
-    # we also retrieve the geolocalised version, because some row can be missing
-    logging.info("Getting geolocalised file")
     rows = (
         requests.get(
-            "https://www.data.gouv.fr/api/1/datasets/r/98f3161f-79ff-4f16-8f6a-6d571a80fea2"
+            f"https://www.data.gouv.fr/api/1/datasets/r/{config[scope]['source_resource']}"
         )
         .content.decode("utf8")
         .split("\n")
     )
-    classic, geoloc, other = [], [], []
-    # this file is "divided" into two sections:
-    # - the first one is (allegedly) the same as the other file (but sometimes not exactly)
-    # - the second part is the geolocalised data (which needs merging with the upper part)
-    for row in rows:
-        if row.startswith("structureet"):
-            classic.append(row)
-        elif row.startswith("geoloc"):
-            geoloc.append(row)
+    columns = config[scope]["columns"]
+    sections: list[list] = [[] for _ in range(len(columns))]
+    logging.info(f"Looking for {len(columns)} section(s)")
+    prefix, current_section = None, None
+    for idx, row in enumerate(rows):
+        if idx == 0:
+            if not row.startswith("finess"):
+                raise ValueError(f"Unexpected first row: {row}")
+            continue
+        if prefix is None:
+            prefix = row.split(";")[0]
+            current_section = 0
+        if row.startswith(prefix):
+            sections[current_section].append(row)
         else:
-            other.append(row)
-    # there should be only one unwanted row, the first one
-    if len(other) != 1:
-        raise ValueError("Too many unexpected rows:", other)
-    df_finess_geoloc = pd.read_csv(
-        StringIO("\n".join(classic)),
-        sep=";",
-        names=["index"] + [c["column_name"] for c in finess_columns],
-        dtype=str,
-    )
+            current_section += 1
+            if current_section > len(sections):
+                raise ValueError(f"An unexpected section n°{current_section} was detected: {row}")
+            prefix = row.split(";")[0]
+            sections[current_section].append(row)
+    return [
+        pd.read_csv(
+            StringIO("\n".join(sections[k])),
+            names=["index"] + columns[k],
+            dtype=str,
+            sep=";",
+        ).drop("index", axis=1)
+        for k in range(len(columns))
+    ]
+
+
+def build_finess_table_etablissements():
+    scope = "etablissements"
+    # this one is the "normal" Finess file
+    logging.info(f"Getting standard Finess {scope}")
+    df_finess = load_df_sections(scope)[0]
+    # we also retrieve the geolocalised version, because some row can be missing
+    logging.info("Getting geolocalised file")
+    df_finess_geoloc, df_geoloc = load_df_sections("geoloc")
     # retrieving missing rows
     missing = df_finess_geoloc.loc[
         ~(df_finess_geoloc["nofinesset"].isin(set(df_finess["nofinesset"].to_list())))
@@ -178,20 +91,11 @@ def build_finess_table_etablissements(ti):
     ]
     logging.info(f"Adding {len(missing)} rows from geoloc")
     final_finess = pd.concat([df_finess, missing], ignore_index=True)
-    # processing the geloc part of the file
-    logging.info("Creating geoloc table")
-    geoloc_columns = ti.xcom_pull(key="geoloc_columns", task_ids="get_geoloc_columns")
-    df_geoloc = pd.read_csv(
-        StringIO("\n".join(geoloc)),
-        sep=";",
-        names=["index"] + geoloc_columns,
-        dtype=str,
-    )
     # merging the two parts
     logging.info("> Merging")
     merged = pd.merge(
-        final_finess.drop("index", axis=1),
-        df_geoloc.drop("index", axis=1),
+        final_finess,
+        df_geoloc,
         on="nofinesset",
         how="outer",
     )
@@ -200,54 +104,50 @@ def build_finess_table_etablissements(ti):
         index=False,
         sep=";",  # because "," is in the sourcecoordet column
     )
-    dtype = {
-        col["column_name"]: "DATE" if col["constraints"] == "date" else "VARCHAR"
-        for col in finess_columns
-    } | {
-        name: (
-            "FLOAT"
-            if name in ["coordxet", "coordyet"]
-            else "DATE"
-            if "date" in name
-            else "VARCHAR"
+
+
+def build_and_save(scope: str):
+    dfs = load_df_sections(scope)
+    if len(dfs) == 1:
+        dfs[0].to_csv(
+            DATADIR + f"/finess_{scope}.csv",
+            index=False,
+            sep=";",
         )
-        for name in geoloc_columns
-        if name != "nofinesset"
-    }
-    csv_to_parquet(
-        DATADIR + f"/finess_{scope}.csv",
-        dtype=dtype,
-        sep=";",
-    )
-
-
-def build_finess_table_entites_juridiques(ti):
-    scope = "entites_juridiques"
-    finess_columns = ti.xcom_pull(
-        key=f"finess_columns_{scope}", task_ids=f"get_finess_columns_{scope}"
-    )
-    logging.info(f"Getting standard Finess {scope}")
-    df_finess = pd.read_csv(
-        "https://www.data.gouv.fr/fr/datasets/r/2cba77b2-f1de-4ef8-8428-bfe660e86844",
-        sep=";",
-        skiprows=1,
-        names=["index"] + [c["column_name"] for c in finess_columns],
-        dtype=str,
-    ).drop("index", axis=1)
-    df_finess.to_csv(
-        DATADIR + f"/finess_{scope}.csv",
-        index=False,
-        sep=";",  # to match the other file
-    )
-    dtype = {
-        col["column_name"]: "DATE" if col["constraints"] == "date" else "VARCHAR"
-        for col in finess_columns
-    }
-    csv_to_parquet(
-        DATADIR + f"/finess_{scope}.csv",
-        dtype=dtype,
-        sep=";",
-    )
+    elif len(dfs) == 2:
+        matching, df_data = dfs
+        key = None
+        if "nofinesset" in config[scope]["columns"][1] and "nofinessej" in config[scope]["columns"][1]:
+            # idk why there are two sections in this case but anyway
+            logging.warning("Both merge keys in the data, keep the file as it is")
+            merged = df_data
+        else:
+            if "nofinesset" in config[scope]["columns"][1]:
+                key = "nofinesset"
+            elif "nofinessej" in config[scope]["columns"][1]:
+                key = "nofinessej"
+            else:
+                raise ValueError(f"None of the known keys is in the data: {list(df_data.columns)}")
+            logging.info(f"Detected merge key: {key}")
+            merged = pd.merge(
+                df_data,
+                matching,
+                on=key,
+                how="outer",
+            )
+            merged = merged[
+                config[scope]["columns"][0] + [
+                    col for col in merged.columns if col not in config[scope]["columns"][0]
+                ]
+            ]
+        merged.to_csv(
+            DATADIR + f"/finess_{scope}.csv",
+            index=False,
+            sep=";",
+        )
+    else:
+        # this shouldn't be possible but we never know
+        raise ValueError(f"Too many sections to handle: {len(dfs)}")
 
 
 def send_to_minio(scope: str):
@@ -255,11 +155,10 @@ def send_to_minio(scope: str):
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
-                source_name=f"finess_{scope}.{_ext}",
+                source_name=f"finess_{scope}.csv",
                 dest_path="finess/",
-                dest_name=f"finess_{scope}.{_ext}",
+                dest_name=f"finess_{scope}.csv",
             )
-            for _ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,
     )
@@ -267,34 +166,34 @@ def send_to_minio(scope: str):
 
 def publish_on_datagouv(scope: str):
     date = datetime.today().strftime("%d-%m-%Y")
-    for ext in ["csv", "parquet"]:
-        local_client.resource(
-            dataset_id=config[scope][ext][AIRFLOW_ENV]["dataset_id"],
-            id=config[scope][ext][AIRFLOW_ENV]["resource_id"],
-            fetch=False,
-        ).update(
-            payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/finess/finess_{scope}.{ext}"
-                ),
-                "filesize": os.path.getsize(DATADIR + f"/finess_{scope}.{ext}"),
-                "title": (
-                    f"Finess des {scope.replace('_', ' ')} au {date} (format {ext})"
-                ),
-                "format": ext,
-                "description": (
-                    f"Finess des {scope.replace('_', ' ')} (format {ext})"
-                    " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({local_client.base_url}/datasets/{config[scope]['source_dataset']}/))"
-                    f" (dernière mise à jour le {date})"
-                ),
-            },
-        )
+    source_dataset = Resource(config[scope]["source_resource"]).dataset_id
+    local_client.resource(
+        dataset_id=config[scope][AIRFLOW_ENV]["dataset_id"],
+        id=config[scope][AIRFLOW_ENV]["resource_id"],
+        fetch=False,
+    ).update(
+        payload={
+            "url": (
+                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"/finess/finess_{scope}.csv"
+            ),
+            "filesize": os.path.getsize(DATADIR + f"/finess_{scope}.csv"),
+            "title": (
+                f"{config[scope]['title']} au {date}"
+            ),
+            "format": "csv",
+            "description": (
+                f"{config[scope]['title']}"
+                " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
+                f"({prod_client.base_url}/datasets/{source_dataset}/))"
+                f" (dernière mise à jour le {date})"
+            ),
+        },
+    )
 
 
 def send_notification_mattermost():
-    dataset_id = config["etablissements"]["csv"][AIRFLOW_ENV]["dataset_id"]
+    dataset_id = config["etablissements"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
             ":mega: Données Finess mises à jour.\n"
