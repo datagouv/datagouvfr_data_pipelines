@@ -44,9 +44,8 @@ with DAG(
         scope_tasks[scope] = [
             ShortCircuitOperator(
                 task_id=f"check_if_modif_{scope}",
-                python_callable=lambda: True,
-                # python_callable=check_if_modif,
-                # op_kwargs={"scope": scope},
+                python_callable=check_if_modif,
+                op_kwargs={"scope": scope},
             ),
             PythonOperator(
                 task_id=f"build_finess_table_{scope}",
@@ -55,11 +54,7 @@ with DAG(
                     if scope == "etablissements"
                     else build_and_save
                 ),
-                op_kwargs=(
-                    {}
-                    if scope == "etablissements"
-                    else {"scope": scope}
-                ),
+                op_kwargs=({} if scope == "etablissements" else {"scope": scope}),
             ),
             PythonOperator(
                 task_id=f"send_to_minio_{scope}",
@@ -70,7 +65,7 @@ with DAG(
                 task_id=f"publish_on_datagouv_{scope}",
                 python_callable=publish_on_datagouv,
                 op_kwargs={"scope": scope},
-            )
+            ),
         ]
 
     # final steps

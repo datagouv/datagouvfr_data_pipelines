@@ -62,7 +62,9 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
         else:
             current_section += 1
             if current_section > len(sections):
-                raise ValueError(f"An unexpected section n°{current_section} was detected: {row}")
+                raise ValueError(
+                    f"An unexpected section n°{current_section} was detected: {row}"
+                )
             prefix = row.split(";")[0]
             sections[current_section].append(row)
     return [
@@ -117,7 +119,10 @@ def build_and_save(scope: str):
     elif len(dfs) == 2:
         matching, df_data = dfs
         key = None
-        if "nofinesset" in config[scope]["columns"][1] and "nofinessej" in config[scope]["columns"][1]:
+        if (
+            "nofinesset" in config[scope]["columns"][1]
+            and "nofinessej" in config[scope]["columns"][1]
+        ):
             # idk why there are two sections in this case but anyway
             logging.warning("Both merge keys in the data, keep the file as it is")
             merged = df_data
@@ -127,7 +132,9 @@ def build_and_save(scope: str):
             elif "nofinessej" in config[scope]["columns"][1]:
                 key = "nofinessej"
             else:
-                raise ValueError(f"None of the known keys is in the data: {list(df_data.columns)}")
+                raise ValueError(
+                    f"None of the known keys is in the data: {list(df_data.columns)}"
+                )
             logging.info(f"Detected merge key: {key}")
             merged = pd.merge(
                 df_data,
@@ -136,8 +143,11 @@ def build_and_save(scope: str):
                 how="outer",
             )
             merged = merged[
-                config[scope]["columns"][0] + [
-                    col for col in merged.columns if col not in config[scope]["columns"][0]
+                config[scope]["columns"][0]
+                + [
+                    col
+                    for col in merged.columns
+                    if col not in config[scope]["columns"][0]
                 ]
             ]
         merged.to_csv(
@@ -178,9 +188,7 @@ def publish_on_datagouv(scope: str):
                 f"/finess/finess_{scope}.csv"
             ),
             "filesize": os.path.getsize(DATADIR + f"/finess_{scope}.csv"),
-            "title": (
-                f"{config[scope]['title']} au {date}"
-            ),
+            "title": (f"{config[scope]['title']} au {date}"),
             "format": "csv",
             "description": (
                 f"{config[scope]['title']}"
