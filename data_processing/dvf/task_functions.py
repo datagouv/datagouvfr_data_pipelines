@@ -1189,7 +1189,7 @@ def concat_and_publish_whole():
         id=data["concat"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
         fetch=False,
-        _from_response={"filetype": "file"}
+        _from_response={"filetype": "file"},
     ).update(
         payload={
             "title": f"DVF {period} - fichier unique",
