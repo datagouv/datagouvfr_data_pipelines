@@ -412,7 +412,7 @@ def build_df_for_grist():
     )
     logging.info("Getting dataservices")
     df_dataservices = pd.read_csv(
-        "https://www.data.gouv.fr/api/1/dataservices.csv",
+        "https://www.data.gouv.fr/dataservices.csv",
         sep=";",
         usecols=[
             "id",
@@ -600,4 +600,5 @@ def publish_mattermost_grist(ti):
     for title, url, orga in new_rows:
         message += f"\n- [{title}]({url}) de l'organisation {orga}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
 
