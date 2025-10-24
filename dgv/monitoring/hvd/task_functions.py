@@ -391,7 +391,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
 def build_df_for_grist():
     logging.info("Getting datasets")
     df_datasets = pd.read_csv(
-        "https://www.data.gouv.fr/api/1/datasets.csv?tag=hvd",
+        "https://www.data.gouv.fr/datasets.csv?tag=hvd",
         sep=";",
         usecols=[
             "id",
@@ -406,7 +406,7 @@ def build_df_for_grist():
     )
     logging.info("Getting resources")
     df_resources = pd.read_csv(
-        "https://www.data.gouv.fr/api/1/resources.csv?tag=hvd",
+        "https://www.data.gouv.fr/resources.csv?tag=hvd",
         sep=";",
         usecols=["dataset.id", "title", "url", "id", "format", "dataset.url"],
     )
@@ -600,3 +600,4 @@ def publish_mattermost_grist(ti):
     for title, url, orga in new_rows:
         message += f"\n- [{title}]({url}) de l'organisation {orga}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
