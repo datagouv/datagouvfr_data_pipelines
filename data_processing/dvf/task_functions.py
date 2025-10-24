@@ -1160,32 +1160,40 @@ def concat_and_publish_whole():
             if "full_" in f and ".gz" not in f
         ]
     )
-    for idx, year in enumerate(years):
-        df = pd.read_csv(
+    write_headers = True
+    for year in years:
+        chunks = pd.read_csv(
             DATADIR + f"/full_{year}.csv",
             dtype=str,
+            chunksize=int(1e5),
         )
         logging.info(f"Exporting {year}...")
-        df.to_csv(
-            DATADIR + "/dvf.csv",
-            index=False,
-            header=idx == 0,
-            mode="w" if idx == 0 else "a",
-        )
+        for chunk in chunks:
+            chunk.to_csv(
+                DATADIR + "/dvf.csv",
+                index=False,
+                header=write_headers,
+                mode="w" if write_headers else "a",
+            )
+            write_headers = False
     csv_to_csvgz(DATADIR + "/dvf.csv")
 
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
+    period = (
+        f"janvier {min(years)} - décembre {max(years)}"
+        if len(years) == 5
+        else f"juillet {min(years)} - juin {max(years)}"
+    )
     local_client.resource(
         id=data["concat"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
         fetch=False,
     ).update(
         payload={
-            "title": f"DVF {min(years)}-{max(years)} - fichier unique",
-            "format": "csv",
+            "title": f"DVF {period} - fichier unique",
         },
-        file_to_upload=DATADIR + "/dvf.csv",
+        file_to_upload=DATADIR + "/dvf.csv.gz",
     )
 
 
