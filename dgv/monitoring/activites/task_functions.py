@@ -1,3 +1,4 @@
+import logging
 from airflow.models import Variable
 from difflib import SequenceMatcher
 import requests
@@ -61,10 +62,10 @@ def detect_potential_certif(siret):
         sleep(1)
         r = requests.get(entreprises_api_url + siret).json()
     if len(r["results"]) == 0:
-        print("No match for: ", siret)
+        logging.warning("No match for: ", siret)
         return False
     if len(r["results"]) > 1:
-        print("Ambiguous: ", siret)
+        logging.warning("Ambiguous: ", siret)
     complements = r["results"][0]["complements"]
     return bool(
         complements["collectivite_territoriale"] or complements["est_service_public"]
@@ -72,7 +73,7 @@ def detect_potential_certif(siret):
 
 
 def check_new(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
+    templates_dict: dict = kwargs.get("templates_dict")
     # we want everything that happened since this date
     start_date = datetime.now() - timedelta(**TIME_PERIOD)
     end_date = datetime.now()
@@ -127,7 +128,7 @@ def check_new(ti, **kwargs):
                     and any([r["schema"] for r in item.get("resources")])
                     and not mydict["spam"]
                 ):
-                    print("This dataset has a schema:", item)
+                    logging.info("This dataset has a schema:", item)
                     mydict["first_publication"] = False
                 else:
                     # private/draft objects are not counted in metrics, so we can't be sure they're new
@@ -156,7 +157,7 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     # DAG runs every 5min, we want this to run every Monday at ~10:00
     start, end = dtime(9, 1, 0), dtime(9, 6, 0)
     if not (check_if_monday() and time_is_between(start, end)):
-        print("Not running now")
+        logging.info("Not running now")
         return
     orgas = local_client.get_all_from_api_query(
         "api/1/organizations/?sort=-created",
@@ -169,10 +170,10 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     )
     for o in orgas:
         if o["created_at"] < threshold:
-            print("Too old:", o["id"])
+            logging.info("Too old:", o["id"])
             break
         if o["created_at"] >= too_soon:
-            print("Too recent:", o["id"])
+            logging.info("Too recent:", o["id"])
             continue
         if all(o["metrics"][k] == 0 for k in ["datasets", "reuses"]):
             inactive[o["id"]] = o["name"]
@@ -194,7 +195,7 @@ def alert_if_awaiting_spam_comments():
     # DAG runs every 5min, we want this to run everyday at ~11:00
     start, end = dtime(8, 1, 0), dtime(8, 6, 0)
     if not time_is_between(start, end):
-        print("Not running now")
+        logging.info("Not running now")
         return
     comments = get_awaiting_spam_comments()
     if comments:
@@ -389,7 +390,7 @@ def send_spam_to_grist(ti):
         "dataservices",
     ]:
         arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
-        print(arr)
+        logging.info(arr)
         if not arr:
             continue
         for obj in arr:
@@ -427,18 +428,22 @@ def publish_item(item, item_type):
     message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
     send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
 
-    if item["first_publication"]:
+    if item["first_publication"] or item["spam"]:
         if item["spam"]:
             message = f":warning: @all Spam potentiel ({item['spam']})\n"
         else:
             message = ""
 
+        if item["first_publication"]:
+            message += ":loudspeaker: :one: "
+            message += "Premier " if item_type == "dataset" else "Première "
+
         if item_type == "dataset":
-            message += ":loudspeaker: :one: Premier jeu de données "
+            message += ":books: jeu de données "
         elif item_type == "reuse":
-            message += ":loudspeaker: :one: Première réutilisation "
+            message += ":recycle: réutilisation "
         else:
-            message += ":loudspeaker: :one: Première API "
+            message += ":robot_face: API "
 
         if item["owner_type"] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
