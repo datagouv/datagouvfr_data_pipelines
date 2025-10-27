@@ -90,7 +90,6 @@ def csv_to_geoparquet(
                 delim = '{sep}',
                 quote = '"',
                 header = true,
-                ignore_errors=true,
                 columns = {dtype}
             )
         ),
@@ -106,7 +105,7 @@ def csv_to_geoparquet(
     (FORMAT 'parquet', COMPRESSION '{compression}', ROW_GROUP_SIZE '{row_group_size}')"""
     query = geoparquet_query.format(
         **{
-            "input_name": csv_file_path,
+            "csv_file_path": csv_file_path,
             "dtype": dtype,
             "output_name": output_path + output_name,
             "sep": sep,
@@ -116,11 +115,11 @@ def csv_to_geoparquet(
             "lat": latitude_col,
         }
     )
-    
+
     queries = [
-        'INSTALL spatial;',
-        'LOAD spatial;',
-        'SET preserve_insertion_order=false;',
+        "INSTALL spatial;",
+        "LOAD spatial;",
+        "SET preserve_insertion_order=false;",
         "SET memory_limit = '16GB';",
         "SET max_temp_directory_size = '125GB';",
         query,

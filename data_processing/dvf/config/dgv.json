@@ -28,5 +28,15 @@
             "dataset_id": "5cc1b94a634f4165e96436c1",
             "resource_id": "d7933994-2c66-4131-a4da-cf7cd18040a4"
         }
+    },
+    "geoparquet": {
+        "dev": {
+            "dataset_id": "5cc1b94a634f4165e96436c1",
+            "resource_id": "8d519253-5049-4c91-bd48-2b341680cc3d"
+        },
+        "prod": {
+            "dataset_id": "5cc1b94a634f4165e96436c1",
+            "resource_id": ""
+        }
     }
 }
