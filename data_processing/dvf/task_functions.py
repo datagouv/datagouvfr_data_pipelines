@@ -19,21 +19,23 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
+
+from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 DPEDIR = f"{DATADIR}/dpe/"
 schema = "dvf"
 
-# pgclient = PostgresClient(
-#     conn_name="POSTGRES_DVF",
-#     schema=schema,
-# )
+pgclient = PostgresClient(
+    conn_name="POSTGRES_DVF",
+    schema=schema,
+)
 pgclient = None
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
