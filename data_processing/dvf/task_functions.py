@@ -36,7 +36,6 @@ pgclient = PostgresClient(
     conn_name="POSTGRES_DVF",
     schema=schema,
 )
-pgclient = None
 minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
