@@ -14,14 +14,14 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.conversions import (
+    csv_to_parquet,
+    csv_to_csvgz,
+)
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.utils import (
-    csv_to_parquet,
-    csv_to_csvgz,
-)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau"

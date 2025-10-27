@@ -4,12 +4,13 @@ from datetime import datetime
 import logging
 import zipfile
 
+from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.utils import MOIS_FR, csv_to_parquet
+from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from datagouvfr_data_pipelines.config import (
     INSEE_BASE_URL,
     MINIO_BUCKET_DATA_PIPELINE,
