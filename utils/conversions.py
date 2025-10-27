@@ -69,6 +69,7 @@ def csv_to_geoparquet(
     output_path: str | None = None,
     sep: str = ";",
     parquet_compression: str = "zstd",
+    compression_level: int = 15,
     row_group_size: int = 20000,
     longitude_col: str = "longitude",
     latitude_col: str = "latitude",
@@ -102,7 +103,7 @@ def csv_to_geoparquet(
         CROSS JOIN bbox
         ORDER BY ST_Hilbert(t.geometry, bbox.b)
     ) TO '{output_name}'
-    (FORMAT 'parquet', COMPRESSION '{compression}', ROW_GROUP_SIZE '{row_group_size}')"""
+    (FORMAT 'parquet', COMPRESSION '{compression}', COMPRESSION_LEVEL {compression_level}, ROW_GROUP_SIZE '{row_group_size}')"""
     query = geoparquet_query.format(
         **{
             "csv_file_path": csv_file_path,
@@ -110,6 +111,7 @@ def csv_to_geoparquet(
             "output_name": output_path + output_name,
             "sep": sep,
             "compression": parquet_compression,
+            "compression_level": compression_level,
             "row_group_size": row_group_size,
             "long": longitude_col,
             "lat": latitude_col,
