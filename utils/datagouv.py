@@ -69,6 +69,8 @@ SPAM_WORDS = [
     "documents legaux",
     "entrepreneur",
     "visa",
+    "abortion",
+    "pills",
 ]
 
 prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY)
