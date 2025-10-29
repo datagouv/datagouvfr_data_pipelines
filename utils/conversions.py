@@ -126,7 +126,7 @@ def csv_to_geoparquet(
         "INSTALL spatial;",
         "LOAD spatial;",
         "SET preserve_insertion_order=false;",
-        f"SET memory_limit = '{8 if AIRFLOW_ENV == 'prod' else 6}GB';",
+        f"SET memory_limit = '6GB';",
         "SET max_temp_directory_size = '125GB';",
         query,
     ]
@@ -140,4 +140,5 @@ def csv_to_geoparquet(
 
     add_bbox_metadata(output_path + output_name, verbose=False)
     return output_path + output_name
+
 
