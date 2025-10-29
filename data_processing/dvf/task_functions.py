@@ -1161,23 +1161,23 @@ def concat_and_publish_whole():
             if "full_" in f and ".gz" not in f
         ]
     )
-    write_headers = True
-    for year in years:
-        chunks = pd.read_csv(
-            DATADIR + f"/full_{year}.csv",
-            dtype=str,
-            chunksize=int(1e5),
-        )
-        logging.info(f"Exporting {year}...")
-        for chunk in chunks:
-            chunk.to_csv(
-                DATADIR + "/dvf.csv",
-                index=False,
-                header=write_headers,
-                mode="w" if write_headers else "a",
-            )
-            write_headers = False
-    csv_to_csvgz(DATADIR + "/dvf.csv")
+    # write_headers = True
+    # for year in years:
+    #     chunks = pd.read_csv(
+    #         DATADIR + f"/full_{year}.csv",
+    #         dtype=str,
+    #         chunksize=int(1e5),
+    #     )
+    #     logging.info(f"Exporting {year}...")
+    #     for chunk in chunks:
+    #         chunk.to_csv(
+    #             DATADIR + "/dvf.csv",
+    #             index=False,
+    #             header=write_headers,
+    #             mode="w" if write_headers else "a",
+    #         )
+    #         write_headers = False
+    # csv_to_csvgz(DATADIR + "/dvf.csv")
     csv_to_geoparquet(
         csv_file_path=DATADIR + "/dvf.csv",
         dtype={
