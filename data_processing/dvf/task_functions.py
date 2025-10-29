@@ -19,12 +19,13 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE,
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.postgres import PostgresClient
+
+from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
-from datagouvfr_data_pipelines.utils.utils import csv_to_csvgz
+from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
@@ -1177,6 +1178,53 @@ def concat_and_publish_whole():
             )
             write_headers = False
     csv_to_csvgz(DATADIR + "/dvf.csv")
+    csv_to_geoparquet(
+        csv_file_path=DATADIR + "/dvf.csv",
+        dtype={
+            "id_mutation": "VARCHAR",
+            "date_mutation": "DATE",
+            "numero_disposition": "INTEGER",
+            "nature_mutation": "VARCHAR",
+            "valeur_fonciere": "DECIMAL(18,2)",
+            "adresse_numero": "INTEGER",
+            "adresse_suffixe": "VARCHAR",
+            "adresse_nom_voie": "VARCHAR",
+            "adresse_code_voie": "VARCHAR",
+            "code_postal": "VARCHAR",
+            "code_commune": "VARCHAR",
+            "nom_commune": "VARCHAR",
+            "code_departement": "VARCHAR",
+            "ancien_code_commune": "VARCHAR",
+            "ancien_nom_commune": "VARCHAR",
+            "id_parcelle": "VARCHAR",
+            "ancien_id_parcelle": "VARCHAR",
+            "numero_volume": "VARCHAR",
+            "lot1_numero": "VARCHAR",
+            "lot1_surface_carrez": "DECIMAL(9,2)",
+            "lot2_numero": "VARCHAR",
+            "lot2_surface_carrez": "DECIMAL(9,2)",
+            "lot3_numero": "VARCHAR",
+            "lot3_surface_carrez": "DECIMAL(9,2)",
+            "lot4_numero": "VARCHAR",
+            "lot4_surface_carrez": "DECIMAL(9,2)",
+            "lot5_numero": "VARCHAR",
+            "lot5_surface_carrez": "DECIMAL(9,2)",
+            "nombre_lots": "INTEGER",
+            "code_type_local": "VARCHAR",
+            "type_local": "VARCHAR",
+            "surface_reelle_bati": "DECIMAL(9,2)",
+            "nombre_pieces_principales": "INTEGER",
+            "code_nature_culture": "VARCHAR",
+            "nature_culture": "VARCHAR",
+            "code_nature_culture_speciale": "VARCHAR",
+            "nature_culture_speciale": "VARCHAR",
+            "surface_terrain": "DECIMAL(12,2)",
+            "longitude": "DECIMAL(9,7)",
+            "latitude": "DECIMAL(9,7)",
+        },
+        sep=",",
+        row_group_size=int(2e5),
+    )
 
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
@@ -1195,6 +1243,17 @@ def concat_and_publish_whole():
             "title": f"DVF {period} - fichier unique",
         },
         file_to_upload=DATADIR + "/dvf.csv.gz",
+    )
+    local_client.resource(
+        id=data["geoparquet"][AIRFLOW_ENV]["resource_id"],
+        dataset_id=data["geoparquet"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
+        _from_response={"filetype": "file"},
+    ).update(
+        payload={
+            "title": f"DVF {period} - fichier unique geoparquet",
+        },
+        file_to_upload=DATADIR + "/dvf.parquet",
     )
 
 
