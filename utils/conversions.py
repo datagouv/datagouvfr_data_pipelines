@@ -4,6 +4,7 @@ import logging
 import duckdb
 from geoparquet_io.core.add_bbox_metadata import add_bbox_metadata
 
+from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 def csv_to_parquet(
     csv_file_path: str,
@@ -68,6 +69,7 @@ def csv_to_geoparquet(
     output_name: str | None = None,
     output_path: str | None = None,
     sep: str = ";",
+    quote: str = '"',
     parquet_compression: str = "zstd",
     compression_level: int = 15,
     row_group_size: int = 20000,
@@ -89,7 +91,7 @@ def csv_to_geoparquet(
             FROM read_csv(
                 '{csv_file_path}',
                 delim = '{sep}',
-                quote = '"',
+                quote = '{quote}',
                 header = true,
                 columns = {dtype}
             )
@@ -110,6 +112,7 @@ def csv_to_geoparquet(
             "dtype": dtype,
             "output_name": output_path + output_name,
             "sep": sep,
+            "quote": quote,
             "compression": parquet_compression,
             "compression_level": compression_level,
             "row_group_size": row_group_size,
@@ -122,7 +125,7 @@ def csv_to_geoparquet(
         "INSTALL spatial;",
         "LOAD spatial;",
         "SET preserve_insertion_order=false;",
-        "SET memory_limit = '16GB';",
+        f"SET memory_limit = '{16 if AIRFLOW_ENV == 'prod' else 6}GB';",
         "SET max_temp_directory_size = '125GB';",
         query,
     ]
