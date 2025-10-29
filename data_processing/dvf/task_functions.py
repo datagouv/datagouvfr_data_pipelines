@@ -1224,7 +1224,7 @@ def concat_and_publish_whole():
             "latitude": "DECIMAL(9,7)",
         },
         sep=",",
-        row_group_size=int(2e5),
+        row_group_size=int(1e5),
     )
 
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:

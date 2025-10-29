@@ -126,7 +126,8 @@ def csv_to_geoparquet(
         "INSTALL spatial;",
         "LOAD spatial;",
         "SET preserve_insertion_order=false;",
-        f"SET memory_limit = '4GB';",
+        "SET threads TO 2;",
+        "SET memory_limit = '6GB';",
         "SET max_temp_directory_size = '125GB';",
         query,
     ]
