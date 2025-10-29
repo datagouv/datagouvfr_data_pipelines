@@ -1177,6 +1177,7 @@ def concat_and_publish_whole():
     #             mode="w" if write_headers else "a",
     #         )
     #         write_headers = False
+    #     del chunk
     # csv_to_csvgz(DATADIR + "/dvf.csv")
     csv_to_geoparquet(
         csv_file_path=DATADIR + "/dvf.csv",
