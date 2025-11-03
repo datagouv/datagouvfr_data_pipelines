@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 max_csvgz_size = 104857600
 
 
-def better_parse(date:str) -> datetime | None:
+def better_parse(date: str) -> datetime | None:
     try:
         return parse(date)
     except Exception:
@@ -38,7 +38,9 @@ def score(num: int, denom: int) -> float:
 
 
 def resource_url(row: pd.Series):
-    return f"https://www.data.gouv.fr/datasets/{row['dataset.id']}/#/resources/{row['id']}"
+    return (
+        f"https://www.data.gouv.fr/datasets/{row['dataset.id']}/#/resources/{row['id']}"
+    )
 
 
 def process_catalog():
@@ -67,22 +69,24 @@ def process_catalog():
         lambda fz: int(fz) if not pd.isna(fz) else 0
     )
     nb_tabular_files = len(catalog)
-    catalog = catalog.loc[catalog["extras"].apply(
-        lambda extras: extras.get("check:available", False)
-    )]
+    catalog = catalog.loc[
+        catalog["extras"].apply(lambda extras: extras.get("check:available", False))
+    ]
     nb_available = len(catalog)
     should_be_previz = len(catalog.loc[catalog["filesize"] <= max_csvgz_size])
-    preview_per_format = catalog.groupby(
-        ["format", "has_preview"]
-    ).size().reset_index(name="count")
+    preview_per_format = (
+        catalog.groupby(["format", "has_preview"]).size().reset_index(name="count")
+    )
     no_preview_no_error = catalog.loc[
         (~catalog["has_preview"])
-        & (~catalog["extras"].apply(
-            lambda extras: (
-                bool(extras.get("analysis:parsing:error"))
-                | bool(extras.get("analysis:error"))
+        & (
+            ~catalog["extras"].apply(
+                lambda extras: (
+                    bool(extras.get("analysis:parsing:error"))
+                    | bool(extras.get("analysis:error"))
+                )
             )
-        ))
+        )
     ]
     catalog["analysis_error"] = catalog["extras"].apply(
         lambda extras: extras.get("analysis:error", pd.NA)
@@ -113,19 +117,26 @@ def process_catalog():
     logging.info("Building message...")
     message = "#### Monitoring de la prévisualisation :hydra:\n"
     message += f"{nb_tabular_files} fichiers tabulaires\n"
-    message += f"dont {nb_available} accessibles ({score(nb_available, nb_tabular_files)}%)\n"
+    message += (
+        f"dont {nb_available} accessibles ({score(nb_available, nb_tabular_files)}%)\n"
+    )
     message += f"dont {should_be_previz} sous la limite de taille ({score(should_be_previz, nb_tabular_files)}%)\n"
-    have_previz = sum(catalog['has_preview'])
+    have_previz = sum(catalog["has_preview"])
     message += f"**{have_previz} fichiers prévisualisables ({score(have_previz, nb_tabular_files)}%)** :\n"
     for _format in tabular_formats:
         row = preview_per_format.loc[
             (preview_per_format["format"] == _format)
             & preview_per_format["has_preview"]
         ].iloc[0]
-        prop = row['count'] / preview_per_format.loc[
-            (preview_per_format['format'] == _format), 'count'
-        ].sum()
-        message += f"- {round(prop * 100, 1)}% des {_format} ({row['count']} fichiers)\n"
+        prop = (
+            row["count"]
+            / preview_per_format.loc[
+                (preview_per_format["format"] == _format), "count"
+            ].sum()
+        )
+        message += (
+            f"- {round(prop * 100, 1)}% des {_format} ({row['count']} fichiers)\n"
+        )
     message += "\n"
 
     if len(no_preview_no_error):
@@ -159,7 +170,10 @@ def process_catalog():
             exceptions_alert += f"- [{exception['comment']}](https://www.data.gouv.fr/api/2/datasets/resources/{exception['resource_id']}/) n'est plus dans le catalogue\n"
             continue
         row = row.iloc[0]
-        if not row["has_preview"] and "analysis:parsing:pmtiles_url" not in row["extras"]:
+        if (
+            not row["has_preview"]
+            and "analysis:parsing:pmtiles_url" not in row["extras"]
+        ):
             if not exceptions_alert:
                 exceptions_alert = "\n##### Certaines exceptions ne sont plus prévisualisables :alert:\n"
             exceptions_alert += f"- [{exception['comment']}](https://www.data.gouv.fr/api/2/datasets/resources/{exception['resource_id']}/)\n"

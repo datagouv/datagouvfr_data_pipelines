@@ -22,7 +22,6 @@ with DAG(
     tags=["data_processing", "hydra"],
     default_args=default_args,
 ) as dag:
-
     process_catalog = PythonOperator(
         task_id="process_catalog",
         python_callable=process_catalog,

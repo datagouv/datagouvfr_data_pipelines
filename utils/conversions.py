@@ -141,5 +141,3 @@ def csv_to_geoparquet(
 
     add_bbox_metadata(output_path + output_name, verbose=False)
     return output_path + output_name
-
-
