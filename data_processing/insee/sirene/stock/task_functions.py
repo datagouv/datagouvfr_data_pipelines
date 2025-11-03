@@ -66,6 +66,7 @@ def get_files(ti, tmp_dir: str, resource_file: str):
             sep=";" if "Geolocalisation" in csv_name else ",",
             dtype=item["dtype"],
             strict_mode=False,
+            quotechar='"',
             # the files may contain things like "\," which make the parquet export crash,
             # so using a very rare character as escape to make it work
             escapechar="\u0001",
