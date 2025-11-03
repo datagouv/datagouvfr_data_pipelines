@@ -114,9 +114,9 @@ def process_catalog():
     message = "#### Monitoring de la prévisualisation :hydra:\n"
     message += f"{nb_tabular_files} fichiers tabulaires\n"
     message += f"dont {nb_available} accessibles ({score(nb_available, nb_tabular_files)}%)\n"
-    message += f"dont {should_be_previz} sous la limite de taille ({score(should_be_previz, nb_available)}%)\n"
+    message += f"dont {should_be_previz} sous la limite de taille ({score(should_be_previz, nb_tabular_files)}%)\n"
     have_previz = sum(catalog['has_preview'])
-    message += f"**{have_previz} fichiers prévisualisables ({score(have_previz, should_be_previz)}%)** :\n"
+    message += f"**{have_previz} fichiers prévisualisables ({score(have_previz, nb_tabular_files)}%)** :\n"
     for _format in tabular_formats:
         row = preview_per_format.loc[
             (preview_per_format["format"] == _format)
@@ -125,7 +125,7 @@ def process_catalog():
         prop = row['count'] / preview_per_format.loc[
             (preview_per_format['format'] == _format), 'count'
         ].sum()
-        message += f"- {row['count']} {_format} ({round(prop * 100, 1)}%)\n"
+        message += f"- {row['count']} {_format} ({round(prop * 100, 1)}% des {_format})\n"
     message += "\n"
 
     if len(no_preview_no_error):
