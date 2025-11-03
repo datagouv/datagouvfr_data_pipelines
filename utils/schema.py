@@ -1303,7 +1303,7 @@ def upload_geojson(
         },
     )
 
-    if not response.ok:
+    if not response.is_success:
         logging.warning("--- ⚠️: GeoJSON file could not be uploaded.")
         logging.warning(response.text)
         if should_succeed:
@@ -1822,7 +1822,7 @@ def update_consolidation_documentation_report(
                             "filetype": "file"
                         },  # to be able to update the file without fetching
                     ).update(**kwargs)
-                    if response.ok:
+                    if response.is_success:
                         logging.info(
                             f"--- ✅ Updated documentation resource  for {schema_name} (id: {doc_r_id})"
                         )
