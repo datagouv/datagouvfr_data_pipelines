@@ -4,7 +4,6 @@ import logging
 import duckdb
 from geoparquet_io.core.add_bbox_metadata import add_bbox_metadata
 
-from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 
 def csv_to_parquet(
