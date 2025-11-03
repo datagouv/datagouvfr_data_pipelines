@@ -156,7 +156,7 @@ def process_catalog():
     for exception in hydra_exceptions:
         row = full_catalog.loc[full_catalog["id"] == exception["resource_id"]]
         if len(row) == 0:
-            exceptions_alert += f"- [{exception['comment']}](https://www.data.gouv.fr/api/2/datasets/resources/{exception['resource_id']}/) not in catalog anymore\n"
+            exceptions_alert += f"- [{exception['comment']}](https://www.data.gouv.fr/api/2/datasets/resources/{exception['resource_id']}/) n'est plus dans le catalogue\n"
             continue
         row = row.iloc[0]
         if not row["has_preview"] and "analysis:parsing:pmtiles_url" not in row["extras"]:
