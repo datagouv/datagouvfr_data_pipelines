@@ -125,7 +125,7 @@ def process_catalog():
         prop = row['count'] / preview_per_format.loc[
             (preview_per_format['format'] == _format), 'count'
         ].sum()
-        message += f"- {row['count']} {_format} ({round(prop * 100, 1)}% des {_format})\n"
+        message += f"- {round(prop * 100, 1)}% des {_format} ({row['count']} fichiers)\n"
     message += "\n"
 
     if len(no_preview_no_error):
