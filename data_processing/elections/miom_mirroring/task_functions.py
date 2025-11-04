@@ -177,15 +177,13 @@ def send_to_minio(ti):
         ]
     )
 
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
-                source_name="max_date.json",
-                dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
-                dest_name="max_date.json",
-            )
-        ]
+    minio_open.send_file(
+        File(
+            source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
+            source_name="max_date.json",
+            dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
+            dest_name="max_date.json",
+        )
     )
 
 

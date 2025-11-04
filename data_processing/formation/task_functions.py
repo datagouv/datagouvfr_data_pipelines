@@ -88,15 +88,13 @@ def process_organismes_formation(ti):
 
 def send_file_to_minio(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=f"{AIRFLOW_DAG_TMP}formation/",
-                source_name=f"{res['name']}_clean.csv",
-                dest_path="formation/new/",
-                dest_name=f"{res['name']}_clean.csv",
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=f"{AIRFLOW_DAG_TMP}formation/",
+            source_name=f"{res['name']}_clean.csv",
+            dest_path="formation/new/",
+            dest_name=f"{res['name']}_clean.csv",
+        )
     )
 
 
@@ -114,15 +112,13 @@ def compare_files_minio(ti):
     if is_same is None:
         print("First time in this Minio env. Creating")
 
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=f"{AIRFLOW_DAG_TMP}formation/",
-                source_name=f"{res['name']}_clean.csv",
-                dest_path="formation/latest/",
-                dest_name=f"{res['name']}_clean.csv",
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=f"{AIRFLOW_DAG_TMP}formation/",
+            source_name=f"{res['name']}_clean.csv",
+            dest_path="formation/latest/",
+            dest_name=f"{res['name']}_clean.csv",
+        ),
         ignore_airflow_env=True,
     )
 

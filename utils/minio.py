@@ -44,46 +44,47 @@ class MinIOClient:
                 raise ValueError(f"Bucket '{self.bucket}' does not exist.")
 
     @simple_connection_retry
+    def send_file(
+        self,
+        file: File,
+        ignore_airflow_env: bool = False,
+        burn_after_sending: bool = False,
+    ) -> None:
+        """Send a file to Minio bucket"""
+        if self.bucket is None:
+            raise AttributeError("A bucket has to be specified.")
+        is_file = os.path.isfile(file["source_path"] + file["source_name"])
+        if is_file:
+            if ignore_airflow_env:
+                dest_path = f"{file['dest_path']}{file['dest_name']}"
+            else:
+                dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
+            logging.info("⬆️ Sending " + file["source_path"] + file["source_name"])
+            logging.info(f"to {self.bucket}/{dest_path}")
+            self.client.fput_object(
+                self.bucket,
+                dest_path,
+                file["source_path"] + file["source_name"],
+                content_type=file["content_type"],
+            )
+            if burn_after_sending:
+                os.remove(file["source_path"] + file["source_name"])
+        else:
+            raise Exception(
+                f"file {file['source_path']}{file['source_name']} does not exists"
+            )
+
     def send_files(
         self,
         list_files: list[File],
         ignore_airflow_env: bool = False,
         burn_after_sending: bool = False,
     ) -> None:
-        """Send list of file to Minio bucket
-
-        Args:
-            list_files (list[File]): List of Dictionnaries containing for each
-            `source_path` and `source_name` : local file location ;
-            `dest_path` and `dest_name` : minio location (inside bucket specified) ;
-
-        Raises:
-            Exception: when specified local file does not exists
-            Exception: when specified bucket does not exist
-        """
+        """Send list of files to Minio bucket"""
         if self.bucket is None:
             raise AttributeError("A bucket has to be specified.")
         for file in list_files:
-            is_file = os.path.isfile(file["source_path"] + file["source_name"])
-            if is_file:
-                if ignore_airflow_env:
-                    dest_path = f"{file['dest_path']}{file['dest_name']}"
-                else:
-                    dest_path = f"{AIRFLOW_ENV}/{file['dest_path']}{file['dest_name']}"
-                logging.info("⬆️ Sending " + file["source_path"] + file["source_name"])
-                logging.info(f"to {self.bucket}/{dest_path}")
-                self.client.fput_object(
-                    self.bucket,
-                    dest_path,
-                    file["source_path"] + file["source_name"],
-                    content_type=file["content_type"],
-                )
-                if burn_after_sending:
-                    os.remove(file["source_path"] + file["source_name"])
-            else:
-                raise Exception(
-                    f"file {file['source_path']}{file['source_name']} does not exists"
-                )
+            self.send_file(file, ignore_airflow_env, burn_after_sending)
 
     @simple_connection_retry
     def download_files(

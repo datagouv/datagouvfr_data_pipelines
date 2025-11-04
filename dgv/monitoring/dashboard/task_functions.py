@@ -281,15 +281,13 @@ def gather_and_upload(
     stats.to_csv(DATADIR + "stats_support.csv")
 
     # sending to minio
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=DATADIR,
-                source_name="stats_support.csv",
-                dest_path=minio_destination_folder,
-                dest_name="stats_support.csv",
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=DATADIR,
+            source_name="stats_support.csv",
+            dest_path=minio_destination_folder,
+            dest_name="stats_support.csv",
+        ),
         ignore_airflow_env=True,
     )
 
@@ -400,15 +398,13 @@ def get_and_upload_reuses_down() -> None:
     # just in case
     assert start_len <= len(hist)
     hist.to_csv(DATADIR + output_file_name, index=False)
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=DATADIR,
-                source_name=output_file_name,
-                dest_path=minio_destination_folder,
-                dest_name=output_file_name,
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=DATADIR,
+            source_name=output_file_name,
+            dest_path=minio_destination_folder,
+            dest_name=output_file_name,
+        ),
         ignore_airflow_env=True,
     )
 
@@ -539,14 +535,12 @@ def get_hvd_dataservices_stats() -> None:
     with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:
         json.dump(hist_ds, f, indent=4)
 
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=DATADIR,
-                source_name="hvd_dataservices_quality.json",
-                dest_path=minio_destination_folder,
-                dest_name="hvd_dataservices_quality.json",
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=DATADIR,
+            source_name="hvd_dataservices_quality.json",
+            dest_path=minio_destination_folder,
+            dest_name="hvd_dataservices_quality.json",
+        ),
         ignore_airflow_env=True,
     )

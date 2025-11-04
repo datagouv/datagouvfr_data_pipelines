@@ -119,15 +119,13 @@ def process_members(
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
-    minio_meteo.send_files(
-        [
-            File(
-                source_path=DATADIR,
-                source_name=tmp_folder[:-1] + ".grib",
-                dest_path=f"{minio_folder}/{pack}/{grid}/{date}/",
-                dest_name=tmp_folder[:-1] + ".grib",
-            ),
-        ],
+    minio_meteo.send_file(
+        File(
+            source_path=DATADIR,
+            source_name=tmp_folder[:-1] + ".grib",
+            dest_path=f"{minio_folder}/{pack}/{grid}/{date}/",
+            dest_name=tmp_folder[:-1] + ".grib",
+        ),
         ignore_airflow_env=False,
         burn_after_sending=True,
     )

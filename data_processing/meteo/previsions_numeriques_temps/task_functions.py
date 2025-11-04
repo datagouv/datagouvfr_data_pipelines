@@ -211,15 +211,13 @@ def log_and_send_error(filename):
     log_name = f"{filename.split('.')[0]}-{int(datetime.now().timestamp())}.log"
     with open(LOG_PATH + log_name, "w") as f:
         f.write(f"{filename};{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    minio_pnt.send_files(
-        list_files=[
-            File(
-                source_path=LOG_PATH,
-                source_name=log_name,
-                dest_path="logs/" if AIRFLOW_ENV == "prod" else "dev/logs/",
-                dest_name=log_name,
-            )
-        ],
+    minio_pnt.send_file(
+        File(
+            source_path=LOG_PATH,
+            source_name=log_name,
+            dest_path="logs/" if AIRFLOW_ENV == "prod" else "dev/logs/",
+            dest_name=log_name,
+        ),
         ignore_airflow_env=True,
         burn_after_sending=True,
     )

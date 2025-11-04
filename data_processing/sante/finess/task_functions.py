@@ -161,15 +161,13 @@ def build_and_save(scope: str):
 
 
 def send_to_minio(scope: str):
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=f"{DATADIR}/",
-                source_name=f"finess_{scope}.csv",
-                dest_path="finess/",
-                dest_name=f"finess_{scope}.csv",
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=f"{DATADIR}/",
+            source_name=f"finess_{scope}.csv",
+            dest_path="finess/",
+            dest_name=f"finess_{scope}.csv",
+        ),
         ignore_airflow_env=True,
     )
 

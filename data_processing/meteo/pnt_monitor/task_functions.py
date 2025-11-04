@@ -146,15 +146,13 @@ def notification_mattermost(ti):
             for k in unavailable_resources[dataset]:
                 message += f"\n   - [{k[0]}](https://www.data.gouv.fr/datasets/{k[1]}/#/resources/{k[2]})"
 
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=AIRFLOW_DAG_TMP,
-                source_name=too_old_filename,
-                dest_path="pnt/",
-                dest_name=too_old_filename,
-            ),
-        ],
+    minio_open.send_file(
+        File(
+            source_path=AIRFLOW_DAG_TMP,
+            source_name=too_old_filename,
+            dest_path="pnt/",
+            dest_name=too_old_filename,
+        ),
         ignore_airflow_env=True,
     )
 
@@ -289,15 +287,13 @@ def consolidate_logs():
                 f.write("file;error_datetime\n")
             for row in dates[date]:
                 f.write(row)
-        minio_pnt.send_files(
-            list_files=[
-                File(
-                    source_path=AIRFLOW_DAG_TMP,
-                    source_name=f"{date}.csv",
-                    dest_path="logs/",
-                    dest_name=f"{date}.csv",
-                ),
-            ],
+        minio_pnt.send_file(
+            File(
+                source_path=AIRFLOW_DAG_TMP,
+                source_name=f"{date}.csv",
+                dest_path="logs/",
+                dest_name=f"{date}.csv",
+            ),
             ignore_airflow_env=True,
             burn_after_sending=True,
         )

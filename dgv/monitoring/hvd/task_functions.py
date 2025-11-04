@@ -116,15 +116,13 @@ def get_hvd(ti):
 
 def send_to_minio(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    minio_open.send_files(
-        list_files=[
-            File(
-                source_path=f"{DATADIR}/",
-                source_name=filename,
-                dest_path="hvd/",
-                dest_name=filename,
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=f"{DATADIR}/",
+            source_name=filename,
+            dest_path="hvd/",
+            dest_name=filename,
+        ),
         ignore_airflow_env=True,
     )
 
@@ -576,15 +574,13 @@ def update_grist(ti):
     df["id2"].apply(update_quality)
     file_name = "grist_hvd.csv"
     table.to_dataframe().to_csv(DATADIR + file_name, sep=";", index=False)
-    minio_open.send_files(
-        [
-            File(
-                source_path=DATADIR,
-                source_name=file_name,
-                dest_path="hvd/",
-                dest_name=f"{datetime.today().strftime('%Y-%m')}_" + file_name,
-            )
-        ],
+    minio_open.send_file(
+        File(
+            source_path=DATADIR,
+            source_name=file_name,
+            dest_path="hvd/",
+            dest_name=f"{datetime.today().strftime('%Y-%m')}_" + file_name,
+        ),
         ignore_airflow_env=True,
         burn_after_sending=True,
     )

@@ -313,27 +313,25 @@ def process_resources(
             )
 
             if AIRFLOW_ENV == "prod":
-                minio_meteo.send_files(
-                    list_files=[
-                        File(
-                            # source can be hooked file name
-                            source_path="/".join(csv_path.split("/")[:-1]) + "/",
-                            source_name=csv_path.split("/")[-1],
-                            # but destination has to be the real file name
-                            dest_path=(
-                                "synchro_pg/"
-                                + "/".join(
-                                    resource["url"]
-                                    .split("synchro_ftp/")[1]
-                                    .split("/")[:-1]
-                                )
-                                + "/"
-                            ),
-                            dest_name=resource["url"]
-                            .split("/")[-1]
-                            .replace(".csv.gz", ".csv"),
-                        )
-                    ],
+                minio_meteo.send_file(
+                    File(
+                        # source can be hooked file name
+                        source_path="/".join(csv_path.split("/")[:-1]) + "/",
+                        source_name=csv_path.split("/")[-1],
+                        # but destination has to be the real file name
+                        dest_path=(
+                            "synchro_pg/"
+                            + "/".join(
+                                resource["url"]
+                                .split("synchro_ftp/")[1]
+                                .split("/")[:-1]
+                            )
+                            + "/"
+                        ),
+                        dest_name=resource["url"]
+                        .split("/")[-1]
+                        .replace(".csv.gz", ".csv"),
+                    ),
                     ignore_airflow_env=True,
                 )
             logging.info("=> Completed work for: " + regex_infos["name"])

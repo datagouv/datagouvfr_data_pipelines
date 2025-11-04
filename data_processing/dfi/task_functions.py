@@ -161,15 +161,13 @@ def get_download_ressources_infos(urls, destination_dir):
 
 
 def send_metadata_to_minio():
-    minio_process.send_files(
-        list_files=[
-            File(
-                source_path=f"{DATADIR}/",
-                source_name=f"{METADATA_FILE}",
-                dest_path="dev/dfi/",
-                dest_name=f"{METADATA_FILE}",
-            )
-        ],
+    minio_process.send_file(
+        File(
+            source_path=f"{DATADIR}/",
+            source_name=f"{METADATA_FILE}",
+            dest_path="dev/dfi/",
+            dest_name=f"{METADATA_FILE}",
+        ),
         ignore_airflow_env=True,
     )
 

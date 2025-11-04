@@ -1093,15 +1093,13 @@ def send_stats_to_minio() -> None:
 
 
 def send_distribution_to_minio() -> None:
-    minio_restricted.send_files(
-        list_files=[
-            File(
-                source_path=f"{DATADIR}/",
-                source_name="distribution_prix.csv",
-                dest_path="dvf/",
-                dest_name="distribution_prix.csv",
-            ),
-        ],
+    minio_restricted.send_file(
+        File(
+            source_path=f"{DATADIR}/",
+            source_name="distribution_prix.csv",
+            dest_path="dvf/",
+            dest_name="distribution_prix.csv",
+        ),
         ignore_airflow_env=True,
     )
 

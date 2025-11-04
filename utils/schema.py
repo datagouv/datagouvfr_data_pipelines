@@ -2048,15 +2048,13 @@ def notification_synthese(
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
                 df.to_csv(f"{TMP_FOLDER}/{erreurs_file_name}", index=False)
 
-                minio_open.send_files(
-                    list_files=[
-                        File(
-                            source_path=f"{TMP_FOLDER}/",
-                            source_name=erreurs_file_name,
-                            dest_path="schema/schemas_consolidation/liste_erreurs/",
-                            dest_name=erreurs_file_name,
-                        )
-                    ],
+                minio_open.send_file(
+                    File(
+                        source_path=f"{TMP_FOLDER}/",
+                        source_name=erreurs_file_name,
+                        dest_path="schema/schemas_consolidation/liste_erreurs/",
+                        dest_name=erreurs_file_name,
+                    ),
                     ignore_airflow_env=True,
                 )
 
