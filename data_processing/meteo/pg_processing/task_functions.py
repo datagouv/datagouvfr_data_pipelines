@@ -322,9 +322,7 @@ def process_resources(
                         dest_path=(
                             "synchro_pg/"
                             + "/".join(
-                                resource["url"]
-                                .split("synchro_ftp/")[1]
-                                .split("/")[:-1]
+                                resource["url"].split("synchro_ftp/")[1].split("/")[:-1]
                             )
                             + "/"
                         ),
