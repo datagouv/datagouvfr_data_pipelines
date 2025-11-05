@@ -126,7 +126,7 @@ def csv_to_geoparquet(
         "LOAD spatial;",
         "SET preserve_insertion_order=false;",
         "SET threads TO 2;",
-        "SET memory_limit = '10GB';",
+        "SET memory_limit = '6GB';",
         "SET max_temp_directory_size = '125GB';",
         query,
     ]
@@ -141,4 +141,5 @@ def csv_to_geoparquet(
     logging.info("Adding bbox metadata...")
     add_bbox_metadata(output_path + output_name, verbose=False)
     return output_path + output_name
+
 
