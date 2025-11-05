@@ -138,5 +138,7 @@ def csv_to_geoparquet(
             logging.info(query)
             con.sql(query)
 
+    logging.info("Adding bbox metadata...")
     add_bbox_metadata(output_path + output_name, verbose=False)
     return output_path + output_name
+
