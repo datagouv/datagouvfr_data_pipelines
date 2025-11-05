@@ -1301,6 +1301,7 @@ def upload_geojson(
             "type": "main",
             "title": f"Export au format geojson (v{latest_version})",
         },
+        timeout=120,
     )
 
     if not response.is_success:
