@@ -74,7 +74,9 @@ SPAM_WORDS = [
 ]
 
 prod_client = Client(api_key=DATAGOUV_SECRET_API_KEY, timeout=30)
-demo_client = Client(environment="demo", api_key=DEMO_DATAGOUV_SECRET_API_KEY, timeout=30)
+demo_client = Client(
+    environment="demo", api_key=DEMO_DATAGOUV_SECRET_API_KEY, timeout=30
+)
 local_client = prod_client if AIRFLOW_ENV == "prod" else demo_client
 
 datagouv_session = requests.Session()
