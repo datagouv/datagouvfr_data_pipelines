@@ -110,7 +110,7 @@ clone_grist_document_task = PythonOperator(
 # Sitemap generation DAG - runs independently to generate sitemap
 verticale_simplifions_sitemap = DAG(
     dag_id="verticale_simplifions_sitemap",
-    schedule_interval="0 3 * * *",  # every day at 3am
+    schedule_interval="30 4 * * *",  # every day at 4:30am
     start_date=datetime(2024, 10, 1),
     dagrun_timeout=timedelta(minutes=30),
     tags=["verticale", "simplifions"],
