@@ -22,8 +22,6 @@ from datagouvfr_data_pipelines.verticales.simplifions.sitemap_manager import (
 )
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
-    SIMPLIFIONS_MINIO_USER,
-    SIMPLIFIONS_MINIO_PASSWORD,
 )
 
 # Grist configuration
@@ -479,8 +477,6 @@ def generate_simplifions_sitemap(ti, client=None):
     # upload sitemap to s3 with minio client
     minio_client = MinIOClient(
         bucket="prod-simplifions",
-        user=SIMPLIFIONS_MINIO_USER,
-        pwd=SIMPLIFIONS_MINIO_PASSWORD,
     )
 
     # Send sitemap file to minio
