@@ -49,7 +49,8 @@ def extract_infos(file_name: str) -> tuple[str, str]:
 def find_logs_to_process(ti) -> int:
     already_processed: list[str] = requests.get(
         f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/"
-        + already_processed_path + already_processed_file
+        + already_processed_path
+        + already_processed_file
     ).json()
     all_logs = [
         file_path.split("/")[-1]
@@ -92,9 +93,7 @@ def process_line(line: str) -> dict:
     except:
         pass
 
-    return {
-        "status": status , "method": method , "url": url , "timestamp": timestamp
-    }
+    return {"status": status, "method": method, "url": url, "timestamp": timestamp}
 
 
 def get_params(url: str) -> dict[str, str] | None:
@@ -115,7 +114,7 @@ def process_logs_file(file_path: str):
     with open(file_path, "r") as f:
         while True:
             line = f.readline()
-            idx+=1
+            idx += 1
             if idx % 1e6 == 0:
                 logging.info(f"> {idx} lines scanned")
             if not line:
@@ -149,9 +148,12 @@ def process_logs_file(file_path: str):
         logging.warning("No clean data to insert, skipping")
         return
     df["date_metric"] = df["timestamp"].dt.date
-    stats = df.groupby(
-        ["resource_id", "date_metric"]
-    ).size().reset_index().rename({0: "nb_calls"}, axis=1)
+    stats = (
+        df.groupby(["resource_id", "date_metric"])
+        .size()
+        .reset_index()
+        .rename({0: "nb_calls"}, axis=1)
+    )
     csv_file_path = file_path.replace(".log", ".csv")
     stats.to_csv(csv_file_path, index=False)
 
@@ -159,12 +161,12 @@ def process_logs_file(file_path: str):
     # creating a temporary table to store the current data
     tmp_table_name = "tmp_table"
     pgclient.execute_query(
-    f"""CREATE TEMP TABLE {tmp_table_name} (
+        f"""CREATE TEMP TABLE {tmp_table_name} (
             resource_id CHARACTER VARYING,
             date_metric DATE,
             nb_calls INTEGER
         ) ON COMMIT DROP;""",
-        commit=False
+        commit=False,
     )
     pgclient.copy_file(
         File(
@@ -177,7 +179,7 @@ def process_logs_file(file_path: str):
     )
     tabular_metrics_table = "calls_tabular"
     pgclient.execute_query(
-    f"""INSERT INTO metric.{tabular_metrics_table} (resource_id, date_metric, nb_calls)
+        f"""INSERT INTO metric.{tabular_metrics_table} (resource_id, date_metric, nb_calls)
         SELECT resource_id, date_metric, nb_calls FROM {tmp_table_name}
         ON CONFLICT (resource_id, date_metric)
         DO UPDATE SET nb_calls = {tabular_metrics_table}.nb_calls + EXCLUDED.nb_calls;"""
@@ -186,7 +188,9 @@ def process_logs_file(file_path: str):
 
 def process_logs(ti):
     to_process = ti.xcom_pull(key="to_process", task_ids="find_logs_to_process")
-    already_processed = ti.xcom_pull(key="already_processed", task_ids="find_logs_to_process")
+    already_processed = ti.xcom_pull(
+        key="already_processed", task_ids="find_logs_to_process"
+    )
     processed = []
     for idx, log in enumerate(to_process):
         logging.info(f"Processing {log} ({idx + 1}/{len(to_process)})")

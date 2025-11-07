@@ -17,15 +17,17 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
-with DAG(
-    dag_id=DAG_NAME,
-    schedule_interval=None,
-    start_date=datetime(2025, 11, 1),
-    catchup=False,
-    dagrun_timeout=None,  # the first run will catch up and run for a while, then we'll set this properly
-    tags=["datagouv", "stats", "metrics", "tabular"],
-    default_args=default_args,
-) as dag:
+with (
+    DAG(
+        dag_id=DAG_NAME,
+        schedule_interval=None,
+        start_date=datetime(2025, 11, 1),
+        catchup=False,
+        dagrun_timeout=None,  # the first run will catch up and run for a while, then we'll set this properly
+        tags=["datagouv", "stats", "metrics", "tabular"],
+        default_args=default_args,
+    ) as dag
+):
     clean_previous_outputs = BashOperator(
         task_id="clean_previous_outputs",
         bash_command=(f"rm -rf {DATADIR} && mkdir -p {DATADIR}"),
