@@ -1,3 +1,4 @@
+import logging
 import psycopg2
 from airflow.hooks.base import BaseHook
 
@@ -17,11 +18,12 @@ class PostgresClient:
             options=f"-c search_path={self.schema}",
         )
 
-    def execute_query(self, query: str) -> list[dict]:
+    def execute_query(self, query: str, commit: bool = True) -> list[dict]:
         with self.conn.cursor() as cur:
             cur.execute(query)
             data = self._return_sql_results(cur)
-            self.conn.commit()
+            if commit:
+                self.conn.commit()
         return data
 
     def execute_sql_file(
@@ -38,7 +40,9 @@ class PostgresClient:
             self.conn.commit()
         return data
 
-    def copy_file(self, file: File, table: str, has_header: bool) -> list[dict]:
+    def copy_file(
+        self, file: File, table: str, has_header: bool, commit: bool = True
+    ) -> list[dict]:
         with self.conn.cursor() as cur:
             cur.copy_expert(
                 sql=(
@@ -48,7 +52,8 @@ class PostgresClient:
                 file=open(file["source_path"] + file["source_name"], "r"),
             )
             data = self._return_sql_results(cur)
-            self.conn.commit()
+            if commit:
+                self.conn.commit()
         return data
 
     @staticmethod
@@ -64,7 +69,7 @@ class PostgresClient:
         try:
             data = cur.fetchall()
         except psycopg2.ProgrammingError as e:
-            print(e)
+            logging.warning(e)
             data = None
         if data:
             columns = [desc[0] for desc in cur.description]
