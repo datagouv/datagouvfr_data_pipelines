@@ -30,6 +30,7 @@
     "dgv_notification_activite": true,
     "dgv_dashboard": true,
     "dgv_stats": true,
+    "dgv_tabular_metrics": true,
     "dgv_tops": true,
     "schema_consolidation": true,
     "irve_consolidation": true,
