@@ -82,13 +82,10 @@ class SitemapManager:
                 # Fallback to topic's last_modified if Grist data not available
                 last_modified = topic.get("last_modified")
                 if last_modified:
-                    dt = datetime.fromisoformat(
-                        last_modified.replace("Z", "+00:00")
-                    )
+                    dt = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
                     lastmod_elem.text = dt.strftime("%Y-%m-%d")
                 else:
                     lastmod_elem.text = datetime.now().strftime("%Y-%m-%d")
-
 
     def _get_topic_modification_date(
         self, topic: dict, tag: str, modification_dates: dict[int, float]
