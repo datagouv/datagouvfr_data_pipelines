@@ -347,8 +347,8 @@ def clone_grist_document(ti):
 
 
 # Sitemap configuration
-CAS_USAGES_TAG = "simplifions-v2-cas-d-usages"
-SOLUTIONS_TAG = "simplifions-v2-solutions"
+CAS_USAGES_TAG = GRIST_TABLES_AND_TAGS["Cas_d_usages"]["tag"]
+SOLUTIONS_TAG = GRIST_TABLES_AND_TAGS["Solutions"]["tag"]
 SITE_BASE_URL = "https://simplifions.data.gouv.fr"
 
 # Static pages from simplifions site
