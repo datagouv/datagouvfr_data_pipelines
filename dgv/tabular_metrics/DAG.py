@@ -1,12 +1,11 @@
 from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.dgv.tabular_metrics.task_functions import (
     DATADIR,
-    create_tabular_metrics_table,
-    find_logs_to_process,
+    create_tabular_metrics_tables,
     process_logs,
 )
 
@@ -33,14 +32,9 @@ with (
         bash_command=(f"rm -rf {DATADIR} && mkdir -p {DATADIR}"),
     )
 
-    create_tabular_metrics_table = PythonOperator(
-        task_id="create_tabular_metrics_table",
-        python_callable=create_tabular_metrics_table,
-    )
-
-    find_logs_to_process = ShortCircuitOperator(
-        task_id="find_logs_to_process",
-        python_callable=find_logs_to_process,
+    create_tabular_metrics_tables = PythonOperator(
+        task_id="create_tabular_metrics_tables",
+        python_callable=create_tabular_metrics_tables,
     )
 
     process_logs = PythonOperator(
@@ -53,7 +47,6 @@ with (
         bash_command=f"rm -rf {DATADIR}",
     )
 
-    create_tabular_metrics_table.set_upstream(clean_previous_outputs)
-    find_logs_to_process.set_upstream(create_tabular_metrics_table)
-    process_logs.set_upstream(find_logs_to_process)
+    create_tabular_metrics_tables.set_upstream(clean_previous_outputs)
+    process_logs.set_upstream(create_tabular_metrics_tables)
     clean_up.set_upstream(process_logs)
