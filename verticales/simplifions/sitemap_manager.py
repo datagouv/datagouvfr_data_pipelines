@@ -77,29 +77,17 @@ class SitemapManager:
                 topic, tag, modification_dates
             )
             if modifie_le_timestamp:
-                try:
-                    # Convert timestamp to datetime and format as YYYY-MM-DD
-                    # Exceptions can occur if timestamp is invalid (ValueError),
-                    # not a number (TypeError), or out of range (OSError)
-                    dt = datetime.fromtimestamp(modifie_le_timestamp)
-                    lastmod_elem.text = dt.strftime("%Y-%m-%d")
-                except (ValueError, TypeError, OSError):
-                    # Fallback to today's date if timestamp conversion fails
-                    lastmod_elem.text = today
+                # Convert timestamp to datetime and format as YYYY-MM-DD
+                dt = datetime.fromtimestamp(modifie_le_timestamp)
+                lastmod_elem.text = dt.strftime("%Y-%m-%d")
             else:
                 # Fallback to topic's last_modified if Grist data not available
                 last_modified = topic.get("last_modified")
                 if last_modified:
-                    try:
-                        # Exceptions can occur if format is invalid (ValueError)
-                        # or last_modified is not a string (AttributeError)
-                        dt = datetime.fromisoformat(
-                            last_modified.replace("Z", "+00:00")
-                        )
-                        lastmod_elem.text = dt.strftime("%Y-%m-%d")
-                    except (ValueError, AttributeError):
-                        # Fallback to today's date if date parsing fails
-                        lastmod_elem.text = today
+                    dt = datetime.fromisoformat(
+                        last_modified.replace("Z", "+00:00")
+                    )
+                    lastmod_elem.text = dt.strftime("%Y-%m-%d")
                 else:
                     lastmod_elem.text = today
 
