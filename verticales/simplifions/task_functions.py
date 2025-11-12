@@ -1,8 +1,12 @@
 import logging
+import tempfile
+import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
     GristV2Manager,
 )
@@ -13,6 +17,9 @@ from datagouvfr_data_pipelines.verticales.simplifions.diff_manager import (
     DiffManager,
 )
 from datagouvfr_data_pipelines.verticales.simplifions.topics_api import TopicsAPI
+from datagouvfr_data_pipelines.verticales.simplifions.sitemap_manager import (
+    SitemapManager,
+)
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
 )
@@ -337,3 +344,157 @@ def clone_grist_document(ti):
         logging.info(f"Deleting backup: {backup['id']}, name: {backup['name']}")
         GristV2Manager._delete_document(backup["id"])
     logging.info(f"{len(obsolete_backups)} obsolete backups deleted.")
+
+
+# Sitemap configuration
+CAS_USAGES_TAG = GRIST_TABLES_AND_TAGS["Cas_d_usages"]["tag"]
+SOLUTIONS_TAG = GRIST_TABLES_AND_TAGS["Solutions"]["tag"]
+SITE_BASE_URL = "https://simplifions.data.gouv.fr"
+
+# Static pages from simplifions site
+# Based on config.yaml static_pages section from udata-front-kit
+# https://github.com/opendatateam/udata-front-kit/blob/simplifions_fix_display_of_apidata_with_missing_uid/configs/simplifions/config.yaml#L105:L125
+STATIC_PAGES = [
+    "/",
+    "/cas-d-usages",
+    "/solutions",
+    "/about",
+    "/niveaux-simplification",
+]
+
+
+def generate_simplifions_sitemap(ti, client=None):
+    """
+    Generate XML sitemap for simplifions.data.gouv.fr
+
+    Fetches all topics for "cas d'usages" and "solutions" and generates
+    a sitemap XML with all static pages and topic detail pages.
+    Uses Grist data to get accurate lastmod dates from the "Modifie_le" column.
+    For cas d'usages, also considers the modification dates of their recommendations.
+    The sitemap XML is logged to the Airflow logger output.
+
+    Args:
+        ti: Airflow task instance
+        client: datagouv Client instance (optional)
+    """
+    topics_api = TopicsAPI(client)
+
+    logging.info("Fetching cas d'usages topics...")
+    cas_usages_topics = list(topics_api.get_all_topics_for_tag(CAS_USAGES_TAG))
+    logging.info(f"Found {len(cas_usages_topics)} cas d'usages topics")
+
+    logging.info("Fetching solutions topics...")
+    solutions_topics = list(topics_api.get_all_topics_for_tag(SOLUTIONS_TAG))
+    logging.info(f"Found {len(solutions_topics)} solutions topics")
+
+    # Fetch Grist data to get modification dates
+    logging.info("Fetching Grist data for modification dates...")
+    cas_usages_grist_rows = GristV2Manager._request_grist_table("Cas_d_usages")
+    solutions_grist_rows = GristV2Manager._request_grist_table("Solutions")
+    recommendations_grist_rows = GristV2Manager._request_grist_table("Recommandations")
+
+    # Clean the rows (removes "L" prefix from lists)
+    cas_usages_grist_rows = [
+        GristV2Manager._clean_row(row) for row in cas_usages_grist_rows
+    ]
+    solutions_grist_rows = [
+        GristV2Manager._clean_row(row) for row in solutions_grist_rows
+    ]
+
+    # Create mapping from grist_id to Modifie_le timestamp
+    cas_usages_modification_dates = {}
+    for row in cas_usages_grist_rows:
+        grist_id = row["id"]
+        modifie_le = row["fields"].get("Modifie_le")
+
+        recommendations_ids = row["fields"].get("Recommandations", [])
+        recommendations_modification_dates = {}
+        for recommendation_id in recommendations_ids:
+            recommendation_row = next(
+                (r for r in recommendations_grist_rows if r["id"] == recommendation_id),
+                None,
+            )
+            if recommendation_row:
+                recommendations_modification_dates[recommendation_id] = (
+                    recommendation_row["fields"].get("Modifie_le")
+                )
+
+        all_dates = [modifie_le] + list(recommendations_modification_dates.values())
+        if all_dates:
+            cas_usages_modification_dates[grist_id] = max(all_dates)
+        else:
+            cas_usages_modification_dates[grist_id] = None
+
+    solutions_modification_dates = {}
+    for row in solutions_grist_rows:
+        grist_id = row["id"]
+        modifie_le = row["fields"].get("Modifie_le")
+        if modifie_le:
+            solutions_modification_dates[grist_id] = modifie_le
+
+    # Initialize sitemap manager
+    sitemap_manager = SitemapManager(SITE_BASE_URL, STATIC_PAGES)
+
+    # Create root element
+    urlset = sitemap_manager.create_urlset()
+
+    # Add static pages
+    sitemap_manager.add_static_pages(urlset)
+
+    # Add cas d'usages detail pages
+    sitemap_manager.add_topic_pages(
+        urlset,
+        cas_usages_topics,
+        "/cas-d-usages",
+        cas_usages_modification_dates,
+        CAS_USAGES_TAG,
+    )
+
+    # Add solutions detail pages
+    sitemap_manager.add_topic_pages(
+        urlset,
+        solutions_topics,
+        "/solutions",
+        solutions_modification_dates,
+        SOLUTIONS_TAG,
+    )
+
+    # Generate XML string
+    xml_string = sitemap_manager.generate_xml(urlset)
+
+    # Count URLs
+    url_count = (
+        len(STATIC_PAGES)
+        + len([t for t in cas_usages_topics if t.get("slug")])
+        + len([t for t in solutions_topics if t.get("slug")])
+    )
+    logging.info(f"Generated sitemap with {url_count} URLs")
+
+    # Print sitemap XML to logger
+    logging.info("Sitemap XML content:")
+    logging.info(xml_string)
+
+    # upload sitemap to s3 with minio client
+    minio_client = MinIOClient(
+        bucket="prod-simplifions",
+    )
+
+    # Send sitemap file to minio
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, "sitemap.xml")
+        with open(temp_file_path, "w", encoding="utf-8") as f:
+            f.write(xml_string)
+
+        sitemap_file = File(
+            source_path=temp_dir,
+            source_name="sitemap.xml",
+            dest_path="/",
+            dest_name="sitemap.xml",
+            content_type="application/xml",
+        )
+        minio_client.send_file(
+            file=sitemap_file,
+            ignore_airflow_env=True,
+        )
+
+    ti.xcom_push(key="sitemap_url_count", value=url_count)

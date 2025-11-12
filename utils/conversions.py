@@ -5,7 +5,6 @@ import duckdb
 from geoparquet_io.core.add_bbox_metadata import add_bbox_metadata
 
 
-
 def csv_to_parquet(
     csv_file_path: str,
     dtype: dict | None = None,
@@ -141,5 +140,3 @@ def csv_to_geoparquet(
     logging.info("Adding bbox metadata...")
     add_bbox_metadata(output_path + output_name, verbose=False)
     return output_path + output_name
-
-
