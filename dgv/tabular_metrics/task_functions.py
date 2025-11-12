@@ -139,7 +139,7 @@ def process_logs_file(file_path: str):
     df["params"] = df["url"].apply(lambda url: get_params(url))
     df["resource_id"] = df["url"].apply(
         lambda url: searched.group()[1:-1]
-        if (searched := re.search(r"/[a-f0-9\-]+/", url)) is not None
+        if (searched := re.search(r"/[a-f0-9\-]+/", url.split("?")[0])) is not None
         else None
     )
     # here we still may have unwanted rows due to unexpected filters syntaxes
