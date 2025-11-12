@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 
-from datagouvfr_data_pipelines.utils.conversions import csv_to_geoparquet
+from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
