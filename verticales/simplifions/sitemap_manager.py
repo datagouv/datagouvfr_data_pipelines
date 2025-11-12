@@ -1,13 +1,12 @@
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from urllib.parse import urljoin
-from typing import Dict, List, Optional
 
 
 class SitemapManager:
     """Manages sitemap XML generation for simplifions.data.gouv.fr"""
 
-    def __init__(self, site_base_url: str, static_pages: List[str]):
+    def __init__(self, site_base_url: str, static_pages: list[str]):
         """
         Initialize the sitemap manager.
 
@@ -23,7 +22,7 @@ class SitemapManager:
         return ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
 
     def add_static_pages(
-        self, urlset: ET.Element, lastmod_date: Optional[str] = None
+        self, urlset: ET.Element, lastmod_date: str | None = None
     ) -> None:
         """
         Add static pages to the sitemap.
@@ -46,9 +45,9 @@ class SitemapManager:
     def add_topic_pages(
         self,
         urlset: ET.Element,
-        topics: List[dict],
+        topics: list[dict],
         base_path: str,
-        modification_dates: Dict[int, float],
+        modification_dates: dict[int, float],
         tag: str,
     ) -> None:
         """
@@ -99,8 +98,8 @@ class SitemapManager:
                     lastmod_elem.text = today
 
     def _get_topic_modification_date(
-        self, topic: dict, tag: str, modification_dates: Dict[int, float]
-    ) -> Optional[float]:
+        self, topic: dict, tag: str, modification_dates: dict[int, float]
+    ) -> float | None:
         """
         Get the modification date for a topic from Grist data.
 
@@ -118,7 +117,7 @@ class SitemapManager:
 
         return modification_dates.get(grist_id)
 
-    def _extract_grist_id(self, topic: dict, tag: str) -> Optional[int]:
+    def _extract_grist_id(self, topic: dict, tag: str) -> int | None:
         """
         Extract grist_id from topic extras.
 
