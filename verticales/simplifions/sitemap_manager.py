@@ -60,8 +60,6 @@ class SitemapManager:
             modification_dates: Dictionary mapping grist_id to Modifie_le timestamp
             tag: Tag used to identify the topic type (for extracting grist_id from extras)
         """
-        today = datetime.now().strftime("%Y-%m-%d")
-
         for topic in topics:
             slug = topic.get("slug")
             if not slug:
@@ -89,7 +87,8 @@ class SitemapManager:
                     )
                     lastmod_elem.text = dt.strftime("%Y-%m-%d")
                 else:
-                    lastmod_elem.text = today
+                    lastmod_elem.text = datetime.now().strftime("%Y-%m-%d")
+
 
     def _get_topic_modification_date(
         self, topic: dict, tag: str, modification_dates: dict[int, float]
