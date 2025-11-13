@@ -121,7 +121,8 @@ def process_logs_file(file_path: str):
         logging.warning("No clean data to insert, skipping")
         return
     logging.info(f"Proceeding with {len(df)} successful calls")
-    df["date_metric"] = df["timestamp"].dt.date
+    # need to cast again for days on which we switch between summer/winter hours, see haproxy-logs-26102025-slb-04.tar.gz
+    df["date_metric"] = pd.to_datetime(df["timestamp"], utc=True).dt.date
     stats = (
         df.groupby(["resource_id", "date_metric"])
         .size()
