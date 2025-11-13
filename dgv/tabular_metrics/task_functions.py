@@ -50,18 +50,18 @@ def process_line(line: str) -> dict:
         status = int(re.search("\+\d+ \d+ \+\d+", line).group().split(" ")[1])
         if not (200 <= status < 600):
             status = None
-    except:
+    except Exception:
         pass
 
     try:
         method, url, _ = re.search('".+"', line).group()[1:-1].split(" ")
         url = url.replace("https://tabular-api.data.gouv.fr", "")
-    except:
+    except Exception:
         pass
 
     try:
         timestamp = datetime.fromisoformat(line.split(" ")[0])
-    except:
+    except Exception:
         pass
 
     return {"status": status, "method": method, "url": url, "timestamp": timestamp}
@@ -75,7 +75,7 @@ def get_params(url: str) -> dict[str, str] | None:
     try:
         params = split[1].split("&")
         return {k: v for k, v in [p.split("=") for p in params]}
-    except:
+    except Exception:
         return
 
 
@@ -165,7 +165,9 @@ def process_logs():
     # to ensure restarting this task reloads the list of files to process
     already_processed: list[str] = [
         row["file_name"]
-        for row in pgclient.execute_query(f"SELECT file_name from metric.{already_processed_table}")
+        for row in pgclient.execute_query(
+            f"SELECT file_name from metric.{already_processed_table}"
+        )
     ]
     all_logs = [
         file_path.split("/")[-1]
@@ -207,5 +209,5 @@ def process_logs():
         shutil.rmtree(folder)
         pgclient.execute_query(
             f"""INSERT INTO metric.{already_processed_table} (file_name, date_processed)
-            VALUES ('{log}', '{datetime.today().strftime('%Y-%m-%d')}');"""
+            VALUES ('{log}', '{datetime.today().strftime("%Y-%m-%d")}');"""
         )
