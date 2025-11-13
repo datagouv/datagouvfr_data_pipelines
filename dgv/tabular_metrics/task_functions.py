@@ -163,12 +163,14 @@ def process_logs_file(file_path: str):
 def process_logs():
     # fetching already processed files has to be in here instead of a separate task
     # to ensure restarting this task reloads the list of files to process
+    logging.info("Retrieving processed log files from db...")
     already_processed: list[str] = [
         row["file_name"]
         for row in pgclient.execute_query(
             f"SELECT file_name from metric.{already_processed_table}"
         )
     ]
+    logging.info("Retrieving existing log files in bucket...")
     all_logs = [
         file_path.split("/")[-1]
         for file_path in minio_client.get_files_from_prefix(
