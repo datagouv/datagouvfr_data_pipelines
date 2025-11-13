@@ -37,7 +37,7 @@ output_data_folder = f"{TMP_FOLDER}/output/"
 
 default_args = {
     "retries": 5,
-    "retry_delay": timedelta(minutes=5),
+    "retry_delay": timedelta(minutes=20),
 }
 
 
