@@ -1166,35 +1166,35 @@ def concat_and_publish_whole():
         if len(years) == 5
         else f"juillet {min(years)} - juin {max(years)}"
     )
-    # write_headers = True
-    # for year in years:
-    #     chunks = pd.read_csv(
-    #         DATADIR + f"/full_{year}.csv",
-    #         dtype=str,
-    #         chunksize=int(1e5),
-    #     )
-    #     logging.info(f"Exporting {year}...")
-    #     for chunk in chunks:
-    #         chunk.to_csv(
-    #             DATADIR + "/dvf.csv",
-    #             index=False,
-    #             header=write_headers,
-    #             mode="w" if write_headers else "a",
-    #         )
-    #         write_headers = False
-    #     del chunk
-    # csv_to_csvgz(DATADIR + "/dvf.csv")
-    # local_client.resource(
-    #     id=data["concat"][AIRFLOW_ENV]["resource_id"],
-    #     dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
-    #     fetch=False,
-    #     _from_response={"filetype": "file"},
-    # ).update(
-    #     payload={
-    #         "title": f"DVF {period} - fichier unique",
-    #     },
-    #     file_to_upload=DATADIR + "/dvf.csv.gz",
-    # )
+    write_headers = True
+    for year in years:
+        chunks = pd.read_csv(
+            DATADIR + f"/full_{year}.csv",
+            dtype=str,
+            chunksize=int(1e5),
+        )
+        logging.info(f"Exporting {year}...")
+        for chunk in chunks:
+            chunk.to_csv(
+                DATADIR + "/dvf.csv",
+                index=False,
+                header=write_headers,
+                mode="w" if write_headers else "a",
+            )
+            write_headers = False
+        del chunk
+    csv_to_csvgz(DATADIR + "/dvf.csv")
+    local_client.resource(
+        id=data["concat"][AIRFLOW_ENV]["resource_id"],
+        dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
+        fetch=False,
+        _from_response={"filetype": "file"},
+    ).update(
+        payload={
+            "title": f"DVF {period} - fichier unique",
+        },
+        file_to_upload=DATADIR + "/dvf.csv.gz",
+    )
     csv_to_geoparquet(
         csv_file_path=DATADIR + "/dvf.csv",
         dtype={
