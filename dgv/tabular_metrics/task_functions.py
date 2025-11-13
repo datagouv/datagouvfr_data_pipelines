@@ -165,7 +165,9 @@ def process_logs():
     # to ensure restarting this task reloads the list of files to process
     already_processed: list[str] = [
         row["file_name"]
-        for row in pgclient.execute_query(f"SELECT file_name from metric.{already_processed_table}")
+        for row in pgclient.execute_query(
+            f"SELECT file_name from metric.{already_processed_table}"
+        )
     ]
     all_logs = [
         file_path.split("/")[-1]
@@ -207,5 +209,5 @@ def process_logs():
         shutil.rmtree(folder)
         pgclient.execute_query(
             f"""INSERT INTO metric.{already_processed_table} (file_name, date_processed)
-            VALUES ('{log}', '{datetime.today().strftime('%Y-%m-%d')}');"""
+            VALUES ('{log}', '{datetime.today().strftime("%Y-%m-%d")}');"""
         )
