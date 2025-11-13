@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.trigger_rule import TriggerRule
 
 from datagouvfr_data_pipelines.dgv.metrics.task import (
@@ -117,6 +118,11 @@ with DAG(
         bash_command=f"rm -rf {TMP_FOLDER}",
     )
 
+    trigger_tabular_metrics = TriggerDagRunOperator(
+        task_id="trigger_tabular_metrics",
+        trigger_dag_id="dgv_tabular_metrics",
+    )
+
     create_metrics_tables.set_upstream(clean_previous_outputs)
     download_catalog.set_upstream(create_metrics_tables)
     get_new_logs.set_upstream(create_metrics_tables)
@@ -137,3 +143,4 @@ with DAG(
     refresh_materialized_views.set_upstream(save_matomo_to_postgres)
 
     clean_up.set_upstream(refresh_materialized_views)
+    trigger_tabular_metrics.set_upstream(clean_up)

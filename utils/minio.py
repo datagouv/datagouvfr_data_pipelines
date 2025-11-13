@@ -111,10 +111,11 @@ class MinIOClient:
                 source_path = (
                     f"{AIRFLOW_ENV}/{file['source_path']}{file['source_name']}"
                 )
+            logging.info(f"Downloading {source_path} to {file['full_dest_path']}")
             self.client.fget_object(
                 self.bucket,
                 source_path,
-                f"{file['dest_path']}{file['dest_name']}",
+                file["full_dest_path"],
             )
 
     @simple_connection_retry
