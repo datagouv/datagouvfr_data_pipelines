@@ -19,7 +19,7 @@ default_args = {
 with (
     DAG(
         dag_id=DAG_NAME,
-        schedule_interval=None,
+        schedule_interval=None,  # triggered by dgv_metrics
         start_date=datetime(2025, 11, 1),
         catchup=False,
         dagrun_timeout=None,  # the first run will catch up and run for a while, then we'll set this properly
