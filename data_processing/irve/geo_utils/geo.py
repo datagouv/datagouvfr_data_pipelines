@@ -206,10 +206,10 @@ def fix_code_insee(
         row["consolidated_code_postal"] = ""
         row["consolidated_commune"] = ""
         enrich_row_address.nothing_matches += 1
-        logging.warning(
-            f"Could not retrieve infos for this combination: "
-            f"coords: {row[coordinates_column]}, code INSEE: {row[code_insee_col]}"
-        )
+        # logging.warning(
+        #     f"Could not retrieve infos for this combination: "
+        #     f"coords: {row[coordinates_column]}, code INSEE: {row[code_insee_col]}"
+        # )
         return row
 
     cols = list(df.columns)
