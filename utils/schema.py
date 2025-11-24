@@ -23,7 +23,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     ORGA_REFERENCE,
     VALIDATA_BASE_URL,
     local_client,
-    prod_client,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
@@ -31,7 +30,7 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)
-local_client = prod_client
+
 VALIDATA_BASE_URL = VALIDATA_BASE_URL + "/validate?schema={schema_url}&url={rurl}"
 MINIMUM_VALID_RESOURCES_TO_CONSOLIDATE = 5
 api_url = f"{local_client.base_url}/api/1/"

@@ -188,7 +188,7 @@ def fix_code_insee(
             # Check if postcode is in address
             response = _get_retry(
                 session,
-                url=f"{geo_api}?code={row[code_insee_col]}&fields=codesPostaux,nom"
+                url=f"{geo_api}?code={row[code_insee_col]}&fields=codesPostaux,nom",
             )
             commune_results = json.loads(response.content)
             if response.ok and len(commune_results) > 0:
@@ -261,7 +261,8 @@ def fix_code_insee(
         df = pd.merge(
             coords,
             df[
-                [c for c in df.columns if c not in coords.columns] + [coordinates_column]
+                [c for c in df.columns if c not in coords.columns]
+                + [coordinates_column]
             ],
             on=coordinates_column,
             how="right",
