@@ -1,3 +1,5 @@
+from typing import Callable
+
 from tenacity import retry, stop_after_attempt, wait_exponential
 import requests
 
@@ -10,10 +12,10 @@ def log_retry_attempt(state):
 
 
 def _simple_connection_retry(
-    attempts=5,
-    func=log_retry_attempt,
+    attempts: int = 5,
+    func: Callable = log_retry_attempt,
     wait=wait_exponential(multiplier=10, max=60),
-    reraise=True,
+    reraise: bool = True,
     **kwargs,
 ):
     return retry(
