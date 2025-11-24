@@ -9,7 +9,7 @@ from shapely.geometry import Point, shape
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.datagouv import local_client
-from datagouvfr_data_pipelines.utils.retry import _simple_connection_retry
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 with open(
     f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/geo_utils/france_bbox.geojson"
@@ -20,7 +20,6 @@ with open(
 geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
 polys = [shape(geom) for geom in geoms]
 geo_api = "https://geo.api.gouv.fr/communes"
-conn_retry = _simple_connection_retry(reraise=False)
 
 
 def is_point_in_france(
@@ -110,7 +109,7 @@ def fix_code_insee(
     Requires address and coordinates columns
     """
 
-    @conn_retry
+    @simple_connection_retry
     def _get_retry(session: requests.Session, url: str) -> requests.models.Response:
         r = session.get(url)
         r.raise_for_status()
