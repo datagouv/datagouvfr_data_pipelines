@@ -5,7 +5,9 @@ from datagouvfr_data_pipelines.config import (
     SECRET_GRIST_API_KEY,
 )
 
-GRIST_DOC_ID = "ofSVjCSAnMb6SGZSb7GGrv"
+# FIXME:
+# GRIST_DOC_ID = "ofSVjCSAnMb6SGZSb7GGrv"
+GRIST_DOC_ID = "wZvQEwveqzqb"
 GRIST_WORKSPACE_ID = 51287
 
 
@@ -14,7 +16,7 @@ class GristV2Manager:
         pass
 
     @staticmethod
-    def _request_grist_table(table_id: str, filter: str = None) -> list[dict]:
+    def _request_grist_table(table_id: str, filter: str | None = None) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
             headers={
@@ -55,7 +57,7 @@ class GristV2Manager:
 
     @staticmethod
     def _request_table_records(
-        table_id: str, filter: str = None, document_id: str = GRIST_DOC_ID
+        table_id: str, filter: str | None = None, document_id: str = GRIST_DOC_ID
     ) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{document_id}/tables/{table_id}/records",

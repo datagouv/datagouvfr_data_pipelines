@@ -46,8 +46,11 @@ class TopicsV2Manager:
                         raise ValueError(
                             f"Value '{value}' not found in table {table_info['table_id']}"
                         )
-                    value_slug = table_value["fields"]["slug"]
-                    tags.append(f"simplifions-v2-{filter_slug}-{value_slug}")
+                    value_slugs = table_value["fields"]["slug"]
+                    if not isinstance(value_slugs, list):
+                        value_slugs = [value_slugs]
+                    for value_slug in value_slugs:
+                        tags.append(f"simplifions-v2-{filter_slug}-{value_slug}")
         return tags
 
     def _topics_are_similar_so_we_can_skip_update(
