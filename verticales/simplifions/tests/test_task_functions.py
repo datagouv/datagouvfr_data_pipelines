@@ -394,7 +394,10 @@ class TestUpdateTopicsV2:
             ],
             "Fournisseurs_de_services": [
                 # Test with a list of slugs
-                {"id": 1, "fields": {"Label": "Fournisseur 1", "slug": ["f1", "f1-bis"]}},
+                {
+                    "id": 1,
+                    "fields": {"Label": "Fournisseur 1", "slug": ["f1", "f1-bis"]},
+                },
                 {"id": 2, "fields": {"Label": "Fournisseur 2", "slug": "f2"}},
             ],
         }
