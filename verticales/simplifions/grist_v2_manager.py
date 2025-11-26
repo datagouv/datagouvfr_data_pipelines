@@ -5,9 +5,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_GRIST_API_KEY,
 )
 
-# FIXME:
-# GRIST_DOC_ID = "ofSVjCSAnMb6SGZSb7GGrv"
-GRIST_DOC_ID = "wZvQEwveqzqb"
+GRIST_DOC_ID = "ofSVjCSAnMb6SGZSb7GGrv"
 GRIST_WORKSPACE_ID = 51287
 
 
