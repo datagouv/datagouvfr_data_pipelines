@@ -325,7 +325,7 @@
     "REF_STATION": {
         "source_pattern": "FICHECLIM_(?P<ID>[^_.]+).(?P<EXT>[^_]+)",
         "name_template": "Fiche_station_{ID}.{EXT}",
-        "doc_pattern": null,
+        "doc_pattern": "liste_fiches_clim\\.geojson",
         "description_template": "Fiche climatologique de la station {ID} ({EXT})",
         "dataset_id": {
             "prod": "684c2d56f3861808c0a5d465",
@@ -336,7 +336,7 @@
     "OBS/SYNOP": {
         "source_pattern": "synop_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "synop_{PERIOD}",
-        "doc_pattern": null,
+        "doc_pattern": "postes_synop\\.geojson",
         "description_template": "Observations SYNOP sur l'année {PERIOD}",
         "dataset_id": {
             "prod": "686f8595b351c06a3a790867",
