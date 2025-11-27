@@ -490,6 +490,7 @@ def update_grist(ti):
         "contact_point_datagouv",
         "archived",
         "tags",
+        "title",
     ]
     # updating existing rows
     updates = 0
@@ -596,3 +597,4 @@ def publish_mattermost_grist(ti):
     for title, url, orga in new_rows:
         message += f"\n- [{title}]({url}) de l'organisation {orga}"
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+
