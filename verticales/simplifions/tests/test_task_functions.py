@@ -396,7 +396,12 @@ class TestUpdateTopicsV2:
                 # Test with a list of slugs
                 {
                     "id": 1,
-                    "fields": {"Label": "Fournisseur 1", "slug": ["f1", "f1-bis"]},
+                    "fields": {
+                        "Label": "Fournisseur 1",
+                        "slugs": ["f1", "f1-bis"],
+                        # this one should be ignored, slugs is preferred
+                        "slug": "f1-ter",
+                    },
                 },
                 {"id": 2, "fields": {"Label": "Fournisseur 2", "slug": "f2"}},
             ],
