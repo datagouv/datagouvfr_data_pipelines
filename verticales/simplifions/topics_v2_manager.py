@@ -50,7 +50,9 @@ class TopicsV2Manager:
                     value_slugs_multiple = table_value["fields"].get("slugs")
                     value_slug_single = table_value["fields"].get("slug")
                     if value_slugs_multiple:
-                        assert isinstance(value_slugs_multiple, list), "`slugs` should be a list"
+                        assert isinstance(value_slugs_multiple, list), (
+                            "`slugs` should be a list"
+                        )
                         for value_slug in value_slugs_multiple:
                             tags.append(f"simplifions-v2-{filter_slug}-{value_slug}")
                     elif value_slug_single:
