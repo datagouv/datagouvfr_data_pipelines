@@ -71,7 +71,9 @@ def get_and_format_grist_v2_data(ti, client=None):
     grist_tables_for_filters = {}
     for table_id in GRIST_TABLES_FOR_FILTERS:
         rows = GristV2Manager._request_grist_table(table_id)
-        grist_tables_for_filters[table_id] = rows
+        grist_tables_for_filters[table_id] = [
+            GristV2Manager._clean_row(row) for row in rows
+        ]
 
     logging.info("grist_tables_for_filters done.")
 

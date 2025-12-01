@@ -393,7 +393,16 @@ class TestUpdateTopicsV2:
                 {"id": 2, "fields": {"Label": "Usager 2", "slug": "u2"}},
             ],
             "Fournisseurs_de_services": [
-                {"id": 1, "fields": {"Label": "Fournisseur 1", "slug": "f1"}},
+                # Test with a list of slugs
+                {
+                    "id": 1,
+                    "fields": {
+                        "Label": "Fournisseur 1",
+                        "slugs": ["f1", "f1-bis"],
+                        # this one should be ignored, slugs is preferred
+                        "slug": "f1-ter",
+                    },
+                },
                 {"id": 2, "fields": {"Label": "Fournisseur 2", "slug": "f2"}},
             ],
         }
@@ -440,6 +449,7 @@ class TestUpdateTopicsV2:
             "simplifions-v2-budget-b1",
             "simplifions-v2-types-de-simplification-t2",
             "simplifions-v2-fournisseurs-de-service-f1",
+            "simplifions-v2-fournisseurs-de-service-f1-bis",
             "simplifions-v2-target-users-u2",
         ]
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
@@ -495,6 +505,7 @@ class TestUpdateTopicsV2:
             "simplifions-v2-budget-b1",
             "simplifions-v2-types-de-simplification-t2",
             "simplifions-v2-fournisseurs-de-service-f1",
+            "simplifions-v2-fournisseurs-de-service-f1-bis",
             "simplifions-v2-target-users-u2",
         ]
         assert topics[0]["extras"]["simplifions-v2-cas-d-usages"]["id"] == 1
@@ -644,6 +655,7 @@ class TestUpdateTopicsV2:
             "simplifions-v2-budget-b1",
             "simplifions-v2-types-de-simplification-t2",
             "simplifions-v2-fournisseurs-de-service-f1",
+            "simplifions-v2-fournisseurs-de-service-f1-bis",
             "simplifions-v2-target-users-u2",
         ]
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
