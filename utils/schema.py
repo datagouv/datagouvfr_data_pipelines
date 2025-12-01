@@ -212,8 +212,8 @@ def parse_api(
         tmp = []
         for d in all_datasets:
             r = session.get(api_url + f"datasets/{d['id']}/")
-            if r.status_code == 404:
-                # skipping private datasets
+            if r.status_code in [404, 410]:
+                # skipping private and deleted datasets
                 continue
             r.raise_for_status()
             tmp.append(r.json())

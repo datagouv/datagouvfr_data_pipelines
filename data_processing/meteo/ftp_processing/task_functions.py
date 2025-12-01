@@ -97,7 +97,8 @@ def build_file_id(file: str, path: str) -> str:
         if "PERIOD" in params and any([h in params["PERIOD"] for h in hooks]):
             # this will have to change if more hooks are added
             params["PERIOD"] = "latest" if "latest" in params["PERIOD"] else "previous"
-        if params:
+        # the condition is for doc files in datasets (geojson for instance)
+        if params and any(val is not None for val in params.values()):
             file_id = config[path]["name_template"].format(**params)
     return file_id
 
