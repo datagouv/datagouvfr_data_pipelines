@@ -58,7 +58,8 @@ class TopicsV2Manager:
                     elif value_slug_single:
                         tags.append(f"simplifions-v2-{filter_slug}-{value_slug_single}")
 
-        return tags
+        # deduplicate the list
+        return list(set(tags))
 
     def _topics_are_similar_so_we_can_skip_update(
         self, old_topic: dict, new_topic: dict

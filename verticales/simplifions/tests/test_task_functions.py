@@ -404,6 +404,8 @@ class TestUpdateTopicsV2:
                     },
                 },
                 {"id": 2, "fields": {"Label": "Fournisseur 2", "slug": "f2"}},
+                # duplicates one of fournisseur 1's slugs
+                {"id": 3, "fields": {"Label": "Fournisseur 3", "slug": "f1"}},
             ],
         }
 
@@ -417,7 +419,7 @@ class TestUpdateTopicsV2:
                     "Visible_sur_simplifions": True,
                     "Budget_requis": 1,
                     "Types_de_simplification": 2,
-                    "A_destination_de": 1,
+                    "A_destination_de": [1, 3],
                     "Pour_simplifier_les_demarches_de": 2,
                     "Image": ["https://example.com/image.png"],
                     "Public_ou_prive": "Public",
@@ -441,17 +443,19 @@ class TestUpdateTopicsV2:
         assert topics[0]["name"] == "Solution 1"
         assert topics[0]["description"] == "Blabla"
         assert not topics[0]["private"]
-        assert topics[0]["tags"] == [
-            "simplifions-v2",
-            "simplifions-v2-dag-generated",
-            "simplifions-v2-solutions",
-            "simplifions-v2-solutions-1",
-            "simplifions-v2-budget-b1",
-            "simplifions-v2-types-de-simplification-t2",
-            "simplifions-v2-fournisseurs-de-service-f1",
-            "simplifions-v2-fournisseurs-de-service-f1-bis",
-            "simplifions-v2-target-users-u2",
-        ]
+        assert sorted(topics[0]["tags"]) == sorted(
+            [
+                "simplifions-v2",
+                "simplifions-v2-dag-generated",
+                "simplifions-v2-solutions",
+                "simplifions-v2-solutions-1",
+                "simplifions-v2-budget-b1",
+                "simplifions-v2-types-de-simplification-t2",
+                "simplifions-v2-fournisseurs-de-service-f1",
+                "simplifions-v2-fournisseurs-de-service-f1-bis",
+                "simplifions-v2-target-users-u2",
+            ]
+        )
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
         assert topics[0]["extras"]["simplifions-v2-solutions"]["Image"] == [
             "https://example.com/image.png"
@@ -497,17 +501,19 @@ class TestUpdateTopicsV2:
         assert topics[0]["name"] == "👋 Cas usage 1"
         assert topics[0]["description"] == "Blabla"
         assert not topics[0]["private"]
-        assert topics[0]["tags"] == [
-            "simplifions-v2",
-            "simplifions-v2-dag-generated",
-            "simplifions-v2-cas-d-usages",
-            "simplifions-v2-cas-d-usages-1",
-            "simplifions-v2-budget-b1",
-            "simplifions-v2-types-de-simplification-t2",
-            "simplifions-v2-fournisseurs-de-service-f1",
-            "simplifions-v2-fournisseurs-de-service-f1-bis",
-            "simplifions-v2-target-users-u2",
-        ]
+        assert sorted(topics[0]["tags"]) == sorted(
+            [
+                "simplifions-v2",
+                "simplifions-v2-dag-generated",
+                "simplifions-v2-cas-d-usages",
+                "simplifions-v2-cas-d-usages-1",
+                "simplifions-v2-budget-b1",
+                "simplifions-v2-types-de-simplification-t2",
+                "simplifions-v2-fournisseurs-de-service-f1",
+                "simplifions-v2-fournisseurs-de-service-f1-bis",
+                "simplifions-v2-target-users-u2",
+            ]
+        )
         assert topics[0]["extras"]["simplifions-v2-cas-d-usages"]["id"] == 1
 
     def test_with_new_solutions_and_cas_d_usages(self, grist_tables_for_filters):
@@ -647,17 +653,19 @@ class TestUpdateTopicsV2:
         assert topics[0]["name"] == "Solution 1"
         assert topics[0]["description"] == "Blabla"
         assert not topics[0]["private"]
-        assert topics[0]["tags"] == [
-            "simplifions-v2",
-            "simplifions-v2-dag-generated",
-            "simplifions-v2-solutions",
-            "simplifions-v2-solutions-1",
-            "simplifions-v2-budget-b1",
-            "simplifions-v2-types-de-simplification-t2",
-            "simplifions-v2-fournisseurs-de-service-f1",
-            "simplifions-v2-fournisseurs-de-service-f1-bis",
-            "simplifions-v2-target-users-u2",
-        ]
+        assert sorted(topics[0]["tags"]) == sorted(
+            [
+                "simplifions-v2",
+                "simplifions-v2-dag-generated",
+                "simplifions-v2-solutions",
+                "simplifions-v2-solutions-1",
+                "simplifions-v2-budget-b1",
+                "simplifions-v2-types-de-simplification-t2",
+                "simplifions-v2-fournisseurs-de-service-f1",
+                "simplifions-v2-fournisseurs-de-service-f1-bis",
+                "simplifions-v2-target-users-u2",
+            ]
+        )
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
 
     def test_delete_of_existing_solution(self, grist_tables_for_filters):
