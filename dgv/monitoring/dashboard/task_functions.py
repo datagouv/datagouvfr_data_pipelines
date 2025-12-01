@@ -329,7 +329,7 @@ def is_SP_or_CT(
 def get_and_upload_certification() -> None:
     session = requests.Session()
     orgas = local_client.get_all_from_api_query(
-        "api/1/organizations", mask="data{id,badges,business_number_id}"
+        "api/1/organizations/", mask="data{id,badges,business_number_id}"
     )
     certified = []
     SP_or_CT = []
