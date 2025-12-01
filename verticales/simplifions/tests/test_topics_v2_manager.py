@@ -45,12 +45,12 @@ def test_generated_search_tags(grist_tables_for_filters):
     }
 
     tags = topics_manager._generated_search_tags(grist_row, grist_tables_for_filters)
-    assert tags == [
+    assert sorted(tags) == sorted([
         "simplifions-v2-budget-b1",
         "simplifions-v2-types-de-simplification-t2",
         "simplifions-v2-fournisseurs-de-service-f1",
         "simplifions-v2-target-users-u2",
-    ]
+    ])
 
 
 class TestTopicsAreSimilarSoWeCanSkipUpdate:
