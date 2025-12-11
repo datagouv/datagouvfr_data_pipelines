@@ -1,22 +1,24 @@
-import yaml
-from git import Repo, Git
-import os
-import shutil
-import logging
-from table_schema_to_markdown import convert_source, sources_to_markdown
-import frictionless
-import json
-import jsonschema
-import re
-from unidecode import unidecode
 import codecs
-import requests
-from urllib import parse
 from datetime import datetime
-from feedgen.feed import FeedGenerator
-import xml.etree.ElementTree as ET
+import json
+import logging
+import os
 import pytz
+import re
+import shutil
+from time import sleep
+from urllib import parse
+import yaml
+
+from feedgen.feed import FeedGenerator
+import frictionless
+from git import Repo, Git
+import jsonschema
 import pandas as pd
+import requests
+from table_schema_to_markdown import convert_source, sources_to_markdown
+from unidecode import unidecode
+import xml.etree.ElementTree as ET
 
 from datagouvfr_data_pipelines.utils.schema import comparer_versions
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
@@ -991,6 +993,8 @@ def get_template_github_issues():
                     "This shouldn't fail, maybe consider adding a token "
                     "in the headers, or wait a couple of minutes and retry"
                 )
+            # unauthenticated calls have a 60 calls/hour rate limit, keeping slack
+            sleep(1.5)
         return issues
 
     logging.info("Getting issues from repo")

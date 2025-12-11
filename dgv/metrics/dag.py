@@ -25,8 +25,6 @@ from datagouvfr_data_pipelines.dgv.metrics.task import (
 
 
 default_args = {
-    "email": [],
-    "email_on_failure": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=2),
 }
