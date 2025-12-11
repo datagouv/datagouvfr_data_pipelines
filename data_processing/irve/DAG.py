@@ -41,7 +41,6 @@ output_data_folder = f"{TMP_FOLDER}/output/"
 default_args = {
     "retries": 5 if AIRFLOW_ENV == "prod" else 0,
     "retry_delay": timedelta(minutes=5),
-    "email_on_failure": False,
 }
 
 with DAG(

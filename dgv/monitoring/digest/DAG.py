@@ -106,7 +106,7 @@ def send_email_report_period(ti, **kwargs):
 
 default_args = {
     "retries": 3,
-    "retry_delay": timedelta(minutes=2),
+    "retry_delay": timedelta(minutes=10),
 }
 
 with DAG(

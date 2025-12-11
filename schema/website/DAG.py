@@ -24,7 +24,7 @@ GIT_REPO = (
 
 default_args = {
     "retries": 5,
-    "retry_delay": timedelta(minutes=5),
+    "retry_delay": timedelta(minutes=10),
 }
 
 with DAG(
