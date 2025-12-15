@@ -89,7 +89,7 @@ def monitor_dags(
 def notification_mattermost(ti):
     todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
     dag_ids = ti.xcom_pull(key="dag_ids", task_ids="monitor_dags")
-    message = "# Récap quotidien DAGs :"
+    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}) :"
     print(todays_runs)
     for dag, attempts in dict(sorted(todays_runs.items())).items():
         message += f"\n- **{dag}** :"
