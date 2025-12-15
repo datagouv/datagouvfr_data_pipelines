@@ -181,7 +181,7 @@ class GristTable:
         returned_columns = None
         if self.table_id not in tables:
             logging.info(
-                f"Creating table '{self.doc_id}/tables/{self.table_id}' in grist"
+                f"Creating table '{GRIST_UI_URL}{self.doc_id}/tables/{self.table_id}' in grist"
             )
             table = {
                 "tables": [
@@ -208,12 +208,12 @@ class GristTable:
         else:
             if append:
                 logging.info(
-                    f"Appending records to '{self.doc_id}/tables/{self.table_id}' in grist"
+                    f"Appending records to '{GRIST_UI_URL}{self.doc_id}/tables/{self.table_id}' in grist"
                 )
                 returned_columns = self._handle_and_return_columns(df, append)
             else:
                 logging.info(
-                    f"Erasing and refilling '{self.doc_id}/tables/{self.table_id}' in grist"
+                    f"Erasing and refilling '{GRIST_UI_URL}{self.doc_id}/tables/{self.table_id}' in grist"
                 )
                 self.delete_rows()
                 # some column ids are not accepted by grist (e.g 'id'), so we get the new ids
@@ -223,7 +223,10 @@ class GristTable:
                 )
         # fill it up
         res = []
-        for chunk in self.chunkify(df):
+        print(df)
+        for idx, chunk in enumerate(self.chunkify(df)):
+            print("chunk", idx)
+            print(chunk)
             r = RequestRetry.post(
                 f"{self.base_url}/records",
                 headers=headers,
@@ -284,4 +287,5 @@ def get_unique_values_from_multiple_choice_column(column: pd.Series) -> set:
     # this returns all unique single possible values
     # NB: make sure the column is properly cast upstream (no NaN for instance)
     return set([value for cell in column if cell for value in cell if value != "L"])
+
 
