@@ -1,12 +1,11 @@
 import dateutil
-from typing import Iterator
 import requests
 from datetime import datetime
 import re
 
 from datagouv import Client
 
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry, RequestRetry
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
