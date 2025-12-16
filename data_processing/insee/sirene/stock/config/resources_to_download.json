@@ -95,7 +95,8 @@
             "denominationUsuelleEtablissement": "VARCHAR",
             "activitePrincipaleEtablissement": "VARCHAR",
             "nomenclatureActivitePrincipaleEtablissement": "VARCHAR",
-            "caractereEmployeurEtablissement": "VARCHAR"
+            "caractereEmployeurEtablissement": "VARCHAR",
+            "activitePrincipaleNAF25Etablissement": "VARCHAR"
         }
     },
     {
@@ -165,7 +166,8 @@
             "nicSiegeUniteLegale": "BIGINT",
             "economieSocialeSolidaireUniteLegale": "VARCHAR",
             "societeMissionUniteLegale": "VARCHAR",
-            "caractereEmployeurUniteLegale": "VARCHAR"
+            "caractereEmployeurUniteLegale": "VARCHAR",
+            "activitePrincipaleNAF25UniteLegale": "VARCHAR"
         }
     },
     {
