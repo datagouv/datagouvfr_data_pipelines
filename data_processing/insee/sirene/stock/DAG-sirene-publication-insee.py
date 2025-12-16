@@ -34,10 +34,11 @@ with DAG(
 
     check_if_already_processed = ShortCircuitOperator(
         task_id="check_if_already_processed",
-        op_kwargs={
-            "minio_path": MINIO_BASE_PATH,
-        },
-        python_callable=check_if_already_processed,
+        # op_kwargs={
+        #     "minio_path": MINIO_BASE_PATH,
+        # },
+        # python_callable=check_if_already_processed,
+        python_callable=lambda: True,
     )
 
     get_files = PythonOperator(
