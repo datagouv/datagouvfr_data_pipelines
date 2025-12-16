@@ -179,41 +179,6 @@ def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list
     return results
 
 
-def get_all_from_api_query(
-    base_query: str,
-    next_page: str = "next_page",
-    ignore_errors: bool = False,
-    mask: str | None = None,
-    auth: bool = False,
-) -> Iterator[dict]:
-    """/!\ only for paginated endpoints"""
-
-    def get_link_next_page(elem: dict, separated_keys: str):
-        result = elem
-        for k in separated_keys.split("."):
-            result = result[k]
-        return result
-
-    # certain endpoints require authentification but otherwise we're not using it
-    # when running locally this can trigger 401 (if you use your dev/demo token in prod)
-    # to prevent, overwrite the API key with a valid prod key down here
-    # DATAGOUV_SECRET_API_KEY = ""
-    headers = {"X-API-KEY": DATAGOUV_SECRET_API_KEY} if auth else {}
-    if mask is not None:
-        headers["X-fields"] = mask + f",{next_page}"
-    r = RequestRetry.get(base_query, headers=headers)
-    if not ignore_errors:
-        r.raise_for_status()
-    for elem in r.json()["data"]:
-        yield elem
-    while get_link_next_page(r.json(), next_page):
-        r = RequestRetry.get(get_link_next_page(r.json(), next_page), headers=headers)
-        if not ignore_errors:
-            r.raise_for_status()
-        for data in r.json()["data"]:
-            yield data
-
-
 @simple_connection_retry
 def post_comment_on_dataset(
     dataset_id: str, title: str, comment: str
