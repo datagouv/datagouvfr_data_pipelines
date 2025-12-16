@@ -147,7 +147,11 @@ def update_topics_v2(ti, client=None):
                     "id": "57fe2a35c751df21e179df72",
                 },
                 "tags": all_tags,
-                "extras": {extras_nested_key: topics_manager._topic_extras(grist_row)},
+                "extras": {
+                    extras_nested_key: topics_manager._topic_extras(
+                        grist_row, grist_tables_for_filters
+                    )
+                },
                 "private": not grist_row["fields"]["Visible_sur_simplifions"],
             }
 

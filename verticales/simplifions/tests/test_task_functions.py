@@ -468,6 +468,10 @@ class TestUpdateTopicsV2:
             topics[0]["extras"]["simplifions-v2-solutions"]["Nom_de_l_operateur"]
             == "Operateur 1"
         )
+        assert topics[0]["extras"]["simplifions-v2-solutions"]["A_destination_de"] == [
+            {"id": 1, "label": "Fournisseur 1"},
+            {"id": 3, "label": "Fournisseur 3"},
+        ]
 
     def test_with_one_new_cas_d_usage(self, grist_tables_for_filters):
         cas_usages_data = {
@@ -515,6 +519,11 @@ class TestUpdateTopicsV2:
             ]
         )
         assert topics[0]["extras"]["simplifions-v2-cas-d-usages"]["id"] == 1
+        assert topics[0]["extras"]["simplifions-v2-cas-d-usages"][
+            "A_destination_de"
+        ] == [
+            {"id": 1, "label": "Fournisseur 1"},
+        ]
 
     def test_with_new_solutions_and_cas_d_usages(self, grist_tables_for_filters):
         solutions_data = {
@@ -667,6 +676,9 @@ class TestUpdateTopicsV2:
             ]
         )
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
+        assert topics[0]["extras"]["simplifions-v2-solutions"]["A_destination_de"] == [
+            {"id": 1, "label": "Fournisseur 1"},
+        ]
 
     def test_delete_of_existing_solution(self, grist_tables_for_filters):
         topics_factory.create_record(

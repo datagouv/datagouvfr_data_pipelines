@@ -100,7 +100,7 @@ class TopicsV2Manager:
         if attribute_value:
             target_dict[attribute_name] = attribute_value
 
-    def _topic_extras(self, grist_row: dict) -> dict:
+    def _topic_extras(self, grist_row: dict, grist_tables_for_filters: dict) -> dict:
         extras = {
             "id": grist_row["id"],
         }
@@ -109,5 +109,25 @@ class TopicsV2Manager:
         self._add_attribute_if_it_exists(
             grist_row["fields"], extras, "Nom_de_l_operateur"
         )
+
+        # Handle "A_destination_de": extract labels from reference table and store in extras
+        fournisseurs = grist_tables_for_filters[
+            ATTRIBUTES_FOR_TAGS["A_destination_de"]["table_id"]
+        ]
+        extras_a_destination_de = []
+        a_destination_field = grist_row["fields"].get("A_destination_de", [])
+        if not isinstance(a_destination_field, list):
+            a_destination_field = [a_destination_field]
+        for dest_id in a_destination_field:
+            fournisseur = next((f for f in fournisseurs if f["id"] == dest_id), None)
+            if not fournisseur:
+                raise ValueError(f"No fournisseur found for id {dest_id}")
+            extras_a_destination_de.append(
+                {
+                    "id": dest_id,
+                    "label": fournisseur["fields"]["Label"],
+                }
+            )
+        extras["A_destination_de"] = extras_a_destination_de
 
         return extras
