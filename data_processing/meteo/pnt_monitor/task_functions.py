@@ -16,10 +16,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-    local_client,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 
 minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 minio_pnt = MinIOClient(
@@ -62,8 +59,8 @@ def scan_pnt_files(ti):
     threshold = threshold_in_the_past()
     pnt_datasets = [
         el["element"]["id"]
-        for el in get_all_from_api_query(
-            "https://www.data.gouv.fr/api/2/topics/65e0c82c2da27c1dff5fa66f/elements/?class=Dataset"
+        for el in prod_client.get_all_from_api_query(
+            "api/2/topics/65e0c82c2da27c1dff5fa66f/elements/?class=Dataset"
         )
     ]
 

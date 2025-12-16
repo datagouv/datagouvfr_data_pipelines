@@ -1,9 +1,7 @@
 import requests
 import logging
 from datagouv import Client
-from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 
 class TopicsAPI:
@@ -52,7 +50,6 @@ class TopicsAPI:
         return r
 
     def get_all_topics_for_tag(self, tag: str) -> list[dict]:
-        return get_all_from_api_query(
+        return local_client.get_all_from_api_query(
             f"{self.resource_url}?tag={tag}&include_private=true",
-            auth=True,
         )

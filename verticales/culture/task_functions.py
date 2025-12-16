@@ -10,7 +10,6 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,
     local_client,
     DATAGOUV_SECRET_API_KEY,
 )
@@ -104,9 +103,10 @@ def get_perimeter_stats(ti, object_type: str):
             metric_label: 0
             for metric_label in objects[object_type]["metrics_keys"].values()
         }
-        for monthly_stats in get_all_from_api_query(
+        for monthly_stats in local_client.get_all_from_api_query(
             metrics_api_url.format(object_type, object_type[:-1], obj_id),
             next_page="links.next",
+            _ignore_base_url=True,
         ):
             for metric_id in objects[object_type]["metrics_keys"].keys():
                 obj_stats[objects[object_type]["metrics_keys"][metric_id]] += (
