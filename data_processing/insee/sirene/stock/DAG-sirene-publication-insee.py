@@ -63,7 +63,6 @@ with DAG(
         task_id="update_dataset_data_gouv",
         op_kwargs={
             "resource_file": "resources_to_download.json",
-            "day_file": "01",
             "tmp_dir": TMP_FOLDER,
         },
         python_callable=update_dataset_data_gouv,

@@ -129,11 +129,12 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
     )
 
 
-def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str):
+def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str):
     hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
 
     liste_mois = [m.title() for m in MOIS_FR.values()]
     mois = datetime.now().date().month
+    day = "0" * (2-len(str(d := datetime.now().date().day))) + str(d)
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     logging.info(data)
@@ -141,7 +142,7 @@ def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str
         obj = {
             "title": (
                 f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
-                f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
+                f"{day} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
             ),
             "filesize": os.path.getsize(tmp_dir + d["nameFTP"]),
         }
@@ -162,7 +163,7 @@ def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str, day_file: str
             payload={
                 "title": (
                     f"Sirene : Fichier {d['name'].replace('_utf8.zip', '')} du "
-                    f"{day_file} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
+                    f"{day} {liste_mois[mois - 1]} {datetime.today().strftime('%Y')}"
                     " (format parquet)"
                 ),
                 "filesize": os.path.getsize(
