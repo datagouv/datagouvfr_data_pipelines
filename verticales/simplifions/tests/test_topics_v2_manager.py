@@ -6,7 +6,6 @@ from factories.task_instance_factory import TaskInstanceFactory
 from topics_v2_manager import TopicsV2Manager
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
-topics_manager = TopicsV2Manager(local_client)
 topics_factory = TopicsFactory()
 task_instance_factory = TaskInstanceFactory()
 
@@ -33,7 +32,12 @@ def grist_tables_for_filters():
     }
 
 
-def test_generated_search_tags(grist_tables_for_filters):
+@pytest.fixture
+def topics_manager(grist_tables_for_filters):
+    return TopicsV2Manager(local_client, grist_tables_for_filters)
+
+
+def test_generated_search_tags(topics_manager):
     grist_row = {
         "id": 123,
         "fields": {
@@ -44,7 +48,7 @@ def test_generated_search_tags(grist_tables_for_filters):
         },
     }
 
-    tags = topics_manager._generated_search_tags(grist_row, grist_tables_for_filters)
+    tags = topics_manager._generated_search_tags(grist_row)
     assert sorted(tags) == sorted(
         [
             "simplifions-v2-budget-b1",
@@ -56,17 +60,17 @@ def test_generated_search_tags(grist_tables_for_filters):
 
 
 class TestTopicsAreSimilarSoWeCanSkipUpdate:
-    def test_equal_cas_usages(self):
+    def test_equal_cas_usages(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         assert topics_manager._topics_are_similar_so_we_can_skip_update(topic1, topic2)
 
-    def test_equal_solutions(self):
+    def test_equal_solutions(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-solutions")
         topic2 = topics_factory.build_record("simplifions-v2-solutions")
         assert topics_manager._topics_are_similar_so_we_can_skip_update(topic1, topic2)
 
-    def test_different_topics_names(self):
+    def test_different_topics_names(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record(
             "simplifions-v2-cas-d-usages", {"name": "Different Name"}
@@ -75,7 +79,7 @@ class TestTopicsAreSimilarSoWeCanSkipUpdate:
             topic1, topic2
         )
 
-    def test_different_topics_tags(self):
+    def test_different_topics_tags(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record(
             "simplifions-v2-cas-d-usages",
@@ -85,7 +89,7 @@ class TestTopicsAreSimilarSoWeCanSkipUpdate:
             topic1, topic2
         )
 
-    def test_different_descriptions(self):
+    def test_different_descriptions(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record(
             "simplifions-v2-cas-d-usages", {"description": "Different Description"}
@@ -94,7 +98,7 @@ class TestTopicsAreSimilarSoWeCanSkipUpdate:
             topic1, topic2
         )
 
-    def test_different_organizations(self):
+    def test_different_organizations(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record(
             "simplifions-v2-cas-d-usages",
@@ -104,7 +108,7 @@ class TestTopicsAreSimilarSoWeCanSkipUpdate:
             topic1, topic2
         )
 
-    def test_different_extras(self):
+    def test_different_extras(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record(
             "simplifions-v2-cas-d-usages",
@@ -114,7 +118,7 @@ class TestTopicsAreSimilarSoWeCanSkipUpdate:
             topic1, topic2
         )
 
-    def test_different_private(self):
+    def test_different_private(self, topics_manager):
         topic1 = topics_factory.build_record("simplifions-v2-cas-d-usages")
         topic2 = topics_factory.build_record(
             "simplifions-v2-cas-d-usages", {"private": True}
