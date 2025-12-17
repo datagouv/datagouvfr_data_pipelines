@@ -134,7 +134,7 @@ def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str):
 
     liste_mois = [m.title() for m in MOIS_FR.values()]
     mois = datetime.now().date().month
-    day = "0" * (2-len(str(d := datetime.now().date().day))) + str(d)
+    day = "0" * (2 - len(str(d := datetime.now().date().day))) + str(d)
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     logging.info(data)
