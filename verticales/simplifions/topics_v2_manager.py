@@ -29,7 +29,9 @@ ATTRIBUTES_FOR_TAGS = {
 
 
 class TopicsV2Manager:
-    def __init__(self, client: Client, grist_tables_for_filters: dict[str, list[GristRow]]):
+    def __init__(
+        self, client: Client, grist_tables_for_filters: dict[str, list[GristRow]]
+    ):
         self.grist_tables_for_filters = grist_tables_for_filters
         self.topics_api = TopicsAPI(client)
 
