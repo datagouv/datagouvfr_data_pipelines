@@ -450,7 +450,7 @@ def is_validata_valid_row(
     validata_reports_path: Path,
 ) -> bool:
     if row["error_type"] is None:  # if no error
-        rurl = quote(row["resource_url"], safe='')
+        rurl = quote(row["resource_url"], safe="")
         resource_api_url = f"{local_client.base_url}/api/1/datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
         res, report = is_validata_valid(rurl, schema_url, resource_api_url)
         if report and not report.get("report", {}).get("error", False):
@@ -1605,7 +1605,8 @@ def update_resource_send_mail_producer(
                 resource_update_success = update_resource_metadata(
                     schema_name=schema_name,
                     version_name=(
-                        (v := row["most_recent_valid_version"]) if pd.notna(v)
+                        v
+                        if pd.notna(v := row["most_recent_valid_version"])
                         else row["initial_version_name"]
                     ),
                     dataset_id=row["dataset_id"],
