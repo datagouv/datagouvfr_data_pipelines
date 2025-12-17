@@ -1,7 +1,14 @@
 import logging
+from typing import Any, TypedDict
 
 from datagouv import Client
 from datagouvfr_data_pipelines.verticales.simplifions.topics_api import TopicsAPI
+
+
+class GristRow(TypedDict):
+    id: int
+    fields: dict[str, Any]
+
 
 # These attributes are used to generate tags for the topics filters
 ATTRIBUTES_FOR_TAGS = {
@@ -22,18 +29,18 @@ ATTRIBUTES_FOR_TAGS = {
 
 
 class TopicsV2Manager:
-    def __init__(self, client: Client, grist_tables_for_filters: dict):
+    def __init__(self, client: Client, grist_tables_for_filters: dict[str, list[GristRow]]):
         self.grist_tables_for_filters = grist_tables_for_filters
         self.topics_api = TopicsAPI(client)
 
-    def _find_filter_by_id(self, table_name: str, id: int) -> dict:
+    def _find_filter_by_id(self, table_name: str, id: int) -> GristRow:
         table_values = self.grist_tables_for_filters[table_name]
         table_value = next((x for x in table_values if x["id"] == id), None)
         if not table_value:
             raise ValueError(f"Filter '{id}' not found in table '{table_name}'")
         return table_value
 
-    def _generated_search_tags(self, grist_row: dict) -> list[str]:
+    def _generated_search_tags(self, grist_row: GristRow) -> list[str]:
         tags = []
         for attribute, table_info in ATTRIBUTES_FOR_TAGS.items():
             values = grist_row["fields"].get(attribute)
@@ -86,7 +93,7 @@ class TopicsV2Manager:
             return
         return self.topics_api.update_topic_by_id(topic["id"], topic_data)
 
-    def _topic_name(self, grist_row: dict) -> str:
+    def _topic_name(self, grist_row: GristRow) -> str:
         icon = grist_row["fields"].get("Icone_du_titre")
         if icon:
             return f"{icon} {grist_row['fields']['Nom']}"
@@ -99,8 +106,8 @@ class TopicsV2Manager:
         if attribute_value:
             target_dict[attribute_name] = attribute_value
 
-    def _topic_extras(self, grist_row: dict) -> dict:
-        extras = {
+    def _topic_extras(self, grist_row: GristRow) -> dict:
+        extras: dict[str, Any] = {
             "id": grist_row["id"],
         }
         self._add_attribute_if_it_exists(grist_row["fields"], extras, "Image")
