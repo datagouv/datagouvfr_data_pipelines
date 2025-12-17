@@ -1,7 +1,14 @@
 import logging
+from typing import Any, TypedDict
 
 from datagouv import Client
 from datagouvfr_data_pipelines.verticales.simplifions.topics_api import TopicsAPI
+
+
+class GristRow(TypedDict):
+    id: int
+    fields: dict[str, Any]
+
 
 # These attributes are used to generate tags for the topics filters
 ATTRIBUTES_FOR_TAGS = {
@@ -22,30 +29,31 @@ ATTRIBUTES_FOR_TAGS = {
 
 
 class TopicsV2Manager:
-    def __init__(self, client: Client):
+    def __init__(
+        self, client: Client, grist_tables_for_filters: dict[str, list[GristRow]]
+    ):
+        self.grist_tables_for_filters = grist_tables_for_filters
         self.topics_api = TopicsAPI(client)
 
-    def _generated_search_tags(
-        self, grist_row: dict, grist_tables_for_filters: dict
-    ) -> list[str]:
+    def _find_filter_by_id(self, table_name: str, id: int) -> GristRow:
+        table_values = self.grist_tables_for_filters[table_name]
+        table_value = next((x for x in table_values if x["id"] == id), None)
+        if not table_value:
+            raise ValueError(f"Filter '{id}' not found in table '{table_name}'")
+        return table_value
+
+    def _generated_search_tags(self, grist_row: GristRow) -> list[str]:
         tags = []
         for attribute, table_info in ATTRIBUTES_FOR_TAGS.items():
             values = grist_row["fields"].get(attribute)
             if values:
-                table_values = grist_tables_for_filters[table_info["table_id"]]
                 filter_slug = table_info["filter_slug"]
 
                 if not isinstance(values, list):
                     values = [values]
 
                 for value in values:
-                    table_value = next(
-                        (x for x in table_values if x["id"] == value), None
-                    )
-                    if not table_value:
-                        raise ValueError(
-                            f"Value '{value}' not found in table {table_info['table_id']}"
-                        )
+                    table_value = self._find_filter_by_id(table_info["table_id"], value)
                     # handle a list of `slugs` or a single `slug`
                     value_slugs_multiple = table_value["fields"].get("slugs")
                     value_slug_single = table_value["fields"].get("slug")
@@ -87,7 +95,7 @@ class TopicsV2Manager:
             return
         return self.topics_api.update_topic_by_id(topic["id"], topic_data)
 
-    def _topic_name(self, grist_row: dict) -> str:
+    def _topic_name(self, grist_row: GristRow) -> str:
         icon = grist_row["fields"].get("Icone_du_titre")
         if icon:
             return f"{icon} {grist_row['fields']['Nom']}"
@@ -100,8 +108,8 @@ class TopicsV2Manager:
         if attribute_value:
             target_dict[attribute_name] = attribute_value
 
-    def _topic_extras(self, grist_row: dict) -> dict:
-        extras = {
+    def _topic_extras(self, grist_row: GristRow) -> dict:
+        extras: dict[str, Any] = {
             "id": grist_row["id"],
         }
         self._add_attribute_if_it_exists(grist_row["fields"], extras, "Image")
@@ -109,5 +117,24 @@ class TopicsV2Manager:
         self._add_attribute_if_it_exists(
             grist_row["fields"], extras, "Nom_de_l_operateur"
         )
+
+        # Handle "A_destination_de": extract labels from reference table and store in extras
+        extras_a_destination_de = []
+        a_destination_field = grist_row["fields"].get("A_destination_de", [])
+        if a_destination_field is None:
+            a_destination_field = []
+        if not isinstance(a_destination_field, list):
+            a_destination_field = [a_destination_field]
+        for dest_id in a_destination_field:
+            fournisseur = self._find_filter_by_id(
+                ATTRIBUTES_FOR_TAGS["A_destination_de"]["table_id"], dest_id
+            )
+            extras_a_destination_de.append(
+                {
+                    "id": dest_id,
+                    "label": fournisseur["fields"]["Label"],
+                }
+            )
+        extras["A_destination_de"] = extras_a_destination_de
 
         return extras

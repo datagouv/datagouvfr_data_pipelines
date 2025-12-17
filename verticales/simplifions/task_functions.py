@@ -81,7 +81,6 @@ def get_and_format_grist_v2_data(ti, client=None):
 
 
 def update_topics_v2(ti, client=None):
-    topics_manager = TopicsV2Manager(client)
     topics_api = TopicsAPI(client)
 
     tag_and_grist_rows: dict = ti.xcom_pull(
@@ -91,6 +90,7 @@ def update_topics_v2(ti, client=None):
     grist_tables_for_filters: dict = ti.xcom_pull(
         key="grist_tables_for_filters", task_ids="get_and_format_grist_v2_data"
     )
+    topics_manager = TopicsV2Manager(client, grist_tables_for_filters)
 
     simplifions_tags = [
         "simplifions-v2",
@@ -134,9 +134,7 @@ def update_topics_v2(ti, client=None):
             all_tags = (
                 topic_tags
                 + [f"{tag}-{grist_id_str}"]
-                + topics_manager._generated_search_tags(
-                    grist_row, grist_tables_for_filters
-                )
+                + topics_manager._generated_search_tags(grist_row)
             )
 
             topic_data = {
