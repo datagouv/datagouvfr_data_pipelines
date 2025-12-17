@@ -22,7 +22,6 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.minio import MinIOClient
 from datagouvfr_data_pipelines.utils.datagouv import (
-    get_all_from_api_query,  # this is still need for metrics API
     local_client,
     SPAM_WORDS,
 )
@@ -113,7 +112,7 @@ async def url_error(url, session, method="head"):
             r.raise_for_status()
         return False
     except Exception as e:
-        return e.status if hasattr(e, "status") else str(e)
+        return getattr(e, "status", str(e))
 
 
 async def crawl_reuses(reuses):
@@ -212,10 +211,10 @@ def process_unavailable_reuses():
     if not restr_reuses:
         return
     for rid in restr_reuses:
-        data = get_all_from_api_query(
+        data = local_client.get_all_from_api_query(
             f"{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&reuse_id__exact={rid}",
             next_page="links.next",
-            ignore_errors=True,
+            _ignore_base_url=True,
         )
         try:
             d = next(data)
@@ -250,12 +249,13 @@ def process_unavailable_reuses():
 
 def process_empty_datasets():
     def get_last_month_visits(dataset_id: str):
-        data = get_all_from_api_query(
+        data = local_client.get_all_from_api_query(
             (
                 f"{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}"
                 f"&dataset_id__exact={dataset_id}"
             ),
             next_page="links.next",
+            _ignore_base_url=True,
         )
         try:
             n = next(data)
@@ -403,9 +403,10 @@ def get_top_orgas_publish():
 
 def get_top_orgas_visits():
     # Top 50 des orgas les plus visités
-    data = get_all_from_api_query(
+    data = local_client.get_all_from_api_query(
         f"{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}",
         next_page="links.next",
+        _ignore_base_url=True,
     )
     orga_visited = {
         d["organization_id"]: {
@@ -450,9 +451,10 @@ def get_top_orgas_visits():
 
 def get_top_datasets_visits():
     # Top 50 des JDD les plus visités
-    data = get_all_from_api_query(
+    data = local_client.get_all_from_api_query(
         f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}&monthly_visit__sort=desc",
         next_page="links.next",
+        _ignore_base_url=True,
     )
     datasets_visited = {}
     for k in range(50):
@@ -488,12 +490,13 @@ def get_top_datasets_visits():
 
 def get_top_resources_downloads():
     # Top 50 des ressources les plus téléchargées
-    data = get_all_from_api_query(
+    data = local_client.get_all_from_api_query(
         (
             f"{api_metrics_url}api/resources/data/?metric_month__exact={last_month}"
             "&monthly_download_resource__sort=desc"
         ),
         next_page="links.next",
+        _ignore_base_url=True,
     )
     resources_downloaded = {}
     while len(resources_downloaded) < 50:
@@ -566,10 +569,10 @@ def get_top_resources_downloads():
 
 def get_top_reuses_visits():
     # Top 50 des réutilisations les plus visitées
-    data = get_all_from_api_query(
+    data = local_client.get_all_from_api_query(
         f"{api_metrics_url}api/reuses/data/?metric_month__exact={last_month}&monthly_visit__sort=desc",
         next_page="links.next",
-        ignore_errors=True,
+        _ignore_base_url=True,
     )
     reuses_visited = {}
     while len(reuses_visited) < 50:

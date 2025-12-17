@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_SENTRY_API_TOKEN,
     SENTRY_BASE_URL,
 )
-from datagouvfr_data_pipelines.utils.datagouv import get_all_from_api_query
+from datagouvfr_data_pipelines.utils.datagouv import prod_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 max_csvgz_size = 104857600
@@ -48,8 +48,8 @@ def get_and_send_errors():
     print("Getting all datasets of meteo.data.gouv...")
     catalog = [
         el["element"]["id"]
-        for el in get_all_from_api_query(
-            "https://www.data.gouv.fr/api/2/topics/6571f222129681e83de11aa2/elements/?class=Dataset"
+        for el in prod_client.get_all_from_api_query(
+            "api/2/topics/6571f222129681e83de11aa2/elements/?class=Dataset"
         )
     ]
 

@@ -993,8 +993,8 @@ def get_template_github_issues():
                     "This shouldn't fail, maybe consider adding a token "
                     "in the headers, or wait a couple of minutes and retry"
                 )
-            # unauthenticated calls have a 60 calls/hour rate limit, keeping slack
-            sleep(1.5)
+            # unauthenticated calls have a 60 calls/hour rate limit, we call twice in parallel (prod/preprod), keeping slack
+            sleep(2.5)
         return issues
 
     logging.info("Getting issues from repo")
