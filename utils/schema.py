@@ -8,6 +8,7 @@ from datetime import date, datetime
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import chardet
 from datagouv import Dataset
@@ -372,14 +373,12 @@ def is_validata_valid(
             res = report["report"]["valid"]
         except KeyError:
             logging.warning(f"---- 🔴 No info in validata report for resource: {rurl}")
-            res = False
-            report = None
+            res, report = False, None
     except JSONDecodeError:
         logging.warning(
             f"---- 🔴 Could not make JSON from validata report for resource: {rurl}"
         )
-        res = False
-        report = None
+        res, report = False, None
     return res, report
 
 
@@ -451,7 +450,7 @@ def is_validata_valid_row(
     validata_reports_path: Path,
 ) -> bool:
     if row["error_type"] is None:  # if no error
-        rurl = row["resource_url"]
+        rurl = quote(row["resource_url"], safe='')
         resource_api_url = f"{local_client.base_url}/api/1/datasets/{row['dataset_id']}/resources/{row['resource_id']}/"
         res, report = is_validata_valid(rurl, schema_url, resource_api_url)
         if report and not report.get("report", {}).get("error", False):
@@ -1124,23 +1123,16 @@ def update_config_version_resource_id(
 # Returns if resource schema (version) metadata should
 # be updated or not based on what we know about the resource
 def is_schema_version_to_update(row: pd.Series) -> bool:
-    initial_version_name = row["initial_version_name"]
-    most_recent_valid_version = row["most_recent_valid_version"]
-    resource_found_by = row["resource_found_by"]
-
-    return (resource_found_by == "1 - schema request") and (
-        initial_version_name != most_recent_valid_version
+    return (row["resource_found_by"] == "1 - schema request") and (
+        row["initial_version_name"] != row["most_recent_valid_version"]
     )
 
 
 # Returns if resource schema (version) metadata should
 # be deleted or not based on what we know about the resource
 def is_schema_to_drop(row: pd.Series) -> bool:
-    resource_found_by = row["resource_found_by"]
-    is_valid_one_version = row["is_valid_one_version"]
-
-    return (resource_found_by == "1 - schema request") and (
-        is_valid_one_version is False
+    return (row["resource_found_by"] == "1 - schema request") and (
+        row["is_valid_one_version"] is False
     )
 
 
@@ -1570,7 +1562,7 @@ def update_resource_send_mail_producer(
         df_ref["resource_schema_update_success"] = np.nan
         df_ref["producer_notification_success"] = np.nan
 
-        for idx, row in df_ref.iterrows():
+        for _, row in df_ref.iterrows():
             validata_report_path = build_report_prefix(
                 validata_reports_path,
                 schema_name,
@@ -1579,18 +1571,18 @@ def update_resource_send_mail_producer(
             )
             # whether or not to update the version in schema metadata
             update_version = False
-            # If there is a valid version, put validata report from it
+            # if there is a valid version, put validata report from it
             if isinstance(row["most_recent_valid_version"], str):
                 validata_report_path += row["most_recent_valid_version"] + ".json"
                 update_version = True
-            # Else, check if declarative version ; not setting the version in metadata
+            # else, check if declarative version ; not setting the version in metadata
             else:
-                # If so, put validation report from it, if it exists
+                # if so, put validation report from it, if it exists
                 if isinstance(row["initial_version_name"], str) and os.path.isfile(
                     validata_report_path + row["initial_version_name"] + ".json"
                 ):
                     validata_report_path += row["initial_version_name"] + ".json"
-                # If not, put validation report from latest version
+                # if not, put validation report from latest version
                 else:
                     validata_report_path += (
                         max(
@@ -1603,10 +1595,19 @@ def update_resource_send_mail_producer(
                         )
                         + ".json"
                     )
-            if row["is_schema_version_to_update"] or row["is_valid_one_version"]:
+            if any(
+                [
+                    pd.notna(row["is_schema_version_to_update"]),
+                    pd.notna(row["is_valid_one_version"]),
+                    pd.notna(row["initial_version_name"]),
+                ],
+            ):
                 resource_update_success = update_resource_metadata(
                     schema_name=schema_name,
-                    version_name=row["most_recent_valid_version"],
+                    version_name=(
+                        (v := row["most_recent_valid_version"]) if pd.notna(v)
+                        else row["initial_version_name"]
+                    ),
                     dataset_id=row["dataset_id"],
                     resource_id=row["resource_id"],
                     validata_report_path=validata_report_path,
