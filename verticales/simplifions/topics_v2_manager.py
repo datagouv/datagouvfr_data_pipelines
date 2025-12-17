@@ -121,6 +121,8 @@ class TopicsV2Manager:
         # Handle "A_destination_de": extract labels from reference table and store in extras
         extras_a_destination_de = []
         a_destination_field = grist_row["fields"].get("A_destination_de", [])
+        if a_destination_field is None:
+            a_destination_field = []
         if not isinstance(a_destination_field, list):
             a_destination_field = [a_destination_field]
         for dest_id in a_destination_field:

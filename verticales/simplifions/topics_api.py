@@ -51,5 +51,6 @@ class TopicsAPI:
 
     def get_all_topics_for_tag(self, tag: str) -> list[dict]:
         return local_client.get_all_from_api_query(
-            f"{self.resource_url}?tag={tag}&include_private=true",
+            f"{self.resource_url}/?tag={tag}&include_private=true",
+            _ignore_base_url=True,
         )
