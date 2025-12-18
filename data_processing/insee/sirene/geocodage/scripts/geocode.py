@@ -195,6 +195,7 @@ header = [
     "denominationUsuelleEtablissement",
     "activitePrincipaleEtablissement",
     "nomenclatureActivitePrincipaleEtablissement",
+    "activitePrincipaleNAF25Etablissement",
     "caractereEmployeurEtablissement",
     "longitude",
     "latitude",
