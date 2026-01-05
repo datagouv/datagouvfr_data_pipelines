@@ -196,6 +196,14 @@ def build_deletions_file_name(file_name: str) -> str:
 
 # %%
 def create_tables_if_not_exists(ti):
+    # this process is unsafe for MIN and HOR when we move to the next decade:
+    # a new file 2020-2029 will be created but its data will be erased because previous-2020-2029
+    # will have lost it. A potential solution: manually empty the newly created files after a first run of this DAG
+    # and then run the DAG again to insert the data from 2020-2029
+    if datetime.today().strftime("%Y-%m-%d") > "2029-12-31":
+        raise Exception(
+            "Moving forwards is unsafe, please check the code for more insights"
+        )
     ti.xcom_push(key="start", value=datetime.now().timestamp())
     file_loader = FileSystemLoader(
         f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/"
