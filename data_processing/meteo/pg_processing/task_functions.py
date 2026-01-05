@@ -174,7 +174,7 @@ DEPIDS = [
 
 def get_hooked_name(file_name: str) -> str:
     # hooked files will change name, we have to consider the unchanged version
-    # see DAG ftp_processing for more insight
+    # see DAG ftp_processing for more insights
     for hook in ["latest", "previous"]:
         hooked = re.findall(f"{hook}-\d+-\d+", file_name)
         if hooked:
@@ -207,10 +207,10 @@ def create_tables_if_not_exists(ti):
         file.write(output)
 
     pgclient.execute_sql_file(
-        file={
-            "source_path": DATADIR,
-            "source_name": "create.sql",
-        },
+        file=File(
+            source_path=DATADIR,
+            source_name="create.sql",
+        ),
     )
 
 
@@ -313,12 +313,12 @@ def process_resources(
             )
 
             if AIRFLOW_ENV == "prod":
+                hooked_file_name = csv_path.split("/")[-1]
                 minio_meteo.send_file(
                     File(
-                        # source can be hooked file name
+                        # source and destination are hooked file names (we don't care about the years, we want something stable)
                         source_path="/".join(csv_path.split("/")[:-1]) + "/",
-                        source_name=csv_path.split("/")[-1],
-                        # but destination has to be the real file name
+                        source_name=hooked_file_name,
                         dest_path=(
                             "synchro_pg/"
                             + "/".join(
@@ -326,9 +326,8 @@ def process_resources(
                             )
                             + "/"
                         ),
-                        dest_name=resource["url"]
-                        .split("/")[-1]
-                        .replace(".csv.gz", ".csv"),
+                        dest_name=hooked_file_name,
+                        content_type="text/csv",
                     ),
                     ignore_airflow_env=True,
                 )
@@ -368,6 +367,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
         file_path = f"{DATADIR}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split("/")[-1])
     file_path = Path(file_path + file_name)
+    # download the freshest version of the file, save it with hooked name
     File(
         url=res["url"],
         dest_path=file_path.parent.as_posix(),
@@ -376,10 +376,13 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
+        # files are stored with hooked names on Minio
         File(
-            url=res["url"]
-            .replace("data/synchro_ftp/", "synchro_pg/")
-            .replace(".csv.gz", ".csv"),
+            url=get_hooked_name(
+                res["url"]
+                .replace("data/synchro_ftp/", "synchro_pg/")
+                .replace(".csv.gz", ".csv")
+            ),
             dest_path=file_path.parent.as_posix(),
             dest_name=old_file,
         ).download(timeout=TIMEOUT)
