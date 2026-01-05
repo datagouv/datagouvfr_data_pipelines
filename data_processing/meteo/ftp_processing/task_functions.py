@@ -392,6 +392,8 @@ def upload_new_files(ti) -> None:
             url not in resources_lists.get(global_path, [])
             and clean_file_path not in new_files
             and clean_file_path not in files_to_update_new_name.values()
+            # to skip remainders of deleted Minio files
+            and not clean_file_path.endswith("/")
         ):
             # this handles the case of files having been deleted from data.gouv
             # but not from Minio
