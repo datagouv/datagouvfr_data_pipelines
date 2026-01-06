@@ -256,13 +256,15 @@ def fetch_resources(dataset: str) -> list[dict]:
     # so the transfered data (year 2024) would be deleted when procesing latest-2025-2026, but
     # if previous-2020-2024 has been processed upstream, data would be duplicated in db
     # and then deleted too, meaning we would lose the whole 2024
-    return [
-        r for r in resources if "latest" in r["url"]
-    ] + [
-        r for r in resources if "previous" in r["url"]
-    ] + [
-        r for r in resources if not any (_ in r["url"] for _ in ["latest", "previous"])
-    ]
+    return (
+        [r for r in resources if "latest" in r["url"]]
+        + [r for r in resources if "previous" in r["url"]]
+        + [
+            r
+            for r in resources
+            if not any(_ in r["url"] for _ in ["latest", "previous"])
+        ]
+    )
 
 
 def process_resources(
