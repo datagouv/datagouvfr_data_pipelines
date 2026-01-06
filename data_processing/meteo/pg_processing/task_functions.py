@@ -196,14 +196,6 @@ def build_deletions_file_name(file_name: str) -> str:
 
 # %%
 def create_tables_if_not_exists(ti):
-    # this process is unsafe for MIN and HOR when we move to the next decade:
-    # a new file 2020-2029 will be created but its data will be erased because previous-2020-2029
-    # will have lost it. A potential solution: manually empty the newly created files after a first run of this DAG
-    # and then run the DAG again to insert the data from 2020-2029
-    if datetime.today().strftime("%Y-%m-%d") > "2029-12-31":
-        raise Exception(
-            "Moving forwards is unsafe, please check the code for more insights"
-        )
     ti.xcom_push(key="start", value=datetime.now().timestamp())
     file_loader = FileSystemLoader(
         f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/"
@@ -257,7 +249,20 @@ def fetch_resources(dataset: str) -> list[dict]:
         },
     )
     r.raise_for_status()
-    return r.json()["resources"]
+    resources = r.json()["resources"]
+    # we process latest resources first, then previous, then the rest, to prevent issues with
+    # data transfers to older files. For instance: latest-2024-2025 turns into latest-2025-2026
+    # and part of its data goes into previous-2020-2024 (formerly named previous-2020-2023),
+    # so the transfered data (year 2024) would be deleted when procesing latest-2025-2026, but
+    # if previous-2020-2024 has been processed upstream, data would be duplicated in db
+    # and then deleted too, meaning we would lose the whole 2024
+    return [
+        r for r in resources if "latest" in r["url"]
+    ] + [
+        r for r in resources if "previous" in r["url"]
+    ] + [
+        r for r in resources if not any (_ in r["url"] for _ in ["latest", "previous"])
+    ]
 
 
 def process_resources(
