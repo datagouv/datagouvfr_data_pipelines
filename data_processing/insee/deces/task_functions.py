@@ -185,10 +185,7 @@ def gather_data(ti):
     ti.xcom_push(
         key="max_date",
         # in January we have only full year files so we manually add that it goes until December of the previous year
-        value=(
-            m if "-" in (m := max(urls.keys()))
-            else m + "-m12"
-        ),
+        value=(m if "-" in (m := max(urls.keys())) else m + "-m12"),
     )
 
 
