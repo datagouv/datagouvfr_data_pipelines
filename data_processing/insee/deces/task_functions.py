@@ -1,9 +1,11 @@
-import pandas as pd
-import re
-import requests
+from datetime import datetime, timedelta
+import logging
 import json
 import os
-from datetime import datetime, timedelta
+import re
+
+import requests
+import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
@@ -86,7 +88,7 @@ def get_fields(row):
 
 
 def gather_data(ti):
-    print("Getting resources list")
+    logging.info("Getting resources list")
     resources = requests.get(
         "https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5/",
         headers={"X-fields": "resources{url,title}"},
@@ -99,10 +101,10 @@ def gather_data(ti):
         if re.match(year_regex, r["title"]):
             urls[clean_period(r["title"])] = r["url"]
             full_years.append(r["title"][6:10])
-    print(full_years)
+    logging.info(full_years)
     for r in resources:
         if re.match(month_regex, r["title"]) and r["title"][6:10] not in full_years:
-            print(r["title"])
+            logging.info(r["title"])
             urls[clean_period(r["title"])] = r["url"]
 
     opposition_url = [r["url"] for r in resources if "opposition" in r["title"]]
@@ -129,7 +131,7 @@ def gather_data(ti):
     errors = []
     for idx, (origin, rurl) in enumerate(urls.items()):
         data = []
-        print(f"Proccessing {origin}")
+        logging.info(f"Proccessing {origin}")
         rows = requests.get(rurl).text.split("\n")
         for r in rows:
             if not r:
@@ -138,7 +140,7 @@ def gather_data(ti):
                 fields = get_fields(r)
                 data.append({**fields, "fichier_origine": origin})
             except Exception:
-                print(r)
+                logging.warning(r)
                 errors.append(r)
         # can't have the whole dataframe in RAM, so saving in batches
         df = pd.merge(
@@ -156,7 +158,7 @@ def gather_data(ti):
             header=idx == 0,
         )
         del df
-    print(f"> {len(errors)} erreur(s)")
+    logging.warning(f"> {len(errors)} erreur(s)")
     # conversion to parquet, opposition is a boolean, dates should be dates but
     # partially missing ones are uncastable (e.g 1950-00-12)
     dtype = {
@@ -180,7 +182,14 @@ def gather_data(ti):
     )
 
     ti.xcom_push(key="min_date", value=min(urls.keys()))
-    ti.xcom_push(key="max_date", value=max(urls.keys()))
+    ti.xcom_push(
+        key="max_date",
+        # in January we have only full year files so we manually add that it goes until December of the previous year
+        value=(
+            m if "-" in (m := max(urls.keys()))
+            else m + "-m12"
+        ),
+    )
 
 
 def send_to_minio():
