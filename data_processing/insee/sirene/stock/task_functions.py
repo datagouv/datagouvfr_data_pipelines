@@ -76,15 +76,19 @@ def get_files(ti, tmp_dir: str, resource_file: str):
         )
         os.remove(tmp_dir + csv_name)
         if date_col in item["dtype"]:
-            most_recent_update: str = pd.read_parquet(
-                parquet_file, columns=[date_col]
-            )[date_col].max().isoformat()
+            most_recent_update: str = (
+                pd.read_parquet(parquet_file, columns=[date_col])[date_col]
+                .max()
+                .isoformat()
+            )
             # checking that the stock has been updated at the last week of the previous month
             oldest_acceptable_date = (
                 datetime.now().replace(day=1) - timedelta(days=1, weeks=1)
             ).strftime("%Y-%m-%d")
             if most_recent_update < oldest_acceptable_date:
-                raise ValueError(f"Stock looks too old, latest update on {most_recent_update}")
+                raise ValueError(
+                    f"Stock looks too old, latest update on {most_recent_update}"
+                )
 
     hashfiles = {}
     for item in data:
