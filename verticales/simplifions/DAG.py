@@ -65,7 +65,7 @@ v2_dags_params = [
     },
     {
         "dag_id": "verticale_simplifions_v2_demo",
-        "schedule_interval": "*/30 * * * *",  # every 30 minutes
+        "schedule_interval": "*/30 8-20 * * *",  # every 30 minutes from 8 AM to 8 PM
         "client": demo_client,
     },
 ]
