@@ -223,10 +223,8 @@ class GristTable:
                 )
         # fill it up
         res = []
-        print(df)
         for idx, chunk in enumerate(self.chunkify(df)):
-            print("chunk", idx)
-            print(chunk)
+            logging.info(f"Sending chunk n° {idx}")
             r = RequestRetry.post(
                 f"{self.base_url}/records",
                 headers=headers,

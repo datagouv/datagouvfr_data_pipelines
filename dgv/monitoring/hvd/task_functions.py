@@ -533,7 +533,8 @@ def update_grist(ti):
     if new_rows:
         logging.info(f"Adding {len(new_rows)} rows")
         table.from_dataframe(
-            df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
+            # url column is a formula so can't insert, but we need it for the ping
+            df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1).drop("url", axis=1),
             append="lazy",
         )
         ti.xcom_push(
