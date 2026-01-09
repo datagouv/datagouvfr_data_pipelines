@@ -1,8 +1,10 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import zipfile
+
+import pandas as pd
 
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
@@ -55,13 +57,14 @@ def get_files(ti, tmp_dir: str, resource_file: str):
         timeout=1200,
     )
 
+    date_col = "dateDernierTraitementEtablissement"
     # parquet conversion (extract zip, convert, delete intermediary step)
     for item in data:
         csv_name = item["nameFTP"].replace(".zip", ".csv")
         logging.info(f"Unzipping {csv_name}")
         with zipfile.ZipFile(tmp_dir + item["nameFTP"], "r") as zip_ref:
             zip_ref.extract(csv_name, tmp_dir)
-        csv_to_parquet(
+        parquet_file = csv_to_parquet(
             tmp_dir + csv_name,
             sep=";" if "Geolocalisation" in csv_name else ",",
             dtype=item["dtype"],
@@ -72,6 +75,20 @@ def get_files(ti, tmp_dir: str, resource_file: str):
             escapechar="\u0001",
         )
         os.remove(tmp_dir + csv_name)
+        if date_col in item["dtype"]:
+            most_recent_update: str = (
+                pd.read_parquet(parquet_file, columns=[date_col])[date_col]
+                .max()
+                .isoformat()
+            )
+            # checking that the stock has been updated at the last week of the previous month
+            oldest_acceptable_date = (
+                datetime.now().replace(day=1) - timedelta(days=1, weeks=1)
+            ).strftime("%Y-%m-%d")
+            if most_recent_update < oldest_acceptable_date:
+                raise ValueError(
+                    f"Stock looks too old, latest update on {most_recent_update}"
+                )
 
     hashfiles = {}
     for item in data:
