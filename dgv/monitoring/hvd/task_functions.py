@@ -530,7 +530,7 @@ def update_grist(ti):
         )
     if new_rows:
         logging.info(f"Adding {len(new_rows)} rows")
-        print(new_rows)
+        print([s.to_dict() for s in new_rows])
         print(pd.DataFrame(new_rows))
         table.from_dataframe(
             df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1),
