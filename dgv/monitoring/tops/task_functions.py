@@ -209,9 +209,7 @@ def send_tops_to_minio(ti, **kwargs):
             key=f"top_{_class}_dict",
             task_ids=f"get_top_{_class}_" + publish_info["period"],
         )
-        minio_open.send_dict_as_file(
-            top, publish_info["minio"] + f"top_{_class}.json"
-        )
+        minio_open.send_dict_as_file(top, publish_info["minio"] + f"top_{_class}.json")
 
 
 def send_stats_to_minio(**kwargs):

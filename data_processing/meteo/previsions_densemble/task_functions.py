@@ -288,10 +288,12 @@ def remove_old_occurrences(pack: str, grid: str):
     logging.info(f"Current dates on Minio: {dates_on_minio}")
     for path, date in dates_on_minio.items():
         if date < threshold:
-            files_to_delete = list(minio_meteo.get_files_from_prefix(
-                prefix=path,
-                ignore_airflow_env=True,
-            ))
+            files_to_delete = list(
+                minio_meteo.get_files_from_prefix(
+                    prefix=path,
+                    ignore_airflow_env=True,
+                )
+            )
             logging.info(f"Will delete {len(files_to_delete)} files from {path}")
             for file in files_to_delete:
                 minio_meteo.delete_file(file)
@@ -317,10 +319,12 @@ def handle_cyclonic_alert(pack: str, grid: str):
     )
     logging.info(f"Latest date {latest_date}")
     nb_files_latest_date = len(
-        list(minio_meteo.get_files_from_prefix(
-            prefix=f"{minio_folder}/{pack}/{grid}/{latest_date}/",
-            ignore_airflow_env=False,
-        ))
+        list(
+            minio_meteo.get_files_from_prefix(
+                prefix=f"{minio_folder}/{pack}/{grid}/{latest_date}/",
+                ignore_airflow_env=False,
+            )
+        )
     )
     logging.info(f"Nb files latest date {nb_files_latest_date}")
     if nb_files_latest_date == 49:

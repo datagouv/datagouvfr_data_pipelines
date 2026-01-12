@@ -35,7 +35,7 @@ class S3Client:
             aws_secret_access_key=pwd if login else None,
             config=Config(**config_kwargs) if config_kwargs else None,
         )
-        if not bucket in [b.name for b in self.resource.buckets.all()]:
+        if bucket not in [b.name for b in self.resource.buckets.all()]:
             raise ValueError(f"Bucket '{bucket}' does not exist.")
         self.client = self.resource.meta.client
         self.bucket = self.resource.Bucket(bucket)
@@ -127,7 +127,7 @@ class S3Client:
             Prefix=prefix,
         )
         for page in pages:
-            for obj in page['Contents']:
+            for obj in page["Contents"]:
                 if as_objects:
                     # use this if you want to access more than the name and file of the object (content_type...)
                     yield self.bucket.Object(obj["Key"])
@@ -173,8 +173,12 @@ class S3Client:
 
         logging.info(f"File 1: {file_1.full_source_path}")
         logging.info(f"File 2: {file_2.full_source_path}")
-        f1: dict = self.client.head_object(Bucket=self.bucket.name, Key=file_1.full_source_path)
-        f2: dict = self.client.head_object(Bucket=self.bucket.name, Key=file_2.full_source_path)
+        f1: dict = self.client.head_object(
+            Bucket=self.bucket.name, Key=file_1.full_source_path
+        )
+        f2: dict = self.client.head_object(
+            Bucket=self.bucket.name, Key=file_2.full_source_path
+        )
         logging.info(f"ETag file 1 : {f1['ETag']}")
         logging.info(f"ETag file 2 : {f2['ETag']}")
         if file_1["ETag"] == file_2["ETag"]:
@@ -200,14 +204,13 @@ class S3Client:
         minio_bucket_target: str | None = None,
         remove_source_file: bool = False,
     ) -> None:
-        """Copy and paste file to another folder, potentially from one bucket to another if specified.
-        """
+        """Copy and paste file to another folder, potentially from one bucket to another if specified."""
         if not minio_bucket_source:
             minio_bucket_source = self.bucket.name
         if not minio_bucket_target:
             minio_bucket_target = self.bucket.name
         for bucket in [minio_bucket_source, minio_bucket_target]:
-            if not bucket in [b for b in self.resource.buckets.all()]:
+            if bucket not in [b for b in self.resource.buckets.all()]:
                 raise ValueError(
                     f"Bucket '{bucket}' does not exist, or the current user does not have access"
                 )
@@ -267,7 +270,9 @@ class S3Client:
     ) -> None:
         """/!\ USE WITH CAUTION"""
         if not self.does_file_exist_in_bucket(file_path):
-            raise ValueError(f"File '{file_path}' does not exist in bucket '{self.bucket.name}'")
+            raise ValueError(
+                f"File '{file_path}' does not exist in bucket '{self.bucket.name}'"
+            )
         self.client.delete_object(Bucket=self.bucket.name, Key=file_path)
         logging.info(f"🔥 '{file_path}' successfully deleted.")
 
@@ -298,7 +303,9 @@ class S3Client:
         """
         return {
             obj.key: obj.content_length
-            for obj in self.get_files_from_prefix(prefix=folder, ignore_airflow_env=True, as_objects=True)
+            for obj in self.get_files_from_prefix(
+                prefix=folder, ignore_airflow_env=True, as_objects=True
+            )
         }
 
     @simple_connection_retry
