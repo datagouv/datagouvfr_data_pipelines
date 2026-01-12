@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.download import download_files
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
@@ -29,8 +29,8 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dfi"
 METADATA_FILE = "metadata.json"
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_process = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_process = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -188,7 +188,7 @@ def check_if_modif():
     ]
     with open(f"{DATADIR}/{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
-    metadata_does_exist = minio_process.does_file_exist_on_minio(
+    metadata_does_exist = minio_process.does_file_exist_in_bucket(
         "dev/dfi/metadata.json"
     )
     if not metadata_does_exist:

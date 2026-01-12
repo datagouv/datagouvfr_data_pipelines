@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
     SPAM_WORDS,
@@ -37,7 +37,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 grist_edito = "4MdJUBsdSgjE"
 grist_curation = "muvJRZ9cTGep"
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 today = datetime.today()
 first_day_of_current_month = today.replace(day=1)

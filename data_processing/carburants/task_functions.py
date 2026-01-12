@@ -18,9 +18,9 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix 
     reformat_prix,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data():

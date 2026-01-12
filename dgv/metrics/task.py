@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import remove_files_from_directory, File
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
-minio_client = MinIOClient(bucket=MINIO_BUCKET_INFRA)
+minio_client = S3Client(bucket=MINIO_BUCKET_INFRA)
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"

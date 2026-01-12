@@ -45,6 +45,9 @@ class File:
     def get(self, item: str, default=None):
         return getattr(self, item) if hasattr(self, item) else default
 
+    def delete(self):
+        os.remove(self.full_source_path)
+
     @staticmethod
     def add_trailing_slash(path: str) -> str:
         return path if path.endswith("/") else path + "/"

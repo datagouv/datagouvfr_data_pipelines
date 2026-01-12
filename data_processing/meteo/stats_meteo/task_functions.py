@@ -12,10 +12,10 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DATADIR = f"{AIRFLOW_DAG_TMP}stats_meteo/data"
-minio_meteo = MinIOClient(bucket="meteofrance")
+minio_meteo = S3Client(bucket="meteofrance")
 
 MATOMO_PARAMS = {
     "module": "API",

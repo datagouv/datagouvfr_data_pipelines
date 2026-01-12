@@ -53,7 +53,7 @@ class TestGenerateSimplifionsSitemap:
         topics_factory.clear_all_resources()
         grist_factory.clear_all_resources()
 
-    @patch("task_functions.MinIOClient")
+    @patch("task_functions.S3Client")
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_basic_structure(
@@ -94,7 +94,7 @@ class TestGenerateSimplifionsSitemap:
         }
         assert push_calls["sitemap_url_count"] == len(STATIC_PAGES)
 
-    @patch("task_functions.MinIOClient")
+    @patch("task_functions.S3Client")
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_with_cas_usages_and_recommendations(
@@ -177,7 +177,7 @@ class TestGenerateSimplifionsSitemap:
         }
         assert push_calls["sitemap_url_count"] == len(STATIC_PAGES) + 1
 
-    @patch("task_functions.MinIOClient")
+    @patch("task_functions.S3Client")
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_with_solutions(
@@ -262,7 +262,7 @@ class TestGenerateSimplifionsSitemap:
         }
         assert push_calls["sitemap_url_count"] == len(STATIC_PAGES) + 2
 
-    @patch("task_functions.MinIOClient")
+    @patch("task_functions.S3Client")
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_date_fallback(

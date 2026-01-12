@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
     GristV2Manager,
@@ -475,7 +475,7 @@ def generate_simplifions_sitemap(ti, client=None):
     logging.info(xml_string)
 
     # upload sitemap to s3 with minio client
-    minio_client = MinIOClient(
+    minio_client = S3Client(
         bucket="prod-simplifions",
     )
 

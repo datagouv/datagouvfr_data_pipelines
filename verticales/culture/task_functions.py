@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.grist import GristTable
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DATADIR = f"{AIRFLOW_DAG_TMP}culture/data/"
 
@@ -24,7 +24,7 @@ topic_id = (
     "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
 )
 metrics_api_url = "https://metric-api.data.gouv.fr/api/{}/data/?{}_id__exact={}"
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 objects = {
     "datasets": {

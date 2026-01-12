@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.grist import (
     GristTable,
     get_unique_values_from_multiple_choice_column,
@@ -24,7 +24,7 @@ DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 DOC_ID = "eJxok2H2va3E" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(DOC_ID, "Hvd_metadata_res")
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 # %% Recap HVD mattermost

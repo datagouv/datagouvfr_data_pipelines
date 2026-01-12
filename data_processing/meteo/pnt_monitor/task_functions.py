@@ -3,10 +3,9 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 import json
-import urllib3
 from minio import datatypes
 
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_DATA_PIPELINE_OPEN,
     MINIO_BUCKET_PNT,
@@ -18,12 +17,12 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_pnt = MinIOClient(
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_pnt = S3Client(
     bucket=MINIO_BUCKET_PNT,
     user=SECRET_MINIO_PNT_USER,
     pwd=SECRET_MINIO_PNT_PASSWORD,
-    http_client=urllib3.PoolManager(timeout=urllib3.Timeout(connect=30, read=1800)),
+    config_kwargs={"connect_timeout": 30, "read_timeout": 1800},
 )
 too_old_filename = "too_old.json"
 
@@ -165,10 +164,9 @@ def update_tree():
     current_runs = sorted(
         [
             pref
-            for pref in minio_pnt.get_files_from_prefix(
+            for pref in minio_pnt.get_folders_from_prefix(
                 prefix="pnt/",
                 ignore_airflow_env=True,
-                recursive=False,
             )
         ]
     )
