@@ -8,8 +8,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_URL,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
 from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
@@ -135,7 +135,7 @@ with DAG(
         python_callable=upload_s3,
         op_kwargs={
             "TMP_FOLDER": TMP_FOLDER.as_posix(),
-            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
             "s3_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
@@ -155,8 +155,8 @@ with DAG(
         task_id="notification_synthese",
         python_callable=notification_synthese,
         op_kwargs={
-            "MINIO_URL": MINIO_URL,
-            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "S3_URL": S3_URL,
+            "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
             "list_schema_skip": ["etalab/schema-irve-statique"],

@@ -15,9 +15,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_URL,
+    S3_BUCKET_DATA_PIPELINE,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 
 from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
@@ -36,8 +36,8 @@ pgclient = PostgresClient(
     conn_name="POSTGRES_DVF",
     schema=schema,
 )
-s3_restricted = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_restricted = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def get_year_interval() -> tuple[int, int]:
@@ -1114,7 +1114,7 @@ def publish_stats_dvf(ti) -> None:
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
             ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
@@ -1134,7 +1134,7 @@ def publish_stats_dvf(ti) -> None:
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
             ),
             "filesize": os.path.getsize(
@@ -1262,5 +1262,5 @@ def notification_mattermost(ti) -> None:
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id})"
-        f"\n- données upload [sur Minio]({MINIO_URL}/buckets/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/browse)"
+        f"\n- données upload [sur S3]({S3_URL}/buckets/{S3_BUCKET_DATA_PIPELINE_OPEN}/browse)"
     )

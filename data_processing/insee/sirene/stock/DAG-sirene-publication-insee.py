@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.config import (
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene_publication/"
-MINIO_BASE_PATH = "siren/stock/"
+S3_BASE_PATH = "siren/stock/"
 
 with DAG(
     dag_id="data_processing_sirene_publication",
@@ -35,7 +35,7 @@ with DAG(
     check_if_already_processed = ShortCircuitOperator(
         task_id="check_if_already_processed",
         op_kwargs={
-            "s3_path": MINIO_BASE_PATH,
+            "s3_path": S3_BASE_PATH,
         },
         python_callable=check_if_already_processed,
     )
@@ -54,7 +54,7 @@ with DAG(
         op_kwargs={
             "tmp_dir": TMP_FOLDER,
             "resource_file": "resources_to_download.json",
-            "s3_path": MINIO_BASE_PATH,
+            "s3_path": S3_BASE_PATH,
         },
         python_callable=publish_file_s3,
     )

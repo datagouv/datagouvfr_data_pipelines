@@ -9,8 +9,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    MINIO_URL,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+    S3_URL,
 )
 from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     consolidate_irve,
@@ -146,7 +146,7 @@ with DAG(
         python_callable=upload_s3_irve,
         op_kwargs={
             "tmp_folder": TMP_FOLDER,
-            "s3_bucket_data_pipeline_open": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "s3_bucket_data_pipeline_open": S3_BUCKET_DATA_PIPELINE_OPEN,
             "s3_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
@@ -166,8 +166,8 @@ with DAG(
         task_id="notification_synthese_irve",
         python_callable=notification_synthese_irve,
         op_kwargs={
-            "s3_url": MINIO_URL,
-            "s3_bucket_data_pipeline_open": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "s3_url": S3_URL,
+            "s3_bucket_data_pipeline_open": S3_BUCKET_DATA_PIPELINE_OPEN,
             "tmp_folder": TMP_FOLDER,
             "mattermost_datagouv_schema_activite": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
             "date_dict": {"TODAY": f"{datetime.today().strftime('%Y-%m-%d')}"},

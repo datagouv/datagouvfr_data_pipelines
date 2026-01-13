@@ -150,7 +150,7 @@ def send_notification(ti):
     send_message(
         text=(
             "##### :bar_chart: :partly_sunny_rain: Statistiques mensuelles "
-            "de meteo.data.gouv disponibles sur Minio :"
+            "de meteo.data.gouv disponibles sur S3 :"
             f"\n- Statistiques détaillées (en [csv]({url + filename}.csv) "
             f"et en [json]({url + filename}.json))"
             f"\n- [Visites mensuelles]({url}visites_meteo.csv)"

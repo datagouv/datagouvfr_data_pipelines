@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 int_cols = {
     "general": ["Inscrits", "Abstentions", "Votants", "Blancs", "Nuls", "Exprimés"],
     "candidats": ["N°Panneau", "Voix"],
@@ -270,7 +270,7 @@ def publish_results_elections():
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/elections/general_results.csv"
             ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
@@ -291,7 +291,7 @@ def publish_results_elections():
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/elections/candidats_results.csv"
             ),
             "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
@@ -312,7 +312,7 @@ def publish_results_elections():
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/elections/general_results.parquet"
             ),
             "filesize": os.path.getsize(
@@ -335,7 +335,7 @@ def publish_results_elections():
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/elections/candidats_results.parquet"
             ),
             "filesize": os.path.getsize(
@@ -360,7 +360,7 @@ def send_notification():
     send_message(
         text=(
             ":mega: Données élections mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
+            f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données référencées [sur data.gouv.fr]({local_client.base_url}/datasets/"
             f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
         )

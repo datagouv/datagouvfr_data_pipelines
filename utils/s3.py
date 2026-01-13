@@ -10,9 +10,9 @@ import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
-    MINIO_URL,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    S3_URL,
+    SECRET_S3_DATA_PIPELINE_USER,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -22,12 +22,12 @@ class S3Client:
     def __init__(
         self,
         bucket: str,
-        user: str = SECRET_MINIO_DATA_PIPELINE_USER,
-        pwd: str = SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        user: str = SECRET_S3_DATA_PIPELINE_USER,
+        pwd: str = SECRET_S3_DATA_PIPELINE_PASSWORD,
         login: bool = True,
         config_kwargs: dict | None = None,
     ):
-        self.url = MINIO_URL
+        self.url = S3_URL
         self.resource = boto3.resource(
             "s3",
             endpoint_url="https://" + self.url,
@@ -236,14 +236,14 @@ class S3Client:
         remove_source_file: bool = False,
     ) -> list[str]:
         """
-        Copy multiple objects from a source folder to a target folder in MinIO.
+        Copy multiple objects from a source folder to a target folder in S3.
         Ensure credentials allow to access both buckets.
 
         Args:
             obj_source_paths (list[str]): List of the objects full paths to be copied.
             target_path (str): The target directory where the objects will be copied.
-            s3_bucket_source (str | None): The source MinIO bucket name. Defaults to the bucket specified at init.
-            s3_bucket_target (str | None): The target MinIO bucket name. Defaults to the bucket specified at init.
+            s3_bucket_source (str | None): The source S3 bucket name. Defaults to the bucket specified at init.
+            s3_bucket_target (str | None): The target S3 bucket name. Defaults to the bucket specified at init.
             remove_source_file (bool): If True, removes the source files after copying. Defaults to False.
 
         Returns:
@@ -291,7 +291,7 @@ class S3Client:
         self,
         file_path: str,
     ) -> str:
-        return f"https://{MINIO_URL}/{self.bucket.name}/{file_path}"
+        return f"https://{S3_URL}/{self.bucket.name}/{file_path}"
 
     @simple_connection_retry
     def get_all_files_names_and_sizes_from_parent_folder(

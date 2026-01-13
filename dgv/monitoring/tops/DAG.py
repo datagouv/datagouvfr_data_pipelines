@@ -17,7 +17,7 @@ from datagouvfr_data_pipelines.utils.utils import (
 )
 
 DAG_NAME = "dgv_tops"
-MINIO_PATH = "tops/"
+S3_PATH = "tops/"
 # we base ourselves on completed days
 yesterday = (datetime.today() + relativedelta(days=-1)).strftime("%Y-%m-%d")
 
@@ -93,7 +93,7 @@ with DAG(
                 python_callable=send_tops_to_s3,
                 templates_dict={
                     "period": freq,
-                    "s3": f"{MINIO_PATH}piwik_tops_{prefix}ly/{yesterday}/",
+                    "s3": f"{S3_PATH}piwik_tops_{prefix}ly/{yesterday}/",
                 },
             ),
             PythonOperator(
@@ -101,7 +101,7 @@ with DAG(
                 python_callable=send_stats_to_s3,
                 templates_dict={
                     "period": freq,
-                    "s3": f"{MINIO_PATH}piwik_stats_{prefix}ly/{yesterday}/",
+                    "s3": f"{S3_PATH}piwik_stats_{prefix}ly/{yesterday}/",
                     "date": yesterday,
                 },
             ),

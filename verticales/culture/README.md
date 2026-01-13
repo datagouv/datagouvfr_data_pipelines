@@ -8,5 +8,5 @@
 | Description | Ce traitement permet d'alimenter la verticale culture.data.gouv.fr  |
 | Fréquence de mise à jour | Hebdomadaire |
 | Données sources | Grist et catalogue data.gouv |
-| Données de sorties | Minio |
+| Données de sorties | S3 |
 | Channel Mattermost d'information | ~startup-datagouv-dataeng |

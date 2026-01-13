@@ -7,21 +7,21 @@ from s3 import datatypes
 
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.config import (
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    MINIO_BUCKET_PNT,
-    SECRET_MINIO_PNT_USER,
-    SECRET_MINIO_PNT_PASSWORD,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_PNT,
+    SECRET_S3_PNT_USER,
+    SECRET_S3_PNT_PASSWORD,
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 s3_pnt = S3Client(
-    bucket=MINIO_BUCKET_PNT,
-    user=SECRET_MINIO_PNT_USER,
-    pwd=SECRET_MINIO_PNT_PASSWORD,
+    bucket=S3_BUCKET_PNT,
+    user=SECRET_S3_PNT_USER,
+    pwd=SECRET_S3_PNT_PASSWORD,
     config_kwargs={"connect_timeout": 30, "read_timeout": 1800},
 )
 too_old_filename = "too_old.json"

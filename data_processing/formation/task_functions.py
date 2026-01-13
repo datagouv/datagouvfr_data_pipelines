@@ -3,7 +3,7 @@ import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data(ti):
@@ -116,7 +116,7 @@ def compare_files_s3(ti):
         return False
 
     if is_same is None:
-        print("First time in this Minio env. Creating")
+        print("First time in this S3 env. Creating")
 
     s3_open.send_file(
         File(
@@ -139,6 +139,6 @@ def send_notification(ti):
             ":mega: Données organismes formations mises à jour.\n"
             f"- {nb_of} organismes de formation référencés\n"
             f"- {nb_siret} établissements (siret) représentés\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}"
         )
     )

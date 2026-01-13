@@ -2,7 +2,7 @@ import codecs
 import os
 import nbformat
 import papermill as pm
-from s3 import Minio
+from s3 import S3
 from nbconvert import HTMLExporter
 
 
@@ -40,7 +40,7 @@ def execute_and_upload_notebook(
     output, resources = exporter.from_notebook_node(output_notebook)
     codecs.open(output_report, "w", encoding="utf-8").write(output)
 
-    client = Minio(
+    client = S3(
         s3_url,
         access_key=s3_user,
         secret_key=s3_password,

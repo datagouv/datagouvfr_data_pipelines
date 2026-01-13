@@ -10,10 +10,10 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    MINIO_URL,
-    MINIO_BUCKET_PNT,
-    SECRET_MINIO_PNT_USER,
-    SECRET_MINIO_PNT_PASSWORD,
+    S3_URL,
+    S3_BUCKET_PNT,
+    SECRET_S3_PNT_USER,
+    SECRET_S3_PNT_PASSWORD,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
@@ -38,9 +38,9 @@ LOG_PATH = f"{DATADIR}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 s3_pnt = S3Client(
-    bucket=MINIO_BUCKET_PNT,
-    user=SECRET_MINIO_PNT_USER,
-    pwd=SECRET_MINIO_PNT_PASSWORD,
+    bucket=S3_BUCKET_PNT,
+    user=SECRET_S3_PNT_USER,
+    pwd=SECRET_S3_PNT_PASSWORD,
 )
 s3_folder = "pnt" if AIRFLOW_ENV == "prod" else "dev"
 meteo_client = MeteoClient()
@@ -353,7 +353,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # getting the current state of the resources
     current_resources: dict = get_current_resources(model, pack, grid)
 
-    # getting the latest available occurrence of each file on Minio
+    # getting the latest available occurrence of each file on S3
     latest_files = {}
     batches_on_s3 = [
         path.split("/")[-2]
@@ -362,7 +362,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             ignore_airflow_env=True,
         )
     ]
-    logging.info(f"Current batches on Minio: {batches_on_s3}")
+    logging.info(f"Current batches on S3: {batches_on_s3}")
 
     # starting with latest timeslots
     path = build_folder_path(model, pack, grid)
@@ -377,7 +377,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{MINIO_URL}/{MINIO_BUCKET_PNT}/{obj}",
+                    "url": f"https://{S3_URL}/{S3_BUCKET_PNT}/{obj}",
                     "title": obj.split("/")[-1],
                     "size": size,
                 }

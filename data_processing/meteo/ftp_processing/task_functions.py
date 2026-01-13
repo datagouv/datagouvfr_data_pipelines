@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
+    S3_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -111,7 +111,7 @@ def build_resource(
     # for files on s3, removing the s3 folder upstream is required
     _, global_path = get_path(file_path)
     file_with_ext = file_path.split("/")[-1]
-    url = f"https://{MINIO_URL}/{bucket}/{s3_folder + file_path}"
+    url = f"https://{S3_URL}/{bucket}/{s3_folder + file_path}"
     # differenciation ressource principale VS documentation
     is_doc = False
     description = ""
@@ -214,7 +214,7 @@ def get_current_files_on_s3(ti) -> None:
                 )
     logging.info(period_starts)
 
-    # de même ici, on utilise les balises pour cibler les fichiers du Minio
+    # de même ici, on utilise les balises pour cibler les fichiers du S3
     # qui devront être remplacés
     final_s3_files = {}
     for file_path in s3_files:
@@ -232,7 +232,7 @@ def get_current_files_on_s3(ti) -> None:
 
 
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
-    file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
+    file_url = f"https://{S3_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
@@ -255,7 +255,7 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
     ftp_files = ti.xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
     # much debated part of the code: how to best get which files to consider here
     # first it was only done with the files' names but what if a file is updated but not renamed?
-    # then we thought about checking the size and comparing with Minio
+    # then we thought about checking the size and comparing with S3
     # but size can vary for an identical file depending on where/how it is stored
     # we also thought about a checksum, but hard to compute on the FTP and downloading
     # all files to compute checksums and compare is inefficient
@@ -309,7 +309,7 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
         else:
             logging.info("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
-        # we are recreating the file structure from FTP to Minio
+        # we are recreating the file structure from FTP to S3
         true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + true_path)
@@ -317,7 +317,7 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
         with open(DATADIR + "/" + file_name, "wb") as local_file:
             ftp.retrbinary("RETR " + file_name, local_file.write)
 
-        # sending file to Minio
+        # sending file to S3
         try:
             s3_meteo.send_file(
                 File(
@@ -341,7 +341,7 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
         f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}"
     )
 
-    # re-getting Minio files in case new files have been transfered for downstream tasks
+    # re-getting S3 files in case new files have been transfered for downstream tasks
     s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder,
     )
@@ -383,7 +383,7 @@ def upload_new_files(ti) -> None:
         clean_file_path = file_path.replace(s3_folder, "")
         _, global_path = get_path(clean_file_path)
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://{MINIO_URL}/{bucket}/{file_path}"
+        url = f"https://{S3_URL}/{bucket}/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list,
         # and if it's not an old file that has been renamed (values of new_name)
@@ -392,11 +392,11 @@ def upload_new_files(ti) -> None:
             url not in resources_lists.get(global_path, [])
             and clean_file_path not in new_files
             and clean_file_path not in files_to_update_new_name.values()
-            # to skip remainders of deleted Minio files
+            # to skip remainders of deleted S3 files
             and not clean_file_path.endswith("/")
         ):
             # this handles the case of files having been deleted from data.gouv
-            # but not from Minio
+            # but not from S3
             logging.info(f"This file is not on data.gouv, uploading: {clean_file_path}")
             new_files.append(clean_file_path)
 
@@ -460,7 +460,7 @@ def handle_updated_files_same_name(ti) -> None:
             logging.warning(f"⚠️ no config for this file: {file_path}")
             continue
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://{MINIO_URL}/{bucket}/{s3_folder + file_path}"
+        url = f"https://{S3_URL}/{bucket}/{s3_folder + file_path}"
         logging.info(f"Resource already exists and name unchanged: {file_with_ext}")
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
@@ -507,7 +507,7 @@ def handle_updated_files_new_name(ti) -> None:
         logging.info(f"Updating URL and metadata for: {file_with_ext}")
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
-        old_url = f"https://{MINIO_URL}/{bucket}/{s3_folder + old_file_path}"
+        old_url = f"https://{S3_URL}/{bucket}/{s3_folder + old_file_path}"
         if not resources_lists[global_path].get(old_url):
             logging.info(
                 "⚠️ this file is not on data.gouv yet, it will be added as a new file"

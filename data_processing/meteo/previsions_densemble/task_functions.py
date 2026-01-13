@@ -13,9 +13,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    MINIO_URL,
-    SECRET_MINIO_METEO_PE_USER,
-    SECRET_MINIO_METEO_PE_PASSWORD,
+    S3_URL,
+    SECRET_S3_METEO_PE_USER,
+    SECRET_S3_METEO_PE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -29,8 +29,8 @@ TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
 s3_meteo = S3Client(
     bucket=bucket_pe,
-    user=SECRET_MINIO_METEO_PE_USER,
-    pwd=SECRET_MINIO_METEO_PE_PASSWORD,
+    user=SECRET_S3_METEO_PE_USER,
+    pwd=SECRET_S3_METEO_PE_PASSWORD,
 )
 s3_folder = "data"
 upload_dir = "/uploads/"
@@ -216,7 +216,7 @@ def fix_title(file_name: str):
 
 
 def publish_on_datagouv(pack: str, grid: str):
-    # getting the latest available occurrence of each file on Minio
+    # getting the latest available occurrence of each file on S3
     latest_files = {}
     for obj, size in s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=f"{AIRFLOW_ENV}/{s3_folder}/{pack}/{grid}/",
@@ -226,7 +226,7 @@ def publish_on_datagouv(pack: str, grid: str):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
+                    "url": f"https://{S3_URL}/{bucket_pe}/{obj}",
                     "title": fix_title(obj.split("/")[-1]),
                     "size": size,
                 }
@@ -285,7 +285,7 @@ def remove_old_occurrences(pack: str, grid: str):
             ignore_airflow_env=False,
         )
     }
-    logging.info(f"Current dates on Minio: {dates_on_s3}")
+    logging.info(f"Current dates on S3: {dates_on_s3}")
     for path, date in dates_on_s3.items():
         if date < threshold:
             files_to_delete = list(

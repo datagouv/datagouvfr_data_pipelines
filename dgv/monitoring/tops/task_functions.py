@@ -7,14 +7,14 @@ import pandas as pd
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_REPORTING,
     MATOMO_TOKEN,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 BASE_URL = "https://stats.data.gouv.fr/index.php"
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 PARAMS_TOPS = {
     "module": "API",

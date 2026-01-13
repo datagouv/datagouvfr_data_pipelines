@@ -6,7 +6,7 @@ from airflow.operators.bash import BashOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_and_files import (
     generate_kpis,
@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix 
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data():

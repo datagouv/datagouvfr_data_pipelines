@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     demo_client,
 )
 
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
@@ -76,7 +76,7 @@ def get_dpt_list():
 def get_files_updated_miom(ti):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     url_max_date = (
-        f"https://object.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/"
+        f"https://object.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/"
         + f"{AIRFLOW_ENV}/elections-mirroring/{ID_CURRENT_ELECTION}/max_date.json"
     )
     r = requests.get(url_max_date)

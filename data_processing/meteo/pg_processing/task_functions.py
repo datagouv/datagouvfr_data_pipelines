@@ -391,7 +391,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
-        # files are stored with hooked names on Minio
+        # files are stored with hooked names on S3
         File(
             url=get_hooked_name(
                 res["url"]

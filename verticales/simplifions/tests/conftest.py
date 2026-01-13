@@ -34,12 +34,12 @@ config_mock.DEMO_DATAGOUV_SECRET_API_KEY = "test-demo-key"
 # Grist config
 config_mock.GRIST_API_URL = "https://grist.example.com/api/"
 config_mock.SECRET_GRIST_API_KEY = "test-api-key"
-# MinIO config
-config_mock.MINIO_URL = "s3.example.com"
-config_mock.SECRET_MINIO_DATA_PIPELINE_USER = "test-s3-user"
-config_mock.SECRET_MINIO_DATA_PIPELINE_PASSWORD = "test-s3-password"
-config_mock.SIMPLIFIONS_MINIO_USER = "test-simplifions-s3-user"
-config_mock.SIMPLIFIONS_MINIO_PASSWORD = "test-simplifions-s3-password"
+# S3 config
+config_mock.S3_URL = "s3.example.com"
+config_mock.SECRET_S3_DATA_PIPELINE_USER = "test-s3-user"
+config_mock.SECRET_S3_DATA_PIPELINE_PASSWORD = "test-s3-password"
+config_mock.SIMPLIFIONS_S3_USER = "test-simplifions-s3-user"
+config_mock.SIMPLIFIONS_S3_PASSWORD = "test-simplifions-s3-password"
 
 _config_patcher = patch.dict(
     "sys.modules",

@@ -1965,10 +1965,10 @@ def final_directory_clean_up(
 
 def upload_s3(
     TMP_FOLDER: str,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN: str,
+    S3_BUCKET_DATA_PIPELINE_OPEN: str,
     s3_output_filepath: str,
 ) -> None:
-    s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_open.send_files(
         list_files=[
             File(
@@ -1987,8 +1987,8 @@ def upload_s3(
 
 
 def notification_synthese(
-    MINIO_URL: str,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN: str,
+    S3_URL: str,
+    S3_BUCKET_DATA_PIPELINE_OPEN: str,
     TMP_FOLDER: Path,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE: str,
     schema_name: str = "",
@@ -2004,7 +2004,7 @@ def notification_synthese(
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
-    s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
     message = (
         ":mega: *Rapport sur la consolidation des données répondant à un schéma.*\n"
@@ -2018,7 +2018,7 @@ def notification_synthese(
         if s["schema_type"] == "tableschema":
             try:
                 filename = (
-                    f"https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
+                    f"https://{S3_URL}/{S3_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/', '_')}.csv"
                 )
                 df = pd.read_csv(filename)
@@ -2072,7 +2072,7 @@ def notification_synthese(
 
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
-                    f"(https://{MINIO_URL}/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/schema/"
+                    f"(https://{S3_URL}/{S3_BUCKET_DATA_PIPELINE_OPEN}/schema/"
                     f"schemas_consolidation/liste_erreurs/{erreurs_file_name})\n"
                 )
             except Exception as e:

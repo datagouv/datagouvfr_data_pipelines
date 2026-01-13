@@ -10,7 +10,7 @@ from tqdm import tqdm
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_BUCKET_INFRA,
+    S3_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     aggregate_metrics,
@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
-s3_client = S3Client(bucket=MINIO_BUCKET_INFRA)
+s3_client = S3Client(bucket=S3_BUCKET_INFRA)
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"

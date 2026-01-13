@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions
 )
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene_geolocalisation_insee/"
-MINIO_BASE_PATH = "siren/geoloc/"
+S3_BASE_PATH = "siren/geoloc/"
 
 with DAG(
     dag_id="data_processing_sirene_geolocalisation",
@@ -34,7 +34,7 @@ with DAG(
     check_if_already_processed = ShortCircuitOperator(
         task_id="check_if_already_processed",
         op_kwargs={
-            "s3_path": MINIO_BASE_PATH,
+            "s3_path": S3_BASE_PATH,
         },
         python_callable=check_if_already_processed,
     )
@@ -53,7 +53,7 @@ with DAG(
         op_kwargs={
             "tmp_dir": TMP_FOLDER,
             "resource_file": "resources_geolocalisation_to_download.json",
-            "s3_path": MINIO_BASE_PATH,
+            "s3_path": S3_BASE_PATH,
         },
         python_callable=publish_file_s3,
     )

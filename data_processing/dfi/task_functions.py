@@ -15,8 +15,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    MINIO_BUCKET_DATA_PIPELINE,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.download import download_files
@@ -29,8 +29,8 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dfi"
 METADATA_FILE = "metadata.json"
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-s3_process = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
+s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -255,7 +255,7 @@ def gather_data(ti):
 
 
 def send_to_s3():
-    logging.info("Start to send files to Minio")
+    logging.info("Start to send files to S3")
     exts = ["csv", "parquet"]
     fileslist = [
         File(
@@ -270,7 +270,7 @@ def send_to_s3():
         list_files=fileslist,
         ignore_airflow_env=True,
     )
-    logging.info("End sending files to Minio Open")
+    logging.info("End sending files to S3 Open")
 
 
 def publish_on_datagouv(ti):
@@ -292,7 +292,7 @@ def publish_on_datagouv(ti):
         ).update(
             payload={
                 "url": (
-                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/dfi/dfi.{_ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/dfi.{_ext}"),
@@ -333,7 +333,7 @@ def notification_mattermost():
     dataset_id = config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         f"Données DFI agrégées :"
-        f"\n- uploadées sur Minio"
+        f"\n- uploadées sur S3"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"
     )

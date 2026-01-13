@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -24,7 +24,7 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}deces"
-s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -215,7 +215,7 @@ def publish_on_datagouv(ti):
         ).update(
             payload={
                 "url": (
-                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/deces/deces.{_ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/deces.{_ext}"),
@@ -247,7 +247,7 @@ def notification_mattermost():
     dataset_id = config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         f"Données décès agrégées :"
-        f"\n- uploadées sur Minio"
+        f"\n- uploadées sur S3"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"
     )

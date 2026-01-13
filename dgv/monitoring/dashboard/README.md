@@ -8,5 +8,5 @@
 | Description | Ce traitement permet de générer certaines données visulalisées dans le tableau de bord de l'équipe. |
 | Fréquence de mise à jour | Mensuelle |
 | Données sources | Tout le catalogue de data.gouv.fr |
-| Données de sorties | Minio |
+| Données de sorties | S3 |
 | Channel Mattermost d'information | ~startup-datagouv-dataeng |
