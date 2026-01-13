@@ -10,7 +10,8 @@ import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
-    S3_URL,
+    MINIO_URL,
+    # S3_URL,
     SECRET_S3_DATA_PIPELINE_USER,
     SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
@@ -26,8 +27,9 @@ class S3Client:
         pwd: str = SECRET_S3_DATA_PIPELINE_PASSWORD,
         login: bool = True,
         config_kwargs: dict | None = None,
+        s3_url: str = MINIO_URL,  # to be removed when migration is complete
     ):
-        self.url = S3_URL
+        self.url = s3_url
         self.resource = boto3.resource(
             "s3",
             endpoint_url="https://" + self.url,
@@ -291,7 +293,7 @@ class S3Client:
         self,
         file_path: str,
     ) -> str:
-        return f"https://{S3_URL}/{self.bucket.name}/{file_path}"
+        return f"https://{self.url}/{self.bucket.name}/{file_path}"
 
     @simple_connection_retry
     def get_all_files_names_and_sizes_from_parent_folder(

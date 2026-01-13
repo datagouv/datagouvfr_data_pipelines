@@ -29,6 +29,9 @@ MATTERMOST_SIMPLIFIONS_WEBHOOK_URL = Variable.get(
     "MATTERMOST_SIMPLIFIONS_WEBHOOK_URL", ""
 )
 
+# Minio (to be removed when migration is complete)
+MINIO_URL = Variable.get("MINIO_URL", "object.files.data.gouv.fr")
+
 # S3
 S3_URL = Variable.get("S3_URL", "object.files.data.gouv.fr")
 S3_BUCKET_DATA_PIPELINE = Variable.get("S3_BUCKET_DATA_PIPELINE", "")
