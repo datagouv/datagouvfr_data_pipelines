@@ -390,9 +390,7 @@ def get_and_upload_reuses_down() -> None:
     # getting historical data
     output_file_name = "stats_reuses_down.csv"
     hist = pd.read_csv(
-        StringIO(
-            s3_open.get_file_content(s3_destination_folder + output_file_name)
-        )
+        StringIO(s3_open.get_file_content(s3_destination_folder + output_file_name))
     )
     start_len = len(hist)
     hist = pd.concat([hist, stats]).drop_duplicates("Date")

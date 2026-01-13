@@ -283,9 +283,7 @@ def gather_kpis(ti):
         encoding="utf8",
     )
     history = pd.read_csv(
-        StringIO(
-            s3_open.get_file_content("impact/statistiques_impact_datagouvfr.csv")
-        )
+        StringIO(s3_open.get_file_content("impact/statistiques_impact_datagouvfr.csv"))
     )
     final = pd.concat([df, history])
     final.to_csv(

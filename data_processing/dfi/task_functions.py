@@ -188,9 +188,7 @@ def check_if_modif():
     ]
     with open(f"{DATADIR}/{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
-    metadata_does_exist = s3_process.does_file_exist_in_bucket(
-        "dev/dfi/metadata.json"
-    )
+    metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
     if not metadata_does_exist:
         send_metadata_to_s3()
         return True
@@ -209,9 +207,7 @@ def check_if_modif():
 
 def gather_data(ti):
     logging.info("Getting resources list")
-    metadata_content = json.loads(
-        s3_process.get_file_content("dev/dfi/metadata.json")
-    )
+    metadata_content = json.loads(s3_process.get_file_content("dev/dfi/metadata.json"))
     urls_resources = [i.get("url") for i in metadata_content]
     information_date_about_dataset = re.findall(
         r"\((.*?)\)", metadata_content[0].get("title")

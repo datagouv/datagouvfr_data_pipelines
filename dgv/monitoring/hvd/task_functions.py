@@ -151,9 +151,7 @@ def markdown_item(row):
 
 def publish_mattermost(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    s3_files = sorted(
-        s3_open.get_files_from_prefix("hvd/", ignore_airflow_env=True)
-    )
+    s3_files = sorted(s3_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))
     logging.info(s3_files)
     if len(s3_files) == 1:
         return

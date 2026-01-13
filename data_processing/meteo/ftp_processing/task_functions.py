@@ -363,9 +363,7 @@ def upload_new_files(ti) -> None:
     updated_datasets = ti.xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = ti.xcom_pull(
-        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
-    )
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -448,9 +446,7 @@ def handle_updated_files_same_name(ti) -> None:
     files_to_update_same_name = ti.xcom_pull(
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = ti.xcom_pull(
-        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
-    )
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
     resources_lists = get_resource_lists()
 
     new_files = []
@@ -492,9 +488,7 @@ def handle_updated_files_new_name(ti) -> None:
     files_to_update_new_name = ti.xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = ti.xcom_pull(
-        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
-    )
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
     resources_lists = get_resource_lists()
 
     new_files = []
