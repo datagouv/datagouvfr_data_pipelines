@@ -17,8 +17,6 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     S3_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_S3_DATA_PIPELINE_USER,
-    SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import (
@@ -150,8 +148,6 @@ with DAG(
                         "tmp_path": TMP_FOLDER + f"/digest_{freq}/{today}/",
                         "s3_url": S3_URL,
                         "s3_bucket": S3_BUCKET_DATA_PIPELINE_OPEN,
-                        "s3_user": SECRET_S3_DATA_PIPELINE_USER,
-                        "s3_password": SECRET_S3_DATA_PIPELINE_PASSWORD,
                         "s3_output_filepath": S3_PATH + f"digest_{freq}/{today}/",
                         "parameters": {
                             "WORKING_DIR": AIRFLOW_DAG_HOME,

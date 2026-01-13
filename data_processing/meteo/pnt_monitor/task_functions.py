@@ -1,9 +1,9 @@
+from typing import Iterable
 import requests
 from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 import json
-from s3 import datatypes
 
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.config import (
@@ -191,7 +191,6 @@ def update_tree():
             s3_pnt.get_files_from_prefix(
                 prefix=f"pnt/{run}/",
                 ignore_airflow_env=True,
-                recursive=True,
             )
         )
         tree["pnt"][run] = run_tree["pnt"][run]
@@ -200,11 +199,9 @@ def update_tree():
     return tree
 
 
-def build_tree(paths: list):
+def build_tree(paths: Iterable[str]):
     tree = {}
     for _, path in enumerate(paths):
-        if isinstance(path, datatypes.Object):
-            path = path.object_name
         parts = path.split("/")
         *dirs, file = parts
         current_level = tree
@@ -253,7 +250,6 @@ def consolidate_logs():
     for o in s3_pnt.get_files_from_prefix(
         prefix="logs/",
         ignore_airflow_env=True,
-        recursive=False,
     ):
         if o.endswith(".log"):
             logs.append(o)

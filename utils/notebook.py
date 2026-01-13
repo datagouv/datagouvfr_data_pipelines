@@ -1,9 +1,12 @@
 import codecs
 import os
+
 import nbformat
 import papermill as pm
-from s3 import S3
 from nbconvert import HTMLExporter
+
+from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 
 def execute_and_upload_notebook(
@@ -11,9 +14,6 @@ def execute_and_upload_notebook(
     input_nb,
     output_nb,
     tmp_path,
-    s3_url,
-    s3_user,
-    s3_password,
     s3_bucket,
     s3_output_filepath,
     parameters,
@@ -40,39 +40,39 @@ def execute_and_upload_notebook(
     output, resources = exporter.from_notebook_node(output_notebook)
     codecs.open(output_report, "w", encoding="utf-8").write(output)
 
-    client = S3(
-        s3_url,
-        access_key=s3_user,
-        secret_key=s3_password,
-        secure=True,
-    )
+    s3_client = S3Client(bucket=s3_bucket)
 
-    # check if bucket exists.
-    found = client.bucket_exists(s3_bucket)
-    if found:
-        client.fput_object(
-            s3_bucket,
-            s3_output_filepath + output_report.split("/")[-1],
-            output_report,
+    s3_client.send_file(
+        File(
+            source_path=tmp_path,
+            source_name=output_nb.replace("ipynb", "html"),
+            dest_path=s3_output_filepath,
+            dest_name=output_report.split("/")[-1],
             content_type="text/html; charset=utf-8",
-            metadata={"Content-Disposition": "inline"},
-        )
-
-        for path, subdirs, files in os.walk(tmp_path + "output/"):
-            for name in files:
-                print(os.path.join(path, name))
-                isFile = os.path.isfile(os.path.join(path, name))
-                if isFile:
-                    client.fput_object(
-                        s3_bucket,
-                        s3_output_filepath
-                        + os.path.join(path, name).replace(tmp_path, ""),
-                        os.path.join(path, name),
-                    )
-
-    report_url = "https://{}/{}/{}".format(
-        s3_url,
-        s3_bucket,
-        s3_output_filepath + output_report.split("/")[-1],
+        ),
+        ignore_airflow_env=True,
     )
-    ti.xcom_push(key="report_url", value=report_url)
+
+    for path, subdirs, files in os.walk(tmp_path + "output/"):
+        for name in files:
+            print(os.path.join(path, name))
+            isFile = os.path.isfile(os.path.join(path, name))
+            if isFile:
+                s3_file_path = s3_output_filepath + os.path.join(path, name).replace(
+                    tmp_path, ""
+                )
+                s3_client.send_file(
+                    File(
+                        source_path=path,
+                        source_name=name,
+                        dest_path="/".join(s3_file_path.split("/")[:-1]),
+                        dest_name=s3_file_path.split("/")[-1],
+                        content_type="text/html; charset=utf-8",
+                    ),
+                    ignore_airflow_env=True,
+                )
+
+    ti.xcom_push(
+        key="report_url",
+        value=s3_client.get_file_url(s3_output_filepath + output_report.split("/")[-1]),
+    )
