@@ -129,6 +129,9 @@ class S3Client:
             Prefix=prefix,
         )
         for page in pages:
+            if page["KeyCount"] == 0:
+                logging.warning(f"No key found with prefix '{prefix}'")
+                continue
             for obj in page["Contents"]:
                 if as_objects:
                     # use this if you want to access more than the name and file of the object (content_type...)
