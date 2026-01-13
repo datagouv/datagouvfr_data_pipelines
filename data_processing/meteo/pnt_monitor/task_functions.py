@@ -1,3 +1,4 @@
+from typing import Iterable
 import requests
 from collections import defaultdict
 from datetime import datetime
@@ -187,11 +188,9 @@ def update_tree():
     for run in to_add:
         print(f"> Adding {run}")
         run_tree = build_tree(
-            list(
-                s3_pnt.get_files_from_prefix(
-                    prefix=f"pnt/{run}/",
-                    ignore_airflow_env=True,
-                )
+            s3_pnt.get_files_from_prefix(
+                prefix=f"pnt/{run}/",
+                ignore_airflow_env=True,
             )
         )
         tree["pnt"][run] = run_tree["pnt"][run]
@@ -200,7 +199,7 @@ def update_tree():
     return tree
 
 
-def build_tree(paths: list[str]):
+def build_tree(paths: Iterable[str]):
     tree = {}
     for _, path in enumerate(paths):
         parts = path.split("/")
