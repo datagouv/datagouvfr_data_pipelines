@@ -17,8 +17,6 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     S3_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_S3_DATA_PIPELINE_USER,
-    SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import (

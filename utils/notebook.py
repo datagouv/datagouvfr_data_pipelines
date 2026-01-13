@@ -58,7 +58,9 @@ def execute_and_upload_notebook(
             print(os.path.join(path, name))
             isFile = os.path.isfile(os.path.join(path, name))
             if isFile:
-                s3_file_path = s3_output_filepath + os.path.join(path, name).replace(tmp_path, "")
+                s3_file_path = s3_output_filepath + os.path.join(path, name).replace(
+                    tmp_path, ""
+                )
                 s3_client.send_file(
                     File(
                         source_path=path,
@@ -70,4 +72,7 @@ def execute_and_upload_notebook(
                     ignore_airflow_env=True,
                 )
 
-    ti.xcom_push(key="report_url", value=s3_client.get_file_url(s3_output_filepath + output_report.split("/")[-1])))
+    ti.xcom_push(
+        key="report_url",
+        value=s3_client.get_file_url(s3_output_filepath + output_report.split("/")[-1]),
+    )

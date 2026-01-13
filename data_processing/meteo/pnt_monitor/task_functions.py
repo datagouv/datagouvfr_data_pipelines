@@ -187,10 +187,12 @@ def update_tree():
     for run in to_add:
         print(f"> Adding {run}")
         run_tree = build_tree(
-            list(s3_pnt.get_files_from_prefix(
-                prefix=f"pnt/{run}/",
-                ignore_airflow_env=True,
-            ))
+            list(
+                s3_pnt.get_files_from_prefix(
+                    prefix=f"pnt/{run}/",
+                    ignore_airflow_env=True,
+                )
+            )
         )
         tree["pnt"][run] = run_tree["pnt"][run]
     # just to make sure
