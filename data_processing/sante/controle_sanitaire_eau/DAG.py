@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
     check_if_modif,
     process_data,
-    send_to_minio,
+    send_to_s3,
     publish_on_datagouv,
     send_notification_mattermost,
 )
@@ -59,8 +59,8 @@ with DAG(
     for file_type in config.keys():
         type_tasks[file_type] = [
             PythonOperator(
-                task_id=f"send_to_minio_{file_type}",
-                python_callable=send_to_minio,
+                task_id=f"send_to_s3_{file_type}",
+                python_callable=send_to_s3,
                 op_kwargs={
                     "file_type": file_type,
                 },

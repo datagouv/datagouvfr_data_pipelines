@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def calculate_quality_score(ti):
@@ -284,7 +284,7 @@ def gather_kpis(ti):
     )
     history = pd.read_csv(
         StringIO(
-            minio_open.get_file_content("impact/statistiques_impact_datagouvfr.csv")
+            s3_open.get_file_content("impact/statistiques_impact_datagouvfr.csv")
         )
     )
     final = pd.concat([df, history])
@@ -295,8 +295,8 @@ def gather_kpis(ti):
     )
 
 
-def send_stats_to_minio():
-    minio_open.send_files(
+def send_stats_to_s3():
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",

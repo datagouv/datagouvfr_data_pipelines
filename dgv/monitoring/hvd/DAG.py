@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DAG_NAME,
     DATADIR,
     get_hvd,
-    send_to_minio,
+    send_to_s3,
     publish_mattermost,
     build_df_for_grist,
     update_grist,
@@ -45,9 +45,9 @@ with DAG(
         python_callable=get_hvd,
     )
 
-    send_to_minio = PythonOperator(
-        task_id="send_to_minio",
-        python_callable=send_to_minio,
+    send_to_s3 = PythonOperator(
+        task_id="send_to_s3",
+        python_callable=send_to_s3,
     )
 
     publish_mattermost = PythonOperator(
@@ -57,8 +57,8 @@ with DAG(
 
     check_if_monday.set_upstream(clean_previous_outputs)
     get_hvd.set_upstream(check_if_monday)
-    send_to_minio.set_upstream(get_hvd)
-    publish_mattermost.set_upstream(send_to_minio)
+    send_to_s3.set_upstream(get_hvd)
+    publish_mattermost.set_upstream(send_to_s3)
 
     # Grist
     build_df_for_grist = PythonOperator(

@@ -36,8 +36,8 @@ pgclient = PostgresClient(
     conn_name="POSTGRES_DVF",
     schema=schema,
 )
-minio_restricted = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_restricted = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def get_year_interval() -> tuple[int, int]:
@@ -1077,8 +1077,8 @@ def create_distribution_and_stats_whole_period() -> None:
     )
 
 
-def send_stats_to_minio() -> None:
-    minio_open.send_files(
+def send_stats_to_s3() -> None:
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
@@ -1092,8 +1092,8 @@ def send_stats_to_minio() -> None:
     )
 
 
-def send_distribution_to_minio() -> None:
-    minio_restricted.send_file(
+def send_distribution_to_s3() -> None:
+    s3_restricted.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name="distribution_prix.csv",

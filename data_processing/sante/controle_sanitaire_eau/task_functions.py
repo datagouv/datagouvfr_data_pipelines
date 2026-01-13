@@ -25,7 +25,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(
     f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json"
@@ -94,8 +94,8 @@ def process_data():
             csv_to_csvgz(f"{DATADIR}/{file_type}.csv")
 
 
-def send_to_minio(file_type):
-    minio_open.send_files(
+def send_to_s3(file_type):
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",

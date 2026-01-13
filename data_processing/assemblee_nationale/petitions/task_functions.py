@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}an_petitions/"
-minio_folder = "an_petitions/"
+s3_folder = "an_petitions/"
 file_name = "petitions.csv"
 dataset_id = (
     "687e2d07eb1e2ad010d1c1af" if AIRFLOW_ENV != "prod" else "6889cc10e79a25f17ed69acb"
@@ -30,7 +30,7 @@ resource_id = (
     if AIRFLOW_ENV != "prod"
     else "c94c9dfe-23eb-45aa-acd1-7438c4e977db"
 )
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 session = requests.Session()
 
@@ -168,7 +168,7 @@ def gather_petitions():
     # getting current file to ignore unused ids
     ids = (
         pd.read_csv(
-            minio_open.get_file_url(minio_folder + file_name),
+            s3_open.get_file_url(s3_folder + file_name),
             sep=";",
             usecols=["identifiant"],
             dtype={"identifiant": float},
@@ -209,20 +209,20 @@ def gather_petitions():
     # no need to convert to parquet, hydra will
 
 
-def send_petitions_to_minio():
-    minio_open.send_files(
+def send_petitions_to_s3():
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=DATADIR,
                 source_name=file_name,
-                dest_path=minio_folder,
+                dest_path=s3_folder,
                 dest_name=file_name,
             ),
             # saving dated file
             File(
                 source_path=DATADIR,
                 source_name=file_name,
-                dest_path=minio_folder,
+                dest_path=s3_folder,
                 dest_name=datetime.now().strftime("%Y-%m-%d") + "_" + file_name,
             ),
         ],

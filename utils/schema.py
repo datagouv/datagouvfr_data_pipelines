@@ -1963,18 +1963,18 @@ def final_directory_clean_up(
     shutil.move(tmp_folder + "report_tables", output_data_folder)
 
 
-def upload_minio(
+def upload_s3(
     TMP_FOLDER: str,
     MINIO_BUCKET_DATA_PIPELINE_OPEN: str,
-    minio_output_filepath: str,
+    s3_output_filepath: str,
 ) -> None:
-    minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-    minio_open.send_files(
+    s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=path,
                 source_name=name,
-                dest_path=(minio_output_filepath + path).replace(TMP_FOLDER, ""),
+                dest_path=(s3_output_filepath + path).replace(TMP_FOLDER, ""),
                 dest_name=name,
             )
             for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
@@ -2004,7 +2004,7 @@ def notification_synthese(
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
-    minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
     message = (
         ":mega: *Rapport sur la consolidation des données répondant à un schéma.*\n"
@@ -2055,7 +2055,7 @@ def notification_synthese(
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
                 df.to_csv(f"{TMP_FOLDER}/{erreurs_file_name}", index=False)
 
-                minio_open.send_file(
+                s3_open.send_file(
                     File(
                         source_path=f"{TMP_FOLDER}/",
                         source_name=erreurs_file_name,

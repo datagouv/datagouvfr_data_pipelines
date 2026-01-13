@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions import (
     check_if_already_processed,
     get_files,
-    publish_file_minio,
+    publish_file_s3,
     update_dataset_data_gouv,
     publish_mattermost,
 )
@@ -34,7 +34,7 @@ with DAG(
     check_if_already_processed = ShortCircuitOperator(
         task_id="check_if_already_processed",
         op_kwargs={
-            "minio_path": MINIO_BASE_PATH,
+            "s3_path": MINIO_BASE_PATH,
         },
         python_callable=check_if_already_processed,
     )
@@ -48,14 +48,14 @@ with DAG(
         python_callable=get_files,
     )
 
-    publish_file_minio = PythonOperator(
-        task_id="publish_file_minio",
+    publish_file_s3 = PythonOperator(
+        task_id="publish_file_s3",
         op_kwargs={
             "tmp_dir": TMP_FOLDER,
             "resource_file": "resources_geolocalisation_to_download.json",
-            "minio_path": MINIO_BASE_PATH,
+            "s3_path": MINIO_BASE_PATH,
         },
-        python_callable=publish_file_minio,
+        python_callable=publish_file_s3,
     )
 
     update_dataset_data_gouv = PythonOperator(
@@ -81,7 +81,7 @@ with DAG(
 
     check_if_already_processed.set_upstream(clean_previous_outputs)
     get_files.set_upstream(check_if_already_processed)
-    publish_file_minio.set_upstream(get_files)
-    update_dataset_data_gouv.set_upstream(publish_file_minio)
+    publish_file_s3.set_upstream(get_files)
+    update_dataset_data_gouv.set_upstream(publish_file_s3)
     publish_mattermost_geoloc.set_upstream(update_dataset_data_gouv)
     clean_up.set_upstream(publish_mattermost_geoloc)

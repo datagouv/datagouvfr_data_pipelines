@@ -29,8 +29,8 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dfi"
 METADATA_FILE = "metadata.json"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_process = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_process = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -160,8 +160,8 @@ def get_download_ressources_infos(urls, destination_dir):
     return filenames
 
 
-def send_metadata_to_minio():
-    minio_process.send_file(
+def send_metadata_to_s3():
+    s3_process.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name=f"{METADATA_FILE}",
@@ -188,20 +188,20 @@ def check_if_modif():
     ]
     with open(f"{DATADIR}/{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
-    metadata_does_exist = minio_process.does_file_exist_in_bucket(
+    metadata_does_exist = s3_process.does_file_exist_in_bucket(
         "dev/dfi/metadata.json"
     )
     if not metadata_does_exist:
-        send_metadata_to_minio()
+        send_metadata_to_s3()
         return True
     else:
         metadata_content = json.loads(
-            minio_process.get_file_content("dev/dfi/metadata.json")
+            s3_process.get_file_content("dev/dfi/metadata.json")
         )
         previous = sorted([i.get("last_modified") for i in metadata_content])
         current = sorted([i.get("last_modified") for i in metadata])
         if len(set(previous).intersection(current)) != 2:
-            send_metadata_to_minio()
+            send_metadata_to_s3()
             return True
         else:
             return False
@@ -210,7 +210,7 @@ def check_if_modif():
 def gather_data(ti):
     logging.info("Getting resources list")
     metadata_content = json.loads(
-        minio_process.get_file_content("dev/dfi/metadata.json")
+        s3_process.get_file_content("dev/dfi/metadata.json")
     )
     urls_resources = [i.get("url") for i in metadata_content]
     information_date_about_dataset = re.findall(
@@ -254,7 +254,7 @@ def gather_data(ti):
     )
 
 
-def send_to_minio():
+def send_to_s3():
     logging.info("Start to send files to Minio")
     exts = ["csv", "parquet"]
     fileslist = [
@@ -266,7 +266,7 @@ def send_to_minio():
         )
         for filename in [f"dfi.{ext}" for ext in exts]
     ]
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=fileslist,
         ignore_airflow_env=True,
     )

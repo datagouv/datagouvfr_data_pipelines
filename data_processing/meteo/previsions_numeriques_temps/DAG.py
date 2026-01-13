@@ -9,9 +9,9 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.task_functions import (
     LOG_PATH,
     get_latest_theorical_batches,
-    clean_old_runs_in_minio,
+    clean_old_runs_in_s3,
     construct_all_possible_files,
-    send_files_to_minio,
+    send_files_to_s3,
     publish_on_datagouv,
     clean_directory,
 )
@@ -46,9 +46,9 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
             op_kwargs=common_kwargs,
         )
 
-        _clean_old_runs_in_minio = PythonOperator(
-            task_id="clean_old_runs_in_minio",
-            python_callable=clean_old_runs_in_minio,
+        _clean_old_runs_in_s3 = PythonOperator(
+            task_id="clean_old_runs_in_s3",
+            python_callable=clean_old_runs_in_s3,
         )
 
         _clean_directory = PythonOperator(
@@ -63,9 +63,9 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
             op_kwargs=common_kwargs,
         )
 
-        _send_files_to_minio = PythonOperator(
-            task_id="send_files_to_minio",
-            python_callable=send_files_to_minio,
+        _send_files_to_s3 = PythonOperator(
+            task_id="send_files_to_s3",
+            python_callable=send_files_to_s3,
             op_kwargs=common_kwargs,
         )
 
@@ -77,12 +77,12 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
 
         _get_latest_theorical_batches.set_upstream(create_working_dirs)
 
-        _clean_old_runs_in_minio.set_upstream(_get_latest_theorical_batches)
+        _clean_old_runs_in_s3.set_upstream(_get_latest_theorical_batches)
         _clean_directory.set_upstream(_get_latest_theorical_batches)
 
         _construct_all_possible_files.set_upstream(_get_latest_theorical_batches)
-        _send_files_to_minio.set_upstream(_construct_all_possible_files)
-        _publish_on_datagouv.set_upstream(_send_files_to_minio)
+        _send_files_to_s3.set_upstream(_construct_all_possible_files)
+        _publish_on_datagouv.set_upstream(_send_files_to_s3)
 
     return dag
 

@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.schema import (
     update_reference_table,
     update_resource_send_mail_producer,
     upload_consolidated,
-    upload_minio,
+    upload_s3,
 )
 
 schema_name = "etalab/schema-irve-statique"
@@ -474,27 +474,27 @@ def final_directory_clean_up_irve(
     final_directory_clean_up(tmp_folder, output_data_folder)
 
 
-def upload_minio_irve(
+def upload_s3_irve(
     tmp_folder: Path,
-    minio_bucket_data_pipeline_open: str,
-    minio_output_filepath: str,
+    s3_bucket_data_pipeline_open: str,
+    s3_output_filepath: str,
 ) -> None:
-    upload_minio(
+    upload_s3(
         tmp_folder.as_posix(),
-        minio_bucket_data_pipeline_open,
-        minio_output_filepath,
+        s3_bucket_data_pipeline_open,
+        s3_output_filepath,
     )
 
 
 def notification_synthese_irve(
-    minio_url: str,
-    minio_bucket_data_pipeline_open: str,
+    s3_url: str,
+    s3_bucket_data_pipeline_open: str,
     tmp_folder: Path,
     mattermost_datagouv_schema_activite: str,
 ) -> None:
     notification_synthese(
-        minio_url,
-        minio_bucket_data_pipeline_open,
+        s3_url,
+        s3_bucket_data_pipeline_open,
         tmp_folder,
         mattermost_datagouv_schema_activite,
         schema_name,

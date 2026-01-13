@@ -7,10 +7,10 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.formation.task_functions import (
-    compare_files_minio,
+    compare_files_s3,
     download_latest_data,
     process_organismes_formation,
-    send_file_to_minio,
+    send_file_to_s3,
     send_notification,
 )
 
@@ -39,12 +39,12 @@ with DAG(
         python_callable=process_organismes_formation,
     )
 
-    send_file_to_minio = PythonOperator(
-        task_id="send_file_to_minio", python_callable=send_file_to_minio
+    send_file_to_s3 = PythonOperator(
+        task_id="send_file_to_s3", python_callable=send_file_to_s3
     )
 
-    compare_files_minio = ShortCircuitOperator(
-        task_id="compare_files_minio", python_callable=compare_files_minio
+    compare_files_s3 = ShortCircuitOperator(
+        task_id="compare_files_s3", python_callable=compare_files_s3
     )
 
     send_notification = PythonOperator(
@@ -53,6 +53,6 @@ with DAG(
 
     download_latest_data.set_upstream(clean_previous_outputs)
     process_organismes_formation.set_upstream(download_latest_data)
-    send_file_to_minio.set_upstream(process_organismes_formation)
-    compare_files_minio.set_upstream(send_file_to_minio)
-    send_notification.set_upstream(compare_files_minio)
+    send_file_to_s3.set_upstream(process_organismes_formation)
+    compare_files_s3.set_upstream(send_file_to_s3)
+    send_notification.set_upstream(compare_files_s3)

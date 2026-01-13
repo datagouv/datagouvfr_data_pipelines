@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 int_cols = {
     "general": ["Inscrits", "Abstentions", "Votants", "Blancs", "Nuls", "Exprimés"],
     "candidats": ["N°Panneau", "Voix"],
@@ -242,8 +242,8 @@ def process_election_data():
         )
 
 
-def send_results_to_minio():
-    minio_open.send_files(
+def send_results_to_s3():
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",

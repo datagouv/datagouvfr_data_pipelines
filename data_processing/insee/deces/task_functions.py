@@ -24,7 +24,7 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}deces"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -189,8 +189,8 @@ def gather_data(ti):
     )
 
 
-def send_to_minio():
-    minio_open.send_files(
+def send_to_s3():
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",

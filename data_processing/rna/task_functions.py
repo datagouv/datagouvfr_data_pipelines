@@ -21,7 +21,7 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}rna"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -84,8 +84,8 @@ def process_rna(ti, file_type):
     ti.xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
 
 
-def send_rna_to_minio(file_type):
-    minio_open.send_files(
+def send_rna_to_s3(file_type):
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",

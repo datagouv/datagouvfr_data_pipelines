@@ -6,8 +6,8 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     get_top,
-    send_tops_to_minio,
-    send_stats_to_minio,
+    send_tops_to_s3,
+    send_stats_to_s3,
     publish_top_mattermost,
 )
 from datagouvfr_data_pipelines.utils.utils import (
@@ -89,19 +89,19 @@ with DAG(
         prefix = "dai" if freq == "day" else freq
         tasks[freq]["third"] = [
             PythonOperator(
-                task_id=f"send_top_{freq}_to_minio",
-                python_callable=send_tops_to_minio,
+                task_id=f"send_top_{freq}_to_s3",
+                python_callable=send_tops_to_s3,
                 templates_dict={
                     "period": freq,
-                    "minio": f"{MINIO_PATH}piwik_tops_{prefix}ly/{yesterday}/",
+                    "s3": f"{MINIO_PATH}piwik_tops_{prefix}ly/{yesterday}/",
                 },
             ),
             PythonOperator(
-                task_id=f"send_stats_{freq}_to_minio",
-                python_callable=send_stats_to_minio,
+                task_id=f"send_stats_{freq}_to_s3",
+                python_callable=send_stats_to_s3,
                 templates_dict={
                     "period": freq,
-                    "minio": f"{MINIO_PATH}piwik_stats_{prefix}ly/{yesterday}/",
+                    "s3": f"{MINIO_PATH}piwik_stats_{prefix}ly/{yesterday}/",
                     "date": yesterday,
                 },
             ),

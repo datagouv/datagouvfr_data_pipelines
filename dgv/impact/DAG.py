@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     get_quality_reuses,
     get_discoverability,
     gather_kpis,
-    send_stats_to_minio,
+    send_stats_to_s3,
     publish_datagouv,
     send_notification_mattermost,
 )
@@ -68,9 +68,9 @@ with DAG(
         python_callable=gather_kpis,
     )
 
-    send_stats_to_minio = PythonOperator(
-        task_id="send_stats_to_minio",
-        python_callable=send_stats_to_minio,
+    send_stats_to_s3 = PythonOperator(
+        task_id="send_stats_to_s3",
+        python_callable=send_stats_to_s3,
     )
 
     publish_datagouv = PythonOperator(
@@ -104,7 +104,7 @@ with DAG(
     gather_kpis.set_upstream(get_quality_reuses)
     gather_kpis.set_upstream(get_discoverability)
 
-    send_stats_to_minio.set_upstream(gather_kpis)
-    publish_datagouv.set_upstream(send_stats_to_minio)
+    send_stats_to_s3.set_upstream(gather_kpis)
+    publish_datagouv.set_upstream(send_stats_to_s3)
     clean_up.set_upstream(publish_datagouv)
     send_notification_mattermost.set_upstream(clean_up)

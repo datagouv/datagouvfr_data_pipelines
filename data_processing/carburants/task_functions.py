@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix 
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data():
@@ -37,7 +37,7 @@ def download_latest_data():
 
 
 def get_daily_prices():
-    minio_open.download_files(
+    s3_open.download_files(
         list_files=[
             File(
                 source_path="carburants/",
@@ -102,10 +102,10 @@ def generate_rupture_france():
     generate_kpis_rupture(f"{AIRFLOW_DAG_TMP}carburants/")
 
 
-def send_files_minio():
+def send_files_s3():
     today = date.today().strftime("%Y-%m-%d")
 
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{AIRFLOW_DAG_TMP}carburants/",

@@ -57,7 +57,7 @@ class TestGenerateSimplifionsSitemap:
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_basic_structure(
-        self, mock_request_grist_table, mock_logging, mock_minio_client
+        self, mock_request_grist_table, mock_logging, mock_s3_client
     ):
         """Test sitemap generation with basic structure and static pages only"""
         # Mock Grist data to return empty lists
@@ -98,7 +98,7 @@ class TestGenerateSimplifionsSitemap:
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_with_cas_usages_and_recommendations(
-        self, mock_request_grist_table, mock_logging, mock_minio_client
+        self, mock_request_grist_table, mock_logging, mock_s3_client
     ):
         """Test cas d'usages with recommendations - should use MAX date from all sources"""
         # Create test cas d'usage topic
@@ -181,7 +181,7 @@ class TestGenerateSimplifionsSitemap:
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_with_solutions(
-        self, mock_request_grist_table, mock_logging, mock_minio_client
+        self, mock_request_grist_table, mock_logging, mock_s3_client
     ):
         """Test sitemap generation with solutions topics"""
         # Create test topics
@@ -266,7 +266,7 @@ class TestGenerateSimplifionsSitemap:
     @patch("task_functions.logging")
     @patch("task_functions.GristV2Manager._request_grist_table")
     def test_generate_sitemap_date_fallback(
-        self, mock_request_grist_table, mock_logging, mock_minio_client
+        self, mock_request_grist_table, mock_logging, mock_s3_client
     ):
         """Test date fallback logic: Grist → topic.last_modified"""
         # Create test topics with different date scenarios

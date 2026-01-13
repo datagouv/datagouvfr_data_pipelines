@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.task_functions import 
     generate_rupture_france,
     get_daily_prices,
     reformat_file,
-    send_files_minio,
+    send_files_s3,
     unzip_files,
 )
 
@@ -59,8 +59,8 @@ with DAG(
         task_id="generate_rupture_france", python_callable=generate_rupture_france
     )
 
-    send_files_minio = PythonOperator(
-        task_id="send_files_minio", python_callable=send_files_minio
+    send_files_s3 = PythonOperator(
+        task_id="send_files_s3", python_callable=send_files_s3
     )
 
     download_latest_data.set_upstream(clean_previous_outputs)
@@ -75,5 +75,5 @@ with DAG(
 
     generate_rupture_france.set_upstream(reformat_file)
 
-    send_files_minio.set_upstream(generate_latest_france)
-    send_files_minio.set_upstream(generate_rupture_france)
+    send_files_s3.set_upstream(generate_latest_france)
+    send_files_s3.set_upstream(generate_rupture_france)

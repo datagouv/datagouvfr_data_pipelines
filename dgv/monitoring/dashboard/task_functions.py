@@ -46,8 +46,8 @@ entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 # max 5 requests/second (rate limiting is 1/7)
 rate_limiting_delay = 1 / 5
 
-minio_open = S3Client(bucket="dataeng-open")
-minio_destination_folder = "dashboard/"
+s3_open = S3Client(bucket="dataeng-open")
+s3_destination_folder = "dashboard/"
 
 MATOMO_PARAMS = {
     "module": "API",
@@ -281,12 +281,12 @@ def gather_and_upload(
     stats = stats[stats.columns[:-1]].fillna(0)
     stats.to_csv(DATADIR + "stats_support.csv")
 
-    # sending to minio
-    minio_open.send_file(
+    # sending to s3
+    s3_open.send_file(
         File(
             source_path=DATADIR,
             source_name="stats_support.csv",
-            dest_path=minio_destination_folder,
+            dest_path=s3_destination_folder,
             dest_name="stats_support.csv",
         ),
         ignore_airflow_env=True,
@@ -350,12 +350,12 @@ def get_and_upload_certification() -> None:
     with open(DATADIR + "issues.json", "w") as f:
         json.dump(issues, f, indent=4)
 
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=DATADIR,
                 source_name=f,
-                dest_path=minio_destination_folder
+                dest_path=s3_destination_folder
                 + datetime.now().strftime("%Y-%m-%d")
                 + "/",
                 dest_name=f,
@@ -391,7 +391,7 @@ def get_and_upload_reuses_down() -> None:
     output_file_name = "stats_reuses_down.csv"
     hist = pd.read_csv(
         StringIO(
-            minio_open.get_file_content(minio_destination_folder + output_file_name)
+            s3_open.get_file_content(s3_destination_folder + output_file_name)
         )
     )
     start_len = len(hist)
@@ -399,11 +399,11 @@ def get_and_upload_reuses_down() -> None:
     # just in case
     assert start_len <= len(hist)
     hist.to_csv(DATADIR + output_file_name, index=False)
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=DATADIR,
             source_name=output_file_name,
-            dest_path=minio_destination_folder,
+            dest_path=s3_destination_folder,
             dest_name=output_file_name,
         ),
         ignore_airflow_env=True,
@@ -473,25 +473,25 @@ def get_catalog_stats() -> None:
     resources_stats = {datetime.now().strftime("%Y-%m-%d"): resources_stats}
 
     hist_dq = json.loads(
-        minio_open.get_file_content(minio_destination_folder + "datasets_quality.json")
+        s3_open.get_file_content(s3_destination_folder + "datasets_quality.json")
     )
     hist_dq.update(dataset_quality)
     with open(DATADIR + "datasets_quality.json", "w") as f:
         json.dump(hist_dq, f, indent=4)
 
     hist_rs = json.loads(
-        minio_open.get_file_content(minio_destination_folder + "resources_stats.json")
+        s3_open.get_file_content(s3_destination_folder + "resources_stats.json")
     )
     hist_rs.update(resources_stats)
     with open(DATADIR + "resources_stats.json", "w") as f:
         json.dump(hist_rs, f, indent=4)
 
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=DATADIR,
                 source_name=output_file_name,
-                dest_path=minio_destination_folder,
+                dest_path=s3_destination_folder,
                 dest_name=output_file_name,
             )
             for output_file_name in ["resources_stats.json", "datasets_quality.json"]
@@ -528,19 +528,19 @@ def get_hvd_dataservices_stats() -> None:
     }
 
     hist_ds = json.loads(
-        minio_open.get_file_content(
-            minio_destination_folder + "hvd_dataservices_quality.json"
+        s3_open.get_file_content(
+            s3_destination_folder + "hvd_dataservices_quality.json"
         )
     )
     hist_ds.update(dataservices_stats)
     with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:
         json.dump(hist_ds, f, indent=4)
 
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=DATADIR,
             source_name="hvd_dataservices_quality.json",
-            dest_path=minio_destination_folder,
+            dest_path=s3_destination_folder,
             dest_name="hvd_dataservices_quality.json",
         ),
         ignore_airflow_env=True,

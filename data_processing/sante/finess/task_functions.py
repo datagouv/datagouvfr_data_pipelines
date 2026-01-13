@@ -22,7 +22,7 @@ DAG_NAME = "data_processing_finess"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}finess/"
 DATADIR = f"{TMP_FOLDER}data"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
     config = json.load(fp)
@@ -160,8 +160,8 @@ def build_and_save(scope: str):
         raise ValueError(f"Too many sections to handle: {len(dfs)}")
 
 
-def send_to_minio(scope: str):
-    minio_open.send_file(
+def send_to_s3(scope: str):
+    s3_open.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name=f"finess_{scope}.csv",

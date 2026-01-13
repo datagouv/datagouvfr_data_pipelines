@@ -24,14 +24,14 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     populate_stats_dvf_table,
     process_dvf_stats,
     publish_stats_dvf,
-    send_stats_to_minio,
+    send_stats_to_s3,
     notification_mattermost,
     create_distribution_and_stats_whole_period,
     create_distribution_table,
     populate_distribution_table,
     create_whole_period_table,
     populate_whole_period_table,
-    send_distribution_to_minio,
+    send_distribution_to_s3,
     concat_and_publish_whole,
 )
 
@@ -159,9 +159,9 @@ with DAG(
         python_callable=populate_distribution_table,
     )
 
-    send_distribution_to_minio = PythonOperator(
-        task_id="send_distribution_to_minio",
-        python_callable=send_distribution_to_minio,
+    send_distribution_to_s3 = PythonOperator(
+        task_id="send_distribution_to_s3",
+        python_callable=send_distribution_to_s3,
     )
 
     create_stats_dvf_table = PythonOperator(
@@ -184,9 +184,9 @@ with DAG(
         python_callable=populate_whole_period_table,
     )
 
-    send_stats_to_minio = PythonOperator(
-        task_id="send_stats_to_minio",
-        python_callable=send_stats_to_minio,
+    send_stats_to_s3 = PythonOperator(
+        task_id="send_stats_to_s3",
+        python_callable=send_stats_to_s3,
     )
 
     publish_stats_dvf = PythonOperator(
@@ -239,10 +239,10 @@ with DAG(
     create_whole_period_table.set_upstream(create_distribution_and_stats_whole_period)
     populate_whole_period_table.set_upstream(create_whole_period_table)
 
-    send_distribution_to_minio.set_upstream(create_distribution_and_stats_whole_period)
+    send_distribution_to_s3.set_upstream(create_distribution_and_stats_whole_period)
 
-    send_stats_to_minio.set_upstream(create_distribution_and_stats_whole_period)
-    publish_stats_dvf.set_upstream(send_stats_to_minio)
+    send_stats_to_s3.set_upstream(create_distribution_and_stats_whole_period)
+    publish_stats_dvf.set_upstream(send_stats_to_s3)
 
     create_stats_dvf_table.set_upstream(process_dvf_stats)
     populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
@@ -252,7 +252,7 @@ with DAG(
     clean_up.set_upstream(index_dpe_table)
     clean_up.set_upstream(populate_stats_dvf_table)
     clean_up.set_upstream(index_dvf_table)
-    clean_up.set_upstream(send_distribution_to_minio)
+    clean_up.set_upstream(send_distribution_to_s3)
     clean_up.set_upstream(populate_distribution_table)
     clean_up.set_upstream(populate_whole_period_table)
     clean_up.set_upstream(concat_and_publish_whole)

@@ -6,7 +6,7 @@ from airflow.operators.python import PythonOperator
 from datagouvfr_data_pipelines.data_processing.assemblee_nationale.petitions.task_functions import (
     DATADIR,
     gather_petitions,
-    send_petitions_to_minio,
+    send_petitions_to_s3,
     publish_on_datagouv,
     send_notification_mattermost,
 )
@@ -33,9 +33,9 @@ with DAG(
         python_callable=gather_petitions,
     )
 
-    send_petitions_to_minio = PythonOperator(
-        task_id="send_petitions_to_minio",
-        python_callable=send_petitions_to_minio,
+    send_petitions_to_s3 = PythonOperator(
+        task_id="send_petitions_to_s3",
+        python_callable=send_petitions_to_s3,
     )
 
     publish_on_datagouv = PythonOperator(
@@ -54,7 +54,7 @@ with DAG(
     )
 
     gather_petitions.set_upstream(clean_previous_outputs)
-    send_petitions_to_minio.set_upstream(gather_petitions)
-    publish_on_datagouv.set_upstream(send_petitions_to_minio)
+    send_petitions_to_s3.set_upstream(gather_petitions)
+    publish_on_datagouv.set_upstream(send_petitions_to_s3)
     clean_up.set_upstream(publish_on_datagouv)
     send_notification_mattermost.set_upstream(clean_up)

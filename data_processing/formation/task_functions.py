@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data(ti):
@@ -86,9 +86,9 @@ def process_organismes_formation(ti):
     ti.xcom_push(key="nb_siret", value=str(df["siret"].nunique()))
 
 
-def send_file_to_minio(ti):
+def send_file_to_s3(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=f"{AIRFLOW_DAG_TMP}formation/",
             source_name=f"{res['name']}_clean.csv",
@@ -98,9 +98,9 @@ def send_file_to_minio(ti):
     )
 
 
-def compare_files_minio(ti):
+def compare_files_s3(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
-    is_same = minio_open.are_files_identical(
+    is_same = s3_open.are_files_identical(
         file_1=File(
             source_path="formation/new/",
             source_name=f"{res['name']}_clean.csv",
@@ -118,7 +118,7 @@ def compare_files_minio(ti):
     if is_same is None:
         print("First time in this Minio env. Creating")
 
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=f"{AIRFLOW_DAG_TMP}formation/",
             source_name=f"{res['name']}_clean.csv",

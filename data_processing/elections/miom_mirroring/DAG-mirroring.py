@@ -7,9 +7,9 @@ from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (
     get_files_updated_miom,
     download_local_files,
-    send_to_minio,
-    send_exports_to_minio,
-    download_from_minio,
+    send_to_s3,
+    send_exports_to_s3,
+    download_from_s3,
     check_if_continue,
     create_candidats_files,
     publish_results_elections,
@@ -56,14 +56,14 @@ with DAG(
         python_callable=download_local_files,
     )
 
-    send_to_minio = PythonOperator(
-        task_id="send_to_minio",
-        python_callable=send_to_minio,
+    send_to_s3 = PythonOperator(
+        task_id="send_to_s3",
+        python_callable=send_to_s3,
     )
 
-    download_from_minio = PythonOperator(
-        task_id="download_from_minio",
-        python_callable=download_from_minio,
+    download_from_s3 = PythonOperator(
+        task_id="download_from_s3",
+        python_callable=download_from_s3,
     )
 
     zip_folder = BashOperator(
@@ -81,9 +81,9 @@ with DAG(
         python_callable=create_resultats_files,
     )
 
-    send_exports_to_minio = PythonOperator(
-        task_id="send_exports_to_minio",
-        python_callable=send_exports_to_minio,
+    send_exports_to_s3 = PythonOperator(
+        task_id="send_exports_to_s3",
+        python_callable=send_exports_to_s3,
     )
 
     publish_results_elections = PythonOperator(
@@ -94,10 +94,10 @@ with DAG(
     get_files_updated_miom.set_upstream(clean_previous_outputs)
     check_if_continue.set_upstream(get_files_updated_miom)
     download_local_files.set_upstream(check_if_continue)
-    send_to_minio.set_upstream(download_local_files)
-    download_from_minio.set_upstream(send_to_minio)
-    zip_folder.set_upstream(download_from_minio)
+    send_to_s3.set_upstream(download_local_files)
+    download_from_s3.set_upstream(send_to_s3)
+    zip_folder.set_upstream(download_from_s3)
     create_candidats_files.set_upstream(zip_folder)
     create_resultats_files.set_upstream(create_candidats_files)
-    send_exports_to_minio.set_upstream(create_resultats_files)
-    publish_results_elections.set_upstream(send_exports_to_minio)
+    send_exports_to_s3.set_upstream(create_resultats_files)
+    publish_results_elections.set_upstream(send_exports_to_s3)

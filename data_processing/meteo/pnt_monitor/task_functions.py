@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 import json
-from minio import datatypes
+from s3 import datatypes
 
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.config import (
@@ -17,8 +17,8 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_pnt = S3Client(
+s3_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_pnt = S3Client(
     bucket=MINIO_BUCKET_PNT,
     user=SECRET_MINIO_PNT_USER,
     pwd=SECRET_MINIO_PNT_PASSWORD,
@@ -111,7 +111,7 @@ def notification_mattermost(ti):
     print(nb_too_old, "resources are too old")
 
     # saving the list of issues to ping only if new issues
-    previous_too_old = json.loads(minio_open.get_file_content("pnt/too_old.json"))
+    previous_too_old = json.loads(s3_open.get_file_content("pnt/too_old.json"))
     prev = []
     for dataset in previous_too_old.values():
         for f, _, _ in dataset:
@@ -142,7 +142,7 @@ def notification_mattermost(ti):
             for k in unavailable_resources[dataset]:
                 message += f"\n   - [{k[0]}](https://www.data.gouv.fr/datasets/{k[1]}/#/resources/{k[2]})"
 
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=AIRFLOW_DAG_TMP,
             source_name=too_old_filename,
@@ -160,11 +160,11 @@ def notification_mattermost(ti):
 
 
 def update_tree():
-    # listing current runs on minio
+    # listing current runs on s3
     current_runs = sorted(
         [
             pref
-            for pref in minio_pnt.get_folders_from_prefix(
+            for pref in s3_pnt.get_folders_from_prefix(
                 prefix="pnt/",
                 ignore_airflow_env=True,
             )
@@ -188,7 +188,7 @@ def update_tree():
     for run in to_add:
         print(f"> Adding {run}")
         run_tree = build_tree(
-            minio_pnt.get_files_from_prefix(
+            s3_pnt.get_files_from_prefix(
                 prefix=f"pnt/{run}/",
                 ignore_airflow_env=True,
                 recursive=True,
@@ -250,7 +250,7 @@ def dump_and_send_tree() -> None:
 
 def consolidate_logs():
     logs, csvs = [], []
-    for o in minio_pnt.get_files_from_prefix(
+    for o in s3_pnt.get_files_from_prefix(
         prefix="logs/",
         ignore_airflow_env=True,
         recursive=False,
@@ -265,14 +265,14 @@ def consolidate_logs():
     print(len(csvs), "existing csv files")
     dates = defaultdict(list)
     for log_file in logs:
-        content = minio_pnt.get_file_content(log_file)
+        content = s3_pnt.get_file_content(log_file)
         date = content.split(";")[1].split(" ")[0]
         dates[date].append(content + "\n")
     for date in dates:
         print(f"> Processing {date}")
         existing = None
         if date in csvs:
-            existing = minio_pnt.get_file_content(f"logs/{date}.csv")
+            existing = s3_pnt.get_file_content(f"logs/{date}.csv")
             with open(AIRFLOW_DAG_TMP + f"{date}.csv", "w") as f:
                 f.write(existing)
             print("Updating existing file")
@@ -282,7 +282,7 @@ def consolidate_logs():
                 f.write("file;error_datetime\n")
             for row in dates[date]:
                 f.write(row)
-        minio_pnt.send_file(
+        s3_pnt.send_file(
             File(
                 source_path=AIRFLOW_DAG_TMP,
                 source_name=f"{date}.csv",
@@ -293,4 +293,4 @@ def consolidate_logs():
             burn_after_sending=True,
         )
     for log_file in logs:
-        minio_pnt.delete_file(log_file)
+        s3_pnt.delete_file(log_file)

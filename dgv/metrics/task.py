@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
-minio_client = S3Client(bucket=MINIO_BUCKET_INFRA)
+s3_client = S3Client(bucket=MINIO_BUCKET_INFRA)
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"
@@ -47,9 +47,9 @@ def create_metrics_tables() -> None:
 
 
 def get_new_logs(ti) -> bool:
-    new_logs_path = minio_client.get_files_from_prefix(prefix="metrics-logs/new/")
+    new_logs_path = s3_client.get_files_from_prefix(prefix="metrics-logs/new/")
     if new_logs_path:
-        ongoing_logs_path = minio_client.copy_many_objects(
+        ongoing_logs_path = s3_client.copy_many_objects(
             new_logs_path,
             f"{AIRFLOW_ENV}/metrics-logs/ongoing/",
             remove_source_file=True,
@@ -78,7 +78,7 @@ def download_log(ti):
 
     logging.info("Downloading raw logs...")
     for path in ongoing_logs_path:
-        minio_client.download_files(
+        s3_client.download_files(
             list_files=[
                 File(
                     source_path="metrics-logs/ongoing/",
@@ -211,7 +211,7 @@ def save_metrics_to_postgres() -> None:
 
 def copy_logs_to_processed_folder(ti) -> None:
     ongoing_logs_path = ti.xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
-    minio_client.copy_many_objects(
+    s3_client.copy_many_objects(
         ongoing_logs_path,
         f"{AIRFLOW_ENV}/metrics-logs/processed/",
         remove_source_file=True,
