@@ -2,7 +2,7 @@ import codecs
 import os
 import nbformat
 import papermill as pm
-from minio import Minio
+from s3 import S3
 from nbconvert import HTMLExporter
 
 
@@ -11,11 +11,11 @@ def execute_and_upload_notebook(
     input_nb,
     output_nb,
     tmp_path,
-    minio_url,
-    minio_user,
-    minio_password,
-    minio_bucket,
-    minio_output_filepath,
+    s3_url,
+    s3_user,
+    s3_password,
+    s3_bucket,
+    s3_output_filepath,
     parameters,
 ):
     if not input_nb:
@@ -40,19 +40,19 @@ def execute_and_upload_notebook(
     output, resources = exporter.from_notebook_node(output_notebook)
     codecs.open(output_report, "w", encoding="utf-8").write(output)
 
-    client = Minio(
-        minio_url,
-        access_key=minio_user,
-        secret_key=minio_password,
+    client = S3(
+        s3_url,
+        access_key=s3_user,
+        secret_key=s3_password,
         secure=True,
     )
 
     # check if bucket exists.
-    found = client.bucket_exists(minio_bucket)
+    found = client.bucket_exists(s3_bucket)
     if found:
         client.fput_object(
-            minio_bucket,
-            minio_output_filepath + output_report.split("/")[-1],
+            s3_bucket,
+            s3_output_filepath + output_report.split("/")[-1],
             output_report,
             content_type="text/html; charset=utf-8",
             metadata={"Content-Disposition": "inline"},
@@ -64,15 +64,15 @@ def execute_and_upload_notebook(
                 isFile = os.path.isfile(os.path.join(path, name))
                 if isFile:
                     client.fput_object(
-                        minio_bucket,
-                        minio_output_filepath
+                        s3_bucket,
+                        s3_output_filepath
                         + os.path.join(path, name).replace(tmp_path, ""),
                         os.path.join(path, name),
                     )
 
     report_url = "https://{}/{}/{}".format(
-        minio_url,
-        minio_bucket,
-        minio_output_filepath + output_report.split("/")[-1],
+        s3_url,
+        s3_bucket,
+        s3_output_filepath + output_report.split("/")[-1],
     )
     ti.xcom_push(key="report_url", value=report_url)

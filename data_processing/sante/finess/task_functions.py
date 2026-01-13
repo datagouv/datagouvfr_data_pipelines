@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -22,7 +22,7 @@ DAG_NAME = "data_processing_finess"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}finess/"
 DATADIR = f"{TMP_FOLDER}data"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
     config = json.load(fp)
@@ -160,8 +160,8 @@ def build_and_save(scope: str):
         raise ValueError(f"Too many sections to handle: {len(dfs)}")
 
 
-def send_to_minio(scope: str):
-    minio_open.send_file(
+def send_to_s3(scope: str):
+    s3_open.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name=f"finess_{scope}.csv",
@@ -182,7 +182,7 @@ def publish_on_datagouv(scope: str):
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/finess/finess_{scope}.csv"
             ),
             "filesize": os.path.getsize(DATADIR + f"/finess_{scope}.csv"),
@@ -203,7 +203,7 @@ def send_notification_mattermost():
     send_message(
         text=(
             ":mega: Données Finess mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
+            f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id}/)"
         )
     )

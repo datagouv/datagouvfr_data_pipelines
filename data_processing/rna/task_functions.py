@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
@@ -21,7 +21,7 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}rna"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -84,8 +84,8 @@ def process_rna(ti, file_type):
     ti.xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
 
 
-def send_rna_to_minio(file_type):
-    minio_open.send_files(
+def send_rna_to_s3(file_type):
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
@@ -111,7 +111,7 @@ def publish_on_datagouv(ti, file_type):
         ).update(
             payload={
                 "url": (
-                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/rna/{file_type}.{ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
@@ -131,7 +131,7 @@ def send_notification_mattermost():
     send_message(
         text=(
             ":mega: Données des associations mises à jour.\n"
-            f"- Données stockées sur Minio - Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}\n"
+            f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id})"
         )
     )

@@ -15,22 +15,22 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from datagouvfr_data_pipelines.config import (
     INSEE_BASE_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_INSEE_LOGIN,
     SECRET_INSEE_PASSWORD,
 )
 
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
-def check_if_already_processed(minio_path: str):
-    files_in_folder = minio_open.get_files_from_prefix(
-        prefix=minio_path,
+def check_if_already_processed(s3_path: str):
+    files_in_folder = s3_open.get_files_from_prefix(
+        prefix=s3_path,
         ignore_airflow_env=True,
     )
     this_month_prefix = datetime.today().strftime("%Y-%m")
     for file in reversed(sorted(files_in_folder)):
-        if file.startswith(minio_path + this_month_prefix):
+        if file.startswith(s3_path + this_month_prefix):
             # early stop and don't trigger the following tasks
             return False
     return True
@@ -97,17 +97,17 @@ def get_files(ti, tmp_dir: str, resource_file: str):
     ti.xcom_push(key="hashes", value=hashfiles)
 
 
-def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
+def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     logging.info(data)
 
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=tmp_dir,
                 source_name=item["nameFTP"],
-                dest_path=minio_path,
+                dest_path=s3_path,
                 dest_name=item["nameFTP"],
             )
             for item in data
@@ -116,12 +116,12 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
     )
 
     # sending parquet
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=tmp_dir,
                 source_name=item["nameFTP"].replace(".zip", ".parquet"),
-                dest_path=minio_path,
+                dest_path=s3_path,
                 dest_name=item["nameFTP"].replace(".zip", ".parquet"),
             )
             for item in data
@@ -130,12 +130,12 @@ def publish_file_minio(tmp_dir: str, resource_file: str, minio_path: str):
     )
 
     # sending dated files
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=tmp_dir,
                 source_name=item["nameFTP"],
-                dest_path=minio_path,
+                dest_path=s3_path,
                 dest_name=f"{datetime.today().strftime('%Y-%m')}-01-{item['nameFTP']}",
             )
             for item in data

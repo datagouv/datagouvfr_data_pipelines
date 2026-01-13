@@ -30,7 +30,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 
-minio_meteo = S3Client(bucket="meteofrance")
+s3_meteo = S3Client(bucket="meteofrance")
 
 
 SCHEMA_NAME = "meteo"
@@ -329,7 +329,7 @@ def process_resources(
 
             if AIRFLOW_ENV == "prod":
                 hooked_file_name = csv_path.split("/")[-1]
-                minio_meteo.send_file(
+                s3_meteo.send_file(
                     File(
                         # source and destination are hooked file names (we don't care about the years, we want something stable)
                         source_path="/".join(csv_path.split("/")[:-1]) + "/",
@@ -391,7 +391,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     csv_path = unzip_csv_gz(file_path)
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
-        # files are stored with hooked names on Minio
+        # files are stored with hooked names on S3
         File(
             url=get_hooked_name(
                 res["url"]

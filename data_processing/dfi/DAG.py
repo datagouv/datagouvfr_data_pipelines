@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dfi.task_functions import (
     check_if_modif,
     gather_data,
-    send_to_minio,
+    send_to_s3,
     publish_on_datagouv,
     notification_mattermost,
 )
@@ -48,9 +48,9 @@ with DAG(
         python_callable=gather_data,
     )
 
-    send_to_minio = PythonOperator(
-        task_id="send_to_minio",
-        python_callable=send_to_minio,
+    send_to_s3 = PythonOperator(
+        task_id="send_to_s3",
+        python_callable=send_to_s3,
     )
 
     publish_on_datagouv = PythonOperator(
@@ -70,7 +70,7 @@ with DAG(
 
     check_if_modif.set_upstream(clean_previous_outputs)
     gather_data.set_upstream(check_if_modif)
-    send_to_minio.set_upstream(gather_data)
-    publish_on_datagouv.set_upstream(send_to_minio)
+    send_to_s3.set_upstream(gather_data)
+    publish_on_datagouv.set_upstream(send_to_s3)
     clean_up.set_upstream(publish_on_datagouv)
     notification_mattermost.set_upstream(clean_up)

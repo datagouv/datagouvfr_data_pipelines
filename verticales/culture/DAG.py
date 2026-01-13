@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.verticales.culture.task_functions import (
     get_perimeter_orgas,
     get_perimeter_stats,
     refresh_datasets_tops,
-    send_stats_to_minio,
+    send_stats_to_s3,
     send_notification_mattermost,
 )
 
@@ -76,9 +76,9 @@ with DAG(
         op_kwargs={"object_types": object_types + ["organizations"]},
     )
 
-    send_stats_to_minio = PythonOperator(
-        task_id="send_stats_to_minio",
-        python_callable=send_stats_to_minio,
+    send_stats_to_s3 = PythonOperator(
+        task_id="send_stats_to_s3",
+        python_callable=send_stats_to_s3,
     )
 
     send_notification_mattermost = PythonOperator(
@@ -94,5 +94,5 @@ with DAG(
         tasks[obj][1].set_upstream(tasks[obj][0])
         gather_stats.set_upstream(tasks[obj][1])
     gather_stats.set_upstream(get_perimeter_stats_organizations)
-    send_stats_to_minio.set_upstream(gather_stats)
-    send_notification_mattermost.set_upstream(send_stats_to_minio)
+    send_stats_to_s3.set_upstream(gather_stats)
+    send_notification_mattermost.set_upstream(send_stats_to_s3)

@@ -474,12 +474,12 @@ def generate_simplifions_sitemap(ti, client=None):
     logging.info("Sitemap XML content:")
     logging.info(xml_string)
 
-    # upload sitemap to s3 with minio client
-    minio_client = S3Client(
+    # upload sitemap to s3 with s3 client
+    s3_client = S3Client(
         bucket="prod-simplifions",
     )
 
-    # Send sitemap file to minio
+    # Send sitemap file to s3
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file_path = os.path.join(temp_dir, "sitemap.xml")
         with open(temp_file_path, "w", encoding="utf-8") as f:
@@ -492,7 +492,7 @@ def generate_simplifions_sitemap(ti, client=None):
             dest_name="sitemap.xml",
             content_type="application/xml",
         )
-        minio_client.send_file(
+        s3_client.send_file(
             file=sitemap_file,
             ignore_airflow_env=True,
         )

@@ -1,7 +1,7 @@
 # Références pour Géocodage
 
 Fichiers de références utilisés pour le géocodage.
-Les fichiers de faibles volumes sont directement sync dans le code alors que les gros fichiers sont hébergés sur MinIO.
+Les fichiers de faibles volumes sont directement sync dans le code alors que les gros fichiers sont hébergés sur S3.
 
 | Fichier                      | Date |
 |------------------------------|------|

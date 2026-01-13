@@ -12,14 +12,14 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functions import (
     get_current_files_on_ftp,
-    get_current_files_on_minio,
-    get_and_upload_file_diff_ftp_minio,
+    get_current_files_on_s3,
+    get_and_upload_file_diff_ftp_s3,
     upload_new_files,
     handle_updated_files_same_name,
     handle_updated_files_new_name,
     update_temporal_coverages,
     log_modified_files,
-    delete_replaced_minio_files,
+    delete_replaced_s3_files,
     notification_mattermost,
 )
 
@@ -58,14 +58,14 @@ with DAG(
         },
     )
 
-    get_current_files_on_minio = PythonOperator(
-        task_id="get_current_files_on_minio",
-        python_callable=get_current_files_on_minio,
+    get_current_files_on_s3 = PythonOperator(
+        task_id="get_current_files_on_s3",
+        python_callable=get_current_files_on_s3,
     )
 
-    get_and_upload_file_diff_ftp_minio = PythonOperator(
-        task_id="get_and_upload_file_diff_ftp_minio",
-        python_callable=get_and_upload_file_diff_ftp_minio,
+    get_and_upload_file_diff_ftp_s3 = PythonOperator(
+        task_id="get_and_upload_file_diff_ftp_s3",
+        python_callable=get_and_upload_file_diff_ftp_s3,
         op_kwargs={
             "ftp": ftp,
         },
@@ -86,9 +86,9 @@ with DAG(
         python_callable=handle_updated_files_new_name,
     )
 
-    delete_replaced_minio_files = PythonOperator(
-        task_id="delete_replaced_minio_files",
-        python_callable=delete_replaced_minio_files,
+    delete_replaced_s3_files = PythonOperator(
+        task_id="delete_replaced_s3_files",
+        python_callable=delete_replaced_s3_files,
     )
 
     log_modified_files = PythonOperator(
@@ -107,18 +107,18 @@ with DAG(
     )
 
     get_current_files_on_ftp.set_upstream(clean_previous_outputs)
-    get_current_files_on_minio.set_upstream(clean_previous_outputs)
+    get_current_files_on_s3.set_upstream(clean_previous_outputs)
 
-    get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_ftp)
-    get_and_upload_file_diff_ftp_minio.set_upstream(get_current_files_on_minio)
+    get_and_upload_file_diff_ftp_s3.set_upstream(get_current_files_on_ftp)
+    get_and_upload_file_diff_ftp_s3.set_upstream(get_current_files_on_s3)
 
-    handle_updated_files_same_name.set_upstream(get_and_upload_file_diff_ftp_minio)
-    handle_updated_files_new_name.set_upstream(get_and_upload_file_diff_ftp_minio)
+    handle_updated_files_same_name.set_upstream(get_and_upload_file_diff_ftp_s3)
+    handle_updated_files_new_name.set_upstream(get_and_upload_file_diff_ftp_s3)
 
-    delete_replaced_minio_files.set_upstream(handle_updated_files_new_name)
+    delete_replaced_s3_files.set_upstream(handle_updated_files_new_name)
 
     upload_new_files.set_upstream(handle_updated_files_same_name)
-    upload_new_files.set_upstream(delete_replaced_minio_files)
+    upload_new_files.set_upstream(delete_replaced_s3_files)
 
     update_temporal_coverages.set_upstream(upload_new_files)
     update_temporal_coverages.set_upstream(handle_updated_files_same_name)
@@ -128,6 +128,6 @@ with DAG(
     log_modified_files.set_upstream(handle_updated_files_same_name)
     log_modified_files.set_upstream(handle_updated_files_new_name)
 
-    notification_mattermost.set_upstream(delete_replaced_minio_files)
+    notification_mattermost.set_upstream(delete_replaced_s3_files)
     notification_mattermost.set_upstream(update_temporal_coverages)
     notification_mattermost.set_upstream(log_modified_files)

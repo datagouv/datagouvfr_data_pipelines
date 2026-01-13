@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions impor
     check_if_modif,
     build_finess_table_etablissements,
     build_and_save,
-    send_to_minio,
+    send_to_s3,
     publish_on_datagouv,
     send_notification_mattermost,
 )
@@ -57,8 +57,8 @@ with DAG(
                 op_kwargs=({} if scope == "etablissements" else {"scope": scope}),
             ),
             PythonOperator(
-                task_id=f"send_to_minio_{scope}",
-                python_callable=send_to_minio,
+                task_id=f"send_to_s3_{scope}",
+                python_callable=send_to_s3,
                 op_kwargs={"scope": scope},
             ),
             PythonOperator(

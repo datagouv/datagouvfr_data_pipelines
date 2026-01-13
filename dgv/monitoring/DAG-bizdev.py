@@ -14,7 +14,7 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
     MATTERMOST_DATAGOUV_EDITO,
 )
@@ -37,7 +37,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 grist_edito = "4MdJUBsdSgjE"
 grist_curation = "muvJRZ9cTGep"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 today = datetime.today()
 first_day_of_current_month = today.replace(day=1)
@@ -659,10 +659,10 @@ edito_functions = [
 
 
 # %%
-def send_tables_to_minio():
+def send_tables_to_s3():
     print(os.listdir(DATADIR))
     print("Saving tops as millésimes")
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
@@ -675,7 +675,7 @@ def send_tables_to_minio():
         ],
     )
     print("Saving KO reuses and spams (erasing previous files)")
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
@@ -699,7 +699,7 @@ def publish_mattermost():
         message = ":zap: Les rapports bizdev curation sont disponibles "
         message += f"dans [grist]({GRIST_UI_URL + grist_curation}) :"
         for file in curation:
-            url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+            url = f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
             if any([k in file for k in ["spam", "KO"]]):
                 url += f"/bizdev/{file}"
             else:
@@ -714,7 +714,7 @@ def publish_mattermost():
         message = ":zap: Les rapports bizdev édito sont disponibles "
         message += f"dans [grist]({GRIST_UI_URL + grist_edito}) :"
         for file in edito:
-            url = f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+            url = f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
             if any([k in file for k in ["spam", "KO"]]):
                 url += f"/bizdev/{file}"
             else:
@@ -762,9 +762,9 @@ with DAG(
         for func in edito_functions
     ]
 
-    send_tables_to_minio = PythonOperator(
-        task_id="send_tables_to_minio",
-        python_callable=send_tables_to_minio,
+    send_tables_to_s3 = PythonOperator(
+        task_id="send_tables_to_s3",
+        python_callable=send_tables_to_s3,
         trigger_rule="none_failed",
     )
 
@@ -779,10 +779,10 @@ with DAG(
 
     for task in curation_tasks:
         task.set_upstream(check_if_monday)
-        send_tables_to_minio.set_upstream(task)
+        send_tables_to_s3.set_upstream(task)
 
     for task in edito_tasks:
         task.set_upstream(check_if_first_day_of_month)
-        send_tables_to_minio.set_upstream(task)
+        send_tables_to_s3.set_upstream(task)
 
-    publish_mattermost.set_upstream(send_tables_to_minio)
+    publish_mattermost.set_upstream(send_tables_to_s3)

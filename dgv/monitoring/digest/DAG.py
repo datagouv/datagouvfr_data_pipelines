@@ -15,10 +15,10 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    S3_URL,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+    SECRET_S3_DATA_PIPELINE_USER,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import (
@@ -30,7 +30,7 @@ from datagouvfr_data_pipelines.utils.utils import (
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
 DAG_NAME = "dgv_digests"
 TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
-MINIO_PATH = "dgv/"
+S3_PATH = "dgv/"
 today = datetime.today().strftime("%Y-%m-%d")
 
 
@@ -69,7 +69,7 @@ def publish_mattermost_period(ti, **kwargs):
     period = templates_dict["period"]
     scope = templates_dict["scope"]
     report_url = ti.xcom_pull(
-        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{scope}_{period}"
+        key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
     )
     stats = get_stats_period(templates_dict["TODAY"], period, scope)
     if not stats:
@@ -88,7 +88,7 @@ def send_email_report_period(ti, **kwargs):
     period = templates_dict["period"]
     scope = templates_dict["scope"]
     report_url = ti.xcom_pull(
-        key="report_url", task_ids=f"run_notebook_and_save_to_minio_{scope}_{period}"
+        key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
     )
     message = (
         get_stats_period(templates_dict["TODAY"], period, scope)
@@ -136,7 +136,7 @@ with DAG(
         for freq in freqs:
             tasks[scope][freq] = [
                 PythonOperator(
-                    task_id=f"run_notebook_and_save_to_minio_{scope}_{freq}",
+                    task_id=f"run_notebook_and_save_to_s3_{scope}_{freq}",
                     python_callable=execute_and_upload_notebook,
                     op_kwargs={
                         "input_nb": AIRFLOW_DAG_HOME
@@ -148,11 +148,11 @@ with DAG(
                         + ("" if scope == "general" else "-api")
                         + ".ipynb",
                         "tmp_path": TMP_FOLDER + f"/digest_{freq}/{today}/",
-                        "minio_url": MINIO_URL,
-                        "minio_bucket": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-                        "minio_user": SECRET_MINIO_DATA_PIPELINE_USER,
-                        "minio_password": SECRET_MINIO_DATA_PIPELINE_PASSWORD,
-                        "minio_output_filepath": MINIO_PATH + f"digest_{freq}/{today}/",
+                        "s3_url": S3_URL,
+                        "s3_bucket": S3_BUCKET_DATA_PIPELINE_OPEN,
+                        "s3_user": SECRET_S3_DATA_PIPELINE_USER,
+                        "s3_password": SECRET_S3_DATA_PIPELINE_PASSWORD,
+                        "s3_output_filepath": S3_PATH + f"digest_{freq}/{today}/",
                         "parameters": {
                             "WORKING_DIR": AIRFLOW_DAG_HOME,
                             "OUTPUT_DATA_FOLDER": (

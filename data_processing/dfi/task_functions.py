@@ -15,8 +15,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    MINIO_BUCKET_DATA_PIPELINE,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.download import download_files
@@ -29,8 +29,8 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}dfi"
 METADATA_FILE = "metadata.json"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
-minio_process = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
+s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -160,8 +160,8 @@ def get_download_ressources_infos(urls, destination_dir):
     return filenames
 
 
-def send_metadata_to_minio():
-    minio_process.send_file(
+def send_metadata_to_s3():
+    s3_process.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name=f"{METADATA_FILE}",
@@ -188,20 +188,18 @@ def check_if_modif():
     ]
     with open(f"{DATADIR}/{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
-    metadata_does_exist = minio_process.does_file_exist_in_bucket(
-        "dev/dfi/metadata.json"
-    )
+    metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
     if not metadata_does_exist:
-        send_metadata_to_minio()
+        send_metadata_to_s3()
         return True
     else:
         metadata_content = json.loads(
-            minio_process.get_file_content("dev/dfi/metadata.json")
+            s3_process.get_file_content("dev/dfi/metadata.json")
         )
         previous = sorted([i.get("last_modified") for i in metadata_content])
         current = sorted([i.get("last_modified") for i in metadata])
         if len(set(previous).intersection(current)) != 2:
-            send_metadata_to_minio()
+            send_metadata_to_s3()
             return True
         else:
             return False
@@ -209,9 +207,7 @@ def check_if_modif():
 
 def gather_data(ti):
     logging.info("Getting resources list")
-    metadata_content = json.loads(
-        minio_process.get_file_content("dev/dfi/metadata.json")
-    )
+    metadata_content = json.loads(s3_process.get_file_content("dev/dfi/metadata.json"))
     urls_resources = [i.get("url") for i in metadata_content]
     information_date_about_dataset = re.findall(
         r"\((.*?)\)", metadata_content[0].get("title")
@@ -254,8 +250,8 @@ def gather_data(ti):
     )
 
 
-def send_to_minio():
-    logging.info("Start to send files to Minio")
+def send_to_s3():
+    logging.info("Start to send files to S3")
     exts = ["csv", "parquet"]
     fileslist = [
         File(
@@ -266,11 +262,11 @@ def send_to_minio():
         )
         for filename in [f"dfi.{ext}" for ext in exts]
     ]
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=fileslist,
         ignore_airflow_env=True,
     )
-    logging.info("End sending files to Minio Open")
+    logging.info("End sending files to S3 Open")
 
 
 def publish_on_datagouv(ti):
@@ -292,7 +288,7 @@ def publish_on_datagouv(ti):
         ).update(
             payload={
                 "url": (
-                    f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/dfi/dfi.{_ext}"
                 ),
                 "filesize": os.path.getsize(DATADIR + f"/dfi.{_ext}"),
@@ -333,7 +329,7 @@ def notification_mattermost():
     dataset_id = config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         f"Données DFI agrégées :"
-        f"\n- uploadées sur Minio"
+        f"\n- uploadées sur S3"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"
     )

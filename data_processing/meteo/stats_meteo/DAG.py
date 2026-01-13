@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.data_processing.meteo.stats_meteo.task_functions import (
     gather_meteo_stats,
-    send_to_minio,
+    send_to_s3,
     send_notification,
 )
 
@@ -40,9 +40,9 @@ with DAG(
         python_callable=gather_meteo_stats,
     )
 
-    send_to_minio = PythonOperator(
-        task_id="send_to_minio",
-        python_callable=send_to_minio,
+    send_to_s3 = PythonOperator(
+        task_id="send_to_s3",
+        python_callable=send_to_s3,
     )
 
     send_notification = PythonOperator(
@@ -51,5 +51,5 @@ with DAG(
     )
 
     gather_meteo_stats.set_upstream(clean_previous_outputs)
-    send_to_minio.set_upstream(gather_meteo_stats)
-    send_notification.set_upstream(send_to_minio)
+    send_to_s3.set_upstream(gather_meteo_stats)
+    send_notification.set_upstream(send_to_s3)

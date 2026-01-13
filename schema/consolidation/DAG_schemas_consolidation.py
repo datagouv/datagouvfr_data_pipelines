@@ -8,8 +8,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_URL,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
 from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
@@ -24,7 +24,7 @@ from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
     create_detailed_reports,
     final_clean_up,
 )
-from datagouvfr_data_pipelines.utils.schema import upload_minio, notification_synthese
+from datagouvfr_data_pipelines.utils.schema import upload_s3, notification_synthese
 
 DAG_NAME = "schema_consolidation"
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
@@ -130,13 +130,13 @@ with DAG(
         },
     )
 
-    upload_minio = PythonOperator(
-        task_id="upload_minio",
-        python_callable=upload_minio,
+    upload_s3 = PythonOperator(
+        task_id="upload_s3",
+        python_callable=upload_s3,
         op_kwargs={
             "TMP_FOLDER": TMP_FOLDER.as_posix(),
-            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "minio_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
+            "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
+            "s3_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
 
@@ -155,8 +155,8 @@ with DAG(
         task_id="notification_synthese",
         python_callable=notification_synthese,
         op_kwargs={
-            "MINIO_URL": MINIO_URL,
-            "MINIO_BUCKET_DATA_PIPELINE_OPEN": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "S3_URL": S3_URL,
+            "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
             "list_schema_skip": ["etalab/schema-irve-statique"],
@@ -174,6 +174,6 @@ with DAG(
     create_consolidation_reports.set_upstream(update_consolidation_documentation)
     create_detailed_reports.set_upstream(create_consolidation_reports)
     final_clean_up.set_upstream(create_detailed_reports)
-    upload_minio.set_upstream(final_clean_up)
-    commit_changes.set_upstream(upload_minio)
+    upload_s3.set_upstream(final_clean_up)
+    commit_changes.set_upstream(upload_s3)
     notification_synthese.set_upstream(commit_changes)

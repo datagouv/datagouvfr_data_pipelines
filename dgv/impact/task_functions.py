@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_NOTION_KEY_IMPACT,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DATADIR = f"{TMP_FOLDER}data"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def calculate_quality_score(ti):
@@ -283,9 +283,7 @@ def gather_kpis(ti):
         encoding="utf8",
     )
     history = pd.read_csv(
-        StringIO(
-            minio_open.get_file_content("impact/statistiques_impact_datagouvfr.csv")
-        )
+        StringIO(s3_open.get_file_content("impact/statistiques_impact_datagouvfr.csv"))
     )
     final = pd.concat([df, history])
     final.to_csv(
@@ -295,8 +293,8 @@ def gather_kpis(ti):
     )
 
 
-def send_stats_to_minio():
-    minio_open.send_files(
+def send_stats_to_s3():
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
@@ -326,7 +324,7 @@ def publish_datagouv(DAG_FOLDER):
     ).update(
         payload={
             "url": (
-                f"https://object.files.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/"
+                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/"
                 "impact/statistiques_impact_datagouvfr.csv"
             ),
             "filesize": os.path.getsize(
@@ -353,8 +351,8 @@ def send_notification_mattermost(DAG_FOLDER):
     send_message(
         text=(
             ":mega: KPI de data.gouv mises à jour.\n"
-            f"- Données stockées sur Minio - [Bucket {MINIO_BUCKET_DATA_PIPELINE_OPEN}]"
-            f"(https://console.object.files.data.gouv.fr/browser/{MINIO_BUCKET_DATA_PIPELINE_OPEN}"
+            f"- Données stockées sur S3 - [Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}]"
+            f"(https://console.object.files.data.gouv.fr/browser/{S3_BUCKET_DATA_PIPELINE_OPEN}"
             f"impact)\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/"
             f"datasets/{data[AIRFLOW_ENV]['dataset_id']})"

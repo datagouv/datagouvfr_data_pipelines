@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     check_if_modif,
     process_rna,
-    send_rna_to_minio,
+    send_rna_to_s3,
     publish_on_datagouv,
     send_notification_mattermost,
 )
@@ -55,8 +55,8 @@ with DAG(
                 },
             ),
             PythonOperator(
-                task_id=f"send_rna_to_minio_{file_type}",
-                python_callable=send_rna_to_minio,
+                task_id=f"send_rna_to_s3_{file_type}",
+                python_callable=send_rna_to_s3,
                 op_kwargs={
                     "file_type": file_type,
                 },

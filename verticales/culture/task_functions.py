@@ -7,7 +7,7 @@ import requests
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
@@ -24,7 +24,7 @@ topic_id = (
     "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
 )
 metrics_api_url = "https://metric-api.data.gouv.fr/api/{}/data/?{}_id__exact={}"
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 objects = {
     "datasets": {
@@ -140,8 +140,8 @@ def gather_stats(ti, object_types: list[str]):
         json.dump(total, f)
 
 
-def send_stats_to_minio():
-    minio_open.send_files(
+def send_stats_to_s3():
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=DATADIR,

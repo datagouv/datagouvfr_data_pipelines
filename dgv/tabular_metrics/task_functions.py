@@ -10,7 +10,7 @@ import pandas as pd
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    MINIO_BUCKET_INFRA,
+    S3_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 DATADIR = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
-minio_client = S3Client(bucket=MINIO_BUCKET_INFRA)
+s3_client = S3Client(bucket=S3_BUCKET_INFRA)
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"
@@ -174,7 +174,7 @@ def process_logs():
     logging.info("Retrieving existing log files in bucket...")
     all_logs = [
         file_path.split("/")[-1]
-        for file_path in minio_client.get_files_from_prefix(
+        for file_path in s3_client.get_files_from_prefix(
             prefix=logs_folder,
             ignore_airflow_env=True,
         )
@@ -190,7 +190,7 @@ def process_logs():
         return
     for idx, log in enumerate(reversed(to_process)):
         logging.info(f"Processing {log} ({idx + 1}/{len(to_process)})")
-        minio_client.download_files(
+        s3_client.download_files(
             list_files=[
                 File(
                     source_path=logs_folder,

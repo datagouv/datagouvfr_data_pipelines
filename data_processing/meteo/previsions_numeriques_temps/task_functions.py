@@ -10,10 +10,10 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    MINIO_URL,
-    MINIO_BUCKET_PNT,
-    SECRET_MINIO_PNT_USER,
-    SECRET_MINIO_PNT_PASSWORD,
+    S3_URL,
+    S3_BUCKET_PNT,
+    SECRET_S3_PNT_USER,
+    SECRET_S3_PNT_PASSWORD,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
@@ -37,12 +37,12 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{DATADIR}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
-minio_pnt = S3Client(
-    bucket=MINIO_BUCKET_PNT,
-    user=SECRET_MINIO_PNT_USER,
-    pwd=SECRET_MINIO_PNT_PASSWORD,
+s3_pnt = S3Client(
+    bucket=S3_BUCKET_PNT,
+    user=SECRET_S3_PNT_USER,
+    pwd=SECRET_S3_PNT_PASSWORD,
 )
-minio_folder = "pnt" if AIRFLOW_ENV == "prod" else "dev"
+s3_folder = "pnt" if AIRFLOW_ENV == "prod" else "dev"
 meteo_client = MeteoClient()
 
 
@@ -110,18 +110,18 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
     ti.xcom_push(key="tested_batches", value=tested_batches)
 
 
-def clean_old_runs_in_minio(ti):
+def clean_old_runs_in_s3(ti):
     batches = ti.xcom_pull(key="batches", task_ids="get_latest_theorical_batches")
     # we get the runs' names from the folders
-    runs = minio_pnt.get_folders_from_prefix(
-        prefix=f"{minio_folder}/",
+    runs = s3_pnt.get_folders_from_prefix(
+        prefix=f"{s3_folder}/",
         ignore_airflow_env=True,
     )
     logging.info(runs)
     old_dates = set()
     keep_dates = set()
     for run_path in runs:
-        # run.object_name looks like "{minio_folder}/2024-10-02T00:00:00Z/"
+        # run.object_name looks like "{s3_folder}/2024-10-02T00:00:00Z/"
         run = run_path.split("/")[-2]
         if run < batches[-1]:
             old_dates.add(run)
@@ -129,7 +129,7 @@ def clean_old_runs_in_minio(ti):
             keep_dates.add(run)
     if len(keep_dates) > 3:
         for od in old_dates:
-            minio_pnt.delete_files_from_prefix(prefix=f"{minio_folder}/{od}/")
+            s3_pnt.delete_files_from_prefix(prefix=f"{s3_folder}/{od}/")
 
 
 def build_folder_path(model: str, pack: str, grid: str) -> str:
@@ -142,9 +142,9 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
         key="tested_batches", task_ids="get_latest_theorical_batches"
     )
     nb_files = 0
-    minio_paths = []
+    s3_paths = []
     url_to_infos = {}
-    minio_path_to_url = {}
+    s3_path_to_url = {}
     for batch in tested_batches:
         for package in PACKAGES[model][pack][grid]["packages"]:
             for timeslot in package.time:
@@ -159,26 +159,26 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
                     + f"{timeslot}__{batch}.{kwargs['infos']['extension']}"
                 )
                 path = build_folder_path(model, pack, grid)
-                minio_path = f"{minio_folder}/{batch}/{path}/{package.name}/{filename}"
+                s3_path = f"{s3_folder}/{batch}/{path}/{package.name}/{filename}"
                 nb_files += 1
-                minio_paths.append(minio_path)
+                s3_paths.append(s3_path)
                 url_to_infos[url] = {
                     "filename": filename,
-                    "minio_path": minio_path,
+                    "s3_path": s3_path,
                     "package": package.name,
                 }
-                minio_path_to_url[minio_path] = url
+                s3_path_to_url[s3_path] = url
 
     logging.info(f"{nb_files} possible files")
 
     issues = load_issues(f"{DATADIR}{path}")
     to_get = [
-        minio_path
-        for minio_path in minio_paths
+        s3_path
+        for s3_path in s3_paths
         if (
-            not minio_pnt.does_file_exist_in_bucket(minio_path)
-            # the urls are stored in issues, we get them from the minio path
-            or minio_path_to_url[minio_path] in issues
+            not s3_pnt.does_file_exist_in_bucket(s3_path)
+            # the urls are stored in issues, we get them from the s3 path
+            or s3_path_to_url[s3_path] in issues
         )
     ]
 
@@ -190,7 +190,7 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
 
     ti.xcom_push(key="url_to_infos", value=url_to_infos)
     ti.xcom_push(key="to_get", value=to_get)
-    ti.xcom_push(key="minio_path_to_url", value=minio_path_to_url)
+    ti.xcom_push(key="s3_path_to_url", value=s3_path_to_url)
     return True
 
 
@@ -210,7 +210,7 @@ def log_and_send_error(filename):
     log_name = f"{filename.split('.')[0]}-{int(datetime.now().timestamp())}.log"
     with open(LOG_PATH + log_name, "w") as f:
         f.write(f"{filename};{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    minio_pnt.send_file(
+    s3_pnt.send_file(
         File(
             source_path=LOG_PATH,
             source_name=log_name,
@@ -242,21 +242,21 @@ def download_file(url: str, local_filename: str) -> int:
         return 0
 
 
-def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
+def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
     url_to_infos = ti.xcom_pull(
         key="url_to_infos", task_ids="construct_all_possible_files"
     )
     to_get = ti.xcom_pull(key="to_get", task_ids="construct_all_possible_files")
-    minio_path_to_url = ti.xcom_pull(
-        key="minio_path_to_url", task_ids="construct_all_possible_files"
+    s3_path_to_url = ti.xcom_pull(
+        key="s3_path_to_url", task_ids="construct_all_possible_files"
     )
     path = build_folder_path(model, pack, grid)
     logging.info(f"Getting {len(to_get)} files")
     # we could also put the content of the loop within an async function and process the files simultaneously
     uploaded = []
     my_packages = set()
-    for minio_path in to_get:
-        url = minio_path_to_url[minio_path]
+    for s3_path in to_get:
+        url = s3_path_to_url[s3_path]
         package = url_to_infos[url]["package"]
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
@@ -270,7 +270,7 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             os.makedirs(f"{DATADIR}{path}/{package}", exist_ok=True)
             my_packages.add(package)
         local_filename = f"{DATADIR}{path}/{package}/{url_to_infos[url]['filename']}"
-        # ideally we'd like to minio_pnt.send_from_url directly but we have to test the file structure first
+        # ideally we'd like to s3_pnt.send_from_url directly but we have to test the file structure first
         download_status = download_file(url, local_filename)
         if download_status == 1:
             continue
@@ -279,16 +279,16 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
         if test_file_structure(local_filename):
             # if the test is successful, we upload the file (and remove it from issues if needed)
             logging.info("Structure test successful")
-            minio_pnt.send_from_url(
+            s3_pnt.send_from_url(
                 url=url,
-                destination_file_path=minio_path,
+                destination_file_path=s3_path,
                 session=meteo_client,
             )
             if url in issues:
                 logging.info("Removing it from issues")
                 issues.remove(url)
                 save_issues(issues, f"{DATADIR}{path}")
-            uploaded.append(minio_path)
+            uploaded.append(s3_path)
         elif url not in issues:
             # if the test is not successful and the file wasn't already flagged as an issue we:
             # - send it anyway (specifically requested by Météo France)
@@ -297,16 +297,16 @@ def send_files_to_minio(ti, model: str, pack: str, grid: str, **kwargs) -> None:
                 url_to_infos[url]["filename"]
                 + " is badly structured, but sending anyway"
             )
-            minio_pnt.send_from_url(
+            s3_pnt.send_from_url(
                 url=url,
-                destination_file_path=minio_path,
+                destination_file_path=s3_path,
                 session=meteo_client,
             )
             issues.append(url)
             logging.info("Adding it to issues")
             save_issues(issues, f"{DATADIR}{path}")
             log_and_send_error(url_to_infos[url]["filename"])
-            uploaded.append(minio_path)
+            uploaded.append(s3_path)
         else:
             # known issue, just passing, we'll try again next time
             logging.info("This file is an already known issue, passing")
@@ -353,31 +353,31 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # getting the current state of the resources
     current_resources: dict = get_current_resources(model, pack, grid)
 
-    # getting the latest available occurrence of each file on Minio
+    # getting the latest available occurrence of each file on S3
     latest_files = {}
-    batches_on_minio = [
+    batches_on_s3 = [
         path.split("/")[-2]
-        for path in minio_pnt.get_folders_from_prefix(
-            prefix=f"{minio_folder}/",
+        for path in s3_pnt.get_folders_from_prefix(
+            prefix=f"{s3_folder}/",
             ignore_airflow_env=True,
         )
     ]
-    logging.info(f"Current batches on Minio: {batches_on_minio}")
+    logging.info(f"Current batches on S3: {batches_on_s3}")
 
     # starting with latest timeslots
     path = build_folder_path(model, pack, grid)
-    for batch in reversed(sorted(batches_on_minio)):
+    for batch in reversed(sorted(batches_on_s3)):
         if len(latest_files) == len(current_resources) and len(current_resources) > 0:
             # we have found all files
             break
-        for obj, size in minio_pnt.get_all_files_names_and_sizes_from_parent_folder(
-            folder=f"{minio_folder}/{batch}/{path}/",
+        for obj, size in s3_pnt.get_all_files_names_and_sizes_from_parent_folder(
+            folder=f"{s3_folder}/{batch}/{path}/",
         ).items():
             file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{MINIO_URL}/{MINIO_BUCKET_PNT}/{obj}",
+                    "url": f"https://{S3_URL}/{S3_BUCKET_PNT}/{obj}",
                     "title": obj.split("/")[-1],
                     "size": size,
                 }

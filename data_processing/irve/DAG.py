@@ -9,8 +9,8 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
-    MINIO_URL,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+    S3_URL,
 )
 from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     consolidate_irve,
@@ -26,7 +26,7 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     update_reference_table_irve,
     update_resource_send_mail_producer_irve,
     upload_consolidated_irve,
-    upload_minio_irve,
+    upload_s3_irve,
 )
 
 DAG_NAME = "irve_consolidation"
@@ -141,13 +141,13 @@ with DAG(
         },
     )
 
-    upload_minio_irve = PythonOperator(
-        task_id="upload_minio_irve",
-        python_callable=upload_minio_irve,
+    upload_s3_irve = PythonOperator(
+        task_id="upload_s3_irve",
+        python_callable=upload_s3_irve,
         op_kwargs={
             "tmp_folder": TMP_FOLDER,
-            "minio_bucket_data_pipeline_open": MINIO_BUCKET_DATA_PIPELINE_OPEN,
-            "minio_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
+            "s3_bucket_data_pipeline_open": S3_BUCKET_DATA_PIPELINE_OPEN,
+            "s3_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         },
     )
 
@@ -166,8 +166,8 @@ with DAG(
         task_id="notification_synthese_irve",
         python_callable=notification_synthese_irve,
         op_kwargs={
-            "minio_url": MINIO_URL,
-            "minio_bucket_data_pipeline_open": MINIO_BUCKET_DATA_PIPELINE_OPEN,
+            "s3_url": S3_URL,
+            "s3_bucket_data_pipeline_open": S3_BUCKET_DATA_PIPELINE_OPEN,
             "tmp_folder": TMP_FOLDER,
             "mattermost_datagouv_schema_activite": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
             "date_dict": {"TODAY": f"{datetime.today().strftime('%Y-%m-%d')}"},
@@ -196,7 +196,7 @@ with DAG(
     )
     create_detailed_report_irve.set_upstream(create_consolidation_reports_irve)
     final_directory_clean_up_irve.set_upstream(create_detailed_report_irve)
-    upload_minio_irve.set_upstream(final_directory_clean_up_irve)
-    commit_changes.set_upstream(upload_minio_irve)
+    upload_s3_irve.set_upstream(final_directory_clean_up_irve)
+    commit_changes.set_upstream(upload_s3_irve)
     notification_synthese_irve.set_upstream(commit_changes)
     clean_up.set_upstream(notification_synthese_irve)

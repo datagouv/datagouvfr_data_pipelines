@@ -9,7 +9,7 @@ from unidecode import unidecode
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -24,7 +24,7 @@ DAG_NAME = "dgv_hvd"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 DOC_ID = "eJxok2H2va3E" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(DOC_ID, "Hvd_metadata_res")
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 # %% Recap HVD mattermost
@@ -114,9 +114,9 @@ def get_hvd(ti):
     ti.xcom_push(key="filename", value=filename)
 
 
-def send_to_minio(ti):
+def send_to_s3(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name=filename,
@@ -151,18 +151,16 @@ def markdown_item(row):
 
 def publish_mattermost(ti):
     filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
-    minio_files = sorted(
-        minio_open.get_files_from_prefix("hvd/", ignore_airflow_env=True)
-    )
-    logging.info(minio_files)
-    if len(minio_files) == 1:
+    s3_files = sorted(s3_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))
+    logging.info(s3_files)
+    if len(s3_files) == 1:
         return
     all_hvd_names = set(
         GristTable(DOC_ID, "Hvd_names").to_dataframe(columns_labels=False)["hvd_name"]
     )
     goal = len(all_hvd_names)
 
-    previous_week = pd.read_csv(StringIO(minio_open.get_file_content(minio_files[-2])))
+    previous_week = pd.read_csv(StringIO(s3_open.get_file_content(s3_files[-2])))
     this_week = pd.read_csv(f"{DATADIR}/{filename}")
     this_week["hvd_name"] = this_week["hvd_name"].apply(
         lambda str_list: eval(str_list) if isinstance(str_list, str) else []
@@ -187,7 +185,7 @@ def publish_mattermost(ti):
     message += f"soit {round(len(hvds) / goal * 100, 1)}% "
     message += f"et un total de {this_week['url'].nunique()} JdD "
     message += "([:arrow_down: télécharger le dernier fichier]"
-    message += f"({minio_open.get_file_url('hvd/' + filename)}))\n"
+    message += f"({s3_open.get_file_url('hvd/' + filename)}))\n"
     if len(new):
         message += (
             f":heavy_plus_sign: {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
@@ -578,7 +576,7 @@ def update_grist(ti):
     df["id2"].apply(update_quality)
     file_name = "grist_hvd.csv"
     table.to_dataframe().to_csv(DATADIR + file_name, sep=";", index=False)
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=DATADIR,
             source_name=file_name,

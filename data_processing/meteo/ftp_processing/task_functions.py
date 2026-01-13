@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
+    S3_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -21,12 +21,12 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
-minio_folder = "data/synchro_ftp/"
+s3_folder = "data/synchro_ftp/"
 bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
-minio_meteo = S3Client(bucket=bucket)
+s3_meteo = S3Client(bucket=bucket)
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
@@ -105,13 +105,13 @@ def build_file_id(file: str, path: str) -> str:
 
 def build_resource(
     file_path: str,
-    minio_folder: str,
+    s3_folder: str,
 ) -> tuple[str, str, str | None, str | None, str, bool]:
     # file_path has to be the full file path as structured on the FTP
-    # for files on minio, removing the minio folder upstream is required
+    # for files on s3, removing the s3 folder upstream is required
     _, global_path = get_path(file_path)
     file_with_ext = file_path.split("/")[-1]
-    url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
+    url = f"https://{S3_URL}/{bucket}/{s3_folder + file_path}"
     # differenciation ressource principale VS documentation
     is_doc = False
     description = ""
@@ -195,14 +195,14 @@ def get_current_files_on_ftp(ti, ftp) -> None:
     ti.xcom_push(key="ftp_files", value=ftp_files)
 
 
-def get_current_files_on_minio(ti) -> None:
-    minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
-        folder=minio_folder
+def get_current_files_on_s3(ti) -> None:
+    s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
+        folder=s3_folder
     )
     # getting the start of each time period to update datasets temporal_coverage
     period_starts = {}
-    for file in minio_files:
-        path = get_path(file.replace(minio_folder, ""))
+    for file in s3_files:
+        path = get_path(file.replace(s3_folder, ""))
         file_with_ext = file.split("/")[-1]
         if config.get(path, {}).get("source_pattern"):
             params = re.match(config[path]["source_pattern"], file_with_ext)
@@ -214,25 +214,25 @@ def get_current_files_on_minio(ti) -> None:
                 )
     logging.info(period_starts)
 
-    # de même ici, on utilise les balises pour cibler les fichiers du Minio
+    # de même ici, on utilise les balises pour cibler les fichiers du S3
     # qui devront être remplacés
-    final_minio_files = {}
-    for file_path in minio_files:
-        clean_file_path = file_path.replace(minio_folder, "")
+    final_s3_files = {}
+    for file_path in s3_files:
+        clean_file_path = file_path.replace(s3_folder, "")
         file_name = clean_file_path.split("/")[-1]
         true_path, global_path = get_path(clean_file_path)
-        final_minio_files[true_path + "/" + build_file_id(file_name, global_path)] = {
+        final_s3_files[true_path + "/" + build_file_id(file_name, global_path)] = {
             "file_path": clean_file_path,
-            "size": minio_files[file_path],
+            "size": s3_files[file_path],
         }
-    for f in final_minio_files:
-        logging.info(f"{f}: {final_minio_files[f]}")
-    ti.xcom_push(key="minio_files", value=final_minio_files)
+    for f in final_s3_files:
+        logging.info(f"{f}: {final_s3_files[f]}")
+    ti.xcom_push(key="s3_files", value=final_s3_files)
     ti.xcom_push(key="period_starts", value=period_starts)
 
 
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
-    file_url = f"https://{MINIO_URL}/{bucket}/{minio_folder}{ftp_file['file_path']}"
+    file_url = f"https://{S3_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
@@ -250,12 +250,12 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
     return has_been_modified
 
 
-def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
-    minio_files = ti.xcom_pull(key="minio_files", task_ids="get_current_files_on_minio")
+def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_current_files_on_s3")
     ftp_files = ti.xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
     # much debated part of the code: how to best get which files to consider here
     # first it was only done with the files' names but what if a file is updated but not renamed?
-    # then we thought about checking the size and comparing with Minio
+    # then we thought about checking the size and comparing with S3
     # but size can vary for an identical file depending on where/how it is stored
     # we also thought about a checksum, but hard to compute on the FTP and downloading
     # all files to compute checksums and compare is inefficient
@@ -265,7 +265,7 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     diff_files = [
         f
         for f in ftp_files
-        if f not in minio_files
+        if f not in s3_files
         or not has_file_been_updated_already(ftp_files[f], resources_lists)
     ]
     logging.info(
@@ -282,34 +282,34 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
     # doing it one file at a time in order not to overload production server
     for file_to_transfer in diff_files:
         logging.info("___________________________")
-        # if the file_id is in minio_files, it means that the current file is not
+        # if the file_id is in s3_files, it means that the current file is not
         # a true new file, but an updated file. We delete the old file at the end of
         # the process (to prevent downtimes) only if the file's name has changed
         # (otherwise the new one will just overwrite the old one) and upload the new
         # one, which will replace its previous version (we change the resource URL).
         logging.info(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
-        if file_to_transfer in minio_files:
+        if file_to_transfer in s3_files:
             if (
-                minio_files[file_to_transfer]["file_path"]
+                s3_files[file_to_transfer]["file_path"]
                 != ftp_files[file_to_transfer]["file_path"]
             ):
                 logging.info(
-                    f"♻️ Old version {minio_files[file_to_transfer]['file_path']} "
+                    f"♻️ Old version {s3_files[file_to_transfer]['file_path']} "
                     f"will be replaced with {ftp_files[file_to_transfer]['file_path']}"
                 )
                 # storing files that have changed name with update as {"new_name": "old_name"}
                 files_to_update_new_name[ftp_files[file_to_transfer]["file_path"]] = (
-                    minio_files[file_to_transfer]["file_path"]
+                    s3_files[file_to_transfer]["file_path"]
                 )
             else:
                 logging.info("🔃 This file already exists, it will only be updated")
                 files_to_update_same_name.append(
-                    minio_files[file_to_transfer]["file_path"]
+                    s3_files[file_to_transfer]["file_path"]
                 )
         else:
             logging.info("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
-        # we are recreating the file structure from FTP to Minio
+        # we are recreating the file structure from FTP to S3
         true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + true_path)
@@ -317,13 +317,13 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         with open(DATADIR + "/" + file_name, "wb") as local_file:
             ftp.retrbinary("RETR " + file_name, local_file.write)
 
-        # sending file to Minio
+        # sending file to S3
         try:
-            minio_meteo.send_file(
+            s3_meteo.send_file(
                 File(
                     source_path=f"{DATADIR}/",
                     source_name=file_name,
-                    dest_path=minio_folder + true_path + "/",
+                    dest_path=s3_folder + true_path + "/",
                     dest_name=file_name,
                 ),
                 ignore_airflow_env=True,
@@ -341,11 +341,11 @@ def get_and_upload_file_diff_ftp_minio(ti, ftp) -> None:
         f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}"
     )
 
-    # re-getting Minio files in case new files have been transfered for downstream tasks
-    minio_files = minio_meteo.get_all_files_names_and_sizes_from_parent_folder(
-        folder=minio_folder,
+    # re-getting S3 files in case new files have been transfered for downstream tasks
+    s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
+        folder=s3_folder,
     )
-    ti.xcom_push(key="minio_files", value=minio_files)
+    ti.xcom_push(key="s3_files", value=s3_files)
     ti.xcom_push(key="updated_datasets", value=updated_datasets)
     ti.xcom_push(key="new_files", value=new_files)
     ti.xcom_push(key="files_to_update_new_name", value=files_to_update_new_name)
@@ -358,16 +358,14 @@ def get_file_extention(file: str) -> str:
 
 def upload_new_files(ti) -> None:
     new_files = ti.xcom_pull(
-        key="new_files", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="new_files", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     updated_datasets = ti.xcom_pull(
-        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    minio_files = ti.xcom_pull(
-        key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio"
-    )
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     # adding files that have been spotted as new files in other processings
     spotted_new_files = ti.xcom_pull(
@@ -377,13 +375,13 @@ def upload_new_files(ti) -> None:
     new_files += spotted_new_files
     new_files = list(set(new_files))
 
-    # adding files that are on minio, not updated from FTP in this batch,
+    # adding files that are on s3, not updated from FTP in this batch,
     # but that are missing on data.gouv
-    for file_path in reversed(minio_files.keys()):
-        clean_file_path = file_path.replace(minio_folder, "")
+    for file_path in reversed(s3_files.keys()):
+        clean_file_path = file_path.replace(s3_folder, "")
         _, global_path = get_path(clean_file_path)
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://{MINIO_URL}/{bucket}/{file_path}"
+        url = f"https://{S3_URL}/{bucket}/{file_path}"
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list,
         # and if it's not an old file that has been renamed (values of new_name)
@@ -392,11 +390,11 @@ def upload_new_files(ti) -> None:
             url not in resources_lists.get(global_path, [])
             and clean_file_path not in new_files
             and clean_file_path not in files_to_update_new_name.values()
-            # to skip remainders of deleted Minio files
+            # to skip remainders of deleted S3 files
             and not clean_file_path.endswith("/")
         ):
             # this handles the case of files having been deleted from data.gouv
-            # but not from Minio
+            # but not from S3
             logging.info(f"This file is not on data.gouv, uploading: {clean_file_path}")
             new_files.append(clean_file_path)
 
@@ -406,7 +404,7 @@ def upload_new_files(ti) -> None:
         file_with_ext, global_path, resource_name, description, url, is_doc = (
             build_resource(
                 clean_file_path,
-                minio_folder,
+                s3_folder,
             )
         )
         logging.info(
@@ -418,7 +416,7 @@ def upload_new_files(ti) -> None:
                 dataset_id=config[global_path]["dataset_id"][AIRFLOW_ENV],
                 payload={
                     "url": url,
-                    "filesize": minio_files[minio_folder + clean_file_path],
+                    "filesize": s3_files[s3_folder + clean_file_path],
                     "title": (
                         (resource_name or file_with_ext)
                         if not is_doc
@@ -443,14 +441,12 @@ def upload_new_files(ti) -> None:
 
 def handle_updated_files_same_name(ti) -> None:
     updated_datasets = ti.xcom_pull(
-        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    minio_files = ti.xcom_pull(
-        key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio"
-    )
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
     resources_lists = get_resource_lists()
 
     new_files = []
@@ -460,7 +456,7 @@ def handle_updated_files_same_name(ti) -> None:
             logging.warning(f"⚠️ no config for this file: {file_path}")
             continue
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://{MINIO_URL}/{bucket}/{minio_folder + file_path}"
+        url = f"https://{S3_URL}/{bucket}/{s3_folder + file_path}"
         logging.info(f"Resource already exists and name unchanged: {file_with_ext}")
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
@@ -476,7 +472,7 @@ def handle_updated_files_same_name(ti) -> None:
             fetch=False,
         ).update(
             payload={
-                "filesize": minio_files[minio_folder + file_path],
+                "filesize": s3_files[s3_folder + file_path],
             },
         )
         raise_if_duplicates(idx)
@@ -487,27 +483,25 @@ def handle_updated_files_same_name(ti) -> None:
 
 def handle_updated_files_new_name(ti) -> None:
     updated_datasets = ti.xcom_pull(
-        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    minio_files = ti.xcom_pull(
-        key="minio_files", task_ids="get_and_upload_file_diff_ftp_minio"
-    )
+    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
     resources_lists = get_resource_lists()
 
     new_files = []
     for idx, file_path in enumerate(files_to_update_new_name):
         file_with_ext, global_path, resource_name, description, url, is_doc = (
-            build_resource(file_path, minio_folder)
+            build_resource(file_path, s3_folder)
         )
         # resource is updated with a new name, we redirect the existing resource, rename it
         # and update size and description
         logging.info(f"Updating URL and metadata for: {file_with_ext}")
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
-        old_url = f"https://{MINIO_URL}/{bucket}/{minio_folder + old_file_path}"
+        old_url = f"https://{S3_URL}/{bucket}/{s3_folder + old_file_path}"
         if not resources_lists[global_path].get(old_url):
             logging.info(
                 "⚠️ this file is not on data.gouv yet, it will be added as a new file"
@@ -521,7 +515,7 @@ def handle_updated_files_new_name(ti) -> None:
         ).update(
             payload={
                 "url": url,
-                "filesize": minio_files[minio_folder + file_path],
+                "filesize": s3_files[s3_folder + file_path],
             }
             | (
                 # for resources that we want to keep the same name
@@ -541,7 +535,7 @@ def handle_updated_files_new_name(ti) -> None:
 
 def update_temporal_coverages(ti) -> None:
     period_starts = ti.xcom_pull(
-        key="period_starts", task_ids="get_current_files_on_minio"
+        key="period_starts", task_ids="get_current_files_on_s3"
     )
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
@@ -579,13 +573,13 @@ def update_temporal_coverages(ti) -> None:
 def log_modified_files(ti) -> None:
     new_files = ti.xcom_pull(key="new_files", task_ids="upload_new_files")
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     files_to_update_same_name = ti.xcom_pull(
-        key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     log_file_path = "data/updated_files.json"
-    log_file = json.loads(minio_meteo.get_file_content(log_file_path))
+    log_file = json.loads(s3_meteo.get_file_content(log_file_path))
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
     if log_file.get(today):
@@ -622,7 +616,7 @@ def log_modified_files(ti) -> None:
     logging.info(f"{len(log_file)} clés dans le fichier : {list(log_file.keys())}")
     with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
         json.dump(log_file, f)
-    minio_meteo.send_file(
+    s3_meteo.send_file(
         File(
             source_path=f"{DATADIR}/",
             source_name=log_file_path.split("/")[-1],
@@ -633,13 +627,13 @@ def log_modified_files(ti) -> None:
     )
 
 
-def delete_replaced_minio_files(ti) -> None:
+def delete_replaced_s3_files(ti) -> None:
     # files that have been renamed while update will be removed
     files_to_update_new_name = ti.xcom_pull(
-        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_minio"
+        key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     for old_file in files_to_update_new_name.values():
-        minio_meteo.delete_file(file_path=minio_folder + old_file)
+        s3_meteo.delete_file(file_path=s3_folder + old_file)
 
 
 def notification_mattermost(ti) -> None:

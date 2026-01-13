@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
-    MINIO_BUCKET_DATA_PIPELINE_OPEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     demo_client,
 )
 
-minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DATADIR = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
@@ -76,7 +76,7 @@ def get_dpt_list():
 def get_files_updated_miom(ti):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     url_max_date = (
-        f"https://object.data.gouv.fr/{MINIO_BUCKET_DATA_PIPELINE_OPEN}/"
+        f"https://object.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/"
         + f"{AIRFLOW_ENV}/elections-mirroring/{ID_CURRENT_ELECTION}/max_date.json"
     )
     r = requests.get(url_max_date)
@@ -145,9 +145,9 @@ def download_local_files(ti):
                     time.sleep(1)
 
 
-def send_to_minio(ti):
+def send_to_s3(ti):
     miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
-    minio_open.send_files(
+    s3_open.send_files(
         list_files=[
             File(
                 source_path=(
@@ -177,7 +177,7 @@ def send_to_minio(ti):
         ]
     )
 
-    minio_open.send_file(
+    s3_open.send_file(
         File(
             source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
             source_name="max_date.json",
@@ -187,15 +187,15 @@ def send_to_minio(ti):
     )
 
 
-def download_from_minio():
+def download_from_s3():
     prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/"
-    minio_files = minio_open.get_files_from_prefix(
+    s3_files = s3_open.get_files_from_prefix(
         prefix=prefix,
         ignore_airflow_env=False,
     )
-    print(minio_files)
+    print(s3_files)
     os.makedirs(f"{AIRFLOW_DAG_TMP}elections-mirroring/export", exist_ok=True)
-    minio_open.download_files(
+    s3_open.download_files(
         list_files=[
             File(
                 source_path="/".join(mf.split("/")[:-1]) + "/",
@@ -208,12 +208,12 @@ def download_from_minio():
                 dest_name=mf.split("/")[-1],
                 remote_source=True,
             )
-            for mf in minio_files
+            for mf in s3_files
         ]
     )
 
 
-def send_exports_to_minio():
+def send_exports_to_s3():
     list_files = [
         File(
             source_path=f"{AIRFLOW_DAG_TMP}elections-mirroring/",
@@ -250,7 +250,7 @@ def send_exports_to_minio():
                             dest_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
                         )
                     )
-    minio_open.send_files(list_files=list_files)
+    s3_open.send_files(list_files=list_files)
 
 
 def check_if_continue(ti):

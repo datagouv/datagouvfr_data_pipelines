@@ -10,9 +10,9 @@ import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
-    MINIO_URL,
-    SECRET_MINIO_DATA_PIPELINE_USER,
-    SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+    S3_URL,
+    SECRET_S3_DATA_PIPELINE_USER,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -22,12 +22,12 @@ class S3Client:
     def __init__(
         self,
         bucket: str,
-        user: str = SECRET_MINIO_DATA_PIPELINE_USER,
-        pwd: str = SECRET_MINIO_DATA_PIPELINE_PASSWORD,
+        user: str = SECRET_S3_DATA_PIPELINE_USER,
+        pwd: str = SECRET_S3_DATA_PIPELINE_PASSWORD,
         login: bool = True,
         config_kwargs: dict | None = None,
     ):
-        self.url = MINIO_URL
+        self.url = S3_URL
         self.resource = boto3.resource(
             "s3",
             endpoint_url="https://" + self.url,
@@ -200,50 +200,50 @@ class S3Client:
         self,
         path_source: str,
         path_target: str,
-        minio_bucket_source: str | None = None,
-        minio_bucket_target: str | None = None,
+        s3_bucket_source: str | None = None,
+        s3_bucket_target: str | None = None,
         remove_source_file: bool = False,
     ) -> None:
         """Copy and paste file to another folder, potentially from one bucket to another if specified."""
-        if not minio_bucket_source:
-            minio_bucket_source = self.bucket.name
-        if not minio_bucket_target:
-            minio_bucket_target = self.bucket.name
-        for bucket in [minio_bucket_source, minio_bucket_target]:
+        if not s3_bucket_source:
+            s3_bucket_source = self.bucket.name
+        if not s3_bucket_target:
+            s3_bucket_target = self.bucket.name
+        for bucket in [s3_bucket_source, s3_bucket_target]:
             if bucket not in [b for b in self.resource.buckets.all()]:
                 raise ValueError(
                     f"Bucket '{bucket}' does not exist, or the current user does not have access"
                 )
 
         logging.info(
-            f"{'Moving' if remove_source_file else 'Copying'} {minio_bucket_source}/{path_source}"
+            f"{'Moving' if remove_source_file else 'Copying'} {s3_bucket_source}/{path_source}"
         )
         self.client.copy_object(
-            Bucket=minio_bucket_target,
+            Bucket=s3_bucket_target,
             Key=path_target,
-            CopySource={"Bucket": minio_bucket_source, "Key": path_source},
+            CopySource={"Bucket": s3_bucket_source, "Key": path_source},
         )
         if remove_source_file:
-            self.client.delete_object(Bucket=minio_bucket_source, Key=path_source)
-        logging.info(f"to {minio_bucket_source}/{path_target}")
+            self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
+        logging.info(f"to {s3_bucket_source}/{path_target}")
 
     def copy_many_objects(
         self,
         obj_source_paths: list[str],  # TODO: use a list of Files
         target_directory: str,
-        minio_bucket_source: str | None = None,
-        minio_bucket_target: str | None = None,
+        s3_bucket_source: str | None = None,
+        s3_bucket_target: str | None = None,
         remove_source_file: bool = False,
     ) -> list[str]:
         """
-        Copy multiple objects from a source folder to a target folder in MinIO.
+        Copy multiple objects from a source folder to a target folder in S3.
         Ensure credentials allow to access both buckets.
 
         Args:
             obj_source_paths (list[str]): List of the objects full paths to be copied.
             target_path (str): The target directory where the objects will be copied.
-            minio_bucket_source (str | None): The source MinIO bucket name. Defaults to the bucket specified at init.
-            minio_bucket_target (str | None): The target MinIO bucket name. Defaults to the bucket specified at init.
+            s3_bucket_source (str | None): The source S3 bucket name. Defaults to the bucket specified at init.
+            s3_bucket_target (str | None): The target S3 bucket name. Defaults to the bucket specified at init.
             remove_source_file (bool): If True, removes the source files after copying. Defaults to False.
 
         Returns:
@@ -256,8 +256,8 @@ class S3Client:
             self.copy_object(
                 path_source=source_path,
                 path_target=target_path,
-                minio_bucket_source=minio_bucket_source,
-                minio_bucket_target=minio_bucket_target,
+                s3_bucket_source=s3_bucket_source,
+                s3_bucket_target=s3_bucket_target,
                 remove_source_file=remove_source_file,
             )
             files_destination_path.append(target_path)
@@ -291,7 +291,7 @@ class S3Client:
         self,
         file_path: str,
     ) -> str:
-        return f"https://{MINIO_URL}/{self.bucket.name}/{file_path}"
+        return f"https://{S3_URL}/{self.bucket.name}/{file_path}"
 
     @simple_connection_retry
     def get_all_files_names_and_sizes_from_parent_folder(
