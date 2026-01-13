@@ -24,7 +24,7 @@ from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geo
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -36,8 +36,8 @@ pgclient = PostgresClient(
     conn_name="POSTGRES_DVF",
     schema=schema,
 )
-minio_restricted = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE)
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_restricted = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def get_year_interval() -> tuple[int, int]:

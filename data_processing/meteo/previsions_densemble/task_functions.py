@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
 
@@ -27,7 +27,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
-minio_meteo = MinIOClient(
+minio_meteo = S3Client(
     bucket=bucket_pe,
     user=SECRET_MINIO_METEO_PE_USER,
     pwd=SECRET_MINIO_METEO_PE_PASSWORD,
@@ -280,19 +280,19 @@ def remove_old_occurrences(pack: str, grid: str):
     logging.info(f"Will delete everything before {threshold}")
     dates_on_minio = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
-        for path in minio_meteo.get_files_from_prefix(
+        for path in minio_meteo.get_folders_from_prefix(
             prefix=f"{minio_folder}/{pack}/{grid}/",
             ignore_airflow_env=False,
-            recursive=False,
         )
     }
     logging.info(f"Current dates on Minio: {dates_on_minio}")
     for path, date in dates_on_minio.items():
         if date < threshold:
-            files_to_delete = minio_meteo.get_files_from_prefix(
-                prefix=path,
-                ignore_airflow_env=True,
-                recursive=True,
+            files_to_delete = list(
+                minio_meteo.get_files_from_prefix(
+                    prefix=path,
+                    ignore_airflow_env=True,
+                )
             )
             logging.info(f"Will delete {len(files_to_delete)} files from {path}")
             for file in files_to_delete:
@@ -312,18 +312,18 @@ def handle_cyclonic_alert(pack: str, grid: str):
         return
     latest_date = max(
         path.split("/")[-2]
-        for path in minio_meteo.get_files_from_prefix(
+        for path in minio_meteo.get_folders_from_prefix(
             prefix=f"{minio_folder}/{pack}/{grid}/",
             ignore_airflow_env=False,
-            recursive=False,
         )
     )
     logging.info(f"Latest date {latest_date}")
     nb_files_latest_date = len(
-        minio_meteo.get_files_from_prefix(
-            prefix=f"{minio_folder}/{pack}/{grid}/{latest_date}/",
-            ignore_airflow_env=False,
-            recursive=False,
+        list(
+            minio_meteo.get_files_from_prefix(
+                prefix=f"{minio_folder}/{pack}/{grid}/{latest_date}/",
+                ignore_airflow_env=False,
+            )
         )
     )
     logging.info(f"Nb files latest date {nb_files_latest_date}")

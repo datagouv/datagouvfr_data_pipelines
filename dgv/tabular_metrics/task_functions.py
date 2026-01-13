@@ -13,13 +13,13 @@ from datagouvfr_data_pipelines.config import (
     MINIO_BUCKET_INFRA,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 DATADIR = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
-minio_client = MinIOClient(bucket=MINIO_BUCKET_INFRA)
+minio_client = S3Client(bucket=MINIO_BUCKET_INFRA)
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"

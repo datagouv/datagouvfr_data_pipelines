@@ -26,8 +26,9 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)
@@ -1967,7 +1968,7 @@ def upload_minio(
     MINIO_BUCKET_DATA_PIPELINE_OPEN: str,
     minio_output_filepath: str,
 ) -> None:
-    minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
     minio_open.send_files(
         list_files=[
             File(
@@ -2003,7 +2004,7 @@ def notification_synthese(
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
-    minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+    minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
     message = (
         ":mega: *Rapport sur la consolidation des données répondant à un schéma.*\n"

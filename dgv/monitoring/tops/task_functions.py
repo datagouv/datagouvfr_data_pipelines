@@ -11,10 +11,10 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 BASE_URL = "https://stats.data.gouv.fr/index.php"
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 PARAMS_TOPS = {
     "module": "API",
@@ -209,9 +209,7 @@ def send_tops_to_minio(ti, **kwargs):
             key=f"top_{_class}_dict",
             task_ids=f"get_top_{_class}_" + publish_info["period"],
         )
-        minio_open.dict_to_bytes_to_minio(
-            top, publish_info["minio"] + f"top_{_class}.json"
-        )
+        minio_open.send_dict_as_file(top, publish_info["minio"] + f"top_{_class}.json")
 
 
 def send_stats_to_minio(**kwargs):
@@ -236,7 +234,7 @@ def send_stats_to_minio(**kwargs):
         "values": pageviews,
         "date_maj": piwik_info["date"],
     }
-    minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "visits.json")
+    minio_open.send_dict_as_file(mydict, piwik_info["minio"] + "visits.json")
 
     mydict = {
         "name": "Nombre de visiteurs uniques",
@@ -244,7 +242,7 @@ def send_stats_to_minio(**kwargs):
         "values": uniq_pageviews,
         "date_maj": piwik_info["date"],
     }
-    minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "uniq_visits.json")
+    minio_open.send_dict_as_file(mydict, piwik_info["minio"] + "uniq_visits.json")
 
     mydict = {
         "name": "Nombre de téléchargements",
@@ -252,4 +250,4 @@ def send_stats_to_minio(**kwargs):
         "values": downloads,
         "date_maj": piwik_info["date"],
     }
-    minio_open.dict_to_bytes_to_minio(mydict, piwik_info["minio"] + "downloads.json")
+    minio_open.send_dict_as_file(mydict, piwik_info["minio"] + "downloads.json")

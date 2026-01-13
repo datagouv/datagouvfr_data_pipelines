@@ -23,7 +23,8 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_MATOMO_ID,
     local_client,
 )
-from datagouvfr_data_pipelines.utils.minio import File, MinIOClient
+from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import list_months_between
 
 DAG_NAME = "dgv_dashboard"
@@ -45,7 +46,7 @@ entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 # max 5 requests/second (rate limiting is 1/7)
 rate_limiting_delay = 1 / 5
 
-minio_open = MinIOClient(bucket="dataeng-open")
+minio_open = S3Client(bucket="dataeng-open")
 minio_destination_folder = "dashboard/"
 
 MATOMO_PARAMS = {
@@ -366,7 +367,7 @@ def get_and_upload_certification() -> None:
 
 
 def get_and_upload_reuses_down() -> None:
-    client = MinIOClient(bucket="data-pipeline-open")
+    client = S3Client(bucket="data-pipeline-open")
     # getting latest data
     df = pd.read_csv(
         StringIO(

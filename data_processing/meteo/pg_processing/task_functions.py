@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -30,7 +30,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 
-minio_meteo = MinIOClient(bucket="meteofrance")
+minio_meteo = S3Client(bucket="meteofrance")
 
 
 SCHEMA_NAME = "meteo"

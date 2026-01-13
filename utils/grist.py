@@ -21,8 +21,8 @@ def handle_grist_error(response: requests.Response) -> None:
     try:
         response.raise_for_status()
     except Exception:
-        print(response.status_code)
-        print(response.text)
+        logging.error(response.status_code)
+        logging.error(response.text)
         raise Exception(f"Grist error: '{response.json()['error']}'")
 
 

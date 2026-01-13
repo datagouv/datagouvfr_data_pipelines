@@ -26,7 +26,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 # if you want to roll back to dev mode
@@ -37,7 +37,7 @@ DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{DATADIR}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
-minio_pnt = MinIOClient(
+minio_pnt = S3Client(
     bucket=MINIO_BUCKET_PNT,
     user=SECRET_MINIO_PNT_USER,
     pwd=SECRET_MINIO_PNT_PASSWORD,
@@ -113,9 +113,8 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
 def clean_old_runs_in_minio(ti):
     batches = ti.xcom_pull(key="batches", task_ids="get_latest_theorical_batches")
     # we get the runs' names from the folders
-    runs = minio_pnt.get_files_from_prefix(
+    runs = minio_pnt.get_folders_from_prefix(
         prefix=f"{minio_folder}/",
-        recursive=False,
         ignore_airflow_env=True,
     )
     logging.info(runs)
@@ -177,7 +176,7 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
         minio_path
         for minio_path in minio_paths
         if (
-            not minio_pnt.does_file_exist_on_minio(minio_path)
+            not minio_pnt.does_file_exist_in_bucket(minio_path)
             # the urls are stored in issues, we get them from the minio path
             or minio_path_to_url[minio_path] in issues
         )
@@ -358,10 +357,9 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     latest_files = {}
     batches_on_minio = [
         path.split("/")[-2]
-        for path in minio_pnt.get_files_from_prefix(
+        for path in minio_pnt.get_folders_from_prefix(
             prefix=f"{minio_folder}/",
             ignore_airflow_env=True,
-            recursive=False,
         )
     ]
     logging.info(f"Current batches on Minio: {batches_on_minio}")

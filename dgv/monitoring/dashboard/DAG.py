@@ -17,7 +17,6 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_visits,
     get_support_tickets,
 )
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
 
 DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -27,9 +26,6 @@ groups = [
     for k in ["support", "ouverture", "moissonnage", "certification"]
 ]
 entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
-
-minio_open = MinIOClient(bucket="dataeng-open")
-minio_destination_folder = "dashboard/"
 
 default_args = {
     "retries": 5,

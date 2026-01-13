@@ -7,11 +7,11 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.minio import MinIOClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
-minio_open = MinIOClient(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
+minio_open = S3Client(bucket=MINIO_BUCKET_DATA_PIPELINE_OPEN)
 
 
 def download_latest_data(ti):
@@ -100,11 +100,17 @@ def send_file_to_minio(ti):
 
 def compare_files_minio(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
-    is_same = minio_open.compare_files(
-        file_path_1="formation/new/",
-        file_name_1=f"{res['name']}_clean.csv",
-        file_path_2="formation/latest/",
-        file_name_2=f"{res['name']}_clean.csv",
+    is_same = minio_open.are_files_identical(
+        file_1=File(
+            source_path="formation/new/",
+            source_name=f"{res['name']}_clean.csv",
+            remote_source=True,
+        ),
+        file_2=File(
+            source_path="formation/latest/",
+            source_name=f"{res['name']}_clean.csv",
+            remote_source=True,
+        ),
     )
     if is_same:
         return False
