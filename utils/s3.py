@@ -98,9 +98,9 @@ class S3Client:
                     f"File '{source_path}' does not exist in bucket '{self.bucket.name}'"
                 )
             self.client.download_file(
-                self.bucket.name,
-                self.bucket.Object(source_path),
-                file.full_dest_path,
+                Bucket=self.bucket.name,
+                Key=source_path,
+                Filename=file.full_dest_path,
             )
 
     @simple_connection_retry
