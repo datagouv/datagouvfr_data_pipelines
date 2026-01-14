@@ -223,10 +223,10 @@ class S3Client:
         logging.info(
             f"{'Moving' if remove_source_file else 'Copying'} {s3_bucket_source}/{path_source}"
         )
-        self.client.copy_object(
+        self.client.copy(
+            CopySource={"Bucket": s3_bucket_source, "Key": path_source},
             Bucket=s3_bucket_target,
             Key=path_target,
-            CopySource={"Bucket": s3_bucket_source, "Key": path_source},
         )
         if remove_source_file:
             self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
