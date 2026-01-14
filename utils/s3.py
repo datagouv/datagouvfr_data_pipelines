@@ -215,7 +215,7 @@ class S3Client:
         if not s3_bucket_target:
             s3_bucket_target = self.bucket.name
         for bucket in [s3_bucket_source, s3_bucket_target]:
-            if bucket not in [b for b in self.resource.buckets.all()]:
+            if bucket not in [b.name for b in self.resource.buckets.all()]:
                 raise ValueError(
                     f"Bucket '{bucket}' does not exist, or the current user does not have access"
                 )
