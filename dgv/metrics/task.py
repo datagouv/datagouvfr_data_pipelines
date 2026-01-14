@@ -28,7 +28,10 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
-s3_client = S3Client(bucket=S3_BUCKET_INFRA)
+s3_client = S3Client(
+    bucket=S3_BUCKET_INFRA,
+    config_kwargs={"connect_timeout": 30, "read_timeout": 1800},
+)
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"
