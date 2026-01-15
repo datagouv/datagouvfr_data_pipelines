@@ -336,5 +336,5 @@ class S3Client:
         with _req.get(url, stream=True) as response:
             response.raise_for_status()
             logging.info("⬆️ Stream-sending " + url)
-            logging.info(f"to {self.bucket}/{destination_file_path}")
+            logging.info(f"to {self.bucket.name}/{destination_file_path}")
             self.bucket.upload_fileobj(Key=destination_file_path, Fileobj=response.raw)
