@@ -26,7 +26,10 @@ bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
-s3_meteo = S3Client(bucket=bucket)
+s3_meteo = S3Client(
+    bucket=bucket,
+    config_kwargs={"connect_timeout": 3600, "read_timeout": 3600},
+)
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
