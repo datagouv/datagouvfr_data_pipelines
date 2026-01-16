@@ -26,7 +26,7 @@ class S3Client:
         user: str = SECRET_S3_DATA_PIPELINE_USER,
         pwd: str = SECRET_S3_DATA_PIPELINE_PASSWORD,
         login: bool = True,
-        config_kwargs: dict | None = None,
+        config_kwargs: dict = {"connect_timeout": 3600, "read_timeout": 3600},
         s3_url: str = MINIO_URL,  # to be removed when migration is complete
     ):
         self.url = s3_url
@@ -35,7 +35,7 @@ class S3Client:
             endpoint_url="https://" + self.url,
             aws_access_key_id=user if login else None,
             aws_secret_access_key=pwd if login else None,
-            config=Config(**config_kwargs) if config_kwargs else None,
+            config=Config(**config_kwargs),
         )
         if bucket not in [b.name for b in self.resource.buckets.all()]:
             raise ValueError(f"Bucket '{bucket}' does not exist.")

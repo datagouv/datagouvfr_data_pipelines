@@ -22,7 +22,6 @@ s3_pnt = S3Client(
     bucket=S3_BUCKET_PNT,
     user=SECRET_S3_PNT_USER,
     pwd=SECRET_S3_PNT_PASSWORD,
-    config_kwargs={"connect_timeout": 30, "read_timeout": 1800},
 )
 too_old_filename = "too_old.json"
 
