@@ -45,10 +45,15 @@ class S3Client:
     @simple_connection_retry
     def does_file_exist_in_bucket(self, file_path: str) -> bool:
         try:
-            self.bucket.Object(file_path).get()
+            self.client.head_object(
+                Bucket=self.bucket.name,
+                Key=file_path,
+            )
             return True
-        except self.client.exceptions.NoSuchKey:
-            return False
+        except self.client.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise e
 
     @simple_connection_retry
     def send_file(
