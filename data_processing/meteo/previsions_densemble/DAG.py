@@ -67,7 +67,6 @@ def create_dag(pack: str, grid: str):
         )
 
         _get_files_list_on_sftp.set_upstream(create_working_dir)
-        _clean_directory.set_upstream(_get_files_list_on_sftp)
         _transfer_files_to_s3.set_upstream(_get_files_list_on_sftp)
         _publish_on_datagouv.set_upstream(_transfer_files_to_s3)
         _remove_old_occurrences.set_upstream(_publish_on_datagouv)
