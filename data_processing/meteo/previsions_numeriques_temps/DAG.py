@@ -76,10 +76,6 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         )
 
         _get_latest_theorical_batches.set_upstream(create_working_dirs)
-
-        _clean_old_runs_in_s3.set_upstream(_get_latest_theorical_batches)
-        _clean_directory.set_upstream(_get_latest_theorical_batches)
-
         _construct_all_possible_files.set_upstream(_get_latest_theorical_batches)
         _send_files_to_s3.set_upstream(_construct_all_possible_files)
         _publish_on_datagouv.set_upstream(_send_files_to_s3)
