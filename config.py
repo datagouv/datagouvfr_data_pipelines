@@ -33,7 +33,7 @@ MATTERMOST_SIMPLIFIONS_WEBHOOK_URL = Variable.get(
 MINIO_URL = Variable.get("MINIO_URL", "object.files.data.gouv.fr")
 
 # S3
-S3_URL = Variable.get("S3_URL", "object.files.data.gouv.fr")
+S3_URL = Variable.get("S3_URL", "s3.eu-west-par.io.cloud.ovh.net")
 S3_BUCKET_DATA_PIPELINE = Variable.get("S3_BUCKET_DATA_PIPELINE", "")
 S3_BUCKET_DATA_PIPELINE_OPEN = Variable.get("S3_BUCKET_DATA_PIPELINE_OPEN", "")
 S3_BUCKET_INFRA = Variable.get("S3_BUCKET_INFRA", "")
@@ -44,6 +44,8 @@ SECRET_S3_PNT_USER = Variable.get("SECRET_S3_PNT_USER", "")
 SECRET_S3_PNT_PASSWORD = Variable.get("SECRET_S3_PNT_PASSWORD", "")
 SECRET_S3_METEO_PE_USER = Variable.get("SECRET_S3_METEO_PE_USER", "")
 SECRET_S3_METEO_PE_PASSWORD = Variable.get("SECRET_S3_METEO_PE_PASSWORD", "")
+SECRET_S3_METRICS_USER = Variable.get("SECRET_S3_METRICS_USER", "")
+SECRET_S3_METRICS_PASSWORD = Variable.get("SECRET_S3_METRICS_PASSWORD", "")
 
 # INSEE
 INSEE_BASE_URL = Variable.get("INSEE_BASE_URL", "")

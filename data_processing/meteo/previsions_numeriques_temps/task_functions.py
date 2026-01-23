@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    S3_URL,
+    MINIO_URL,
     S3_BUCKET_PNT,
     SECRET_S3_PNT_USER,
     SECRET_S3_PNT_PASSWORD,
@@ -377,7 +377,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{S3_URL}/{S3_BUCKET_PNT}/{obj}",
+                    "url": f"https://{MINIO_URL}/{S3_BUCKET_PNT}/{obj}",
                     "title": obj.split("/")[-1],
                     "size": size,
                 }

@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_URL,
+    MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
@@ -155,7 +155,7 @@ with DAG(
         task_id="notification_synthese",
         python_callable=notification_synthese,
         op_kwargs={
-            "S3_URL": S3_URL,
+            "S3_URL": MINIO_URL,
             "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
             "TMP_FOLDER": TMP_FOLDER,
             "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
