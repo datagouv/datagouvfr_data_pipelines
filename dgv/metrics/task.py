@@ -32,10 +32,11 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
 s3_client = S3Client(
-    bucket=S3_BUCKET_INFRA,
-    user=SECRET_S3_METRICS_USER,
-    pwd=SECRET_S3_METRICS_PASSWORD,
-    s3_url=S3_URL,
+    bucket="infra",
+    # bucket=S3_BUCKET_INFRA,
+    # user=SECRET_S3_METRICS_USER,
+    # pwd=SECRET_S3_METRICS_PASSWORD,
+    # s3_url=S3_URL,
 )
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()

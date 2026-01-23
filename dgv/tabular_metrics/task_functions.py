@@ -23,10 +23,11 @@ from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 DATADIR = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
 s3_client = S3Client(
-    bucket=S3_BUCKET_INFRA,
-    user=SECRET_S3_METRICS_USER,
-    pwd=SECRET_S3_METRICS_PASSWORD,
-    s3_url=S3_URL,
+    bucket="infra",
+    # bucket=S3_BUCKET_INFRA,
+    # user=SECRET_S3_METRICS_USER,
+    # pwd=SECRET_S3_METRICS_PASSWORD,
+    # s3_url=S3_URL,
 )
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 already_processed_table = "tabular_processed"
