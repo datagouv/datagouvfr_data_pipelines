@@ -52,4 +52,3 @@ class SFTPClient:
     def delete_file(self, remote_file_path: str):
         self.sftp.remove(remote_file_path)
         logging.info(f"🔥 {remote_file_path} successfully deleted")
-
