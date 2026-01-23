@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_URL,
+    MINIO_URL,
     S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -1262,5 +1262,5 @@ def notification_mattermost(ti) -> None:
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id})"
-        f"\n- données upload [sur S3]({S3_URL}/buckets/{S3_BUCKET_DATA_PIPELINE_OPEN}/browse)"
+        f"\n- données uploadées [sur S3]({MINIO_URL}/browser/{S3_BUCKET_DATA_PIPELINE_OPEN}/dvf/)"
     )

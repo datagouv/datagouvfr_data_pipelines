@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
-    S3_URL,
+    MINIO_URL,
 )
 from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     consolidate_irve,
@@ -166,7 +166,7 @@ with DAG(
         task_id="notification_synthese_irve",
         python_callable=notification_synthese_irve,
         op_kwargs={
-            "s3_url": S3_URL,
+            "s3_url": MINIO_URL,
             "s3_bucket_data_pipeline_open": S3_BUCKET_DATA_PIPELINE_OPEN,
             "tmp_folder": TMP_FOLDER,
             "mattermost_datagouv_schema_activite": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,

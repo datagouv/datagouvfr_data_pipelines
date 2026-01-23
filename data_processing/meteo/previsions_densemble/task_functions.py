@@ -1,4 +1,4 @@
-from collections import defaultdict
+MINIO_URLfrom collections import defaultdict
 from datetime import datetime, timedelta
 import json
 import logging
@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    S3_URL,
+    MINIO_URL,
     SECRET_S3_METEO_PE_USER,
     SECRET_S3_METEO_PE_PASSWORD,
 )
@@ -226,7 +226,7 @@ def publish_on_datagouv(pack: str, grid: str):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{S3_URL}/{bucket_pe}/{obj}",
+                    "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
                     "title": fix_title(obj.split("/")[-1]),
                     "size": size,
                 }

@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.config import (
     SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
-    S3_URL,
+    MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -146,7 +146,7 @@ with DAG(
                         + ("" if scope == "general" else "-api")
                         + ".ipynb",
                         "tmp_path": TMP_FOLDER + f"/digest_{freq}/{today}/",
-                        "s3_url": S3_URL,
+                        "s3_url": MINIO_URL,
                         "s3_bucket": S3_BUCKET_DATA_PIPELINE_OPEN,
                         "s3_output_filepath": S3_PATH + f"digest_{freq}/{today}/",
                         "parameters": {
