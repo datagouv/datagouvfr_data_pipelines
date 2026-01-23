@@ -10,10 +10,10 @@ from tqdm import tqdm
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_BUCKET_INFRA,
-    S3_URL,
-    SECRET_S3_METRICS_PASSWORD,
-    SECRET_S3_METRICS_USER,
+    # S3_BUCKET_INFRA,
+    # S3_URL,
+    # SECRET_S3_METRICS_PASSWORD,
+    # SECRET_S3_METRICS_USER,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     aggregate_metrics,

@@ -10,10 +10,10 @@ import pandas as pd
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    S3_BUCKET_INFRA,
-    S3_URL,
-    SECRET_S3_METRICS_PASSWORD,
-    SECRET_S3_METRICS_USER,
+    # S3_BUCKET_INFRA,
+    # S3_URL,
+    # SECRET_S3_METRICS_PASSWORD,
+    # SECRET_S3_METRICS_USER,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
