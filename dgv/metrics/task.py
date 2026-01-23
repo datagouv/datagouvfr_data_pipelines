@@ -10,10 +10,10 @@ from tqdm import tqdm
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_BUCKET_INFRA,
-    S3_URL,
-    SECRET_S3_METRICS_PASSWORD,
-    SECRET_S3_METRICS_USER,
+    # S3_BUCKET_INFRA,
+    # S3_URL,
+    # SECRET_S3_METRICS_PASSWORD,
+    # SECRET_S3_METRICS_USER,
 )
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     aggregate_metrics,
@@ -32,10 +32,11 @@ from datagouvfr_data_pipelines.utils.utils import get_unique_list
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
 s3_client = S3Client(
-    bucket=S3_BUCKET_INFRA,
-    user=SECRET_S3_METRICS_USER,
-    pwd=SECRET_S3_METRICS_PASSWORD,
-    s3_url=S3_URL,
+    bucket="infra",
+    # bucket=S3_BUCKET_INFRA,
+    # user=SECRET_S3_METRICS_USER,
+    # pwd=SECRET_S3_METRICS_PASSWORD,
+    # s3_url=S3_URL,
 )
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 config = MetricsConfig()
