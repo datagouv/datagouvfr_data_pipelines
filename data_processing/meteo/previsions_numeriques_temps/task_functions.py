@@ -199,18 +199,15 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
 @simple_connection_retry
 def is_file_available(url: str) -> bool:
     # we'd prefer to use HEAD but the method is currently not allowed
-    with meteo_client.get(
+    r = meteo_client.get(
         url,
-        stream=True,
-        timeout=60,
-        # do we actually need these headers? response content type is binary
-        headers={"Content-Type": "application/json; charset=utf-8"},
-    ) as r:
-        if r.status_code == 404:
-            logging.warning(f"Not available yet, skipping. URL is: {url}")
-            return False
-        r.raise_for_status()
-        return True
+        headers={"Range": "bytes=1024-2047"},
+    )
+    if r.status_code == 404:
+        logging.warning(f"Not available yet, skipping. URL is: {url}")
+        return False
+    r.raise_for_status()
+    return True
 
 
 def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
