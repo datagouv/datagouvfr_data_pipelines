@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import logging
 import os
-import pygrib
 import requests
 import shutil
 
@@ -21,11 +20,8 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.utils import (
     MeteoClient,
-    load_issues,
-    save_issues,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
-from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
@@ -171,15 +167,8 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
 
     logging.info(f"{nb_files} possible files")
 
-    issues = load_issues(f"{DATADIR}{path}")
     to_get = [
-        s3_path
-        for s3_path in s3_paths
-        if (
-            not s3_pnt.does_file_exist_in_bucket(s3_path)
-            # the urls are stored in issues, we get them from the s3 path
-            or s3_path_to_url[s3_path] in issues
-        )
+        s3_path for s3_path in s3_paths if not s3_pnt.does_file_exist_in_bucket(s3_path)
     ]
 
     logging.info(f"{len(to_get)} possible files after removing already processed files")
@@ -194,52 +183,31 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
     return True
 
 
-def test_file_structure(filepath: str) -> bool:
-    # open and check that grib file is properly structured
-    try:
-        grib = pygrib.open(filepath)
-        for msg in grib:
-            msg.values.shape
-        return True
-    except Exception as e:
-        logging.warning(f"An error occured for {filepath}: `{e}`")
-        return False
-
-
-def log_and_send_error(filename):
-    log_name = f"{filename.split('.')[0]}-{int(datetime.now().timestamp())}.log"
-    with open(LOG_PATH + log_name, "w") as f:
-        f.write(f"{filename};{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    s3_pnt.send_file(
-        File(
-            source_path=LOG_PATH,
-            source_name=log_name,
-            dest_path="logs/" if AIRFLOW_ENV == "prod" else "dev/logs/",
-            dest_name=log_name,
-        ),
-        ignore_airflow_env=True,
-        burn_after_sending=True,
-    )
-    logging.info(f"Sent and locally erased log for {filename}")
+# to restore the file structure test, code is here: https://github.com/datagouv/datagouvfr_data_pipelines/blob/ec30e343ced4be8442c141a5473a349c3de331d5/data_processing/meteo/previsions_numeriques_temps/task_functions.py#L197
+# def test_file_structure(filepath: str) -> bool:
+#     # open and check that grib file is properly structured
+#     try:
+#         grib = pygrib.open(filepath)
+#         for msg in grib:
+#             msg.values.shape
+#         return True
+#     except Exception as e:
+#         logging.warning(f"An error occured for {filepath}: `{e}`")
+#         return False
 
 
 @simple_connection_retry
-def download_file(url: str, local_filename: str) -> int:
-    with meteo_client.get(
+def is_file_available(url: str) -> bool:
+    # we'd prefer to use HEAD but the method is currently not allowed
+    r = meteo_client.get(
         url,
-        stream=True,
-        timeout=60,
-        # do we actually need these headers? response content type is binary
-        headers={"Content-Type": "application/json; charset=utf-8"},
-    ) as r:
-        if r.status_code == 404:
-            logging.warning(f"Not available yet, skipping. URL is: {url}")
-            return 1
-        r.raise_for_status()
-        with open(local_filename, "wb") as f:
-            for chunk in r.iter_content(chunk_size=32768):
-                f.write(chunk)
-        return 0
+        headers={"Range": "bytes=1024-2047"},
+    )
+    if r.status_code == 404:
+        logging.warning(f"Not available yet, skipping. URL is: {url}")
+        return False
+    r.raise_for_status()
+    return True
 
 
 def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
@@ -260,6 +228,7 @@ def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
         package = url_to_infos[url]["package"]
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
+        # we don't download the files anymore, but we keep the folder creation for cross-run communication
         if os.path.isdir(f"{DATADIR}{path}/{package}") and package not in my_packages:
             logging.info(
                 f"{url_to_infos[url]['package']} is already being processed by another run"
@@ -269,49 +238,14 @@ def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
             # this is to make sure concurrent runs don't interfere or process the same data
             os.makedirs(f"{DATADIR}{path}/{package}", exist_ok=True)
             my_packages.add(package)
-        local_filename = f"{DATADIR}{path}/{package}/{url_to_infos[url]['filename']}"
-        # ideally we'd like to s3_pnt.send_from_url directly but we have to test the file structure first
-        download_status = download_file(url, local_filename)
-        if download_status == 1:
+        if not is_file_available(url):
             continue
-
-        issues = load_issues(f"{DATADIR}{path}")
-        if test_file_structure(local_filename):
-            # if the test is successful, we upload the file (and remove it from issues if needed)
-            logging.info("Structure test successful")
-            s3_pnt.send_from_url(
-                url=url,
-                destination_file_path=s3_path,
-                session=meteo_client,
-            )
-            if url in issues:
-                logging.info("Removing it from issues")
-                issues.remove(url)
-                save_issues(issues, f"{DATADIR}{path}")
-            uploaded.append(s3_path)
-        elif url not in issues:
-            # if the test is not successful and the file wasn't already flagged as an issue we:
-            # - send it anyway (specifically requested by Météo France)
-            # - add it to the issues
-            logging.warning(
-                url_to_infos[url]["filename"]
-                + " is badly structured, but sending anyway"
-            )
-            s3_pnt.send_from_url(
-                url=url,
-                destination_file_path=s3_path,
-                session=meteo_client,
-            )
-            issues.append(url)
-            logging.info("Adding it to issues")
-            save_issues(issues, f"{DATADIR}{path}")
-            log_and_send_error(url_to_infos[url]["filename"])
-            uploaded.append(s3_path)
-        else:
-            # known issue, just passing, we'll try again next time
-            logging.info("This file is an already known issue, passing")
-        # deleting the file locally
-        os.remove(local_filename)
+        s3_pnt.send_from_url(
+            url=url,
+            destination_file_path=s3_path,
+            session=meteo_client,
+        )
+        uploaded.append(s3_path)
     for p in my_packages:
         # making way for later occurrences
         os.removedirs(f"{DATADIR}{path}/{p}")
