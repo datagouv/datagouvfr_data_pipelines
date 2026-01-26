@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import logging
 import os
-import pygrib
 import requests
 import shutil
 
@@ -169,9 +168,7 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
     logging.info(f"{nb_files} possible files")
 
     to_get = [
-        s3_path
-        for s3_path in s3_paths
-        if not s3_pnt.does_file_exist_in_bucket(s3_path)
+        s3_path for s3_path in s3_paths if not s3_pnt.does_file_exist_in_bucket(s3_path)
     ]
 
     logging.info(f"{len(to_get)} possible files after removing already processed files")
