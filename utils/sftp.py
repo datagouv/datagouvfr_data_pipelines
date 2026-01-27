@@ -2,10 +2,13 @@ import logging
 from io import StringIO
 
 import paramiko
+from tenacity import retry_if_not_exception_type
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import SECRET_SFTP_HOST
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.retry import _simple_connection_retry
+
+retry_except_filenotfound = _simple_connection_retry(retry=retry_if_not_exception_type(FileNotFoundError))
 
 
 class SFTPClient:
@@ -44,7 +47,7 @@ class SFTPClient:
     def list_files_in_directory(self, directory: str):
         return self.sftp.listdir(directory)
 
-    @simple_connection_retry
+    @retry_except_filenotfound
     def download_file(self, remote_file_path: str, local_file_path: str):
         self.sftp.get(remote_file_path, local_file_path)
         logging.info(f"⬇️ {local_file_path} successfully dowloaded")
@@ -52,3 +55,4 @@ class SFTPClient:
     def delete_file(self, remote_file_path: str):
         self.sftp.remove(remote_file_path)
         logging.info(f"🔥 {remote_file_path} successfully deleted")
+
