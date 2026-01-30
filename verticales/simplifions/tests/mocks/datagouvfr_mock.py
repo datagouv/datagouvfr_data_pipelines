@@ -59,9 +59,15 @@ class DatagouvfrMock(ExternalResourcesMock):
         base_url = self.match_resource_list_url(resource_name)
 
         def httpx_side_effect(request):
-            qs = parse_qs(str(request.url).split("?", 1)[-1]) if "?" in str(request.url) else {}
+            qs = (
+                parse_qs(str(request.url).split("?", 1)[-1])
+                if "?" in str(request.url)
+                else {}
+            )
             filtered_records = self._filter_records(records, qs)
-            return httpx.Response(200, json=self._create_response_for_records(filtered_records))
+            return httpx.Response(
+                200, json=self._create_response_for_records(filtered_records)
+            )
 
         DatagouvfrMock._respx_mock.get(url=re.compile(rf"^{re.escape(base_url)}")).mock(
             side_effect=httpx_side_effect
