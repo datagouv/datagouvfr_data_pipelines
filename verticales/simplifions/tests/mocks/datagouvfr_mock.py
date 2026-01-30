@@ -8,6 +8,9 @@ import requests_mock
 from .external_resources_mock import ExternalResourcesMock
 
 
+# Dual mock: requests_mock (from parent) intercepts `requests` calls (create/update/delete),
+# respx intercepts `httpx` calls (reads via datagouv-client's get_all_from_api_query).
+# TODO: migrate all the thingz to httpx/datagouv-client
 class DatagouvfrMock(ExternalResourcesMock):
     _respx_mock = None
 
@@ -54,6 +57,7 @@ class DatagouvfrMock(ExternalResourcesMock):
             DatagouvfrMock._respx_mock = None
 
     def mock_resource_list(self, resource_name: str, records: list[dict]):
+        # registers in both requests_mock (parent) and respx (httpx)
         super().mock_resource_list(resource_name, records)
 
         base_url = self.match_resource_list_url(resource_name)
