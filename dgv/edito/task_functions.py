@@ -283,6 +283,6 @@ def publish_mattermost(ti):
     print(admin_post_url)
 
     send_message(
-        ":mega: @agarrone @thanh-ha.le \n - " + admin_post_url,
+        ":mega: @agarrone @ludine.pierquin \n - " + admin_post_url,
         MATTERMOST_DATAGOUV_EDITO,
     )
