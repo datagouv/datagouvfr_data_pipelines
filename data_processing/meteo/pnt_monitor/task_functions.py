@@ -239,7 +239,7 @@ def dump_and_send_tree() -> None:
                 "start": oldest + ".000000+00:00",
                 "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             },
-            "tags": ["hvd", "meteorologiques"],
+            "tags": ["hvd", "meteorologiques", "meteodatagouvfr", "pnt"],
         },
     )
 
