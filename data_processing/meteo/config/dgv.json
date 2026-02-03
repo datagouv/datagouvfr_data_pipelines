@@ -365,5 +365,27 @@
             "dev": "68aecf5b6cfee01b5784986e"
         },
         "table_name": "obs_bouees"
+    },
+    "BULLETINS/BMS": {
+        "source_pattern": "bms_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "bms_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Archive des BMS sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "697743413b08b420a4fa585f",
+            "dev": "69821a90f2b6db18ab0625b6"
+        },
+        "table_name": "bulletins_bms"
+    },
+    "BULLETINS/MDF": {
+        "source_pattern": "mdf_(?P<PERIOD>[^_]+).csv.gz",
+        "name_template": "mdf_{PERIOD}",
+        "doc_pattern": null,
+        "description_template": "Archive des bulletins meteo des forêts sur l'année {PERIOD}",
+        "dataset_id": {
+            "prod": "692f01d38fef6c5815d9262a",
+            "dev": "698219a31b28bc4485f34979"
+        },
+        "table_name": "bulletins_mdf"
     }
 }
