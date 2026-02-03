@@ -12,7 +12,7 @@ if [ -z "$env" ] || [ "$env" = "prod" ]; then
     data_path="/srv/sirene/data-sirene/data"
     # Production mode: process all departments
     time wc -l $data_path/dep_*.csv | sort -n -r | grep dep | sed 's/^.*_\(.*\).csv/\1/' | \
-      parallel -j 36 -t /srv/sirene/venv/bin/python $script_path/geocode.py $data_path/dep_{}.csv $data_path/geo_siret_{}.csv.gz /srv/sirene/data-sirene/cache_geo/cache_addok_sirene_{}.csv.db \> $data_path/geo_siret_{}.log
+      parallel -t /srv/sirene/venv/bin/python $script_path/geocode.py $data_path/dep_{}.csv $data_path/geo_siret_{}.csv.gz /srv/sirene/data-sirene/cache_geo/cache_addok_sirene_{}.csv.db \> $data_path/geo_siret_{}.log
 else
     data_path="/srv/sirene/data-sirene/$env/data"
     echo "Running in dev mode: processing only dep_23.csv, dep_75111.csv and dep_972.csv"
