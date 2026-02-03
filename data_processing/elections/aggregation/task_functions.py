@@ -1,11 +1,10 @@
-import numpy as np
-import os
-import pandas as pd
-import json
-from itertools import chain
 from datetime import datetime
-import math
+import json
+import logging
+import os
+
 from datagouv import Client
+import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -13,182 +12,73 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.datagouv import (
-    local_client,
-)
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}elections/data"
+DATADIR = f"{AIRFLOW_DAG_TMP}elections"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-int_cols = {
-    "general": ["Inscrits", "Abstentions", "Votants", "Blancs", "Nuls", "Exprimés"],
-    "candidats": ["N°Panneau", "Voix"],
+
+dtypes: dict[str, dict[str, str]] = {
+    "general": {
+        "id_election": "VARCHAR",
+        "id_brut_miom": "VARCHAR",
+        "code_departement": "VARCHAR",
+        "libelle_departement": "VARCHAR",
+        "code_canton": "VARCHAR",
+        "libelle_canton": "VARCHAR",
+        "code_commune": "VARCHAR",
+        "libelle_commune": "VARCHAR",
+        "code_circonscription": "VARCHAR",
+        "libelle_circonscription": "VARCHAR",
+        "code_bv": "VARCHAR",
+        "inscrits": "INT32",
+        "abstentions": "INT32",
+        "votants": "INT32",
+        "blancs": "INT32",
+        "nuls": "INT32",
+        "exprimes": "INT32",
+        "ratio_abstentions_inscrits": "FLOAT",
+        "ratio_votants_inscrits": "FLOAT",
+        "ratio_blancs_inscrits": "FLOAT",
+        "ratio_blancs_votants": "FLOAT",
+        "ratio_nuls_inscrits": "FLOAT",
+        "ratio_nuls_votants": "FLOAT",
+        "ratio_exprimes_inscrits": "FLOAT",
+        "ratio_exprimes_votants": "FLOAT",
+    },
+    "candidats": {
+        "id_election": "VARCHAR",
+        "id_brut_miom": "VARCHAR",
+        "code_departement": "VARCHAR",
+        "code_commune": "VARCHAR",
+        "code_bv": "VARCHAR",
+        "no_panneau": "INT32",
+        "voix": "INT32",
+        "ratio_voix_inscrits": "FLOAT",
+        "ratio_voix_exprimes": "FLOAT",
+        "nuance": "VARCHAR",
+        "sexe": "VARCHAR",
+        "nom": "VARCHAR",
+        "prenom": "VARCHAR",
+        "liste": "VARCHAR",
+        "libelle_abrege_liste": "VARCHAR",
+        "libelle_entendu_liste": "VARCHAR",
+        "nom_tete_liste": "VARCHAR",
+        "binome": "VARCHAR",
+    },
+}
+
+_types = {
+    "INT32": int,
+    "FLOAT": float,
 }
 
 
-def num_converter(value, _type):
-    if not isinstance(value, str) and math.isnan(value):
-        return value
-    try:
-        return _type(value.replace(",", "."))
-    except Exception:
-        # print("erreur:", value)
-        return ""
-
-
-def process(df, int_cols):
-    for c in df.columns:
-        if "%" in c:
-            # these columns are percentages
-            df[c] = df[c].apply(lambda x: num_converter(x, float))
-        elif any(c == k for k in int_cols):
-            # these are numbers
-            df[c] = df[c].apply(lambda x: num_converter(x, int))
-        elif "Libellé" in c:
-            # standardize labels
-            df[c] = df[c].apply(lambda x: x.title() if isinstance(x, str) else x)
-
-
-def format_election_files():
-    files = [f for f in os.listdir(DATADIR) if ".txt" in f]
-    for f in files:
-        this_file = DATADIR + "/" + f
-        print("Processing " + this_file)
-        for encoding in ["cp1252", "utf-8"]:
-            try:
-                with open(this_file, "r", encoding=encoding) as file:
-                    content = file.readlines()
-                    file.close()
-                break
-            except Exception:
-                pass
-        max_nb_columns = max([row.count(";") for row in content]) + 1
-        header = content[0].replace("\n", "").split(";")
-        # specific rule for 2019_euro
-        if "2019_euro" in f:
-            print("Special process:", f)
-            header[header.index("N°Liste")] = "N°Panneau"
-        # specific rule for 2020_muni_t2
-        if "2020_muni_t2" in f:
-            print("Special process:", f)
-            header[header.index("Code B.Vote")] = "Code du b.vote"
-            header[header.index("Code Nuance")] = "Nuance"
-            header[header.index("N.Pan.")] = "N°Panneau"
-        hook_candidat_columns = np.argwhere(["Panneau" in c for c in header])[0][0]
-        candidat_columns = header[hook_candidat_columns:]
-        first_columns = header[:hook_candidat_columns]
-        if (max_nb_columns - len(first_columns)) % len(candidat_columns) != 0:
-            print("Fichier non valide")
-            continue
-        nb_candidats = (max_nb_columns - len(first_columns)) // len(candidat_columns)
-        columns = first_columns + list(
-            chain.from_iterable(
-                [
-                    [c + "_" + str(k) for c in candidat_columns]
-                    for k in range(1, nb_candidats + 1)
-                ]
-            )
-        )
-        output = ";".join(columns) + "\n"
-        for idx, row in enumerate(content[1:]):
-            output += (
-                row.replace("\n", "")
-                + ";" * (max_nb_columns - row.count(";") - 1)
-                + "\n"
-            )
-        with open(this_file.replace(".txt", ".csv"), "w", encoding="utf-8") as new_file:
-            new_file.write(output)
-        try:
-            pd.read_csv(
-                this_file.replace(".txt", ".csv"),
-                sep=";",
-                dtype=str,
-            )
-            os.remove(this_file)
-        except Exception:
-            print("Error in the file")
-            os.remove(this_file.replace(".txt", ".csv"))
-
-
 def process_election_data():
-    files = [
-        f
-        for f in os.listdir(DATADIR)
-        if ".csv" in f and f not in ["general_results.csv", "candidats_results.csv"]
-    ]
-    print(files)
-    results = {"general": [], "candidats": []}
-    for file in files:
-        print("Starting", file.split(".")[0])
-        df = pd.read_csv(
-            DATADIR + "/" + file,
-            sep=";",
-            dtype=str,
-        )
-        df["id_election"] = file.replace(".csv", "")
-        df["id_brut_miom"] = (
-            df["Code du département"]
-            + df["Code de la commune"]
-            + "_"
-            + df["Code du b.vote"]
-        )
-        # getting where the candidates results start
-        threshold = np.argwhere(["Panneau" in c for c in df.columns])[0][0]
-        results["general"].append(
-            df[["id_election", "id_brut_miom"] + list(df.columns[:threshold])]
-        )
-        print("- Done with general data")
-
-        cols_ref = [
-            "id_election",
-            "id_brut_miom",
-            "Code du département",
-            "Code de la commune",
-            "Code du b.vote",
-        ]
-        tmp_candidats = df[
-            # -2 because we are adding 2 columns above
-            cols_ref + list(df.columns[threshold:-2])
-        ]
-        nb_candidats = sum(["Panneau" in i for i in tmp_candidats.columns])
-        tmp_cols = tmp_candidats.columns[len(cols_ref) :]
-        candidat_columns = [
-            c.split("_")[0] for c in tmp_cols[: len(tmp_cols) // nb_candidats]
-        ]
-        for cand in range(1, nb_candidats + 1):
-            candidats_group = tmp_candidats[
-                cols_ref + [c + f"_{cand}" for c in candidat_columns]
-            ]
-            candidats_group.columns = cols_ref + candidat_columns
-            results["candidats"].append(candidats_group)
-        print("- Done with candidats data")
-        del df
-        del tmp_candidats
-
-    results["general"] = pd.concat(results["general"], ignore_index=True)
-    process(
-        df=results["general"],
-        int_cols=int_cols["general"],
-    )
-    results["general"].to_csv(DATADIR + "/general_results.csv", sep=";", index=False)
-    # removing rows created from empty columns due to uneven canditates number
-    results["candidats"] = pd.concat(results["candidats"], ignore_index=True).dropna(
-        subset=["Voix"]
-    )
-    process(df=results["candidats"], int_cols=int_cols["candidats"])
-    results["candidats"].to_csv(
-        DATADIR + "/candidats_results.csv", sep=";", index=False
-    )
-    columns = {
-        "general": results["general"].columns.to_list(),
-        "candidats": results["candidats"].columns.to_list(),
-    }
-    del results
-
     # getting preprocessed resources
     resources_url = [
         r["url"]
@@ -204,41 +94,29 @@ def process_election_data():
         "candidats": [r for r in resources_url if "candidats-results.csv" in r],
     }
 
-    for t in ["general", "candidats"]:
-        print(t + " resources")
-        for url in resources[t]:
-            print("- " + url)
+    for scope in ["general", "candidats"]:
+        logging.info(f"Processing {scope} resources")
+        for idx, url in enumerate(resources[scope]):
+            logging.info("> " + url)
             df = pd.read_csv(url, sep=";", dtype=str)
-            # adding blank columns if some are missing from overall template
-            for c in columns[t]:
-                if c not in df.columns:
-                    df[c] = ["" for k in range(len(df))]
-            df = df[columns[t]]
-            process(
-                df=df,
-                int_cols=int_cols[t],
-            )
+            # add missing columns and reorder for concatenation
+            for col in dtypes[scope].keys():
+                if col not in df.columns:
+                    df[col] = ""
+            df = df[dtypes[scope].keys()]
             # concatenating all files (first one has header)
             df.to_csv(
-                DATADIR + f"/{t}_results.csv",
+                DATADIR + f"/{scope}_results.csv",
                 sep=";",
                 index=False,
-                mode="a",
-                header=False,
+                mode="w" if idx == 0 else "a",
+                header=idx == 0,
             )
             del df
-        print("> Export en parquet")
-        dtype = {}
-        for c in columns[t]:
-            if "%" in c:
-                dtype[c] = "FLOAT"
-            elif any(c == k for k in int_cols[t]):
-                dtype[c] = "INT32"
-            else:
-                dtype[c] = "VARCHAR"
+        logging.info("Export en parquet...")
         csv_to_parquet(
-            csv_file_path=DATADIR + f"/{t}_results.csv",
-            dtype=dtype,
+            csv_file_path=DATADIR + f"/{scope}_results.csv",
+            dtype=dtypes[scope],
         )
 
 
@@ -247,11 +125,11 @@ def send_results_to_s3():
         list_files=[
             File(
                 source_path=f"{DATADIR}/",
-                source_name=f"{t}_results.{ext}",
+                source_name=f"{scope}_results.{ext}",
                 dest_path="elections/",
-                dest_name=f"{t}_results.{ext}",
+                dest_name=f"{scope}_results.{ext}",
             )
-            for t in ["general", "candidats"]
+            for scope in ["general", "candidats"]
             for ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,
@@ -262,106 +140,64 @@ def publish_results_elections():
     with open(
         f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json"
     ) as fp:
-        data = json.load(fp)
-    local_client.resource(
-        id=data["general"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=data["general"][AIRFLOW_ENV]["dataset_id"],
-        fetch=False,
-    ).update(
-        payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/{AIRFLOW_ENV}/elections/general_results.csv"
-            ),
-            "filesize": os.path.getsize(os.path.join(DATADIR, "general_results.csv")),
-            "title": "Résultats généraux",
-            "format": "csv",
-            "description": (
-                f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
-                " créés à partir des données du Ministère de l'Intérieur"
-                f" (dernière modification : {datetime.today()})"
-            ),
-        },
-    )
-    print("Done with general results")
-    local_client.resource(
-        id=data["candidats"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=data["candidats"][AIRFLOW_ENV]["dataset_id"],
-        fetch=False,
-    ).update(
-        payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/{AIRFLOW_ENV}/elections/candidats_results.csv"
-            ),
-            "filesize": os.path.getsize(os.path.join(DATADIR, "candidats_results.csv")),
-            "title": "Résultats par candidat",
-            "format": "csv",
-            "description": (
-                f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-                " créés à partir des données du Ministère de l'Intérieur"
-                f" (dernière modification : {datetime.today()})"
-            ),
-        },
-    )
-    print("Done with candidats results")
-    local_client.resource(
-        id=data["general_parquet"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=data["general_parquet"][AIRFLOW_ENV]["dataset_id"],
-        fetch=False,
-    ).update(
-        payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/{AIRFLOW_ENV}/elections/general_results.parquet"
-            ),
-            "filesize": os.path.getsize(
-                os.path.join(DATADIR, "general_results.parquet")
-            ),
-            "title": "Résultats généraux (format parquet)",
-            "format": "parquet",
-            "description": (
-                f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
-                " créés à partir des données du Ministère de l'Intérieur"
-                f" (dernière modification : {datetime.today()})"
-            ),
-        },
-    )
-    print("Done with general results parquet")
-    local_client.resource(
-        id=data["candidats_parquet"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=data["candidats_parquet"][AIRFLOW_ENV]["dataset_id"],
-        fetch=False,
-    ).update(
-        payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/{AIRFLOW_ENV}/elections/candidats_results.parquet"
-            ),
-            "filesize": os.path.getsize(
-                os.path.join(DATADIR, "candidats_results.parquet")
-            ),
-            "title": "Résultats par candidat (format parquet)",
-            "format": "parquet",
-            "description": (
-                f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-                " créés à partir des données du Ministère de l'Intérieur"
-                f" (dernière modification : {datetime.today()})"
-            ),
-        },
-    )
+        config = json.load(fp)
+    for ext in ["csv", "parquet"]:
+        local_client.resource(
+            id=config["general"][ext][AIRFLOW_ENV]["resource_id"],
+            dataset_id=config["dataset_id"][AIRFLOW_ENV],
+            fetch=False,
+        ).update(
+            payload={
+                "url": (
+                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"/elections/general_results.{ext}"
+                ),
+                "filesize": os.path.getsize(os.path.join(DATADIR, f"general_results.{ext}")),
+                "title": "Résultats généraux",
+                "format": ext,
+                "description": (
+                    f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+                    " créés à partir des données du Ministère de l'Intérieur"
+                    f", au format {ext}"
+                    f" (dernière modification : {datetime.today().strftime('%Y-%m-%d')})"
+                ),
+            },
+        )
+        logging.info(f"Done with general results {ext}")
+        local_client.resource(
+            id=config["candidats"][ext][AIRFLOW_ENV]["resource_id"],
+            dataset_id=config["dataset_id"][AIRFLOW_ENV],
+            fetch=False,
+        ).update(
+            payload={
+                "url": (
+                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
+                    f"/elections/candidats_results.{ext}"
+                ),
+                "filesize": os.path.getsize(os.path.join(DATADIR, f"candidats_results.{ext}")),
+                "title": "Résultats par candidat",
+                "format": ext,
+                "description": (
+                    f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
+                    " créés à partir des données du Ministère de l'Intérieur"
+                    f", au format {ext}"
+                    f" (dernière modification : {datetime.today().strftime('%Y-%m-%d')})"
+                ),
+            },
+        )
+        logging.info(f"Done with candidats results {ext}")
 
 
 def send_notification():
     with open(
         f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json"
     ) as fp:
-        data = json.load(fp)
+        config = json.load(fp)
     send_message(
         text=(
             ":mega: Données élections mises à jour.\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données référencées [sur data.gouv.fr]({local_client.base_url}/datasets/"
-            f"{data['general'][AIRFLOW_ENV]['dataset_id']})"
+            f"{config['dataset_id'][AIRFLOW_ENV]})"
         )
     )
