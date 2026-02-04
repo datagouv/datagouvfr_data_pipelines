@@ -282,9 +282,9 @@ def process_empty_datasets():
     )
     empty_datasets["created_at"] = empty_datasets["created_at"].str.slice(0, 10)
     empty_datasets["organization_or_owner"] = empty_datasets.apply(
-        lambda df: df["organization"]
-        if isinstance(df["organization"], str)
-        else df["owner"],
+        lambda df: (
+            df["organization"] if isinstance(df["organization"], str) else df["owner"]
+        ),
         axis=1,
     )
     empty_datasets["last_month_visits"] = empty_datasets["id"].apply(
@@ -421,9 +421,11 @@ def get_top_orgas_visits():
             k: v
             for k, v in sorted(
                 orga_visited.items(),
-                key=lambda x: -x[1]["monthly_visit_dataset"]
-                if x[1]["monthly_visit_dataset"]
-                else 0,
+                key=lambda x: (
+                    -x[1]["monthly_visit_dataset"]
+                    if x[1]["monthly_visit_dataset"]
+                    else 0
+                ),
             )
         }.keys()
     )[:50]
@@ -432,9 +434,11 @@ def get_top_orgas_visits():
             k: v
             for k, v in sorted(
                 orga_visited.items(),
-                key=lambda x: -x[1]["monthly_download_resource"]
-                if x[1]["monthly_download_resource"]
-                else 0,
+                key=lambda x: (
+                    -x[1]["monthly_download_resource"]
+                    if x[1]["monthly_download_resource"]
+                    else 0
+                ),
             )
         }.keys()
     )[:50]

@@ -60,14 +60,16 @@ def process_rna(ti, file_type):
                 punc_to_remove = "!\"#$%&'()*+/;?@[]^_`{|}~"
                 for c in df.columns:
                     df[c] = df[c].apply(
-                        lambda s: unidecode(s)
-                        .replace("\n", " ")
-                        .translate(str.maketrans("", "", punc_to_remove))
-                        .encode("unicode-escape")
-                        .decode()
-                        .replace("\\", "")
-                        if isinstance(s, str)
-                        else s
+                        lambda s: (
+                            unidecode(s)
+                            .replace("\n", " ")
+                            .translate(str.maketrans("", "", punc_to_remove))
+                            .encode("unicode-escape")
+                            .decode()
+                            .replace("\\", "")
+                            if isinstance(s, str)
+                            else s
+                        )
                     )
                 df.to_csv(
                     f"{DATADIR}/{file_type}.csv",

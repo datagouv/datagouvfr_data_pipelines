@@ -964,9 +964,11 @@ def consolidate_data(
                     # (eg https://www.data.gouv.fr/api/1/datasets/r/67ed303d-1b3a-49d1-afb4-6c0e4318cc20)
                     for c in df_r.columns:
                         df_r[c] = df_r[c].apply(
-                            lambda s: s.replace("\n", "").replace("\r", "")
-                            if isinstance(s, str)
-                            else s
+                            lambda s: (
+                                s.replace("\n", "").replace("\r", "")
+                                if isinstance(s, str)
+                                else s
+                            )
                         )
                     if len(df_r) == 0:  # Keeping only non empty files
                         df_ref.loc[
