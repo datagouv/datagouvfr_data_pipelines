@@ -66,7 +66,7 @@ dtypes: dict[str, dict[str, str]] = {
         "prenom": "VARCHAR",
         "liste": "VARCHAR",
         "libelle_abrege_liste": "VARCHAR",
-        "libelle_entendu_liste": "VARCHAR",
+        "libelle_etendu_liste": "VARCHAR",
         "nom_tete_liste": "VARCHAR",
         "binome": "VARCHAR",
     },
