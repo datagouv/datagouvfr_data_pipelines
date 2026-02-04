@@ -18,7 +18,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
 
 with DAG(
     dag_id="data_processing_formation_qualiopi",
-    schedule_interval="0 3 * * MON",
+    schedule="0 3 * * MON",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=15),
     tags=["formation", "qualiopi", "certification"],

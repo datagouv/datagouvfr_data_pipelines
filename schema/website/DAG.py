@@ -29,7 +29,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 2 * * *",
+    schedule="0 2 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["schemas", "backend", "schema.data.gouv.fr"],

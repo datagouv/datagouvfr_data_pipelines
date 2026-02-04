@@ -21,7 +21,7 @@ DAG_NAME = "verticale_culture"
 with DAG(
     dag_id=DAG_NAME,
     # every monday morning
-    schedule_interval="0 1 * * *",
+    schedule="0 1 * * *",
     start_date=datetime(2025, 8, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),

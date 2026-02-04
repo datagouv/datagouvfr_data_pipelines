@@ -45,7 +45,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="20 4 * * *",
+    schedule="20 4 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=360),
     catchup=False,

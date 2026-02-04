@@ -19,7 +19,7 @@ S3_BASE_PATH = "siren/geoloc/"
 
 with DAG(
     dag_id="data_processing_sirene_geolocalisation",
-    schedule_interval="5 6,7,8,9,10 21-23 * *",
+    schedule="5 6,7,8,9,10 21-23 * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["data_processing", "sirene", "geolocalisation"],

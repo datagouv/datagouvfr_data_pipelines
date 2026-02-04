@@ -39,7 +39,7 @@ DATASETS_TO_PROCESS = [
 with DAG(
     dag_id=DAG_NAME,
     # a better scheduling would be "after the second run of ftp_processing is done", will investigate
-    schedule_interval="0 12 * * *",
+    schedule="0 12 * * *",
     start_date=datetime(2024, 10, 1),
     catchup=False,
     dagrun_timeout=timedelta(minutes=2000),

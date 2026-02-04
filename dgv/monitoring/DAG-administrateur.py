@@ -34,7 +34,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 0 1 1/3 *",
+    schedule="0 0 1 1/3 *",
     start_date=datetime(2023, 10, 15),
     dagrun_timeout=timedelta(minutes=60),
     tags=["curation", "datagouv"],

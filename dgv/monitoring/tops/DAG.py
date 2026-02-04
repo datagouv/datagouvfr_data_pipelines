@@ -28,7 +28,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="15 6 * * *",
+    schedule="15 6 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["tops", "datagouv", "piwik"],

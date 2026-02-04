@@ -27,7 +27,7 @@ default_args = {
 with DAG(
     dag_id=DAG_NAME,
     # source files are usually uploaded in the morning of the 1st of the month
-    schedule_interval="0 12 1,2,15 * *",
+    schedule="0 12 1,2,15 * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),

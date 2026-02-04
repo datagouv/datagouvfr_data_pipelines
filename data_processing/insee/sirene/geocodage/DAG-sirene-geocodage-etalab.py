@@ -17,7 +17,7 @@ DEV_GIT_ARGS = (
 
 with DAG(
     dag_id="data_processing_sirene_geocodage",
-    schedule_interval=None,  # triggered by data_processing_sirene_publication
+    schedule=None,  # triggered by data_processing_sirene_publication
     start_date=datetime(2024, 8, 10),
     catchup=False,
     tags=["data_processing", "sirene", "geocodage"],

@@ -21,7 +21,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}carburants/"
 
 with DAG(
     dag_id="data_processing_carburants",
-    schedule_interval="5,35 4-20 * * *",
+    schedule="5,35 4-20 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=15),
     tags=["carburants", "prix", "rupture"],

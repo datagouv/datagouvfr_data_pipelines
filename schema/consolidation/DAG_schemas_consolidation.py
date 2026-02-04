@@ -43,7 +43,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 5 * * *",
+    schedule="0 5 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=600),
     tags=["schemas", "consolidation", "datagouv"],

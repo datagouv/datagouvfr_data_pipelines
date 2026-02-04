@@ -32,7 +32,7 @@ def create_simplifions_v2_dag(dag_id: str, schedule_interval: str, client: Clien
 
     with DAG(
         dag_id=dag_id,
-        schedule_interval=schedule_interval,
+        schedule=schedule_interval,
         start_date=datetime(2024, 10, 1),
         dagrun_timeout=timedelta(minutes=60),
         tags=["verticale", "simplifions"],
@@ -75,7 +75,7 @@ for dag_params in v2_dags_params:
 # Grist watcher DAG - runs independently to monitor Grist data changes
 verticale_simplifions_grist_watcher = DAG(
     dag_id="verticale_simplifions_grist_watcher",
-    schedule_interval="0 4 * * *",  # every day at 4am
+    schedule="0 4 * * *",  # every day at 4am
     start_date=datetime(2024, 10, 1),
     dagrun_timeout=timedelta(minutes=30),
     tags=["verticale", "simplifions"],
@@ -92,7 +92,7 @@ watch_grist_data_task = PythonOperator(
 # Document cloner DAG - runs independently to clone the grist document
 verticale_simplifions_grist_document_cloner = DAG(
     dag_id="verticale_simplifions_grist_document_cloner",
-    schedule_interval="0 5 * * *",  # every day at 5 am
+    schedule="0 5 * * *",  # every day at 5 am
     start_date=datetime(2024, 10, 1),
     dagrun_timeout=timedelta(minutes=30),
     tags=["verticale", "simplifions"],

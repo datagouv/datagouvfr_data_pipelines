@@ -22,7 +22,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 18 * * *",
+    schedule="0 18 * * *",
     start_date=datetime(2024, 10, 1),
     dagrun_timeout=timedelta(minutes=60),
     tags=["apigouv"],

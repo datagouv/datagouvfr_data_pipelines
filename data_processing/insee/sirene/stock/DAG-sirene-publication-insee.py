@@ -20,7 +20,7 @@ S3_BASE_PATH = "siren/stock/"
 
 with DAG(
     dag_id="data_processing_sirene_publication",
-    schedule_interval="5 6,8,10 1-3 * *",
+    schedule="5 6,8,10 1-3 * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=120),
     tags=["data_processing", "sirene", "publication"],

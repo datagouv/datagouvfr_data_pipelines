@@ -17,7 +17,7 @@ DAG_NAME = "data_processing_an_petitions"
 with DAG(
     dag_id=DAG_NAME,
     # every monday morning
-    schedule_interval="0 2 * * 1",
+    schedule="0 2 * * 1",
     start_date=datetime(2025, 7, 29),
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),

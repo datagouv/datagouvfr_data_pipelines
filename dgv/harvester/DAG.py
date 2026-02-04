@@ -152,7 +152,7 @@ def publish_mattermost(ti):
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 9 * * WED",
+    schedule="0 9 * * WED",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["weekly", "harvester", "mattermost", "notification"],

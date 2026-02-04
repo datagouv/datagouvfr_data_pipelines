@@ -26,7 +26,7 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 * * * *",
+    schedule="0 * * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
     tags=["deces", "consolidation", "datagouv"],
