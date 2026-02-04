@@ -6,9 +6,14 @@ from tenacity import retry_if_not_exception_type
 from airflow.hooks.base import BaseHook
 
 from datagouvfr_data_pipelines.config import SECRET_SFTP_HOST
-from datagouvfr_data_pipelines.utils.retry import _simple_connection_retry, simple_connection_retry
+from datagouvfr_data_pipelines.utils.retry import (
+    _simple_connection_retry,
+    simple_connection_retry,
+)
 
-retry_except_filenotfound = _simple_connection_retry(retry=retry_if_not_exception_type(FileNotFoundError))
+retry_except_filenotfound = _simple_connection_retry(
+    retry=retry_if_not_exception_type(FileNotFoundError)
+)
 
 
 class SFTPClient:
