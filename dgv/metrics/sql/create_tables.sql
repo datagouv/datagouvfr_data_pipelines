@@ -361,6 +361,7 @@ CREATE INDEX IF NOT EXISTS visits_dataservices_date_metric ON metric.visits_data
 -- Index on monthly aggregated tables
 CREATE INDEX IF NOT EXISTS datasets_dataset_id ON metric.datasets USING btree (dataset_id);
 CREATE INDEX IF NOT EXISTS datasets_metric_month ON metric.datasets USING btree (metric_month);
+CREATE INDEX IF NOT EXISTS datasets_organization_id ON metric.datasets USING btree (organization_id);
 
 CREATE INDEX IF NOT EXISTS organizations_organization_id ON metric.organizations USING btree (organization_id);
 CREATE INDEX IF NOT EXISTS organizations_metric_month ON metric.organizations USING btree (metric_month);
