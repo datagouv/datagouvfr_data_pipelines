@@ -207,11 +207,12 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.datasets AS
     SELECT
         MIN(__id) as __id,
         dataset_id,
+        organization_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(nb_visit) as monthly_visit,
         sum(resource_nb_download) as monthly_download_resource
     FROM metric.metrics_datasets
-    GROUP BY metric_month, dataset_id
+    GROUP BY metric_month, dataset_id, organization_id
 ;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS metric.reuses AS
