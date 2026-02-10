@@ -56,7 +56,7 @@ def create_metrics_tables() -> None:
 
 
 def get_new_logs(ti) -> bool:
-    new_logs_path = s3_client.get_files_from_prefix(prefix="metrics-logs/new/")
+    new_logs_path = list(s3_client.get_files_from_prefix(prefix="metrics-logs/new/"))
     if new_logs_path:
         ongoing_logs_path = s3_client.copy_many_objects(
             new_logs_path,
