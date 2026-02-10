@@ -207,11 +207,12 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS metric.datasets AS
     SELECT
         MIN(__id) as __id,
         dataset_id,
+        organization_id,
         to_char(date_trunc('month', date_metric) , 'YYYY-mm') AS metric_month,
         sum(nb_visit) as monthly_visit,
         sum(resource_nb_download) as monthly_download_resource
     FROM metric.metrics_datasets
-    GROUP BY metric_month, dataset_id
+    GROUP BY metric_month, dataset_id, organization_id
 ;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS metric.reuses AS
@@ -360,6 +361,7 @@ CREATE INDEX IF NOT EXISTS visits_dataservices_date_metric ON metric.visits_data
 -- Index on monthly aggregated tables
 CREATE INDEX IF NOT EXISTS datasets_dataset_id ON metric.datasets USING btree (dataset_id);
 CREATE INDEX IF NOT EXISTS datasets_metric_month ON metric.datasets USING btree (metric_month);
+CREATE INDEX IF NOT EXISTS datasets_organization_id ON metric.datasets USING btree (organization_id);
 
 CREATE INDEX IF NOT EXISTS organizations_organization_id ON metric.organizations USING btree (organization_id);
 CREATE INDEX IF NOT EXISTS organizations_metric_month ON metric.organizations USING btree (metric_month);
