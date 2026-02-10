@@ -17,7 +17,6 @@ from datagouvfr_data_pipelines.verticales.simplifions.task_functions import (
     update_topics_v2,
     watch_grist_data,
     clone_grist_document,
-    generate_simplifions_sitemap,
 )
 
 default_args = {
@@ -105,22 +104,4 @@ clone_grist_document_task = PythonOperator(
     task_id="clone_grist_document",
     python_callable=clone_grist_document,
     dag=verticale_simplifions_grist_document_cloner,
-)
-
-# Sitemap generation DAG - runs independently to generate sitemap
-verticale_simplifions_sitemap = DAG(
-    dag_id="verticale_simplifions_sitemap",
-    schedule_interval="30 4 * * *",  # every day at 4:30am
-    start_date=datetime(2024, 10, 1),
-    dagrun_timeout=timedelta(minutes=30),
-    tags=["verticale", "simplifions"],
-    default_args=default_args,
-    catchup=False,
-)
-
-generate_sitemap_task = PythonOperator(
-    task_id="generate_simplifions_sitemap",
-    python_callable=generate_simplifions_sitemap,
-    op_kwargs={"client": local_client},
-    dag=verticale_simplifions_sitemap,
 )
