@@ -1,6 +1,8 @@
-import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
+import logging
+
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
@@ -35,7 +37,8 @@ GRIST_TABLES_FOR_FILTERS = [
 ]
 
 
-def get_and_format_grist_v2_data(ti, client=None):
+@task()
+def get_and_format_grist_v2_data(**context):
     tag_and_grist_topics = defaultdict(dict)
 
     for table_id, table_info in GRIST_TABLES_AND_TAGS.items():
@@ -57,7 +60,7 @@ def get_and_format_grist_v2_data(ti, client=None):
     )
     logging.info(f"Found {total_length} items in grist: \n{logging_str}")
 
-    ti.xcom_push(key="tag_and_grist_rows_v2", value=tag_and_grist_topics)
+    context["ti"].xcom_push(key="tag_and_grist_rows_v2", value=tag_and_grist_topics)
 
     logging.info("Get grist_tables_for_filters...")
 
@@ -70,17 +73,18 @@ def get_and_format_grist_v2_data(ti, client=None):
 
     logging.info("grist_tables_for_filters done.")
 
-    ti.xcom_push(key="grist_tables_for_filters", value=grist_tables_for_filters)
+    context["ti"].xcom_push(key="grist_tables_for_filters", value=grist_tables_for_filters)
 
 
-def update_topics_v2(ti, client=None):
+@task()
+def update_topics_v2(client=None, **context):
     topics_api = TopicsAPI(client)
 
-    tag_and_grist_rows: dict = ti.xcom_pull(
+    tag_and_grist_rows: dict = context["ti"].xcom_pull(
         key="tag_and_grist_rows_v2", task_ids="get_and_format_grist_v2_data"
     )
 
-    grist_tables_for_filters: dict = ti.xcom_pull(
+    grist_tables_for_filters: dict = context["ti"].xcom_pull(
         key="grist_tables_for_filters", task_ids="get_and_format_grist_v2_data"
     )
     topics_manager = TopicsV2Manager(client, grist_tables_for_filters)
@@ -162,7 +166,8 @@ def update_topics_v2(ti, client=None):
                 topics_api.delete_topic(old_topic["id"])
 
 
-def watch_grist_data(ti):
+@task()
+def watch_grist_data():
     """
     Watch Grist data for changes and log the current state.
     This method monitors the Grist tables and provides information about data changes.
@@ -319,7 +324,8 @@ def watch_grist_data(ti):
     )
 
 
-def clone_grist_document(ti):
+@task()
+def clone_grist_document():
     logging.info("Cloning grist document")
     new_doc_info = DiffManager._create_simplifions_backup()
     logging.info(
