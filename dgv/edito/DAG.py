@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from airflow.models import DAG
-from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.dgv.edito.task_functions import (
     create_edito_post,
@@ -22,14 +21,5 @@ with DAG(
     tags=["edito", "mattermost", "post", "twitter"],
     default_args=default_args,
     catchup=False,
-) as dag:
-    edito = PythonOperator(
-        task_id="create_edito_post",
-        python_callable=create_edito_post,
-    )
-
-    mattermost = PythonOperator(
-        task_id="publish_mattermost", python_callable=publish_mattermost
-    )
-
-    mattermost.set_upstream(edito)
+):
+    create_edito_post() >> publish_mattermost()

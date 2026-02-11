@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 import os
 import logging
 import shutil
-from airflow.operators.python_operator import PythonOperator
+
+from airflow.decorators import task
 from airflow.models import DAG
 from airflow.models.dagrun import DagRun
 from airflow.settings import Session
@@ -28,7 +29,8 @@ def get_directory_size(directory):
 
 
 # Define the Python function to delete old logs and directories
-def delete_old_logs_and_directories(ti):
+@task()
+def delete_old_logs_and_directories(**context):
     total_size_bytes = 0
     log_dir = (
         "/opt/airflow/logs"
@@ -57,9 +59,10 @@ def delete_old_logs_and_directories(ti):
                     logging.info(f"Deleted file: {file_path}")
     else:
         logging.error(f"Log directory not found: {log_dir}")
-    ti.xcom_push(key="total_size_bytes", value=total_size_bytes)
+    context["ti"].xcom_push(key="total_size_bytes", value=total_size_bytes)
 
 
+@task()
 def delete_old_runs():
     """
     Query and delete runs older than the threshold date (2 months ago).
@@ -88,8 +91,9 @@ def delete_old_runs():
         session.close()
 
 
-def send_notification_mattermost(ti):
-    total_size_bytes = ti.xcom_pull(key="total_size_bytes", task_ids="delete_logs")
+@task()
+def send_notification_mattermost(**context):
+    total_size_bytes = context["ti"].xcom_pull(key="total_size_bytes", task_ids="delete_logs")
     units = ["octets", "ko", "Mo", "Go", "To"]
     k = 0
     while total_size_bytes > 1e3 and k < len(units):
@@ -120,21 +124,12 @@ with DAG(
     start_date=datetime(2024, 1, 25),
     catchup=False,  # False to ignore past runs
     max_active_runs=1,
-) as dag:
-    delete_old_logs_task = PythonOperator(
-        task_id="delete_logs",
-        python_callable=delete_old_logs_and_directories,
-    )
+):
 
-    delete_old_runs_task = PythonOperator(
-        task_id="delete_old_runs",
-        python_callable=delete_old_runs,
+    (
+        [
+            delete_old_logs_and_directories(),
+            delete_old_runs(),
+        ]
+        >> send_notification_mattermost()
     )
-
-    send_notification_mattermost = PythonOperator(
-        task_id="send_notification_mattermost",
-        python_callable=send_notification_mattermost,
-    )
-
-    send_notification_mattermost.set_upstream(delete_old_logs_task)
-    send_notification_mattermost.set_upstream(delete_old_runs_task)

@@ -9,7 +9,7 @@ from typing import Iterator
 import numpy as np
 import pandas as pd
 import requests
-from airflow.models import TaskInstance
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -66,9 +66,10 @@ MATOMO_PARAMS = {
 }
 
 
+@task()
 def get_support_tickets(
-    ti: TaskInstance,
     start_date: datetime,
+    **context
 ):
     def get_monthly_count(
         tickets: list[dict],
@@ -169,8 +170,8 @@ def get_support_tickets(
         for scope in tickets.keys()
     }
 
-    ti.xcom_push(key="tickets", value=tickets)
-    ti.xcom_push(key="months", value=list(tickets["all"].keys()))
+    context["ti"].xcom_push(key="tickets", value=tickets)
+    context["ti"].xcom_push(key="months", value=list(tickets["all"].keys()))
 
 
 def fill_url(
@@ -187,10 +188,11 @@ def fill_url(
     )
 
 
+@task()
 def get_visits(
-    ti: TaskInstance,
     start_date: datetime,
     end_date: datetime = datetime.today() - timedelta(days=1),
+    **context,
 ) -> None:
     # url_stats_home_dgv = {
     #     "site_id": DATAGOUV_MATOMO_ID,
@@ -250,17 +252,16 @@ def get_visits(
 
         vues = df["Vues de page uniques"].to_list()
         logging.info(f"Vues : {vues}")
-        ti.xcom_push(key=k["title"], value=vues)
+        context["ti"].xcom_push(key=k["title"], value=vues)
 
 
-def gather_and_upload(
-    ti: TaskInstance,
-) -> None:
-    tickets = ti.xcom_pull(key="tickets", task_ids="get_support_tickets")
-    months = ti.xcom_pull(key="months", task_ids="get_support_tickets")
-    # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
+@task()
+def gather_and_upload(**context) -> None:
+    tickets = context["ti"].xcom_pull(key="tickets", task_ids="get_support_tickets")
+    months = context["ti"].xcom_pull(key="months", task_ids="get_support_tickets")
+    # homepage = context["ti"].xcom_pull(key="homepage", task_ids="get_visits")
     support = {
-        k: ti.xcom_pull(key=k, task_ids="get_visits")
+        k: context["ti"].xcom_pull(key=k, task_ids="get_visits")
         for k in ["support", "/support", "old_support"]
     }
 
@@ -327,6 +328,7 @@ def is_SP_or_CT(
     ], issue
 
 
+@task()
 def get_and_upload_certification() -> None:
     session = requests.Session()
     orgas = local_client.get_all_from_api_query(
@@ -366,6 +368,7 @@ def get_and_upload_certification() -> None:
     )
 
 
+@task()
 def get_and_upload_reuses_down() -> None:
     client = S3Client(bucket="data-pipeline-open")
     # getting latest data
@@ -408,6 +411,7 @@ def get_and_upload_reuses_down() -> None:
     )
 
 
+@task()
 def get_catalog_stats() -> None:
     datasets = []
     resources = []
@@ -498,6 +502,7 @@ def get_catalog_stats() -> None:
     )
 
 
+@task()
 def get_hvd_dataservices_stats() -> None:
     crawler = local_client.get_all_from_api_query("api/1/dataservices/?tags=hvd")
     count = 0

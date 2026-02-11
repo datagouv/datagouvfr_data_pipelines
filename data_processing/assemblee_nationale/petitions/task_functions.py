@@ -3,6 +3,7 @@ import logging
 import os
 import re
 
+from airflow.decorators import task
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
@@ -164,6 +165,7 @@ def get_row(_id: int) -> dict | None:
     }
 
 
+@task()
 def gather_petitions():
     # getting current file to ignore unused ids
     ids = (
@@ -209,6 +211,7 @@ def gather_petitions():
     # no need to convert to parquet, hydra will
 
 
+@task()
 def send_petitions_to_s3():
     s3_open.send_files(
         list_files=[
@@ -230,6 +233,7 @@ def send_petitions_to_s3():
     )
 
 
+@task()
 def publish_on_datagouv():
     local_client.resource(
         id=resource_id,
@@ -247,6 +251,7 @@ def publish_on_datagouv():
     )
 
 
+@task()
 def send_notification_mattermost():
     send_message(
         text=(

@@ -5,6 +5,7 @@ import re
 import shutil
 import tarfile
 
+from airflow.decorators import task
 import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
@@ -34,6 +35,7 @@ already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"
 
 
+@task()
 def create_tabular_metrics_tables() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -172,6 +174,7 @@ def process_logs_file(file_path: str):
     )
 
 
+@task()
 def process_logs():
     # fetching already processed files has to be in here instead of a separate task
     # to ensure restarting this task reloads the list of files to process

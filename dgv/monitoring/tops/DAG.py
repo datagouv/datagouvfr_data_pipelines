@@ -1,7 +1,8 @@
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from collections import defaultdict
+
 from airflow.models import DAG
+from airflow.models.baseoperator import chain
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
@@ -34,20 +35,22 @@ with DAG(
     tags=["tops", "datagouv", "piwik"],
     default_args=default_args,
     catchup=False,
-) as dag:
-    check_if_monday = ShortCircuitOperator(
-        task_id="check_if_monday", python_callable=check_if_monday
-    )
+):
 
-    check_if_first_day_of_month = ShortCircuitOperator(
-        task_id="check_if_first_day_of_month",
-        python_callable=check_if_first_day_of_month,
-    )
-
-    check_if_first_day_of_year = ShortCircuitOperator(
-        task_id="check_if_first_day_of_year",
-        python_callable=check_if_first_day_of_year,
-    )
+    short_circuits = {
+        "week": ShortCircuitOperator(
+            task_id="check_if_monday",
+            python_callable=check_if_monday,
+        ),
+        "month": ShortCircuitOperator(
+            task_id="check_if_first_day_of_month",
+            python_callable=check_if_first_day_of_month,
+        ),
+        "year": ShortCircuitOperator(
+            task_id="check_if_first_day_of_year",
+            python_callable=check_if_first_day_of_year,
+        ),
+    }
 
     freqs = {
         "day": "Journée d'hier",
@@ -61,61 +64,52 @@ with DAG(
         "reuses": "réutilisations",
     }
 
-    tasks = defaultdict(dict)
+    tasks = {}
     for freq, freq_label in freqs.items():
-        tasks[freq]["first"] = [
-            PythonOperator(
-                task_id=f"get_top_{_class}_{freq}",
-                python_callable=get_top,
-                templates_dict={
-                    "type": _class,
-                    "date": yesterday,
-                    "period": freq,
-                    "title": f"Top 10 des {class_label}",
-                },
-            )
-            for _class, class_label in classes.items()
-        ]
-        tasks[freq]["second"] = [
+        prefix = "dai" if freq == "day" else freq
+        tasks[freq] = []
+        if freq in short_circuits:
+            tasks[freq].append(short_circuits[freq])
+        tasks[freq] += [
+            [
+                PythonOperator(
+                    task_id=f"get_top_{_class}_{freq}",
+                    python_callable=get_top,
+                    op_kwargs={
+                        "_type": _class,
+                        "date": yesterday,
+                        "period": freq,
+                        "title": f"Top 10 des {class_label}",
+                    },
+                )
+                for _class, class_label in classes.items()
+            ],
             PythonOperator(
                 task_id=f"publish_top_{freq}_mattermost",
                 python_callable=publish_top_mattermost,
-                templates_dict={
+                op_kwargs={
                     "period": freq,
                     "label": freq_label,
                 },
-            )
-        ]
-        prefix = "dai" if freq == "day" else freq
-        tasks[freq]["third"] = [
-            PythonOperator(
-                task_id=f"send_top_{freq}_to_s3",
-                python_callable=send_tops_to_s3,
-                templates_dict={
-                    "period": freq,
-                    "s3": f"{S3_PATH}piwik_tops_{prefix}ly/{yesterday}/",
-                },
             ),
-            PythonOperator(
-                task_id=f"send_stats_{freq}_to_s3",
-                python_callable=send_stats_to_s3,
-                templates_dict={
-                    "period": freq,
-                    "s3": f"{S3_PATH}piwik_stats_{prefix}ly/{yesterday}/",
-                    "date": yesterday,
-                },
-            ),
+            [
+                PythonOperator(
+                    task_id=f"send_top_{freq}_to_s3",
+                    python_callable=send_tops_to_s3,
+                    op_kwargs={
+                        "period": freq,
+                        "s3": f"{S3_PATH}piwik_tops_{prefix}ly/{yesterday}/",
+                    },
+                ),
+                PythonOperator(
+                    task_id=f"send_stats_{freq}_to_s3",
+                    python_callable=send_stats_to_s3,
+                    op_kwargs={
+                        "period": freq,
+                        "s3": f"{S3_PATH}piwik_stats_{prefix}ly/{yesterday}/",
+                        "date": yesterday,
+                    },
+                ),
+            ],
         ]
-
-        for task in tasks[freq]["first"]:
-            if freq == "week":
-                task.set_upstream(check_if_monday)
-            elif freq == "month":
-                task.set_upstream(check_if_first_day_of_month)
-            elif freq == "year":
-                task.set_upstream(check_if_first_day_of_year)
-
-        for parent, child in zip(["first", "second"], ["second", "third"]):
-            for child_task in tasks[freq][child]:
-                for parent_task in tasks[freq][parent]:
-                    child_task.set_upstream(parent_task)
+        chain(*tasks[freq])

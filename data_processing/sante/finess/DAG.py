@@ -1,13 +1,11 @@
 from datetime import datetime, timedelta
 
 from airflow.models import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions import (
     config,
     DAG_NAME,
     TMP_FOLDER,
-    DATADIR,
     check_if_modif,
     build_finess_table_etablissements,
     build_and_save,
@@ -15,6 +13,7 @@ from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions impor
     publish_on_datagouv,
     send_notification_mattermost,
 )
+from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 
@@ -31,23 +30,24 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "sante", "finess"],
     default_args=default_args,
-) as dag:
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {DATADIR}",
+):
+    clean_previous_outputs = clean_up_folder(TMP_FOLDER, recreate=True)
+    clean_up = clean_up_folder(
+        TMP_FOLDER,
+        trigger_rule="none_failed_or_skipped",
     )
 
-    scope_tasks = {}
     for scope in config:
         if scope == "geoloc":
             continue
-        scope_tasks[scope] = [
-            ShortCircuitOperator(
+        (
+            clean_previous_outputs
+            >> ShortCircuitOperator(
                 task_id=f"check_if_modif_{scope}",
                 python_callable=check_if_modif,
                 op_kwargs={"scope": scope},
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id=f"build_finess_table_{scope}",
                 python_callable=(
                     build_finess_table_etablissements
@@ -55,37 +55,18 @@ with DAG(
                     else build_and_save
                 ),
                 op_kwargs=({} if scope == "etablissements" else {"scope": scope}),
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id=f"send_to_s3_{scope}",
                 python_callable=send_to_s3,
                 op_kwargs={"scope": scope},
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id=f"publish_on_datagouv_{scope}",
                 python_callable=publish_on_datagouv,
                 op_kwargs={"scope": scope},
-            ),
-        ]
+            )
+            >> clean_up
+        )
 
-    # final steps
-    clean_up = BashOperator(
-        task_id="clean_up",
-        bash_command=f"rm -rf {TMP_FOLDER}",
-        trigger_rule="none_failed_or_skipped",
-    )
-
-    send_notification_mattermost = PythonOperator(
-        task_id="send_notification_mattermost",
-        python_callable=send_notification_mattermost,
-        trigger_rule="none_failed_or_skipped",
-    )
-
-    for scope in config:
-        if scope == "geoloc":
-            continue
-        scope_tasks[scope][0].set_upstream(clean_previous_outputs)
-        for idx, task in enumerate(scope_tasks[scope][:-1]):
-            scope_tasks[scope][idx + 1].set_upstream(task)
-        clean_up.set_upstream(scope_tasks[scope][-1])
-    send_notification_mattermost.set_upstream(clean_up)
+    clean_up >> send_notification_mattermost()

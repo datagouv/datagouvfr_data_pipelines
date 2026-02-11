@@ -5,6 +5,7 @@ import json
 import logging
 import os
 
+from airflow.decorators import task
 import gc
 import numpy as np
 import pandas as pd
@@ -53,6 +54,7 @@ def build_table_name(table: str) -> str:
     return f"{schema}.{table}" if AIRFLOW_ENV == "prod" else table
 
 
+@task()
 def create_copro_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -62,6 +64,7 @@ def create_copro_table() -> None:
     )
 
 
+@task()
 def create_dpe_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -71,6 +74,7 @@ def create_dpe_table() -> None:
     )
 
 
+@task()
 def create_dvf_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -80,6 +84,7 @@ def create_dvf_table() -> None:
     )
 
 
+@task()
 def index_dvf_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -89,6 +94,7 @@ def index_dvf_table() -> None:
     )
 
 
+@task()
 def create_stats_dvf_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -98,6 +104,7 @@ def create_stats_dvf_table() -> None:
     )
 
 
+@task()
 def create_distribution_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -107,6 +114,7 @@ def create_distribution_table() -> None:
     )
 
 
+@task()
 def create_whole_period_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -116,6 +124,7 @@ def create_whole_period_table() -> None:
     )
 
 
+@task()
 def populate_copro_table() -> None:
     mapping = {
         "EPCI": "epci",
@@ -192,6 +201,7 @@ def populate_copro_table() -> None:
     )
 
 
+@task()
 def populate_distribution_table() -> None:
     pgclient.copy_file(
         file=File(source_path=f"{DATADIR}/", source_name="distribution_prix.csv"),
@@ -200,6 +210,7 @@ def populate_distribution_table() -> None:
     )
 
 
+@task()
 def populate_dvf_table() -> None:
     files = glob.glob(f"{DATADIR}/full*.csv")
     for file in files:
@@ -212,6 +223,7 @@ def populate_dvf_table() -> None:
         )
 
 
+@task()
 def alter_dvf_table() -> None:
     pgclient.execute_sql_file(
         File(
@@ -221,6 +233,7 @@ def alter_dvf_table() -> None:
     )
 
 
+@task()
 def populate_stats_dvf_table() -> None:
     pgclient.copy_file(
         file=File(source_path=f"{DATADIR}/", source_name="stats_dvf_api.csv"),
@@ -229,6 +242,7 @@ def populate_stats_dvf_table() -> None:
     )
 
 
+@task()
 def populate_dpe_table() -> None:
     pgclient.copy_file(
         file=File(source_path=f"{DATADIR}/", source_name="all_dpe.csv"),
@@ -237,6 +251,7 @@ def populate_dpe_table() -> None:
     )
 
 
+@task()
 def populate_whole_period_table() -> None:
     pgclient.copy_file(
         file=File(source_path=f"{DATADIR}/", source_name="stats_whole_period.csv"),
@@ -245,6 +260,7 @@ def populate_whole_period_table() -> None:
     )
 
 
+@task()
 def get_epci() -> None:
     epci = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
@@ -268,6 +284,7 @@ def get_epci() -> None:
     ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
 
 
+@task()
 def process_dpe() -> None:
     cols_dpe = {
         "batiment_groupe_id": str,
@@ -364,6 +381,7 @@ def process_dpe() -> None:
         del dpe_parcelled
 
 
+@task()
 def index_dpe_table() -> None:
     pgclient.execute_sql_file(
         File(
@@ -373,6 +391,7 @@ def index_dpe_table() -> None:
     )
 
 
+@task()
 def process_dvf_stats() -> None:
     years = sorted(
         [
@@ -782,6 +801,7 @@ def process_dvf_stats() -> None:
         logging.info(f"Done with year {year}")
 
 
+@task()
 def create_distribution_and_stats_whole_period() -> None:
     def process_borne(borne: float, borne_inf: int, borne_sup: int) -> int:
         # handle rounding of bounds
@@ -1077,6 +1097,7 @@ def create_distribution_and_stats_whole_period() -> None:
     )
 
 
+@task()
 def send_stats_to_s3() -> None:
     s3_open.send_files(
         list_files=[
@@ -1092,6 +1113,7 @@ def send_stats_to_s3() -> None:
     )
 
 
+@task()
 def send_distribution_to_s3() -> None:
     s3_restricted.send_file(
         File(
@@ -1104,7 +1126,8 @@ def send_distribution_to_s3() -> None:
     )
 
 
-def publish_stats_dvf(ti) -> None:
+@task()
+def publish_stats_dvf(**context) -> None:
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
     local_client.resource(
@@ -1148,9 +1171,10 @@ def publish_stats_dvf(ti) -> None:
             ),
         },
     )
-    ti.xcom_push(key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"])
+    context["ti"].xcom_push(key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"])
 
 
+@task()
 def concat_and_publish_whole():
     years = sorted(
         [
@@ -1255,8 +1279,9 @@ def concat_and_publish_whole():
     )
 
 
-def notification_mattermost(ti) -> None:
-    dataset_id = ti.xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
+@task()
+def notification_mattermost(**context) -> None:
+    dataset_id = context["ti"].xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
     send_message(
         f"Stats DVF générées :"
         f"\n- intégré en base de données"

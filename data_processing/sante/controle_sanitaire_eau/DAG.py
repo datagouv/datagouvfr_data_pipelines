@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import json
 from airflow.models import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import (
@@ -15,6 +14,7 @@ from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task
     publish_on_datagouv,
     send_notification_mattermost,
 )
+from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -39,21 +39,9 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "sante", "eau"],
     default_args=default_args,
-) as dag:
-    check_if_modif = ShortCircuitOperator(
-        task_id="check_if_modif",
-        python_callable=check_if_modif,
-    )
+):
 
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
-    )
-
-    process_data = PythonOperator(
-        task_id="process_data",
-        python_callable=process_data,
-    )
+    _process_data = process_data()
 
     type_tasks = {}
     for file_type in config.keys():
@@ -74,20 +62,21 @@ with DAG(
             ),
         ]
 
-    clean_up = BashOperator(
-        task_id="clean_up",
-        bash_command=f"rm -rf {TMP_FOLDER}",
-    )
+    clean_up = clean_up_folder(TMP_FOLDER)
 
-    send_notification_mattermost = PythonOperator(
-        task_id="send_notification_mattermost",
-        python_callable=send_notification_mattermost,
+    (
+        ShortCircuitOperator(
+            task_id="check_if_modif",
+            python_callable=check_if_modif,
+        )
+        >> clean_up_folder(TMP_FOLDER, recreate=True)
+        >> _process_data
     )
-
-    clean_previous_outputs.set_upstream(check_if_modif)
-    process_data.set_upstream(clean_previous_outputs)
     for file_type in config.keys():
-        type_tasks[file_type][0].set_upstream(process_data)
-        type_tasks[file_type][1].set_upstream(type_tasks[file_type][0])
-        clean_up.set_upstream(type_tasks[file_type][1])
-    send_notification_mattermost.set_upstream(clean_up)
+        (
+            _process_data
+            >> type_tasks[file_type][0]
+            >> type_tasks[file_type][1]
+            >> clean_up
+        )
+    clean_up >> send_notification_mattermost()

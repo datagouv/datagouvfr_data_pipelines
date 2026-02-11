@@ -1,5 +1,6 @@
 from datetime import datetime
 import pandas as pd
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -14,6 +15,7 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
+@task()
 def download_latest_data(ti):
     config = {
         "resource_id": "ac59a0f5-fa83-4b82-bf12-3c5806d4f19f",
@@ -41,6 +43,7 @@ def convert_date(val):
     return None
 
 
+@task()
 def process_organismes_formation(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
     df = pd.read_csv(
@@ -86,6 +89,7 @@ def process_organismes_formation(ti):
     ti.xcom_push(key="nb_siret", value=str(df["siret"].nunique()))
 
 
+@task()
 def send_file_to_s3(ti):
     res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
     s3_open.send_file(
@@ -131,6 +135,7 @@ def compare_files_s3(ti):
     return True
 
 
+@task()
 def send_notification(ti):
     nb_of = ti.xcom_pull(key="nb_of", task_ids="process_organismes_formation")
     nb_siret = ti.xcom_pull(key="nb_siret", task_ids="process_organismes_formation")

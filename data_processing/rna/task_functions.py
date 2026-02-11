@@ -5,6 +5,7 @@ import requests
 import json
 from zipfile import ZipFile
 from io import BytesIO
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -128,6 +129,7 @@ def publish_on_datagouv(ti, file_type):
         )
 
 
+@task()
 def send_notification_mattermost():
     dataset_id = config["import"]["csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(

@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 import json
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.config import (
@@ -53,7 +54,8 @@ def threshold_in_the_past(nb_batches_behind=3):
     )
 
 
-def scan_pnt_files(ti):
+@task()
+def scan_pnt_files(**context):
     threshold = threshold_in_the_past()
     pnt_datasets = [
         el["element"]["id"]
@@ -94,16 +96,17 @@ def scan_pnt_files(ti):
     with open(AIRFLOW_DAG_TMP + too_old_filename, "w") as f:
         json.dump(too_old, f, ensure_ascii=False)
 
-    ti.xcom_push(key="time_slots", value=time_slots)
-    ti.xcom_push(key="unavailable_resources", value=unavailable_resources)
-    ti.xcom_push(key="too_old", value=too_old)
+    context["ti"].xcom_push(key="time_slots", value=time_slots)
+    context["ti"].xcom_push(key="unavailable_resources", value=unavailable_resources)
+    context["ti"].xcom_push(key="too_old", value=too_old)
 
 
-def notification_mattermost(ti):
-    unavailable_resources = ti.xcom_pull(
+@task()
+def notification_mattermost(**context):
+    unavailable_resources = context["ti"].xcom_pull(
         key="unavailable_resources", task_ids="scan_pnt_files"
     )
-    too_old = ti.xcom_pull(key="too_old", task_ids="scan_pnt_files")
+    too_old = context["ti"].xcom_pull(key="too_old", task_ids="scan_pnt_files")
     print("Unavailable resources:", unavailable_resources)
     print("Too old resources:", too_old)
     nb_too_old = sum([len(too_old[d]) for d in too_old])
@@ -215,6 +218,7 @@ def build_tree(paths: Iterable[str]):
     return tree
 
 
+@task()
 def dump_and_send_tree() -> None:
     tree = update_tree()
     # runs look like this 2024-10-09T18:00:00Z
@@ -244,6 +248,7 @@ def dump_and_send_tree() -> None:
     )
 
 
+@task()
 def consolidate_logs():
     logs, csvs = [], []
     for o in s3_pnt.get_files_from_prefix(

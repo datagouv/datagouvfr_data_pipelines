@@ -1,8 +1,10 @@
 import json
 import logging
-import requests
-import jsonschema
 import yaml
+
+from airflow.decorators import task
+import jsonschema
+import requests
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.utils.datagouv import local_client
@@ -52,6 +54,7 @@ def validate_recommendations(recommendations: list) -> None:
     jsonschema.validate(recommendations, schema=schema)
 
 
+@task()
 def create_and_export_recommendations() -> None:
     recommendations = []
     for schema_id, consolidated_dataset_id in consolidated_schemas().items():

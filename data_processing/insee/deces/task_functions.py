@@ -4,6 +4,7 @@ import json
 import os
 import re
 
+from airflow.decorators import task
 import requests
 import pandas as pd
 
@@ -87,6 +88,7 @@ def get_fields(row):
     return d
 
 
+@task()
 def gather_data(ti):
     logging.info("Getting resources list")
     resources = requests.get(
@@ -189,6 +191,7 @@ def gather_data(ti):
     )
 
 
+@task()
 def send_to_s3():
     s3_open.send_files(
         list_files=[
@@ -204,6 +207,7 @@ def send_to_s3():
     )
 
 
+@task()
 def publish_on_datagouv(ti):
     min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
     max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
@@ -243,6 +247,7 @@ def publish_on_datagouv(ti):
     )
 
 
+@task()
 def notification_mattermost():
     dataset_id = config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(

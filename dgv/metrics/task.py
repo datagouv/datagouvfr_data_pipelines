@@ -1,9 +1,10 @@
+from datetime import date, datetime, timedelta
 import glob
 import logging
 import os
 import tarfile
-from datetime import date, datetime, timedelta
 
+from airflow.decorators import task
 import pandas as pd
 from tqdm import tqdm
 
@@ -45,6 +46,7 @@ FOUND_FOLDER = f"{TMP_FOLDER}found/"
 OUTPUT_FOLDER = f"{TMP_FOLDER}outputs/"
 
 
+@task()
 def create_metrics_tables() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -55,7 +57,7 @@ def create_metrics_tables() -> None:
     )
 
 
-def get_new_logs(ti) -> bool:
+def get_new_logs(**context) -> bool:
     new_logs_path = list(s3_client.get_files_from_prefix(prefix="metrics-logs/new/"))
     if new_logs_path:
         ongoing_logs_path = s3_client.copy_many_objects(
@@ -63,12 +65,13 @@ def get_new_logs(ti) -> bool:
             f"{AIRFLOW_ENV}/metrics-logs/ongoing/",
             remove_source_file=True,
         )
-        ti.xcom_push(key="ongoing_logs_path", value=ongoing_logs_path)
+        context["ti"].xcom_push(key="ongoing_logs_path", value=ongoing_logs_path)
         return True
     else:
         return False
 
 
+@task()
 def download_catalog() -> None:
     download_files(
         [
@@ -82,8 +85,9 @@ def download_catalog() -> None:
     )
 
 
-def download_log(ti):
-    ongoing_logs_path = ti.xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
+@task()
+def download_log(**context):
+    ongoing_logs_path = context["ti"].xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
 
     logging.info("Downloading raw logs...")
     for path in ongoing_logs_path:
@@ -100,13 +104,14 @@ def download_log(ti):
         )
 
     dates_to_process = set(d.split("/")[-1].split("-")[2] for d in ongoing_logs_path)
-    ti.xcom_push(key="dates_to_process", value=dates_to_process)
+    context["ti"].xcom_push(key="dates_to_process", value=dates_to_process)
 
 
-def process_log(ti) -> None:
+@task()
+def process_log(**context) -> None:
     """Aggregates log files by group of available dates and log types."""
 
-    dates_to_process = ti.xcom_pull(key="dates_to_process", task_ids="download_log")
+    dates_to_process = context["ti"].xcom_pull(key="dates_to_process", task_ids="download_log")
 
     remove_files_from_directory(FOUND_FOLDER)
 
@@ -141,8 +146,9 @@ def process_log(ti) -> None:
                     )
 
 
-def aggregate_log(ti) -> None:
-    dates_to_process = ti.xcom_pull(key="dates_to_process", task_ids="download_log")
+@task()
+def aggregate_log(**context) -> None:
+    dates_to_process = context["ti"].xcom_pull(key="dates_to_process", task_ids="download_log")
     dates_processed: list[str] = []
 
     remove_files_from_directory(OUTPUT_FOLDER)
@@ -179,15 +185,16 @@ def aggregate_log(ti) -> None:
             )
 
     logging.info(f"Processed dates: {dates_processed}")
-    ti.xcom_push(key="dates_processed", value=dates_processed)
+    context["ti"].xcom_push(key="dates_processed", value=dates_processed)
 
 
-def visit_postgres_duplication_safety(ti) -> None:
+@task()
+def visit_postgres_duplication_safety(**context) -> None:
     """
     In case we have to process some logs again, this task is making
     sure we don't end up duplicating the metrics on postgres.
     """
-    processed_dates = ti.xcom_pull(key="dates_processed", task_ids="aggregate_log")
+    processed_dates = context["ti"].xcom_pull(key="dates_processed", task_ids="aggregate_log")
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing visit metrics from the {log_date} if they exists."
@@ -202,6 +209,7 @@ def visit_postgres_duplication_safety(ti) -> None:
         )
 
 
+@task()
 def save_metrics_to_postgres() -> None:
     for obj_config in config.logs_config:
         # Looking for files such as 2025-09-24_resources.csv
@@ -218,8 +226,9 @@ def save_metrics_to_postgres() -> None:
                 )
 
 
-def copy_logs_to_processed_folder(ti) -> None:
-    ongoing_logs_path = ti.xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
+@task()
+def copy_logs_to_processed_folder(**context) -> None:
+    ongoing_logs_path = context["ti"].xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
     s3_client.copy_many_objects(
         ongoing_logs_path,
         f"{AIRFLOW_ENV}/metrics-logs/processed/",
@@ -227,6 +236,7 @@ def copy_logs_to_processed_folder(ti) -> None:
     )
 
 
+@task()
 def refresh_materialized_views() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -237,7 +247,8 @@ def refresh_materialized_views() -> None:
     )
 
 
-def process_matomo(ti) -> None:
+@task()
+def process_matomo(**context) -> None:
     """
     Fetch matomo metrics for external links for reuses and sum these by orga
     """
@@ -287,16 +298,17 @@ def process_matomo(ti) -> None:
         index=False,
         header=False,
     )
-    ti.xcom_push(key="dates_processed", value=[yesterday])
+    context["ti"].xcom_push(key="dates_processed", value=[yesterday])
     logging.info("Matomo organisations outlinks processed!")
 
 
-def matomo_postgres_duplication_safety(ti) -> None:
+@task()
+def matomo_postgres_duplication_safety(**context) -> None:
     """
     In case we have to process some logs again, this task is making
     sure we don't end up duplicating the matomo metrics on postgres.
     """
-    processed_dates = ti.xcom_pull(key="dates_processed", task_ids="process_matomo")
+    processed_dates = context["ti"].xcom_pull(key="dates_processed", task_ids="process_matomo")
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing matomo metrics from the {log_date} if they exists."
@@ -311,6 +323,7 @@ def matomo_postgres_duplication_safety(ti) -> None:
         )
 
 
+@task()
 def save_matomo_to_postgres() -> None:
     pg_config = [
         {

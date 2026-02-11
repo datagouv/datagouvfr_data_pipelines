@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 
+from airflow.decorators import task
 from airflow.hooks.base import BaseHook
 import gzip
 from jinja2 import Environment, FileSystemLoader
@@ -195,8 +196,9 @@ def build_deletions_file_name(file_name: str) -> str:
 
 
 # %%
-def create_tables_if_not_exists(ti):
-    ti.xcom_push(key="start", value=datetime.now().timestamp())
+@task()
+def create_tables_if_not_exists(**context):
+    context["ti"].xcom_push(key="start", value=datetime.now().timestamp())
     file_loader = FileSystemLoader(
         f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/"
     )
@@ -215,7 +217,8 @@ def create_tables_if_not_exists(ti):
 
 
 # %%
-def retrieve_latest_processed_date(ti):
+@task()
+def retrieve_latest_processed_date(**context):
     data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
     logging.info(data)
     latest_db_insertion = data[0]["max"]
@@ -224,12 +227,12 @@ def retrieve_latest_processed_date(ti):
             "You may want to check what is in the 'dag_processed' table, "
             + f"got `{latest_db_insertion}`"
         )
-    ti.xcom_push(key="latest_db_insertion", value=latest_db_insertion)
+    context["ti"].xcom_push(key="latest_db_insertion", value=latest_db_insertion)
 
 
 # %%
-def download_data(ti, dataset_name):
-    latest_db_insertion = ti.xcom_pull(
+def download_data(dataset_name: str, **context):
+    latest_db_insertion = context["ti"].xcom_pull(
         key="latest_db_insertion", task_ids="retrieve_latest_processed_date"
     )
 
@@ -676,6 +679,7 @@ def create_indexes(conn, table_name, period):
 
 
 # %%
+@task()
 def insert_latest_date_pg():
     new_latest_date = datetime.now().strftime("%Y-%m-%d")
     logging.info(new_latest_date)
@@ -685,8 +689,9 @@ def insert_latest_date_pg():
 
 
 # %%
-def send_notification(ti):
-    start = ti.xcom_pull(key="start", task_ids="create_tables_if_not_exists")
+@task()
+def send_notification(**context):
+    start = context["ti"].xcom_pull(key="start", task_ids="create_tables_if_not_exists")
     # weirdly start is pushed as a timestamp (float) but pulled as a datetime
     if isinstance(start, datetime):
         start = start.timestamp()

@@ -13,18 +13,18 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
-with DAG(
-    dag_id=DAG_NAME,
-    schedule="5 4 * * 1",
-    start_date=datetime(2024, 6, 1),
-    catchup=False,
-    dagrun_timeout=timedelta(minutes=30),
-    tags=["data_processing", "meteo", "hydra"],
-    default_args=default_args,
-) as dag:
-    get_and_send_errors = PythonOperator(
-        task_id="get_and_send_errors",
-        python_callable=get_and_send_errors,
-    )
+# with DAG(
+#     dag_id=DAG_NAME,
+#     schedule="5 4 * * 1",
+#     start_date=datetime(2024, 6, 1),
+#     catchup=False,
+#     dagrun_timeout=timedelta(minutes=30),
+#     tags=["data_processing", "meteo", "hydra"],
+#     default_args=default_args,
+# ):
+#     get_and_send_errors = PythonOperator(
+#         task_id="get_and_send_errors",
+#         python_callable=get_and_send_errors,
+#     )
 
-    get_and_send_errors
+#     get_and_send_errors

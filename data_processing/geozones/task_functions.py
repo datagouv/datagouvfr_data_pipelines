@@ -5,6 +5,7 @@ from datetime import datetime
 import requests
 from io import BytesIO
 from urllib.parse import quote_plus, urlencode
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -37,6 +38,7 @@ levels_file = File(
 )
 
 
+@task()
 def download_and_process_geozones():
     endpoint = "https://rdf.insee.fr/sparql?query="
     query = """PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -281,6 +283,7 @@ def download_and_process_geozones():
         json.dump(levels, f, ensure_ascii=False, indent=4)
 
 
+@task()
 def post_geozones():
     year = datetime.now().strftime("%Y")
     dataset.create_static(
@@ -322,6 +325,7 @@ def post_geozones():
     )
 
 
+@task()
 def notification_mattermost():
     message = "Données Géozones mises à jours [ici]"
     message += f"({local_client.base_url}/datasets/{dataset_id})"

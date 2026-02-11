@@ -6,6 +6,7 @@ import requests
 import pandas as pd
 from io import StringIO
 from datagouv import Resource
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -198,6 +199,7 @@ def publish_on_datagouv(scope: str):
     )
 
 
+@task()
 def send_notification_mattermost():
     dataset_id = config["etablissements"][AIRFLOW_ENV]["dataset_id"]
     send_message(

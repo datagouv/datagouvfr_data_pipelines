@@ -1,6 +1,8 @@
 from datetime import timedelta, datetime
+
+from airflow.decorators import task
 from airflow.models import DAG
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES,
@@ -18,7 +20,7 @@ TIME_PERIOD = {"hours": 1}
 NB_USERS_THRESHOLD = 25
 
 
-def check_user_creation(ti):
+def check_user_creation(**context):
     # we want everything that happened since this date
     start_date = datetime.now() - timedelta(**TIME_PERIOD)
     end_date = datetime.now()
@@ -28,15 +30,16 @@ def check_user_creation(ti):
         end_date,
         date_key="since",
     )
-    ti.xcom_push(key="nb_users", value=str(len(users)))
+    context["ti"].xcom_push(key="nb_users", value=str(len(users)))
     if len(users) > NB_USERS_THRESHOLD:
         return True
     else:
         return False
 
 
-def publish_mattermost(ti):
-    nb_users = ti.xcom_pull(key="nb_users", task_ids="check-user-creation")
+@task()
+def publish_mattermost(**context):
+    nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check-user-creation")
     message = (
         f":warning: Attention, {nb_users} utilisateurs ont été créés "
         "sur data.gouv.fr dans la dernière heure."
@@ -44,8 +47,9 @@ def publish_mattermost(ti):
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
-def send_email_report(ti):
-    nb_users = ti.xcom_pull(key="nb_users", task_ids="check-user-creation")
+@task()
+def send_email_report(**context):
+    nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check-user-creation")
     message = "Attention, {} utilisateurs ont été créés sur data.gouv.fr dans la dernière heure.".format(
         nb_users
     )
@@ -71,19 +75,10 @@ with DAG(
     tags=["moderation", "hourly", "datagouv"],
     default_args=default_args,
     catchup=False,
-) as dag:
-    check_user_creation = ShortCircuitOperator(
-        task_id="check-user-creation", python_callable=check_user_creation
+):
+    (
+        ShortCircuitOperator(
+            task_id="check-user-creation", python_callable=check_user_creation
+        )
+        >> [publish_mattermost(), send_email_report()]
     )
-
-    publish_mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=publish_mattermost,
-    )
-
-    send_email_report = PythonOperator(
-        task_id="send_email_report",
-        python_callable=send_email_report,
-    )
-
-    check_user_creation >> [publish_mattermost, send_email_report]

@@ -20,39 +20,39 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
-with DAG(
-    dag_id=DAG_NAME,
-    schedule="0 18 * * *",
-    start_date=datetime(2024, 10, 1),
-    dagrun_timeout=timedelta(minutes=60),
-    tags=["apigouv"],
-    default_args=default_args,
-    catchup=False,
-) as dag:
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
-    )
+# with DAG(
+#     dag_id=DAG_NAME,
+#     schedule="0 18 * * *",
+#     start_date=datetime(2024, 10, 1),
+#     dagrun_timeout=timedelta(minutes=60),
+#     tags=["apigouv"],
+#     default_args=default_args,
+#     catchup=False,
+# ):
+#     clean_previous_outputs = BashOperator(
+#         task_id="clean_previous_outputs",
+#         bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
+#     )
 
-    clone_dag_apigouv_repo = BashOperator(
-        task_id="clone_dag_apigouv_repo",
-        bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/betagouv/api.gouv.fr.git --depth 1 ",
-    )
+#     clone_dag_apigouv_repo = BashOperator(
+#         task_id="clone_dag_apigouv_repo",
+#         bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/betagouv/api.gouv.fr.git --depth 1 ",
+#     )
 
-    import_api_to_grist = PythonOperator(
-        task_id="import_api_to_grist",
-        python_callable=import_api_to_grist,
-    )
+#     import_api_to_grist = PythonOperator(
+#         task_id="import_api_to_grist",
+#         python_callable=import_api_to_grist,
+#     )
 
-    publish_api_to_datagouv = PythonOperator(
-        task_id="publish_api_to_datagouv", python_callable=publish_api_to_datagouv
-    )
+#     publish_api_to_datagouv = PythonOperator(
+#         task_id="publish_api_to_datagouv", python_callable=publish_api_to_datagouv
+#     )
 
-    publish_mattermost = PythonOperator(
-        task_id="publish_mattermost", python_callable=publish_mattermost
-    )
+#     publish_mattermost = PythonOperator(
+#         task_id="publish_mattermost", python_callable=publish_mattermost
+#     )
 
-    clone_dag_apigouv_repo.set_upstream(clean_previous_outputs)
-    import_api_to_grist.set_upstream(clone_dag_apigouv_repo)
-    publish_api_to_datagouv.set_upstream(import_api_to_grist)
-    publish_mattermost.set_upstream(publish_api_to_datagouv)
+#     clone_dag_apigouv_repo.set_upstream(clean_previous_outputs)
+#     import_api_to_grist.set_upstream(clone_dag_apigouv_repo)
+#     publish_api_to_datagouv.set_upstream(import_api_to_grist)
+#     publish_mattermost.set_upstream(publish_api_to_datagouv)

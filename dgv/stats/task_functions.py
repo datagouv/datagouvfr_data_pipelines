@@ -1,7 +1,9 @@
-import pandas as pd
 from datetime import datetime, timedelta
-import requests
 import json
+
+from airflow.decorators import task
+import pandas as pd
+import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -31,6 +33,7 @@ def get_current_resources():
     return resources
 
 
+@task()
 def create_year_if_missing():
     resources = get_current_resources()
     yesterdays_year = yesterday.year
@@ -71,6 +74,7 @@ def get_months(site_id, year):
     return df
 
 
+@task()
 def update_year():
     resources = get_current_resources()
     yesterdays_year = yesterday.year

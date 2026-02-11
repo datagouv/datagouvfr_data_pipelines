@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
+from airflow.decorators import task
 from airflow.models import DAG
-from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.config import (
@@ -17,6 +16,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_visits,
     get_support_tickets,
 )
+from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 DAG_NAME = "dgv_dashboard"
 DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
@@ -40,69 +40,38 @@ with DAG(
     tags=["dashboard", "support", "certification"],
     default_args=default_args,
     catchup=False,
-) as dag:
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {DATADIR} && mkdir -p {DATADIR}",
+):
+
+    @task()
+    def publish_mattermost():
+        return send_message(
+            ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
+        )
+
+    clean_up_recreate = clean_up_folder(DATADIR, recreate=True)
+    _publish_mattermost = publish_mattermost()
+    _gather_and_upload = gather_and_upload()
+
+    (
+        clean_up_recreate
+        >> [
+            get_and_upload_certification(),
+            get_and_upload_reuses_down(),
+            get_catalog_stats(),
+            get_hvd_dataservices_stats(),
+        ]
+        >> _publish_mattermost
     )
 
-    get_support_tickets = PythonOperator(
-        task_id="get_support_tickets",
-        python_callable=get_support_tickets,
-        op_kwargs={"start_date": one_year_ago},
+    (
+        clean_up_recreate
+        >> get_support_tickets(one_year_ago)
+        >> _gather_and_upload,
+    )
+    (
+        clean_up_recreate
+        >> get_visits(one_year_ago)
+        >> _gather_and_upload,
     )
 
-    get_visits = PythonOperator(
-        task_id="get_visits",
-        python_callable=get_visits,
-        op_kwargs={"start_date": one_year_ago},
-    )
-
-    get_catalog_stats = PythonOperator(
-        task_id="get_catalog_stats",
-        python_callable=get_catalog_stats,
-    )
-
-    get_hvd_dataservices_stats = PythonOperator(
-        task_id="get_hvd_dataservices_stats",
-        python_callable=get_hvd_dataservices_stats,
-    )
-
-    get_and_upload_certification = PythonOperator(
-        task_id="get_and_upload_certification",
-        python_callable=get_and_upload_certification,
-    )
-
-    get_and_upload_reuses_down = PythonOperator(
-        task_id="get_and_upload_reuses_down",
-        python_callable=get_and_upload_reuses_down,
-    )
-
-    gather_and_upload = PythonOperator(
-        task_id="gather_and_upload",
-        python_callable=gather_and_upload,
-    )
-
-    publish_mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=send_message,
-        op_kwargs={
-            "text": ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
-        },
-    )
-
-    get_support_tickets.set_upstream(clean_previous_outputs)
-    get_visits.set_upstream(clean_previous_outputs)
-    get_and_upload_certification.set_upstream(clean_previous_outputs)
-    get_and_upload_reuses_down.set_upstream(clean_previous_outputs)
-    get_catalog_stats.set_upstream(clean_previous_outputs)
-    get_hvd_dataservices_stats.set_upstream(clean_previous_outputs)
-
-    gather_and_upload.set_upstream(get_support_tickets)
-    gather_and_upload.set_upstream(get_visits)
-
-    publish_mattermost.set_upstream(gather_and_upload)
-    publish_mattermost.set_upstream(get_and_upload_certification)
-    publish_mattermost.set_upstream(get_and_upload_reuses_down)
-    publish_mattermost.set_upstream(get_catalog_stats)
-    publish_mattermost.set_upstream(get_hvd_dataservices_stats)
+    _gather_and_upload >> _publish_mattermost

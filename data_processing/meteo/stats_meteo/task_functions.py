@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import json
 from io import StringIO
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -34,7 +35,8 @@ MATOMO_PARAMS = {
 }
 
 
-def gather_meteo_stats(ti):
+@task()
+def gather_meteo_stats(**context):
     print("> Stats détaillées")
     # on récupère tous les datasets de meteo.data.gouv
     datasets = [
@@ -101,7 +103,7 @@ def gather_meteo_stats(ti):
         },
         "stats_detaillees": stats,
     }
-    ti.xcom_push(key="filename", value=filename)
+    context["ti"].xcom_push(key="filename", value=filename)
 
     # visites sur meteo.data.gouv.fr
     print("> Stats mensuelles")
@@ -120,8 +122,9 @@ def gather_meteo_stats(ti):
     df.to_csv(f"{DATADIR}/visites_meteo.csv", index=False)
 
 
-def send_to_s3(ti):
-    filename = ti.xcom_pull(key="filename", task_ids="gather_meteo_stats")
+@task()
+def send_to_s3(**context):
+    filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
     s3_meteo.send_files(
         list_files=[
             File(
@@ -144,9 +147,10 @@ def send_to_s3(ti):
     )
 
 
-def send_notification(ti):
-    filename = ti.xcom_pull(key="filename", task_ids="gather_meteo_stats")
-    url = f"https://object.files.data.gouv.fr/meteofrance/metrics/{AIRFLOW_ENV}/"
+@task()
+def send_notification(**context):
+    filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
+    url = "https://object.files.data.gouv.fr/meteofrance/metrics/"
     send_message(
         text=(
             "##### :bar_chart: :partly_sunny_rain: Statistiques mensuelles "

@@ -235,7 +235,7 @@ for et in sirene_csv:
 
         if numvoie == "" and numbers.match(libvoie).group(0):
             numvoie = numbers.match(libvoie).group(0)
-            libvoie = libvoie[len(numvoie) :]
+            libvoie = libvoie[len(numvoie):]
 
         # typvoie incorrect ou à désabréger pour un score cohérent
         typ_abrege = {
@@ -398,7 +398,7 @@ for et in sirene_csv:
                             source["properties"]["label"] = (
                                 numvoie
                                 + ban_avant["properties"]["label"][
-                                    len(ban_avant["properties"]["housenumber"]) :
+                                    len(ban_avant["properties"]["housenumber"]):
                                 ]
                             )
 

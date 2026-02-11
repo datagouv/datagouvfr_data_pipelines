@@ -43,7 +43,7 @@ PARAMS_GENERAL = {
 }
 
 
-def build_start(end, freq):
+def build_start(end: datetime, freq: str) -> datetime:
     if freq == "day":
         # we want only one day
         return end
@@ -54,6 +54,7 @@ def build_start(end, freq):
         return end + relativedelta(months=-1)
     elif freq == "year":
         return end + relativedelta(years=-1)
+    raise ValueError
 
 
 def compute_top(_class, date, title):
@@ -153,20 +154,19 @@ def compute_general(date):
     return pageviews, uniq_pageviews, downloads
 
 
-def get_top(ti, **kwargs):
-    piwik_info = kwargs.get("templates_dict")
-    end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
-    start = build_start(end, piwik_info["period"])
+def get_top(date: str, period: str, _type: str, title: str, **context):
+    end = datetime.strptime(date, "%Y-%m-%d")
+    start = build_start(end, period)
     textTop, mydict = compute_top(
-        piwik_info["type"],
+        _type,
         start.strftime("%Y-%m-%d") + "," + end.strftime("%Y-%m-%d"),
-        piwik_info["title"],
+        title,
     )
-    ti.xcom_push(key="top_" + piwik_info["type"], value=textTop)
-    ti.xcom_push(key="top_" + piwik_info["type"] + "_dict", value=mydict)
+    context["ti"].xcom_push(key=f"top_{_type}", value=textTop)
+    context["ti"].xcom_push(key=f"top_{_type}_dict", value=mydict)
 
 
-def get_stats(dates, period):
+def get_stats(dates: list[datetime], period: str) -> tuple[list, list, list]:
     pageviews = []
     uniq_pageviews = []
     downloads = []
@@ -186,68 +186,64 @@ def get_stats(dates, period):
     return pageviews, uniq_pageviews, downloads
 
 
-def publish_top_mattermost(ti, **kwargs):
-    publish_info = kwargs.get("templates_dict")
-    logging.info(publish_info)
+def publish_top_mattermost(period: str, label: str, **context):
     for _class in ["datasets", "reuses"]:
-        top = ti.xcom_pull(
-            key=f"top_{_class}", task_ids=f"get_top_{_class}_" + publish_info["period"]
+        top = context["ti"].xcom_pull(
+            key=f"top_{_class}", task_ids=f"get_top_{_class}_{period}"
         )
         header = (
             ":rolled_up_newspaper: **Top 10 jeux de données** - "
             if _class == "datasets"
             else ":artist: **Top 10 réutilisations** - "
         )
-        message = header + f"{publish_info['label']} (visites)\n\n{top}"
+        message = header + f"{label} (visites)\n\n{top}"
         send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
 
-def send_tops_to_s3(ti, **kwargs):
-    publish_info = kwargs.get("templates_dict")
+def send_tops_to_s3(period: str, s3: str, **context):
     for _class in ["datasets", "reuses"]:
-        top = ti.xcom_pull(
+        top = context["ti"].xcom_pull(
             key=f"top_{_class}_dict",
-            task_ids=f"get_top_{_class}_" + publish_info["period"],
+            task_ids=f"get_top_{_class}_{period}",
         )
-        s3_open.send_dict_as_file(top, publish_info["s3"] + f"top_{_class}.json")
+        s3_open.send_dict_as_file(top, s3 + f"top_{_class}.json")
 
 
-def send_stats_to_s3(**kwargs):
-    piwik_info = kwargs.get("templates_dict")
-    end = datetime.strptime(piwik_info["date"], "%Y-%m-%d")
-    start = build_start(end, piwik_info["period"])
+def send_stats_to_s3(date: str, period: str, s3: str):
+    end = datetime.strptime(date, "%Y-%m-%d")
+    start = build_start(end, period)
     dates = pd.date_range(
         start,
         end,
         freq=(
             "MS"
-            if piwik_info["period"] == "month"
+            if period == "month"
             else "YS"
-            if piwik_info["period"] == "year"
+            if period == "year"
             else "D"
         ),
     )
-    pageviews, uniq_pageviews, downloads = get_stats(dates, piwik_info["period"])
+    pageviews, uniq_pageviews, downloads = get_stats(dates, period)
     mydict = {
         "name": "Nombre de visites",
         "unit": "visites",
         "values": pageviews,
-        "date_maj": piwik_info["date"],
+        "date_maj": date,
     }
-    s3_open.send_dict_as_file(mydict, piwik_info["s3"] + "visits.json")
+    s3_open.send_dict_as_file(mydict, s3 + "visits.json")
 
     mydict = {
         "name": "Nombre de visiteurs uniques",
         "unit": "visiteurs",
         "values": uniq_pageviews,
-        "date_maj": piwik_info["date"],
+        "date_maj": date,
     }
-    s3_open.send_dict_as_file(mydict, piwik_info["s3"] + "uniq_visits.json")
+    s3_open.send_dict_as_file(mydict, s3 + "uniq_visits.json")
 
     mydict = {
         "name": "Nombre de téléchargements",
         "unit": "téléchargements",
         "values": downloads,
-        "date_maj": piwik_info["date"],
+        "date_maj": date,
     }
-    s3_open.send_dict_as_file(mydict, piwik_info["s3"] + "downloads.json")
+    s3_open.send_dict_as_file(mydict, s3 + "downloads.json")

@@ -2,19 +2,17 @@ from datetime import date
 import glob
 import os
 import zipfile
+
+from airflow.decorators import task
 from airflow.operators.bash import BashOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_and_files import (
+from datagouvfr_data_pipelines.data_processing.carburants.scripts import (
     generate_kpis,
-)
-from datagouvfr_data_pipelines.data_processing.carburants.scripts.generate_kpis_rupture import (
     generate_kpis_rupture,
-)
-from datagouvfr_data_pipelines.data_processing.carburants.scripts.reformat_prix import (
     reformat_prix,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -23,6 +21,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
+@task()
 def download_latest_data():
     File(
         url="https://donnees.roulez-eco.fr/opendata/jour",
@@ -36,6 +35,7 @@ def download_latest_data():
     ).download()
 
 
+@task()
 def get_daily_prices():
     s3_open.download_files(
         list_files=[
@@ -51,7 +51,8 @@ def get_daily_prices():
     )
 
 
-def unzip_files(ti):
+@task()
+def unzip_files(**context):
     with zipfile.ZipFile(f"{AIRFLOW_DAG_TMP}carburants/jour.zip", mode="r") as z:
         z.extractall(f"{AIRFLOW_DAG_TMP}carburants/")
     with zipfile.ZipFile(f"{AIRFLOW_DAG_TMP}carburants/instantane.zip", mode="r") as z:
@@ -66,11 +67,12 @@ def unzip_files(ti):
     os.rename(file_instantane, new_file_instantane)
     os.rename(file_jour, new_file_jour)
 
-    ti.xcom_push(key="files", value=[new_file_instantane, new_file_jour])
+    context["ti"].xcom_push(key="files", value=[new_file_instantane, new_file_jour])
 
 
-def convert_utf8_files(ti):
-    files = ti.xcom_pull(key="files", task_ids="unzip_files")
+@task()
+def convert_utf8_files(**context):
+    files = context["ti"].xcom_pull(key="files", task_ids="unzip_files")
     files_converted = []
     for file in files:
         file_name = f"{file.replace('.xml', '')}_utf8.xml"
@@ -81,11 +83,12 @@ def convert_utf8_files(ti):
         )
         convert_file.execute(dict())
 
-    ti.xcom_push(key="files", value=files_converted)
+    context["ti"].xcom_push(key="files", value=files_converted)
 
 
-def reformat_file(ti):
-    files = ti.xcom_pull(key="files", task_ids="convert_utf8_files")
+@task()
+def reformat_file(**context):
+    files = context["ti"].xcom_pull(key="files", task_ids="convert_utf8_files")
     for file in files:
         reformat_prix(
             file,
@@ -94,14 +97,17 @@ def reformat_file(ti):
         )
 
 
+@task()
 def generate_latest_france():
     generate_kpis(f"{AIRFLOW_DAG_TMP}carburants/")
 
 
+@task()
 def generate_rupture_france():
     generate_kpis_rupture(f"{AIRFLOW_DAG_TMP}carburants/")
 
 
+@task()
 def send_files_s3():
     today = date.today().strftime("%Y-%m-%d")
 

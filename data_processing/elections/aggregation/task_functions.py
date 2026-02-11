@@ -3,6 +3,7 @@ import json
 import logging
 import os
 
+from airflow.decorators import task
 from datagouv import Client
 import pandas as pd
 
@@ -78,6 +79,7 @@ _types = {
 }
 
 
+@task()
 def process_election_data():
     # getting preprocessed resources
     resources_url = [
@@ -120,6 +122,7 @@ def process_election_data():
         )
 
 
+@task()
 def send_results_to_s3():
     s3_open.send_files(
         list_files=[
@@ -136,6 +139,7 @@ def send_results_to_s3():
     )
 
 
+@task()
 def publish_results_elections():
     with open(
         f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json"
@@ -192,6 +196,7 @@ def publish_results_elections():
         logging.info(f"Done with candidats results {ext}")
 
 
+@task()
 def send_notification():
     with open(
         f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json"

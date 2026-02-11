@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator
+from airflow.utils.task_group import TaskGroup
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -34,17 +34,13 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     send_distribution_to_s3,
     concat_and_publish_whole,
 )
+from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DAG_NAME = "data_processing_dvf"
 DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 start, end = get_year_interval()
-
-default_args = {
-    "email": ["pierlou.ramade@data.gouv.fr", "geoffrey.aldebert@data.gouv.fr"],
-    "email_on_failure": False,
-}
 
 with DAG(
     dag_id=DAG_NAME,
@@ -53,12 +49,8 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=300),
     tags=["data_processing", "dvf", "stats"],
-    default_args=default_args,
-) as dag:
-    clean_previous_outputs = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
-    )
+):
+    final_clean_up = clean_up_folder(TMP_FOLDER)
 
     download_dvf_data = BashOperator(
         task_id="download_dvf_data",
@@ -69,192 +61,58 @@ with DAG(
         ),
     )
 
-    download_copro = BashOperator(
-        task_id="download_copro",
-        bash_command=(
-            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_copro.sh {DATADIR} "
-        ),
+    with TaskGroup("copro") as copro:
+        (
+            BashOperator(
+                task_id="download_copro",
+                bash_command=(
+                    f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
+                    f"dvf/scripts/script_dl_copro.sh {DATADIR} "
+                ),
+            )
+            >> create_copro_table()
+            >> populate_copro_table()
+        )
+
+    with TaskGroup("dpe") as dpe:
+        (
+            BashOperator(
+                task_id="download_dpe",
+                bash_command=(
+                    f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/scripts/script_dl_dpe.sh {DATADIR} "
+                )
+            )
+            >> process_dpe()
+            >> create_dpe_table()
+            >> populate_dpe_table()
+            >> index_dpe_table()
+        )
+
+    with TaskGroup("raw_dvf") as raw_dvf:
+        create_dvf_table() >> populate_dvf_table() >> alter_dvf_table() >> index_dvf_table()
+
+    (
+        clean_up_folder(TMP_FOLDER, recreate=True)
+        >> download_dvf_data
+        >> [
+            dpe,
+            copro,
+            raw_dvf,
+            concat_and_publish_whole(),
+        ]
+        >> final_clean_up
+        >> notification_mattermost()
     )
+    
+    _process_stats = process_dvf_stats()
+    _create_dist = create_distribution_and_stats_whole_period()
 
-    create_copro_table = PythonOperator(
-        task_id="create_copro_table",
-        python_callable=create_copro_table,
-    )
+    download_dvf_data >> get_epci() >> _process_stats >> _create_dist
 
-    populate_copro_table = PythonOperator(
-        task_id="populate_copro_table",
-        python_callable=populate_copro_table,
-    )
+    _process_stats >> create_stats_dvf_table() >> populate_stats_dvf_table() >> final_clean_up
 
-    download_dpe = BashOperator(
-        task_id="download_dpe",
-        bash_command=(
-            f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/scripts/script_dl_dpe.sh {DATADIR} "
-        ),
-    )
-
-    process_dpe = PythonOperator(
-        task_id="process_dpe",
-        python_callable=process_dpe,
-    )
-
-    create_dpe_table = PythonOperator(
-        task_id="create_dpe_table",
-        python_callable=create_dpe_table,
-    )
-
-    populate_dpe_table = PythonOperator(
-        task_id="populate_dpe_table",
-        python_callable=populate_dpe_table,
-    )
-
-    alter_dvf_table = PythonOperator(
-        task_id="alter_dvf_table",
-        python_callable=alter_dvf_table,
-    )
-
-    index_dpe_table = PythonOperator(
-        task_id="index_dpe_table",
-        python_callable=index_dpe_table,
-    )
-
-    create_dvf_table = PythonOperator(
-        task_id="create_dvf_table",
-        python_callable=create_dvf_table,
-    )
-
-    populate_dvf_table = PythonOperator(
-        task_id="populate_dvf_table",
-        python_callable=populate_dvf_table,
-    )
-
-    index_dvf_table = PythonOperator(
-        task_id="index_dvf_table",
-        python_callable=index_dvf_table,
-    )
-
-    get_epci = PythonOperator(
-        task_id="get_epci",
-        python_callable=get_epci,
-    )
-
-    process_dvf_stats = PythonOperator(
-        task_id="process_dvf_stats",
-        python_callable=process_dvf_stats,
-    )
-
-    create_distribution_and_stats_whole_period = PythonOperator(
-        task_id="create_distribution_and_stats_whole_period",
-        python_callable=create_distribution_and_stats_whole_period,
-    )
-
-    create_distribution_table = PythonOperator(
-        task_id="create_distribution_table",
-        python_callable=create_distribution_table,
-    )
-
-    populate_distribution_table = PythonOperator(
-        task_id="populate_distribution_table",
-        python_callable=populate_distribution_table,
-    )
-
-    send_distribution_to_s3 = PythonOperator(
-        task_id="send_distribution_to_s3",
-        python_callable=send_distribution_to_s3,
-    )
-
-    create_stats_dvf_table = PythonOperator(
-        task_id="create_stats_dvf_table",
-        python_callable=create_stats_dvf_table,
-    )
-
-    populate_stats_dvf_table = PythonOperator(
-        task_id="populate_stats_dvf_table",
-        python_callable=populate_stats_dvf_table,
-    )
-
-    create_whole_period_table = PythonOperator(
-        task_id="create_whole_period_table",
-        python_callable=create_whole_period_table,
-    )
-
-    populate_whole_period_table = PythonOperator(
-        task_id="populate_whole_period_table",
-        python_callable=populate_whole_period_table,
-    )
-
-    send_stats_to_s3 = PythonOperator(
-        task_id="send_stats_to_s3",
-        python_callable=send_stats_to_s3,
-    )
-
-    publish_stats_dvf = PythonOperator(
-        task_id="publish_stats_dvf",
-        python_callable=publish_stats_dvf,
-    )
-
-    concat_and_publish_whole = PythonOperator(
-        task_id="concat_and_publish_whole",
-        python_callable=concat_and_publish_whole,
-    )
-
-    clean_up = BashOperator(
-        task_id="clean_up",
-        bash_command=f"rm -rf {TMP_FOLDER}",
-    )
-
-    notification_mattermost = PythonOperator(
-        task_id="notification_mattermost",
-        python_callable=notification_mattermost,
-    )
-
-    download_dvf_data.set_upstream(clean_previous_outputs)
-
-    concat_and_publish_whole.set_upstream(download_dvf_data)
-
-    download_copro.set_upstream(download_dvf_data)
-    create_copro_table.set_upstream(download_copro)
-    populate_copro_table.set_upstream(create_copro_table)
-
-    download_dpe.set_upstream(download_dvf_data)
-    process_dpe.set_upstream(download_dpe)
-    create_dpe_table.set_upstream(process_dpe)
-    populate_dpe_table.set_upstream(create_dpe_table)
-    index_dpe_table.set_upstream(populate_dpe_table)
-
-    create_dvf_table.set_upstream(download_dvf_data)
-    populate_dvf_table.set_upstream(create_dvf_table)
-    alter_dvf_table.set_upstream(populate_dvf_table)
-    index_dvf_table.set_upstream(alter_dvf_table)
-
-    get_epci.set_upstream(download_dvf_data)
-    process_dvf_stats.set_upstream(get_epci)
-
-    create_distribution_and_stats_whole_period.set_upstream(process_dvf_stats)
-
-    create_distribution_table.set_upstream(create_distribution_and_stats_whole_period)
-    populate_distribution_table.set_upstream(create_distribution_table)
-
-    create_whole_period_table.set_upstream(create_distribution_and_stats_whole_period)
-    populate_whole_period_table.set_upstream(create_whole_period_table)
-
-    send_distribution_to_s3.set_upstream(create_distribution_and_stats_whole_period)
-
-    send_stats_to_s3.set_upstream(create_distribution_and_stats_whole_period)
-    publish_stats_dvf.set_upstream(send_stats_to_s3)
-
-    create_stats_dvf_table.set_upstream(process_dvf_stats)
-    populate_stats_dvf_table.set_upstream(create_stats_dvf_table)
-
-    clean_up.set_upstream(publish_stats_dvf)
-    clean_up.set_upstream(populate_copro_table)
-    clean_up.set_upstream(index_dpe_table)
-    clean_up.set_upstream(populate_stats_dvf_table)
-    clean_up.set_upstream(index_dvf_table)
-    clean_up.set_upstream(send_distribution_to_s3)
-    clean_up.set_upstream(populate_distribution_table)
-    clean_up.set_upstream(populate_whole_period_table)
-    clean_up.set_upstream(concat_and_publish_whole)
-
-    notification_mattermost.set_upstream(clean_up)
+    _create_dist >> send_distribution_to_s3() >> final_clean_up
+    _create_dist >> create_distribution_table() >> populate_distribution_table() >> final_clean_up
+    _create_dist >> create_whole_period_table() >> populate_whole_period_table() >> final_clean_up
+    _create_dist >> send_stats_to_s3() >> publish_stats_dvf() >> final_clean_up
+    _create_dist >> create_stats_dvf_table() >> populate_stats_dvf_table() >> final_clean_up

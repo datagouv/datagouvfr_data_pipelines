@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from airflow.models import DAG
-from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.meta.task_functions import (
     monitor_dags,
@@ -23,15 +22,5 @@ with DAG(
     tags=["monitoring"],
     catchup=False,
     default_args=default_args,
-) as dag:
-    monitor_dags = PythonOperator(
-        task_id="monitor_dags",
-        python_callable=monitor_dags,
-    )
-
-    notification_mattermost = PythonOperator(
-        task_id="notification_mattermost",
-        python_callable=notification_mattermost,
-    )
-
-    notification_mattermost.set_upstream(monitor_dags)
+):
+    monitor_dags() >> notification_mattermost()

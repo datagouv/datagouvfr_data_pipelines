@@ -6,6 +6,7 @@ import os
 import requests
 import shutil
 import subprocess
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -62,7 +63,8 @@ def get_file_infos(file_name: str):
     }
 
 
-def get_files_list_on_sftp(ti, pack: str, grid: str):
+@task()
+def get_files_list_on_sftp(pack: str, grid: str, **context):
     sftp = create_client()
     files = sftp.list_files_in_directory(upload_dir)
     logging.info(f"{len(files)} files in {upload_dir}")
@@ -89,7 +91,7 @@ def get_files_list_on_sftp(ti, pack: str, grid: str):
     if to_process:
         with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "w") as f:
             json.dump(to_process, f)
-    ti.xcom_push(key="timestamp", value=timestamp)
+    context["ti"].xcom_push(key="timestamp", value=timestamp)
 
 
 def process_members(
@@ -137,8 +139,8 @@ def process_members(
     return 1
 
 
-def transfer_files_to_s3(ti, pack: str, grid: str):
-    timestamp = ti.xcom_pull(key="timestamp", task_ids="get_files_list_on_sftp")
+def transfer_files_to_s3(pack: str, grid: str, **context):
+    timestamp = context["ti"].xcom_pull(key="timestamp", task_ids="get_files_list_on_sftp")
     if not os.path.isfile(DATADIR + f"{pack}_{grid}_{timestamp}.json"):
         logging.info("No file to process, skipping")
         return
@@ -215,6 +217,7 @@ def fix_title(file_name: str):
     return file_name.replace("arome", "pearome").replace("arpege", "pearp")
 
 
+@task()
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on S3
     latest_files = {}
@@ -269,6 +272,7 @@ def publish_on_datagouv(pack: str, grid: str):
             )
 
 
+@task()
 def remove_old_occurrences(pack: str, grid: str):
     current_resources: dict = get_current_resources(pack, grid)
     oldest_available_date = datetime.strptime(
@@ -299,6 +303,7 @@ def remove_old_occurrences(pack: str, grid: str):
                 s3_meteo.delete_file(file)
 
 
+@task()
 def handle_cyclonic_alert(pack: str, grid: str):
     # during a cyclonic alert, some packs have a higher number of members (79 instead of 49)
     # so when a cyclonic alert is stopped, we have to remove the additional resources from the dataset
@@ -341,6 +346,7 @@ def handle_cyclonic_alert(pack: str, grid: str):
                 ).delete()
 
 
+@task()
 def clean_directory():
     # in case processes crash and leave stuff behind
     files_and_folders = os.listdir(DATADIR)

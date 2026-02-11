@@ -35,62 +35,62 @@ with DAG(
     tags=["schemas", "backend", "schema.data.gouv.fr"],
     catchup=False,
     default_args=default_args,
-) as dag:
+):
     branches = ["main", "preprod"]
     tasks = {}
     for branch in branches:
         suffix = "_prod" if branch == "main" else f"_{branch}"
         tmp_folder = f"{AIRFLOW_DAG_TMP}{DAG_NAME + suffix}/"
-        tasks[branch] = [
+        (
             BashOperator(
                 task_id="clean_previous_outputs" + suffix,
                 bash_command=f"rm -rf {tmp_folder} && mkdir -p {tmp_folder} ",
-            ),
-            BashOperator(
+            )
+            >> BashOperator(
                 task_id="clone_schema_repo" + suffix,
                 bash_command=(
                     f"cd {tmp_folder} && git clone --depth 1 {GIT_REPO} "
                     + (f"-b {branch} " if branch != "main" else "")
                 ),
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="initialization" + suffix,
                 python_callable=initialization,
                 op_kwargs={
                     "tmp_folder": tmp_folder,
                     "branch": branch,
                 },
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="check_and_save_schemas" + suffix,
                 python_callable=check_and_save_schemas,
                 op_kwargs={
                     "suffix": suffix,
                 },
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="update_news_feed" + suffix,
                 python_callable=update_news_feed,
                 op_kwargs={
                     "tmp_folder": tmp_folder,
                     "suffix": suffix,
                 },
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="sort_folders" + suffix,
                 python_callable=sort_folders,
                 op_kwargs={
                     "suffix": suffix,
                 },
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="get_issues_and_labels" + suffix,
                 python_callable=get_issues_and_labels,
                 op_kwargs={
                     "suffix": suffix,
                 },
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="publish_schema_dataset" + suffix,
                 python_callable=publish_schema_dataset,
                 op_kwargs={
@@ -99,15 +99,15 @@ with DAG(
                     "branch": branch,
                     "suffix": suffix,
                 },
-            ),
-            PythonOperator(
+            )
+            >> PythonOperator(
                 task_id="final_clean_up" + suffix,
                 python_callable=final_clean_up,
                 op_kwargs={
                     "suffix": suffix,
                 },
-            ),
-            BashOperator(
+            )
+            >> BashOperator(
                 task_id="copy_files" + suffix,
                 bash_command=(
                     f"cd {tmp_folder}"
@@ -122,8 +122,8 @@ with DAG(
                     " && rm -rf ./schema.data.gouv.fr/site"
                     " && mv ./site ./schema.data.gouv.fr/"
                 ),
-            ),
-            BashOperator(
+            )
+            >> BashOperator(
                 task_id="commit_changes" + suffix,
                 bash_command=(
                     f"cd {tmp_folder}schema.data.gouv.fr"
@@ -133,13 +133,9 @@ with DAG(
                     '" || echo "No changes to commit"'
                     f" && git push origin {branch}"
                 ),
-            ),
-            BashOperator(
+            )
+            >> BashOperator(
                 task_id="clean_up" + suffix,
                 bash_command=f"rm -rf {tmp_folder}",
-            ),
-        ]
-
-    for branch in branches:
-        for k in range(len(tasks[branch]) - 1):
-            tasks[branch][k + 1].set_upstream(tasks[branch][k])
+            )
+        )

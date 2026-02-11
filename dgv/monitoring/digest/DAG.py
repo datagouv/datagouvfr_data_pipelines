@@ -1,105 +1,30 @@
 from datetime import datetime, timedelta
-import json
 from collections import defaultdict
 from airflow.models import DAG
-from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
-from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
-from airflow.operators.bash import BashOperator
+from airflow.models.baseoperator import chain
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
-    AIRFLOW_DAG_TMP,
-    MATTERMOST_DATAGOUV_ACTIVITES,
-    MATTERMOST_DATASERVICES_ONLY,
-    SECRET_MAIL_DATAGOUV_BOT_USER,
-    SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
-    SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
+    DAG_FOLDER,
+    DAG_NAME,
+    TMP_FOLDER,
+    send_email_report_period,
+    publish_mattermost_period,
+)
+from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
+from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
     check_if_first_day_of_month,
     check_if_first_day_of_year,
 )
-
-DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
-DAG_NAME = "dgv_digests"
-TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
 S3_PATH = "dgv/"
 today = datetime.today().strftime("%Y-%m-%d")
-
-
-def get_stats_period(TODAY, period, scope):
-    with open(
-        TMP_FOLDER + f"/digest_{period}/{TODAY}/output/stats.json", "r"
-    ) as json_file:
-        res = json.load(json_file)
-    if scope == "api":
-        if not (
-            res["stats"]["nb_dataservices"]
-            or res["stats"]["nb_discussions_dataservices"]
-        ):
-            # no message if no new API and no comment
-            return
-        return (
-            f"- {res['stats']['nb_dataservices']} APIs créées\n"
-            f"- {res['stats']['nb_discussions_dataservices']} discussions sur les APIs\n"
-        )
-    recap = (
-        f"- {res['stats']['nb_datasets']} datasets créés\n"
-        f"- {res['stats']['nb_reuses']} reuses créées\n"
-        f"- {res['stats']['nb_dataservices']} dataservices créés\n"
-    )
-    if period == "daily":
-        recap += (
-            f"- {res['stats']['nb_orgas']} orgas créées\n"
-            f"- {res['stats']['nb_discussions']} discussions créées\n"
-            f"- {res['stats']['nb_users']} utilisateurs créés"
-        )
-    return recap
-
-
-def publish_mattermost_period(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    period = templates_dict["period"]
-    scope = templates_dict["scope"]
-    report_url = ti.xcom_pull(
-        key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
-    )
-    stats = get_stats_period(templates_dict["TODAY"], period, scope)
-    if not stats:
-        return
-    message = f"{period.title()} Digest : {report_url} \n{stats}"
-    channel = (
-        MATTERMOST_DATAGOUV_ACTIVITES
-        if scope == "general"
-        else MATTERMOST_DATASERVICES_ONLY
-    )
-    send_message(message, channel)
-
-
-def send_email_report_period(ti, **kwargs):
-    templates_dict = kwargs.get("templates_dict")
-    period = templates_dict["period"]
-    scope = templates_dict["scope"]
-    report_url = ti.xcom_pull(
-        key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
-    )
-    message = (
-        get_stats_period(templates_dict["TODAY"], period, scope)
-        + "<br/><br/>"
-        + report_url
-    )
-    send_mail_datagouv(
-        email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
-        email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
-        email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
-        subject=f"{period.title()} digest of " + templates_dict["TODAY"],
-        message=message,
-    )
 
 
 default_args = {
@@ -115,24 +40,35 @@ with DAG(
     tags=["digest", "daily", "weekly", "monthly", "yearly", "datagouv"],
     default_args=default_args,
     catchup=False,
-) as dag:
-    clean_previous_output = BashOperator(
-        task_id="clean_previous_outputs",
-        bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER}",
-    )
+):
 
-    clean_up = BashOperator(
-        task_id="clean_up",
-        bash_command=f"rm -rf {TMP_FOLDER}",
-        trigger_rule="none_failed",
-    )
+    clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
+    clean_up = clean_up_folder(TMP_FOLDER, trigger_rule="none_failed")
+
+
+    short_circuits = {
+        "weekly": ShortCircuitOperator(
+            task_id="check_if_monday", python_callable=check_if_monday
+        ),
+        "monthly": ShortCircuitOperator(
+            task_id="check_if_first_day_of_month",
+            python_callable=check_if_first_day_of_month,
+        ),
+        "yearly": ShortCircuitOperator(
+            task_id="check_if_first_day_of_year",
+            python_callable=check_if_first_day_of_year,
+        ),
+    }
 
     tasks = defaultdict(dict)
     scopes = ["general", "api"]
     freqs = ["daily", "weekly", "monthly", "yearly"]
     for scope in scopes:
         for freq in freqs:
-            tasks[scope][freq] = [
+            tasks[scope][freq] = [clean_up_recreate]
+            if freq in short_circuits:
+                tasks[scope][freq].append(short_circuits[freq])
+            tasks[scope][freq] += [
                 PythonOperator(
                     task_id=f"run_notebook_and_save_to_s3_{scope}_{freq}",
                     python_callable=execute_and_upload_notebook,
@@ -162,53 +98,27 @@ with DAG(
                 PythonOperator(
                     task_id=f"publish_mattermost_{scope}_{freq}",
                     python_callable=publish_mattermost_period,
-                    templates_dict={
-                        "TODAY": today,
+                    op_kwargs={
+                        "today": today,
                         "period": freq,
                         "scope": scope,
                     },
                 ),
-                PythonOperator(
-                    task_id=f"send_email_report_{scope}_{freq}",
-                    python_callable=send_email_report_period,
-                    templates_dict={
-                        "TODAY": today,
-                        "period": freq,
-                        "scope": scope,
-                    },
-                )
-                if scope == "general"
-                else None,
             ]
-
-    short_circuits = {
-        "weekly": ShortCircuitOperator(
-            task_id="check_if_monday", python_callable=check_if_monday
-        ),
-        "monthly": ShortCircuitOperator(
-            task_id="check_if_first_day_of_month",
-            python_callable=check_if_first_day_of_month,
-        ),
-        "yearly": ShortCircuitOperator(
-            task_id="check_if_first_day_of_year",
-            python_callable=check_if_first_day_of_year,
-        ),
-    }
-
-    for scope in scopes:
-        for freq in freqs:
-            if freq in short_circuits:
-                short_circuits[freq].set_upstream(clean_previous_output)
-                tasks[scope][freq][0].set_upstream(short_circuits[freq])
-            else:
-                tasks[scope][freq][0].set_upstream(clean_previous_output)
-            for k in range(2):
-                if tasks[scope][freq][k + 1]:
-                    tasks[scope][freq][k + 1].set_upstream(tasks[scope][freq][k])
-            if scope != "general":
-                # other scopes need stats.json too
-                tasks[scope][freq][1].set_upstream(tasks["general"][freq][0])
-            if tasks[scope][freq][-1]:
-                clean_up.set_upstream(tasks[scope][freq][-1])
-            else:
-                clean_up.set_upstream(tasks[scope][freq][-2])
+            if scope == "general":
+                tasks[scope][freq].append(
+                    PythonOperator(
+                        task_id=f"send_email_report_{scope}_{freq}",
+                        python_callable=send_email_report_period,
+                        op_kwargs={
+                            "today": today,
+                            "period": freq,
+                            "scope": scope,
+                        },
+                    )
+                )
+            tasks[scope][freq].append(clean_up)
+            chain(*tasks[scope][freq])
+    
+for freq in freqs:
+    tasks["general"][freq][-4] >> tasks["api"][freq][-2]

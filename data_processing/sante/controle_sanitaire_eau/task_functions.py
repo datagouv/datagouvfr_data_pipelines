@@ -4,6 +4,7 @@ import json
 import os
 from zipfile import ZipFile
 
+from airflow.decorators import task
 import pandas as pd
 import re
 import requests
@@ -39,6 +40,7 @@ def check_if_modif():
     ).check_if_more_recent_update(dataset_id="5cf8d9ed8b4c4110294c841d")
 
 
+@task()
 def process_data():
     # this is done in one task to get the files only once
     resources = requests.get(
@@ -94,7 +96,7 @@ def process_data():
             csv_to_csvgz(f"{DATADIR}/{file_type}.csv")
 
 
-def send_to_s3(file_type):
+def send_to_s3(file_type: str):
     s3_open.send_files(
         list_files=[
             File(
@@ -109,7 +111,7 @@ def send_to_s3(file_type):
     )
 
 
-def publish_on_datagouv(file_type):
+def publish_on_datagouv(file_type: str):
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]:
         local_client.resource(
@@ -136,6 +138,7 @@ def publish_on_datagouv(file_type):
         )
 
 
+@task()
 def send_notification_mattermost():
     dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
     send_message(
