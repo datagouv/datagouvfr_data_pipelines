@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from airflow.models import DAG
+from airflow import DAG
 
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     TMP_FOLDER,

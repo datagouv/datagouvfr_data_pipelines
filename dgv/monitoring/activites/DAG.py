@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow.decorators import task
-from airflow.models import DAG
+from airflow import DAG
 
 from datagouvfr_data_pipelines.dgv.monitoring.activites.task_functions import (
     DAG_NAME,

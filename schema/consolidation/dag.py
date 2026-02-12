@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from pathlib import Path
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 

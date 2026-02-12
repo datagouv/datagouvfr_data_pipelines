@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 
-from airflow.models import DAG
+from airflow import DAG
 from airflow.models.baseoperator import chain
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 

@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.data_processing.insee.deces.task_functions import (

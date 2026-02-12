@@ -1,5 +1,5 @@
 # from datetime import timedelta, datetime
-# from airflow.models import DAG
+# from airflow import DAG
 # from airflow.operators.python import PythonOperator
 
 # from datagouvfr_data_pipelines.data_processing.meteo.hydra_and_previz.task_functions import (

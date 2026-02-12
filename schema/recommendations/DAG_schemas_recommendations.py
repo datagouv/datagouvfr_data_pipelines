@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.bash import BashOperator
 
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV

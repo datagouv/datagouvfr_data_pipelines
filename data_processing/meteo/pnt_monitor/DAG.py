@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from airflow.models import DAG
+from airflow import DAG
 
 from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions import (
     scan_pnt_files,

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 

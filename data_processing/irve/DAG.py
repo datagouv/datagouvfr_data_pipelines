@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.bash import BashOperator
 
 from datagouvfr_data_pipelines.config import (

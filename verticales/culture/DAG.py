@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import ftplib
-from airflow.models import DAG
+from airflow import DAG
 
 from datagouvfr_data_pipelines.config import (
     SECRET_FTP_METEO_USER,

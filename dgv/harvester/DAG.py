@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 from airflow.decorators import task
-from airflow.models import DAG
+from airflow import DAG
 
 from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message

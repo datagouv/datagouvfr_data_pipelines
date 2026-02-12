@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import json
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
