@@ -1,29 +1,29 @@
-from datetime import datetime, timedelta
-from airflow.models import DAG
-from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+# from datetime import datetime, timedelta
+# from airflow.models import DAG
+# from airflow.operators.bash import BashOperator
+# from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
-from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (
-    TMP_FOLDER,
-    get_files_updated_miom,
-    download_local_files,
-    send_to_s3,
-    send_exports_to_s3,
-    download_from_s3,
-    check_if_continue,
-    create_candidats_files,
-    publish_results_elections,
-    create_resultats_files,
-)
+# from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
+# from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (
+#     TMP_FOLDER,
+#     get_files_updated_miom,
+#     download_local_files,
+#     send_to_s3,
+#     send_exports_to_s3,
+#     download_from_s3,
+#     check_if_continue,
+#     create_candidats_files,
+#     publish_results_elections,
+#     create_resultats_files,
+# )
 
-DAG_NAME = "data_mirroring_elections"
-ID_CURRENT_ELECTION = "LG2024"
+# DAG_NAME = "data_mirroring_elections"
+# ID_CURRENT_ELECTION = "LG2024"
 
-default_args = {
-    "email": ["pierlou.ramade@data.gouv.fr", "geoffrey.aldebert@data.gouv.fr"],
-    "email_on_failure": False,
-}
+# default_args = {
+#     "email": ["pierlou.ramade@data.gouv.fr", "geoffrey.aldebert@data.gouv.fr"],
+#     "email_on_failure": False,
+# }
 
 # with DAG(
 #     dag_id=DAG_NAME,

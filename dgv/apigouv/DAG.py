@@ -1,24 +1,24 @@
-from datetime import datetime, timedelta
-from airflow.models import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
+# from datetime import datetime, timedelta
+# from airflow.models import DAG
+# from airflow.operators.python import PythonOperator
+# from airflow.operators.bash import BashOperator
 
-from datagouvfr_data_pipelines.dgv.apigouv.task_functions import (
-    import_api_to_grist,
-    publish_api_to_datagouv,
-    publish_mattermost,
-)
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
+# from datagouvfr_data_pipelines.dgv.apigouv.task_functions import (
+#     import_api_to_grist,
+#     publish_api_to_datagouv,
+#     publish_mattermost,
+# )
+# from datagouvfr_data_pipelines.config import (
+#     AIRFLOW_DAG_TMP,
+# )
 
-DAG_NAME = "dgv_migration_apigouv"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}migration_apigouv"
+# DAG_NAME = "dgv_migration_apigouv"
+# TMP_FOLDER = f"{AIRFLOW_DAG_TMP}migration_apigouv"
 
-default_args = {
-    "retries": 0,
-    "retry_delay": timedelta(minutes=5),
-}
+# default_args = {
+#     "retries": 0,
+#     "retry_delay": timedelta(minutes=5),
+# }
 
 # with DAG(
 #     dag_id=DAG_NAME,

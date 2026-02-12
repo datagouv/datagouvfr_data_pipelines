@@ -1,17 +1,17 @@
-from datetime import timedelta, datetime
-from airflow.models import DAG
-from airflow.operators.python import PythonOperator
+# from datetime import timedelta, datetime
+# from airflow.models import DAG
+# from airflow.operators.python import PythonOperator
 
-from datagouvfr_data_pipelines.data_processing.meteo.hydra_and_previz.task_functions import (
-    get_and_send_errors,
-)
+# from datagouvfr_data_pipelines.data_processing.meteo.hydra_and_previz.task_functions import (
+#     get_and_send_errors,
+# )
 
-DAG_NAME = "data_processing_meteo_hydra_and_previz"
+# DAG_NAME = "data_processing_meteo_hydra_and_previz"
 
-default_args = {
-    "retries": 5,
-    "retry_delay": timedelta(minutes=5),
-}
+# default_args = {
+#     "retries": 5,
+#     "retry_delay": timedelta(minutes=5),
+# }
 
 # with DAG(
 #     dag_id=DAG_NAME,
