@@ -215,7 +215,7 @@ def gather_data(**context):
         r"\((.*?)\)", metadata_content[0].get("title")
     )
     logging.info("Start downloading DFI files")
-    filenames_infos = get_download_ressources_infos(urls_resources, DATADIR)
+    filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)
     download_files(filenames_infos)
     filenames = [
         f"{filename_info.get('dest_path')}/{filename_info.get('dest_name')}"

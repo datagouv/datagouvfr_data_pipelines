@@ -5,7 +5,7 @@ from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.dgv.monitoring.bizdev.task_functions import (
     DAG_NAME,
-    DATADIR,
+    TMP_FOLDER,
     curation_tasks,
     edito_tasks,
     send_tables_to_s3,
@@ -34,7 +34,7 @@ with DAG(
     catchup=False,
 ):
     
-    clean_up_create = clean_up_folder(DATADIR, recreate=True)
+    clean_up_create = clean_up_folder(TMP_FOLDER, recreate=True)
     _send_tables_to_s3 = send_tables_to_s3()
 
     (
@@ -57,4 +57,4 @@ with DAG(
         >> _send_tables_to_s3
     )
 
-    _send_tables_to_s3 >> publish_mattermost() >> clean_up_folder(DATADIR)
+    _send_tables_to_s3 >> publish_mattermost() >> clean_up_folder(TMP_FOLDER)

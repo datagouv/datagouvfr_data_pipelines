@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import list_months_between
 
 DAG_NAME = "dgv_dashboard"
-DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
     k + "@data.gouv.fr"
@@ -280,12 +280,12 @@ def gather_and_upload(**context) -> None:
     ).T
     # removing current month from stats
     stats = stats[stats.columns[:-1]].fillna(0)
-    stats.to_csv(DATADIR + "stats_support.csv")
+    stats.to_csv(TMP_FOLDER + "stats_support.csv")
 
     # sending to s3
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name="stats_support.csv",
             dest_path=s3_destination_folder,
             dest_name="stats_support.csv",
@@ -345,17 +345,17 @@ def get_and_upload_certification() -> None:
             SP_or_CT.append(o["id"])
         if issue:
             issues.append({o["id"]: issue})
-    with open(DATADIR + "certified.json", "w") as f:
+    with open(TMP_FOLDER + "certified.json", "w") as f:
         json.dump(certified, f, indent=4)
-    with open(DATADIR + "SP_or_CT.json", "w") as f:
+    with open(TMP_FOLDER + "SP_or_CT.json", "w") as f:
         json.dump(SP_or_CT, f, indent=4)
-    with open(DATADIR + "issues.json", "w") as f:
+    with open(TMP_FOLDER + "issues.json", "w") as f:
         json.dump(issues, f, indent=4)
 
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=f,
                 dest_path=s3_destination_folder
                 + datetime.now().strftime("%Y-%m-%d")
@@ -399,10 +399,10 @@ def get_and_upload_reuses_down() -> None:
     hist = pd.concat([hist, stats]).drop_duplicates("Date")
     # just in case
     assert start_len <= len(hist)
-    hist.to_csv(DATADIR + output_file_name, index=False)
+    hist.to_csv(TMP_FOLDER + output_file_name, index=False)
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name=output_file_name,
             dest_path=s3_destination_folder,
             dest_name=output_file_name,
@@ -478,20 +478,20 @@ def get_catalog_stats() -> None:
         s3_open.get_file_content(s3_destination_folder + "datasets_quality.json")
     )
     hist_dq.update(dataset_quality)
-    with open(DATADIR + "datasets_quality.json", "w") as f:
+    with open(TMP_FOLDER + "datasets_quality.json", "w") as f:
         json.dump(hist_dq, f, indent=4)
 
     hist_rs = json.loads(
         s3_open.get_file_content(s3_destination_folder + "resources_stats.json")
     )
     hist_rs.update(resources_stats)
-    with open(DATADIR + "resources_stats.json", "w") as f:
+    with open(TMP_FOLDER + "resources_stats.json", "w") as f:
         json.dump(hist_rs, f, indent=4)
 
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=output_file_name,
                 dest_path=s3_destination_folder,
                 dest_name=output_file_name,
@@ -536,12 +536,12 @@ def get_hvd_dataservices_stats() -> None:
         )
     )
     hist_ds.update(dataservices_stats)
-    with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:
+    with open(TMP_FOLDER + "hvd_dataservices_quality.json", "w") as f:
         json.dump(hist_ds, f, indent=4)
 
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name="hvd_dataservices_quality.json",
             dest_path=s3_destination_folder,
             dest_name="hvd_dataservices_quality.json",

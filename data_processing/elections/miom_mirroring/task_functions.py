@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
 ID_CURRENT_ELECTION = "LG2024"
 URL_ELECTIONS_HTTP_SERVER = (
     "https://www.resultats-elections.interieur.gouv.fr/telechargements/"
@@ -330,13 +330,13 @@ def publish_results_elections(ti):
     for d in data:
         complement = " (dernière mise à jour : " + max_date + ")"
         if d["format"] == "csv":
-            df = pd.read_csv(DATADIR + d["filename"])
+            df = pd.read_csv(TMP_FOLDER + d["filename"])
             if df.shape[0] <= 1:
                 complement = " (pas encore disponible)"
 
         filesize = None
         if d["filename"]:
-            filesize = os.path.getsize(os.path.join(DATADIR, d["filename"]))
+            filesize = os.path.getsize(TMP_FOLDER + d["filename"])
 
         demo_client.resource(
             id=d[AIRFLOW_ENV]["resource_id"],

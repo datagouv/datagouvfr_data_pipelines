@@ -27,7 +27,7 @@ from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, GristTable
 from datagouvfr_data_pipelines.utils.retry import RequestRetry
 
 DAG_NAME = "dgv_bizdev"
-DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 grist_edito = "4MdJUBsdSgjE"
 grist_curation = "muvJRZ9cTGep"
@@ -235,7 +235,7 @@ def process_unavailable_reuses():
     df = pd.DataFrame(restr_reuses.values(), index=restr_reuses.keys())
     df = df.sort_values("monthly_visit", ascending=False)
     df.to_csv(
-        DATADIR + "all_reuses_most_visits_KO_last_month.csv",
+        TMP_FOLDER + "all_reuses_most_visits_KO_last_month.csv",
         float_format="%.0f",
         index=False,
     )
@@ -289,7 +289,7 @@ def process_empty_datasets():
     empty_datasets.rename({"id": "dataset_id"}, axis=1, inplace=True)
     empty_datasets = empty_datasets.sort_values("last_month_visits", ascending=False)
     empty_datasets.to_csv(
-        DATADIR + "empty_datasets.csv", float_format="%.0f", index=False
+        TMP_FOLDER + "empty_datasets.csv", float_format="%.0f", index=False
     )
     GristTable(grist_curation, "Datasets_vides").from_dataframe(empty_datasets)
 
@@ -354,7 +354,7 @@ def process_potential_spam():
     suspect_users = asyncio.run(get_suspect_users())
     spam.extend([u for u in suspect_users if u])
     df = pd.DataFrame(spam).drop_duplicates(subset="url")
-    df.to_csv(DATADIR + "objects_with_spam_word.csv", index=False)
+    df.to_csv(TMP_FOLDER + "objects_with_spam_word.csv", index=False)
     GristTable(grist_curation, "Spam").from_dataframe(df)
 
 
@@ -392,7 +392,7 @@ def get_top_orgas_publish():
         how="left",
     ).sort_values(by="publications", ascending=False)
     count[:50].to_csv(
-        DATADIR + "top50_orgas_most_publications_30_days.csv", index=False
+        TMP_FOLDER + "top50_orgas_most_publications_30_days.csv", index=False
     )
     GristTable(grist_edito, "Top50_organisations_publications_1mois").from_dataframe(
         count
@@ -448,7 +448,7 @@ def get_top_orgas_visits():
             {"name": r.get("name", None), "url": r.get("page", None)}
         )
     df = pd.DataFrame(orga_visited.values(), index=orga_visited.keys())
-    df.to_csv(DATADIR + "top50_orgas_most_visits_last_month.csv", index=False)
+    df.to_csv(TMP_FOLDER + "top50_orgas_most_visits_last_month.csv", index=False)
     GristTable(grist_edito, "Top50_organisations_visites_1mois").from_dataframe(df)
 
 
@@ -488,7 +488,7 @@ def get_top_datasets_visits():
             }
         )
     df = pd.DataFrame(datasets_visited.values(), index=datasets_visited.keys())
-    df.to_csv(DATADIR + "top50_datasets_most_visits_last_month.csv", index=False)
+    df.to_csv(TMP_FOLDER + "top50_datasets_most_visits_last_month.csv", index=False)
     GristTable(grist_edito, "Top50_datasets_visites_1mois").from_dataframe(df)
 
 
@@ -565,7 +565,7 @@ def get_top_resources_downloads():
         ["dataset_total_resource_visits", "monthly_download_resourced"], ascending=False
     )
     df.to_csv(
-        DATADIR + "top50_resources_most_downloads_last_month.csv",
+        TMP_FOLDER + "top50_resources_most_downloads_last_month.csv",
         float_format="%.0f",
         index=False,
     )
@@ -607,7 +607,7 @@ def get_top_reuses_visits():
             }
         )
     df = pd.DataFrame(reuses_visited.values(), index=reuses_visited.keys())
-    df.to_csv(DATADIR + "top50_reuses_most_visits_last_month.csv", index=False)
+    df.to_csv(TMP_FOLDER + "top50_reuses_most_visits_last_month.csv", index=False)
     GristTable(grist_edito, "Top50_reutilisations_visites_1mois").from_dataframe(df)
 
 
@@ -651,7 +651,7 @@ def get_top_datasets_discussions():
     df = pd.DataFrame(
         discussions_of_interest.values(), index=discussions_of_interest.keys()
     )
-    df.to_csv(DATADIR + "top50_orgas_most_discussions_30_days.csv", index=False)
+    df.to_csv(TMP_FOLDER + "top50_orgas_most_discussions_30_days.csv", index=False)
     GristTable(grist_edito, "Top50_orgas_discutees_30jours").from_dataframe(df)
 
 
@@ -668,17 +668,17 @@ edito_tasks = [
 # %%
 @task(trigger_rule="none_skipped")
 def send_tables_to_s3():
-    print(os.listdir(DATADIR))
+    print(os.listdir(TMP_FOLDER))
     print("Saving tops as millésimes")
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=file,
                 dest_path=f"bizdev/{today.strftime('%Y-%m-%d')}/",
                 dest_name=file,
             )
-            for file in os.listdir(DATADIR)
+            for file in os.listdir(TMP_FOLDER)
             if not any([k in file for k in ["spam", "KO"]])
         ],
     )
@@ -686,12 +686,12 @@ def send_tables_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=file,
                 dest_path="bizdev/",
                 dest_name=file,
             )
-            for file in os.listdir(DATADIR)
+            for file in os.listdir(TMP_FOLDER)
             if any([k in file for k in ["spam", "KO"]])
         ],
     )
@@ -701,7 +701,7 @@ def send_tables_to_s3():
 def publish_mattermost():
     print("Publishing on mattermost")
     list_curation = ["empty", "spam", "KO"]
-    curation = [f for f in os.listdir(DATADIR) if any([k in f for k in list_curation])]
+    curation = [f for f in os.listdir(TMP_FOLDER) if any([k in f for k in list_curation])]
     if curation:
         print("   - Files for curation:")
         print(curation)
@@ -716,7 +716,7 @@ def publish_mattermost():
             message += f"\n - [{file} ⬇️]({url})"
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
-    edito = [f for f in os.listdir(DATADIR) if f not in curation]
+    edito = [f for f in os.listdir(TMP_FOLDER) if f not in curation]
     if edito:
         print("   - Files for édito:")
         print(edito)

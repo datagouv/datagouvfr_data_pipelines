@@ -5,7 +5,7 @@ from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.utils.utils import check_if_monday
 from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DAG_NAME,
-    DATADIR,
+    TMP_FOLDER,
     get_hvd,
     send_to_s3,
     publish_mattermost,
@@ -30,7 +30,7 @@ with DAG(
     catchup=False,
 ):
 
-    clean_up_recreate = clean_up_folder(DATADIR, recreate=True)
+    clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
     
     # Recap HVD mattermost
     (

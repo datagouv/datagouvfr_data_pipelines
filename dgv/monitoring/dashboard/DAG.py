@@ -4,10 +4,9 @@ from airflow.decorators import task
 from airflow.models import DAG
 
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
+    DAG_NAME,
+    TMP_FOLDER,
     gather_and_upload,
     get_and_upload_certification,
     get_and_upload_reuses_down,
@@ -18,8 +17,6 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-DAG_NAME = "dgv_dashboard"
-DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
     k + "@" + ".".join(["data", "gouv", "fr"])
@@ -48,7 +45,7 @@ with DAG(
             ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
         )
 
-    clean_up_recreate = clean_up_folder(DATADIR, recreate=True)
+    clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
     _publish_mattermost = publish_mattermost()
     _gather_and_upload = gather_and_upload()
 

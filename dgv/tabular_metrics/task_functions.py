@@ -209,7 +209,7 @@ def process_logs():
                 File(
                     source_path=logs_folder,
                     source_name=log,
-                    dest_path=DATADIR,
+                    dest_path=TMP_FOLDER,
                     dest_name=log,
                     remote_source=True,
                 ),

@@ -5,6 +5,7 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (
+    TMP_FOLDER,
     get_files_updated_miom,
     download_local_files,
     send_to_s3,
@@ -16,10 +17,7 @@ from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_fun
     create_resultats_files,
 )
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
-DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 DAG_NAME = "data_mirroring_elections"
-DATADIR = f"{AIRFLOW_DAG_TMP}elections-mirroring/data"
 ID_CURRENT_ELECTION = "LG2024"
 
 default_args = {
