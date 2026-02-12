@@ -85,7 +85,9 @@ def process_rna(file_type, **context):
         sep=",",
         columns=columns,
     )
-    context["ti"].xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
+    context["ti"].xcom_push(
+        key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2]
+    )
 
 
 @task()

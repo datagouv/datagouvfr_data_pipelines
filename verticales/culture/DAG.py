@@ -37,7 +37,9 @@ with DAG(
     for obj in object_types:
         (
             _get_perimeter_orgas
-            >> get_and_send_perimeter_objects.override(task_id=f"get_and_send_perimeter_{obj}")(
+            >> get_and_send_perimeter_objects.override(
+                task_id=f"get_and_send_perimeter_{obj}"
+            )(
                 object_type=obj,
             )
             >> get_perimeter_stats.override(task_id=f"get_perimeter_stats_{obj}")(

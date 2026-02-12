@@ -55,7 +55,9 @@ with DAG(
                 tmp_folder=tmp_folder,
                 branch=branch,
             )
-            >> check_and_save_schemas.override(task_id="check_and_save_schemas" + suffix)(
+            >> check_and_save_schemas.override(
+                task_id="check_and_save_schemas" + suffix
+            )(
                 suffix=suffix,
             )
             >> update_news_feed.override(task_id="update_news_feed" + suffix)(
@@ -68,7 +70,9 @@ with DAG(
             >> get_issues_and_labels.override(task_id="get_issues_and_labels" + suffix)(
                 suffix=suffix,
             )
-            >> publish_schema_dataset.override(task_id="publish_schema_dataset" + suffix)(
+            >> publish_schema_dataset.override(
+                task_id="publish_schema_dataset" + suffix
+            )(
                 tmp_folder=tmp_folder,
                 AIRFLOW_ENV=AIRFLOW_ENV,
                 branch=branch,

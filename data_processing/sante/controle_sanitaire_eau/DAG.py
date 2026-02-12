@@ -50,7 +50,9 @@ with DAG(
         (
             _process_data
             >> send_to_s3.override(task_id=f"send_to_s3_{file_type}")(file_type)
-            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{file_type}")(file_type)
+            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{file_type}")(
+                file_type
+            )
             >> clean_up
         )
     clean_up >> send_notification_mattermost()

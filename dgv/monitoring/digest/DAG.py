@@ -68,13 +68,13 @@ with DAG(
             if freq in short_circuits:
                 tasks[scope][freq].append(short_circuits[freq])
             tasks[scope][freq] += [
-                execute_and_upload_notebook.override(task_id=f"run_notebook_and_save_to_s3_{scope}_{freq}")(
+                execute_and_upload_notebook.override(
+                    task_id=f"run_notebook_and_save_to_s3_{scope}_{freq}"
+                )(
                     input_nb=(
                         AIRFLOW_DAG_HOME
                         + DAG_FOLDER
-                        + (
-                            "digest.ipynb" if scope == "general" else "digest-api.ipynb"
-                        )
+                        + ("digest.ipynb" if scope == "general" else "digest-api.ipynb")
                     ),
                     output_nb=today + f"{('' if scope == 'general' else '-api')}.ipynb",
                     tmp_path=TMP_FOLDER + f"/digest_{freq}/{today}/",
@@ -90,15 +90,19 @@ with DAG(
                         "PERIOD_DIGEST": freq,
                     },
                 ),
-                publish_mattermost_period.override(task_id=f"publish_mattermost_{scope}_{freq}")(
+                publish_mattermost_period.override(
+                    task_id=f"publish_mattermost_{scope}_{freq}"
+                )(
                     today=today,
                     period=freq,
                     scope=scope,
-                )
+                ),
             ]
             if scope == "general":
                 tasks[scope][freq].append(
-                    send_email_report_period.override(task_id=f"send_email_report_{scope}_{freq}")(
+                    send_email_report_period.override(
+                        task_id=f"send_email_report_{scope}_{freq}"
+                    )(
                         today=today,
                         period=freq,
                         scope=scope,

@@ -37,7 +37,9 @@ with DAG(
             clean_previous_outputs
             >> process_rna.override(task_id=f"process_rna_{file_type}")(file_type)
             >> send_rna_to_s3.override(task_id=f"send_rna_to_s3_{file_type}")(file_type)
-            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{file_type}")(file_type)
+            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{file_type}")(
+                file_type
+            )
             >> clean_up
         )
 

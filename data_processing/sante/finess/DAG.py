@@ -45,12 +45,18 @@ with DAG(
                 op_kwargs={"scope": scope},
             )
             >> (
-                build_finess_table_etablissements.override(task_id=f"build_finess_table_{scope}")()
+                build_finess_table_etablissements.override(
+                    task_id=f"build_finess_table_{scope}"
+                )()
                 if scope == "etablissements"
-                else build_and_save.override(task_id=f"build_finess_table_{scope}")(scope)
+                else build_and_save.override(task_id=f"build_finess_table_{scope}")(
+                    scope
+                )
             )
             >> send_to_s3.override(task_id=f"send_to_s3_{scope}")(scope)
-            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{scope}")(scope)
+            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{scope}")(
+                scope
+            )
             >> clean_up
         )
 

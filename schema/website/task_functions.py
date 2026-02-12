@@ -888,7 +888,9 @@ def get_contributors(url):
 
 @task()
 def check_and_save_schemas(suffix, **context):
-    folders: dict = context["ti"].xcom_pull(key="folders", task_ids="initialization" + suffix)
+    folders: dict = context["ti"].xcom_pull(
+        key="folders", task_ids="initialization" + suffix
+    )
     config: dict[str, dict] = context["ti"].xcom_pull(
         key="config", task_ids="initialization" + suffix
     )
@@ -1050,7 +1052,9 @@ def get_template_github_issues():
 
 @task()
 def update_news_feed(tmp_folder, suffix, **context):
-    new = context["ti"].xcom_pull(key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix)
+    new = context["ti"].xcom_pull(
+        key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix
+    )
     today = datetime.now().strftime("%Y-%m-%d")
     changes = {today: {}}
     with open(

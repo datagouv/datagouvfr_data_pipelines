@@ -22,13 +22,11 @@ from datagouvfr_data_pipelines.utils.schema import (
     final_directory_clean_up,
     get_schema_report,
     load_config,
-    notification_synthese,
     remove_old_schemas,
     update_consolidation_documentation_report,
     update_reference_table,
     update_resource_send_mail_producer,
     upload_consolidated,
-    upload_s3,
 )
 
 schema_name = "etalab/schema-irve-statique"
