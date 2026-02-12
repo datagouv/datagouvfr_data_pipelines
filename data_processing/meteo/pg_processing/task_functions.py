@@ -27,7 +27,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -205,12 +205,12 @@ def create_tables_if_not_exists(**context):
     env = Environment(loader=file_loader)
     template = env.get_template("create.sql.jinja")
     output = template.render(depids=DEPIDS)
-    with open(f"{DATADIR}create.sql", "w") as file:
+    with open(f"{TMP_FOLDER}create.sql", "w") as file:
         file.write(output)
 
     pgclient.execute_sql_file(
         file=File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name="create.sql",
         ),
     )
@@ -378,11 +378,11 @@ def get_regex_infos(pattern: str, filename: str, params: dict) -> dict:
 def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     if dataset == "BASE/QUOT":
         if "Vent" in res["title"]:
-            file_path = f"{DATADIR}{config[dataset]['table_name'] + '_vent'}/"
+            file_path = f"{TMP_FOLDER}{config[dataset]['table_name'] + '_vent'}/"
         else:
-            file_path = f"{DATADIR}{config[dataset]['table_name'] + '_autres'}/"
+            file_path = f"{TMP_FOLDER}{config[dataset]['table_name'] + '_autres'}/"
     else:
-        file_path = f"{DATADIR}{config[dataset]['table_name']}/"
+        file_path = f"{TMP_FOLDER}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split("/")[-1])
     file_path = Path(file_path + file_name)
     # download the freshest version of the file, save it with hooked name
@@ -391,7 +391,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
         dest_path=file_path.parent.as_posix(),
         dest_name=file_path.name,
     ).download(timeout=TIMEOUT)
-    csv_path = unzip_csv_gz(file_path)
+    csv_path = unzip_csv_gz(file_path.as_posix())
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
         # files are stored with hooked names on S3
@@ -425,7 +425,7 @@ def unzip_csv_gz(file_path: str) -> str:
     return output_file_path
 
 
-def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
+def get_diff(_conn, csv_path: str, regex_infos: dict, table: str):
     def run_diff(csv_path: str, dep: str, _filter=None):
         old_file = build_old_file_name(csv_path)
         additions_file = build_additions_file_name(csv_path)
