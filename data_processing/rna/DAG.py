@@ -2,9 +2,6 @@ from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     TMP_FOLDER,
     check_if_modif,
