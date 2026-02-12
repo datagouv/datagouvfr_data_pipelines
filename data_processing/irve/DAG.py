@@ -52,7 +52,6 @@ with DAG(
     tags=["schemas", "irve", "consolidation", "datagouv"],
     default_args=default_args,
 ):
-    
     (
         clean_up_folder(TMP_FOLDER.as_posix(), recreate=True)
         >> BashOperator(
@@ -74,9 +73,7 @@ with DAG(
         >> upload_consolidated_irve(config_path=TMP_CONFIG_FILE)
         >> update_reference_table_irve()
         >> update_resource_send_mail_producer_irve()
-        >> update_consolidation_documentation_report_irve(
-            config_path=TMP_CONFIG_FILE
-        )
+        >> update_consolidation_documentation_report_irve(config_path=TMP_CONFIG_FILE)
         >> create_consolidation_reports_irve()
         >> create_detailed_report_irve()
         >> final_directory_clean_up_irve(

@@ -215,13 +215,7 @@ def send_stats_to_s3(date: str, period: str, s3: str):
     dates = pd.date_range(
         start,
         end,
-        freq=(
-            "MS"
-            if period == "month"
-            else "YS"
-            if period == "year"
-            else "D"
-        ),
+        freq=("MS" if period == "month" else "YS" if period == "year" else "D"),
     )
     pageviews, uniq_pageviews, downloads = get_stats(dates, period)
     mydict = {

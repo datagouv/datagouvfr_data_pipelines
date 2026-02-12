@@ -28,6 +28,7 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
+
     @task()
     def check_new_datasets(**context):
         return check_new("datasets", context["ti"])
@@ -54,6 +55,6 @@ with DAG(
         check_new_dataservices(),
         check_new_organizations(),
     ]
-    
+
     checks >> send_spam_to_grist()
     checks >> publish_mattermost() >> check_schema()

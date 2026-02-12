@@ -118,10 +118,7 @@ def check_new(object_type: str, ti):
                 mydict["owner_id"] = owner["id"]
             else:
                 mydict["owner_type"] = None
-            if (
-                mydict["owner_type"]
-                and owner["metrics"].get(object_type, 0) < 2
-            ):
+            if mydict["owner_type"] and owner["metrics"].get(object_type, 0) < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
@@ -356,7 +353,9 @@ def parse_resource_if_schema(
 
 @task()
 def check_schema(**context):
-    nb_datasets = float(context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets"))
+    nb_datasets = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets")
+    )
     datasets = context["ti"].xcom_pull(key="datasets", task_ids="check_new_datasets")
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     catalog = r.json()["schemas"]
@@ -369,9 +368,7 @@ def check_schema(**context):
             orga = get_organization(data)
             try:
                 for r in data["resources"]:
-                    is_schema = parse_resource_if_schema(
-                        catalog, r, item, orga
-                    )
+                    is_schema = parse_resource_if_schema(catalog, r, item, orga)
 
                 if not is_schema:
                     schema_suspicion(catalog, item, orga)
@@ -462,14 +459,24 @@ def publish_item(item, item_type):
 
 @task()
 def publish_mattermost(**context):
-    nb_datasets = float(context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets"))
+    nb_datasets = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets")
+    )
     datasets = context["ti"].xcom_pull(key="datasets", task_ids="check_new_datasets")
     nb_reuses = float(context["ti"].xcom_pull(key="nb", task_ids="check_new_reuses"))
     reuses = context["ti"].xcom_pull(key="reuses", task_ids="check_new_reuses")
-    nb_orgas = float(context["ti"].xcom_pull(key="nb", task_ids="check_new_organizations"))
-    orgas = context["ti"].xcom_pull(key="organizations", task_ids="check_new_organizations")
-    nb_dataservices = float(context["ti"].xcom_pull(key="nb", task_ids="check_new_dataservices"))
-    dataservices = context["ti"].xcom_pull(key="dataservices", task_ids="check_new_dataservices")
+    nb_orgas = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_organizations")
+    )
+    orgas = context["ti"].xcom_pull(
+        key="organizations", task_ids="check_new_organizations"
+    )
+    nb_dataservices = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_dataservices")
+    )
+    dataservices = context["ti"].xcom_pull(
+        key="dataservices", task_ids="check_new_dataservices"
+    )
     # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:

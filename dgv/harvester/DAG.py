@@ -54,7 +54,9 @@ def get_pending_harvesters(**context):
 
 @task()
 def get_preview_state(**context):
-    harvesters = context["ti"].xcom_pull(key="harvesters", task_ids="get_pending_harvesters")
+    harvesters = context["ti"].xcom_pull(
+        key="harvesters", task_ids="get_pending_harvesters"
+    )
     for idx, harvester in enumerate(harvesters):
         if idx > 0 and idx % 5 == 0:
             logging.info(f"> {idx}/{len(harvesters)} processed")
@@ -72,7 +74,9 @@ def get_preview_state(**context):
 
 @task()
 def fill_in_grist(**context):
-    harvesters = context["ti"].xcom_pull(key="harvesters_complete", task_ids="get_preview_state")
+    harvesters = context["ti"].xcom_pull(
+        key="harvesters_complete", task_ids="get_preview_state"
+    )
     current_table = table.to_dataframe(
         columns_labels=False,
         usecols=[

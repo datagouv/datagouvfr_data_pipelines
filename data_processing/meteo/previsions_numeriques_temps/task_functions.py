@@ -110,7 +110,9 @@ def get_latest_theorical_batches(model: str, pack: str, grid: str, **context):
 
 @task()
 def clean_old_runs_in_s3(**context):
-    batches = context["ti"].xcom_pull(key="batches", task_ids="get_latest_theorical_batches")
+    batches = context["ti"].xcom_pull(
+        key="batches", task_ids="get_latest_theorical_batches"
+    )
     # we get the runs' names from the folders
     runs = s3_pnt.get_folders_from_prefix(
         prefix=f"{s3_folder}/",
@@ -218,7 +220,9 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
     url_to_infos = context["ti"].xcom_pull(
         key="url_to_infos", task_ids="construct_all_possible_files"
     )
-    to_get = context["ti"].xcom_pull(key="to_get", task_ids="construct_all_possible_files")
+    to_get = context["ti"].xcom_pull(
+        key="to_get", task_ids="construct_all_possible_files"
+    )
     s3_path_to_url = context["ti"].xcom_pull(
         key="s3_path_to_url", task_ids="construct_all_possible_files"
     )
@@ -233,7 +237,10 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
         # we don't download the files anymore, but we keep the folder creation for cross-run communication
-        if os.path.isdir(f"{TMP_FOLDER}{path}/{package}") and package not in my_packages:
+        if (
+            os.path.isdir(f"{TMP_FOLDER}{path}/{package}")
+            and package not in my_packages
+        ):
             logging.info(
                 f"{url_to_infos[url]['package']} is already being processed by another run"
             )
@@ -369,7 +376,9 @@ def clean_directory(model: str, pack: str, grid: str, **kwargs):
     files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
     threshold = datetime.now() - timedelta(hours=3)
     for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(os.path.getctime(f"{TMP_FOLDER}{path}/{f}"))
+        creation_date = datetime.fromtimestamp(
+            os.path.getctime(f"{TMP_FOLDER}{path}/{f}")
+        )
         if creation_date < threshold and "issues" not in f:
             try:
                 shutil.rmtree(f"{TMP_FOLDER}{path}/{f}")

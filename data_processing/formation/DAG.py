@@ -20,7 +20,6 @@ with DAG(
     tags=["formation", "qualiopi", "certification"],
     catchup=False,
 ):
-
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> download_latest_data()

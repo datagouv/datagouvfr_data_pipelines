@@ -16,6 +16,7 @@ s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
 
+
 @task()
 def download_latest_data(**context):
     config = {
@@ -138,8 +139,12 @@ def compare_files_s3(**context):
 
 @task()
 def send_notification(**context):
-    nb_of = context["ti"].xcom_pull(key="nb_of", task_ids="process_organismes_formation")
-    nb_siret = context["ti"].xcom_pull(key="nb_siret", task_ids="process_organismes_formation")
+    nb_of = context["ti"].xcom_pull(
+        key="nb_of", task_ids="process_organismes_formation"
+    )
+    nb_siret = context["ti"].xcom_pull(
+        key="nb_siret", task_ids="process_organismes_formation"
+    )
     send_message(
         text=(
             ":mega: Données organismes formations mises à jour.\n"

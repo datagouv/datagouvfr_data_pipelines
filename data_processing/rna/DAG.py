@@ -26,7 +26,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "rna", "association"],
 ):
-
     clean_previous_outputs = clean_up_folder(TMP_FOLDER, recreate=True)
 
     type_tasks = {}
@@ -57,10 +56,13 @@ with DAG(
 
     clean_up = clean_up_folder(TMP_FOLDER)
 
-    ShortCircuitOperator(
-        task_id="check_if_modif",
-        python_callable=check_if_modif,
-    ) >> clean_previous_outputs
+    (
+        ShortCircuitOperator(
+            task_id="check_if_modif",
+            python_callable=check_if_modif,
+        )
+        >> clean_previous_outputs
+    )
 
     for file_type in ["import", "waldec"]:
         (

@@ -67,10 +67,7 @@ MATOMO_PARAMS = {
 
 
 @task()
-def get_support_tickets(
-    start_date: datetime,
-    **context
-):
+def get_support_tickets(start_date: datetime, **context):
     def get_monthly_count(
         tickets: list[dict],
         created_at_key: str,

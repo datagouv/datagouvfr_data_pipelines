@@ -87,7 +87,9 @@ def download_catalog() -> None:
 
 @task()
 def download_log(**context):
-    ongoing_logs_path = context["ti"].xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
+    ongoing_logs_path = context["ti"].xcom_pull(
+        key="ongoing_logs_path", task_ids="get_new_logs"
+    )
 
     logging.info("Downloading raw logs...")
     for path in ongoing_logs_path:
@@ -111,7 +113,9 @@ def download_log(**context):
 def process_log(**context) -> None:
     """Aggregates log files by group of available dates and log types."""
 
-    dates_to_process = context["ti"].xcom_pull(key="dates_to_process", task_ids="download_log")
+    dates_to_process = context["ti"].xcom_pull(
+        key="dates_to_process", task_ids="download_log"
+    )
 
     remove_files_from_directory(FOUND_FOLDER)
 
@@ -148,7 +152,9 @@ def process_log(**context) -> None:
 
 @task()
 def aggregate_log(**context) -> None:
-    dates_to_process = context["ti"].xcom_pull(key="dates_to_process", task_ids="download_log")
+    dates_to_process = context["ti"].xcom_pull(
+        key="dates_to_process", task_ids="download_log"
+    )
     dates_processed: list[str] = []
 
     remove_files_from_directory(OUTPUT_FOLDER)
@@ -194,7 +200,9 @@ def visit_postgres_duplication_safety(**context) -> None:
     In case we have to process some logs again, this task is making
     sure we don't end up duplicating the metrics on postgres.
     """
-    processed_dates = context["ti"].xcom_pull(key="dates_processed", task_ids="aggregate_log")
+    processed_dates = context["ti"].xcom_pull(
+        key="dates_processed", task_ids="aggregate_log"
+    )
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing visit metrics from the {log_date} if they exists."
@@ -228,7 +236,9 @@ def save_metrics_to_postgres() -> None:
 
 @task()
 def copy_logs_to_processed_folder(**context) -> None:
-    ongoing_logs_path = context["ti"].xcom_pull(key="ongoing_logs_path", task_ids="get_new_logs")
+    ongoing_logs_path = context["ti"].xcom_pull(
+        key="ongoing_logs_path", task_ids="get_new_logs"
+    )
     s3_client.copy_many_objects(
         ongoing_logs_path,
         f"{AIRFLOW_ENV}/metrics-logs/processed/",
@@ -308,7 +318,9 @@ def matomo_postgres_duplication_safety(**context) -> None:
     In case we have to process some logs again, this task is making
     sure we don't end up duplicating the matomo metrics on postgres.
     """
-    processed_dates = context["ti"].xcom_pull(key="dates_processed", task_ids="process_matomo")
+    processed_dates = context["ti"].xcom_pull(
+        key="dates_processed", task_ids="process_matomo"
+    )
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing matomo metrics from the {log_date} if they exists."

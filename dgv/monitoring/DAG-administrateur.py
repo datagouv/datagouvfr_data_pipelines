@@ -43,5 +43,4 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-
     list_current_admins() >> publish_mattermost()

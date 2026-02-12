@@ -31,7 +31,6 @@ with DAG(
     tags=["datagouv", "impact", "metrics"],
     default_args=default_args,
 ):
-    
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> [

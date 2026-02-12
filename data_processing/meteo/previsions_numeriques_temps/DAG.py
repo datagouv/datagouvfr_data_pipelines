@@ -31,9 +31,8 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         max_active_runs=2,
     )
     with dag:
-
         shared_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
-        
+
         _get_latest_theorical_batches = get_latest_theorical_batches(**shared_kwargs)
         clean_directory(**shared_kwargs)
         (
@@ -50,7 +49,7 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
             >> send_files_to_s3(**shared_kwargs)
             >> publish_on_datagouv(**shared_kwargs)
         )
-        
+
         _get_latest_theorical_batches >> clean_old_runs_in_s3()
 
     return dag

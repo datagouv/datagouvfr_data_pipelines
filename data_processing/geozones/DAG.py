@@ -17,7 +17,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=60),
     tags=["geozones", "insee", "datagouv"],
 ):
-    
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> download_and_process_geozones()

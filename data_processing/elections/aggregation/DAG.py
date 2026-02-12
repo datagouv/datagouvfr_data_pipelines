@@ -18,7 +18,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "election", "presidentielle", "legislative"],
 ):
-    
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> process_election_data()

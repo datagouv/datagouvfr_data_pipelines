@@ -30,11 +30,10 @@ def create_dag(pack: str, grid: str):
         max_active_runs=2,
     )
     with dag:
-
         shared_kwargs = {"pack": pack, "grid": grid}
 
         _remove_old_occurrences = remove_old_occurrences(**shared_kwargs)
-        
+
         clean_directory()
         (
             BashOperator(

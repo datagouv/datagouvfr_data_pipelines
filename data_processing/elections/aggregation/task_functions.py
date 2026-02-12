@@ -156,9 +156,7 @@ def publish_results_elections():
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/elections/general_results.{ext}"
                 ),
-                "filesize": os.path.getsize(
-                    TMP_FOLDER + f"general_results.{ext}"
-                ),
+                "filesize": os.path.getsize(TMP_FOLDER + f"general_results.{ext}"),
                 "title": "Résultats généraux",
                 "format": ext,
                 "description": (
@@ -180,9 +178,7 @@ def publish_results_elections():
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/elections/candidats_results.{ext}"
                 ),
-                "filesize": os.path.getsize(
-                    TMP_FOLDER + f"candidats_results.{ext}"
-                ),
+                "filesize": os.path.getsize(TMP_FOLDER + f"candidats_results.{ext}"),
                 "title": "Résultats par candidat",
                 "format": ext,
                 "description": (

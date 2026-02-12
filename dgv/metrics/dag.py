@@ -39,14 +39,13 @@ with DAG(
     tags=["dgv", "metrics"],
     default_args=default_args,
 ):
-
     _create_metrics_tables = create_metrics_tables()
     _download_catalog = download_catalog()
-    _download_log= download_log()
+    _download_log = download_log()
     _process_log = process_log()
     _save_matomo_to_postgres = save_matomo_to_postgres()
     _save_metrics_to_postgres = save_metrics_to_postgres()
-    
+
     clean_up_folder(TMP_FOLDER, recreate=True) >> _create_metrics_tables
 
     (

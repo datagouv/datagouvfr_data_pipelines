@@ -33,13 +33,12 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-    
     clean_up_create = clean_up_folder(TMP_FOLDER, recreate=True)
     _send_tables_to_s3 = send_tables_to_s3()
 
     (
         clean_up_create
-        >>  ShortCircuitOperator(
+        >> ShortCircuitOperator(
             task_id="check_if_monday",
             python_callable=check_if_monday,
         )
@@ -49,7 +48,7 @@ with DAG(
 
     (
         clean_up_create
-        >>  ShortCircuitOperator(
+        >> ShortCircuitOperator(
             task_id="check_if_first_day_of_month",
             python_callable=check_if_first_day_of_month,
         )

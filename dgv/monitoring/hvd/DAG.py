@@ -29,9 +29,8 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-
     clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
-    
+
     # Recap HVD mattermost
     (
         clean_up_recreate

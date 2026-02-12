@@ -161,10 +161,16 @@ def get_all_irve_resources(
 
     context["ti"].xcom_push(key="consolidation_date_str", value=consolidation_date_str)
     context["ti"].xcom_push(key="data_path", value=data_path.as_posix())
-    context["ti"].xcom_push(key="consolidated_data_path", value=consolidated_data_path.as_posix())
+    context["ti"].xcom_push(
+        key="consolidated_data_path", value=consolidated_data_path.as_posix()
+    )
     context["ti"].xcom_push(key="ref_tables_path", value=ref_tables_path.as_posix())
-    context["ti"].xcom_push(key="report_tables_path", value=report_tables_path.as_posix())
-    context["ti"].xcom_push(key="validata_reports_path", value=validata_reports_path.as_posix())
+    context["ti"].xcom_push(
+        key="report_tables_path", value=report_tables_path.as_posix()
+    )
+    context["ti"].xcom_push(
+        key="validata_reports_path", value=validata_reports_path.as_posix()
+    )
     context["ti"].xcom_push(key="schemas_report_dict", value=str(schemas_report_dict))
     context["ti"].xcom_push(key="schemas_catalogue_list", value=schemas_catalogue_list)
     context["ti"].xcom_push(key="config_dict", value=str(config_dict))
@@ -175,7 +181,9 @@ def download_irve_resources(**context) -> None:
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_all_irve_resources"
     )
-    data_path = context["ti"].xcom_pull(key="data_path", task_ids="get_all_irve_resources")
+    data_path = context["ti"].xcom_pull(
+        key="data_path", task_ids="get_all_irve_resources"
+    )
     logging.debug(f"ref_tables_pat={ref_tables_path} -- {type(ref_tables_path)}")
     logging.debug(f"data_path={data_path} -- {type(data_path)}")
     success = download_schema_files(
@@ -189,7 +197,9 @@ def consolidate_irve(tmp_path: Path, **context) -> None:
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_all_irve_resources"
     )
-    data_path = context["ti"].xcom_pull(key="data_path", task_ids="get_all_irve_resources")
+    data_path = context["ti"].xcom_pull(
+        key="data_path", task_ids="get_all_irve_resources"
+    )
     consolidation_date_str = context["ti"].xcom_pull(
         key="consolidation_date_str", task_ids="get_all_irve_resources"
     )
@@ -197,7 +207,9 @@ def consolidate_irve(tmp_path: Path, **context) -> None:
         key="consolidated_data_path", task_ids="get_all_irve_resources"
     )
     schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources")
+        context["ti"].xcom_pull(
+            key="schemas_report_dict", task_ids="get_all_irve_resources"
+        )
     )
     schemas_catalogue_list = context["ti"].xcom_pull(
         key="schemas_catalogue_list", task_ids="get_all_irve_resources"
@@ -322,7 +334,9 @@ def upload_consolidated_irve(
         key="consolidated_data_path", task_ids="get_all_irve_resources"
     )
     schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources")
+        context["ti"].xcom_pull(
+            key="schemas_report_dict", task_ids="get_all_irve_resources"
+        )
     )
     config_dict = literal_eval(
         context["ti"].xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
@@ -405,7 +419,9 @@ def create_consolidation_reports_irve(**context) -> None:
         key="consolidation_date_str", task_ids="get_all_irve_resources"
     )
     schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(key="schemas_report_dict", task_ids="get_all_irve_resources")
+        context["ti"].xcom_pull(
+            key="schemas_report_dict", task_ids="get_all_irve_resources"
+        )
     )
 
     reports_list = []

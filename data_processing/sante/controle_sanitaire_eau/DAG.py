@@ -35,7 +35,6 @@ with DAG(
     tags=["data_processing", "sante", "eau"],
     default_args=default_args,
 ):
-
     _process_data = process_data()
 
     type_tasks = {}

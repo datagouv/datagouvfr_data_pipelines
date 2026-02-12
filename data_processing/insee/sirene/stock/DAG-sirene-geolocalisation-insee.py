@@ -25,7 +25,6 @@ with DAG(
     tags=["data_processing", "sirene", "geolocalisation"],
     catchup=False,
 ):
-
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> ShortCircuitOperator(

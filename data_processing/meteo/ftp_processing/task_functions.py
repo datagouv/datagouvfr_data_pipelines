@@ -255,8 +255,12 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
 
 @task()
 def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
-    s3_files = context["ti"].xcom_pull(key="s3_files", task_ids="get_current_files_on_s3")
-    ftp_files = context["ti"].xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_current_files_on_s3"
+    )
+    ftp_files = context["ti"].xcom_pull(
+        key="ftp_files", task_ids="get_current_files_on_ftp"
+    )
     # much debated part of the code: how to best get which files to consider here
     # first it was only done with the files' names but what if a file is updated but not renamed?
     # then we thought about checking the size and comparing with S3
@@ -352,8 +356,12 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
     context["ti"].xcom_push(key="s3_files", value=s3_files)
     context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
     context["ti"].xcom_push(key="new_files", value=new_files)
-    context["ti"].xcom_push(key="files_to_update_new_name", value=files_to_update_new_name)
-    context["ti"].xcom_push(key="files_to_update_same_name", value=files_to_update_same_name)
+    context["ti"].xcom_push(
+        key="files_to_update_new_name", value=files_to_update_new_name
+    )
+    context["ti"].xcom_push(
+        key="files_to_update_same_name", value=files_to_update_same_name
+    )
 
 
 def get_file_extention(file: str) -> str:
@@ -368,14 +376,18 @@ def upload_new_files(**context) -> None:
     updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = context["ti"].xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
+    )
     files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     # adding files that have been spotted as new files in other processings
     spotted_new_files = context["ti"].xcom_pull(
         key="new_files", task_ids="handle_updated_files_same_name"
-    ) + context["ti"].xcom_pull(key="new_files", task_ids="handle_updated_files_new_name")
+    ) + context["ti"].xcom_pull(
+        key="new_files", task_ids="handle_updated_files_new_name"
+    )
     resources_lists = get_resource_lists()
     new_files += spotted_new_files
     new_files = list(set(new_files))
@@ -441,7 +453,9 @@ def upload_new_files(**context) -> None:
             went_wrong.append(clean_file_path)
     context["ti"].xcom_push(key="new_files_datasets", value=new_files_datasets)
     context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
-    context["ti"].xcom_push(key="new_files", value=[f for f in new_files if f not in went_wrong])
+    context["ti"].xcom_push(
+        key="new_files", value=[f for f in new_files if f not in went_wrong]
+    )
 
 
 @task()
@@ -452,7 +466,9 @@ def handle_updated_files_same_name(**context) -> None:
     files_to_update_same_name = context["ti"].xcom_pull(
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = context["ti"].xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
+    )
     resources_lists = get_resource_lists()
 
     new_files = []
@@ -495,7 +511,9 @@ def handle_updated_files_new_name(**context) -> None:
     files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = context["ti"].xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
+    )
     resources_lists = get_resource_lists()
 
     new_files = []

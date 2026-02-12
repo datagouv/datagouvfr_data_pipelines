@@ -73,7 +73,9 @@ def get_and_format_grist_v2_data(**context):
 
     logging.info("grist_tables_for_filters done.")
 
-    context["ti"].xcom_push(key="grist_tables_for_filters", value=grist_tables_for_filters)
+    context["ti"].xcom_push(
+        key="grist_tables_for_filters", value=grist_tables_for_filters
+    )
 
 
 @task()

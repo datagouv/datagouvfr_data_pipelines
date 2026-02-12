@@ -22,7 +22,6 @@ with DAG(
     tags=["carburants", "prix", "rupture"],
     catchup=False,
 ):
-    
     _clean_up = clean_up_folder(TMP_FOLDER, recreate=True)
     _generate_latest_france = generate_latest_france()
     _send_files_s3 = send_files_s3()
@@ -37,9 +36,4 @@ with DAG(
         >> _send_files_s3
     )
 
-    (
-        _clean_up
-        >> get_daily_prices()
-        >> _generate_latest_france
-        >> _send_files_s3
-    )
+    (_clean_up >> get_daily_prices() >> _generate_latest_france >> _send_files_s3)

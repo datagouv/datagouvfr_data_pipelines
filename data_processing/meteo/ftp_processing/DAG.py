@@ -40,7 +40,6 @@ with DAG(
     max_active_runs=1,
     default_args=default_args,
 ):
-
     _same_name = handle_updated_files_same_name()
 
     (

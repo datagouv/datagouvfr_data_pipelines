@@ -314,11 +314,7 @@ def send_email_report_period(today: str, period: str, scope: str, **context):
     report_url = context["ti"].xcom_pull(
         key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
     )
-    message = (
-        get_stats_period(today, period, scope)
-        + "<br/><br/>"
-        + report_url
-    )
+    message = get_stats_period(today, period, scope) + "<br/><br/>" + report_url
     send_mail_datagouv(
         email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
         email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,

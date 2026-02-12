@@ -1160,9 +1160,7 @@ def publish_stats_dvf(**context) -> None:
                 f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
             ),
-            "filesize": os.path.getsize(
-                TMP_FOLDER + "stats_whole_period.csv"
-            ),
+            "filesize": os.path.getsize(TMP_FOLDER + "stats_whole_period.csv"),
             "title": "Statistiques totales DVF",
             "format": "csv",
             "description": (
@@ -1171,7 +1169,9 @@ def publish_stats_dvf(**context) -> None:
             ),
         },
     )
-    context["ti"].xcom_push(key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"])
+    context["ti"].xcom_push(
+        key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"]
+    )
 
 
 @task()

@@ -22,7 +22,6 @@ with DAG(
     tags=["datagouv", "stats", "metrics"],
     default_args=default_args,
 ):
-    
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> create_year_if_missing()

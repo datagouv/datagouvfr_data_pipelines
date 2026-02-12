@@ -24,7 +24,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["verticale", "culture"],
 ):
-
     object_types = [
         "datasets",
         "dataservices",
@@ -51,11 +50,7 @@ with DAG(
             )
             >> _gather_stats
         )
-    
-    (
-        _gather_stats
-        >> send_stats_to_s3()
-        >> send_notification_mattermost()
-    )
+
+    (_gather_stats >> send_stats_to_s3() >> send_notification_mattermost())
 
     _get_perimeter_orgas >> refresh_datasets_tops()

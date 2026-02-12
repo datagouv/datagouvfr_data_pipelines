@@ -93,7 +93,9 @@ def delete_old_runs():
 
 @task()
 def send_notification_mattermost(**context):
-    total_size_bytes = context["ti"].xcom_pull(key="total_size_bytes", task_ids="delete_logs")
+    total_size_bytes = context["ti"].xcom_pull(
+        key="total_size_bytes", task_ids="delete_logs"
+    )
     units = ["octets", "ko", "Mo", "Go", "To"]
     k = 0
     while total_size_bytes > 1e3 and k < len(units):
@@ -125,7 +127,6 @@ with DAG(
     catchup=False,  # False to ignore past runs
     max_active_runs=1,
 ):
-
     (
         [
             delete_old_logs_and_directories(),

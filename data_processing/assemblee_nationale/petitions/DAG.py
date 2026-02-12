@@ -20,7 +20,6 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "assemble_nationale", "petitions"],
 ):
-
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> gather_petitions()

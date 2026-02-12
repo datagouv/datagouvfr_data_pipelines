@@ -91,16 +91,19 @@ with DAG(
         >> geocoding
     )
 
-    SSHOperator(
-        task_id="clone_repo_to_get_scripts",
-        command=(
-            "cd /srv/sirene/geocodage-sirene "
-            "&& rm -rf datagouvfr_data_pipelines "
-            f"&& git clone {DEV_GIT_ARGS} https://github.com/datagouv/datagouvfr_data_pipelines.git "
-            f"&& chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}*"
-        ),
-        **shared_kwargs,
-    ) >> download_last_sirene_batch
+    (
+        SSHOperator(
+            task_id="clone_repo_to_get_scripts",
+            command=(
+                "cd /srv/sirene/geocodage-sirene "
+                "&& rm -rf datagouvfr_data_pipelines "
+                f"&& git clone {DEV_GIT_ARGS} https://github.com/datagouv/datagouvfr_data_pipelines.git "
+                f"&& chmod +x /srv/sirene/geocodage-sirene/{SCRIPTS_PATH}*"
+            ),
+            **shared_kwargs,
+        )
+        >> download_last_sirene_batch
+    )
 
     (
         geocoding
@@ -115,11 +118,15 @@ with DAG(
         ]
     )
 
-    geocoding >> SSHOperator(
-        task_id="get_geocode_stats",
-        command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4b_geocode_stats.sh {AIRFLOW_ENV}",
-        **shared_kwargs,
-    ) >> check_stats_coherence
+    (
+        geocoding
+        >> SSHOperator(
+            task_id="get_geocode_stats",
+            command=f"/srv/sirene/geocodage-sirene/{SCRIPTS_PATH}4b_geocode_stats.sh {AIRFLOW_ENV}",
+            **shared_kwargs,
+        )
+        >> check_stats_coherence
+    )
 
     if AIRFLOW_ENV == "prod":
         (

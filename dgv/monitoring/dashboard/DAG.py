@@ -60,15 +60,7 @@ with DAG(
         >> _publish_mattermost
     )
 
-    (
-        clean_up_recreate
-        >> get_support_tickets(one_year_ago)
-        >> _gather_and_upload,
-    )
-    (
-        clean_up_recreate
-        >> get_visits(one_year_ago)
-        >> _gather_and_upload,
-    )
+    (clean_up_recreate >> get_support_tickets(one_year_ago) >> _gather_and_upload,)
+    (clean_up_recreate >> get_visits(one_year_ago) >> _gather_and_upload,)
 
     _gather_and_upload >> _publish_mattermost

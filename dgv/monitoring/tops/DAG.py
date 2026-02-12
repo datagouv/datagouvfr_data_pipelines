@@ -36,7 +36,6 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-
     short_circuits = {
         "week": ShortCircuitOperator(
             task_id="check_if_monday",

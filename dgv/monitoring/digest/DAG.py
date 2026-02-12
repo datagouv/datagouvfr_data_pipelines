@@ -23,6 +23,7 @@ from datagouvfr_data_pipelines.utils.utils import (
     check_if_first_day_of_month,
     check_if_first_day_of_year,
 )
+
 S3_PATH = "dgv/"
 today = datetime.today().strftime("%Y-%m-%d")
 
@@ -41,10 +42,8 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-
     clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
     clean_up = clean_up_folder(TMP_FOLDER, trigger_rule="none_failed")
-
 
     short_circuits = {
         "weekly": ShortCircuitOperator(
@@ -119,6 +118,6 @@ with DAG(
                 )
             tasks[scope][freq].append(clean_up)
             chain(*tasks[scope][freq])
-    
+
 for freq in freqs:
     tasks["general"][freq][-4] >> tasks["api"][freq][-2]

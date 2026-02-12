@@ -140,7 +140,9 @@ def process_members(
 
 
 def transfer_files_to_s3(pack: str, grid: str, **context):
-    timestamp = context["ti"].xcom_pull(key="timestamp", task_ids="get_files_list_on_sftp")
+    timestamp = context["ti"].xcom_pull(
+        key="timestamp", task_ids="get_files_list_on_sftp"
+    )
     if not os.path.isfile(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json"):
         logging.info("No file to process, skipping")
         return

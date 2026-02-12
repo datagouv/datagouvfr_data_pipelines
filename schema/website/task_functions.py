@@ -1473,7 +1473,7 @@ def remove_all_files_extension(folder, extension):
     files = []
     files = getListOfFiles(folder)
     for f in files:
-        if f[-1 * len(extension):] == extension:
+        if f[-1 * len(extension) :] == extension:
             os.remove(f)
 
 
