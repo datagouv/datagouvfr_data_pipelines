@@ -1,13 +1,11 @@
-from collections import defaultdict
 from datetime import datetime, timedelta
 
 from airflow.models import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.verticales.culture.task_functions import (
-    DATADIR,
+    TMP_FOLDER,
     gather_stats,
     get_and_send_perimeter_objects,
     get_perimeter_orgas,
@@ -17,10 +15,8 @@ from datagouvfr_data_pipelines.verticales.culture.task_functions import (
     send_notification_mattermost,
 )
 
-DAG_NAME = "verticale_culture"
-
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="verticale_culture",
     # every monday morning
     schedule="0 1 * * *",
     start_date=datetime(2025, 8, 1),
@@ -38,7 +34,7 @@ with DAG(
     _get_perimeter_orgas = get_perimeter_orgas()
     _gather_stats = gather_stats(object_types + ["organizations"])
 
-    clean_up_folder(DATADIR, recreate=True) >> _get_perimeter_orgas
+    clean_up_folder(TMP_FOLDER, recreate=True) >> _get_perimeter_orgas
 
     for obj in object_types:
         (

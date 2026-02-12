@@ -9,8 +9,7 @@ import requests
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
-DAG_NAME = "schema_recommendations"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}schema_recommendations/"
 DATA_GOUV_API = "https://www.data.gouv.fr/api/1/"
 RECOMMENDATION_SCORE = 30
 CONFIG_CONSOLIDATION = "https://raw.githubusercontent.com/datagouv/schema.data.gouv.fr/refs/heads/main/config_consolidation.yml"
@@ -75,5 +74,5 @@ def create_and_export_recommendations() -> None:
             for d in dataset_ids
         ]
     validate_recommendations(recommendations)
-    with open(TMP_FOLDER + "/recommendations.json", "w") as fp:
+    with open(TMP_FOLDER + "recommendations.json", "w") as fp:
         json.dump(recommendations, fp, indent=2)

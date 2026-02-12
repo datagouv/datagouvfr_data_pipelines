@@ -8,15 +8,13 @@ from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions 
     consolidate_logs,
 )
 
-DAG_NAME = "data_processing_pnt_monitor"
-
 default_args = {
     "retries": 5,
     "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="data_processing_pnt_monitor",
     schedule="0 */3 * * *",
     start_date=datetime(2024, 10, 1),
     catchup=False,

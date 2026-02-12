@@ -6,6 +6,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
 from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
+    TMP_FOLDER,
     check_if_modif,
     process_rna,
     send_rna_to_s3,
@@ -14,13 +15,10 @@ from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DAG_NAME = "data_processing_rna"
-DATADIR = f"{TMP_FOLDER}data"
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="data_processing_rna",
     # source files are usually uploaded in the morning of the 1st of the month
     schedule="0 12 1,2,15 * *",
     start_date=datetime(2024, 8, 10),

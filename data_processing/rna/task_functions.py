@@ -21,7 +21,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}rna"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
     config = json.load(fp)
@@ -73,14 +73,14 @@ def process_rna(ti, file_type):
                         )
                     )
                 df.to_csv(
-                    f"{DATADIR}/{file_type}.csv",
+                    f"{TMP_FOLDER}{file_type}.csv",
                     index=False,
                     encoding="utf8",
                     mode="w" if idx == 0 else "a",
                     header=idx == 0,
                 )
     csv_to_parquet(
-        f"{DATADIR}/{file_type}.csv",
+        f"{TMP_FOLDER}{file_type}.csv",
         sep=",",
         columns=columns,
     )
@@ -91,7 +91,7 @@ def send_rna_to_s3(file_type):
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"{file_type}.{ext}",
                 dest_path="rna/",
                 dest_name=f"{file_type}.{ext}",
@@ -117,7 +117,7 @@ def publish_on_datagouv(ti, file_type):
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/rna/{file_type}.{ext}"
                 ),
-                "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
+                "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.{ext}"),
                 "title": (f"Données {file_type.title()} au {date} (format {ext})"),
                 "format": ext,
                 "description": (

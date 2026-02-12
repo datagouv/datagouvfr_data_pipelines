@@ -6,15 +6,13 @@ from datagouvfr_data_pipelines.dgv.edito.task_functions import (
     publish_mattermost,
 )
 
-DAG_NAME = "dgv_edito_post_and_tweet"
-
 default_args = {
     "retries": 5,
     "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="dgv_edito_post_and_tweet",
     schedule="0 8 1 * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),

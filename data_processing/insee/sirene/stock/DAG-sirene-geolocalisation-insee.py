@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene_geolocalisation_insee/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}sirene_geolocalisation/"
 S3_BASE_PATH = "siren/geoloc/"
 
 with DAG(

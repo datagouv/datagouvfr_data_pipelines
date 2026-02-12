@@ -11,7 +11,6 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_MOISSONNAGE,
 )
 
-DAG_NAME = "dgv_harvester_notification"
 PAD_AWAITING_VALIDATION = "https://pad.incubateur.net/173bEiKKTi2laBNyHwIPlQ"
 doc_id = "6xrGmKARsDFR" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(doc_id, "Moissonneurs")
@@ -155,7 +154,7 @@ def publish_mattermost(**context):
 
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="dgv_harvester_notification",
     schedule="0 9 * * WED",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),

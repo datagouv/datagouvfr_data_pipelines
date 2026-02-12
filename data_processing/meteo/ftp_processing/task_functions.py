@@ -21,7 +21,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_ftp/"
 s3_folder = "data/synchro_ftp/"
 bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
@@ -318,14 +318,14 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + true_path)
         # downloading the file from FTP
-        with open(DATADIR + "/" + file_name, "wb") as local_file:
+        with open(TMP_FOLDER + file_name, "wb") as local_file:
             ftp.retrbinary("RETR " + file_name, local_file.write)
 
         # sending file to S3
         try:
             s3_meteo.send_file(
                 File(
-                    source_path=f"{DATADIR}/",
+                    source_path=TMP_FOLDER,
                     source_name=file_name,
                     dest_path=s3_folder + true_path + "/",
                     dest_name=file_name,
@@ -335,7 +335,7 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
             updated_datasets.add(global_path)
         except Exception:
             logging.error("⚠️ Unable to send file")
-        os.remove(f"{DATADIR}/{file_name}")
+        os.remove(f"{TMP_FOLDER}{file_name}")
     logging.info("___________________________")
     logging.info(f"{len(new_files)} new files: {new_files}")
     logging.info(
@@ -623,11 +623,11 @@ def log_modified_files(**context) -> None:
         if not re.match(r"\d+-\d{2}-\d{2}", k) or k >= threshold
     }
     logging.info(f"{len(log_file)} clés dans le fichier : {list(log_file.keys())}")
-    with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
+    with open(f"{TMP_FOLDER}{log_file_path.split('/')[-1]}", "w") as f:
         json.dump(log_file, f)
     s3_meteo.send_file(
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name=log_file_path.split("/")[-1],
             dest_path=get_path(log_file_path)[0] + "/",
             dest_name=log_file_path.split("/")[-1],

@@ -2,10 +2,8 @@ from datetime import timedelta, datetime
 from airflow.models import DAG
 from airflow.operators.python import ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.data_processing.dfi.task_functions import (
+    TMP_FOLDER,
     check_if_modif,
     gather_data,
     send_to_s3,
@@ -13,9 +11,6 @@ from datagouvfr_data_pipelines.data_processing.dfi.task_functions import (
     notification_mattermost,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
-
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
-DAG_NAME = "data_processing_dfi_consolidation"
 
 default_args = {
     "retries": 5,
@@ -25,7 +20,7 @@ default_args = {
 
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="data_processing_dfi_consolidation",
     schedule="0 */4 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),

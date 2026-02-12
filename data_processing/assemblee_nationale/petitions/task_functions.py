@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}an_petitions/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}an_petitions/"
 s3_folder = "an_petitions/"
 file_name = "petitions.csv"
 dataset_id = (
@@ -204,7 +204,7 @@ def gather_petitions():
 
     df = pd.DataFrame(data)
     df.to_csv(
-        DATADIR + file_name,
+        TMP_FOLDER + file_name,
         index=False,
         sep=";",
     )
@@ -216,14 +216,14 @@ def send_petitions_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=file_name,
                 dest_path=s3_folder,
                 dest_name=file_name,
             ),
             # saving dated file
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=file_name,
                 dest_path=s3_folder,
                 dest_name=datetime.now().strftime("%Y-%m-%d") + "_" + file_name,
@@ -241,7 +241,7 @@ def publish_on_datagouv():
         fetch=False,
     ).update(
         payload={
-            "filesize": os.path.getsize(DATADIR + file_name),
+            "filesize": os.path.getsize(TMP_FOLDER + file_name),
             "title": (f"Pétitions au {datetime.now().strftime('%d-%m-%Y')}"),
             "format": "csv",
             "description": (

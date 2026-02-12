@@ -2,10 +2,8 @@ from datetime import datetime, timedelta
 from airflow.models import DAG
 from airflow.operators.python import ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.data_processing.formation.task_functions import (
+    TMP_FOLDER,
     compare_files_s3,
     download_latest_data,
     process_organismes_formation,
@@ -13,8 +11,6 @@ from datagouvfr_data_pipelines.data_processing.formation.task_functions import (
     send_notification,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
-
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
 
 with DAG(
     dag_id="data_processing_formation_qualiopi",

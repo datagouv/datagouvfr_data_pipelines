@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
-DATADIR = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
 s3_client = S3Client(
     bucket="infra",
     # bucket=S3_BUCKET_INFRA,
@@ -216,10 +216,10 @@ def process_logs():
             ],
             ignore_airflow_env=True,
         )
-        folder = DATADIR + log.split(".")[0] + "/"
-        with tarfile.open(DATADIR + log) as f:
+        folder = TMP_FOLDER + log.split(".")[0] + "/"
+        with tarfile.open(TMP_FOLDER + log) as f:
             f.extractall(folder)
-        os.remove(DATADIR + log)
+        os.remove(TMP_FOLDER + log)
         if len(os.listdir(folder)) > 1:
             raise ValueError(f"More than one file extracted: {os.listdir(folder)}")
         process_logs_file(folder + os.listdir(folder)[0])

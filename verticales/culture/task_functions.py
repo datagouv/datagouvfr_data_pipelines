@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.utils.grist import GristTable
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-DATADIR = f"{AIRFLOW_DAG_TMP}culture/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}culture/data/"
 
 topic_id = (
     "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
@@ -136,10 +136,10 @@ def gather_stats(object_types: list[str], **context):
             task_ids=f"get_perimeter_stats_{object_type}",
         )
 
-    with open(DATADIR + "detailed.json", "w") as f:
+    with open(TMP_FOLDER + "detailed.json", "w") as f:
         json.dump(detailed, f)
 
-    with open(DATADIR + "total.json", "w") as f:
+    with open(TMP_FOLDER + "total.json", "w") as f:
         json.dump(total, f)
 
 
@@ -148,7 +148,7 @@ def send_stats_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=f"{scope}.json",
                 dest_path="verticale_culture/",
                 dest_name=f"{scope}.json",

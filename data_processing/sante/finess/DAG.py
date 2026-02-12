@@ -4,7 +4,6 @@ from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions import (
     config,
-    DAG_NAME,
     TMP_FOLDER,
     check_if_modif,
     build_finess_table_etablissements,
@@ -15,15 +14,13 @@ from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions impor
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-
 default_args = {
     "retries": 5,
     "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="data_processing_finess",
     schedule="0 7 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,

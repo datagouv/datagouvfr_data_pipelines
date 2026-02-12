@@ -3,11 +3,9 @@ import json
 from airflow.models import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-    AIRFLOW_DAG_HOME,
-)
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
+    TMP_FOLDER,
     check_if_modif,
     process_data,
     send_to_s3,
@@ -16,10 +14,7 @@ from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DAG_NAME = "data_processing_controle_sanitaire_eau"
-DATADIR = f"{TMP_FOLDER}data"
 
 with open(
     f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json"
@@ -32,7 +27,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="data_processing_controle_sanitaire_eau",
     schedule="0 7 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,

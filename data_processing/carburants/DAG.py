@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
 from airflow import DAG
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.data_processing.carburants.task_functions import (
+    TMP_FOLDER,
     convert_utf8_files,
     download_latest_data,
     generate_latest_france,
@@ -15,8 +13,6 @@ from datagouvfr_data_pipelines.data_processing.carburants.task_functions import 
     unzip_files,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
-
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}carburants/"
 
 with DAG(
     dag_id="data_processing_carburants",

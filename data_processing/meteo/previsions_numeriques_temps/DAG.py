@@ -16,13 +16,11 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     clean_directory,
 )
 
-DAG_NAME = "data_processing_meteo_pnt"
-
 
 def create_dag(model: str, pack: str, grid: str, infos: dict):
     _id = f"_{model}_{pack}_{grid}" if not pack.startswith("$") else f"_{model}_{grid}"
     dag = DAG(
-        dag_id=DAG_NAME + _id,
+        dag_id="data_processing_meteo_pnt" + _id,
         # DAG runs every 3 minutes
         schedule="*/3 * * * *",
         start_date=datetime(2024, 6, 1),

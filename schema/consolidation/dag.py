@@ -26,8 +26,7 @@ from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
 from datagouvfr_data_pipelines.utils.schema import upload_s3, notification_synthese
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-DAG_NAME = "schema_consolidation"
-TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
+TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}schema_consolidation/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
@@ -42,7 +41,7 @@ default_args = {
 
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="schema_consolidation",
     schedule="0 5 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=600),
@@ -52,7 +51,7 @@ with DAG(
 ):
 
     (
-        clean_up_folder(TMP_FOLDER, recreate=True)
+        clean_up_folder(TMP_FOLDER.as_posix(), recreate=True)
         >> BashOperator(
             task_id="clone_dag_schema_repo",
             bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
@@ -105,5 +104,5 @@ with DAG(
                 "list_schema_skip": ["etalab/schema-irve-statique"],
             },
         )
-        >> clean_up_folder(TMP_FOLDER)
+        >> clean_up_folder(TMP_FOLDER.as_posix())
     )

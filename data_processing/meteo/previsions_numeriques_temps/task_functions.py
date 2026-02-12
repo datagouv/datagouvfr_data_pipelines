@@ -30,8 +30,8 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 # AIRFLOW_ENV = "dev"
 # DATAGOUV_URL = "https://demo.data.gouv.fr"
 
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
-LOG_PATH = f"{DATADIR}logs/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
+LOG_PATH = f"{TMP_FOLDER}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 s3_pnt = S3Client(
@@ -233,14 +233,14 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
         # we don't download the files anymore, but we keep the folder creation for cross-run communication
-        if os.path.isdir(f"{DATADIR}{path}/{package}") and package not in my_packages:
+        if os.path.isdir(f"{TMP_FOLDER}{path}/{package}") and package not in my_packages:
             logging.info(
                 f"{url_to_infos[url]['package']} is already being processed by another run"
             )
             continue
         else:
             # this is to make sure concurrent runs don't interfere or process the same data
-            os.makedirs(f"{DATADIR}{path}/{package}", exist_ok=True)
+            os.makedirs(f"{TMP_FOLDER}{path}/{package}", exist_ok=True)
             my_packages.add(package)
         if not is_file_available(url):
             continue
@@ -252,7 +252,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
         uploaded.append(s3_path)
     for p in my_packages:
         # making way for later occurrences
-        os.removedirs(f"{DATADIR}{path}/{p}")
+        os.removedirs(f"{TMP_FOLDER}{path}/{p}")
     context["ti"].xcom_push(key="uploaded", value=uploaded)
 
 
@@ -366,16 +366,16 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 def clean_directory(model: str, pack: str, grid: str, **kwargs):
     # in case processes crash and leave stuff behind
     path = build_folder_path(model, pack, grid)
-    files_and_folders = os.listdir(f"{DATADIR}{path}")
+    files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
     threshold = datetime.now() - timedelta(hours=3)
     for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(os.path.getctime(f"{DATADIR}{path}/{f}"))
+        creation_date = datetime.fromtimestamp(os.path.getctime(f"{TMP_FOLDER}{path}/{f}"))
         if creation_date < threshold and "issues" not in f:
             try:
-                shutil.rmtree(f"{DATADIR}{path}/{f}")
+                shutil.rmtree(f"{TMP_FOLDER}{path}/{f}")
             except NotADirectoryError:
-                os.remove(f"{DATADIR}{path}/{f}")
+                os.remove(f"{TMP_FOLDER}{path}/{f}")
             logging.warning(
-                f"Deleted {DATADIR}{path}/{f} (created at "
+                f"Deleted {TMP_FOLDER}{path}/{f} (created at "
                 f"{creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
             )

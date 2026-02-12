@@ -8,15 +8,13 @@ from datagouvfr_data_pipelines.dgv.stats.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-DAG_NAME = "dgv_stats"
-
 default_args = {
     "retries": 5,
     "retry_delay": timedelta(minutes=5),
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="dgv_stats",
     schedule="55 5 * * *",
     start_date=datetime(2023, 10, 15),
     catchup=False,

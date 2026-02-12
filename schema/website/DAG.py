@@ -17,7 +17,6 @@ from datagouvfr_data_pipelines.schema.website.task_functions import (
     final_clean_up,
 )
 
-DAG_NAME = "schema_website_publication"
 GIT_REPO = (
     "git@github.com:" if AIRFLOW_ENV == "prod" else "https://github.com/"
 ) + "datagouv/schema.data.gouv.fr.git"
@@ -28,7 +27,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="schema_website_publication",
     schedule="0 2 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
@@ -40,7 +39,7 @@ with DAG(
     tasks = {}
     for branch in branches:
         suffix = "_prod" if branch == "main" else f"_{branch}"
-        tmp_folder = f"{AIRFLOW_DAG_TMP}{DAG_NAME + suffix}/"
+        tmp_folder = f"{AIRFLOW_DAG_TMP}schema_website_publication{suffix}/"
         (
             BashOperator(
                 task_id="clean_previous_outputs" + suffix,

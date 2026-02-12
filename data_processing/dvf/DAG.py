@@ -3,11 +3,9 @@ from airflow.models import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.task_group import TaskGroup
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
-    AIRFLOW_DAG_TMP,
-)
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
+    TMP_FOLDER,
     get_year_interval,
     alter_dvf_table,
     create_copro_table,
@@ -36,14 +34,11 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DAG_NAME = "data_processing_dvf"
-DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
 start, end = get_year_interval()
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="data_processing_dvf",
     schedule=None,
     start_date=datetime(2024, 8, 10),
     catchup=False,
@@ -56,7 +51,7 @@ with DAG(
         task_id="download_dvf_data",
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_dvf.sh {DATADIR} "
+            f"dvf/scripts/script_dl_dvf.sh {TMP_FOLDER} "
             f"{start} {end} "
         ),
     )
@@ -67,7 +62,7 @@ with DAG(
                 task_id="download_copro",
                 bash_command=(
                     f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-                    f"dvf/scripts/script_dl_copro.sh {DATADIR} "
+                    f"dvf/scripts/script_dl_copro.sh {TMP_FOLDER} "
                 ),
             )
             >> create_copro_table()
@@ -79,7 +74,7 @@ with DAG(
             BashOperator(
                 task_id="download_dpe",
                 bash_command=(
-                    f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/scripts/script_dl_dpe.sh {DATADIR} "
+                    f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/scripts/script_dl_dpe.sh {TMP_FOLDER} "
                 )
             )
             >> process_dpe()

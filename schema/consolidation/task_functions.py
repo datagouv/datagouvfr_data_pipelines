@@ -1,6 +1,7 @@
 from ast import literal_eval
 from datetime import datetime
 import os
+from pathlib import Path
 
 from airflow.decorators import task
 import pandas as pd
@@ -26,9 +27,9 @@ pd.set_option("display.max_columns", None)
 
 @task()
 def get_resources(
-    tmp_path: str,
+    tmp_path: Path,
     schema_catalog_url: str,
-    config_path: str,
+    config_path: Path,
     **context,
 ):
     consolidation_date_str = datetime.today().strftime("%Y%m%d")

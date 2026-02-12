@@ -5,7 +5,7 @@ from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
     CONFIG,
-    DATADIR,
+    TMP_FOLDER,
     clean_directory,
     get_files_list_on_sftp,
     transfer_files_to_s3,
@@ -39,7 +39,7 @@ def create_dag(pack: str, grid: str):
         (
             BashOperator(
                 task_id="create_working_dir",
-                bash_command=f"mkdir -p {DATADIR}",
+                bash_command=f"mkdir -p {TMP_FOLDER}",
             )
             >> get_files_list_on_sftp(**shared_kwargs)
             >> ShortCircuitOperator(

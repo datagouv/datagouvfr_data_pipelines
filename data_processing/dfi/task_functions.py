@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}dfi"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
 METADATA_FILE = "metadata.json"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
@@ -52,21 +52,21 @@ SELECT CAST(code_insee AS VARCHAR) AS code_insee, CAST(code_dept AS VARCHAR) AS 
        CAST(CAST(date_valid_dfi AS VARCHAR)[0:4] || '-' || CAST(date_valid_dfi AS VARCHAR)[5:6] || '-' || CAST(date_valid_dfi AS VARCHAR)[7:8] AS DATE) AS date_validation_dfi,
        CASE WHEN p_mere = 'EDNC' THEN p_mere ELSE lpad(p_mere, 6, '0') END AS parcelle_mere,
        CASE WHEN p_fille = 'PDP' THEN p_fille ELSE lpad(p_fille, 6, '0') END AS parcelle_fille
-FROM read_csv("{DATADIR}/dfi.csv",
+FROM read_csv("{TMP_FOLDER}dfi.csv",
   names = ['code_insee', 'code_dept', 'code_com', 'prefixe_section', 'id_dfi', 'nature_dfi', 'date_valid_dfi', 'p_mere', 'p_fille'],
   types = {{'code_insee': 'VARCHAR', 'code_dept': 'VARCHAR', 'code_com': 'VARCHAR', 'prefixe_section': 'VARCHAR', 'id_dfi': 'VARCHAR', 'nature_dfi': 'BIGINT', 'date_valid_dfi': 'VARCHAR', 'p_mere': 'VARCHAR', 'p_fille': 'VARCHAR'}}
 ) LEFT JOIN nature_dfi_codes ON code_nature_dfi = nature_dfi
 """
 
 EXPORT_DFI_TO_PARQUET = f"""COPY dfi
-TO '{DATADIR}/dfi.parquet'
+TO '{TMP_FOLDER}dfi.parquet'
 (FORMAT parquet, COMPRESSION zstd);"""
 
 QUERY_MIN_MAX_DATE = """
 SELECT min(date_validation_dfi), max(date_validation_dfi) FROM dfi;
 """
 
-output_duckdb_database_name = f"{DATADIR}/dfi.duckdb"
+output_duckdb_database_name = f"{TMP_FOLDER}dfi.duckdb"
 
 queries = [
     CREATE_NATURE_DFI_CODES,
@@ -164,7 +164,7 @@ def get_download_ressources_infos(urls, destination_dir):
 def send_metadata_to_s3():
     s3_process.send_file(
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name=f"{METADATA_FILE}",
             dest_path="dev/dfi/",
             dest_name=f"{METADATA_FILE}",
@@ -187,7 +187,7 @@ def check_if_modif():
         }
         for resource in last_2_files
     ]
-    with open(f"{DATADIR}/{METADATA_FILE}", "w") as infile:
+    with open(f"{TMP_FOLDER}{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
     metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
     if not metadata_does_exist:
@@ -223,7 +223,7 @@ def gather_data(**context):
     ]
     logging.info("End downloading DFI files")
     logging.info("Reformat CSV to get a child and parent parcelle for each line")
-    reformat_dfi(filenames, f"{DATADIR}/dfi.csv")
+    reformat_dfi(filenames, f"{TMP_FOLDER}dfi.csv")
     logging.info("Load into Duckdb and export to parquet")
     with duckdb.connect(output_duckdb_database_name) as con:
         for query in queries:
@@ -232,9 +232,9 @@ def gather_data(**context):
         min_date, max_date = con.sql(QUERY_MIN_MAX_DATE).fetchone()
 
     Path(output_duckdb_database_name).unlink()
-    Path(f"{DATADIR}/dfi.csv").unlink()
+    Path(f"{TMP_FOLDER}dfi.csv").unlink()
 
-    parquet_dfi = f"{DATADIR}/dfi.parquet"
+    parquet_dfi = f"{TMP_FOLDER}dfi.parquet"
     logging.info(
         "Convert parquet to get the exact structure beetween parquet and CSV contrary to reformated CSV"
     )
@@ -258,7 +258,7 @@ def send_to_s3():
     exts = ["csv", "parquet"]
     fileslist = [
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name=f"{filename}",
             dest_path="dfi/",
             dest_name=f"{filename}",
@@ -295,7 +295,7 @@ def publish_on_datagouv(**context):
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/dfi/dfi.{_ext}"
                 ),
-                "filesize": os.path.getsize(DATADIR + f"/dfi.{_ext}"),
+                "filesize": os.path.getsize(TMP_FOLDER + f"dfi.{_ext}"),
                 "title": (
                     f"Documents de filiation informatisés (DFI) des parcelles{information_date_about_dataset} (format {_ext})"
                 ),

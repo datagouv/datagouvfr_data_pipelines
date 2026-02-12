@@ -22,7 +22,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
-DATADIR = f"{TMP_FOLDER}data"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
@@ -284,7 +283,7 @@ def gather_kpis(**context):
     ]
     df = pd.DataFrame(data)
     df.to_csv(
-        os.path.join(DATADIR, f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv"),
+        TMP_FOLDER + f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
         index=False,
         encoding="utf8",
     )
@@ -293,7 +292,7 @@ def gather_kpis(**context):
     )
     final = pd.concat([df, history])
     final.to_csv(
-        os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"),
+        TMP_FOLDER + "statistiques_impact_datagouvfr.csv",
         index=False,
         encoding="utf8",
     )
@@ -304,14 +303,14 @@ def send_stats_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name="statistiques_impact_datagouvfr.csv",
                 dest_path="impact/",
                 dest_name="statistiques_impact_datagouvfr.csv",
             ),
             # saving millésimes in case of an emergency
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
                 dest_path="impact/",
                 dest_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
@@ -336,7 +335,7 @@ def publish_datagouv(DAG_FOLDER):
                 "impact/statistiques_impact_datagouvfr.csv"
             ),
             "filesize": os.path.getsize(
-                os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")
+                TMP_FOLDER + "statistiques_impact_datagouvfr.csv"
             ),
             "title": "Indicateurs d'impact de data.gouv.fr",
             "format": "csv",

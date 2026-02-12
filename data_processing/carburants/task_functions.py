@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts import (
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}carburants/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
@@ -25,12 +26,12 @@ s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 def download_latest_data():
     File(
         url="https://donnees.roulez-eco.fr/opendata/jour",
-        dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+        dest_path=TMP_FOLDER,
         dest_name="jour.zip",
     ).download()
     File(
         url="https://donnees.roulez-eco.fr/opendata/instantane",
-        dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+        dest_path=TMP_FOLDER,
         dest_name="instantane.zip",
     ).download()
 
@@ -42,7 +43,7 @@ def get_daily_prices():
             File(
                 source_path="carburants/",
                 source_name="daily_prices.json",
-                dest_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                dest_path=TMP_FOLDER,
                 dest_name="daily_prices.json",
                 remote_source=True,
             ),
@@ -54,9 +55,9 @@ def get_daily_prices():
 @task()
 def unzip_files(**context):
     with zipfile.ZipFile(f"{AIRFLOW_DAG_TMP}carburants/jour.zip", mode="r") as z:
-        z.extractall(f"{AIRFLOW_DAG_TMP}carburants/")
+        z.extractall(TMP_FOLDER)
     with zipfile.ZipFile(f"{AIRFLOW_DAG_TMP}carburants/instantane.zip", mode="r") as z:
-        z.extractall(f"{AIRFLOW_DAG_TMP}carburants/")
+        z.extractall(TMP_FOLDER)
 
     file_instantane = glob.glob(f"{AIRFLOW_DAG_TMP}carburants/*instantane*.xml")[0]
     file_jour = glob.glob(f"{AIRFLOW_DAG_TMP}carburants/*quotidien*.xml")[0]
@@ -92,19 +93,19 @@ def reformat_file(**context):
     for file in files:
         reformat_prix(
             file,
-            f"{AIRFLOW_DAG_TMP}carburants/",
+            TMP_FOLDER,
             file.split("/")[-1].replace("_utf8.xml", ""),
         )
 
 
 @task()
 def generate_latest_france():
-    generate_kpis(f"{AIRFLOW_DAG_TMP}carburants/")
+    generate_kpis(TMP_FOLDER)
 
 
 @task()
 def generate_rupture_france():
-    generate_kpis_rupture(f"{AIRFLOW_DAG_TMP}carburants/")
+    generate_kpis_rupture(TMP_FOLDER)
 
 
 @task()
@@ -114,7 +115,7 @@ def send_files_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                source_path=TMP_FOLDER,
                 source_name=name,
                 dest_path=f"carburants/{folder}",
                 dest_name=name,
@@ -133,7 +134,7 @@ def send_files_s3():
         ]
         + [
             File(
-                source_path=f"{AIRFLOW_DAG_TMP}carburants/",
+                source_path=TMP_FOLDER,
                 source_name="daily_prices.json",
                 dest_path="carburants/",
                 dest_name="daily_prices.json",

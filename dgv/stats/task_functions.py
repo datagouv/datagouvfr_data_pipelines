@@ -19,7 +19,6 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_stats/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/stats/"
-DATADIR = f"{TMP_FOLDER}data/"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
     config = json.load(fp)
 yesterday = datetime.today() - timedelta(days=1)
@@ -43,7 +42,7 @@ def create_year_if_missing():
     # landing here means there is no file for yesterday's year, so we create one
     # (its content doesn't matter, it will be replaced downstream)
     file = File(
-        source_path=DATADIR,
+        source_path=TMP_FOLDER,
         source_name="placeholder.csv",
         remote_source=True,  # not remote but not created yet
     )
@@ -89,7 +88,7 @@ def update_year():
     df = get_months(DATAGOUV_MATOMO_ID, yesterdays_year)
     df.index.name = "date"
     file = File(
-        source_path=DATADIR,
+        source_path=TMP_FOLDER,
         source_name=f"{yesterdays_year}-days.csv",
         remote_source=True,  # not remote but not created yet
     )

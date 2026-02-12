@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-DATADIR = f"{AIRFLOW_DAG_TMP}stats_meteo/data"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}stats_meteo/"
 s3_meteo = S3Client(bucket="meteofrance")
 
 MATOMO_PARAMS = {
@@ -89,12 +89,12 @@ def gather_meteo_stats(**context):
         ]
     ]
     filename = f"meteo.data.gouv.fr-downloads-{datetime.now().strftime('%Y-%m-%d')}"
-    df.to_csv(f"{DATADIR}/{filename}.csv", index=False)
+    df.to_csv(f"{TMP_FOLDER}{filename}.csv", index=False)
     df.to_json(
-        f"{DATADIR}/{filename}.json",
+        f"{TMP_FOLDER}{filename}.json",
         orient="records",
     )
-    with open(f"{DATADIR}/{filename}.json", "r") as f:
+    with open(f"{TMP_FOLDER}{filename}.json", "r") as f:
         stats = json.load(f)
     stats = {
         "stats_globales": {
@@ -119,7 +119,7 @@ def gather_meteo_stats(**context):
     )
     df = pd.read_csv(StringIO(r.text))
     df = df.groupby("Date")["Visiteurs uniques (résumé quotidien)"].sum().reset_index()
-    df.to_csv(f"{DATADIR}/visites_meteo.csv", index=False)
+    df.to_csv(f"{TMP_FOLDER}visites_meteo.csv", index=False)
 
 
 @task()
@@ -128,7 +128,7 @@ def send_to_s3(**context):
     s3_meteo.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"{filename}.{ext}",
                 dest_path=f"metrics/{AIRFLOW_ENV}/",
                 dest_name=f"{filename}.{ext}",
@@ -137,7 +137,7 @@ def send_to_s3(**context):
         ]
         + [
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name="visites_meteo.csv",
                 dest_path=f"metrics/{AIRFLOW_ENV}/",
                 dest_name="visites_meteo.csv",

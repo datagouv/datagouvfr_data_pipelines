@@ -29,14 +29,13 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-DAG_NAME = "irve_consolidation"
-TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}{DAG_NAME}/")
+TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}irve/")
 TMP_CONFIG_FILE = TMP_FOLDER / "schema.data.gouv.fr/config_consolidation.yml"
 SCHEMA_CATALOG = "https://schema.data.gouv.fr/schemas/schemas.json"
 GIT_REPO = "git@github.com:datagouv/schema.data.gouv.fr.git"
 if AIRFLOW_ENV == "dev":
     GIT_REPO = GIT_REPO.replace("git@github.com:", "https://github.com/")
-output_data_folder = f"{TMP_FOLDER}/output/"
+output_data_folder = TMP_FOLDER / "output/"
 
 default_args = {
     "retries": 5 if AIRFLOW_ENV == "prod" else 0,
@@ -44,7 +43,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="irve_consolidation",
     schedule="20 4 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=360),
@@ -55,7 +54,7 @@ with DAG(
 ):
     
     (
-        clean_up_folder(TMP_FOLDER, recreate=True)
+        clean_up_folder(TMP_FOLDER.as_posix(), recreate=True)
         >> BashOperator(
             task_id="clone_dag_schema_repo",
             bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
@@ -105,5 +104,5 @@ with DAG(
             tmp_folder=TMP_FOLDER,
             mattermost_datagouv_schema_activite=MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
         )
-        >> clean_up_folder(TMP_FOLDER)
+        >> clean_up_folder(TMP_FOLDER.as_posix())
     )

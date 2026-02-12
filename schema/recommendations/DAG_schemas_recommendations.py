@@ -4,7 +4,6 @@ from airflow.operators.bash import BashOperator
 
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.schema.recommendations.task_functions import (
-    DAG_NAME,
     TMP_FOLDER,
     create_and_export_recommendations,
 )
@@ -17,7 +16,7 @@ GIT_REPO = (
 default_args = {"email": ["geoffrey.aldebert@data.gouv.fr"], "email_on_failure": False}
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="schema_recommendations",
     schedule="0 4 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=20),

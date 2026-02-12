@@ -1,10 +1,8 @@
 from datetime import timedelta, datetime
 from airflow.models import DAG
 
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-)
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
+    TMP_FOLDER,
     calculate_quality_score,
     calculate_time_for_legitimate_answer,
     get_quality_reuses,
@@ -16,10 +14,8 @@ from datagouvfr_data_pipelines.dgv.impact.task_functions import (
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/impact/"
 DAG_NAME = "dgv_impact"
-DATADIR = f"{TMP_FOLDER}data"
 
 default_args = {
     "retries": 5,
