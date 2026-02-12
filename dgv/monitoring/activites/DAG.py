@@ -27,7 +27,6 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-
     alert_if_awaiting_spam_comments()
     alert_if_new_reports()
     # get_inactive_orgas()
