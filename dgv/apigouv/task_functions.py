@@ -5,6 +5,7 @@ import requests
 import random
 import pandas as pd
 import re
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP, MATTERMOST_TMPAPIGOUV
@@ -32,7 +33,8 @@ def get_df(url):
     return df
 
 
-def import_api_to_grist(ti):
+@task()
+def import_api_to_grist(**context):
     files = glob.glob(TMP_FOLDER + "/api.gouv.fr/_data/api/*")
     list_apis = []
     for f in files:
@@ -310,10 +312,11 @@ def import_api_to_grist(ti):
             )
             print(r2.json())
     list_sources = [item for item in list_sources if item != "API XXX"]
-    ti.xcom_push(key="list_sources", value=list_sources)
+    context["ti"].xcom_push(key="list_sources", value=list_sources)
 
 
-def publish_api_to_datagouv(ti):
+@task()
+def publish_api_to_datagouv(**context):
     df = get_df(
         "https://grist.numerique.gouv.fr/api/docs/" + doc_id + "/tables/Api_all/records"
     )
@@ -505,12 +508,13 @@ def publish_api_to_datagouv(ti):
                 print(r.json())
             except Exception:
                 pass
-        ti.xcom_push(key="apikos", value=apikos)
+        context["ti"].xcom_push(key="apikos", value=apikos)
 
 
-def publish_mattermost(ti):
-    list_sources = ti.xcom_pull(key="list_sources", task_ids="import_api_to_grist")
-    apikos = ti.xcom_pull(key="apikos", task_ids="publish_api_to_datagouv")
+@task()
+def publish_mattermost(**context):
+    list_sources = context["ti"].xcom_pull(key="list_sources", task_ids="import_api_to_grist")
+    apikos = context["ti"].xcom_pull(key="apikos", task_ids="publish_api_to_datagouv")
     list_sources_str = ""
     for ls in list_sources:
         list_sources_str += "- " + ls + "\n"

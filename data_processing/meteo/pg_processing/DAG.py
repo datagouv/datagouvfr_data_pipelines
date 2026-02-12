@@ -73,9 +73,8 @@ with DAG(
     _retrieve_latest_processed_date = retrieve_latest_processed_date()
     _insert_latest_date_pg = insert_latest_date_pg()
 
-    # clean_previous_outputs.set_upstream(ftp_waiting_room)
-
     (
+        # ftp_waiting_room >>
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> create_tables_if_not_exists()
         >> _retrieve_latest_processed_date
