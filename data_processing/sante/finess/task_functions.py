@@ -77,6 +77,7 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
     ]
 
 
+@task()
 def build_finess_table_etablissements():
     scope = "etablissements"
     # this one is the "normal" Finess file
@@ -107,6 +108,7 @@ def build_finess_table_etablissements():
     )
 
 
+@task()
 def build_and_save(scope: str):
     dfs = load_df_sections(scope)
     if len(dfs) == 1:
@@ -159,6 +161,7 @@ def build_and_save(scope: str):
         raise ValueError(f"Too many sections to handle: {len(dfs)}")
 
 
+@task()
 def send_to_s3(scope: str):
     s3_open.send_file(
         File(
@@ -171,6 +174,7 @@ def send_to_s3(scope: str):
     )
 
 
+@task()
 def publish_on_datagouv(scope: str):
     date = datetime.today().strftime("%d-%m-%Y")
     source_dataset = Resource(config[scope]["source_resource"]).dataset_id

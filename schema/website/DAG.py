@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -52,59 +51,31 @@ with DAG(
                     + (f"-b {branch} " if branch != "main" else "")
                 ),
             )
-            >> PythonOperator(
-                task_id="initialization" + suffix,
-                python_callable=initialization,
-                op_kwargs={
-                    "tmp_folder": tmp_folder,
-                    "branch": branch,
-                },
+            >> initialization.override(task_id="initialization" + suffix)(
+                tmp_folder=tmp_folder,
+                branch=branch,
             )
-            >> PythonOperator(
-                task_id="check_and_save_schemas" + suffix,
-                python_callable=check_and_save_schemas,
-                op_kwargs={
-                    "suffix": suffix,
-                },
+            >> check_and_save_schemas.override(task_id="check_and_save_schemas" + suffix)(
+                suffix=suffix,
             )
-            >> PythonOperator(
-                task_id="update_news_feed" + suffix,
-                python_callable=update_news_feed,
-                op_kwargs={
-                    "tmp_folder": tmp_folder,
-                    "suffix": suffix,
-                },
+            >> update_news_feed.override(task_id="update_news_feed" + suffix)(
+                tmp_folder=tmp_folder,
+                suffix=suffix,
             )
-            >> PythonOperator(
-                task_id="sort_folders" + suffix,
-                python_callable=sort_folders,
-                op_kwargs={
-                    "suffix": suffix,
-                },
+            >> sort_folders.override(task_id="sort_folders" + suffix)(
+                suffix=suffix,
             )
-            >> PythonOperator(
-                task_id="get_issues_and_labels" + suffix,
-                python_callable=get_issues_and_labels,
-                op_kwargs={
-                    "suffix": suffix,
-                },
+            >> get_issues_and_labels.override(task_id="get_issues_and_labels" + suffix)(
+                suffix=suffix,
             )
-            >> PythonOperator(
-                task_id="publish_schema_dataset" + suffix,
-                python_callable=publish_schema_dataset,
-                op_kwargs={
-                    "tmp_folder": tmp_folder,
-                    "AIRFLOW_ENV": AIRFLOW_ENV,
-                    "branch": branch,
-                    "suffix": suffix,
-                },
+            >> publish_schema_dataset.override(task_id="publish_schema_dataset" + suffix)(
+                tmp_folder=tmp_folder,
+                AIRFLOW_ENV=AIRFLOW_ENV,
+                branch=branch,
+                suffix=suffix,
             )
-            >> PythonOperator(
-                task_id="final_clean_up" + suffix,
-                python_callable=final_clean_up,
-                op_kwargs={
-                    "suffix": suffix,
-                },
+            >> final_clean_up.override(task_id="final_clean_up" + suffix)(
+                suffix=suffix,
             )
             >> BashOperator(
                 task_id="copy_files" + suffix,

@@ -485,32 +485,3 @@ def final_directory_clean_up_irve(
 ) -> None:
     tmp_folder = tmp_path.as_posix() + "/"
     final_directory_clean_up(tmp_folder, output_data_folder)
-
-
-@task()
-def upload_s3_irve(
-    tmp_folder: Path,
-    s3_bucket_data_pipeline_open: str,
-    s3_output_filepath: str,
-) -> None:
-    upload_s3(
-        tmp_folder.as_posix(),
-        s3_bucket_data_pipeline_open,
-        s3_output_filepath,
-    )
-
-
-@task()
-def notification_synthese_irve(
-    s3_url: str,
-    s3_bucket_data_pipeline_open: str,
-    tmp_folder: Path,
-    mattermost_datagouv_schema_activite: str,
-) -> None:
-    notification_synthese(
-        s3_url,
-        s3_bucket_data_pipeline_open,
-        tmp_folder,
-        mattermost_datagouv_schema_activite,
-        schema_name,
-    )

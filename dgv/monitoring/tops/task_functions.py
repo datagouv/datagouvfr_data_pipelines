@@ -1,8 +1,10 @@
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
 import logging
-import requests
+
+from airflow.decorators import task
 import pandas as pd
+import requests
 
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_REPORTING,
@@ -154,6 +156,7 @@ def compute_general(date):
     return pageviews, uniq_pageviews, downloads
 
 
+@task()
 def get_top(date: str, period: str, _type: str, title: str, **context):
     end = datetime.strptime(date, "%Y-%m-%d")
     start = build_start(end, period)
@@ -186,6 +189,7 @@ def get_stats(dates: list[datetime], period: str) -> tuple[list, list, list]:
     return pageviews, uniq_pageviews, downloads
 
 
+@task()
 def publish_top_mattermost(period: str, label: str, **context):
     for _class in ["datasets", "reuses"]:
         top = context["ti"].xcom_pull(
@@ -200,6 +204,7 @@ def publish_top_mattermost(period: str, label: str, **context):
         send_message(message, MATTERMOST_DATAGOUV_REPORTING)
 
 
+@task()
 def send_tops_to_s3(period: str, s3: str, **context):
     for _class in ["datasets", "reuses"]:
         top = context["ti"].xcom_pull(
@@ -209,6 +214,7 @@ def send_tops_to_s3(period: str, s3: str, **context):
         s3_open.send_dict_as_file(top, s3 + f"top_{_class}.json")
 
 
+@task()
 def send_stats_to_s3(date: str, period: str, s3: str):
     end = datetime.strptime(date, "%Y-%m-%d")
     start = build_start(end, period)

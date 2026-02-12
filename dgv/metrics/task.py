@@ -5,6 +5,7 @@ import os
 import tarfile
 
 from airflow.decorators import task
+from airflow.utils.trigger_rule import TriggerRule
 import pandas as pd
 from tqdm import tqdm
 
@@ -246,7 +247,7 @@ def copy_logs_to_processed_folder(**context) -> None:
     )
 
 
-@task()
+@task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 def refresh_materialized_views() -> None:
     pgclient.execute_sql_file(
         file=File(

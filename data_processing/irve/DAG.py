@@ -20,13 +20,12 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     final_directory_clean_up_irve,
     get_all_irve_resources,
     improve_irve_geo_data_quality,
-    notification_synthese_irve,
     update_consolidation_documentation_report_irve,
     update_reference_table_irve,
     update_resource_send_mail_producer_irve,
     upload_consolidated_irve,
-    upload_s3_irve,
 )
+from datagouvfr_data_pipelines.utils.schema import upload_s3, notification_synthese
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}irve/")
@@ -78,10 +77,10 @@ with DAG(
         >> create_detailed_report_irve()
         >> final_directory_clean_up_irve(
             tmp_path=TMP_FOLDER,
-            output_data_folder=output_data_folder,
+            output_data_folder=output_data_folder.as_posix(),
         )
-        >> upload_s3_irve(
-            tmp_folder=TMP_FOLDER,
+        >> upload_s3.override(task_id="upload_s3_irve")(
+            tmp_folder=TMP_FOLDER.as_posix(),
             s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
             s3_output_filepath=f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         )
@@ -95,11 +94,12 @@ with DAG(
                 " && git push origin main"
             ),
         )
-        >> notification_synthese_irve(
+        >> notification_synthese.override(task_id="notification_synthese_irve")(
             s3_url=MINIO_URL,
             s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
             tmp_folder=TMP_FOLDER,
-            mattermost_datagouv_schema_activite=MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+            mattermost_channel=MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+            schema_name="etalab/schema-irve-statique",
         )
         >> clean_up_folder(TMP_FOLDER.as_posix())
     )

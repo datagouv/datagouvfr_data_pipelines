@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.models.baseoperator import chain
-from airflow.operators.python import PythonOperator
 # from airflow.operators.dummy import DummyOperator
 # from airflow.sensors.external_task import ExternalTaskSensor
 
@@ -57,16 +56,12 @@ with DAG(
         dataset_comp = dataset + "_COMP"
         processes.append(
             (
-                PythonOperator(
-                    task_id=f"process_data_{dataset.replace('/', '_').lower()}",
-                    python_callable=download_data,
-                    op_kwargs={"dataset_name": dataset},
-                ),
-                PythonOperator(
-                    task_id=f"process_data_{dataset_comp.replace('/', '_').lower()}",
-                    python_callable=download_data,
-                    op_kwargs={"dataset_name": dataset_comp},
-                ),
+                download_data.override(
+                    task_id=f"process_data_{dataset.replace('/', '_').lower()}"
+                )(dataset_name=dataset),
+                download_data.override(
+                    task_id=f"process_data_{dataset_comp.replace('/', '_').lower()}"
+                )(dataset_name=dataset_comp),
             )
         )
 

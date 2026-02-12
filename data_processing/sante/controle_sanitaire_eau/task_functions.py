@@ -96,6 +96,7 @@ def process_data():
             csv_to_csvgz(f"{TMP_FOLDER}{file_type}.csv")
 
 
+@task()
 def send_to_s3(file_type: str):
     s3_open.send_files(
         list_files=[
@@ -111,6 +112,7 @@ def send_to_s3(file_type: str):
     )
 
 
+@task()
 def publish_on_datagouv(file_type: str):
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]:

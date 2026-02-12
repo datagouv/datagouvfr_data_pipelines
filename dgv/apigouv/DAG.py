@@ -1,6 +1,5 @@
 # from datetime import datetime, timedelta
 # from airflow import DAG
-# from airflow.operators.python import PythonOperator
 # from airflow.operators.bash import BashOperator
 
 # from datagouvfr_data_pipelines.dgv.apigouv.task_functions import (

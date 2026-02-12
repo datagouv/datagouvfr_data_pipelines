@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import re
 
+from airflow.decorators import task
 import requests
 from IPython.display import display, HTML
 
@@ -294,6 +295,7 @@ def get_stats_period(today: str, period: str, scope: str) -> str | None:
     return recap
 
 
+@task()
 def publish_mattermost_period(today: str, period: str, scope: str, **context):
     report_url = context["ti"].xcom_pull(
         key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
@@ -310,6 +312,7 @@ def publish_mattermost_period(today: str, period: str, scope: str, **context):
     send_message(message, channel)
 
 
+@task()
 def send_email_report_period(today: str, period: str, scope: str, **context):
     report_url = context["ti"].xcom_pull(
         key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"

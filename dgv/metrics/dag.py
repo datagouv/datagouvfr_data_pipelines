@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.utils.trigger_rule import TriggerRule
 
 from datagouvfr_data_pipelines.dgv.metrics.task import (
     create_metrics_tables,
@@ -77,11 +76,7 @@ with DAG(
 
     (
         [_save_metrics_to_postgres, _save_matomo_to_postgres]
-        >> PythonOperator(
-            task_id="refresh_materialized_views",
-            python_callable=refresh_materialized_views,
-            trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS,
-        )
+        >> refresh_materialized_views()
         >> clean_up_folder(TMP_FOLDER)
         >> TriggerDagRunOperator(
             task_id="trigger_tabular_metrics",

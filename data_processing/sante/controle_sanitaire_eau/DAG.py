@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import json
 from airflow import DAG
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
@@ -36,26 +36,6 @@ with DAG(
     default_args=default_args,
 ):
     _process_data = process_data()
-
-    type_tasks = {}
-    for file_type in config.keys():
-        type_tasks[file_type] = [
-            PythonOperator(
-                task_id=f"send_to_s3_{file_type}",
-                python_callable=send_to_s3,
-                op_kwargs={
-                    "file_type": file_type,
-                },
-            ),
-            PythonOperator(
-                task_id=f"publish_on_datagouv_{file_type}",
-                python_callable=publish_on_datagouv,
-                op_kwargs={
-                    "file_type": file_type,
-                },
-            ),
-        ]
-
     clean_up = clean_up_folder(TMP_FOLDER)
 
     (
@@ -69,8 +49,8 @@ with DAG(
     for file_type in config.keys():
         (
             _process_data
-            >> type_tasks[file_type][0]
-            >> type_tasks[file_type][1]
+            >> send_to_s3.override(task_id=f"send_to_s3_{file_type}")(file_type)
+            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{file_type}")(file_type)
             >> clean_up
         )
     clean_up >> send_notification_mattermost()

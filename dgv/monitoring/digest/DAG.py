@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from airflow import DAG
 from airflow.models.baseoperator import chain
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -68,52 +68,40 @@ with DAG(
             if freq in short_circuits:
                 tasks[scope][freq].append(short_circuits[freq])
             tasks[scope][freq] += [
-                PythonOperator(
-                    task_id=f"run_notebook_and_save_to_s3_{scope}_{freq}",
-                    python_callable=execute_and_upload_notebook,
-                    op_kwargs={
-                        "input_nb": AIRFLOW_DAG_HOME
+                execute_and_upload_notebook.override(task_id=f"run_notebook_and_save_to_s3_{scope}_{freq}")(
+                    input_nb=(
+                        AIRFLOW_DAG_HOME
                         + DAG_FOLDER
                         + (
                             "digest.ipynb" if scope == "general" else "digest-api.ipynb"
+                        )
+                    ),
+                    output_nb=today + f"{('' if scope == 'general' else '-api')}.ipynb",
+                    tmp_path=TMP_FOLDER + f"/digest_{freq}/{today}/",
+                    s3_url=MINIO_URL,
+                    s3_bucket=S3_BUCKET_DATA_PIPELINE_OPEN,
+                    s3_output_filepath=S3_PATH + f"digest_{freq}/{today}/",
+                    parameters={
+                        "WORKING_DIR": AIRFLOW_DAG_HOME,
+                        "OUTPUT_DATA_FOLDER": (
+                            TMP_FOLDER + f"/digest_{freq}/{today}/output/"
                         ),
-                        "output_nb": today
-                        + ("" if scope == "general" else "-api")
-                        + ".ipynb",
-                        "tmp_path": TMP_FOLDER + f"/digest_{freq}/{today}/",
-                        "s3_url": MINIO_URL,
-                        "s3_bucket": S3_BUCKET_DATA_PIPELINE_OPEN,
-                        "s3_output_filepath": S3_PATH + f"digest_{freq}/{today}/",
-                        "parameters": {
-                            "WORKING_DIR": AIRFLOW_DAG_HOME,
-                            "OUTPUT_DATA_FOLDER": (
-                                TMP_FOLDER + f"/digest_{freq}/{today}/output/"
-                            ),
-                            "DATE_AIRFLOW": today,
-                            "PERIOD_DIGEST": freq,
-                        },
+                        "DATE_AIRFLOW": today,
+                        "PERIOD_DIGEST": freq,
                     },
                 ),
-                PythonOperator(
-                    task_id=f"publish_mattermost_{scope}_{freq}",
-                    python_callable=publish_mattermost_period,
-                    op_kwargs={
-                        "today": today,
-                        "period": freq,
-                        "scope": scope,
-                    },
-                ),
+                publish_mattermost_period.override(task_id=f"publish_mattermost_{scope}_{freq}")(
+                    today=today,
+                    period=freq,
+                    scope=scope,
+                )
             ]
             if scope == "general":
                 tasks[scope][freq].append(
-                    PythonOperator(
-                        task_id=f"send_email_report_{scope}_{freq}",
-                        python_callable=send_email_report_period,
-                        op_kwargs={
-                            "today": today,
-                            "period": freq,
-                            "scope": scope,
-                        },
+                    send_email_report_period.override(task_id=f"send_email_report_{scope}_{freq}")(
+                        today=today,
+                        period=freq,
+                        scope=scope,
                     )
                 )
             tasks[scope][freq].append(clean_up)

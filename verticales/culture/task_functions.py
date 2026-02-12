@@ -56,6 +56,7 @@ def get_perimeter_orgas(**context):
     context["ti"].xcom_push(key="organizations", value=table["datagouv_id"].to_list())
 
 
+@task()
 def get_and_send_perimeter_objects(object_type: str, **context):
     orgas = context["ti"].xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
     catalog_ids = pd.read_csv(
@@ -82,6 +83,7 @@ def get_and_send_perimeter_objects(object_type: str, **context):
     context["ti"].xcom_push(key=object_type, value=catalog_ids)
 
 
+@task()
 def get_perimeter_stats(object_type: str, **context):
     ids = context["ti"].xcom_pull(
         key=object_type,

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
 
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.verticales.culture.task_functions import (
@@ -38,15 +37,11 @@ with DAG(
     for obj in object_types:
         (
             _get_perimeter_orgas
-            >> PythonOperator(
-                task_id=f"get_and_send_perimeter_{obj}",
-                python_callable=get_and_send_perimeter_objects,
-                op_kwargs={"object_type": obj},
+            >> get_and_send_perimeter_objects.override(task_id=f"get_and_send_perimeter_{obj}")(
+                object_type=obj,
             )
-            >> PythonOperator(
-                task_id=f"get_perimeter_stats_{obj}",
-                python_callable=get_perimeter_stats,
-                op_kwargs={"object_type": obj},
+            >> get_perimeter_stats.override(task_id=f"get_perimeter_stats_{obj}")(
+                object_type=obj,
             )
             >> _gather_stats
         )

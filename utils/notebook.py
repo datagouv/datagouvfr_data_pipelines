@@ -1,6 +1,7 @@
 import codecs
 import os
 
+from airflow.decorators import task
 import nbformat
 import papermill as pm
 from nbconvert import HTMLExporter
@@ -9,14 +10,15 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 
+@task()
 def execute_and_upload_notebook(
-    ti,
     input_nb,
     output_nb,
     tmp_path,
     s3_bucket,
     s3_output_filepath,
     parameters,
+    **context,
 ):
     if not input_nb:
         raise ValueError("Input notebook is not specified")
@@ -72,7 +74,7 @@ def execute_and_upload_notebook(
                     ignore_airflow_env=True,
                 )
 
-    ti.xcom_push(
+    context["ti"].xcom_push(
         key="report_url",
         value=s3_client.get_file_url(s3_output_filepath + output_report.split("/")[-1]),
     )

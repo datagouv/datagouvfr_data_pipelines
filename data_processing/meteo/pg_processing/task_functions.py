@@ -231,6 +231,7 @@ def retrieve_latest_processed_date(**context):
 
 
 # %%
+@task()
 def download_data(dataset_name: str, **context):
     latest_db_insertion = context["ti"].xcom_pull(
         key="latest_db_insertion", task_ids="retrieve_latest_processed_date"

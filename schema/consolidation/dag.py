@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
 from pathlib import Path
 from airflow import DAG
-from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 
 from datagouvfr_data_pipelines.config import (
@@ -73,14 +72,10 @@ with DAG(
             tmp_path=TMP_FOLDER,
             output_data_folder=output_data_folder,
         )
-        >> PythonOperator(
-            task_id="upload_s3",
-            python_callable=upload_s3,
-            op_kwargs={
-                "TMP_FOLDER": TMP_FOLDER.as_posix(),
-                "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
-                "s3_output_filepath": f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
-            },
+        >> upload_s3(
+            tmp_folder=TMP_FOLDER.as_posix(),
+            s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
+            s3_output_filepath=f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         )
         >> BashOperator(
             task_id="commit_changes",
@@ -92,16 +87,12 @@ with DAG(
                 " && git push origin main"
             ),
         )
-        >> PythonOperator(
-            task_id="notification_synthese",
-            python_callable=notification_synthese,
-            op_kwargs={
-                "S3_URL": MINIO_URL,
-                "S3_BUCKET_DATA_PIPELINE_OPEN": S3_BUCKET_DATA_PIPELINE_OPEN,
-                "TMP_FOLDER": TMP_FOLDER,
-                "MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE": MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-                "list_schema_skip": ["etalab/schema-irve-statique"],
-            },
+        >> notification_synthese(
+            s3_url=MINIO_URL,
+            s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
+            tmp_folder=TMP_FOLDER,
+            mattermost_channel=MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+            list_schema_skip=["etalab/schema-irve-statique"],
         )
         >> clean_up_folder(TMP_FOLDER.as_posix())
     )

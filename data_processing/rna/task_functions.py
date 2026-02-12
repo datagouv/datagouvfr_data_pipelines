@@ -33,7 +33,8 @@ def check_if_modif():
     ).check_if_more_recent_update(dataset_id="58e53811c751df03df38f42d")
 
 
-def process_rna(ti, file_type):
+@task()
+def process_rna(file_type, **context):
     assert file_type in ["import", "waldec"]
     resources = requests.get(
         "https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d/",
@@ -84,9 +85,10 @@ def process_rna(ti, file_type):
         sep=",",
         columns=columns,
     )
-    ti.xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
+    context["ti"].xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
 
 
+@task()
 def send_rna_to_s3(file_type):
     s3_open.send_files(
         list_files=[
@@ -102,8 +104,9 @@ def send_rna_to_s3(file_type):
     )
 
 
-def publish_on_datagouv(ti, file_type):
-    latest = ti.xcom_pull(key="latest", task_ids=f"process_rna_{file_type}")
+@task()
+def publish_on_datagouv(file_type, **context):
+    latest = context["ti"].xcom_pull(key="latest", task_ids=f"process_rna_{file_type}")
     y, m, d = latest[:4], latest[4:6], latest[6:]
     date = f"{d} {MOIS_FR[m]} {y}"
     for ext in ["csv", "parquet"]:

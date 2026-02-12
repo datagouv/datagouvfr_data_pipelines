@@ -3,7 +3,7 @@ from dateutil.relativedelta import relativedelta
 
 from airflow import DAG
 from airflow.models.baseoperator import chain
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     get_top,
@@ -71,43 +71,27 @@ with DAG(
             tasks[freq].append(short_circuits[freq])
         tasks[freq] += [
             [
-                PythonOperator(
-                    task_id=f"get_top_{_class}_{freq}",
-                    python_callable=get_top,
-                    op_kwargs={
-                        "_type": _class,
-                        "date": yesterday,
-                        "period": freq,
-                        "title": f"Top 10 des {class_label}",
-                    },
+                get_top.override(task_id=f"get_top_{_class}_{freq}")(
+                    _type=_class,
+                    date=yesterday,
+                    period=freq,
+                    title=f"Top 10 des {class_label}",
                 )
                 for _class, class_label in classes.items()
             ],
-            PythonOperator(
-                task_id=f"publish_top_{freq}_mattermost",
-                python_callable=publish_top_mattermost,
-                op_kwargs={
-                    "period": freq,
-                    "label": freq_label,
-                },
+            publish_top_mattermost.override(task_id=f"publish_top_{freq}_mattermost")(
+                period=freq,
+                label=freq_label,
             ),
             [
-                PythonOperator(
-                    task_id=f"send_top_{freq}_to_s3",
-                    python_callable=send_tops_to_s3,
-                    op_kwargs={
-                        "period": freq,
-                        "s3": f"{S3_PATH}piwik_tops_{prefix}ly/{yesterday}/",
-                    },
+                send_tops_to_s3.override(task_id=f"send_top_{freq}_to_s3")(
+                    period=freq,
+                    s3=f"{S3_PATH}piwik_tops_{prefix}ly/{yesterday}/",
                 ),
-                PythonOperator(
-                    task_id=f"send_stats_{freq}_to_s3",
-                    python_callable=send_stats_to_s3,
-                    op_kwargs={
-                        "period": freq,
-                        "s3": f"{S3_PATH}piwik_stats_{prefix}ly/{yesterday}/",
-                        "date": yesterday,
-                    },
+                send_stats_to_s3.override(task_id=f"send_stats_{freq}_to_s3")(
+                    period=freq,
+                    s3=f"{S3_PATH}piwik_stats_{prefix}ly/{yesterday}/",
+                    date=yesterday,
                 ),
             ],
         ]
