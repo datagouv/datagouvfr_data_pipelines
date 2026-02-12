@@ -146,7 +146,7 @@ def get_last_items(
 
 
 @simple_connection_retry
-def get_latest_comments(start_date: datetime, end_date: datetime = None) -> list:
+def get_latest_comments(start_date: datetime, end_date: datetime | None = None) -> list:
     """
     Get latest comments posted on discussions, stored as a list of tuples:
     ("discussion_id:comment_timestamp", subject, comment)
@@ -203,7 +203,7 @@ def get_awaiting_spam_comments() -> dict:
 
 
 @simple_connection_retry
-def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
+def check_duplicated_orga(slug: str) -> str | None:
     duplicate_slug_pattern = r"-\d+$"
     if re.search(duplicate_slug_pattern, slug) is not None:
         suffix = re.findall(duplicate_slug_pattern, slug)[0]
@@ -212,5 +212,5 @@ def check_duplicated_orga(slug: str) -> tuple[bool, str | None]:
         test_orga = requests.get(url_dup)
         # only considering a duplicate if the original slug is taken (not not found or deleted)
         if test_orga.status_code not in [404, 410]:
-            return True, url_dup
-    return False, None
+            return url_dup
+    return None

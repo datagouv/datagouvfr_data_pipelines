@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
 
+from airflow.decorators import task
 import chardet
 from datagouv import Dataset
 import emails
@@ -1965,21 +1966,22 @@ def final_directory_clean_up(
     shutil.move(tmp_folder + "report_tables", output_data_folder)
 
 
+@task()
 def upload_s3(
-    TMP_FOLDER: str,
-    S3_BUCKET_DATA_PIPELINE_OPEN: str,
+    tmp_folder: str,
+    s3_bucket_data_pipeline_open: str,
     s3_output_filepath: str,
 ) -> None:
-    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
+    s3_open = S3Client(bucket=s3_bucket_data_pipeline_open)
     s3_open.send_files(
         list_files=[
             File(
                 source_path=path,
                 source_name=name,
-                dest_path=(s3_output_filepath + path).replace(TMP_FOLDER, ""),
+                dest_path=(s3_output_filepath + path).replace(tmp_folder, ""),
                 dest_name=name,
             )
-            for path, subdirs, files in os.walk(TMP_FOLDER + "/output/")
+            for path, subdirs, files in os.walk(tmp_folder + "/output/")
             for name in files
             if os.path.isfile(os.path.join(path, name))
         ],
@@ -1988,11 +1990,12 @@ def upload_s3(
     return
 
 
+@task()
 def notification_synthese(
-    S3_URL: str,
-    S3_BUCKET_DATA_PIPELINE_OPEN: str,
-    TMP_FOLDER: Path,
-    MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE: str,
+    s3_url: str,
+    s3_bucket_data_pipeline_open: str,
+    tmp_folder: Path,
+    mattermost_channel: str,
     schema_name: str = "",
     list_schema_skip: list = [],
 ) -> None:
@@ -2006,7 +2009,7 @@ def notification_synthese(
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
     schemas = r.json()["schemas"]
-    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
+    s3_open = S3Client(bucket=s3_bucket_data_pipeline_open)
 
     message = (
         ":mega: *Rapport sur la consolidation des données répondant à un schéma.*\n"
@@ -2020,7 +2023,7 @@ def notification_synthese(
         if s["schema_type"] == "tableschema":
             try:
                 filename = (
-                    f"https://{S3_URL}/{S3_BUCKET_DATA_PIPELINE_OPEN}/schema/schemas_consolidation/"
+                    f"https://{s3_url}/{s3_bucket_data_pipeline_open}/schema/schemas_consolidation/"
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/', '_')}.csv"
                 )
                 df = pd.read_csv(filename)
@@ -2055,11 +2058,11 @@ def notification_synthese(
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
-                df.to_csv(f"{TMP_FOLDER}/{erreurs_file_name}", index=False)
+                df.to_csv(f"{tmp_folder.as_posix()}/{erreurs_file_name}", index=False)
 
                 s3_open.send_file(
                     File(
-                        source_path=f"{TMP_FOLDER}/",
+                        source_path=tmp_folder.as_posix(),
                         source_name=erreurs_file_name,
                         dest_path="schema/schemas_consolidation/liste_erreurs/",
                         dest_name=erreurs_file_name,
@@ -2074,12 +2077,12 @@ def notification_synthese(
 
                 message += (
                     f"\n - Ressources valides : {nb_valides} \n - [Liste des ressources non valides]"
-                    f"(https://{S3_URL}/{S3_BUCKET_DATA_PIPELINE_OPEN}/schema/"
+                    f"(https://{s3_url}/{s3_bucket_data_pipeline_open}/schema/"
                     f"schemas_consolidation/liste_erreurs/{erreurs_file_name})\n"
                 )
             except Exception as e:
                 logging.warning(f"{s['name']} erreur : {e}")
-    send_message(message, MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE)
+    send_message(message, mattermost_channel)
 
 
 # Template for consolidation datasets title

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from airflow.models import DAG
-from airflow.operators.python import PythonOperator
+from airflow.decorators import task
+from airflow import DAG
 from datagouvfr_data_pipelines.config import MATTERMOST_MODERATION_NOUVEAUTES
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client
@@ -9,17 +9,19 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 DAG_NAME = "dgv_administrateur"
 
 
-def list_current_admins(ti):
+@task()
+def list_current_admins(**context):
     # We want the list of all current users with an admin role
     print(f"Fetching admins from {local_client.base_url}/api/1/users/")
     users = local_client.get_all_from_api_query("api/1/users/?page_size=100")
     admins = [user for user in users if "admin" in user["roles"]]
-    ti.xcom_push(key="admins", value=admins)
+    context["ti"].xcom_push(key="admins", value=admins)
 
 
-def publish_mattermost(ti):
+@task()
+def publish_mattermost(**context):
     print("Publishing on mattermost")
-    admins = ti.xcom_pull(key="admins", task_ids="list_current_admins")
+    admins = context["ti"].xcom_pull(key="admins", task_ids="list_current_admins")
     message = f":superhero: Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr"
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
@@ -34,20 +36,11 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval="0 0 1 1/3 *",
+    schedule="0 0 1 1/3 *",
     start_date=datetime(2023, 10, 15),
     dagrun_timeout=timedelta(minutes=60),
     tags=["curation", "datagouv"],
     default_args=default_args,
     catchup=False,
-) as dag:
-    list_current_admins = PythonOperator(
-        task_id="list_current_admins", python_callable=list_current_admins
-    )
-
-    publish_mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=publish_mattermost,
-    )
-
-    list_current_admins >> publish_mattermost
+):
+    list_current_admins() >> publish_mattermost()

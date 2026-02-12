@@ -6,6 +6,7 @@ import requests
 import pandas as pd
 from io import StringIO
 from datagouv import Resource
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -18,10 +19,8 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-DAG_NAME = "data_processing_finess"
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}finess/"
-DATADIR = f"{TMP_FOLDER}data"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
@@ -78,6 +77,7 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
     ]
 
 
+@task()
 def build_finess_table_etablissements():
     scope = "etablissements"
     # this one is the "normal" Finess file
@@ -102,17 +102,18 @@ def build_finess_table_etablissements():
         how="outer",
     )
     merged.to_csv(
-        DATADIR + f"/finess_{scope}.csv",
+        TMP_FOLDER + f"finess_{scope}.csv",
         index=False,
         sep=";",  # because "," is in the sourcecoordet column
     )
 
 
+@task()
 def build_and_save(scope: str):
     dfs = load_df_sections(scope)
     if len(dfs) == 1:
         dfs[0].to_csv(
-            DATADIR + f"/finess_{scope}.csv",
+            TMP_FOLDER + f"finess_{scope}.csv",
             index=False,
             sep=";",
         )
@@ -151,7 +152,7 @@ def build_and_save(scope: str):
                 ]
             ]
         merged.to_csv(
-            DATADIR + f"/finess_{scope}.csv",
+            TMP_FOLDER + f"finess_{scope}.csv",
             index=False,
             sep=";",
         )
@@ -160,10 +161,11 @@ def build_and_save(scope: str):
         raise ValueError(f"Too many sections to handle: {len(dfs)}")
 
 
+@task()
 def send_to_s3(scope: str):
     s3_open.send_file(
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name=f"finess_{scope}.csv",
             dest_path="finess/",
             dest_name=f"finess_{scope}.csv",
@@ -172,6 +174,7 @@ def send_to_s3(scope: str):
     )
 
 
+@task()
 def publish_on_datagouv(scope: str):
     date = datetime.today().strftime("%d-%m-%Y")
     source_dataset = Resource(config[scope]["source_resource"]).dataset_id
@@ -185,7 +188,7 @@ def publish_on_datagouv(scope: str):
                 f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/finess/finess_{scope}.csv"
             ),
-            "filesize": os.path.getsize(DATADIR + f"/finess_{scope}.csv"),
+            "filesize": os.path.getsize(TMP_FOLDER + f"finess_{scope}.csv"),
             "title": (f"{config[scope]['title']} au {date}"),
             "format": "csv",
             "description": (
@@ -198,6 +201,7 @@ def publish_on_datagouv(scope: str):
     )
 
 
+@task()
 def send_notification_mattermost():
     dataset_id = config["etablissements"][AIRFLOW_ENV]["dataset_id"]
     send_message(

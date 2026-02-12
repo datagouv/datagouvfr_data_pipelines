@@ -1,6 +1,7 @@
 import json
 import logging
 
+from airflow.decorators import task
 import pandas as pd
 import requests
 
@@ -18,7 +19,7 @@ from datagouvfr_data_pipelines.utils.grist import GristTable
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-DATADIR = f"{AIRFLOW_DAG_TMP}culture/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}culture/data/"
 
 topic_id = (
     "68889f00bd51536864e35316" if AIRFLOW_ENV == "prod" else "689604546058bf73a6c7a4eb"
@@ -49,13 +50,15 @@ objects = {
 }
 
 
-def get_perimeter_orgas(ti):
+@task()
+def get_perimeter_orgas(**context):
     table = GristTable("hrDZg8StuE1d", "Perimetre_Culture").to_dataframe()
-    ti.xcom_push(key="organizations", value=table["datagouv_id"].to_list())
+    context["ti"].xcom_push(key="organizations", value=table["datagouv_id"].to_list())
 
 
-def get_and_send_perimeter_objects(ti, object_type: str):
-    orgas = ti.xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
+@task()
+def get_and_send_perimeter_objects(object_type: str, **context):
+    orgas = context["ti"].xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
     catalog_ids = pd.read_csv(
         f"https://www.data.gouv.fr/api/1/datasets/r/{objects[object_type]['catalog_id']}",
         usecols=["id", "organization_id"],
@@ -77,11 +80,12 @@ def get_and_send_perimeter_objects(ti, object_type: str):
         json={object_type: catalog_ids, "tags": tags},
     )
     r.raise_for_status()
-    ti.xcom_push(key=object_type, value=catalog_ids)
+    context["ti"].xcom_push(key=object_type, value=catalog_ids)
 
 
-def get_perimeter_stats(ti, object_type: str):
-    ids = ti.xcom_pull(
+@task()
+def get_perimeter_stats(object_type: str, **context):
+    ids = context["ti"].xcom_pull(
         key=object_type,
         task_ids=(
             "get_perimeter_orgas"
@@ -117,34 +121,36 @@ def get_perimeter_stats(ti, object_type: str):
                 )
         stats.append({"id": obj_id} | obj_stats)
 
-    ti.xcom_push(key=f"detailed_{object_type}", value=stats)
-    ti.xcom_push(key=f"total_{object_type}", value=total)
+    context["ti"].xcom_push(key=f"detailed_{object_type}", value=stats)
+    context["ti"].xcom_push(key=f"total_{object_type}", value=total)
 
 
-def gather_stats(ti, object_types: list[str]):
+@task()
+def gather_stats(object_types: list[str], **context):
     detailed, total = {}, {}
     for object_type in object_types:
-        detailed[object_type] = ti.xcom_pull(
+        detailed[object_type] = context["ti"].xcom_pull(
             key=f"detailed_{object_type}",
             task_ids=f"get_perimeter_stats_{object_type}",
         )
-        total[object_type] = ti.xcom_pull(
+        total[object_type] = context["ti"].xcom_pull(
             key=f"total_{object_type}",
             task_ids=f"get_perimeter_stats_{object_type}",
         )
 
-    with open(DATADIR + "detailed.json", "w") as f:
+    with open(TMP_FOLDER + "detailed.json", "w") as f:
         json.dump(detailed, f)
 
-    with open(DATADIR + "total.json", "w") as f:
+    with open(TMP_FOLDER + "total.json", "w") as f:
         json.dump(total, f)
 
 
+@task()
 def send_stats_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=f"{scope}.json",
                 dest_path="verticale_culture/",
                 dest_name=f"{scope}.json",
@@ -156,8 +162,9 @@ def send_stats_to_s3():
     )
 
 
-def refresh_datasets_tops(ti):
-    orgas = ti.xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
+@task()
+def refresh_datasets_tops(**context):
+    orgas = context["ti"].xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
     logging.info("Loading catalog...")
     datasets_catalog = pd.read_csv(
         f"https://www.data.gouv.fr/api/1/datasets/r/{objects['datasets']['catalog_id']}",
@@ -199,6 +206,7 @@ def refresh_datasets_tops(ti):
             )
 
 
+@task()
 def send_notification_mattermost():
     send_message(
         text=":performing_arts: Catalogue et stats de la verticale culture mis à jour."

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 
+from airflow.decorators import task
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
@@ -19,7 +20,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}an_petitions/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}an_petitions/"
 s3_folder = "an_petitions/"
 file_name = "petitions.csv"
 dataset_id = (
@@ -164,6 +165,7 @@ def get_row(_id: int) -> dict | None:
     }
 
 
+@task()
 def gather_petitions():
     # getting current file to ignore unused ids
     ids = (
@@ -202,25 +204,26 @@ def gather_petitions():
 
     df = pd.DataFrame(data)
     df.to_csv(
-        DATADIR + file_name,
+        TMP_FOLDER + file_name,
         index=False,
         sep=";",
     )
     # no need to convert to parquet, hydra will
 
 
+@task()
 def send_petitions_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=file_name,
                 dest_path=s3_folder,
                 dest_name=file_name,
             ),
             # saving dated file
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=file_name,
                 dest_path=s3_folder,
                 dest_name=datetime.now().strftime("%Y-%m-%d") + "_" + file_name,
@@ -230,6 +233,7 @@ def send_petitions_to_s3():
     )
 
 
+@task()
 def publish_on_datagouv():
     local_client.resource(
         id=resource_id,
@@ -237,7 +241,7 @@ def publish_on_datagouv():
         fetch=False,
     ).update(
         payload={
-            "filesize": os.path.getsize(DATADIR + file_name),
+            "filesize": os.path.getsize(TMP_FOLDER + file_name),
             "title": (f"Pétitions au {datetime.now().strftime('%d-%m-%Y')}"),
             "format": "csv",
             "description": (
@@ -247,6 +251,7 @@ def publish_on_datagouv():
     )
 
 
+@task()
 def send_notification_mattermost():
     send_message(
         text=(

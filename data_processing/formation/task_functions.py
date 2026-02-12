@@ -1,5 +1,6 @@
 from datetime import datetime
 import pandas as pd
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -13,8 +14,11 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
 
-def download_latest_data(ti):
+
+@task()
+def download_latest_data(**context):
     config = {
         "resource_id": "ac59a0f5-fa83-4b82-bf12-3c5806d4f19f",
         "name": "organismes_formation",
@@ -23,12 +27,12 @@ def download_latest_data(ti):
         list_urls=[
             File(
                 url=f"{local_client.base_url}/api/1/datasets/r/{config['resource_id']}",
-                dest_path=f"{AIRFLOW_DAG_TMP}formation/",
+                dest_path=TMP_FOLDER,
                 dest_name=f"{config['name']}.csv",
             )
         ]
     )
-    ti.xcom_push(key="resource", value=config)
+    context["ti"].xcom_push(key="resource", value=config)
 
 
 def concat_spe(row):
@@ -41,8 +45,9 @@ def convert_date(val):
     return None
 
 
-def process_organismes_formation(ti):
-    res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
+@task()
+def process_organismes_formation(**context):
+    res = context["ti"].xcom_pull(key="resource", task_ids="download_latest_data")
     df = pd.read_csv(
         f"{AIRFLOW_DAG_TMP}formation/{res['name']}.csv",
         sep=";",
@@ -80,17 +85,18 @@ def process_organismes_formation(ti):
 
     df = df.drop(["spe1", "spe2", "spe3"], axis=1)
 
-    df.to_csv(f"{AIRFLOW_DAG_TMP}formation/{res['name']}_clean.csv", index=False)
+    df.to_csv(f"{TMP_FOLDER}{res['name']}_clean.csv", index=False)
 
-    ti.xcom_push(key="nb_of", value=str(df["id_nda"].nunique()))
-    ti.xcom_push(key="nb_siret", value=str(df["siret"].nunique()))
+    context["ti"].xcom_push(key="nb_of", value=str(df["id_nda"].nunique()))
+    context["ti"].xcom_push(key="nb_siret", value=str(df["siret"].nunique()))
 
 
-def send_file_to_s3(ti):
-    res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
+@task()
+def send_file_to_s3(**context):
+    res = context["ti"].xcom_pull(key="resource", task_ids="download_latest_data")
     s3_open.send_file(
         File(
-            source_path=f"{AIRFLOW_DAG_TMP}formation/",
+            source_path=TMP_FOLDER,
             source_name=f"{res['name']}_clean.csv",
             dest_path="formation/new/",
             dest_name=f"{res['name']}_clean.csv",
@@ -98,8 +104,8 @@ def send_file_to_s3(ti):
     )
 
 
-def compare_files_s3(ti):
-    res = ti.xcom_pull(key="resource", task_ids="download_latest_data")
+def compare_files_s3(**context):
+    res = context["ti"].xcom_pull(key="resource", task_ids="download_latest_data")
     is_same = s3_open.are_files_identical(
         file_1=File(
             source_path="formation/new/",
@@ -120,7 +126,7 @@ def compare_files_s3(ti):
 
     s3_open.send_file(
         File(
-            source_path=f"{AIRFLOW_DAG_TMP}formation/",
+            source_path=TMP_FOLDER,
             source_name=f"{res['name']}_clean.csv",
             dest_path="formation/latest/",
             dest_name=f"{res['name']}_clean.csv",
@@ -131,9 +137,14 @@ def compare_files_s3(ti):
     return True
 
 
-def send_notification(ti):
-    nb_of = ti.xcom_pull(key="nb_of", task_ids="process_organismes_formation")
-    nb_siret = ti.xcom_pull(key="nb_siret", task_ids="process_organismes_formation")
+@task()
+def send_notification(**context):
+    nb_of = context["ti"].xcom_pull(
+        key="nb_of", task_ids="process_organismes_formation"
+    )
+    nb_siret = context["ti"].xcom_pull(
+        key="nb_siret", task_ids="process_organismes_formation"
+    )
     send_message(
         text=(
             ":mega: Données organismes formations mises à jour.\n"

@@ -4,6 +4,7 @@ import json
 import os
 import re
 
+from airflow.decorators import task
 import requests
 import pandas as pd
 
@@ -23,7 +24,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}deces"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}deces/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config/dgv.json") as fp:
     config = json.load(fp)
@@ -87,7 +88,8 @@ def get_fields(row):
     return d
 
 
-def gather_data(ti):
+@task()
+def gather_data(**context):
     logging.info("Getting resources list")
     resources = requests.get(
         "https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5/",
@@ -152,7 +154,7 @@ def gather_data(ti):
         df["opposition"] = df["opposition"].fillna(False)
         del data
         df.to_csv(
-            DATADIR + "/deces.csv",
+            TMP_FOLDER + "deces.csv",
             index=False,
             mode="w" if idx == 0 else "a",
             header=idx == 0,
@@ -176,24 +178,25 @@ def gather_data(ti):
         "opposition": "BOOLEAN",
     }
     csv_to_parquet(
-        DATADIR + "/deces.csv",
+        TMP_FOLDER + "deces.csv",
         sep=",",
         dtype=dtype,
     )
 
-    ti.xcom_push(key="min_date", value=min(urls.keys()))
-    ti.xcom_push(
+    context["ti"].xcom_push(key="min_date", value=min(urls.keys()))
+    context["ti"].xcom_push(
         key="max_date",
         # in January we have only full year files so we manually add that it goes until December of the previous year
         value=(m if "-" in (m := max(urls.keys())) else m + "-m12"),
     )
 
 
+@task()
 def send_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"deces.{_ext}",
                 dest_path="deces/",
                 dest_name=f"deces.{_ext}",
@@ -204,9 +207,10 @@ def send_to_s3():
     )
 
 
-def publish_on_datagouv(ti):
-    min_date = ti.xcom_pull(key="min_date", task_ids="gather_data")
-    max_date = ti.xcom_pull(key="max_date", task_ids="gather_data")
+@task()
+def publish_on_datagouv(**context):
+    min_date = context["ti"].xcom_pull(key="min_date", task_ids="gather_data")
+    max_date = context["ti"].xcom_pull(key="max_date", task_ids="gather_data")
     for _ext in ["csv", "parquet"]:
         local_client.resource(
             id=config[f"deces_{_ext}"][AIRFLOW_ENV]["resource_id"],
@@ -218,7 +222,7 @@ def publish_on_datagouv(ti):
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/deces/deces.{_ext}"
                 ),
-                "filesize": os.path.getsize(DATADIR + f"/deces.{_ext}"),
+                "filesize": os.path.getsize(TMP_FOLDER + f"deces.{_ext}"),
                 "title": (
                     f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"
                 ),
@@ -243,6 +247,7 @@ def publish_on_datagouv(ti):
     )
 
 
+@task()
 def notification_mattermost():
     dataset_id = config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(

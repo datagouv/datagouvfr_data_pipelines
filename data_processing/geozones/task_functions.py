@@ -5,6 +5,7 @@ from datetime import datetime
 import requests
 from io import BytesIO
 from urllib.parse import quote_plus, urlencode
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -14,29 +15,29 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
-DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}geozones/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}geozones/"
 dataset_id = (
     "554210a9c751df2666a7b26c" if AIRFLOW_ENV == "prod" else "64bfc429d6e029048e577d3e"
 )
 dataset = local_client.dataset(dataset_id, fetch=False)
 geozones_file = File(
-    source_path=DATADIR,
+    source_path=TMP_FOLDER,
     source_name="export_geozones.json",
     remote_source=True,  # not remote but not created yet
 )
 countries_file = File(
-    source_path=DATADIR,
+    source_path=TMP_FOLDER,
     source_name="export_countries.json",
     remote_source=True,  # not remote but not created yet
 )
 levels_file = File(
-    source_path=DATADIR,
+    source_path=TMP_FOLDER,
     source_name="export_levels.json",
     remote_source=True,  # not remote but not created yet
 )
 
 
+@task()
 def download_and_process_geozones():
     endpoint = "https://rdf.insee.fr/sparql?query="
     query = """PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -202,7 +203,7 @@ def download_and_process_geozones():
         for c in geoz.keys():
             if geoz[c] == "nan":
                 geoz[c] = None
-    os.mkdir(DATADIR)
+    os.mkdir(TMP_FOLDER)
     with open(geozones_file.full_source_path, "w", encoding="utf8") as f:
         json.dump(export, f, ensure_ascii=False, indent=4)
 
@@ -281,6 +282,7 @@ def download_and_process_geozones():
         json.dump(levels, f, ensure_ascii=False, indent=4)
 
 
+@task()
 def post_geozones():
     year = datetime.now().strftime("%Y")
     dataset.create_static(
@@ -322,6 +324,7 @@ def post_geozones():
     )
 
 
+@task()
 def notification_mattermost():
     message = "Données Géozones mises à jours [ici]"
     message += f"({local_client.base_url}/datasets/{dataset_id})"

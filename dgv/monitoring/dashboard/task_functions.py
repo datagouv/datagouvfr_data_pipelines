@@ -9,7 +9,7 @@ from typing import Iterator
 import numpy as np
 import pandas as pd
 import requests
-from airflow.models import TaskInstance
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -28,7 +28,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import list_months_between
 
 DAG_NAME = "dgv_dashboard"
-DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [
     k + "@data.gouv.fr"
@@ -66,10 +66,8 @@ MATOMO_PARAMS = {
 }
 
 
-def get_support_tickets(
-    ti: TaskInstance,
-    start_date: datetime,
-):
+@task()
+def get_support_tickets(start_date: datetime, **context):
     def get_monthly_count(
         tickets: list[dict],
         created_at_key: str,
@@ -169,8 +167,8 @@ def get_support_tickets(
         for scope in tickets.keys()
     }
 
-    ti.xcom_push(key="tickets", value=tickets)
-    ti.xcom_push(key="months", value=list(tickets["all"].keys()))
+    context["ti"].xcom_push(key="tickets", value=tickets)
+    context["ti"].xcom_push(key="months", value=list(tickets["all"].keys()))
 
 
 def fill_url(
@@ -187,10 +185,11 @@ def fill_url(
     )
 
 
+@task()
 def get_visits(
-    ti: TaskInstance,
     start_date: datetime,
     end_date: datetime = datetime.today() - timedelta(days=1),
+    **context,
 ) -> None:
     # url_stats_home_dgv = {
     #     "site_id": DATAGOUV_MATOMO_ID,
@@ -250,17 +249,16 @@ def get_visits(
 
         vues = df["Vues de page uniques"].to_list()
         logging.info(f"Vues : {vues}")
-        ti.xcom_push(key=k["title"], value=vues)
+        context["ti"].xcom_push(key=k["title"], value=vues)
 
 
-def gather_and_upload(
-    ti: TaskInstance,
-) -> None:
-    tickets = ti.xcom_pull(key="tickets", task_ids="get_support_tickets")
-    months = ti.xcom_pull(key="months", task_ids="get_support_tickets")
-    # homepage = ti.xcom_pull(key="homepage", task_ids="get_visits")
+@task()
+def gather_and_upload(**context) -> None:
+    tickets = context["ti"].xcom_pull(key="tickets", task_ids="get_support_tickets")
+    months = context["ti"].xcom_pull(key="months", task_ids="get_support_tickets")
+    # homepage = context["ti"].xcom_pull(key="homepage", task_ids="get_visits")
     support = {
-        k: ti.xcom_pull(key=k, task_ids="get_visits")
+        k: context["ti"].xcom_pull(key=k, task_ids="get_visits")
         for k in ["support", "/support", "old_support"]
     }
 
@@ -279,12 +277,12 @@ def gather_and_upload(
     ).T
     # removing current month from stats
     stats = stats[stats.columns[:-1]].fillna(0)
-    stats.to_csv(DATADIR + "stats_support.csv")
+    stats.to_csv(TMP_FOLDER + "stats_support.csv")
 
     # sending to s3
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name="stats_support.csv",
             dest_path=s3_destination_folder,
             dest_name="stats_support.csv",
@@ -327,6 +325,7 @@ def is_SP_or_CT(
     ], issue
 
 
+@task()
 def get_and_upload_certification() -> None:
     session = requests.Session()
     orgas = local_client.get_all_from_api_query(
@@ -343,17 +342,17 @@ def get_and_upload_certification() -> None:
             SP_or_CT.append(o["id"])
         if issue:
             issues.append({o["id"]: issue})
-    with open(DATADIR + "certified.json", "w") as f:
+    with open(TMP_FOLDER + "certified.json", "w") as f:
         json.dump(certified, f, indent=4)
-    with open(DATADIR + "SP_or_CT.json", "w") as f:
+    with open(TMP_FOLDER + "SP_or_CT.json", "w") as f:
         json.dump(SP_or_CT, f, indent=4)
-    with open(DATADIR + "issues.json", "w") as f:
+    with open(TMP_FOLDER + "issues.json", "w") as f:
         json.dump(issues, f, indent=4)
 
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=f,
                 dest_path=s3_destination_folder
                 + datetime.now().strftime("%Y-%m-%d")
@@ -366,6 +365,7 @@ def get_and_upload_certification() -> None:
     )
 
 
+@task()
 def get_and_upload_reuses_down() -> None:
     client = S3Client(bucket="data-pipeline-open")
     # getting latest data
@@ -396,10 +396,10 @@ def get_and_upload_reuses_down() -> None:
     hist = pd.concat([hist, stats]).drop_duplicates("Date")
     # just in case
     assert start_len <= len(hist)
-    hist.to_csv(DATADIR + output_file_name, index=False)
+    hist.to_csv(TMP_FOLDER + output_file_name, index=False)
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name=output_file_name,
             dest_path=s3_destination_folder,
             dest_name=output_file_name,
@@ -408,6 +408,7 @@ def get_and_upload_reuses_down() -> None:
     )
 
 
+@task()
 def get_catalog_stats() -> None:
     datasets = []
     resources = []
@@ -474,20 +475,20 @@ def get_catalog_stats() -> None:
         s3_open.get_file_content(s3_destination_folder + "datasets_quality.json")
     )
     hist_dq.update(dataset_quality)
-    with open(DATADIR + "datasets_quality.json", "w") as f:
+    with open(TMP_FOLDER + "datasets_quality.json", "w") as f:
         json.dump(hist_dq, f, indent=4)
 
     hist_rs = json.loads(
         s3_open.get_file_content(s3_destination_folder + "resources_stats.json")
     )
     hist_rs.update(resources_stats)
-    with open(DATADIR + "resources_stats.json", "w") as f:
+    with open(TMP_FOLDER + "resources_stats.json", "w") as f:
         json.dump(hist_rs, f, indent=4)
 
     s3_open.send_files(
         list_files=[
             File(
-                source_path=DATADIR,
+                source_path=TMP_FOLDER,
                 source_name=output_file_name,
                 dest_path=s3_destination_folder,
                 dest_name=output_file_name,
@@ -498,6 +499,7 @@ def get_catalog_stats() -> None:
     )
 
 
+@task()
 def get_hvd_dataservices_stats() -> None:
     crawler = local_client.get_all_from_api_query("api/1/dataservices/?tags=hvd")
     count = 0
@@ -531,12 +533,12 @@ def get_hvd_dataservices_stats() -> None:
         )
     )
     hist_ds.update(dataservices_stats)
-    with open(DATADIR + "hvd_dataservices_quality.json", "w") as f:
+    with open(TMP_FOLDER + "hvd_dataservices_quality.json", "w") as f:
         json.dump(hist_ds, f, indent=4)
 
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name="hvd_dataservices_quality.json",
             dest_path=s3_destination_folder,
             dest_name="hvd_dataservices_quality.json",

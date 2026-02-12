@@ -1,11 +1,11 @@
 from datetime import timedelta, datetime
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
     CONFIG,
-    DATADIR,
+    TMP_FOLDER,
     clean_directory,
     get_files_list_on_sftp,
     transfer_files_to_s3,
@@ -21,7 +21,7 @@ def create_dag(pack: str, grid: str):
     dag = DAG(
         dag_id=DAG_NAME + f"_{pack}_{grid}",
         # DAG runs every 3 minutes
-        schedule_interval="*/3 * * * *",
+        schedule="*/3 * * * *",
         start_date=datetime(2024, 6, 1),
         catchup=False,
         dagrun_timeout=timedelta(minutes=600),
@@ -30,54 +30,28 @@ def create_dag(pack: str, grid: str):
         max_active_runs=2,
     )
     with dag:
-        create_working_dir = BashOperator(
-            task_id="create_working_dir",
-            bash_command=f"mkdir -p {DATADIR}",
+        shared_kwargs = {"pack": pack, "grid": grid}
+
+        _remove_old_occurrences = remove_old_occurrences(**shared_kwargs)
+
+        clean_directory()
+        (
+            BashOperator(
+                task_id="create_working_dir",
+                bash_command=f"mkdir -p {TMP_FOLDER}",
+            )
+            >> get_files_list_on_sftp(**shared_kwargs)
+            >> ShortCircuitOperator(
+                task_id="transfer_files_to_s3",
+                python_callable=transfer_files_to_s3,
+                op_kwargs=shared_kwargs,
+            )
+            >> publish_on_datagouv(**shared_kwargs)
+            >> _remove_old_occurrences
         )
-
-        _clean_directory = PythonOperator(
-            task_id="clean_directory",
-            python_callable=clean_directory,
-        )
-
-        common_kwargs = {"pack": pack, "grid": grid}
-
-        _get_files_list_on_sftp = PythonOperator(
-            task_id="get_files_list_on_sftp",
-            python_callable=get_files_list_on_sftp,
-            op_kwargs=common_kwargs,
-        )
-
-        _transfer_files_to_s3 = ShortCircuitOperator(
-            task_id="transfer_files_to_s3",
-            python_callable=transfer_files_to_s3,
-            op_kwargs=common_kwargs,
-        )
-
-        _publish_on_datagouv = PythonOperator(
-            task_id="publish_on_datagouv",
-            python_callable=publish_on_datagouv,
-            op_kwargs=common_kwargs,
-        )
-
-        _remove_old_occurrences = PythonOperator(
-            task_id="remove_old_occurrences",
-            python_callable=remove_old_occurrences,
-            op_kwargs=common_kwargs,
-        )
-
-        _get_files_list_on_sftp.set_upstream(create_working_dir)
-        _transfer_files_to_s3.set_upstream(_get_files_list_on_sftp)
-        _publish_on_datagouv.set_upstream(_transfer_files_to_s3)
-        _remove_old_occurrences.set_upstream(_publish_on_datagouv)
 
         if CONFIG[pack][grid].get("alerte_cyclonique"):
-            _handle_cyclonic_alert = PythonOperator(
-                task_id="handle_cyclonic_alert",
-                python_callable=handle_cyclonic_alert,
-                op_kwargs=common_kwargs,
-            )
-            _handle_cyclonic_alert.set_upstream(_remove_old_occurrences)
+            _remove_old_occurrences >> handle_cyclonic_alert(**shared_kwargs)
 
     return dag
 

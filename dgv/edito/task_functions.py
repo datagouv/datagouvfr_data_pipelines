@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import date
 from dateutil.relativedelta import relativedelta
 import requests
+from airflow.decorators import task
 # import tweepy
 
 from datagouvfr_data_pipelines.config import (
@@ -109,7 +110,8 @@ LAST_MONTH_DATE_STR = (
 #     )
 
 
-def create_edito_post(**kwargs):
+@task()
+def create_edito_post(**context):
     # Get datasets and reuses from catalog
     mapping = {
         "datasets": {
@@ -266,7 +268,7 @@ def create_edito_post(**kwargs):
     post_id = data["id"]
     print(f"Article créé et éditable à {DATAGOUV_URL}/admin/posts/{post_id}")
 
-    kwargs["ti"].xcom_push(
+    context["ti"].xcom_push(
         key="admin_post_url",
         value=(
             f":rolled_up_newspaper: Article du {name} créé et éditable [dans "
@@ -275,9 +277,14 @@ def create_edito_post(**kwargs):
     )
 
 
-def publish_mattermost(ti):
-    published_threads = ti.xcom_pull(key="published_threads", task_ids="tweet_threads")
-    admin_post_url = ti.xcom_pull(key="admin_post_url", task_ids="create_edito_post")
+@task()
+def publish_mattermost(**context):
+    published_threads = context["ti"].xcom_pull(
+        key="published_threads", task_ids="tweet_threads"
+    )
+    admin_post_url = context["ti"].xcom_pull(
+        key="admin_post_url", task_ids="create_edito_post"
+    )
 
     print(published_threads)
     print(admin_post_url)

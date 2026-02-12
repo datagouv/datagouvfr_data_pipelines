@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import glob
 import time
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -22,7 +23,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
 ID_CURRENT_ELECTION = "LG2024"
 URL_ELECTIONS_HTTP_SERVER = (
     "https://www.resultats-elections.interieur.gouv.fr/telechargements/"
@@ -73,7 +74,8 @@ def get_dpt_list():
     return department_list
 
 
-def get_files_updated_miom(ti):
+@task()
+def get_files_updated_miom(**context):
     url = URL_ELECTIONS_HTTP_SERVER + ID_CURRENT_ELECTION + "/"
     url_max_date = (
         f"https://object.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/"
@@ -105,12 +107,15 @@ def get_files_updated_miom(ti):
     with open(f"{AIRFLOW_DAG_TMP}elections-mirroring/max_date.json", "w") as fp:
         json.dump(new_max_dates, fp)
 
-    ti.xcom_push(key="miom_files", value=arr)
-    ti.xcom_push(key="max_date", value=new_max_dates)
+    context["ti"].xcom_push(key="miom_files", value=arr)
+    context["ti"].xcom_push(key="max_date", value=new_max_dates)
 
 
-def download_local_files(ti):
-    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+@task()
+def download_local_files(**context):
+    miom_files = context["ti"].xcom_pull(
+        key="miom_files", task_ids="get_files_updated_miom"
+    )
     for cf in miom_files:
         url = cf["link"]
         dest_path = (
@@ -145,8 +150,11 @@ def download_local_files(ti):
                     time.sleep(1)
 
 
-def send_to_s3(ti):
-    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+@task()
+def send_to_s3(**context):
+    miom_files = context["ti"].xcom_pull(
+        key="miom_files", task_ids="get_files_updated_miom"
+    )
     s3_open.send_files(
         list_files=[
             File(
@@ -187,6 +195,7 @@ def send_to_s3(ti):
     )
 
 
+@task()
 def download_from_s3():
     prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/"
     s3_files = s3_open.get_files_from_prefix(
@@ -213,6 +222,7 @@ def download_from_s3():
     )
 
 
+@task()
 def send_exports_to_s3():
     list_files = [
         File(
@@ -253,8 +263,10 @@ def send_exports_to_s3():
     s3_open.send_files(list_files=list_files)
 
 
-def check_if_continue(ti):
-    miom_files = ti.xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+def check_if_continue(**context):
+    miom_files = context["ti"].xcom_pull(
+        key="miom_files", task_ids="get_files_updated_miom"
+    )
     if len(miom_files) == 0:
         return False
     return True
@@ -294,6 +306,7 @@ def process_xml_candidats(xml_data):
     return df
 
 
+@task()
 def create_candidats_files():
     files = glob.glob(f"{AIRFLOW_DAG_TMP}elections-mirroring/export/**", recursive=True)
     for typeCandidat in ["candidatsT1", "candidatsT2"]:
@@ -317,8 +330,11 @@ def create_candidats_files():
             )
 
 
-def publish_results_elections(ti):
-    max_dates = ti.xcom_pull(key="max_date", task_ids="get_files_updated_miom")
+@task()
+def publish_results_elections(**context):
+    max_dates = context["ti"].xcom_pull(
+        key="max_date", task_ids="get_files_updated_miom"
+    )
     max_date = "1970-01-01"
     for md in max_dates:
         if max_dates[md] > max_date:
@@ -330,13 +346,13 @@ def publish_results_elections(ti):
     for d in data:
         complement = " (dernière mise à jour : " + max_date + ")"
         if d["format"] == "csv":
-            df = pd.read_csv(DATADIR + d["filename"])
+            df = pd.read_csv(TMP_FOLDER + d["filename"])
             if df.shape[0] <= 1:
                 complement = " (pas encore disponible)"
 
         filesize = None
         if d["filename"]:
-            filesize = os.path.getsize(os.path.join(DATADIR, d["filename"]))
+            filesize = os.path.getsize(TMP_FOLDER + d["filename"])
 
         demo_client.resource(
             id=d[AIRFLOW_ENV]["resource_id"],
@@ -479,6 +495,7 @@ def process_xml_resultats(xml_data, level):
     return dfinter1, dfinter2
 
 
+@task()
 def create_resultats_files():
     files = glob.glob(f"{AIRFLOW_DAG_TMP}elections-mirroring/export/**", recursive=True)
 

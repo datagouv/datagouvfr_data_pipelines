@@ -2,6 +2,7 @@ from datetime import datetime
 from io import StringIO
 import logging
 
+from airflow.decorators import task
 import pandas as pd
 import requests
 from unidecode import unidecode
@@ -21,7 +22,7 @@ from datagouvfr_data_pipelines.utils.grist import (
 )
 
 DAG_NAME = "dgv_hvd"
-DATADIR = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 DOC_ID = "eJxok2H2va3E" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(DOC_ID, "Hvd_metadata_res")
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
@@ -41,7 +42,8 @@ def has_unavailable_resources(dataset_id: str, df_resources: pd.DataFrame) -> bo
     return False
 
 
-def get_hvd(ti):
+@task()
+def get_hvd(**context):
     logging.info("Getting suivi ouverture")
     df_ouverture = table.to_dataframe(
         columns_labels=False,
@@ -110,15 +112,16 @@ def get_hvd(ti):
     ]
     logging.info(df_merge)
     filename = f"hvd_{datetime.now().strftime('%Y-%m-%d')}.csv"
-    df_merge.to_csv(f"{DATADIR}/{filename}", index=False)
-    ti.xcom_push(key="filename", value=filename)
+    df_merge.to_csv(f"{TMP_FOLDER}{filename}", index=False)
+    context["ti"].xcom_push(key="filename", value=filename)
 
 
-def send_to_s3(ti):
-    filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
+@task()
+def send_to_s3(**context):
+    filename = context["ti"].xcom_pull(key="filename", task_ids="get_hvd")
     s3_open.send_file(
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name=filename,
             dest_path="hvd/",
             dest_name=filename,
@@ -149,8 +152,9 @@ def markdown_item(row):
     )
 
 
-def publish_mattermost(ti):
-    filename = ti.xcom_pull(key="filename", task_ids="get_hvd")
+@task()
+def publish_mattermost(**context):
+    filename = context["ti"].xcom_pull(key="filename", task_ids="get_hvd")
     s3_files = sorted(s3_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))
     logging.info(s3_files)
     if len(s3_files) == 1:
@@ -161,7 +165,7 @@ def publish_mattermost(ti):
     goal = len(all_hvd_names)
 
     previous_week = pd.read_csv(StringIO(s3_open.get_file_content(s3_files[-2])))
-    this_week = pd.read_csv(f"{DATADIR}/{filename}")
+    this_week = pd.read_csv(f"{TMP_FOLDER}{filename}")
     this_week["hvd_name"] = this_week["hvd_name"].apply(
         lambda str_list: eval(str_list) if isinstance(str_list, str) else []
     )
@@ -384,6 +388,7 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     return None, None, None, None, None
 
 
+@task()
 def build_df_for_grist():
     logging.info("Getting datasets")
     df_datasets = pd.read_csv(
@@ -435,10 +440,10 @@ def build_df_for_grist():
             )
         )
     )
-    df_datasets.to_csv(DATADIR + "fresh_hvd_metadata.csv", index=False, sep=";")
+    df_datasets.to_csv(TMP_FOLDER + "fresh_hvd_metadata.csv", index=False, sep=";")
 
 
-def update_grist(ti):
+def update_grist(**context):
     def update_quality(dataset_id: str):
         r = requests.get(
             f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/",
@@ -464,7 +469,7 @@ def update_grist(ti):
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
     fresh_hvd_metadata = pd.read_csv(
-        DATADIR + "fresh_hvd_metadata.csv", sep=";"
+        TMP_FOLDER + "fresh_hvd_metadata.csv", sep=";"
     ).rename(
         # because the "id" column in grist has the identifier "id2"
         {"id": "id2"},
@@ -535,7 +540,7 @@ def update_grist(ti):
             df=pd.DataFrame(new_rows).rename({"id2": "id"}, axis=1).drop("url", axis=1),
             append="lazy",
         )
-        ti.xcom_push(
+        context["ti"].xcom_push(
             key="new_rows",
             value=[(r["title"], r["url"], r["organization"]) for r in new_rows],
         )
@@ -575,10 +580,10 @@ def update_grist(ti):
     df = table.to_dataframe(columns_labels=False, usecols=["id2"])
     df["id2"].apply(update_quality)
     file_name = "grist_hvd.csv"
-    table.to_dataframe().to_csv(DATADIR + file_name, sep=";", index=False)
+    table.to_dataframe().to_csv(TMP_FOLDER + file_name, sep=";", index=False)
     s3_open.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name=file_name,
             dest_path="hvd/",
             dest_name=f"{datetime.today().strftime('%Y-%m')}_" + file_name,
@@ -589,8 +594,9 @@ def update_grist(ti):
     return len(new_rows)
 
 
-def publish_mattermost_grist(ti):
-    new_rows = ti.xcom_pull(key="new_rows", task_ids="update_grist")
+@task()
+def publish_mattermost_grist(**context):
+    new_rows = context["ti"].xcom_pull(key="new_rows", task_ids="update_grist")
     message = (
         f"#### {len(new_rows)} nouvelles lignes dans [la table Grist HVD]"
         "(https://grist.numerique.gouv.fr/o/datagouv/eJxok2H2va3E/suivi-des-ouvertures-CITP-et-HVD/p/4)"

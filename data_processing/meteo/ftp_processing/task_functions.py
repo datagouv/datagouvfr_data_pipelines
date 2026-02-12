@@ -7,6 +7,7 @@ import re
 import requests
 from dateutil import parser
 from collections import defaultdict
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -20,7 +21,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo/data"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_ftp/"
 s3_folder = "data/synchro_ftp/"
 bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
@@ -171,7 +172,8 @@ def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
     return files
 
 
-def get_current_files_on_ftp(ti, ftp) -> None:
+@task()
+def get_current_files_on_ftp(ftp, **context) -> None:
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
@@ -192,10 +194,11 @@ def get_current_files_on_ftp(ti, ftp) -> None:
             }
     for f in ftp_files:
         logging.info(f"{f}: {ftp_files[f]}")
-    ti.xcom_push(key="ftp_files", value=ftp_files)
+    context["ti"].xcom_push(key="ftp_files", value=ftp_files)
 
 
-def get_current_files_on_s3(ti) -> None:
+@task()
+def get_current_files_on_s3(**context) -> None:
     s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder
     )
@@ -227,8 +230,8 @@ def get_current_files_on_s3(ti) -> None:
         }
     for f in final_s3_files:
         logging.info(f"{f}: {final_s3_files[f]}")
-    ti.xcom_push(key="s3_files", value=final_s3_files)
-    ti.xcom_push(key="period_starts", value=period_starts)
+    context["ti"].xcom_push(key="s3_files", value=final_s3_files)
+    context["ti"].xcom_push(key="period_starts", value=period_starts)
 
 
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
@@ -250,9 +253,14 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
     return has_been_modified
 
 
-def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
-    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_current_files_on_s3")
-    ftp_files = ti.xcom_pull(key="ftp_files", task_ids="get_current_files_on_ftp")
+@task()
+def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_current_files_on_s3"
+    )
+    ftp_files = context["ti"].xcom_pull(
+        key="ftp_files", task_ids="get_current_files_on_ftp"
+    )
     # much debated part of the code: how to best get which files to consider here
     # first it was only done with the files' names but what if a file is updated but not renamed?
     # then we thought about checking the size and comparing with S3
@@ -314,14 +322,14 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + true_path)
         # downloading the file from FTP
-        with open(DATADIR + "/" + file_name, "wb") as local_file:
+        with open(TMP_FOLDER + file_name, "wb") as local_file:
             ftp.retrbinary("RETR " + file_name, local_file.write)
 
         # sending file to S3
         try:
             s3_meteo.send_file(
                 File(
-                    source_path=f"{DATADIR}/",
+                    source_path=TMP_FOLDER,
                     source_name=file_name,
                     dest_path=s3_folder + true_path + "/",
                     dest_name=file_name,
@@ -331,7 +339,7 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
             updated_datasets.add(global_path)
         except Exception:
             logging.error("⚠️ Unable to send file")
-        os.remove(f"{DATADIR}/{file_name}")
+        os.remove(f"{TMP_FOLDER}{file_name}")
     logging.info("___________________________")
     logging.info(f"{len(new_files)} new files: {new_files}")
     logging.info(
@@ -345,32 +353,41 @@ def get_and_upload_file_diff_ftp_s3(ti, ftp) -> None:
     s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder,
     )
-    ti.xcom_push(key="s3_files", value=s3_files)
-    ti.xcom_push(key="updated_datasets", value=updated_datasets)
-    ti.xcom_push(key="new_files", value=new_files)
-    ti.xcom_push(key="files_to_update_new_name", value=files_to_update_new_name)
-    ti.xcom_push(key="files_to_update_same_name", value=files_to_update_same_name)
+    context["ti"].xcom_push(key="s3_files", value=s3_files)
+    context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
+    context["ti"].xcom_push(key="new_files", value=new_files)
+    context["ti"].xcom_push(
+        key="files_to_update_new_name", value=files_to_update_new_name
+    )
+    context["ti"].xcom_push(
+        key="files_to_update_same_name", value=files_to_update_same_name
+    )
 
 
 def get_file_extention(file: str) -> str:
     return ".".join(file.split("_")[-1].split(".")[1:])
 
 
-def upload_new_files(ti) -> None:
-    new_files = ti.xcom_pull(
+@task()
+def upload_new_files(**context) -> None:
+    new_files = context["ti"].xcom_pull(
         key="new_files", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    updated_datasets = ti.xcom_pull(
+    updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
-    files_to_update_new_name = ti.xcom_pull(
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
+    )
+    files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     # adding files that have been spotted as new files in other processings
-    spotted_new_files = ti.xcom_pull(
+    spotted_new_files = context["ti"].xcom_pull(
         key="new_files", task_ids="handle_updated_files_same_name"
-    ) + ti.xcom_pull(key="new_files", task_ids="handle_updated_files_new_name")
+    ) + context["ti"].xcom_pull(
+        key="new_files", task_ids="handle_updated_files_new_name"
+    )
     resources_lists = get_resource_lists()
     new_files += spotted_new_files
     new_files = list(set(new_files))
@@ -434,19 +451,24 @@ def upload_new_files(ti) -> None:
             logging.warning("⚠️ no config for this file")
             # the file was not uploaded, removing it from the list of new files
             went_wrong.append(clean_file_path)
-    ti.xcom_push(key="new_files_datasets", value=new_files_datasets)
-    ti.xcom_push(key="updated_datasets", value=updated_datasets)
-    ti.xcom_push(key="new_files", value=[f for f in new_files if f not in went_wrong])
+    context["ti"].xcom_push(key="new_files_datasets", value=new_files_datasets)
+    context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
+    context["ti"].xcom_push(
+        key="new_files", value=[f for f in new_files if f not in went_wrong]
+    )
 
 
-def handle_updated_files_same_name(ti) -> None:
-    updated_datasets = ti.xcom_pull(
+@task()
+def handle_updated_files_same_name(**context) -> None:
+    updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    files_to_update_same_name = ti.xcom_pull(
+    files_to_update_same_name = context["ti"].xcom_pull(
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
+    )
     resources_lists = get_resource_lists()
 
     new_files = []
@@ -477,18 +499,21 @@ def handle_updated_files_same_name(ti) -> None:
         )
         raise_if_duplicates(idx)
         updated_datasets.add(global_path)
-    ti.xcom_push(key="updated_datasets", value=updated_datasets)
-    ti.xcom_push(key="new_files", value=new_files)
+    context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
+    context["ti"].xcom_push(key="new_files", value=new_files)
 
 
-def handle_updated_files_new_name(ti) -> None:
-    updated_datasets = ti.xcom_pull(
+@task()
+def handle_updated_files_new_name(**context) -> None:
+    updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    files_to_update_new_name = ti.xcom_pull(
+    files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    s3_files = ti.xcom_pull(key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3")
+    s3_files = context["ti"].xcom_pull(
+        key="s3_files", task_ids="get_and_upload_file_diff_ftp_s3"
+    )
     resources_lists = get_resource_lists()
 
     new_files = []
@@ -529,23 +554,24 @@ def handle_updated_files_new_name(ti) -> None:
         )
         raise_if_duplicates(idx)
         updated_datasets.add(global_path)
-    ti.xcom_push(key="updated_datasets", value=updated_datasets)
-    ti.xcom_push(key="new_files", value=new_files)
+    context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
+    context["ti"].xcom_push(key="new_files", value=new_files)
 
 
-def update_temporal_coverages(ti) -> None:
-    period_starts = ti.xcom_pull(
+@task()
+def update_temporal_coverages(**context) -> None:
+    period_starts = context["ti"].xcom_pull(
         key="period_starts", task_ids="get_current_files_on_s3"
     )
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
-    for task in [
+    for _task in [
         "upload_new_files",
         "handle_updated_files_same_name",
         "handle_updated_files_new_name",
     ]:
-        updated_datasets = updated_datasets | ti.xcom_pull(
-            key="updated_datasets", task_ids=task
+        updated_datasets = updated_datasets | context["ti"].xcom_pull(
+            key="updated_datasets", task_ids=_task
         )
     logging.info("Updating datasets temporal_coverage")
     for path in updated_datasets:
@@ -567,15 +593,16 @@ def update_temporal_coverages(ti) -> None:
                     "tags": tags,
                 },
             )
-    ti.xcom_push(key="updated_datasets", value=updated_datasets)
+    context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
 
 
-def log_modified_files(ti) -> None:
-    new_files = ti.xcom_pull(key="new_files", task_ids="upload_new_files")
-    files_to_update_new_name = ti.xcom_pull(
+@task()
+def log_modified_files(**context) -> None:
+    new_files = context["ti"].xcom_pull(key="new_files", task_ids="upload_new_files")
+    files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
-    files_to_update_same_name = ti.xcom_pull(
+    files_to_update_same_name = context["ti"].xcom_pull(
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     log_file_path = "data/updated_files.json"
@@ -614,11 +641,11 @@ def log_modified_files(ti) -> None:
         if not re.match(r"\d+-\d{2}-\d{2}", k) or k >= threshold
     }
     logging.info(f"{len(log_file)} clés dans le fichier : {list(log_file.keys())}")
-    with open(f"{DATADIR}/{log_file_path.split('/')[-1]}", "w") as f:
+    with open(f"{TMP_FOLDER}{log_file_path.split('/')[-1]}", "w") as f:
         json.dump(log_file, f)
     s3_meteo.send_file(
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name=log_file_path.split("/")[-1],
             dest_path=get_path(log_file_path)[0] + "/",
             dest_name=log_file_path.split("/")[-1],
@@ -627,20 +654,22 @@ def log_modified_files(ti) -> None:
     )
 
 
-def delete_replaced_s3_files(ti) -> None:
+@task()
+def delete_replaced_s3_files(**context) -> None:
     # files that have been renamed while update will be removed
-    files_to_update_new_name = ti.xcom_pull(
+    files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     for old_file in files_to_update_new_name.values():
         s3_meteo.delete_file(file_path=s3_folder + old_file)
 
 
-def notification_mattermost(ti) -> None:
-    new_files_datasets = ti.xcom_pull(
+@task()
+def notification_mattermost(**context) -> None:
+    new_files_datasets = context["ti"].xcom_pull(
         key="new_files_datasets", task_ids="upload_new_files"
     )
-    updated_datasets = ti.xcom_pull(
+    updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="update_temporal_coverages"
     )
     logging.info(new_files_datasets)
@@ -653,7 +682,7 @@ def notification_mattermost(ti) -> None:
         for path in updated_datasets:
             if path in config:
                 message += f"\n- [{path}]"
-                message += f"({local_client.base_url}/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/) : "
+                message += f"({local_client.base_url}/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/): "
                 if path in new_files_datasets:
                     message += "nouvelles données :new:"
                 else:
@@ -696,7 +725,7 @@ def notification_mattermost(ti) -> None:
         for dataset_id in issues:
             message += (
                 f"- [{paths[dataset_id]}]"
-                f"({local_client.base_url}/datasets/{dataset_id}/) :\n"
+                f"({local_client.base_url}/datasets/{dataset_id}/):\n"
             )
             for rid in issues[dataset_id]:
                 message += (

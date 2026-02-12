@@ -1,8 +1,11 @@
 from collections import defaultdict
-import json
 from datetime import datetime, timedelta
+import json
+import logging
 import numpy as np
 import pytz
+
+from airflow.decorators import task
 from airflow.models import DagRun
 from airflow.utils.state import State
 from airflow.providers.http.hooks.http import HttpHook
@@ -25,6 +28,7 @@ with open(
 
 
 def get_ids(config: dict) -> dict[str, str]:
+    # TODO: call api/v2 in Airflow3
     dags = http_hook.run("api/v1/dags").json()["dags"]
     ids = {}
     for raw_id, included in config.items():
@@ -39,14 +43,15 @@ def get_ids(config: dict) -> dict[str, str]:
     return ids
 
 
+@task()
 def monitor_dags(
-    ti,
     date=(datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),
+    **context,
 ):
     dag_ids_to_monitor = get_ids(config)
-    print("DAG list:", dag_ids_to_monitor)
+    logging.info("DAG list:", dag_ids_to_monitor)
 
-    print("Start date considered:", date)
+    logging.info("Start date considered:", date)
     todays_runs = defaultdict(dict)
     for dag_id in dag_ids_to_monitor:
         dag_runs = DagRun.find(
@@ -80,17 +85,18 @@ def monitor_dags(
                         "success": True,
                         "duration": duration.total_seconds(),
                     }
-    ti.xcom_push(key="todays_runs", value=todays_runs)
+    context["ti"].xcom_push(key="todays_runs", value=todays_runs)
     # sending the mapping between dag ids and prefixes in the config
-    ti.xcom_push(key="dag_ids", value=dag_ids_to_monitor)
+    context["ti"].xcom_push(key="dag_ids", value=dag_ids_to_monitor)
     return todays_runs
 
 
-def notification_mattermost(ti):
-    todays_runs = ti.xcom_pull(key="todays_runs", task_ids="monitor_dags")
-    dag_ids = ti.xcom_pull(key="dag_ids", task_ids="monitor_dags")
-    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}) :"
-    print(todays_runs)
+@task()
+def notification_mattermost(**context):
+    todays_runs = context["ti"].xcom_pull(key="todays_runs", task_ids="monitor_dags")
+    dag_ids = context["ti"].xcom_pull(key="dag_ids", task_ids="monitor_dags")
+    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):"
+    logging.info(todays_runs)
     for dag, attempts in dict(sorted(todays_runs.items())).items():
         message += f"\n- **{dag}** :"
         successes = {
