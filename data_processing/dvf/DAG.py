@@ -130,9 +130,3 @@ with DAG(
         >> final_clean_up
     )
     _create_dist >> send_stats_to_s3() >> publish_stats_dvf() >> final_clean_up
-    (
-        _create_dist
-        >> create_stats_dvf_table()
-        >> populate_stats_dvf_table()
-        >> final_clean_up
-    )
