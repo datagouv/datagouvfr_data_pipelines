@@ -74,13 +74,14 @@ def detect_potential_certif(siret):
     )
 
 
-def check_new(object_type: str, ti):
+@task()
+def check_new(object_type: str, **context):
     # we want everything that happened since this date
     start_date = datetime.now() - timedelta(**TIME_PERIOD)
     end_date = datetime.now()
     items = get_last_items(object_type, start_date, end_date)
     # items = get_last_items(templates_dict['type'], start_date)
-    ti.xcom_push(key="nb", value=str(len(items)))
+    context["ti"].xcom_push(key="nb", value=str(len(items)))
     arr = []
     for item in items:
         mydict = {}
@@ -148,7 +149,7 @@ def check_new(object_type: str, ti):
             # checking for potential duplicates in organization creation
             mydict["duplicated"] = check_duplicated_orga(item["slug"]) is not None
         arr.append(mydict)
-    ti.xcom_push(key=object_type, value=arr)
+    context["ti"].xcom_push(key=object_type, value=arr)
 
 
 @task()
@@ -477,7 +478,7 @@ def publish_mattermost(**context):
     dataservices = context["ti"].xcom_pull(
         key="dataservices", task_ids="check_new_dataservices"
     )
-    # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
+    # spam_comments = context["ti"].xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:
