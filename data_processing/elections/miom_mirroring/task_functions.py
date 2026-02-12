@@ -113,7 +113,9 @@ def get_files_updated_miom(**context):
 
 @task()
 def download_local_files(**context):
-    miom_files = context["ti"].xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+    miom_files = context["ti"].xcom_pull(
+        key="miom_files", task_ids="get_files_updated_miom"
+    )
     for cf in miom_files:
         url = cf["link"]
         dest_path = (
@@ -150,7 +152,9 @@ def download_local_files(**context):
 
 @task()
 def send_to_s3(**context):
-    miom_files = context["ti"].xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+    miom_files = context["ti"].xcom_pull(
+        key="miom_files", task_ids="get_files_updated_miom"
+    )
     s3_open.send_files(
         list_files=[
             File(
@@ -260,7 +264,9 @@ def send_exports_to_s3():
 
 
 def check_if_continue(**context):
-    miom_files = context["ti"].xcom_pull(key="miom_files", task_ids="get_files_updated_miom")
+    miom_files = context["ti"].xcom_pull(
+        key="miom_files", task_ids="get_files_updated_miom"
+    )
     if len(miom_files) == 0:
         return False
     return True
@@ -326,7 +332,9 @@ def create_candidats_files():
 
 @task()
 def publish_results_elections(**context):
-    max_dates = context["ti"].xcom_pull(key="max_date", task_ids="get_files_updated_miom")
+    max_dates = context["ti"].xcom_pull(
+        key="max_date", task_ids="get_files_updated_miom"
+    )
     max_date = "1970-01-01"
     for md in max_dates:
         if max_dates[md] > max_date:

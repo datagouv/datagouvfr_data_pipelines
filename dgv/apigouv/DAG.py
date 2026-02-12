@@ -30,13 +30,13 @@
 #     default_args=default_args,
 #     catchup=False,
 # ):
-    # (
-    #     clean_up_folder(TMP_FOLDER, recreate=True)
-    #     >> BashOperator(
-    #         task_id="clone_dag_apigouv_repo",
-    #         bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/betagouv/api.gouv.fr.git --depth 1 ",
-    #     )
-    #     >> import_api_to_grist()
-    #     >> publish_api_to_datagouv()
-    #     >> publish_mattermost()
-    # )
+# (
+#     clean_up_folder(TMP_FOLDER, recreate=True)
+#     >> BashOperator(
+#         task_id="clone_dag_apigouv_repo",
+#         bash_command=f"cd {TMP_FOLDER} && git clone https://github.com/betagouv/api.gouv.fr.git --depth 1 ",
+#     )
+#     >> import_api_to_grist()
+#     >> publish_api_to_datagouv()
+#     >> publish_mattermost()
+# )

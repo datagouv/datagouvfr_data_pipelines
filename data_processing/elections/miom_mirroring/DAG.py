@@ -36,23 +36,23 @@
 #     default_args=default_args,
 # ):
 
-    # (
-    #     clean_up_folder(TMP_FOLDER, recreate=True)
-    #     >> get_files_updated_miom()
-    #     >> ShortCircuitOperator(
-    #         task_id="check_if_continue",
-    #         python_callable=check_if_continue,
-    #     )
-    #     >> download_local_files()
-    #     >> send_to_s3()
-    #     >> download_from_s3()
-    #     >> BashOperator(
-    #         task_id="zip_folder",
-    #         bash_command=f"cd {AIRFLOW_DAG_TMP}elections-mirroring/ && zip -r {ID_CURRENT_ELECTION}.zip ./export/ ",
-    #     )
-    #     >> create_candidats_files()
-    #     >> create_resultats_files()
-    #     >> send_exports_to_s3()
-    #     >> publish_results_elections()
-    #     >> clean_up_folder(TMP_FOLDER)
-    # )
+# (
+#     clean_up_folder(TMP_FOLDER, recreate=True)
+#     >> get_files_updated_miom()
+#     >> ShortCircuitOperator(
+#         task_id="check_if_continue",
+#         python_callable=check_if_continue,
+#     )
+#     >> download_local_files()
+#     >> send_to_s3()
+#     >> download_from_s3()
+#     >> BashOperator(
+#         task_id="zip_folder",
+#         bash_command=f"cd {AIRFLOW_DAG_TMP}elections-mirroring/ && zip -r {ID_CURRENT_ELECTION}.zip ./export/ ",
+#     )
+#     >> create_candidats_files()
+#     >> create_resultats_files()
+#     >> send_exports_to_s3()
+#     >> publish_results_elections()
+#     >> clean_up_folder(TMP_FOLDER)
+# )

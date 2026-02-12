@@ -513,7 +513,9 @@ def publish_api_to_datagouv(**context):
 
 @task()
 def publish_mattermost(**context):
-    list_sources = context["ti"].xcom_pull(key="list_sources", task_ids="import_api_to_grist")
+    list_sources = context["ti"].xcom_pull(
+        key="list_sources", task_ids="import_api_to_grist"
+    )
     apikos = context["ti"].xcom_pull(key="apikos", task_ids="publish_api_to_datagouv")
     list_sources_str = ""
     for ls in list_sources:
