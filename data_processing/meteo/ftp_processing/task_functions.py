@@ -565,13 +565,13 @@ def update_temporal_coverages(**context) -> None:
     )
     updated_datasets = set()
     # datasets have been updated in all three tasks, we gather them here
-    for task in [
+    for _task in [
         "upload_new_files",
         "handle_updated_files_same_name",
         "handle_updated_files_new_name",
     ]:
         updated_datasets = updated_datasets | context["ti"].xcom_pull(
-            key="updated_datasets", task_ids=task
+            key="updated_datasets", task_ids=_task
         )
     logging.info("Updating datasets temporal_coverage")
     for path in updated_datasets:
