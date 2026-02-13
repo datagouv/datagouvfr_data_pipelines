@@ -63,6 +63,7 @@ class TestGetAndFormatGristV2Data:
         grist_factory.create_records("Types_de_simplification", 2)
         grist_factory.create_records("Usagers", 3)
         grist_factory.create_records("Budgets_de_mise_en_oeuvre", 4)
+        grist_factory.create_records("Categories_de_solution", 2)
 
         ti_mock = Mock()
         get_and_format_grist_v2_data(ti_mock)
@@ -74,6 +75,7 @@ class TestGetAndFormatGristV2Data:
         assert len(second_call["Types_de_simplification"]) == 2
         assert len(second_call["Usagers"]) == 3
         assert len(second_call["Budgets_de_mise_en_oeuvre"]) == 4
+        assert len(second_call["Categories_de_solution"]) == 2
 
 
 class TestWatchGristData:
@@ -407,6 +409,16 @@ class TestUpdateTopicsV2:
                 # duplicates one of fournisseur 1's slugs
                 {"id": 3, "fields": {"Label": "Fournisseur 3", "slug": "f1"}},
             ],
+            "Categories_de_solution": [
+                {
+                    "id": 1,
+                    "fields": {"Nom": "Brique technique", "slug": "brique-technique"},
+                },
+                {
+                    "id": 2,
+                    "fields": {"Nom": "Logiciel métier", "slug": "logiciel-metier"},
+                },
+            ],
         }
 
     def test_with_one_new_solution(self, grist_tables_for_filters):
@@ -421,6 +433,7 @@ class TestUpdateTopicsV2:
                     "Types_de_simplification": 2,
                     "A_destination_de": [1, 3],
                     "Pour_simplifier_les_demarches_de": 2,
+                    "Categorie_de_solution": [1, 2],
                     "Image": ["https://example.com/image.png"],
                     "Public_ou_prive": "Public",
                     "Nom_de_l_operateur": "Operateur 1",
@@ -454,6 +467,8 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
                 "simplifions-v2-target-users-u2",
+                "simplifions-v2-categorie-de-solution-brique-technique",
+                "simplifions-v2-categorie-de-solution-logiciel-metier",
             ]
         )
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1
@@ -485,6 +500,7 @@ class TestUpdateTopicsV2:
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
+                    "Categorie_de_solution": 2,
                     "Icone_du_titre": "👋",
                 },
             },
@@ -516,6 +532,7 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
                 "simplifions-v2-target-users-u2",
+                "simplifions-v2-categorie-de-solution-logiciel-metier",
             ]
         )
         assert topics[0]["extras"]["simplifions-v2-cas-d-usages"]["id"] == 1
@@ -643,6 +660,7 @@ class TestUpdateTopicsV2:
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
+                    "Categorie_de_solution": 1,
                 },
             },
         }
@@ -673,6 +691,7 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
                 "simplifions-v2-target-users-u2",
+                "simplifions-v2-categorie-de-solution-brique-technique",
             ]
         )
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 1

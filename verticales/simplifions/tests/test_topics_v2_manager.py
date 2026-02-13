@@ -29,6 +29,13 @@ def grist_tables_for_filters():
             {"id": 1, "fields": {"Label": "Fournisseur 1", "slug": "f1"}},
             {"id": 2, "fields": {"Label": "Fournisseur 2", "slug": "f2"}},
         ],
+        "Categories_de_solution": [
+            {
+                "id": 1,
+                "fields": {"Nom": "Brique technique", "slug": "brique-technique"},
+            },
+            {"id": 2, "fields": {"Nom": "Logiciel métier", "slug": "logiciel-metier"}},
+        ],
     }
 
 
@@ -45,6 +52,7 @@ def test_generated_search_tags(topics_manager):
             "Types_de_simplification": 2,
             "A_destination_de": 1,
             "Pour_simplifier_les_demarches_de": 2,
+            "Categorie_de_solution": 1,
         },
     }
 
@@ -55,6 +63,7 @@ def test_generated_search_tags(topics_manager):
             "simplifions-v2-types-de-simplification-t2",
             "simplifions-v2-fournisseurs-de-service-f1",
             "simplifions-v2-target-users-u2",
+            "simplifions-v2-categorie-de-solution-brique-technique",
         ]
     )
 

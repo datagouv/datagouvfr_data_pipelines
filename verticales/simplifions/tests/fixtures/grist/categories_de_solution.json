@@ -1,0 +1,8 @@
+{
+  "resource_name": "Categories_de_solution",
+  "total_records_available": 3,
+  "sample_record": {
+    "Nom": "Brique technique",
+    "slug": "brique-technique"
+  }
+}
