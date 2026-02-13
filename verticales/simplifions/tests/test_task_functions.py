@@ -410,8 +410,14 @@ class TestUpdateTopicsV2:
                 {"id": 3, "fields": {"Label": "Fournisseur 3", "slug": "f1"}},
             ],
             "Categories_de_solution": [
-                {"id": 1, "fields": {"Nom": "Brique technique", "slug": "brique-technique"}},
-                {"id": 2, "fields": {"Nom": "Logiciel métier", "slug": "logiciel-metier"}},
+                {
+                    "id": 1,
+                    "fields": {"Nom": "Brique technique", "slug": "brique-technique"},
+                },
+                {
+                    "id": 2,
+                    "fields": {"Nom": "Logiciel métier", "slug": "logiciel-metier"},
+                },
             ],
         }
 

@@ -30,7 +30,10 @@ def grist_tables_for_filters():
             {"id": 2, "fields": {"Label": "Fournisseur 2", "slug": "f2"}},
         ],
         "Categories_de_solution": [
-            {"id": 1, "fields": {"Nom": "Brique technique", "slug": "brique-technique"}},
+            {
+                "id": 1,
+                "fields": {"Nom": "Brique technique", "slug": "brique-technique"},
+            },
             {"id": 2, "fields": {"Nom": "Logiciel métier", "slug": "logiciel-metier"}},
         ],
     }
