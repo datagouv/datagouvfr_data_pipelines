@@ -500,6 +500,7 @@ class TestUpdateTopicsV2:
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
+                    "Categorie_de_solution": 2,
                     "Icone_du_titre": "👋",
                 },
             },
@@ -531,6 +532,7 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
                 "simplifions-v2-target-users-u2",
+                "simplifions-v2-categorie-de-solution-logiciel-metier",
             ]
         )
         assert topics[0]["extras"]["simplifions-v2-cas-d-usages"]["id"] == 1
