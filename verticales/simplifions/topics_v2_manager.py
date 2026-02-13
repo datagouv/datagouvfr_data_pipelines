@@ -25,6 +25,10 @@ ATTRIBUTES_FOR_TAGS = {
         "table_id": "Usagers",
         "filter_slug": "target-users",
     },
+    "Categorie_de_solution": {
+        "table_id": "Categories_de_solution",
+        "filter_slug": "categorie-de-solution",
+    },
 }
 
 
