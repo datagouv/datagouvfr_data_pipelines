@@ -6,6 +6,7 @@ import os
 import requests
 import shutil
 import subprocess
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -23,7 +24,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
 
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pe/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
@@ -62,7 +63,8 @@ def get_file_infos(file_name: str):
     }
 
 
-def get_files_list_on_sftp(ti, pack: str, grid: str):
+@task()
+def get_files_list_on_sftp(pack: str, grid: str, **context):
     sftp = create_client()
     files = sftp.list_files_in_directory(upload_dir)
     logging.info(f"{len(files)} files in {upload_dir}")
@@ -87,41 +89,41 @@ def get_files_list_on_sftp(ti, pack: str, grid: str):
     logging.info(f"{nb} files to process")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     if to_process:
-        with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "w") as f:
+        with open(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json", "w") as f:
             json.dump(to_process, f)
-    ti.xcom_push(key="timestamp", value=timestamp)
+    context["ti"].xcom_push(key="timestamp", value=timestamp)
 
 
 def process_members(
     members: list[str], date: str, echeance: str, pack: str, grid: str, sftp
 ):
     tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
-    if os.path.isdir(DATADIR + tmp_folder):
+    if os.path.isdir(TMP_FOLDER + tmp_folder):
         logging.info(f"{tmp_folder} is already being processed by another run")
         return 0
     logging.info(f"Processing {tmp_folder}")
-    os.mkdir(DATADIR + tmp_folder)
+    os.mkdir(TMP_FOLDER + tmp_folder)
     for file in members:
         try:
             sftp.download_file(
                 remote_file_path=upload_dir + file,
-                local_file_path=DATADIR + tmp_folder + file,
+                local_file_path=TMP_FOLDER + tmp_folder + file,
             )
         except FileNotFoundError:
             logging.warning("Seems like it has already been processed")
-            shutil.rmtree(DATADIR + tmp_folder)
+            shutil.rmtree(TMP_FOLDER + tmp_folder)
             return 0
     # concatenating all members of the occurrence into a grib
     logging.info("> Concatenating")
     subprocess.run(
-        f"cat {DATADIR + tmp_folder}* > {DATADIR + tmp_folder[:-1]}.grib",
+        f"cat {TMP_FOLDER + tmp_folder}* > {TMP_FOLDER + tmp_folder[:-1]}.grib",
         shell=True,
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
     s3_meteo.send_file(
         File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name=tmp_folder[:-1] + ".grib",
             dest_path=f"{s3_folder}/{pack}/{grid}/{date}/",
             dest_name=tmp_folder[:-1] + ".grib",
@@ -130,19 +132,21 @@ def process_members(
         burn_after_sending=True,
     )
     logging.info("> Cleaning")
-    shutil.rmtree(DATADIR + tmp_folder)
+    shutil.rmtree(TMP_FOLDER + tmp_folder)
     if AIRFLOW_ENV == "prod":
         for file in members:
             sftp.delete_file(upload_dir + file)
     return 1
 
 
-def transfer_files_to_s3(ti, pack: str, grid: str):
-    timestamp = ti.xcom_pull(key="timestamp", task_ids="get_files_list_on_sftp")
-    if not os.path.isfile(DATADIR + f"{pack}_{grid}_{timestamp}.json"):
+def transfer_files_to_s3(pack: str, grid: str, **context):
+    timestamp = context["ti"].xcom_pull(
+        key="timestamp", task_ids="get_files_list_on_sftp"
+    )
+    if not os.path.isfile(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json"):
         logging.info("No file to process, skipping")
         return
-    with open(DATADIR + f"{pack}_{grid}_{timestamp}.json", "r") as f:
+    with open(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json", "r") as f:
         files = json.load(f)
     # we are storing files by datetime => echeance => members
     dates_echeances = defaultdict(lambda: defaultdict(list))
@@ -174,7 +178,7 @@ def transfer_files_to_s3(ti, pack: str, grid: str):
                     f"Too many members: {nb} for {CONFIG[pack][grid]['nb_membres']} expected"
                 )
     logging.info(f"{count} file{'s' * (count > 1)} transfered")
-    os.remove(DATADIR + f"{pack}_{grid}_{timestamp}.json")
+    os.remove(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json")
     return count
 
 
@@ -215,6 +219,7 @@ def fix_title(file_name: str):
     return file_name.replace("arome", "pearome").replace("arpege", "pearp")
 
 
+@task()
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on S3
     latest_files = {}
@@ -269,6 +274,7 @@ def publish_on_datagouv(pack: str, grid: str):
             )
 
 
+@task()
 def remove_old_occurrences(pack: str, grid: str):
     current_resources: dict = get_current_resources(pack, grid)
     oldest_available_date = datetime.strptime(
@@ -299,6 +305,7 @@ def remove_old_occurrences(pack: str, grid: str):
                 s3_meteo.delete_file(file)
 
 
+@task()
 def handle_cyclonic_alert(pack: str, grid: str):
     # during a cyclonic alert, some packs have a higher number of members (79 instead of 49)
     # so when a cyclonic alert is stopped, we have to remove the additional resources from the dataset
@@ -341,17 +348,18 @@ def handle_cyclonic_alert(pack: str, grid: str):
                 ).delete()
 
 
+@task()
 def clean_directory():
     # in case processes crash and leave stuff behind
-    files_and_folders = os.listdir(DATADIR)
+    files_and_folders = os.listdir(TMP_FOLDER)
     threshold = datetime.now() - timedelta(hours=6)
     for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(os.path.getctime(DATADIR + f))
+        creation_date = datetime.fromtimestamp(os.path.getctime(TMP_FOLDER + f))
         if creation_date < threshold:
             try:
-                shutil.rmtree(DATADIR + f)
+                shutil.rmtree(TMP_FOLDER + f)
             except NotADirectoryError:
-                os.remove(DATADIR + f)
+                os.remove(TMP_FOLDER + f)
             logging.warning(
                 f"Deleted {f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
             )

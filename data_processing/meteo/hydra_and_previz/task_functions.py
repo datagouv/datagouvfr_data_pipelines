@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from dateutil.parser import parse
 import requests
 import pandas as pd
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     SECRET_SENTRY_API_TOKEN,
@@ -44,6 +45,7 @@ def build_resource_url(dataset_id, resource_id):
     return f"https://www.data.gouv.fr/datasets/{dataset_id}/#/resources/{resource_id}"
 
 
+@task()
 def get_and_send_errors():
     print("Getting all datasets of meteo.data.gouv...")
     catalog = [

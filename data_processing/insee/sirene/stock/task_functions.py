@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 import zipfile
 
+from airflow.decorators import task
 import pandas as pd
 
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
@@ -36,7 +37,8 @@ def check_if_already_processed(s3_path: str):
     return True
 
 
-def get_files(ti, tmp_dir: str, resource_file: str):
+@task()
+def get_files(tmp_dir: str, resource_file: str, **context):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
 
@@ -94,9 +96,10 @@ def get_files(ti, tmp_dir: str, resource_file: str):
             f"{tmp_dir}{item['nameFTP']}"
         )
 
-    ti.xcom_push(key="hashes", value=hashfiles)
+    context["ti"].xcom_push(key="hashes", value=hashfiles)
 
 
+@task()
 def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
@@ -144,8 +147,9 @@ def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
     )
 
 
-def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str):
-    hashes = ti.xcom_pull(key="hashes", task_ids="get_files")
+@task()
+def update_dataset_data_gouv(tmp_dir: str, resource_file: str, **context):
+    hashes = context["ti"].xcom_pull(key="hashes", task_ids="get_files")
 
     liste_mois = [m.title() for m in MOIS_FR.values()]
     mois = datetime.now().date().month
@@ -188,6 +192,7 @@ def update_dataset_data_gouv(ti, tmp_dir: str, resource_file: str):
         )
 
 
+@task()
 def publish_mattermost(geoloc):
     if geoloc:
         text = (

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 
+from airflow.decorators import task
 from datagouv import Client
 import pandas as pd
 
@@ -19,7 +20,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}elections"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 dtypes: dict[str, dict[str, str]] = {
@@ -78,6 +79,7 @@ _types = {
 }
 
 
+@task()
 def process_election_data():
     # getting preprocessed resources
     resources_url = [
@@ -106,7 +108,7 @@ def process_election_data():
             df = df[dtypes[scope].keys()]
             # concatenating all files (first one has header)
             df.to_csv(
-                DATADIR + f"/{scope}_results.csv",
+                TMP_FOLDER + f"{scope}_results.csv",
                 sep=";",
                 index=False,
                 mode="w" if idx == 0 else "a",
@@ -115,16 +117,17 @@ def process_election_data():
             del df
         logging.info("Export en parquet...")
         csv_to_parquet(
-            csv_file_path=DATADIR + f"/{scope}_results.csv",
+            csv_file_path=TMP_FOLDER + f"{scope}_results.csv",
             dtype=dtypes[scope],
         )
 
 
+@task()
 def send_results_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"{scope}_results.{ext}",
                 dest_path="elections/",
                 dest_name=f"{scope}_results.{ext}",
@@ -136,6 +139,7 @@ def send_results_to_s3():
     )
 
 
+@task()
 def publish_results_elections():
     with open(
         f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json"
@@ -152,9 +156,7 @@ def publish_results_elections():
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/elections/general_results.{ext}"
                 ),
-                "filesize": os.path.getsize(
-                    os.path.join(DATADIR, f"general_results.{ext}")
-                ),
+                "filesize": os.path.getsize(TMP_FOLDER + f"general_results.{ext}"),
                 "title": "Résultats généraux",
                 "format": ext,
                 "description": (
@@ -176,9 +178,7 @@ def publish_results_elections():
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/elections/candidats_results.{ext}"
                 ),
-                "filesize": os.path.getsize(
-                    os.path.join(DATADIR, f"candidats_results.{ext}")
-                ),
+                "filesize": os.path.getsize(TMP_FOLDER + f"candidats_results.{ext}"),
                 "title": "Résultats par candidat",
                 "format": ext,
                 "description": (
@@ -192,6 +192,7 @@ def publish_results_elections():
         logging.info(f"Done with candidats results {ext}")
 
 
+@task()
 def send_notification():
     with open(
         f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config/dgv.json"

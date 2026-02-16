@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime
-from airflow.models import DAG
+from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
@@ -16,15 +16,13 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
     clean_directory,
 )
 
-DAG_NAME = "data_processing_meteo_pnt"
-
 
 def create_dag(model: str, pack: str, grid: str, infos: dict):
     _id = f"_{model}_{pack}_{grid}" if not pack.startswith("$") else f"_{model}_{grid}"
     dag = DAG(
-        dag_id=DAG_NAME + _id,
+        dag_id="data_processing_meteo_pnt" + _id,
         # DAG runs every 3 minutes
-        schedule_interval="*/3 * * * *",
+        schedule="*/3 * * * *",
         start_date=datetime(2024, 6, 1),
         catchup=False,
         dagrun_timeout=timedelta(minutes=600),
@@ -33,53 +31,26 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         max_active_runs=2,
     )
     with dag:
-        create_working_dirs = BashOperator(
-            task_id="create_working_dirs",
-            bash_command=f"mkdir -p {LOG_PATH}",
+        shared_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
+
+        _get_latest_theorical_batches = get_latest_theorical_batches(**shared_kwargs)
+        clean_directory(**shared_kwargs)
+        (
+            BashOperator(
+                task_id="create_working_dirs",
+                bash_command=f"mkdir -p {LOG_PATH}",
+            )
+            >> _get_latest_theorical_batches
+            >> ShortCircuitOperator(
+                task_id="construct_all_possible_files",
+                python_callable=construct_all_possible_files,
+                op_kwargs=shared_kwargs,
+            )
+            >> send_files_to_s3(**shared_kwargs)
+            >> publish_on_datagouv(**shared_kwargs)
         )
 
-        common_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
-
-        _get_latest_theorical_batches = PythonOperator(
-            task_id="get_latest_theorical_batches",
-            python_callable=get_latest_theorical_batches,
-            op_kwargs=common_kwargs,
-        )
-
-        _clean_old_runs_in_s3 = PythonOperator(
-            task_id="clean_old_runs_in_s3",
-            python_callable=clean_old_runs_in_s3,
-        )
-
-        _clean_directory = PythonOperator(
-            task_id="clean_directory",
-            python_callable=clean_directory,
-            op_kwargs=common_kwargs,
-        )
-
-        _construct_all_possible_files = ShortCircuitOperator(
-            task_id="construct_all_possible_files",
-            python_callable=construct_all_possible_files,
-            op_kwargs=common_kwargs,
-        )
-
-        _send_files_to_s3 = PythonOperator(
-            task_id="send_files_to_s3",
-            python_callable=send_files_to_s3,
-            op_kwargs=common_kwargs,
-        )
-
-        _publish_on_datagouv = PythonOperator(
-            task_id="publish_on_datagouv",
-            python_callable=publish_on_datagouv,
-            op_kwargs=common_kwargs,
-        )
-
-        _get_latest_theorical_batches.set_upstream(create_working_dirs)
-        _clean_old_runs_in_s3.set_upstream(_get_latest_theorical_batches)
-        _construct_all_possible_files.set_upstream(_get_latest_theorical_batches)
-        _send_files_to_s3.set_upstream(_construct_all_possible_files)
-        _publish_on_datagouv.set_upstream(_send_files_to_s3)
+        _get_latest_theorical_batches >> clean_old_runs_in_s3()
 
     return dag
 

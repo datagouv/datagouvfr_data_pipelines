@@ -3,6 +3,7 @@ import logging
 import os
 import requests
 import shutil
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -29,8 +30,8 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 # AIRFLOW_ENV = "dev"
 # DATAGOUV_URL = "https://demo.data.gouv.fr"
 
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
-LOG_PATH = f"{DATADIR}logs/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
+LOG_PATH = f"{TMP_FOLDER}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 s3_pnt = S3Client(
@@ -73,7 +74,8 @@ def get_new_batches(batches: list, url: str) -> list:
     return new_batches
 
 
-def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs):
+@task()
+def get_latest_theorical_batches(model: str, pack: str, grid: str, **context):
     batches = []
     if model == "arome":
         # arome runs every 3h
@@ -102,12 +104,15 @@ def get_latest_theorical_batches(ti, model: str, pack: str, grid: str, **kwargs)
         PACKAGES[model][pack][grid]["check_availability_url"],
     )
     logging.info(f"Tested batches: {tested_batches}")
-    ti.xcom_push(key="batches", value=batches)
-    ti.xcom_push(key="tested_batches", value=tested_batches)
+    context["ti"].xcom_push(key="batches", value=batches)
+    context["ti"].xcom_push(key="tested_batches", value=tested_batches)
 
 
-def clean_old_runs_in_s3(ti):
-    batches = ti.xcom_pull(key="batches", task_ids="get_latest_theorical_batches")
+@task()
+def clean_old_runs_in_s3(**context):
+    batches = context["ti"].xcom_pull(
+        key="batches", task_ids="get_latest_theorical_batches"
+    )
     # we get the runs' names from the folders
     runs = s3_pnt.get_folders_from_prefix(
         prefix=f"{s3_folder}/",
@@ -133,8 +138,8 @@ def build_folder_path(model: str, pack: str, grid: str) -> str:
     return f"{base_path}/{grid.replace('.', '')}"
 
 
-def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs):
-    tested_batches = ti.xcom_pull(
+def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs):
+    tested_batches = kwargs["ti"].xcom_pull(
         key="tested_batches", task_ids="get_latest_theorical_batches"
     )
     nb_files = 0
@@ -177,9 +182,9 @@ def construct_all_possible_files(ti, model: str, pack: str, grid: str, **kwargs)
         logging.info("No new data, exit")
         return False
 
-    ti.xcom_push(key="url_to_infos", value=url_to_infos)
-    ti.xcom_push(key="to_get", value=to_get)
-    ti.xcom_push(key="s3_path_to_url", value=s3_path_to_url)
+    kwargs["ti"].xcom_push(key="url_to_infos", value=url_to_infos)
+    kwargs["ti"].xcom_push(key="to_get", value=to_get)
+    kwargs["ti"].xcom_push(key="s3_path_to_url", value=s3_path_to_url)
     return True
 
 
@@ -210,12 +215,15 @@ def is_file_available(url: str) -> bool:
     return True
 
 
-def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
-    url_to_infos = ti.xcom_pull(
+@task()
+def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
+    url_to_infos = context["ti"].xcom_pull(
         key="url_to_infos", task_ids="construct_all_possible_files"
     )
-    to_get = ti.xcom_pull(key="to_get", task_ids="construct_all_possible_files")
-    s3_path_to_url = ti.xcom_pull(
+    to_get = context["ti"].xcom_pull(
+        key="to_get", task_ids="construct_all_possible_files"
+    )
+    s3_path_to_url = context["ti"].xcom_pull(
         key="s3_path_to_url", task_ids="construct_all_possible_files"
     )
     path = build_folder_path(model, pack, grid)
@@ -229,14 +237,17 @@ def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
         # we don't download the files anymore, but we keep the folder creation for cross-run communication
-        if os.path.isdir(f"{DATADIR}{path}/{package}") and package not in my_packages:
+        if (
+            os.path.isdir(f"{TMP_FOLDER}{path}/{package}")
+            and package not in my_packages
+        ):
             logging.info(
                 f"{url_to_infos[url]['package']} is already being processed by another run"
             )
             continue
         else:
             # this is to make sure concurrent runs don't interfere or process the same data
-            os.makedirs(f"{DATADIR}{path}/{package}", exist_ok=True)
+            os.makedirs(f"{TMP_FOLDER}{path}/{package}", exist_ok=True)
             my_packages.add(package)
         if not is_file_available(url):
             continue
@@ -248,8 +259,8 @@ def send_files_to_s3(ti, model: str, pack: str, grid: str, **kwargs) -> None:
         uploaded.append(s3_path)
     for p in my_packages:
         # making way for later occurrences
-        os.removedirs(f"{DATADIR}{path}/{p}")
-    ti.xcom_push(key="uploaded", value=uploaded)
+        os.removedirs(f"{TMP_FOLDER}{path}/{p}")
+    context["ti"].xcom_push(key="uploaded", value=uploaded)
 
 
 def build_file_id_and_date(file_name: str):
@@ -283,6 +294,7 @@ def get_current_resources(model: str, pack: str, grid: str):
     return current_resources
 
 
+@task()
 def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # getting the current state of the resources
     current_resources: dict = get_current_resources(model, pack, grid)
@@ -357,19 +369,22 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             )
 
 
-def clean_directory(model: str, pack: str, grid: str):
+@task()
+def clean_directory(model: str, pack: str, grid: str, **kwargs):
     # in case processes crash and leave stuff behind
     path = build_folder_path(model, pack, grid)
-    files_and_folders = os.listdir(f"{DATADIR}{path}")
+    files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
     threshold = datetime.now() - timedelta(hours=3)
     for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(os.path.getctime(f"{DATADIR}{path}/{f}"))
+        creation_date = datetime.fromtimestamp(
+            os.path.getctime(f"{TMP_FOLDER}{path}/{f}")
+        )
         if creation_date < threshold and "issues" not in f:
             try:
-                shutil.rmtree(f"{DATADIR}{path}/{f}")
+                shutil.rmtree(f"{TMP_FOLDER}{path}/{f}")
             except NotADirectoryError:
-                os.remove(f"{DATADIR}{path}/{f}")
+                os.remove(f"{TMP_FOLDER}{path}/{f}")
             logging.warning(
-                f"Deleted {DATADIR}{path}/{f} (created at "
+                f"Deleted {TMP_FOLDER}{path}/{f} (created at "
                 f"{creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
             )

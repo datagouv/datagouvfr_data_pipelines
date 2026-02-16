@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import logging
-from airflow.models import DAG
-from airflow.operators.python import PythonOperator
+from airflow.decorators import task
+from airflow import DAG
 
 from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
@@ -11,13 +11,13 @@ from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_MOISSONNAGE,
 )
 
-DAG_NAME = "dgv_harvester_notification"
 PAD_AWAITING_VALIDATION = "https://pad.incubateur.net/173bEiKKTi2laBNyHwIPlQ"
 doc_id = "6xrGmKARsDFR" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(doc_id, "Moissonneurs")
 
 
-def get_pending_harvesters(ti):
+@task()
+def get_pending_harvesters(**context):
     harvesters = local_client.get_all_from_api_query("api/1/harvest/sources/")
     harvesters = [
         {
@@ -49,11 +49,14 @@ def get_pending_harvesters(ti):
         for harvest in harvesters
         if harvest["validation"]["state"] == "pending"
     ]
-    ti.xcom_push(key="harvesters", value=harvesters)
+    context["ti"].xcom_push(key="harvesters", value=harvesters)
 
 
-def get_preview_state(ti):
-    harvesters = ti.xcom_pull(key="harvesters", task_ids="get_pending_harvesters")
+@task()
+def get_preview_state(**context):
+    harvesters = context["ti"].xcom_pull(
+        key="harvesters", task_ids="get_pending_harvesters"
+    )
     for idx, harvester in enumerate(harvesters):
         if idx > 0 and idx % 5 == 0:
             logging.info(f"> {idx}/{len(harvesters)} processed")
@@ -66,11 +69,14 @@ def get_preview_state(ti):
         except Exception:
             logging.warning("error on " + harvester["id"])
             harvester["preview"] = "timeout"
-    ti.xcom_push(key="harvesters_complete", value=harvesters)
+    context["ti"].xcom_push(key="harvesters_complete", value=harvesters)
 
 
-def fill_in_grist(ti):
-    harvesters = ti.xcom_pull(key="harvesters_complete", task_ids="get_preview_state")
+@task()
+def fill_in_grist(**context):
+    harvesters = context["ti"].xcom_pull(
+        key="harvesters_complete", task_ids="get_preview_state"
+    )
     current_table = table.to_dataframe(
         columns_labels=False,
         usecols=[
@@ -119,16 +125,17 @@ def fill_in_grist(ti):
             conditions={"harvester_id": harvester["id"]},
             new_values=to_update,
         )
-    ti.xcom_push(key="new", value=new)
-    ti.xcom_push(key="issues", value=issues)
+    context["ti"].xcom_push(key="new", value=new)
+    context["ti"].xcom_push(key="issues", value=issues)
 
 
-def publish_mattermost(ti):
-    pending_harvesters = ti.xcom_pull(
+@task()
+def publish_mattermost(**context):
+    pending_harvesters = context["ti"].xcom_pull(
         key="harvesters_complete", task_ids="get_preview_state"
     )
-    new = ti.xcom_pull(key="new", task_ids="fill_in_grist")
-    issues = ti.xcom_pull(key="issues", task_ids="fill_in_grist")
+    new = context["ti"].xcom_pull(key="new", task_ids="fill_in_grist")
+    issues = context["ti"].xcom_pull(key="issues", task_ids="fill_in_grist")
 
     text = (
         ":mega: Rapport hebdo sur l'état des moissonneurs en attente"
@@ -151,33 +158,16 @@ def publish_mattermost(ti):
 
 
 with DAG(
-    dag_id=DAG_NAME,
-    schedule_interval="0 9 * * WED",
+    dag_id="dgv_harvester_notification",
+    schedule="0 9 * * WED",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
     tags=["weekly", "harvester", "mattermost", "notification"],
     catchup=False,
-) as dag:
-    _get_pending_harvesters = PythonOperator(
-        task_id="get_pending_harvesters",
-        python_callable=get_pending_harvesters,
+):
+    (
+        get_pending_harvesters()
+        >> get_preview_state()
+        >> fill_in_grist()
+        >> publish_mattermost()
     )
-
-    _get_preview_state = PythonOperator(
-        task_id="get_preview_state",
-        python_callable=get_preview_state,
-    )
-
-    _fill_in_grist = PythonOperator(
-        task_id="fill_in_grist",
-        python_callable=fill_in_grist,
-    )
-
-    _publish_mattermost = PythonOperator(
-        task_id="publish_mattermost",
-        python_callable=publish_mattermost,
-    )
-
-    _get_preview_state.set_upstream(_get_pending_harvesters)
-    _fill_in_grist.set_upstream(_get_preview_state)
-    _publish_mattermost.set_upstream(_fill_in_grist)

@@ -5,6 +5,7 @@ import requests
 import json
 from zipfile import ZipFile
 from io import BytesIO
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -20,7 +21,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}rna"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config/dgv.json") as fp:
     config = json.load(fp)
@@ -32,7 +33,8 @@ def check_if_modif():
     ).check_if_more_recent_update(dataset_id="58e53811c751df03df38f42d")
 
 
-def process_rna(ti, file_type):
+@task()
+def process_rna(file_type, **context):
     assert file_type in ["import", "waldec"]
     resources = requests.get(
         "https://www.data.gouv.fr/api/1/datasets/58e53811c751df03df38f42d/",
@@ -72,25 +74,28 @@ def process_rna(ti, file_type):
                         )
                     )
                 df.to_csv(
-                    f"{DATADIR}/{file_type}.csv",
+                    f"{TMP_FOLDER}{file_type}.csv",
                     index=False,
                     encoding="utf8",
                     mode="w" if idx == 0 else "a",
                     header=idx == 0,
                 )
     csv_to_parquet(
-        f"{DATADIR}/{file_type}.csv",
+        f"{TMP_FOLDER}{file_type}.csv",
         sep=",",
         columns=columns,
     )
-    ti.xcom_push(key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2])
+    context["ti"].xcom_push(
+        key="latest", value=latest.split("/")[-1].split(".")[0].split("_")[2]
+    )
 
 
+@task()
 def send_rna_to_s3(file_type):
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"{file_type}.{ext}",
                 dest_path="rna/",
                 dest_name=f"{file_type}.{ext}",
@@ -101,8 +106,9 @@ def send_rna_to_s3(file_type):
     )
 
 
-def publish_on_datagouv(ti, file_type):
-    latest = ti.xcom_pull(key="latest", task_ids=f"process_rna_{file_type}")
+@task()
+def publish_on_datagouv(file_type, **context):
+    latest = context["ti"].xcom_pull(key="latest", task_ids=f"process_rna_{file_type}")
     y, m, d = latest[:4], latest[4:6], latest[6:]
     date = f"{d} {MOIS_FR[m]} {y}"
     for ext in ["csv", "parquet"]:
@@ -116,7 +122,7 @@ def publish_on_datagouv(ti, file_type):
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/rna/{file_type}.{ext}"
                 ),
-                "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
+                "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.{ext}"),
                 "title": (f"Données {file_type.title()} au {date} (format {ext})"),
                 "format": ext,
                 "description": (
@@ -128,6 +134,7 @@ def publish_on_datagouv(ti, file_type):
         )
 
 
+@task()
 def send_notification_mattermost():
     dataset_id = config["import"]["csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(

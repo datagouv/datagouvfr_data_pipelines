@@ -1,13 +1,30 @@
 from datetime import datetime
+import json
 import re
 
+from airflow.decorators import task
 import requests
 from IPython.display import display, HTML
+
+from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_TMP,
+    MATTERMOST_DATAGOUV_ACTIVITES,
+    MATTERMOST_DATASERVICES_ONLY,
+    SECRET_MAIL_DATAGOUV_BOT_USER,
+    SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
+    SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
+)
 from datagouvfr_data_pipelines.utils.datagouv import (
     get_last_items,
     get_latest_comments,
     check_duplicated_orga,
 )
+from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+
+DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
+DAG_NAME = "dgv_digests"
+TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
 
 URL_PATTERN = "https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/[^ \n]*)?"
 
@@ -177,8 +194,8 @@ def show_orgas(start_date: datetime, end_date: datetime | None = None):
     other_orgas = []
 
     for org in orgs:
-        is_duplicated, url_dup = check_duplicated_orga(org["slug"])
-        if is_duplicated:
+        url_dup = check_duplicated_orga(org["slug"])
+        if url_dup is not None:
             html = make_link(org["name"], org["page"])
             html += f" (duplicata potentiel avec {make_link(url_dup, url_dup)})"
             duplicated_orgas.append(html)
@@ -246,3 +263,65 @@ def show_discussions(
         show_html("<hr/>")
 
     return len(discussions), discussions
+
+
+def get_stats_period(today: str, period: str, scope: str) -> str | None:
+    with open(
+        TMP_FOLDER + f"/digest_{period}/{today}/output/stats.json", "r"
+    ) as json_file:
+        res = json.load(json_file)
+    if scope == "api":
+        if not (
+            res["stats"]["nb_dataservices"]
+            or res["stats"]["nb_discussions_dataservices"]
+        ):
+            # no message if no new API and no comment
+            return
+        return (
+            f"- {res['stats']['nb_dataservices']} APIs créées\n"
+            f"- {res['stats']['nb_discussions_dataservices']} discussions sur les APIs\n"
+        )
+    recap = (
+        f"- {res['stats']['nb_datasets']} datasets créés\n"
+        f"- {res['stats']['nb_reuses']} reuses créées\n"
+        f"- {res['stats']['nb_dataservices']} dataservices créés\n"
+    )
+    if period == "daily":
+        recap += (
+            f"- {res['stats']['nb_orgas']} orgas créées\n"
+            f"- {res['stats']['nb_discussions']} discussions créées\n"
+            f"- {res['stats']['nb_users']} utilisateurs créés"
+        )
+    return recap
+
+
+@task()
+def publish_mattermost_period(today: str, period: str, scope: str, **context):
+    report_url = context["ti"].xcom_pull(
+        key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
+    )
+    stats = get_stats_period(today, period, scope)
+    if not stats:
+        return
+    message = f"{period.title()} Digest : {report_url} \n{stats}"
+    channel = (
+        MATTERMOST_DATAGOUV_ACTIVITES
+        if scope == "general"
+        else MATTERMOST_DATASERVICES_ONLY
+    )
+    send_message(message, channel)
+
+
+@task()
+def send_email_report_period(today: str, period: str, scope: str, **context):
+    report_url = context["ti"].xcom_pull(
+        key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
+    )
+    message = get_stats_period(today, period, scope) + "<br/><br/>" + report_url
+    send_mail_datagouv(
+        email_user=SECRET_MAIL_DATAGOUV_BOT_USER,
+        email_password=SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
+        email_recipients=SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
+        subject=f"{period.title()} digest of " + today,
+        message=message,
+    )

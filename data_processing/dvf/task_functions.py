@@ -5,6 +5,7 @@ import json
 import logging
 import os
 
+from airflow.decorators import task
 import gc
 import numpy as np
 import pandas as pd
@@ -28,8 +29,8 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}dvf/data"
-DPEDIR = f"{DATADIR}/dpe/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
+DPEDIR = f"{TMP_FOLDER}dpe/"
 schema = "dvf"
 
 pgclient = PostgresClient(
@@ -53,6 +54,7 @@ def build_table_name(table: str) -> str:
     return f"{schema}.{table}" if AIRFLOW_ENV == "prod" else table
 
 
+@task()
 def create_copro_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -62,6 +64,7 @@ def create_copro_table() -> None:
     )
 
 
+@task()
 def create_dpe_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -71,6 +74,7 @@ def create_dpe_table() -> None:
     )
 
 
+@task()
 def create_dvf_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -80,6 +84,7 @@ def create_dvf_table() -> None:
     )
 
 
+@task()
 def index_dvf_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -89,6 +94,7 @@ def index_dvf_table() -> None:
     )
 
 
+@task()
 def create_stats_dvf_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -98,6 +104,7 @@ def create_stats_dvf_table() -> None:
     )
 
 
+@task()
 def create_distribution_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -107,6 +114,7 @@ def create_distribution_table() -> None:
     )
 
 
+@task()
 def create_whole_period_table() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -116,6 +124,7 @@ def create_whole_period_table() -> None:
     )
 
 
+@task()
 def populate_copro_table() -> None:
     mapping = {
         "EPCI": "epci",
@@ -178,30 +187,32 @@ def populate_copro_table() -> None:
         "Copro dans PVD": "copro_dans_pvd",
     }
     copro = pd.read_csv(
-        f"{DATADIR}/copro.csv",
+        f"{TMP_FOLDER}copro.csv",
         dtype=str,
         usecols=mapping.keys(),
     )
     copro = copro.rename(mapping, axis=1)
     copro = copro.loc[copro["commune"].str.len() == 5]
-    copro.to_csv(f"{DATADIR}/copro_clean.csv", index=False)
+    copro.to_csv(f"{TMP_FOLDER}copro_clean.csv", index=False)
     pgclient.copy_file(
-        file=File(source_path=f"{DATADIR}/", source_name="copro_clean.csv"),
+        file=File(source_path=TMP_FOLDER, source_name="copro_clean.csv"),
         table=build_table_name("copro"),
         has_header=True,
     )
 
 
+@task()
 def populate_distribution_table() -> None:
     pgclient.copy_file(
-        file=File(source_path=f"{DATADIR}/", source_name="distribution_prix.csv"),
+        file=File(source_path=TMP_FOLDER, source_name="distribution_prix.csv"),
         table=build_table_name("distribution_prix"),
         has_header=True,
     )
 
 
+@task()
 def populate_dvf_table() -> None:
-    files = glob.glob(f"{DATADIR}/full*.csv")
+    files = glob.glob(f"{TMP_FOLDER}full*.csv")
     for file in files:
         *path, file = file.split("/")
         logging.info(f"Populating {file}")
@@ -212,6 +223,7 @@ def populate_dvf_table() -> None:
         )
 
 
+@task()
 def alter_dvf_table() -> None:
     pgclient.execute_sql_file(
         File(
@@ -221,30 +233,34 @@ def alter_dvf_table() -> None:
     )
 
 
+@task()
 def populate_stats_dvf_table() -> None:
     pgclient.copy_file(
-        file=File(source_path=f"{DATADIR}/", source_name="stats_dvf_api.csv"),
+        file=File(source_path=TMP_FOLDER, source_name="stats_dvf_api.csv"),
         table=build_table_name("stats_dvf"),
         has_header=True,
     )
 
 
+@task()
 def populate_dpe_table() -> None:
     pgclient.copy_file(
-        file=File(source_path=f"{DATADIR}/", source_name="all_dpe.csv"),
+        file=File(source_path=TMP_FOLDER, source_name="all_dpe.csv"),
         table=build_table_name("dpe"),
         has_header=False,
     )
 
 
+@task()
 def populate_whole_period_table() -> None:
     pgclient.copy_file(
-        file=File(source_path=f"{DATADIR}/", source_name="stats_whole_period.csv"),
+        file=File(source_path=TMP_FOLDER, source_name="stats_whole_period.csv"),
         table=build_table_name("stats_whole_period"),
         has_header=True,
     )
 
 
+@task()
 def get_epci() -> None:
     epci = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
@@ -265,9 +281,10 @@ def get_epci() -> None:
     pd.DataFrame(
         epci_list,
         columns=["code_commune", "code_epci", "libelle_geo"],
-    ).to_csv(DATADIR + "/epci.csv", sep=",", encoding="utf8", index=False)
+    ).to_csv(TMP_FOLDER + "epci.csv", sep=",", encoding="utf8", index=False)
 
 
+@task()
 def process_dpe() -> None:
     cols_dpe = {
         "batiment_groupe_id": str,
@@ -294,7 +311,7 @@ def process_dpe() -> None:
     # we'll loop through these to merge subparts and append them
     # if this becomes too heavy we can move down one more character for prefixes
     bat_id = pd.read_csv(
-        DATADIR + "/csv/batiment_groupe_dpe_representatif_logement.csv",
+        TMP_FOLDER + "csv/batiment_groupe_dpe_representatif_logement.csv",
         usecols=["batiment_groupe_id"],
         sep=",",
     )
@@ -305,7 +322,7 @@ def process_dpe() -> None:
     chunk_size = 100000
     for idx, pref in enumerate(prefixes):
         iter_dpe = pd.read_csv(
-            DATADIR + "/csv/batiment_groupe_dpe_representatif_logement.csv",
+            TMP_FOLDER + "csv/batiment_groupe_dpe_representatif_logement.csv",
             dtype=cols_dpe,
             usecols=cols_dpe.keys(),
             sep=",",
@@ -328,7 +345,7 @@ def process_dpe() -> None:
         )
         dpe.set_index("batiment_groupe_id", inplace=True)
         iter_parcelles = pd.read_csv(
-            DATADIR + "/csv/rel_batiment_groupe_parcelle.csv",
+            TMP_FOLDER + "csv/rel_batiment_groupe_parcelle.csv",
             dtype=str,
             usecols=cols_parcelles,
             sep=",",
@@ -354,7 +371,7 @@ def process_dpe() -> None:
         dpe_parcelled.reset_index(inplace=True)
         dpe_parcelled = dpe_parcelled.dropna(subset=["parcelle_id"])
         dpe_parcelled.to_csv(
-            DATADIR + "/all_dpe.csv",
+            TMP_FOLDER + "all_dpe.csv",
             sep=",",
             index=False,
             encoding="utf8",
@@ -364,6 +381,7 @@ def process_dpe() -> None:
         del dpe_parcelled
 
 
+@task()
 def index_dpe_table() -> None:
     pgclient.execute_sql_file(
         File(
@@ -373,17 +391,18 @@ def index_dpe_table() -> None:
     )
 
 
+@task()
 def process_dvf_stats() -> None:
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
-            for f in os.listdir(DATADIR)
+            for f in os.listdir(TMP_FOLDER)
             if "full_" in f and ".gz" not in f
         ]
     )
     export = {}
     epci = pd.read_csv(
-        DATADIR + "/epci.csv",
+        TMP_FOLDER + "epci.csv",
         sep=",",
         encoding="utf8",
         dtype=str,
@@ -412,7 +431,7 @@ def process_dvf_stats() -> None:
     for year in years:
         logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
-            DATADIR + f"/full_{year}.csv",
+            TMP_FOLDER + f"full_{year}.csv",
             sep=",",
             encoding="utf8",
             dtype={
@@ -645,7 +664,7 @@ def process_dvf_stats() -> None:
         logging.info(f"Done with {year}")
 
     # on ajoute les colonnes libelle_geo et code_parent
-    with open(DATADIR + "/sections.txt", "r") as f:
+    with open(TMP_FOLDER + "sections.txt", "r") as f:
         sections = [s.replace("\n", "") for s in f.readlines()]
     sections = pd.DataFrame(
         set(sections) | sections_from_dvf,
@@ -657,7 +676,7 @@ def process_dvf_stats() -> None:
     sections["libelle_geo"] = sections["code_geo"]
     sections["echelle_geo"] = "section"
     departements = pd.read_csv(
-        DATADIR + "/departements.csv",
+        TMP_FOLDER + "departements.csv",
         dtype=str,
         usecols=["DEP", "LIBELLE"],
     )
@@ -679,7 +698,7 @@ def process_dvf_stats() -> None:
     epci["echelle_geo"] = "epci"
 
     communes = pd.read_csv(
-        DATADIR + "/communes.csv",
+        TMP_FOLDER + "communes.csv",
         dtype=str,
         usecols=["TYPECOM", "COM", "LIBELLE"],
     )
@@ -748,7 +767,7 @@ def process_dvf_stats() -> None:
         del mask
         export[year] = export[year][reordered_columns]
         export[year].to_csv(
-            DATADIR + "/stats_dvf_api.csv",
+            TMP_FOLDER + "stats_dvf_api.csv",
             sep=",",
             encoding="utf8",
             index=False,
@@ -770,7 +789,7 @@ def process_dvf_stats() -> None:
         del mask
 
         light_export.to_csv(
-            DATADIR + "/stats_dvf.csv",
+            TMP_FOLDER + "stats_dvf.csv",
             sep=",",
             encoding="utf8",
             index=False,
@@ -782,6 +801,7 @@ def process_dvf_stats() -> None:
         logging.info(f"Done with year {year}")
 
 
+@task()
 def create_distribution_and_stats_whole_period() -> None:
     def process_borne(borne: float, borne_inf: int, borne_sup: int) -> int:
         # handle rounding of bounds
@@ -851,7 +871,7 @@ def create_distribution_and_stats_whole_period() -> None:
 
     # on récupère toutes les échelles
     echelles = pd.read_csv(
-        DATADIR + "/stats_dvf_api.csv",
+        TMP_FOLDER + "stats_dvf_api.csv",
         sep=",",
         encoding="utf8",
         usecols=["code_geo", "echelle_geo", "code_parent", "libelle_geo"],
@@ -862,13 +882,13 @@ def create_distribution_and_stats_whole_period() -> None:
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
-            for f in os.listdir(DATADIR)
+            for f in os.listdir(TMP_FOLDER)
             if "full_" in f and ".gz" not in f
         ]
     )
     dvf = []
     epci = pd.read_csv(
-        DATADIR + "/epci.csv",
+        TMP_FOLDER + "epci.csv",
         sep=",",
         encoding="utf8",
         dtype=str,
@@ -887,7 +907,7 @@ def create_distribution_and_stats_whole_period() -> None:
     for year in years:
         logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
-            DATADIR + f"/full_{year}.csv",
+            TMP_FOLDER + f"full_{year}.csv",
             sep=",",
             encoding="utf8",
             dtype={
@@ -1053,7 +1073,7 @@ def create_distribution_and_stats_whole_period() -> None:
         stats_period.append(pd.concat(type_stats))
     output_tranches = pd.DataFrame(tranches)
     output_tranches.to_csv(
-        DATADIR + "/distribution_prix.csv",
+        TMP_FOLDER + "distribution_prix.csv",
         sep=",",
         encoding="utf8",
         index=False,
@@ -1069,7 +1089,7 @@ def create_distribution_and_stats_whole_period() -> None:
     logging.info("Dans stats")
     logging.info(stats_period["echelle_geo"].value_counts(dropna=False))
     stats_period.to_csv(
-        DATADIR + "/stats_whole_period.csv",
+        TMP_FOLDER + "stats_whole_period.csv",
         sep=",",
         encoding="utf8",
         index=False,
@@ -1077,11 +1097,12 @@ def create_distribution_and_stats_whole_period() -> None:
     )
 
 
+@task()
 def send_stats_to_s3() -> None:
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"{file}.csv",
                 dest_path="dvf/",
                 dest_name=f"{file}.csv",
@@ -1092,10 +1113,11 @@ def send_stats_to_s3() -> None:
     )
 
 
+@task()
 def send_distribution_to_s3() -> None:
     s3_restricted.send_file(
         File(
-            source_path=f"{DATADIR}/",
+            source_path=TMP_FOLDER,
             source_name="distribution_prix.csv",
             dest_path="dvf/",
             dest_name="distribution_prix.csv",
@@ -1104,7 +1126,8 @@ def send_distribution_to_s3() -> None:
     )
 
 
-def publish_stats_dvf(ti) -> None:
+@task()
+def publish_stats_dvf(**context) -> None:
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
         data = json.load(fp)
     local_client.resource(
@@ -1117,7 +1140,7 @@ def publish_stats_dvf(ti) -> None:
                 f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
             ),
-            "filesize": os.path.getsize(os.path.join(DATADIR, "stats_dvf.csv")),
+            "filesize": os.path.getsize(TMP_FOLDER + "stats_dvf.csv"),
             "title": "Statistiques mensuelles DVF",
             "format": "csv",
             "description": (
@@ -1137,9 +1160,7 @@ def publish_stats_dvf(ti) -> None:
                 f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                 f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
             ),
-            "filesize": os.path.getsize(
-                os.path.join(DATADIR, "stats_whole_period.csv")
-            ),
+            "filesize": os.path.getsize(TMP_FOLDER + "stats_whole_period.csv"),
             "title": "Statistiques totales DVF",
             "format": "csv",
             "description": (
@@ -1148,14 +1169,17 @@ def publish_stats_dvf(ti) -> None:
             ),
         },
     )
-    ti.xcom_push(key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"])
+    context["ti"].xcom_push(
+        key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"]
+    )
 
 
+@task()
 def concat_and_publish_whole():
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
-            for f in os.listdir(DATADIR)
+            for f in os.listdir(TMP_FOLDER)
             if "full_" in f and ".gz" not in f
         ]
     )
@@ -1169,21 +1193,21 @@ def concat_and_publish_whole():
     write_headers = True
     for year in years:
         chunks = pd.read_csv(
-            DATADIR + f"/full_{year}.csv",
+            TMP_FOLDER + f"full_{year}.csv",
             dtype=str,
             chunksize=int(1e5),
         )
         logging.info(f"Exporting {year}...")
         for chunk in chunks:
             chunk.to_csv(
-                DATADIR + "/dvf.csv",
+                TMP_FOLDER + "dvf.csv",
                 index=False,
                 header=write_headers,
                 mode="w" if write_headers else "a",
             )
             write_headers = False
         del chunk
-    csv_to_csvgz(DATADIR + "/dvf.csv")
+    csv_to_csvgz(TMP_FOLDER + "dvf.csv")
     local_client.resource(
         id=data["concat"][AIRFLOW_ENV]["resource_id"],
         dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
@@ -1193,10 +1217,10 @@ def concat_and_publish_whole():
         payload={
             "title": f"DVF {period} - fichier unique",
         },
-        file_to_upload=DATADIR + "/dvf.csv.gz",
+        file_to_upload=TMP_FOLDER + "dvf.csv.gz",
     )
     csv_to_geoparquet(
-        csv_file_path=DATADIR + "/dvf.csv",
+        csv_file_path=TMP_FOLDER + "dvf.csv",
         dtype={
             "id_mutation": "VARCHAR",
             "date_mutation": "DATE",
@@ -1251,12 +1275,13 @@ def concat_and_publish_whole():
         payload={
             "title": f"DVF {period} - fichier unique geoparquet",
         },
-        file_to_upload=DATADIR + "/dvf.parquet",
+        file_to_upload=TMP_FOLDER + "dvf.parquet",
     )
 
 
-def notification_mattermost(ti) -> None:
-    dataset_id = ti.xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
+@task()
+def notification_mattermost(**context) -> None:
+    dataset_id = context["ti"].xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
     send_message(
         f"Stats DVF générées :"
         f"\n- intégré en base de données"

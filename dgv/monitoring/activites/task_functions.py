@@ -1,12 +1,14 @@
-import logging
-from airflow.models import Variable
-from difflib import SequenceMatcher
-import requests
-from langdetect import detect, LangDetectException
-from unidecode import unidecode
-from time import sleep
 from datetime import timedelta, datetime, time as dtime, timezone
+from difflib import SequenceMatcher
+import logging
+from time import sleep
+
+from airflow.decorators import task
+from airflow.models import Variable
+from langdetect import detect, LangDetectException
 import pandas as pd
+import requests
+from unidecode import unidecode
 
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
@@ -72,14 +74,14 @@ def detect_potential_certif(siret):
     )
 
 
-def check_new(ti, **kwargs):
-    templates_dict: dict = kwargs.get("templates_dict")
+@task()
+def check_new(object_type: str, **context):
     # we want everything that happened since this date
     start_date = datetime.now() - timedelta(**TIME_PERIOD)
     end_date = datetime.now()
-    items = get_last_items(templates_dict["type"], start_date, end_date)
+    items = get_last_items(object_type, start_date, end_date)
     # items = get_last_items(templates_dict['type'], start_date)
-    ti.xcom_push(key="nb", value=str(len(items)))
+    context["ti"].xcom_push(key="nb", value=str(len(items)))
     arr = []
     for item in items:
         mydict = {}
@@ -91,7 +93,7 @@ def check_new(ti, **kwargs):
         # for this organization/user, and check for potential spam
         mydict["duplicated"] = False
         mydict["potential_certif"] = False
-        if templates_dict["type"] != "organizations":
+        if object_type != "organizations":
             mydict["spam"] = False
             # if certified orga, no spam check
             badges = (
@@ -117,14 +119,11 @@ def check_new(ti, **kwargs):
                 mydict["owner_id"] = owner["id"]
             else:
                 mydict["owner_type"] = None
-            if (
-                mydict["owner_type"]
-                and owner["metrics"].get(templates_dict["type"], 0) < 2
-            ):
+            if mydict["owner_type"] and owner["metrics"].get(object_type, 0) < 2:
                 # if it's a dataset and it's labelled with a schema and not potential spam, no ping
                 # NB: this is to prevent being pinged for entities publishing small data (IRVE, LOM...)
                 if (
-                    templates_dict["type"] == "datasets"
+                    object_type == "datasets"
                     and any([r["schema"] for r in item.get("resources")])
                     and not mydict["spam"]
                 ):
@@ -148,11 +147,12 @@ def check_new(ti, **kwargs):
                 item["business_number_id"]
             )
             # checking for potential duplicates in organization creation
-            mydict["duplicated"], _ = check_duplicated_orga(item["slug"])
+            mydict["duplicated"] = check_duplicated_orga(item["slug"]) is not None
         arr.append(mydict)
-    ti.xcom_push(key=templates_dict["type"], value=arr)
+    context["ti"].xcom_push(key=object_type, value=arr)
 
 
+@task()
 def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
     # DAG runs every 5min, we want this to run every Monday at ~10:00
     start, end = dtime(9, 1, 0), dtime(9, 6, 0)
@@ -191,6 +191,7 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
+@task()
 def alert_if_awaiting_spam_comments():
     # DAG runs every 5min, we want this to run everyday at ~11:00
     start, end = dtime(8, 1, 0), dtime(8, 6, 0)
@@ -207,6 +208,7 @@ def alert_if_awaiting_spam_comments():
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
+@task()
 def alert_if_new_reports():
     # DAG runs every 5min but if it fails we catch up with this variable
     previous_report_check = Variable.get(
@@ -233,7 +235,7 @@ def alert_if_new_reports():
             _.raise_for_status()
             _ = _.json()
             subject = (
-                f"[cet objet]({_.get('page') or _.get('self_web_url ')}) : "
+                f"[cet objet]({_.get('page') or _.get('self_web_url ')}): "
                 f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
             )
         except requests.exceptions.HTTPError:
@@ -243,7 +245,8 @@ def alert_if_new_reports():
     send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
-def check_new_comments(ti):
+@task()
+def check_new_comments(**context):
     latest_comments = get_latest_comments(
         start_date=datetime.now() - timedelta(**TIME_PERIOD)
     )
@@ -252,14 +255,14 @@ def check_new_comments(ti):
         for k in latest_comments
         if detect_spam("", k["comment"]["content"].replace("\n", " "))
     ]
-    ti.xcom_push(key="spam_comments", value=spam_comments)
+    context["ti"].xcom_push(key="spam_comments", value=spam_comments)
 
 
-def similar(a, b):
+def similar(a, b) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
-def get_organization(data):
+def get_organization(data: dict) -> str:
     orga = ""
     if data.get("organization") is not None:
         if "name" in data["organization"]:
@@ -270,7 +273,7 @@ def get_organization(data):
     return orga
 
 
-def schema_suspicion(catalog, resource, orga):
+def schema_suspicion(catalog: dict, resource: dict, orga: str):
     schemas = [schema["title"] for schema in catalog]
     best_score = 0
     schema_title = ""
@@ -287,58 +290,50 @@ def schema_suspicion(catalog, resource, orga):
         send_message(message, MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE)
 
 
-def parse_schema_catalog(
-    schema, resource, schema_name, publierDetection, schema_type, validata_url
-):
-    if schema["name"] == resource["schema"]["name"]:
-        schema_name = schema["title"]
-        publierDetection = False
-        if "publish_source" in resource["extras"]:
-            if resource["extras"]["publish_source"] == "publier.etalab.studio":
-                publierDetection = True
-        if schema["schema_type"] == "tableschema":
-            schema_type = "tableschema"
-            result2 = requests.get(
-                f"{VALIDATA_BASE_URL}/validate?schema="
-                f"{schema['schema_url']}&url={resource['url']}"
-            )
-            try:
-                res = result2.json()["report"]["valid"]
-                validata_url = (
-                    f"{VALIDATA_BASE_URL}/table-schema?input=url&url="
-                    f"{resource['url']}&schema_url={schema['schema_url']}"
+def parse_schema_catalog(catalog: dict, resource: dict) -> tuple:
+    for schema in catalog:
+        if schema["name"] == resource["schema"]["name"]:
+            if schema["schema_type"] == "tableschema":
+                schema_type = "tableschema"
+                result2 = requests.get(
+                    f"{VALIDATA_BASE_URL}/validate?schema="
+                    f"{schema['schema_url']}&url={resource['url']}"
                 )
-            except Exception:
-                res = False
-        else:
-            schema_type = "other"
-    return schema_name, publierDetection, schema_type, res, validata_url
-
-
-def parse_resource_if_schema(catalog, resource, item, orga, is_schema):
-    if resource["schema"]:
-        is_schema = True
-        schema_name = None
-        publierDetection = False
-        schema_type = ""
-        res = None
-        validata_url = ""
-        for s in catalog:
-            (
-                schema_name,
-                publierDetection,
+                validata_url = None
+                try:
+                    is_valid = result2.json()["report"]["valid"]
+                    validata_url = (
+                        f"{VALIDATA_BASE_URL}/table-schema?input=url&url="
+                        f"{resource['url']}&schema_url={schema['schema_url']}"
+                    )
+                except Exception:
+                    is_valid = False
+            else:
+                schema_type = "other"
+            return (
+                schema["title"],
+                resource["extras"].get("publish_source") == "publier.etalab.studio",
                 schema_type,
-                res,
                 validata_url,
-            ) = parse_schema_catalog(
-                s,
-                resource,
-                schema_name,
-                publierDetection,
-                schema_type,
-                res,
-                validata_url,
+                is_valid,
             )
+    return None, None, None, None, None
+
+
+def parse_resource_if_schema(
+    catalog: dict,
+    resource: dict,
+    item: dict,
+    orga: str,
+) -> bool:
+    if resource["schema"]:
+        (
+            schema_name,
+            publierDetection,
+            schema_type,
+            validata_url,
+            is_valid,
+        ) = parse_schema_catalog(catalog, resource)
         if not schema_name:
             schema_name = resource["schema"]["name"]
         message = (
@@ -346,19 +341,23 @@ def parse_resource_if_schema(catalog, resource, item, orga, is_schema):
             f"**{schema_name}** {orga}: \n - [Lien vers le jeu de donnée]({item['page']})"
         )
         if schema_type == "tableschema":
-            if res:
+            if is_valid:
                 message += f"\n - [Ressource valide]({validata_url}) :partying_face:"
             else:
                 message += f"\n - [Ressource non valide]({validata_url}) :weary:"
         if publierDetection:
             message += "\n - Made with publier.etalab.studio :doge-cool:"
         send_message(message, MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE)
-    return is_schema
+        return True
+    return False
 
 
-def check_schema(ti):
-    nb_datasets = float(ti.xcom_pull(key="nb", task_ids="check_new_datasets"))
-    datasets = ti.xcom_pull(key="datasets", task_ids="check_new_datasets")
+@task()
+def check_schema(**context):
+    nb_datasets = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets")
+    )
+    datasets = context["ti"].xcom_pull(key="datasets", task_ids="check_new_datasets")
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     catalog = r.json()["schemas"]
     if nb_datasets > 0:
@@ -369,11 +368,8 @@ def check_schema(ti):
             data = r.json()
             orga = get_organization(data)
             try:
-                is_schema = False
                 for r in data["resources"]:
-                    is_schema = parse_resource_if_schema(
-                        catalog, r, item, orga, is_schema
-                    )
+                    is_schema = parse_resource_if_schema(catalog, r, item, orga)
 
                 if not is_schema:
                     schema_suspicion(catalog, item, orga)
@@ -381,7 +377,8 @@ def check_schema(ti):
                 pass
 
 
-def send_spam_to_grist(ti):
+@task()
+def send_spam_to_grist(**context):
     records = []
     for _type in [
         "datasets",
@@ -389,7 +386,7 @@ def send_spam_to_grist(ti):
         "organizations",
         "dataservices",
     ]:
-        arr = ti.xcom_pull(key=_type, task_ids=f"check_new_{_type}")
+        arr = context["ti"].xcom_pull(key=_type, task_ids=f"check_new_{_type}")
         logging.info(arr)
         if not arr:
             continue
@@ -461,16 +458,27 @@ def publish_item(item, item_type):
         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
 
 
-def publish_mattermost(ti):
-    nb_datasets = float(ti.xcom_pull(key="nb", task_ids="check_new_datasets"))
-    datasets = ti.xcom_pull(key="datasets", task_ids="check_new_datasets")
-    nb_reuses = float(ti.xcom_pull(key="nb", task_ids="check_new_reuses"))
-    reuses = ti.xcom_pull(key="reuses", task_ids="check_new_reuses")
-    nb_orgas = float(ti.xcom_pull(key="nb", task_ids="check_new_organizations"))
-    orgas = ti.xcom_pull(key="organizations", task_ids="check_new_organizations")
-    nb_dataservices = float(ti.xcom_pull(key="nb", task_ids="check_new_dataservices"))
-    dataservices = ti.xcom_pull(key="dataservices", task_ids="check_new_dataservices")
-    # spam_comments = ti.xcom_pull(key="spam_comments", task_ids="check_new_comments")
+@task()
+def publish_mattermost(**context):
+    nb_datasets = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets")
+    )
+    datasets = context["ti"].xcom_pull(key="datasets", task_ids="check_new_datasets")
+    nb_reuses = float(context["ti"].xcom_pull(key="nb", task_ids="check_new_reuses"))
+    reuses = context["ti"].xcom_pull(key="reuses", task_ids="check_new_reuses")
+    nb_orgas = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_organizations")
+    )
+    orgas = context["ti"].xcom_pull(
+        key="organizations", task_ids="check_new_organizations"
+    )
+    nb_dataservices = float(
+        context["ti"].xcom_pull(key="nb", task_ids="check_new_dataservices")
+    )
+    dataservices = context["ti"].xcom_pull(
+        key="dataservices", task_ids="check_new_dataservices"
+    )
+    # spam_comments = context["ti"].xcom_pull(key="spam_comments", task_ids="check_new_comments")
 
     if nb_orgas > 0:
         for item in orgas:

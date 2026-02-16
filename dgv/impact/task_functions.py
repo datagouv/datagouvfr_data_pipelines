@@ -7,6 +7,7 @@ import requests
 import json
 from io import StringIO
 from datagouv import Client
+from airflow.decorators import task
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -21,11 +22,11 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
-DATADIR = f"{TMP_FOLDER}data"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
-def calculate_quality_score(ti):
+@task()
+def calculate_quality_score(**context):
     print("Calculating average quality score")
     df_datasets = pd.read_csv(
         # this is the catalog
@@ -57,10 +58,11 @@ def calculate_quality_score(ti):
         "dataviz_wish": "barchart",
         "commentaires": "",
     }
-    ti.xcom_push(key="kpi", value=kpi)
+    context["ti"].xcom_push(key="kpi", value=kpi)
 
 
-def calculate_time_for_legitimate_answer(ti):
+@task()
+def calculate_time_for_legitimate_answer(**context):
     print("Calculating average time for legitimate answer")
     # getting the list of super admins, considered legitimate for all topics
     datagouv_team = requests.get(
@@ -154,10 +156,11 @@ def calculate_time_for_legitimate_answer(ti):
         "dataviz_wish": "barchart",
         "commentaires": "les délais sont écrétés à 30 jours",
     }
-    ti.xcom_push(key="kpi", value=kpi)
+    context["ti"].xcom_push(key="kpi", value=kpi)
 
 
-def get_quality_reuses(ti):
+@task()
+def get_quality_reuses(**context):
     print("Getting number of quality reuses among top 100 datasets")
     notion_api = "https://api.notion.com/v1/search"
     headers = {
@@ -211,10 +214,11 @@ def get_quality_reuses(ti):
         "dataviz_wish": "barchart",
         "commentaires": "",
     }
-    ti.xcom_push(key="kpi", value=kpi)
+    context["ti"].xcom_push(key="kpi", value=kpi)
 
 
-def get_discoverability(ti):
+@task()
+def get_discoverability(**context):
     print("Getting discoverability from poll results")
     notion_api = "https://api.notion.com/v1/search"
     headers = {
@@ -263,12 +267,13 @@ def get_discoverability(ti):
         "dataviz_wish": "barchart",
         "commentaires": "",
     }
-    ti.xcom_push(key="kpi", value=kpi)
+    context["ti"].xcom_push(key="kpi", value=kpi)
 
 
-def gather_kpis(ti):
+@task()
+def gather_kpis(**context):
     data = [
-        ti.xcom_pull(key="kpi", task_ids=t)
+        context["ti"].xcom_pull(key="kpi", task_ids=t)
         for t in [
             "calculate_quality_score",
             "calculate_time_for_legitimate_answer",
@@ -278,7 +283,7 @@ def gather_kpis(ti):
     ]
     df = pd.DataFrame(data)
     df.to_csv(
-        os.path.join(DATADIR, f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv"),
+        TMP_FOLDER + f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
         index=False,
         encoding="utf8",
     )
@@ -287,24 +292,25 @@ def gather_kpis(ti):
     )
     final = pd.concat([df, history])
     final.to_csv(
-        os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv"),
+        TMP_FOLDER + "statistiques_impact_datagouvfr.csv",
         index=False,
         encoding="utf8",
     )
 
 
+@task()
 def send_stats_to_s3():
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name="statistiques_impact_datagouvfr.csv",
                 dest_path="impact/",
                 dest_name="statistiques_impact_datagouvfr.csv",
             ),
             # saving millésimes in case of an emergency
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
                 dest_path="impact/",
                 dest_name=f"stats_{datetime.today().strftime('%Y-%m-%d')}.csv",
@@ -314,6 +320,7 @@ def send_stats_to_s3():
     )
 
 
+@task()
 def publish_datagouv(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
         data = json.load(fp)
@@ -328,7 +335,7 @@ def publish_datagouv(DAG_FOLDER):
                 "impact/statistiques_impact_datagouvfr.csv"
             ),
             "filesize": os.path.getsize(
-                os.path.join(DATADIR, "statistiques_impact_datagouvfr.csv")
+                TMP_FOLDER + "statistiques_impact_datagouvfr.csv"
             ),
             "title": "Indicateurs d'impact de data.gouv.fr",
             "format": "csv",
@@ -345,6 +352,7 @@ def publish_datagouv(DAG_FOLDER):
     )
 
 
+@task()
 def send_notification_mattermost(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
         data = json.load(fp)

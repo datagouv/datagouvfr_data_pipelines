@@ -4,6 +4,7 @@ import json
 import os
 from zipfile import ZipFile
 
+from airflow.decorators import task
 import pandas as pd
 import re
 import requests
@@ -24,7 +25,7 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(
@@ -39,6 +40,7 @@ def check_if_modif():
     ).check_if_more_recent_update(dataset_id="5cf8d9ed8b4c4110294c841d")
 
 
+@task()
 def process_data():
     # this is done in one task to get the files only once
     resources = requests.get(
@@ -71,7 +73,7 @@ def process_data():
                     raise ValueError("Columns differ between files")
                 df["annee"] = year
                 df.to_csv(
-                    f"{DATADIR}/{file_type}.csv",
+                    f"{TMP_FOLDER}{file_type}.csv",
                     index=False,
                     encoding="utf8",
                     mode="w" if idx == 0 else "a",
@@ -80,7 +82,7 @@ def process_data():
                 del df
     for file_type in config.keys():
         csv_to_parquet(
-            f"{DATADIR}/{file_type}.csv",
+            f"{TMP_FOLDER}{file_type}.csv",
             sep=",",
             dtype={
                 # specific dtypes are listed in the config, default to str
@@ -91,14 +93,15 @@ def process_data():
         )
         if file_type == "RESULT":
             # this one is too big for classic csv
-            csv_to_csvgz(f"{DATADIR}/{file_type}.csv")
+            csv_to_csvgz(f"{TMP_FOLDER}{file_type}.csv")
 
 
-def send_to_s3(file_type):
+@task()
+def send_to_s3(file_type: str):
     s3_open.send_files(
         list_files=[
             File(
-                source_path=f"{DATADIR}/",
+                source_path=TMP_FOLDER,
                 source_name=f"{file_type}.{ext}",
                 dest_path="controle_sanitaire_eau/",
                 dest_name=f"{file_type}.{ext}",
@@ -109,7 +112,8 @@ def send_to_s3(file_type):
     )
 
 
-def publish_on_datagouv(file_type):
+@task()
+def publish_on_datagouv(file_type: str):
     date = datetime.today().strftime("%d-%m-%Y")
     for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]:
         local_client.resource(
@@ -123,7 +127,7 @@ def publish_on_datagouv(file_type):
                     f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
                     f"/controle_sanitaire_eau/{file_type}.{ext}"
                 ),
-                "filesize": os.path.getsize(DATADIR + f"/{file_type}.{ext}"),
+                "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.{ext}"),
                 "title": (f"Données {file_type} (format {ext})"),
                 "format": ext,
                 "description": (
@@ -136,6 +140,7 @@ def publish_on_datagouv(file_type):
         )
 
 
+@task()
 def send_notification_mattermost():
     dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
     send_message(

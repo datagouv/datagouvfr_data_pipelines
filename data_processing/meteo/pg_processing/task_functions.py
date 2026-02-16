@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 
+from airflow.decorators import task
 from airflow.hooks.base import BaseHook
 import gzip
 from jinja2 import Environment, FileSystemLoader
@@ -26,7 +27,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-DATADIR = f"{AIRFLOW_DAG_TMP}meteo_pg/data/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
     config = json.load(fp)
 
@@ -195,27 +196,29 @@ def build_deletions_file_name(file_name: str) -> str:
 
 
 # %%
-def create_tables_if_not_exists(ti):
-    ti.xcom_push(key="start", value=datetime.now().timestamp())
+@task()
+def create_tables_if_not_exists(**context):
+    context["ti"].xcom_push(key="start", value=datetime.now().timestamp())
     file_loader = FileSystemLoader(
         f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/pg_processing/sql/"
     )
     env = Environment(loader=file_loader)
     template = env.get_template("create.sql.jinja")
     output = template.render(depids=DEPIDS)
-    with open(f"{DATADIR}create.sql", "w") as file:
+    with open(f"{TMP_FOLDER}create.sql", "w") as file:
         file.write(output)
 
     pgclient.execute_sql_file(
         file=File(
-            source_path=DATADIR,
+            source_path=TMP_FOLDER,
             source_name="create.sql",
         ),
     )
 
 
 # %%
-def retrieve_latest_processed_date(ti):
+@task()
+def retrieve_latest_processed_date(**context):
     data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
     logging.info(data)
     latest_db_insertion = data[0]["max"]
@@ -224,12 +227,13 @@ def retrieve_latest_processed_date(ti):
             "You may want to check what is in the 'dag_processed' table, "
             + f"got `{latest_db_insertion}`"
         )
-    ti.xcom_push(key="latest_db_insertion", value=latest_db_insertion)
+    context["ti"].xcom_push(key="latest_db_insertion", value=latest_db_insertion)
 
 
 # %%
-def download_data(ti, dataset_name):
-    latest_db_insertion = ti.xcom_pull(
+@task()
+def download_data(dataset_name: str, **context):
+    latest_db_insertion = context["ti"].xcom_pull(
         key="latest_db_insertion", task_ids="retrieve_latest_processed_date"
     )
 
@@ -375,11 +379,11 @@ def get_regex_infos(pattern: str, filename: str, params: dict) -> dict:
 def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     if dataset == "BASE/QUOT":
         if "Vent" in res["title"]:
-            file_path = f"{DATADIR}{config[dataset]['table_name'] + '_vent'}/"
+            file_path = f"{TMP_FOLDER}{config[dataset]['table_name'] + '_vent'}/"
         else:
-            file_path = f"{DATADIR}{config[dataset]['table_name'] + '_autres'}/"
+            file_path = f"{TMP_FOLDER}{config[dataset]['table_name'] + '_autres'}/"
     else:
-        file_path = f"{DATADIR}{config[dataset]['table_name']}/"
+        file_path = f"{TMP_FOLDER}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split("/")[-1])
     file_path = Path(file_path + file_name)
     # download the freshest version of the file, save it with hooked name
@@ -388,7 +392,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
         dest_path=file_path.parent.as_posix(),
         dest_name=file_path.name,
     ).download(timeout=TIMEOUT)
-    csv_path = unzip_csv_gz(file_path)
+    csv_path = unzip_csv_gz(file_path.as_posix())
     try:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
         # files are stored with hooked names on S3
@@ -422,7 +426,7 @@ def unzip_csv_gz(file_path: str) -> str:
     return output_file_path
 
 
-def get_diff(_conn, csv_path: Path, regex_infos: dict, table: str):
+def get_diff(_conn, csv_path: str, regex_infos: dict, table: str):
     def run_diff(csv_path: str, dep: str, _filter=None):
         old_file = build_old_file_name(csv_path)
         additions_file = build_additions_file_name(csv_path)
@@ -676,6 +680,7 @@ def create_indexes(conn, table_name, period):
 
 
 # %%
+@task()
 def insert_latest_date_pg():
     new_latest_date = datetime.now().strftime("%Y-%m-%d")
     logging.info(new_latest_date)
@@ -685,8 +690,9 @@ def insert_latest_date_pg():
 
 
 # %%
-def send_notification(ti):
-    start = ti.xcom_pull(key="start", task_ids="create_tables_if_not_exists")
+@task()
+def send_notification(**context):
+    start = context["ti"].xcom_pull(key="start", task_ids="create_tables_if_not_exists")
     # weirdly start is pushed as a timestamp (float) but pulled as a datetime
     if isinstance(start, datetime):
         start = start.timestamp()

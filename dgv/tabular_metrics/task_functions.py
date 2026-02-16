@@ -5,6 +5,7 @@ import re
 import shutil
 import tarfile
 
+from airflow.decorators import task
 import pandas as pd
 
 from datagouvfr_data_pipelines.config import (
@@ -21,7 +22,7 @@ from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
-DATADIR = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
 s3_client = S3Client(
     bucket="infra",
     # bucket=S3_BUCKET_INFRA,
@@ -34,6 +35,7 @@ already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"
 
 
+@task()
 def create_tabular_metrics_tables() -> None:
     pgclient.execute_sql_file(
         file=File(
@@ -172,6 +174,7 @@ def process_logs_file(file_path: str):
     )
 
 
+@task()
 def process_logs():
     # fetching already processed files has to be in here instead of a separate task
     # to ensure restarting this task reloads the list of files to process
@@ -206,17 +209,17 @@ def process_logs():
                 File(
                     source_path=logs_folder,
                     source_name=log,
-                    dest_path=DATADIR,
+                    dest_path=TMP_FOLDER,
                     dest_name=log,
                     remote_source=True,
                 ),
             ],
             ignore_airflow_env=True,
         )
-        folder = DATADIR + log.split(".")[0] + "/"
-        with tarfile.open(DATADIR + log) as f:
+        folder = TMP_FOLDER + log.split(".")[0] + "/"
+        with tarfile.open(TMP_FOLDER + log) as f:
             f.extractall(folder)
-        os.remove(DATADIR + log)
+        os.remove(TMP_FOLDER + log)
         if len(os.listdir(folder)) > 1:
             raise ValueError(f"More than one file extracted: {os.listdir(folder)}")
         process_logs_file(folder + os.listdir(folder)[0])

@@ -10,6 +10,7 @@ from time import sleep
 from urllib import parse
 import yaml
 
+from airflow.decorators import task
 from feedgen.feed import FeedGenerator
 import frictionless
 from git import Repo, Git
@@ -30,7 +31,8 @@ SCHEMA_INFOS = {}
 SCHEMA_CATALOG = {}
 
 
-def initialization(ti, tmp_folder, branch):
+@task()
+def initialization(tmp_folder, branch, **context):
     # DAG_NAME is defined in the DAG file, and all paths are made from it
     OUTPUT_DATA_FOLDER = f"{tmp_folder}output/"
     CACHE_FOLDER = tmp_folder + "cache"
@@ -57,8 +59,8 @@ def initialization(ti, tmp_folder, branch):
     with open(tmp_folder + "repertoires.yml", "r") as f:
         config = yaml.safe_load(f)
 
-    ti.xcom_push(key="folders", value=folders)
-    ti.xcom_push(key="config", value=config)
+    context["ti"].xcom_push(key="folders", value=folders)
+    context["ti"].xcom_push(key="config", value=config)
 
 
 def clean_and_create_folder(folder: str) -> None:
@@ -884,9 +886,12 @@ def get_contributors(url):
 # DAG functions
 
 
-def check_and_save_schemas(ti, suffix):
-    folders: dict = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
-    config: dict[str, dict] = ti.xcom_pull(
+@task()
+def check_and_save_schemas(suffix, **context):
+    folders: dict = context["ti"].xcom_pull(
+        key="folders", task_ids="initialization" + suffix
+    )
+    config: dict[str, dict] = context["ti"].xcom_pull(
         key="config", task_ids="initialization" + suffix
     )
     # Clean and (re)create CACHE AND DATA FOLDER
@@ -963,14 +968,15 @@ def check_and_save_schemas(ti, suffix):
     with open(folders["DATA_FOLDER1"] + "/errors.json", "w") as fp:
         json.dump(ERRORS_REPORT, fp, indent=4)
 
-    ti.xcom_push(key="SCHEMA_CATALOG", value=SCHEMA_CATALOG)
-    ti.xcom_push(key="SCHEMA_INFOS", value=SCHEMA_INFOS)
-    ti.xcom_push(key="ERRORS_REPORT", value=ERRORS_REPORT)
+    context["ti"].xcom_push(key="SCHEMA_CATALOG", value=SCHEMA_CATALOG)
+    context["ti"].xcom_push(key="SCHEMA_INFOS", value=SCHEMA_INFOS)
+    context["ti"].xcom_push(key="ERRORS_REPORT", value=ERRORS_REPORT)
     logging.info(f"End of process catalog: {SCHEMA_CATALOG}")
     logging.info(f"End of process infos: {SCHEMA_INFOS}")
     logging.info(f"End of process errors: {ERRORS_REPORT}")
 
 
+@task()
 def get_template_github_issues():
     def get_all_issues():
         url = (
@@ -1044,8 +1050,11 @@ def get_template_github_issues():
     return dates
 
 
-def update_news_feed(ti, tmp_folder, suffix):
-    new = ti.xcom_pull(key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix)
+@task()
+def update_news_feed(tmp_folder, suffix, **context):
+    new = context["ti"].xcom_pull(
+        key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix
+    )
     today = datetime.now().strftime("%Y-%m-%d")
     changes = {today: {}}
     with open(
@@ -1310,11 +1319,12 @@ def update_news_feed(ti, tmp_folder, suffix):
         logging.info("No update today")
 
 
-def sort_folders(ti, suffix):
-    SCHEMA_CATALOG = ti.xcom_pull(
+@task()
+def sort_folders(suffix, **context):
+    SCHEMA_CATALOG = context["ti"].xcom_pull(
         key="SCHEMA_CATALOG", task_ids="check_and_save_schemas" + suffix
     )
-    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
+    folders = context["ti"].xcom_pull(key="folders", task_ids="initialization" + suffix)
     # Get list of all files in DATA_FOLDER
     files = getListOfFiles(folders["DATA_FOLDER1"])
     # Create list of file that we do not want to copy paste
@@ -1351,11 +1361,12 @@ def sort_folders(ti, suffix):
     shutil.copytree(folders["DATA_FOLDER1"], folders["DATA_FOLDER2"])
 
 
-def get_issues_and_labels(ti, suffix):
-    SCHEMA_CATALOG = ti.xcom_pull(
+@task()
+def get_issues_and_labels(suffix, **context):
+    SCHEMA_CATALOG = context["ti"].xcom_pull(
         key="SCHEMA_CATALOG", task_ids="check_and_save_schemas" + suffix
     )
-    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
+    folders = context["ti"].xcom_pull(key="folders", task_ids="initialization" + suffix)
     # For every issue, request them by label schema status (en investigation or en construction)
     mydict = {}
     labels = ["construction", "investigation"]
@@ -1414,11 +1425,12 @@ def get_issues_and_labels(ti, suffix):
         json.dump(mydict, fp, indent=4)
 
 
-def publish_schema_dataset(ti, tmp_folder, AIRFLOW_ENV, branch, suffix):
-    schemas = ti.xcom_pull(
+@task()
+def publish_schema_dataset(tmp_folder, AIRFLOW_ENV, branch, suffix, **context):
+    schemas = context["ti"].xcom_pull(
         key="SCHEMA_INFOS", task_ids="check_and_save_schemas" + suffix
     )
-    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
+    folders = context["ti"].xcom_pull(key="folders", task_ids="initialization" + suffix)
     with open(folders["DATA_FOLDER2"] + "/stats.json", "r") as f:
         references = json.load(f)["references"]
     df = pd.DataFrame({"name": n, **v} for n, v in schemas.items()).drop(
@@ -1477,8 +1489,9 @@ def remove_all_files_extension(folder, extension):
             os.remove(f)
 
 
-def final_clean_up(ti, suffix):
-    folders = ti.xcom_pull(key="folders", task_ids="initialization" + suffix)
+@task()
+def final_clean_up(suffix, **context):
+    folders = context["ti"].xcom_pull(key="folders", task_ids="initialization" + suffix)
     # Remove all markdown from DATA_FOLDER1 and all json, yaml and yml file of DATA_FOLDER2
     remove_all_files_extension(folders["DATA_FOLDER2"], ".md")
     remove_all_files_extension(folders["DATA_FOLDER1"], ".json")
