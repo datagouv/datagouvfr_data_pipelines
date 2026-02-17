@@ -976,7 +976,6 @@ def check_and_save_schemas(suffix, **context):
     logging.info(f"End of process errors: {ERRORS_REPORT}")
 
 
-@task()
 def get_template_github_issues():
     def get_all_issues():
         url = (
