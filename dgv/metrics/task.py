@@ -65,6 +65,7 @@ def get_new_logs(**context) -> bool:
             new_logs_path,
             f"{AIRFLOW_ENV}/metrics-logs/ongoing/",
             remove_source_file=True,
+            client_side=True,
         )
         context["ti"].xcom_push(key="ongoing_logs_path", value=ongoing_logs_path)
         return True
@@ -244,6 +245,7 @@ def copy_logs_to_processed_folder(**context) -> None:
         ongoing_logs_path,
         f"{AIRFLOW_ENV}/metrics-logs/processed/",
         remove_source_file=True,
+        client_side=True,
     )
 
 
