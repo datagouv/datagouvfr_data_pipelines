@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from typing import Iterator
+from uuid import uuid4
 
 import boto3
 from botocore.config import Config
@@ -10,6 +11,7 @@ import requests
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
+    AIRFLOW_DAG_TMP,
     MINIO_URL,
     # S3_URL,
     SECRET_S3_DATA_PIPELINE_USER,
@@ -244,6 +246,7 @@ class S3Client:
         s3_bucket_source: str | None = None,
         s3_bucket_target: str | None = None,
         remove_source_file: bool = False,
+        client_side: bool = False,
     ) -> list[str]:
         """
         Copy multiple objects from a source folder to a target folder in S3.
@@ -255,15 +258,17 @@ class S3Client:
             s3_bucket_source (str | None): The source S3 bucket name. Defaults to the bucket specified at init.
             s3_bucket_target (str | None): The target S3 bucket name. Defaults to the bucket specified at init.
             remove_source_file (bool): If True, removes the source files after copying. Defaults to False.
+            client_side (bool): whether to do a client or server side copy
 
         Returns:
             list[str]: List of the new objects paths.
         """
+        _method = "client_side_copy_object" if client_side else "copy_object"
         files_destination_path = []
         for source_path in obj_source_paths:
             source_file = os.path.basename(source_path)
             target_path = target_directory + source_file
-            self.copy_object(
+            getattr(self, _method)(
                 path_source=source_path,
                 path_target=target_path,
                 s3_bucket_source=s3_bucket_source,
@@ -272,6 +277,46 @@ class S3Client:
             )
             files_destination_path.append(target_path)
         return files_destination_path
+
+    @simple_connection_retry
+    def client_side_copy_object(
+        self,
+        path_source: str,
+        path_target: str,
+        s3_bucket_source: str | None = None,
+        s3_bucket_target: str | None = None,
+        remove_source_file: bool = False,
+    ):
+        """This is a patch to mitigate the absence of server-side copy in OVH S3.
+        Prefer copy_object as much as possible"""
+        if not s3_bucket_source:
+            s3_bucket_source = self.bucket.name
+        if not s3_bucket_target:
+            s3_bucket_target = self.bucket.name
+        for bucket in [s3_bucket_source, s3_bucket_target]:
+            if bucket not in [b.name for b in self.resource.buckets.all()]:
+                raise ValueError(
+                    f"Bucket '{bucket}' does not exist, or the current user does not have access"
+                )
+
+        logging.info(
+            f"{'Moving' if remove_source_file else 'Copying'} {s3_bucket_source}/{path_source}"
+        )
+        # to prevent collisions
+        local_file = AIRFLOW_DAG_TMP + uuid4()
+        # downloading the file locally
+        self.client.download_file(
+            Bucket=s3_bucket_source,
+            Key=path_source,
+            Filename=local_file,
+        )
+        self.resource.Bucket(s3_bucket_target).upload_file(
+            local_file,
+            path_target,
+        )
+        os.remove(local_file)
+        if remove_source_file:
+            self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
 
     @simple_connection_retry
     def delete_file(
