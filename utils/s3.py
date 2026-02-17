@@ -318,8 +318,6 @@ class S3Client:
         if remove_source_file:
             self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
 
-
-
     @simple_connection_retry
     def delete_file(
         self,
