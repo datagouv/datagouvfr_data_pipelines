@@ -1,15 +1,15 @@
-from datetime import datetime, timedelta
 import logging
-from airflow.decorators import task
-from airflow import DAG
+from datetime import datetime, timedelta
 
-from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
-from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.grist import GristTable
+from airflow import DAG
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_MOISSONNAGE,
 )
+from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
+from datagouvfr_data_pipelines.utils.grist import GristTable
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 PAD_AWAITING_VALIDATION = "https://pad.incubateur.net/173bEiKKTi2laBNyHwIPlQ"
 doc_id = "6xrGmKARsDFR" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"

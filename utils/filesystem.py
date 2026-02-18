@@ -3,8 +3,8 @@ import glob
 import hashlib
 import os
 from typing import Any
-import magic
 
+import magic
 from datagouvfr_data_pipelines.utils.download import download_files
 
 

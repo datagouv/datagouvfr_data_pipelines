@@ -1,17 +1,18 @@
-import pytest
-from unittest.mock import Mock, patch
 import time
+from unittest.mock import Mock, patch
+
+import pytest
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 # The factory must be imported before the task functions because it initializes the mocks
 from factories.grist_factory import GristFactory
-from factories.topics_factory import TopicsFactory
 from factories.task_instance_factory import TaskInstanceFactory
+from factories.topics_factory import TopicsFactory
 from task_functions import (
     get_and_format_grist_v2_data,
     update_topics_v2,
     watch_grist_data,
 )
-from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 grist_factory = GristFactory()
 topics_factory = TopicsFactory()

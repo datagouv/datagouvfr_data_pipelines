@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-
 from datagouvfr_data_pipelines.data_processing.assemblee_nationale.petitions.task_functions import (
     TMP_FOLDER,
     gather_petitions,
-    send_petitions_to_s3,
     publish_on_datagouv,
     send_notification_mattermost,
+    send_petitions_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

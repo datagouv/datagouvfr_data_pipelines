@@ -1,5 +1,4 @@
 import requests
-
 from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
     SECRET_GRIST_API_KEY,

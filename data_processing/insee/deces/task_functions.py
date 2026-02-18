@@ -1,26 +1,25 @@
-from datetime import datetime, timedelta
-import logging
 import json
+import logging
 import os
 import re
+from datetime import datetime, timedelta
 
-from airflow.decorators import task
-import requests
 import pandas as pd
-
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
-from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"

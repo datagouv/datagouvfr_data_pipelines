@@ -1,7 +1,9 @@
-from .external_resources_mock import ExternalResourcesMock
-import requests_mock
-import re
 import json
+import re
+
+import requests_mock
+
+from .external_resources_mock import ExternalResourcesMock
 
 
 class GristMock(ExternalResourcesMock):

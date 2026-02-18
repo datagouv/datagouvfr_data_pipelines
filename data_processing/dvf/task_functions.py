@@ -1,17 +1,15 @@
-from datetime import datetime
-from functools import reduce
+import gc
 import glob
 import json
 import logging
 import os
+from datetime import datetime
+from functools import reduce
 
-from airflow.decorators import task
-import gc
 import numpy as np
 import pandas as pd
 import requests
-from unidecode import unidecode
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -20,13 +18,13 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-
 from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
+from datagouvfr_data_pipelines.utils.s3 import S3Client
+from unidecode import unidecode
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"

@@ -1,8 +1,8 @@
 import json
-import pandas as pd
-import numpy as np
 from datetime import datetime
 
+import numpy as np
+import pandas as pd
 from datagouvfr_data_pipelines.data_processing.carburants.scripts.utils import (
     LIST_FUELS,
     create_todays_df,

@@ -1,13 +1,13 @@
-from collections import defaultdict
-from datetime import datetime, timedelta
 import json
 import logging
 import os
-import requests
 import shutil
 import subprocess
-from airflow.decorators import task
+from collections import defaultdict
+from datetime import datetime, timedelta
 
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -15,14 +15,13 @@ from datagouvfr_data_pipelines.config import (
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
-    SECRET_S3_METEO_PE_USER,
     SECRET_S3_METEO_PE_PASSWORD,
+    SECRET_S3_METEO_PE_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
-
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"

@@ -1,14 +1,14 @@
-from airflow.models import Variable
-import frontmatter
 import glob
-import requests
 import random
-import pandas as pd
 import re
-from airflow.decorators import task
 
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+import frontmatter
+import pandas as pd
+import requests
+from airflow.decorators import task
+from airflow.models import Variable
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP, MATTERMOST_TMPAPIGOUV
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}migration_apigouv"
 GRIST_TOKEN = Variable.get("GRIST_APIGOUV_TOKEN", "metric")

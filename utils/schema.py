@@ -10,26 +10,25 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
 
-from airflow.decorators import task
 import chardet
-from datagouv import Dataset
 import emails
 import numpy as np
 import pandas as pd
 import pytz
 import requests
 import yaml
-from tqdm import tqdm
-
+from airflow.decorators import task
+from datagouv import Dataset
 from datagouvfr_data_pipelines.utils.datagouv import (
     ORGA_REFERENCE,
     VALIDATA_BASE_URL,
     local_client,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from tqdm import tqdm
 
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)

@@ -1,14 +1,13 @@
-from datetime import datetime
-from io import BytesIO
 import json
 import os
+import re
+from datetime import datetime
+from io import BytesIO
 from zipfile import ZipFile
 
-from airflow.decorators import task
 import pandas as pd
-import re
 import requests
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -16,8 +15,8 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.conversions import (
-    csv_to_parquet,
     csv_to_csvgz,
+    csv_to_parquet,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File

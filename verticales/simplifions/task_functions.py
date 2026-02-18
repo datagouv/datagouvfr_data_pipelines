@@ -1,22 +1,21 @@
+import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
-import logging
 
 from airflow.decorators import task
-
+from datagouvfr_data_pipelines.config import (
+    MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
+)
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
-    GristV2Manager,
-)
-from datagouvfr_data_pipelines.verticales.simplifions.topics_v2_manager import (
-    TopicsV2Manager,
-)
 from datagouvfr_data_pipelines.verticales.simplifions.diff_manager import (
     DiffManager,
 )
+from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
+    GristV2Manager,
+)
 from datagouvfr_data_pipelines.verticales.simplifions.topics_api import TopicsAPI
-from datagouvfr_data_pipelines.config import (
-    MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
+from datagouvfr_data_pipelines.verticales.simplifions.topics_v2_manager import (
+    TopicsV2Manager,
 )
 
 # Grist configuration

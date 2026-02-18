@@ -1,11 +1,11 @@
-from datetime import timedelta, datetime
-from airflow import DAG
+from datetime import datetime, timedelta
 
+from airflow import DAG
 from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions import (
-    scan_pnt_files,
-    notification_mattermost,
-    dump_and_send_tree,
     consolidate_logs,
+    dump_and_send_tree,
+    notification_mattermost,
+    scan_pnt_files,
 )
 
 default_args = {

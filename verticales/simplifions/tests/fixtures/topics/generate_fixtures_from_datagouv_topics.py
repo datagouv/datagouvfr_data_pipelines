@@ -8,8 +8,9 @@ No API key required - only accesses publicly available topic data.
 
 import json
 import sys
-import requests
 from pathlib import Path
+
+import requests
 
 # Use demo by default for development (no API key needed for public data)
 BASE_URL = "https://demo.data.gouv.fr"

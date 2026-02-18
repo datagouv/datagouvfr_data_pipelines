@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.verticales.culture.task_functions import (
     TMP_FOLDER,
@@ -10,8 +9,8 @@ from datagouvfr_data_pipelines.verticales.culture.task_functions import (
     get_perimeter_orgas,
     get_perimeter_stats,
     refresh_datasets_tops,
-    send_stats_to_s3,
     send_notification_mattermost,
+    send_stats_to_s3,
 )
 
 with DAG(

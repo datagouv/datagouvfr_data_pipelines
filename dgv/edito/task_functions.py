@@ -1,10 +1,10 @@
-import pandas as pd
 from datetime import date
-from dateutil.relativedelta import relativedelta
+
+import pandas as pd
 import requests
 from airflow.decorators import task
-# import tweepy
 
+# import tweepy
 from datagouvfr_data_pipelines.config import (
     # TWITTER_CONSUMER_KEY,
     # TWITTER_CONSUMER_KEY_SECRET,
@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import create_post
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-
+from dateutil.relativedelta import relativedelta
 
 DATAGOUV_URL = "https://www.data.gouv.fr"
 NOW = date.today()

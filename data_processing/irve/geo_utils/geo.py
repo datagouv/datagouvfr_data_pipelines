@@ -5,11 +5,10 @@ import os
 import geojson
 import pandas as pd
 import requests
-from shapely.geometry import Point, shape
-
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from shapely.geometry import Point, shape
 
 with open(
     f"{AIRFLOW_DAG_HOME}/datagouvfr_data_pipelines/data_processing/irve/geo_utils/france_bbox.geojson"

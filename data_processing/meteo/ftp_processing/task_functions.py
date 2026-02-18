@@ -1,14 +1,13 @@
 import ftplib
+import json
 import logging
 import os
-import json
-from datetime import datetime, timedelta, timezone
 import re
-import requests
-from dateutil import parser
 from collections import defaultdict
-from airflow.decorators import task
+from datetime import datetime, timedelta, timezone
 
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -19,6 +18,7 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from dateutil import parser
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_ftp/"

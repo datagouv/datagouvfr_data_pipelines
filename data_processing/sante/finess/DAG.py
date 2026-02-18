@@ -3,14 +3,14 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions import (
-    config,
     TMP_FOLDER,
-    check_if_modif,
-    build_finess_table_etablissements,
     build_and_save,
-    send_to_s3,
+    build_finess_table_etablissements,
+    check_if_modif,
+    config,
     publish_on_datagouv,
     send_notification_mattermost,
+    send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

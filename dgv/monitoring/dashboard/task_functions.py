@@ -1,8 +1,8 @@
+import json
+import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 from io import StringIO
-import json
-import logging
 from time import sleep
 from typing import Iterator
 
@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import requests
 from airflow.decorators import task
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MATOMO_TOKEN,

@@ -1,33 +1,32 @@
-from datetime import timedelta, datetime, time as dtime, timezone
-from difflib import SequenceMatcher
 import logging
+from datetime import datetime, timedelta, timezone
+from datetime import time as dtime
+from difflib import SequenceMatcher
 from time import sleep
 
-from airflow.decorators import task
-from airflow.models import Variable
-from langdetect import detect, LangDetectException
 import pandas as pd
 import requests
-from unidecode import unidecode
-
+from airflow.decorators import task
+from airflow.models import Variable
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     MATTERMOST_MODERATION_NOUVEAUTES,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import (
+    SPAM_WORDS,
     VALIDATA_BASE_URL,
+    check_duplicated_orga,
+    get_awaiting_spam_comments,
     get_last_items,
     get_latest_comments,
-    get_awaiting_spam_comments,
-    check_duplicated_orga,
     local_client,
-    SPAM_WORDS,
 )
-from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
 from datagouvfr_data_pipelines.utils.grist import GristTable
-
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
+from langdetect import LangDetectException, detect
+from unidecode import unidecode
 
 DAG_NAME = "dgv_notification_activite"
 

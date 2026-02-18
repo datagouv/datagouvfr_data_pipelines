@@ -1,25 +1,25 @@
-import pandas as pd
+import json
 import os
 from datetime import date, datetime
-from dateutil.relativedelta import relativedelta
-import numpy as np
-import requests
-import json
 from io import StringIO
-from datagouv import Client
-from airflow.decorators import task
 
+import numpy as np
+import pandas as pd
+import requests
+from airflow.decorators import task
+from datagouv import Client
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_NOTION_KEY_IMPACT,
 )
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
-from datagouvfr_data_pipelines.utils.datagouv import local_client
+from dateutil.relativedelta import relativedelta
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)

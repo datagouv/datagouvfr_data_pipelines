@@ -1,11 +1,10 @@
 import json
 import logging
-import yaml
 
-from airflow.decorators import task
 import jsonschema
 import requests
-
+import yaml
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 

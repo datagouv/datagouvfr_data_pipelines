@@ -1,14 +1,12 @@
-from datetime import date, datetime, timedelta
 import glob
 import logging
 import os
 import tarfile
+from datetime import date, datetime, timedelta
 
+import pandas as pd
 from airflow.decorators import task
 from airflow.utils.trigger_rule import TriggerRule
-import pandas as pd
-from tqdm import tqdm
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
@@ -17,19 +15,19 @@ from datagouvfr_data_pipelines.config import (
     # SECRET_S3_METRICS_PASSWORD,
     # SECRET_S3_METRICS_USER,
 )
+from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
 from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
     aggregate_metrics,
+    get_matomo_outlinks,
     parse_logs,
     sum_outlinks_by_orga,
-    get_matomo_outlinks,
 )
 from datagouvfr_data_pipelines.utils.download import download_files
-from datagouvfr_data_pipelines.utils.filesystem import remove_files_from_directory, File
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.filesystem import File, remove_files_from_directory
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
-
+from tqdm import tqdm
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 

@@ -1,30 +1,29 @@
-from datetime import datetime, timedelta
+import asyncio
 import json
 import os
 import random
+from datetime import datetime, timedelta
 
 import aiohttp
-from airflow.decorators import task
-import asyncio
-from langdetect import detect
 import pandas as pd
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
-    S3_BUCKET_DATA_PIPELINE_OPEN,
-    MATTERMOST_MODERATION_NOUVEAUTES,
+    AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_EDITO,
+    MATTERMOST_MODERATION_NOUVEAUTES,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
+)
+from datagouvfr_data_pipelines.utils.datagouv import (
+    SPAM_WORDS,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.s3 import S3Client
-from datagouvfr_data_pipelines.utils.datagouv import (
-    local_client,
-    SPAM_WORDS,
-)
 from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, GristTable
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.retry import RequestRetry
+from datagouvfr_data_pipelines.utils.s3 import S3Client
+from langdetect import detect
 
 DAG_NAME = "dgv_bizdev"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"

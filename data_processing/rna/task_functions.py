@@ -1,12 +1,11 @@
-import pandas as pd
-import os
-from unidecode import unidecode
-import requests
 import json
-from zipfile import ZipFile
+import os
 from io import BytesIO
-from airflow.decorators import task
+from zipfile import ZipFile
 
+import pandas as pd
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -19,6 +18,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
+from unidecode import unidecode
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"

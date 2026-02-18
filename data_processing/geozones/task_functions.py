@@ -1,12 +1,12 @@
-import os
-import pandas as pd
 import json
+import os
 from datetime import datetime
-import requests
 from io import BytesIO
 from urllib.parse import quote_plus, urlencode
-from airflow.decorators import task
 
+import pandas as pd
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,

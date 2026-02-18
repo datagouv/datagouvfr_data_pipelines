@@ -1,13 +1,13 @@
-import requests
 import json
 import logging
-import pandas as pd
 
-from datagouvfr_data_pipelines.utils.retry import RequestRetry
+import pandas as pd
+import requests
 from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
     SECRET_GRIST_API_KEY,
 )
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 
 GRIST_UI_URL = GRIST_API_URL.replace("api", "o/datagouv")
 headers = {

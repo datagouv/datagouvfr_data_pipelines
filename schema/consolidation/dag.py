@@ -1,28 +1,28 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
-    MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
 )
 from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
-    get_resources,
-    download_resources,
     consolidate_resources,
-    upload_consolidated_data,
-    update_reference_tables,
-    update_resources,
-    update_consolidation_documentation,
     create_consolidation_reports,
     create_detailed_reports,
+    download_resources,
     final_clean_up,
+    get_resources,
+    update_consolidation_documentation,
+    update_reference_tables,
+    update_resources,
+    upload_consolidated_data,
 )
-from datagouvfr_data_pipelines.utils.schema import upload_s3, notification_synthese
+from datagouvfr_data_pipelines.utils.schema import notification_synthese, upload_s3
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}schema_consolidation/")

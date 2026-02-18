@@ -1,31 +1,30 @@
-import os
-import re
 import json
 import logging
+import os
+import re
 from email.message import Message
-from zipfile import ZipFile
 from pathlib import Path
+from zipfile import ZipFile
 
-from airflow.decorators import task
-import pandas as pd
-import requests
-import py7zr
 import duckdb
-
+import pandas as pd
+import py7zr
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    S3_BUCKET_DATA_PIPELINE_OPEN,
+    AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.download import download_files
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
+from datagouvfr_data_pipelines.utils.download import download_files
+from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"

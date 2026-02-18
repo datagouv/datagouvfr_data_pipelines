@@ -3,25 +3,23 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-
 from datagouvfr_data_pipelines.dgv.metrics.task import (
+    TMP_FOLDER,
+    aggregate_log,
+    copy_logs_to_processed_folder,
     create_metrics_tables,
-    get_new_logs,
     download_catalog,
     download_log,
+    get_new_logs,
     matomo_postgres_duplication_safety,
-    visit_postgres_duplication_safety,
     process_log,
-    aggregate_log,
-    save_metrics_to_postgres,
-    copy_logs_to_processed_folder,
-    refresh_materialized_views,
     process_matomo,
+    refresh_materialized_views,
     save_matomo_to_postgres,
-    TMP_FOLDER,
+    save_metrics_to_postgres,
+    visit_postgres_duplication_safety,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
-
 
 default_args = {
     "retries": 2,

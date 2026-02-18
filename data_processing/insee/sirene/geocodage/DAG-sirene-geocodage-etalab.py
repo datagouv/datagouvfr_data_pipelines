@@ -2,7 +2,6 @@ from datetime import datetime
 
 from airflow import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
-
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 SCRIPTS_PATH = (

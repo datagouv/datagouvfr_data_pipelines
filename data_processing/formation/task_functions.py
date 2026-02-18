@@ -1,16 +1,16 @@
 from datetime import datetime
+
 import pandas as pd
 from airflow.decorators import task
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 

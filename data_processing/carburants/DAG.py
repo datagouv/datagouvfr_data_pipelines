@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from airflow import DAG
 
+from airflow import DAG
 from datagouvfr_data_pipelines.data_processing.carburants.task_functions import (
     TMP_FOLDER,
     convert_utf8_files,

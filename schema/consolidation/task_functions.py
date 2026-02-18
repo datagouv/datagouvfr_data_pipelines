@@ -1,25 +1,24 @@
+import os
 from ast import literal_eval
 from datetime import datetime
-import os
 from pathlib import Path
 
-from airflow.decorators import task
 import pandas as pd
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.utils.schema import (
-    remove_old_schemas,
-    get_schema_report,
+    append_stats_list,
     build_reference_table,
-    download_schema_files,
     consolidate_data,
+    create_detailed_report,
+    download_schema_files,
+    final_directory_clean_up,
+    get_schema_report,
     load_config,
-    upload_consolidated,
+    remove_old_schemas,
+    update_consolidation_documentation_report,
     update_reference_table,
     update_resource_send_mail_producer,
-    update_consolidation_documentation_report,
-    append_stats_list,
-    create_detailed_report,
-    final_directory_clean_up,
+    upload_consolidated,
 )
 
 pd.set_option("display.max_columns", None)

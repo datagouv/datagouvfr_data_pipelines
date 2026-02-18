@@ -1,21 +1,20 @@
-from datetime import timedelta, datetime
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.models.baseoperator import chain
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     get_top,
-    send_tops_to_s3,
-    send_stats_to_s3,
     publish_top_mattermost,
+    send_stats_to_s3,
+    send_tops_to_s3,
 )
 from datagouvfr_data_pipelines.utils.utils import (
-    check_if_first_day_of_year,
     check_if_first_day_of_month,
+    check_if_first_day_of_year,
     check_if_monday,
 )
+from dateutil.relativedelta import relativedelta
 
 DAG_NAME = "dgv_tops"
 S3_PATH = "tops/"

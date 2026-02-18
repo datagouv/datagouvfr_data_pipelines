@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta
 import logging
 import os
-import requests
 import shutil
-from airflow.decorators import task
+from datetime import datetime, timedelta
 
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
@@ -12,19 +12,19 @@ from datagouvfr_data_pipelines.config import (
     DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     S3_BUCKET_PNT,
-    SECRET_S3_PNT_USER,
     SECRET_S3_PNT_PASSWORD,
+    SECRET_S3_PNT_USER,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
-    PACKAGES,
     MAX_LAST_BATCHES,
+    PACKAGES,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.utils import (
     MeteoClient,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 # if you want to roll back to dev mode
 # AIRFLOW_ENV = "dev"

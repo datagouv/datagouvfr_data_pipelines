@@ -1,5 +1,6 @@
-import emails
 import logging
+
+import emails
 
 
 def send_mail_datagouv(

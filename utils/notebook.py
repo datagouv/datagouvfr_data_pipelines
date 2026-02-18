@@ -1,13 +1,12 @@
 import codecs
 import os
 
-from airflow.decorators import task
 import nbformat
 import papermill as pm
-from nbconvert import HTMLExporter
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from nbconvert import HTMLExporter
 
 
 @task()

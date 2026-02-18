@@ -1,5 +1,6 @@
-import requests_mock
 import json
+
+import requests_mock
 
 
 class ExternalResourcesMock:

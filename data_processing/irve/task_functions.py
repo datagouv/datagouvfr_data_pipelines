@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 from airflow.decorators import task
-
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
     improve_geo_data_quality,

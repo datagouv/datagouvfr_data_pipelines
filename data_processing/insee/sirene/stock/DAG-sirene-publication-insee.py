@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
 )
@@ -10,8 +10,8 @@ from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions
     check_if_already_processed,
     get_files,
     publish_file_s3,
-    update_dataset_data_gouv,
     publish_mattermost,
+    update_dataset_data_gouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

@@ -1,25 +1,24 @@
+import logging
 from datetime import datetime
 from io import StringIO
-import logging
 
-from airflow.decorators import task
 import pandas as pd
 import requests
-from unidecode import unidecode
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_BUCKET_DATA_PIPELINE_OPEN,
     MATTERMOST_MODERATION_NOUVEAUTES,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.grist import (
     GristTable,
     get_unique_values_from_multiple_choice_column,
 )
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.s3 import S3Client
+from unidecode import unidecode
 
 DAG_NAME = "dgv_hvd"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"

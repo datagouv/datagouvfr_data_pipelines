@@ -1,30 +1,29 @@
-from collections import defaultdict
 import csv
-from datetime import datetime, timedelta
+import gzip
 import json
 import logging
 import os
-from pathlib import Path
+import re
 import shutil
+from collections import defaultdict
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from airflow.decorators import task
-from airflow.hooks.base import BaseHook
-import gzip
-from jinja2 import Environment, FileSystemLoader
 import pandas as pd
 import psycopg2
-import re
 import requests
-
+from airflow.decorators import task
+from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.s3 import S3Client
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from jinja2 import Environment, FileSystemLoader
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg/"

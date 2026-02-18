@@ -1,16 +1,15 @@
+import re
+from datetime import datetime
+
 import dateutil
 import requests
-from datetime import datetime
-import re
-
 from datagouv import Client
-
-from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
 )
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 if AIRFLOW_ENV == "dev":
     ORGA_REFERENCE = "63e3ae4082ddaa6c806b8417"

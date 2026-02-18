@@ -2,8 +2,8 @@ import re
 from urllib.parse import parse_qs
 
 import httpx
-import respx
 import requests_mock
+import respx
 
 from .external_resources_mock import ExternalResourcesMock
 

@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 
-from airflow.decorators import task
 from airflow import DAG
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import MATTERMOST_MODERATION_NOUVEAUTES
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 DAG_NAME = "dgv_administrateur"
 

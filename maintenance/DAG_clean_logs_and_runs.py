@@ -1,13 +1,12 @@
-from datetime import datetime, timedelta, timezone
-import os
 import logging
+import os
 import shutil
+from datetime import datetime, timedelta, timezone
 
-from airflow.decorators import task
 from airflow import DAG
+from airflow.decorators import task
 from airflow.models import DagRun
 from airflow.settings import Session
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,

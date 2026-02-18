@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+
 from airflow import DAG
 from datagouv import Client
 
@@ -7,15 +8,14 @@ from datagouv import Client
 # with a demo api key to avoid hitting the production api.
 # In production, local_client is plugged to www.datagouv.fr
 from datagouvfr_data_pipelines.utils.datagouv import (
-    local_client,
     demo_client,
+    local_client,
 )
-
 from datagouvfr_data_pipelines.verticales.simplifions.task_functions import (
+    clone_grist_document,
     get_and_format_grist_v2_data,
     update_topics_v2,
     watch_grist_data,
-    clone_grist_document,
 )
 
 default_args = {

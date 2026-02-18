@@ -1,19 +1,19 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
-
-from datagouvfr_data_pipelines.utils.utils import check_if_monday
 from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DAG_NAME,
     TMP_FOLDER,
-    get_hvd,
-    send_to_s3,
-    publish_mattermost,
     build_df_for_grist,
-    update_grist,
+    get_hvd,
+    publish_mattermost,
     publish_mattermost_grist,
+    send_to_s3,
+    update_grist,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
+from datagouvfr_data_pipelines.utils.utils import check_if_monday
 
 default_args = {
     "retries": 5,

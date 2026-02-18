@@ -1,30 +1,29 @@
 import codecs
-from datetime import datetime
 import json
 import logging
 import os
-import pytz
 import re
 import shutil
+import xml.etree.ElementTree as ET
+from datetime import datetime
 from time import sleep
 from urllib import parse
-import yaml
 
-from airflow.decorators import task
-from feedgen.feed import FeedGenerator
 import frictionless
-from git import Repo, Git
 import jsonschema
 import pandas as pd
+import pytz
 import requests
-from table_schema_to_markdown import convert_source, sources_to_markdown
-from unidecode import unidecode
-import xml.etree.ElementTree as ET
-
-from datagouvfr_data_pipelines.utils.schema import comparer_versions
+import yaml
+from airflow.decorators import task
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.schema import comparer_versions
+from feedgen.feed import FeedGenerator
+from git import Git, Repo
+from table_schema_to_markdown import convert_source, sources_to_markdown
+from unidecode import unidecode
 
 ERRORS_REPORT = []
 SCHEMA_INFOS = {}

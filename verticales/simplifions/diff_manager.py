@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+
 from datagouvfr_data_pipelines.verticales.simplifions.grist_v2_manager import (
     GristV2Manager,
 )

@@ -1,5 +1,5 @@
-from mocks.grist_mock import GristMock
 from factories.external_resources_factory import ExternalResourcesFactory
+from mocks.grist_mock import GristMock
 
 grist_mock = GristMock()
 

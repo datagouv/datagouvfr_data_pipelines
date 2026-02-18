@@ -1,18 +1,17 @@
 import json
 import logging
 
-from airflow.decorators import task
 import pandas as pd
 import requests
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
-    local_client,
     DATAGOUV_SECRET_API_KEY,
+    local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.grist import GristTable

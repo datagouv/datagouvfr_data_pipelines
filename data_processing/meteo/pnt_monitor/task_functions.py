@@ -1,22 +1,21 @@
-from typing import Iterable
-import requests
-from collections import defaultdict
-from datetime import datetime
-from datetime import timedelta
 import json
-from airflow.decorators import task
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Iterable
 
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+import requests
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_TMP,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     S3_BUCKET_PNT,
-    SECRET_S3_PNT_USER,
     SECRET_S3_PNT_PASSWORD,
-    AIRFLOW_DAG_TMP,
+    SECRET_S3_PNT_USER,
 )
+from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 s3_pnt = S3Client(

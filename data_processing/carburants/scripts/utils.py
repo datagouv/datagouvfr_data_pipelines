@@ -1,6 +1,6 @@
 import json
-import pandas as pd
 
+import pandas as pd
 
 LIST_FUELS = ["SP95", "E10", "SP98", "Gazole", "GPLc", "E85"]
 

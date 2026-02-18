@@ -27,6 +27,7 @@ def test_extract_log_info():
 def test_parse_logs():
     """Test if the function output file respects the expected parsing logic."""
     import os
+
     from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
     from datagouvfr_data_pipelines.dgv.metrics.task_functions import parse_logs
 
@@ -62,6 +63,7 @@ def test_parse_logs():
 def test_aggregate_metrics():
     """Test if the aggregation function works correctly."""
     import os
+
     import pandas as pd
     from datagouvfr_data_pipelines.dgv.metrics.config import MetricsConfig
     from datagouvfr_data_pipelines.dgv.metrics.task_functions import aggregate_metrics

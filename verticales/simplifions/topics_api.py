@@ -1,5 +1,6 @@
-import requests
 import logging
+
+import requests
 from datagouv import Client
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 

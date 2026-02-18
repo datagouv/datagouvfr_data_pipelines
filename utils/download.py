@@ -1,10 +1,11 @@
 # import requests
 # from requests.auth import HTTPBasicAuth
-from typing import TYPE_CHECKING
-from pathlib import Path
-import aiohttp
 import asyncio
 import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import aiohttp
 
 if TYPE_CHECKING:
     # to avoid circular imports

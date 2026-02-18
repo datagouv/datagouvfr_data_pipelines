@@ -1,19 +1,19 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.task_functions import (
     LOG_PATH,
-    get_latest_theorical_batches,
+    clean_directory,
     clean_old_runs_in_s3,
     construct_all_possible_files,
-    send_files_to_s3,
+    get_latest_theorical_batches,
     publish_on_datagouv,
-    clean_directory,
+    send_files_to_s3,
 )
 
 

@@ -1,24 +1,24 @@
-import os
-import json
-from datetime import datetime
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
 import glob
+import json
+import os
 import time
-from airflow.decorators import task
+from datetime import datetime
 
+import pandas as pd
+import requests
+from airflow.decorators import task
+from bs4 import BeautifulSoup
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.datagouv import (
     demo_client,
 )
+from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 

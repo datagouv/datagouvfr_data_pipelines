@@ -1,7 +1,7 @@
 from typing import Callable
 
-from tenacity import retry, stop_after_attempt, wait_exponential
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 
 def log_retry_attempt(state):

@@ -1,11 +1,11 @@
-from datetime import timedelta, datetime
-from airflow import DAG
+from datetime import datetime, timedelta
 
+from airflow import DAG
 from datagouvfr_data_pipelines.data_processing.meteo.stats_meteo.task_functions import (
     TMP_FOLDER,
     gather_meteo_stats,
-    send_to_s3,
     send_notification,
+    send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

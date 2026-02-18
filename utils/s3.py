@@ -6,16 +6,15 @@ from typing import Iterator
 from uuid import uuid4
 
 import boto3
-from botocore.config import Config
 import requests
-
+from botocore.config import Config
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
     AIRFLOW_DAG_TMP,
+    AIRFLOW_ENV,
     MINIO_URL,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
     # S3_URL,
     SECRET_S3_DATA_PIPELINE_USER,
-    SECRET_S3_DATA_PIPELINE_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry

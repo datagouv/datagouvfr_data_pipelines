@@ -1,15 +1,14 @@
-from collections import defaultdict
-from datetime import datetime, timedelta
 import json
 import logging
+from collections import defaultdict
+from datetime import datetime, timedelta
+
 import numpy as np
 import pytz
-
 from airflow.decorators import task
 from airflow.models import DagRun
-from airflow.utils.state import State
 from airflow.providers.http.hooks.http import HttpHook
-
+from airflow.utils.state import State
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, AIRFLOW_ENV, AIRFLOW_URL
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 

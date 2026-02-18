@@ -1,4 +1,5 @@
 import os
+
 import requests
 
 DEMO_DATAGOUV_SECRET_API_KEY = os.getenv("DEMO_DATAGOUV_SECRET_API_KEY")

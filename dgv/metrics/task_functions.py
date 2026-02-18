@@ -1,10 +1,9 @@
-from collections import defaultdict
 import re
+from collections import defaultdict
 from typing import Any
 
 import pandas as pd
 import requests
-
 from datagouvfr_data_pipelines.config import MATOMO_TOKEN
 from datagouvfr_data_pipelines.dgv.metrics.config import DataGouvLog, MetricsConfig
 from datagouvfr_data_pipelines.utils.filesystem import save_list_of_dict_to_csv

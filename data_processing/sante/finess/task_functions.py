@@ -1,13 +1,13 @@
-from datetime import datetime
+import json
 import logging
 import os
-import json
-import requests
-import pandas as pd
+from datetime import datetime
 from io import StringIO
-from datagouv import Resource
-from airflow.decorators import task
 
+import pandas as pd
+import requests
+from airflow.decorators import task
+from datagouv import Resource
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,

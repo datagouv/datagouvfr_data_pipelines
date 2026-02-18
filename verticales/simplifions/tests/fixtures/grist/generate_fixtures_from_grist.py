@@ -7,8 +7,9 @@ This script fetches data from the SIMPLIFIONS_cas_usages table and stores it as 
 import json
 import os
 import sys
-import requests
 from pathlib import Path
+
+import requests
 
 # Grist configuration (copied from grist_manager.py to make this script standalone)
 GRIST_DOC_ID = "ofSVjCSAnMb6"

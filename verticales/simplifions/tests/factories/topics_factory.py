@@ -1,6 +1,7 @@
-from mocks.datagouvfr_mock import DatagouvfrMock
-from factories.external_resources_factory import ExternalResourcesFactory
 from copy import deepcopy
+
+from factories.external_resources_factory import ExternalResourcesFactory
+from mocks.datagouvfr_mock import DatagouvfrMock
 
 datagouvfr_mock = DatagouvfrMock()
 

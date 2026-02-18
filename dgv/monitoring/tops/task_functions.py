@@ -1,19 +1,18 @@
-from dateutil.relativedelta import relativedelta
-from datetime import datetime
 import logging
+from datetime import datetime
 
-from airflow.decorators import task
 import pandas as pd
 import requests
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_DATAGOUV_REPORTING,
     MATOMO_TOKEN,
+    MATTERMOST_DATAGOUV_REPORTING,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from dateutil.relativedelta import relativedelta
 
 BASE_URL = "https://stats.data.gouv.fr/index.php"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)

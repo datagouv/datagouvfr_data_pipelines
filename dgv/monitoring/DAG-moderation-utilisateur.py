@@ -1,18 +1,17 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
-from airflow.decorators import task
 from airflow import DAG
+from airflow.decorators import task
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.config import (
     MATTERMOST_MODERATION_NOUVEAUTES,
-    SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
+    SECRET_MAIL_DATAGOUV_BOT_USER,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 
 TIME_PERIOD = {"hours": 1}
 NB_USERS_THRESHOLD = 25

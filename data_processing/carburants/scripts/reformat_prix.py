@@ -1,12 +1,12 @@
 import csv
 import json
-import urllib.request
 import urllib.parse
+import urllib.request
 from datetime import datetime
 from itertools import chain
-from shapely.geometry import Point, shape
 from xml.etree import ElementTree as etree
 
+from shapely.geometry import Point, shape
 
 bounds = {
     "latitude": {

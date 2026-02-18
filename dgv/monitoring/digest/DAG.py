@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta
 from collections import defaultdict
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.models.baseoperator import chain
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     MINIO_URL,
@@ -13,15 +13,15 @@ from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
     DAG_FOLDER,
     DAG_NAME,
     TMP_FOLDER,
-    send_email_report_period,
     publish_mattermost_period,
+    send_email_report_period,
 )
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.utils.utils import (
-    check_if_monday,
     check_if_first_day_of_month,
     check_if_first_day_of_year,
+    check_if_monday,
 )
 
 S3_PATH = "dgv/"

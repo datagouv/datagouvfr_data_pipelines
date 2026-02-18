@@ -1,16 +1,15 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-
 from datagouvfr_data_pipelines.dgv.monitoring.activites.task_functions import (
     DAG_NAME,
     TIME_PERIOD,
-    check_new,
-    send_spam_to_grist,
-    publish_mattermost,
-    check_schema,
     alert_if_awaiting_spam_comments,
     alert_if_new_reports,
+    check_new,
+    check_schema,
+    publish_mattermost,
+    send_spam_to_grist,
 )
 
 default_args = {

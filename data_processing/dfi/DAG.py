@@ -1,14 +1,14 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.data_processing.dfi.task_functions import (
     TMP_FOLDER,
     check_if_modif,
     gather_data,
-    send_to_s3,
-    publish_on_datagouv,
     notification_mattermost,
+    publish_on_datagouv,
+    send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

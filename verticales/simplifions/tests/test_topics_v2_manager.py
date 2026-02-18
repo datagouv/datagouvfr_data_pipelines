@@ -1,10 +1,10 @@
 import pytest
+from datagouvfr_data_pipelines.utils.datagouv import local_client
+from factories.task_instance_factory import TaskInstanceFactory
 
 # The factory must be imported before the manager because it initializes the mocks
 from factories.topics_factory import TopicsFactory
-from factories.task_instance_factory import TaskInstanceFactory
 from topics_v2_manager import TopicsV2Manager
-from datagouvfr_data_pipelines.utils.datagouv import local_client
 
 topics_factory = TopicsFactory()
 task_instance_factory = TaskInstanceFactory()

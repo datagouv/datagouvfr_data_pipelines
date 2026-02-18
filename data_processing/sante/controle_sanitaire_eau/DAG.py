@@ -1,16 +1,16 @@
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
     TMP_FOLDER,
     check_if_modif,
     process_data,
-    send_to_s3,
     publish_on_datagouv,
     send_notification_mattermost,
+    send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

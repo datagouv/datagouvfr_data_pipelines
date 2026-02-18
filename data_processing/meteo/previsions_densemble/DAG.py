@@ -1,17 +1,17 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
     CONFIG,
     TMP_FOLDER,
     clean_directory,
     get_files_list_on_sftp,
-    transfer_files_to_s3,
+    handle_cyclonic_alert,
     publish_on_datagouv,
     remove_old_occurrences,
-    handle_cyclonic_alert,
+    transfer_files_to_s3,
 )
 
 DAG_NAME = "data_processing_meteo_previsions_densemble"

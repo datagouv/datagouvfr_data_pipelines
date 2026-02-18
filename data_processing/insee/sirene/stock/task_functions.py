@@ -1,25 +1,24 @@
-import os
 import json
-from datetime import datetime, timedelta
 import logging
+import os
 import zipfile
+from datetime import datetime, timedelta
 
-from airflow.decorators import task
 import pandas as pd
-
-from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
-from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
-from datagouvfr_data_pipelines.utils.download import download_files
-from datagouvfr_data_pipelines.utils.s3 import S3Client
-from datagouvfr_data_pipelines.utils.datagouv import local_client
-from datagouvfr_data_pipelines.utils.mattermost import send_message
-from datagouvfr_data_pipelines.utils.utils import MOIS_FR
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     INSEE_BASE_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_INSEE_LOGIN,
     SECRET_INSEE_PASSWORD,
 )
+from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
+from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.download import download_files
+from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
+from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 

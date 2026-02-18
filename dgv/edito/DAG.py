@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from airflow import DAG
 
+from airflow import DAG
 from datagouvfr_data_pipelines.dgv.edito.task_functions import (
     create_edito_post,
     publish_mattermost,

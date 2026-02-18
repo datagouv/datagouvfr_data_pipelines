@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
-
 from datagouvfr_data_pipelines.data_processing.formation.task_functions import (
     TMP_FOLDER,
     compare_files_s3,

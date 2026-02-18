@@ -1,13 +1,12 @@
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
 
-from airflow.decorators import task
 import pandas as pd
 import requests
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
     AIRFLOW_DAG_HOME,
+    AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MATOMO_TOKEN,
 )

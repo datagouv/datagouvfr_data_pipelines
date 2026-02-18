@@ -1,7 +1,7 @@
 import logging
+
 import psycopg2
 from airflow.hooks.base import BaseHook
-
 from datagouvfr_data_pipelines.utils.filesystem import File
 
 

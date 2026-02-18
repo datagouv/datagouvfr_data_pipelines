@@ -1,7 +1,6 @@
 import logging
-import requests
-from requests.auth import HTTPBasicAuth
 
+import requests
 from datagouvfr_data_pipelines.config import (
     CRISP_PLUGIN_ID,
     CRISP_PLUGIN_TOKEN,
@@ -9,6 +8,7 @@ from datagouvfr_data_pipelines.config import (
     CRISP_USER_TOKEN,
     CRISP_WEBSITE_ID,
 )
+from requests.auth import HTTPBasicAuth
 
 # the website id is retrieved from the main crisp app: Settings > Workspace settings > Integrations
 # the plugin id and token are retrieved from https://marketplace.crisp.chat/plugins/

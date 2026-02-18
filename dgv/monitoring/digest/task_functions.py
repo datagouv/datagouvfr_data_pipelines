@@ -1,26 +1,25 @@
-from datetime import datetime
 import json
 import re
+from datetime import datetime
 
-from airflow.decorators import task
 import requests
-from IPython.display import display, HTML
-
+from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MATTERMOST_DATAGOUV_ACTIVITES,
     MATTERMOST_DATASERVICES_ONLY,
-    SECRET_MAIL_DATAGOUV_BOT_USER,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
+    SECRET_MAIL_DATAGOUV_BOT_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
+    check_duplicated_orga,
     get_last_items,
     get_latest_comments,
-    check_duplicated_orga,
 )
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from datagouvfr_data_pipelines.utils.mattermost import send_message
+from IPython.display import HTML, display
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
 DAG_NAME = "dgv_digests"

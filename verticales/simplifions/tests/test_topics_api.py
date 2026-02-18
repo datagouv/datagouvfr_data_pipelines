@@ -1,6 +1,6 @@
 # The factory must be imported before the manager because it initializes the mocks
-from factories.topics_factory import TopicsFactory
 from datagouvfr_data_pipelines.utils.datagouv import local_client
+from factories.topics_factory import TopicsFactory
 from topics_api import TopicsAPI
 
 topics_factory = TopicsFactory()

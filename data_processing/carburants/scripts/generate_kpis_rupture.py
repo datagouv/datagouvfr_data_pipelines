@@ -1,5 +1,4 @@
 import pandas as pd
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
 )
@@ -7,7 +6,6 @@ from datagouvfr_data_pipelines.data_processing.carburants.scripts.utils import (
     LIST_FUELS,
     create_todays_df,
 )
-
 
 AUGMENTED_LIST_FUELS = LIST_FUELS + [
     "essence",

@@ -1,6 +1,6 @@
-from datetime import timedelta, datetime
-from airflow import DAG
+from datetime import datetime, timedelta
 
+from airflow import DAG
 from datagouvfr_data_pipelines.dgv.stats.task_functions import (
     TMP_FOLDER,
     create_year_if_missing,

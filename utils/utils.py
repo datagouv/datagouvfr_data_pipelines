@@ -1,4 +1,5 @@
 from datetime import date, datetime
+
 from dateutil.relativedelta import relativedelta
 
 MOIS_FR = {

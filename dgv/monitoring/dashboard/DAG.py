@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta
 
-from airflow.decorators import task
 from airflow import DAG
-
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from airflow.decorators import task
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     DAG_NAME,
     TMP_FOLDER,
@@ -12,9 +10,10 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_and_upload_reuses_down,
     get_catalog_stats,
     get_hvd_dataservices_stats,
-    get_visits,
     get_support_tickets,
+    get_visits,
 )
+from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 one_year_ago = datetime.today() - timedelta(days=365)

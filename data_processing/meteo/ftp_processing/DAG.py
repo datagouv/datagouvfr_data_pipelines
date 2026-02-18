@@ -1,24 +1,24 @@
-from datetime import datetime, timedelta
 import ftplib
-from airflow import DAG
+from datetime import datetime, timedelta
 
+from airflow import DAG
 from datagouvfr_data_pipelines.config import (
-    SECRET_FTP_METEO_USER,
-    SECRET_FTP_METEO_PASSWORD,
     SECRET_FTP_METEO_ADDRESS,
+    SECRET_FTP_METEO_PASSWORD,
+    SECRET_FTP_METEO_USER,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functions import (
     TMP_FOLDER,
+    delete_replaced_s3_files,
+    get_and_upload_file_diff_ftp_s3,
     get_current_files_on_ftp,
     get_current_files_on_s3,
-    get_and_upload_file_diff_ftp_s3,
-    upload_new_files,
-    handle_updated_files_same_name,
     handle_updated_files_new_name,
-    update_temporal_coverages,
+    handle_updated_files_same_name,
     log_modified_files,
-    delete_replaced_s3_files,
     notification_mattermost,
+    update_temporal_coverages,
+    upload_new_files,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

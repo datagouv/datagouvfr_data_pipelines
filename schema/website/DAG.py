@@ -1,19 +1,19 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.schema.website.task_functions import (
-    initialization,
     check_and_save_schemas,
-    update_news_feed,
-    sort_folders,
-    get_issues_and_labels,
-    publish_schema_dataset,
     final_clean_up,
+    get_issues_and_labels,
+    initialization,
+    publish_schema_dataset,
+    sort_folders,
+    update_news_feed,
 )
 
 GIT_REPO = (

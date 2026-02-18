@@ -3,13 +3,12 @@ from pathlib import Path
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    S3_BUCKET_DATA_PIPELINE_OPEN,
     MINIO_URL,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     consolidate_irve,
@@ -25,7 +24,7 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     update_resource_send_mail_producer_irve,
     upload_consolidated_irve,
 )
-from datagouvfr_data_pipelines.utils.schema import upload_s3, notification_synthese
+from datagouvfr_data_pipelines.utils.schema import notification_synthese, upload_s3
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}irve/")
