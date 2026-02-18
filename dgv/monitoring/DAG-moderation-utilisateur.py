@@ -14,8 +14,6 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 
-DAG_NAME = "dgv_moderation_utilisateurs"
-
 TIME_PERIOD = {"hours": 1}
 NB_USERS_THRESHOLD = 25
 
@@ -39,7 +37,7 @@ def check_user_creation(**context):
 
 @task()
 def publish_mattermost(**context):
-    nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check-user-creation")
+    nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check_user_creation")
     message = (
         f":warning: Attention, {nb_users} utilisateurs ont été créés "
         "sur data.gouv.fr dans la dernière heure."
@@ -49,7 +47,7 @@ def publish_mattermost(**context):
 
 @task()
 def send_email_report(**context):
-    nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check-user-creation")
+    nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check_user_creation")
     message = "Attention, {} utilisateurs ont été créés sur data.gouv.fr dans la dernière heure.".format(
         nb_users
     )
@@ -68,17 +66,17 @@ default_args = {
 }
 
 with DAG(
-    dag_id=DAG_NAME,
+    dag_id="dgv_moderation_utilisateurs",
     schedule="45 * * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["moderation", "hourly", "datagouv"],
+    tags=["moderation", "datagouv"],
     default_args=default_args,
     catchup=False,
 ):
     (
         ShortCircuitOperator(
-            task_id="check-user-creation", python_callable=check_user_creation
+            task_id="check_user_creation", python_callable=check_user_creation
         )
         >> [publish_mattermost(), send_email_report()]
     )
