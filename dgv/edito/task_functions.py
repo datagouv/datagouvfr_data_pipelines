@@ -279,14 +279,9 @@ def create_edito_post(**context):
 
 @task()
 def publish_mattermost(**context):
-    published_threads = context["ti"].xcom_pull(
-        key="published_threads", task_ids="tweet_threads"
-    )
     admin_post_url = context["ti"].xcom_pull(
         key="admin_post_url", task_ids="create_edito_post"
     )
-
-    print(published_threads)
     print(admin_post_url)
 
     send_message(
