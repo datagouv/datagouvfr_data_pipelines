@@ -365,11 +365,12 @@ def save_matomo_to_postgres() -> None:
 @task()
 def delete_old_log_files() -> None:
     months_to_keep = 6
-    threshold = (
-        datetime.now() - relativedelta(months=months_to_keep)
-    ).strftime("%Y-%m-%d")
+    threshold = (datetime.now() - relativedelta(months=months_to_keep)).strftime(
+        "%Y-%m-%d"
+    )
     to_delete = [
-        obj for obj in s3_client.get_files_from_prefix(
+        obj
+        for obj in s3_client.get_files_from_prefix(
             "metrics-logs/processed/",
             as_objects=True,
         )
@@ -378,4 +379,3 @@ def delete_old_log_files() -> None:
     logging.info(f"Will delete {len(to_delete)} files older than {threshold} months")
     for obj in to_delete:
         obj.delete()
-
