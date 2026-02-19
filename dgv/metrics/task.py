@@ -3,6 +3,7 @@ import logging
 import os
 import tarfile
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 import pandas as pd
 from airflow.decorators import task
@@ -359,3 +360,22 @@ def save_matomo_to_postgres() -> None:
                 table=f"{config.database_schema}.matomo_{obj['name']}",
                 has_header=False,
             )
+
+
+@task()
+def delete_old_log_files() -> None:
+    months_to_keep = 6
+    threshold = (
+        datetime.now() - relativedelta(months=months_to_keep)
+    ).strftime("%Y-%m-%d")
+    to_delete = [
+        obj for obj in s3_client.get_files_from_prefix(
+            "metrics-logs/processed/",
+            as_objects=True,
+        )
+        if obj.last_modified.strftime("%Y-%m-%d") < threshold
+    ]
+    logging.info(f"Will delete {len(to_delete)} files older than {threshold} months")
+    for obj in to_delete:
+        obj.delete()
+
