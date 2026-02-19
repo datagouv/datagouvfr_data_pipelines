@@ -23,17 +23,17 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
-def check_if_already_processed(s3_path: str):
+def check_if_already_processed(s3_path: str) -> bool:
     files_in_folder = s3_open.get_files_from_prefix(
         prefix=s3_path,
         ignore_airflow_env=True,
+        as_objects=True,
     )
     this_month_prefix = datetime.today().strftime("%Y-%m")
-    for file in reversed(sorted(files_in_folder)):
-        if file.startswith(s3_path + this_month_prefix):
-            # early stop and don't trigger the following tasks
-            return False
-    return True
+    # there are only this scope's files in the folder, all updated at the same time
+    # we take the first one arbitrarily to check its last update
+    last_update = next(files_in_folder).last_modified.strftime("%Y-%m")
+    return this_month_prefix > last_update
 
 
 @task()
