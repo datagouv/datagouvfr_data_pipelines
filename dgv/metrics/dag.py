@@ -8,6 +8,7 @@ from datagouvfr_data_pipelines.dgv.metrics.task import (
     aggregate_log,
     copy_logs_to_processed_folder,
     create_metrics_tables,
+    delete_old_log_files,
     download_catalog,
     download_log,
     get_new_logs,
@@ -70,6 +71,7 @@ with DAG(
         >> visit_postgres_duplication_safety()
         >> _save_metrics_to_postgres
         >> copy_logs_to_processed_folder()
+        >> delete_old_log_files()
     )
 
     (
