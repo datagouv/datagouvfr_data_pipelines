@@ -234,6 +234,7 @@ class S3Client:
             Bucket=s3_bucket_target,
             Key=path_target,
         )
+        logging.info(f"to {s3_bucket_target}/{path_target}")
         if remove_source_file:
             self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
         logging.info(f"to {s3_bucket_source}/{path_target}")
@@ -314,6 +315,7 @@ class S3Client:
                 local_file,
                 path_target,
             )
+            logging.info(f"to {s3_bucket_target}/{path_target}")
             if remove_source_file:
                 self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
         finally:
