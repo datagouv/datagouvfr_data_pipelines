@@ -302,7 +302,7 @@ class S3Client:
             f"{'Moving' if remove_source_file else 'Copying'} {s3_bucket_source}/{path_source}"
         )
         # to prevent collisions
-        local_file = AIRFLOW_DAG_TMP + uuid4()
+        local_file = AIRFLOW_DAG_TMP + str(uuid4())
         # downloading the file locally
         self.client.download_file(
             Bucket=s3_bucket_source,
