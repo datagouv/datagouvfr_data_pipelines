@@ -99,6 +99,11 @@ def send_rna_to_s3(file_type):
                 source_name=f"{file_type}.{ext}",
                 dest_path="rna/",
                 dest_name=f"{file_type}.{ext}",
+                content_type=(
+                    "application/vnd.apache.parquet"
+                    if ext == "parquet"
+                    else "text/csv"
+                ),
             )
             for ext in ["csv", "parquet"]
         ],

@@ -199,6 +199,11 @@ def send_to_s3():
                 source_name=f"deces.{_ext}",
                 dest_path="deces/",
                 dest_name=f"deces.{_ext}",
+                content_type=(
+                    "application/vnd.apache.parquet"
+                    if _ext == "parquet"
+                    else "text/csv"
+                ),
             )
             for _ext in ["csv", "parquet"]
         ],

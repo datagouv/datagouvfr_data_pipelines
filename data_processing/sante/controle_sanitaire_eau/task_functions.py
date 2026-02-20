@@ -104,6 +104,13 @@ def send_to_s3(file_type: str):
                 source_name=f"{file_type}.{ext}",
                 dest_path="controle_sanitaire_eau/",
                 dest_name=f"{file_type}.{ext}",
+                content_type=(
+                    "application/vnd.apache.parquet"
+                    if ext == "parquet"
+                    else "application/gzip"
+                    if ext == "csv.gz"
+                    else "text/csv"
+                ),
             )
             for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]
         ],

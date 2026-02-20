@@ -130,6 +130,11 @@ def send_results_to_s3():
                 source_name=f"{scope}_results.{ext}",
                 dest_path="elections/",
                 dest_name=f"{scope}_results.{ext}",
+                content_type=(
+                    "application/vnd.apache.parquet"
+                    if ext == "parquet"
+                    else "text/csv"
+                ),
             )
             for scope in ["general", "candidats"]
             for ext in ["csv", "parquet"]

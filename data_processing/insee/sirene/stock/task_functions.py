@@ -125,20 +125,7 @@ def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
                 source_name=item["nameFTP"].replace(".zip", ".parquet"),
                 dest_path=s3_path,
                 dest_name=item["nameFTP"].replace(".zip", ".parquet"),
-            )
-            for item in data
-        ],
-        ignore_airflow_env=True,
-    )
-
-    # sending dated files
-    s3_open.send_files(
-        list_files=[
-            File(
-                source_path=tmp_dir,
-                source_name=item["nameFTP"],
-                dest_path=s3_path,
-                dest_name=f"{datetime.today().strftime('%Y-%m')}-01-{item['nameFTP']}",
+                content_type="application/vnd.apache.parquet",
             )
             for item in data
         ],

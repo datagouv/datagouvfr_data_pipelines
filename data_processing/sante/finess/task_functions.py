@@ -169,6 +169,7 @@ def send_to_s3(scope: str):
             source_name=f"finess_{scope}.csv",
             dest_path="finess/",
             dest_name=f"finess_{scope}.csv",
+            content_type="text/csv",
         ),
         ignore_airflow_env=True,
     )
