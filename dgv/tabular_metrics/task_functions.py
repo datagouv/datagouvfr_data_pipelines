@@ -10,10 +10,10 @@ from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    # S3_BUCKET_INFRA,
-    # S3_URL,
-    # SECRET_S3_METRICS_PASSWORD,
-    # SECRET_S3_METRICS_USER,
+    S3_BUCKET_INFRA,
+    S3_URL,
+    SECRET_S3_PASSWORD,
+    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
@@ -22,11 +22,11 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
 s3_client = S3Client(
-    bucket="infra",
-    # bucket=S3_BUCKET_INFRA,
-    # user=SECRET_S3_METRICS_USER,
-    # pwd=SECRET_S3_METRICS_PASSWORD,
-    # s3_url=S3_URL,
+    # bucket="infra",
+    bucket=S3_BUCKET_INFRA,
+    user=SECRET_S3_USER,
+    pwd=SECRET_S3_PASSWORD,
+    s3_url=S3_URL,
 )
 pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
 already_processed_table = "tabular_processed"
