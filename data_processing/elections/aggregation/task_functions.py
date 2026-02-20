@@ -131,9 +131,7 @@ def send_results_to_s3():
                 dest_path="elections/",
                 dest_name=f"{scope}_results.{ext}",
                 content_type=(
-                    "application/vnd.apache.parquet"
-                    if ext == "parquet"
-                    else "text/csv"
+                    "application/vnd.apache.parquet" if ext == "parquet" else "text/csv"
                 ),
             )
             for scope in ["general", "candidats"]
