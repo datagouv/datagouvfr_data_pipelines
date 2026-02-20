@@ -309,13 +309,15 @@ class S3Client:
             Key=path_source,
             Filename=local_file,
         )
-        self.resource.Bucket(s3_bucket_target).upload_file(
-            local_file,
-            path_target,
-        )
-        os.remove(local_file)
-        if remove_source_file:
-            self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
+        try:
+            self.resource.Bucket(s3_bucket_target).upload_file(
+                local_file,
+                path_target,
+            )
+            if remove_source_file:
+                self.client.delete_object(Bucket=s3_bucket_source, Key=path_source)
+        finally:
+            os.remove(local_file)
 
     @simple_connection_retry
     def delete_file(
