@@ -63,7 +63,6 @@ class TestGetAndFormatGristV2Data:
         grist_factory.create_records("Fournisseurs_de_services", 1)
         grist_factory.create_records("Types_de_simplification", 2)
         grist_factory.create_records("Usagers", 3)
-        grist_factory.create_records("Budgets_de_mise_en_oeuvre", 4)
         grist_factory.create_records("Categories_de_solution", 2)
 
         ti_mock = Mock()
@@ -75,7 +74,6 @@ class TestGetAndFormatGristV2Data:
         assert len(second_call["Fournisseurs_de_services"]) == 1
         assert len(second_call["Types_de_simplification"]) == 2
         assert len(second_call["Usagers"]) == 3
-        assert len(second_call["Budgets_de_mise_en_oeuvre"]) == 4
         assert len(second_call["Categories_de_solution"]) == 2
 
 
@@ -383,10 +381,6 @@ class TestUpdateTopicsV2:
     @pytest.fixture
     def grist_tables_for_filters(self):
         return {
-            "Budgets_de_mise_en_oeuvre": [
-                {"id": 1, "fields": {"Label": "Budget 1", "slug": "b1"}},
-                {"id": 2, "fields": {"Label": "Budget 2", "slug": "b2"}},
-            ],
             "Types_de_simplification": [
                 {"id": 1, "fields": {"Label": "Type 1", "slug": "t1"}},
                 {"id": 2, "fields": {"Label": "Type 2", "slug": "t2"}},
@@ -430,7 +424,6 @@ class TestUpdateTopicsV2:
                     "Nom": "Solution 1",
                     "Description_courte": "Blabla",
                     "Visible_sur_simplifions": True,
-                    "Budget_requis": 1,
                     "Types_de_simplification": 2,
                     "A_destination_de": [1, 3],
                     "Pour_simplifier_les_demarches_de": 2,
@@ -463,7 +456,6 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-dag-generated",
                 "simplifions-v2-solutions",
                 "simplifions-v2-solutions-1",
-                "simplifions-v2-budget-b1",
                 "simplifions-v2-types-de-simplification-t2",
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
@@ -497,7 +489,6 @@ class TestUpdateTopicsV2:
                     "Nom": "Cas usage 1",
                     "Description_courte": "Blabla",
                     "Visible_sur_simplifions": True,
-                    "Budget_requis": 1,
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
@@ -528,7 +519,6 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-dag-generated",
                 "simplifions-v2-cas-d-usages",
                 "simplifions-v2-cas-d-usages-1",
-                "simplifions-v2-budget-b1",
                 "simplifions-v2-types-de-simplification-t2",
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
@@ -657,7 +647,6 @@ class TestUpdateTopicsV2:
                     "Nom": "Solution 1",
                     "Description_courte": "Blabla",
                     "Visible_sur_simplifions": True,
-                    "Budget_requis": 1,
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
@@ -687,7 +676,6 @@ class TestUpdateTopicsV2:
                 "simplifions-v2-dag-generated",
                 "simplifions-v2-solutions",
                 "simplifions-v2-solutions-1",
-                "simplifions-v2-budget-b1",
                 "simplifions-v2-types-de-simplification-t2",
                 "simplifions-v2-fournisseurs-de-service-f1",
                 "simplifions-v2-fournisseurs-de-service-f1-bis",
@@ -720,7 +708,6 @@ class TestUpdateTopicsV2:
                     "Nom": "New Solution",
                     "Description_courte": "Blabla",
                     "Visible_sur_simplifions": True,
-                    "Budget_requis": 1,
                     "Types_de_simplification": 2,
                     "A_destination_de": 1,
                     "Pour_simplifier_les_demarches_de": 2,
