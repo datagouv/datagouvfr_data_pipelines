@@ -134,6 +134,7 @@ def update_topics_v2(client=None, **context):
                 topic_tags
                 + [f"{tag}-{grist_id_str}"]
                 + topics_manager._generated_search_tags(grist_row)
+                + topics_manager._keyword_tags(grist_row)
             )
 
             topic_data = {
