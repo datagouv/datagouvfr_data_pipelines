@@ -3,6 +3,7 @@ from datagouvfr_data_pipelines.config import (
     GRIST_API_URL,
     SECRET_GRIST_API_KEY,
 )
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 GRIST_DOC_ID = "ofSVjCSAnMb6SGZSb7GGrv"
 GRIST_WORKSPACE_ID = 51287
@@ -13,6 +14,7 @@ class GristV2Manager:
         pass
 
     @staticmethod
+    @simple_connection_retry
     def _request_grist_table(table_id: str, filter: str | None = None) -> list[dict]:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/records",
@@ -27,6 +29,7 @@ class GristV2Manager:
         return r.json()["records"]
 
     @staticmethod
+    @simple_connection_retry
     def _request_all_tables() -> dict:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables",
@@ -40,6 +43,7 @@ class GristV2Manager:
         return r.json()["tables"]
 
     @staticmethod
+    @simple_connection_retry
     def _request_table_columns(table_id: str) -> dict:
         r = requests.get(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/tables/{table_id}/columns",
@@ -53,6 +57,7 @@ class GristV2Manager:
         return r.json()["columns"]
 
     @staticmethod
+    @simple_connection_retry
     def _request_table_records(
         table_id: str, filter: str | None = None, document_id: str = GRIST_DOC_ID
     ) -> list[dict]:
@@ -69,6 +74,7 @@ class GristV2Manager:
         return r.json()["records"]
 
     @staticmethod
+    @simple_connection_retry
     def _copy_document(document_name: str, as_template: bool = False) -> dict:
         r = requests.post(
             GRIST_API_URL + f"docs/{GRIST_DOC_ID}/copy",
@@ -87,6 +93,7 @@ class GristV2Manager:
         return r.json()
 
     @staticmethod
+    @simple_connection_retry
     def _list_workspace_documents() -> dict:
         r = requests.get(
             GRIST_API_URL + f"workspaces/{GRIST_WORKSPACE_ID}",
@@ -100,6 +107,7 @@ class GristV2Manager:
         return r.json()["docs"]
 
     @staticmethod
+    @simple_connection_retry
     def _delete_document(document_id: str) -> dict:
         r = requests.delete(
             GRIST_API_URL + f"docs/{document_id}",

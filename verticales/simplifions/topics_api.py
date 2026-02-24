@@ -3,6 +3,7 @@ import logging
 import requests
 from datagouv import Client
 from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
 class TopicsAPI:
@@ -17,6 +18,7 @@ class TopicsAPI:
     def _topic_url(self, topic_id: str) -> str:
         return f"{self.resource_url}/{topic_id}/"
 
+    @simple_connection_retry
     def create_topic(self, topic_data: dict):
         url = self.resource_url
         r = requests.post(
@@ -28,6 +30,7 @@ class TopicsAPI:
         logging.info(f"Created topic {topic_data['name']}")
         return r
 
+    @simple_connection_retry
     def delete_topic(self, topic_id: str):
         url = self._topic_url(topic_id)
         r = requests.delete(
@@ -38,6 +41,7 @@ class TopicsAPI:
         logging.info(f"Deleted topic at {url}")
         return r
 
+    @simple_connection_retry
     def update_topic_by_id(self, topic_id: str, topic_data: dict):
         url = self._topic_url(topic_id)
         r = requests.put(
@@ -50,6 +54,7 @@ class TopicsAPI:
         logging.info(f"Updated topic {topic_data.get('name')} at {url}")
         return r
 
+    @simple_connection_retry
     def get_all_topics_for_tag(self, tag: str) -> list[dict]:
         return local_client.get_all_from_api_query(
             f"{self.resource_url}/?tag={tag}&include_private=true",
