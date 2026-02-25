@@ -73,6 +73,14 @@ class TopicsV2Manager:
         # deduplicate the list
         return list(set(tags))
 
+    def _keyword_tags(self, grist_row: GristRow) -> list[str]:
+        keywords = grist_row["fields"].get("Mots_clefs")
+        if not keywords:
+            return []
+        if not isinstance(keywords, list):
+            keywords = [keywords]
+        return [kw for kw in keywords if kw]
+
     def _topics_are_similar_so_we_can_skip_update(
         self, old_topic: dict, new_topic: dict
     ) -> bool:

@@ -28,7 +28,7 @@ class TestGetAndFormatGristV2Data:
         grist_factory.create_record("Solutions")
 
         ti_mock = Mock()
-        get_and_format_grist_v2_data(ti_mock)
+        get_and_format_grist_v2_data(ti=ti_mock)
 
         # Verify xcom_push was called with correct structure
         ti_mock.xcom_push.assert_called()
@@ -51,7 +51,7 @@ class TestGetAndFormatGristV2Data:
         grist_factory.create_records("Solutions", 5)
 
         ti_mock = Mock()
-        get_and_format_grist_v2_data(ti_mock)
+        get_and_format_grist_v2_data(ti=ti_mock)
 
         ti_mock.xcom_push.assert_called()
         first_call = ti_mock.xcom_push.call_args_list[0][1]["value"]
@@ -67,7 +67,7 @@ class TestGetAndFormatGristV2Data:
         grist_factory.create_records("Categories_de_solution", 2)
 
         ti_mock = Mock()
-        get_and_format_grist_v2_data(ti_mock)
+        get_and_format_grist_v2_data(ti=ti_mock)
 
         ti_mock.xcom_push.assert_called()
         second_call = ti_mock.xcom_push.call_args_list[1][1]["value"]
@@ -110,8 +110,7 @@ class TestWatchGristData:
             },
         )
 
-        ti_mock = Mock()
-        watch_grist_data(ti_mock)
+        watch_grist_data()
 
         # Verify that send_message was called
         mock_send_message.assert_called_once()
@@ -168,8 +167,7 @@ class TestWatchGristData:
             backup_data
         )
 
-        ti_mock = Mock()
-        watch_grist_data(ti_mock)
+        watch_grist_data()
 
         # Verify that send_message was called
         mock_send_message.assert_called_once()
@@ -215,8 +213,7 @@ class TestWatchGristData:
         # Mock _request_table_records to return empty backup data (record doesn't exist in backup)
         mock_request_table_records.side_effect = self.create_backup_mock_side_effect([])
 
-        ti_mock = Mock()
-        watch_grist_data(ti_mock)
+        watch_grist_data()
 
         # Verify that send_message was called
         mock_send_message.assert_called_once()
@@ -287,8 +284,7 @@ class TestWatchGristData:
             backup_data
         )
 
-        ti_mock = Mock()
-        watch_grist_data(ti_mock)
+        watch_grist_data()
 
         # Verify that send_message was called
         mock_send_message.assert_called_once()
@@ -357,8 +353,7 @@ class TestWatchGristData:
             backup_data
         )
 
-        ti_mock = Mock()
-        watch_grist_data(ti_mock)
+        watch_grist_data()
 
         # Verify that send_message was called
         mock_send_message.assert_called_once()
@@ -450,7 +445,7 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 1
@@ -515,7 +510,7 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 1
@@ -590,7 +585,7 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 4
@@ -623,7 +618,7 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 2
@@ -674,7 +669,7 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 1
@@ -736,12 +731,75 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         assert len(topics) == 1
         assert topics[0]["extras"]["simplifions-v2-solutions"]["id"] == 2
         assert topics[0]["name"] == "New Solution"
+
+    def test_with_keywords(self, grist_tables_for_filters):
+        solutions_data = {
+            1: {
+                "id": 1,
+                "fields": {
+                    "Nom": "Solution 1",
+                    "Description_courte": "Blabla",
+                    "Visible_sur_simplifions": True,
+                    "Mots_clefs": ["api", "identité"],
+                },
+            },
+        }
+        mock_ti = task_instance_factory.build_ti(
+            {
+                "tag_and_grist_rows_v2": {
+                    "simplifions-v2-solutions": solutions_data,
+                },
+                "grist_tables_for_filters": grist_tables_for_filters,
+            }
+        )
+
+        update_topics_v2(local_client, ti=mock_ti)
+
+        topics = topics_factory.get_records("topics")
+        assert len(topics) == 1
+        assert "api" in topics[0]["tags"]
+        assert "identité" in topics[0]["tags"]
+        # System tags still present
+        assert "simplifions-v2-solutions" in topics[0]["tags"]
+
+    def test_with_empty_keywords(self, grist_tables_for_filters):
+        solutions_data = {
+            1: {
+                "id": 1,
+                "fields": {
+                    "Nom": "Solution 1",
+                    "Description_courte": "Blabla",
+                    "Visible_sur_simplifions": True,
+                    "Mots_clefs": [],
+                },
+            },
+        }
+        mock_ti = task_instance_factory.build_ti(
+            {
+                "tag_and_grist_rows_v2": {
+                    "simplifions-v2-solutions": solutions_data,
+                },
+                "grist_tables_for_filters": grist_tables_for_filters,
+            }
+        )
+
+        update_topics_v2(local_client, ti=mock_ti)
+
+        topics = topics_factory.get_records("topics")
+        assert len(topics) == 1
+        # Only system tags, no extra keyword tags
+        assert topics[0]["tags"] == [
+            "simplifions-v2",
+            "simplifions-v2-dag-generated",
+            "simplifions-v2-solutions",
+            "simplifions-v2-solutions-1",
+        ]
 
     def test_skip_topics_with_empty_names(self, grist_tables_for_filters):
         solutions_data = {
@@ -800,7 +858,7 @@ class TestUpdateTopicsV2:
             }
         )
 
-        update_topics_v2(mock_ti, local_client)
+        update_topics_v2(local_client, ti=mock_ti)
 
         topics = topics_factory.get_records("topics")
         # Should only create 2 topics: 1 valid solution + 1 valid cas d'usage

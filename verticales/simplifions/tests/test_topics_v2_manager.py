@@ -137,4 +137,26 @@ class TestTopicsAreSimilarSoWeCanSkipUpdate:
         )
 
 
+class TestKeywordTags:
+    def test_with_keywords(self, topics_manager):
+        grist_row = {"id": 1, "fields": {"Mots_clefs": ["api", "identité"]}}
+        assert topics_manager._keyword_tags(grist_row) == ["api", "identité"]
+
+    def test_with_single_keyword(self, topics_manager):
+        grist_row = {"id": 1, "fields": {"Mots_clefs": "api"}}
+        assert topics_manager._keyword_tags(grist_row) == ["api"]
+
+    def test_with_empty_list(self, topics_manager):
+        grist_row = {"id": 1, "fields": {"Mots_clefs": []}}
+        assert topics_manager._keyword_tags(grist_row) == []
+
+    def test_with_none(self, topics_manager):
+        grist_row = {"id": 1, "fields": {"Mots_clefs": None}}
+        assert topics_manager._keyword_tags(grist_row) == []
+
+    def test_with_missing_field(self, topics_manager):
+        grist_row = {"id": 1, "fields": {}}
+        assert topics_manager._keyword_tags(grist_row) == []
+
+
 # Tests for moved update_topics method are now in test_task_functions.py

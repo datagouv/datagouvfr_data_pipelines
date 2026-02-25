@@ -13,6 +13,26 @@ repo_root = Path(__file__).parent.parent.parent.parent
 simplifions_dir = repo_root / "verticales" / "simplifions"
 sys.path.insert(0, str(simplifions_dir))
 
+# Mock airflow since it is not installed in the test environment
+airflow_mock = types.ModuleType("airflow")
+airflow_decorators_mock = types.ModuleType("airflow.decorators")
+
+
+def _task_passthrough(fn=None, **kwargs):
+    """Passthrough decorator replacing @task() from airflow."""
+    if fn is not None:
+        return fn
+
+    def decorator(f):
+        return f
+
+    return decorator
+
+
+airflow_decorators_mock.task = _task_passthrough
+sys.modules["airflow"] = airflow_mock
+sys.modules["airflow.decorators"] = airflow_decorators_mock
+
 # Create all necessary packages to satisfy the datagouvfr_data_pipelines imports
 packages = [
     ("datagouvfr_data_pipelines", repo_root),
