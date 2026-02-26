@@ -13,10 +13,6 @@ task_instance_factory = TaskInstanceFactory()
 @pytest.fixture
 def grist_tables_for_filters():
     return {
-        "Budgets_de_mise_en_oeuvre": [
-            {"id": 1, "fields": {"Label": "Budget 1", "slug": "b1"}},
-            {"id": 2, "fields": {"Label": "Budget 2", "slug": "b2"}},
-        ],
         "Types_de_simplification": [
             {"id": 1, "fields": {"Label": "Type 1", "slug": "t1"}},
             {"id": 2, "fields": {"Label": "Type 2", "slug": "t2"}},
@@ -48,7 +44,6 @@ def test_generated_search_tags(topics_manager):
     grist_row = {
         "id": 123,
         "fields": {
-            "Budget_requis": 1,
             "Types_de_simplification": 2,
             "A_destination_de": 1,
             "Pour_simplifier_les_demarches_de": 2,
@@ -59,7 +54,6 @@ def test_generated_search_tags(topics_manager):
     tags = topics_manager._generated_search_tags(grist_row)
     assert sorted(tags) == sorted(
         [
-            "simplifions-v2-budget-b1",
             "simplifions-v2-types-de-simplification-t2",
             "simplifions-v2-fournisseurs-de-service-f1",
             "simplifions-v2-target-users-u2",

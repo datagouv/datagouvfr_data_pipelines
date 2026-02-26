@@ -25,7 +25,7 @@ TABLES_TO_FETCH = [
     "Fournisseurs_de_services",
     "Types_de_simplification",
     "Usagers",
-    "Budgets_de_mise_en_oeuvre",
+    "Categories_de_solution",
 ]
 
 

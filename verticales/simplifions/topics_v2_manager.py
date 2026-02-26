@@ -12,7 +12,6 @@ class GristRow(TypedDict):
 
 # These attributes are used to generate tags for the topics filters
 ATTRIBUTES_FOR_TAGS = {
-    "Budget_requis": {"table_id": "Budgets_de_mise_en_oeuvre", "filter_slug": "budget"},
     "Types_de_simplification": {
         "table_id": "Types_de_simplification",
         "filter_slug": "types-de-simplification",
