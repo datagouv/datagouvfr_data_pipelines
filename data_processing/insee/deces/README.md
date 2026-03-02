@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de consolider tous les millésimes des [fichiers des personnes décédées produits par l'INSEE](https://www.data.gouv.fr/datasets/fichier-des-personnes-decedees/)  |
 | Fréquence de mise à jour | Mensuelle |
 | Données sources | [Fichiers des personnes décédées produits par l'INSEE](https://www.data.gouv.fr/datasets/fichier-des-personnes-decedees/) |

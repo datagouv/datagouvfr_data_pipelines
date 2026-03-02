@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet d'alimenter la verticale culture.data.gouv.fr  |
 | Fréquence de mise à jour | Hebdomadaire |
 | Données sources | Grist et catalogue data.gouv |

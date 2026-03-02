@@ -1126,7 +1126,7 @@ def send_distribution_to_s3() -> None:
 
 @task()
 def publish_stats_dvf(**context) -> None:
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config.json") as fp:
         data = json.load(fp)
     local_client.resource(
         id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
@@ -1181,7 +1181,7 @@ def concat_and_publish_whole():
             if "full_" in f and ".gz" not in f
         ]
     )
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config.json") as fp:
         data = json.load(fp)
     period = (
         f"janvier {min(years)} - décembre {max(years)}"

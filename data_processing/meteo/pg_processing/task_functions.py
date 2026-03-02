@@ -27,7 +27,7 @@ from jinja2 import Environment, FileSystemLoader
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg/"
-with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
+with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 
 s3_meteo = S3Client(bucket="meteofrance")

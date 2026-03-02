@@ -340,7 +340,7 @@ def publish_results_elections(**context):
         if max_dates[md] > max_date:
             max_date = max_dates[md]
     with open(
-        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/miom_mirroring/config/dgv.json"
+        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/miom_mirroring/config.json"
     ) as fp:
         data = json.load(fp)
     for d in data:

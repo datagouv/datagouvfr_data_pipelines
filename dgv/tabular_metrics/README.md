@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Aggrège les appels faits à l'API tabulaire à partir des logs HAProxy. |
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | stats.data.gouv.fr |

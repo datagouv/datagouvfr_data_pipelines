@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de créer certains des indicateurs d'impact monitorés par l'équipe de data.gouv.fr. |
 | Fréquence de mise à jour | Mensuelle |
 | Données sources | Tout le catalogue de data.gouv.fr |

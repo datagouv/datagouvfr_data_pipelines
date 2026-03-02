@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet d'agréger les données des élections dans deux fichiers qui seront mis à jour à chaque nouvelle publication du MIOM. |
 | Fréquence de mise à jour | Manuelle |
 | Données sources | Toutes les données des élections publiées par le MIOM sur data.gouv.fr (liste dans la description du JDD de sortie)|

@@ -31,7 +31,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
 METADATA_FILE = "metadata.json"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
-with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config/dgv.json") as fp:
+with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config.json") as fp:
     config = json.load(fp)
 
 CREATE_NATURE_DFI_CODES = """CREATE OR REPLACE TABLE nature_dfi_codes AS 

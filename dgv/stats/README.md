@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de mettre à jour le jeu de données des statistiques de consultations de data.gouv.fr. |
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | stats.data.gouv.fr |

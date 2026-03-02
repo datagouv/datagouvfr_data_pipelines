@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de consolider toutes les données conformes au [schéma IRVE statique](https://schema.data.gouv.fr/etalab/schema-irve-statique/) présentes sur data.gouv.fr. |
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Toutes les données conformes au schéma IRVE|

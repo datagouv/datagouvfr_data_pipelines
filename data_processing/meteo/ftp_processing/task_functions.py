@@ -24,7 +24,7 @@ ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_ftp/"
 s3_folder = "data/synchro_ftp/"
 bucket = "meteofrance"
-with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config/dgv.json") as fp:
+with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
 s3_meteo = S3Client(bucket=bucket)

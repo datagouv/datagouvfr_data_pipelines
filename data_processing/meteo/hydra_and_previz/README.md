@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement monitore l'analyse des ressources de meteo.data.gouv.fr par hydra. |
 | Fréquence de mise à jour | Hebdomadaire |
 | Données sources | data.gouv.fr et Sentry |
