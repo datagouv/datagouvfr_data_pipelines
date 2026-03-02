@@ -143,9 +143,7 @@ def send_results_to_s3():
 
 @task()
 def publish_results_elections():
-    with open(
-        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json"
-    ) as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
         config = json.load(fp)
     for ext in ["csv", "parquet"]:
         local_client.resource(
@@ -196,9 +194,7 @@ def publish_results_elections():
 
 @task()
 def send_notification():
-    with open(
-        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json"
-    ) as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
         config = json.load(fp)
     send_message(
         text=(
