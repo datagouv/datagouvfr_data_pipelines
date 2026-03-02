@@ -23,7 +23,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}finess/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
-with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config/dgv.json") as fp:
+with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config.json") as fp:
     config = json.load(fp)
 
 

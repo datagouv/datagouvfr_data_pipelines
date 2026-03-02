@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet d'importer les données climatologiques MF dans postgres |
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Données publiées sur S3 par le DAG meteo |

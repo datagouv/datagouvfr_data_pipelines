@@ -28,7 +28,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
 s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(
-    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json"
+    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config.json"
 ) as fp:
     config = json.load(fp)
 

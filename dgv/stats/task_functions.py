@@ -18,7 +18,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_stats/"
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/stats/"
-with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
+with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config.json") as fp:
     config = json.load(fp)
 yesterday = datetime.today() - timedelta(days=1)
 

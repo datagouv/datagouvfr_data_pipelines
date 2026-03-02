@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de monitorer les jeux de données de fortes valeurs (HVD) sur data.gouv.fr. |
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Tout le catalogue de data.gouv.fr |

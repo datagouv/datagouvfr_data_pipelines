@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de mettre à jour le fichier des pétitions de la plateforme https://petitions.assemblee-nationale.fr |
 | Fréquence de mise à jour | Hebdomadaire |
 | Données sources | Plateforme https://petitions.assemblee-nationale.fr |

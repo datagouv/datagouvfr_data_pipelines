@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de créer deux fichiers agrégés pour les données Import et Waldec, en csv et parquet. |
 | Fréquence de mise à jour | Mensuelle |
 | Données sources | [JDD RNA](https://www.data.gouv.fr/datasets/repertoire-national-des-associations/)|

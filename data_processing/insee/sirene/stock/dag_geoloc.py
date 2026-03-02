@@ -36,15 +36,15 @@ with DAG(
         )
         >> get_files(
             tmp_dir=TMP_FOLDER,
-            resource_file="resources_geolocalisation_to_download.json",
+            resource_file="config_geoloc.json",
         )
         >> publish_file_s3(
             tmp_dir=TMP_FOLDER,
-            resource_file="resources_geolocalisation_to_download.json",
+            resource_file="config_geoloc.json",
             s3_path=S3_BASE_PATH,
         )
         >> update_dataset_data_gouv(
-            resource_file="resources_geolocalisation_to_download.json",
+            resource_file="config_geoloc.json",
             tmp_dir=TMP_FOLDER,
         )
         >> publish_mattermost(geoloc=True)

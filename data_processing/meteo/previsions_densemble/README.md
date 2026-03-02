@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de récupérer et d'exposer les données de prévisions d'ensemble de Météo France |
 | Fréquence de mise à jour | Infra-quoditienne |
 | Données sources | SFTP |

@@ -4,7 +4,7 @@
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG.py`     |
+| Fichier source     | `dag.py`     |
 | Description | Ce traitement permet de consolider les [Documents de filiation informatisés (DFI) produits par la DGFIP](https://www.data.gouv.fr/datasets/documents-de-filiation-informatises-dfi-des-parcelles/)  |
 | Fréquence de mise à jour | Trimestrielle |
 | Données sources| [Documents de filiation informatisés (DFI) produits par la DGFIP](https://www.data.gouv.fr/datasets/documents-de-filiation-informatises-dfi-des-parcelles/) |

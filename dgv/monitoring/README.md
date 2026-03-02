@@ -1,38 +1,26 @@
 # Documentation
 
-Ce sous-dossier contient 4 traitements.
-
-## dgv_digests
-
-| Information | Valeur |
-| -------- | -------- |
-| Fichier source     | `DAG-digest.py`     |
-| Description | Ce traitement permet de faire une synthèse de l'activité de data.gouv.fr sur une période quotidienne, hebdo (le lundi) et mensuelle (le 1er du mois).  |
-| Fréquence de mise à jour | Quotidien |
-| Données sources | API data.gouv.fr |
-| Données de sorties | Stockés sur S3 |
-| Channel Mattermost d'information | ~datagouv-activites |
-
+Ce sous-dossier contient 2 traitements.
 
 ## dgv_moderation_utilisateurs
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG-moderation-utilisateur.py`     |
+| Fichier source     | `dag_moderation-utilisateur.py`     |
 | Description | Ce traitement permet de surveiller l'activité de la plateforme data.gouv.fr en termes de création d'utilisateurs et alerte en cas d'activité anormale (création de plus de 25 utilisateur sur la dernière heure). |
 | Fréquence de mise à jour | Toutes les heures |
 | Données sources | API data.gouv.fr |
 | Données de sorties | Alerte Mattermost + Mail |
-| Channel Mattermost d'information | ~datagouv-activites |
+| Channel Mattermost d'information | ~datagouv-moderation-nouveautes |
 
 
-## dgv_tops
+## dgv_administrateur
 
 | Information | Valeur |
 | -------- | -------- |
-| Fichier source     | `DAG-tops.py`     |
-| Description | Ce traitement permet de récupérer les jeux de données et réutilisations les plus visités lors de la journée, de la semaine et du mois précédent. |
-| Fréquence de mise à jour | Quotidien |
-| Données sources | Matomo / API stats.data.gouv.fr |
+| Fichier source     | `dag_administrateur.py`     |
+| Description | Ce traitement permet d'informer sur la liste des super-admins de data.gouv.fr |
+| Fréquence de mise à jour | Tous les trois mois |
+| Données sources | data.gouv.fr |
 | Données de sorties | Alerte Mattermost |
-| Channel Mattermost d'information | ~datagouv-reporting |
+| Channel Mattermost d'information | ~datagouv-moderation-nouveautes |

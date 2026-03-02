@@ -17,7 +17,7 @@ from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 
 with open(
-    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config/dgv.json"
+    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config.json"
 ) as fp:
     config = json.load(fp)
 

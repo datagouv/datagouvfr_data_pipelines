@@ -322,7 +322,7 @@ def send_stats_to_s3():
 
 @task()
 def publish_datagouv(DAG_FOLDER):
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config.json") as fp:
         data = json.load(fp)
     local_client.resource(
         dataset_id=data[AIRFLOW_ENV]["dataset_id"],
@@ -354,7 +354,7 @@ def publish_datagouv(DAG_FOLDER):
 
 @task()
 def send_notification_mattermost(DAG_FOLDER):
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config/dgv.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config.json") as fp:
         data = json.load(fp)
     send_message(
         text=(
