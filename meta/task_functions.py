@@ -21,7 +21,7 @@ DEFAULT_DAG_OWNERS = [
     "hadrien_bossard",
 ]
 with open(
-    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config/config.json", "r"
+    f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r"
 ) as f:
     config = json.load(f)
 
