@@ -44,8 +44,8 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
         .content.decode("utf8")
         .split("\n")
     )
-    columns = config[scope]["columns"]
-    sections: list[list] = [[] for _ in range(len(columns))]
+    columns: list[list[str]] = config[scope]["columns"]
+    sections: list[list[str]] = [[] for _ in range(len(columns))]
     logging.info(f"Looking for {len(columns)} section(s)")
     prefix, current_section = None, None
     for idx, row in enumerate(rows):
@@ -57,8 +57,10 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
             prefix = row.split(";")[0]
             current_section = 0
         if row.startswith(prefix):
+            # adding the raw row to the current section
             sections[current_section].append(row)
         else:
+            # new section, storing the prefix and starting next section
             current_section += 1
             if current_section > len(sections):
                 raise ValueError(
@@ -66,6 +68,11 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
                 )
             prefix = row.split(";")[0]
             sections[current_section].append(row)
+    # *sometimes* all rows of a section have a parasite trailing ";", we pop it
+    for k in range(len(sections)):
+        if all([row[-1] == ";" for row in sections[k]]):
+            logging.warning("Trimming empty last column")
+            sections[k] = [row[:-1] for row in sections[k]]
     return [
         pd.read_csv(
             StringIO("\n".join(sections[k])),
