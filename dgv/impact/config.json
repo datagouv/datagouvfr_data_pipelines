@@ -1,0 +1,10 @@
+{
+    "dev": {
+        "dataset_id": "651e88b7e6c76d74646ab60c",
+        "resource_id": "3f9977ae-466b-4c88-9f1e-4c82f2111621"
+    },
+    "prod": {
+        "dataset_id": "651e864a59cdbf6f670c12b3",
+        "resource_id": "79e2c14d-8278-4407-84b5-e8c279fc578c"
+    }
+}

@@ -1,0 +1,46 @@
+{
+    "import": {
+        "csv" : {
+            "dev": {
+                "dataset_id": "671653474a1a41c4fab54f61",
+                "resource_id": "c217f5e1-ab6c-4219-87c8-d11e2c6f7476"
+            },
+            "prod": {
+                "dataset_id": "67164a231c2a52cc06b9b618",
+                "resource_id": "66e052d8-e387-443e-8f43-2916d17022fb"
+            }
+        },
+        "parquet" : {
+            "dev": {
+                "dataset_id": "671653474a1a41c4fab54f61",
+                "resource_id": "b2e0e018-26a5-4119-b11c-78a31fc3213b"
+            },
+            "prod": {
+                "dataset_id": "67164a231c2a52cc06b9b618",
+                "resource_id": "e3b0db97-7069-44bc-99dc-0ea7805986a8"
+            }
+        }
+    },
+    "waldec": {
+        "csv" : {
+            "dev": {
+                "dataset_id": "671653474a1a41c4fab54f61",
+                "resource_id": "875a26d1-d476-4413-9fe2-e300ecfbd696"
+            },
+            "prod": {
+                "dataset_id": "67164a231c2a52cc06b9b618",
+                "resource_id": "91fd139b-4c2a-4d36-b05b-8607b41f1202"
+            }
+        },
+        "parquet": {
+            "dev": {
+                "dataset_id": "671653474a1a41c4fab54f61",
+                "resource_id": "383a82c4-afe9-4816-afd6-84d7cd5601d8"
+            },
+            "prod": {
+                "dataset_id": "67164a231c2a52cc06b9b618",
+                "resource_id": "cc7b8f0c-45ea-4444-8b55-55d30bc34ac5"
+            }
+        }
+    }
+}

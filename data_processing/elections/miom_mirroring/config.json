@@ -1,0 +1,72 @@
+[
+    {
+        "name": "Fichier d'archive des données brutes",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/LG2024.zip",
+        "filename": "LG2024.zip",
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "5e0db157-ad5e-49c9-9b93-5ac975c36841"
+        },
+        "format": "zip"
+    },
+    {
+        "name": "Données brutes - Arborescence",
+        "url": "https://object.infra.data.gouv.fr/browser/data-pipeline-open/cHJvZC9lbGVjdGlvbnMtbWlycm9yaW5nL0xHMjAyNC9kYXRhLw==",
+        "filename": null,
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "db680fbf-f154-43c4-ab96-90b317d7c956"
+        },
+        "format": "html"
+    },
+    {
+        "name": "Candidats Tour 1",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/candidatsT1.csv",
+        "filename": "candidatsT1.csv",
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "f7589ecb-9c5d-4c89-becc-befe6631002e"
+        },
+        "format": "csv"
+    },
+    {
+        "name": "Résultats Général par Communes Tour 1",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/resultatsT1_communes_general.csv",
+        "filename": "resultatsT1_communes_general.csv",
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "57ede06a-a5bc-4b5d-b259-5c1a279b1682"
+        },
+        "format": "csv"
+    },
+    {
+        "name": "Résultats Candidats par Communes Tour 1",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/resultatsT1_communes_candidats.csv",
+        "filename": "resultatsT1_communes_candidats.csv",
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "e14f03e5-4031-427a-948f-fdfb00e64fae"
+        },
+        "format": "csv"
+    },
+    {
+        "name": "Résultats Général par Circonscriptions Tour 1",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/resultatsT1_circos_general.csv",
+        "filename": "resultatsT1_circos_general.csv",
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "88226c3e-3ff0-4bb7-9864-66427a5703c1"
+        },
+        "format": "csv"
+    },
+    {
+        "name": "Résultats Candidats par Circonscriptions Tour 1",
+        "url": "https://object.data.gouv.fr/data-pipeline-open/prod/elections-mirroring/LG2024/resultatsT1_circos_candidats.csv",
+        "filename": "resultatsT1_circos_candidats.csv",
+        "prod": {
+            "dataset_id": "667edfc14867f24a6ac86007",
+            "resource_id": "d821b964-fffc-4e8f-85a7-e989a2c3510c"
+        },
+        "format": "csv"
+    }
+]
