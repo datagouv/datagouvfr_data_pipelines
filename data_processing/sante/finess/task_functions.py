@@ -73,6 +73,10 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
         if all([row[-1] == ";" for row in sections[k]]):
             logging.warning("Trimming empty last column")
             sections[k] = [row[:-1] for row in sections[k]]
+    for k in range(len(sections)):
+        # making sure the data matches the expected columns
+        # (row has the index column, so quick maths and the check is this one)
+        assert all(len(columns[k]) == row.count(";") for row in sections[k])
     return [
         pd.read_csv(
             StringIO("\n".join(sections[k])),
