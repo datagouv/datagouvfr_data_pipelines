@@ -48,7 +48,7 @@ with DAG(
             resource_file="resources_to_download.json",
             tmp_dir=TMP_FOLDER,
         )
-        >> publish_mattermost(geoloc=True)
+        >> publish_mattermost(geoloc=False)
         >> clean_up_folder(TMP_FOLDER)
         >> TriggerDagRunOperator(
             task_id="trigger_geocodage",
