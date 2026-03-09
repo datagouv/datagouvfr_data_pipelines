@@ -74,9 +74,8 @@ class S3Client:
         self.bucket.upload_file(
             file.full_source_path,
             dest_path,
-            ExtraArgs={"ContentType": file.content_type} | (
-                {"ACL": "public-read"} if is_public else {}
-            ),
+            ExtraArgs={"ContentType": file.content_type}
+            | ({"ACL": "public-read"} if is_public else {}),
         )
         if burn_after_sending:
             file.delete()
@@ -392,7 +391,7 @@ class S3Client:
         self.bucket.put_object(
             Key=file_path,
             Body=raw_data,
-            **({"ACL": "public-read"} if is_public else {})
+            **({"ACL": "public-read"} if is_public else {}),
         )
 
     @simple_connection_retry
