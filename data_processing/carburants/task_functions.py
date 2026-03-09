@@ -141,4 +141,5 @@ def send_files_s3():
             ),
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )

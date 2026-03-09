@@ -208,6 +208,7 @@ def send_to_s3():
             for _ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

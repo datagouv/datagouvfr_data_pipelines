@@ -151,6 +151,7 @@ def notification_mattermost(**context):
             dest_name=too_old_filename,
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
     if message:
@@ -290,6 +291,7 @@ def consolidate_logs():
             ),
             ignore_airflow_env=True,
             burn_after_sending=True,
+            is_public=True,
         )
     for log_file in logs:
         s3_pnt.delete_file(log_file)

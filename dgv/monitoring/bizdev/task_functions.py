@@ -680,6 +680,7 @@ def send_tables_to_s3():
             for file in os.listdir(TMP_FOLDER)
             if not any([k in file for k in ["spam", "KO"]])
         ],
+        is_public=True,
     )
     print("Saving KO reuses and spams (erasing previous files)")
     s3_open.send_files(
@@ -693,6 +694,7 @@ def send_tables_to_s3():
             for file in os.listdir(TMP_FOLDER)
             if any([k in file for k in ["spam", "KO"]])
         ],
+        is_public=True,
     )
 
 

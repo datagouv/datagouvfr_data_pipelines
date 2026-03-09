@@ -144,6 +144,7 @@ def send_to_s3(**context):
             )
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

@@ -210,7 +210,7 @@ def send_tops_to_s3(period: str, s3: str, **context):
             key=f"top_{_class}_dict",
             task_ids=f"get_top_{_class}_{period}",
         )
-        s3_open.send_dict_as_file(top, s3 + f"top_{_class}.json")
+        s3_open.send_dict_as_file(top, s3 + f"top_{_class}.json", is_public=True)
 
 
 @task()
@@ -229,7 +229,7 @@ def send_stats_to_s3(date: str, period: str, s3: str):
         "values": pageviews,
         "date_maj": date,
     }
-    s3_open.send_dict_as_file(mydict, s3 + "visits.json")
+    s3_open.send_dict_as_file(mydict, s3 + "visits.json", is_public=True)
 
     mydict = {
         "name": "Nombre de visiteurs uniques",
@@ -237,7 +237,7 @@ def send_stats_to_s3(date: str, period: str, s3: str):
         "values": uniq_pageviews,
         "date_maj": date,
     }
-    s3_open.send_dict_as_file(mydict, s3 + "uniq_visits.json")
+    s3_open.send_dict_as_file(mydict, s3 + "uniq_visits.json", is_public=True)
 
     mydict = {
         "name": "Nombre de téléchargements",
@@ -245,4 +245,4 @@ def send_stats_to_s3(date: str, period: str, s3: str):
         "values": downloads,
         "date_maj": date,
     }
-    s3_open.send_dict_as_file(mydict, s3 + "downloads.json")
+    s3_open.send_dict_as_file(mydict, s3 + "downloads.json", is_public=True)

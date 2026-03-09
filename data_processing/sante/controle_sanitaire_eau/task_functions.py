@@ -115,6 +115,7 @@ def send_to_s3(file_type: str):
             for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

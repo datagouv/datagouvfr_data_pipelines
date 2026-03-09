@@ -317,6 +317,7 @@ def send_stats_to_s3():
             ),
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

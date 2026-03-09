@@ -52,6 +52,7 @@ def execute_and_upload_notebook(
             content_type="text/html; charset=utf-8",
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
     for path, subdirs, files in os.walk(tmp_path + "output/"):
@@ -71,6 +72,7 @@ def execute_and_upload_notebook(
                         content_type="text/html; charset=utf-8",
                     ),
                     ignore_airflow_env=True,
+                    is_public=True,
                 )
 
     context["ti"].xcom_push(

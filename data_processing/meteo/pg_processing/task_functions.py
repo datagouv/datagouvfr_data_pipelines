@@ -348,6 +348,7 @@ def process_resources(
                         content_type="text/csv",
                     ),
                     ignore_airflow_env=True,
+                    is_public=True,
                 )
             logging.info("=> Completed work for: " + regex_infos["name"])
             _conn.commit()

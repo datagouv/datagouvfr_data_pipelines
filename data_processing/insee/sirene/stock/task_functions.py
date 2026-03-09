@@ -115,6 +115,7 @@ def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
             for item in data
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
     # sending parquet
@@ -130,6 +131,7 @@ def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
             for item in data
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

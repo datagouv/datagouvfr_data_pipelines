@@ -100,7 +100,8 @@ def send_file_to_s3(**context):
             source_name=f"{res['name']}_clean.csv",
             dest_path="formation/new/",
             dest_name=f"{res['name']}_clean.csv",
-        )
+        ),
+        is_public=True,
     )
 
 
@@ -132,6 +133,7 @@ def compare_files_s3(**context):
             dest_name=f"{res['name']}_clean.csv",
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
     return True

@@ -1985,6 +1985,7 @@ def upload_s3(
             if os.path.isfile(os.path.join(path, name))
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
     return
 
@@ -2067,6 +2068,7 @@ def notification_synthese(
                         dest_name=erreurs_file_name,
                     ),
                     ignore_airflow_env=True,
+                    is_public=True,
                 )
 
                 message += f"\n- Schéma ***{s['title']}***\n - Ressources déclarées : {nb_declares}"
