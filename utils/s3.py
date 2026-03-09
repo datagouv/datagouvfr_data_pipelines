@@ -60,8 +60,10 @@ class S3Client:
     def send_file(
         self,
         file: File,
+        *,
         ignore_airflow_env: bool = False,
         burn_after_sending: bool = False,
+        is_public: bool = False,
     ) -> None:
         """Send a file to a S3 bucket"""
         dest_path = file.full_dest_path
@@ -72,7 +74,9 @@ class S3Client:
         self.bucket.upload_file(
             file.full_source_path,
             dest_path,
-            ExtraArgs={"ContentType": file.content_type},
+            ExtraArgs={"ContentType": file.content_type} | (
+                {"ACL": "public-read"} if is_public else {}
+            ),
         )
         if burn_after_sending:
             file.delete()
@@ -80,12 +84,11 @@ class S3Client:
     def send_files(
         self,
         list_files: list[File],
-        ignore_airflow_env: bool = False,
-        burn_after_sending: bool = False,
+        **kwargs,
     ) -> None:
         """Send list of files to a S3 bucket"""
         for file in list_files:
-            self.send_file(file, ignore_airflow_env, burn_after_sending)
+            self.send_file(file, **kwargs)
 
     @simple_connection_retry
     def download_files(
@@ -213,7 +216,9 @@ class S3Client:
         path_target: str,
         s3_bucket_source: str | None = None,
         s3_bucket_target: str | None = None,
+        *,
         remove_source_file: bool = False,
+        is_public: bool = False,
     ) -> None:
         """Copy and paste file to another folder, potentially from one bucket to another if specified."""
         if not s3_bucket_source:
@@ -233,6 +238,7 @@ class S3Client:
             CopySource={"Bucket": s3_bucket_source, "Key": path_source},
             Bucket=s3_bucket_target,
             Key=path_target,
+            ExtraArgs=({"ACL": "public-read"} if is_public else {}),
         )
         logging.info(f"to {s3_bucket_target}/{path_target}")
         if remove_source_file:
@@ -245,7 +251,9 @@ class S3Client:
         target_directory: str,
         s3_bucket_source: str | None = None,
         s3_bucket_target: str | None = None,
+        *,
         remove_source_file: bool = False,
+        is_public: bool = False,
         client_side: bool = False,
     ) -> list[str]:
         """
@@ -274,6 +282,7 @@ class S3Client:
                 s3_bucket_source=s3_bucket_source,
                 s3_bucket_target=s3_bucket_target,
                 remove_source_file=remove_source_file,
+                is_public=is_public,
             )
             files_destination_path.append(target_path)
         return files_destination_path
@@ -285,7 +294,9 @@ class S3Client:
         path_target: str,
         s3_bucket_source: str | None = None,
         s3_bucket_target: str | None = None,
+        *,
         remove_source_file: bool = False,
+        is_public: bool = False,
     ):
         """This is a patch to mitigate the absence of server-side copy in OVH S3.
         Prefer copy_object as much as possible"""
@@ -314,6 +325,7 @@ class S3Client:
             self.resource.Bucket(s3_bucket_target).upload_file(
                 local_file,
                 path_target,
+                ExtraArgs=({"ACL": "public-read"} if is_public else {}),
             )
             logging.info(f"to {s3_bucket_target}/{path_target}")
             if remove_source_file:
@@ -371,18 +383,26 @@ class S3Client:
         self,
         dict_to_send: dict,
         file_path: str,
+        *,
         encoding: str = "utf-8",
+        is_public: bool = False,
     ) -> None:
         """Send a dictionary to the specified json file path."""
         raw_data = io.BytesIO(json.dumps(dict_to_send, indent=2).encode(encoding))
-        self.bucket.put_object(Key=file_path, Body=raw_data)
+        self.bucket.put_object(
+            Key=file_path,
+            Body=raw_data,
+            **({"ACL": "public-read"} if is_public else {})
+        )
 
     @simple_connection_retry
     def send_from_url(
         self,
         url: str,
         destination_file_path: str,
+        *,
         session: requests.Session | None = None,
+        is_public: bool = False,
     ) -> None:
         # to upload a file from an URL without having to download, save and send
         _req = session or requests
@@ -390,4 +410,8 @@ class S3Client:
             response.raise_for_status()
             logging.info("⬆️ Stream-sending " + url)
             logging.info(f"to {self.bucket.name}/{destination_file_path}")
-            self.bucket.upload_fileobj(Key=destination_file_path, Fileobj=response.raw)
+            self.bucket.upload_fileobj(
+                Key=destination_file_path,
+                Fileobj=response.raw,
+                ExtraArgs=({"ACL": "public-read"} if is_public else {}),
+            )
