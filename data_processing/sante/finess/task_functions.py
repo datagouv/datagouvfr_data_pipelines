@@ -183,6 +183,7 @@ def send_to_s3(scope: str):
             content_type="text/csv",
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

@@ -335,6 +335,7 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
                     dest_name=file_name,
                 ),
                 ignore_airflow_env=True,
+                is_public=True,
             )
             updated_datasets.add(global_path)
         except Exception:
@@ -651,6 +652,7 @@ def log_modified_files(**context) -> None:
             dest_name=log_file_path.split("/")[-1],
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

@@ -267,6 +267,7 @@ def send_to_s3():
     s3_open.send_files(
         list_files=fileslist,
         ignore_airflow_env=True,
+        is_public=True,
     )
     logging.info("End sending files to S3 Open")
 

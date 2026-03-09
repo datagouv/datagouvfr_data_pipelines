@@ -182,7 +182,8 @@ def send_to_s3(**context):
                 dest_name=cf["name"],
             )
             for cf in miom_files
-        ]
+        ],
+        is_public=True,
     )
 
     s3_open.send_file(
@@ -191,7 +192,8 @@ def send_to_s3(**context):
             source_name="max_date.json",
             dest_path="elections-mirroring/" + ID_CURRENT_ELECTION + "/",
             dest_name="max_date.json",
-        )
+        ),
+        is_public=True,
     )
 
 
@@ -260,7 +262,7 @@ def send_exports_to_s3():
                             dest_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
                         )
                     )
-    s3_open.send_files(list_files=list_files)
+    s3_open.send_files(list_files=list_files, is_public=True)
 
 
 def check_if_continue(**context):

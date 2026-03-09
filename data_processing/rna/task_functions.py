@@ -106,6 +106,7 @@ def send_rna_to_s3(file_type):
             for ext in ["csv", "parquet"]
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

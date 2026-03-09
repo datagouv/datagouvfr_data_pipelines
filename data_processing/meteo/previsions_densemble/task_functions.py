@@ -129,6 +129,7 @@ def process_members(
         ),
         ignore_airflow_env=False,
         burn_after_sending=True,
+        is_public=True,
     )
     logging.info("> Cleaning")
     shutil.rmtree(TMP_FOLDER + tmp_folder)

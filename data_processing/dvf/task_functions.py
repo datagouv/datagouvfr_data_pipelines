@@ -1108,6 +1108,7 @@ def send_stats_to_s3() -> None:
             for file in ["stats_dvf", "stats_whole_period"]
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 

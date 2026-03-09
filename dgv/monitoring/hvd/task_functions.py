@@ -126,6 +126,7 @@ def send_to_s3(**context):
             dest_name=filename,
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 
@@ -589,6 +590,7 @@ def update_grist(**context):
         ),
         ignore_airflow_env=True,
         burn_after_sending=True,
+        is_public=True,
     )
     return len(new_rows)
 

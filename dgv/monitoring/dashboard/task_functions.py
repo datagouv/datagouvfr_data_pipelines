@@ -287,6 +287,7 @@ def gather_and_upload(**context) -> None:
             dest_name="stats_support.csv",
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 
@@ -361,6 +362,7 @@ def get_and_upload_certification() -> None:
             for f in ["certified.json", "SP_or_CT.json", "issues.json"]
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 
@@ -404,6 +406,7 @@ def get_and_upload_reuses_down() -> None:
             dest_name=output_file_name,
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 
@@ -495,6 +498,7 @@ def get_catalog_stats() -> None:
             for output_file_name in ["resources_stats.json", "datasets_quality.json"]
         ],
         ignore_airflow_env=True,
+        is_public=True,
     )
 
 
@@ -543,4 +547,5 @@ def get_hvd_dataservices_stats() -> None:
             dest_name="hvd_dataservices_quality.json",
         ),
         ignore_airflow_env=True,
+        is_public=True,
     )
