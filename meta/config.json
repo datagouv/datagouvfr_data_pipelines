@@ -14,6 +14,7 @@
     "data_processing_postgres_meteo": true,
     "data_processing_prix_carburants": true,
     "data_processing_rna": true,
+    "data_processing_senat_petitions": true,
     "data_processing_sirene_geocodage": true,
     "data_processing_sirene_geolocalisation": true,
     "data_processing_sirene_publication": true,
