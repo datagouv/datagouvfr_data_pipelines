@@ -303,6 +303,22 @@ def remove_old_occurrences(pack: str, grid: str):
             logging.info(f"Will delete {len(files_to_delete)} files from {path}")
             for file in files_to_delete:
                 s3_meteo.delete_file(file)
+    # removing old files on SFTP (to prevent accumulation)
+    deleted_old = 0
+    sftp_threshold = threshold.strftime("%Y%m%d")
+    sftp = create_client()
+    for file in sftp.list_files_in_directory(upload_dir):
+        # see file name structure above
+        if file.split("_")[2] < sftp_threshold:
+            try:
+                sftp.delete_file(upload_dir + file)
+                deleted_old += 1
+            except Exception as e:
+                logging.error("Error while deleting", file, ":", e)
+    if deleted_old:
+        logging.info(
+            f"Deleted {deleted_old} files older than {sftp_threshold} on the SFTP"
+        )
 
 
 @task()
