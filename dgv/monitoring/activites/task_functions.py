@@ -535,4 +535,3 @@ def publish_mattermost(**context):
     #             f' dans la discussion :\n:point_right: {discussion_url}'
     #         )
     #         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
-
