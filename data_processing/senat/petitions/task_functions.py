@@ -20,19 +20,16 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}senat/"
-s3_folder = "senat_petitions/"
-file_name = "petitions.csv"
-dataset_id = (
+S3_FOLDER = "senat_petitions/"
+FILE_NAME = "petitions.csv"
+DATASET_ID = (
     "69b0175c65c90b2a60c3f8c3" if AIRFLOW_ENV != "prod" else "69b04b33b623541cb04aabde"
 )
-resource_id = (
+RESOURCE_ID = (
     "eaa95292-072d-4353-a6b8-1be65be0ab0f"
     if AIRFLOW_ENV != "prod"
     else "5bf276c9-1c5a-4b2a-9f02-954f297118b5"
 )
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-
-session = requests.Session()
 
 
 def build_status(page: BeautifulSoup) -> str:
@@ -66,7 +63,7 @@ def remove_duplicate_blanks(input_str: str) -> str:
 
 
 @simple_connection_retry
-def get_row(_id: int) -> dict | None:
+def get_row(_id: int, session) -> dict | None:
     url = f"https://petitions.senat.fr/initiatives/i-{_id}"
     ping = session.head(url)
     if ping.headers.get("Location") == "https://petitions.senat.fr/":
@@ -102,10 +99,11 @@ def get_row(_id: int) -> dict | None:
 
 @task()
 def gather_petitions():
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     # getting current file to ignore unused ids
     ids = (
         pd.read_csv(
-            s3_open.get_file_url(s3_folder + file_name),
+            s3_open.get_file_url(S3_FOLDER + FILE_NAME),
             sep=";",
             usecols=["identifiant"],
             dtype={"identifiant": float},
@@ -113,6 +111,7 @@ def gather_petitions():
         .dropna()
         .apply(int)
     )
+    session = requests.Session()
     max_id = max(ids)
     unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
     # we go through all ids except the ones we know are unused
@@ -129,7 +128,7 @@ def gather_petitions():
         if _id in unused_ids:
             unreach_in_a_row += 1
             continue
-        row = get_row(_id)
+        row = get_row(_id, session)
         if row is None:
             unreach_in_a_row += 1
             continue
@@ -141,7 +140,7 @@ def gather_petitions():
 
     df = pd.DataFrame(data)
     df.to_csv(
-        TMP_FOLDER + file_name,
+        TMP_FOLDER + FILE_NAME,
         index=False,
         sep=";",
     )
@@ -150,21 +149,22 @@ def gather_petitions():
 
 @task()
 def send_petitions_to_s3():
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_open.send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,
-                source_name=file_name,
-                dest_path=s3_folder,
-                dest_name=file_name,
+                source_name=FILE_NAME,
+                dest_path=S3_FOLDER,
+                dest_name=FILE_NAME,
                 content_type="text/csv",
             ),
             # saving dated file
             File(
                 source_path=TMP_FOLDER,
-                source_name=file_name,
-                dest_path=s3_folder,
-                dest_name=datetime.now().strftime("%Y-%m-%d") + "_" + file_name,
+                source_name=FILE_NAME,
+                dest_path=S3_FOLDER,
+                dest_name=datetime.now().strftime("%Y-%m-%d") + "_" + FILE_NAME,
                 content_type="text/csv",
             ),
         ],
@@ -174,19 +174,20 @@ def send_petitions_to_s3():
 
 @task()
 def publish_on_datagouv():
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     local_client.resource(
-        id=resource_id,
-        dataset_id=dataset_id,
+        id=RESOURCE_ID,
+        dataset_id=DATASET_ID,
         fetch=False,
     ).update(
         payload={
-            "filesize": os.path.getsize(TMP_FOLDER + file_name),
+            "filesize": os.path.getsize(TMP_FOLDER + FILE_NAME),
             "title": (f"Pétitions au {datetime.now().strftime('%d-%m-%Y')}"),
             "format": "csv",
             "description": (
                 "Créé à partir de la plateforme https://petitions.senat.fr/"
             ),
-            "url": s3_open.get_file_url(s3_folder + file_name),
+            "url": s3_open.get_file_url(S3_FOLDER + FILE_NAME),
         },
     )
 
@@ -197,6 +198,6 @@ def send_notification_mattermost():
         text=(
             ":mega: Données des pétitions du Sénat mises à jour.\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id})"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{DATASET_ID})"
         )
     )
