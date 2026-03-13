@@ -35,6 +35,17 @@ def check_if_modif(scope: str):
     )
 
 
+def count_top_level(s: str) -> int:
+    nb = 0
+    skip = False
+    for char in s:
+        if char == '"':
+            skip = not skip
+        if not skip and char == ";":
+            nb += 1
+    return nb
+
+
 def load_df_sections(scope: str) -> list[pd.DataFrame]:
     logging.info(f"Getting standard Finess {scope}")
     rows = (
@@ -76,7 +87,7 @@ def load_df_sections(scope: str) -> list[pd.DataFrame]:
     for k in range(len(sections)):
         # making sure the data matches the expected columns
         # (row has the index column, so quick maths and the check is this one)
-        assert all(len(columns[k]) == row.count(";") for row in sections[k])
+        assert all(len(columns[k]) == count_top_level(row) for row in sections[k])
     return [
         pd.read_csv(
             StringIO("\n".join(sections[k])),
