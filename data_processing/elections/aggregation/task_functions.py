@@ -100,6 +100,7 @@ def process_election_data():
         for idx, url in enumerate(resources[scope]):
             logging.info("> " + url)
             df = pd.read_csv(url, sep=";", dtype=str)
+            assert all(col in dtypes[scope].keys() for col in df.columns)
             # add missing columns and reorder for concatenation
             for col in dtypes[scope].keys():
                 if col not in df.columns:
