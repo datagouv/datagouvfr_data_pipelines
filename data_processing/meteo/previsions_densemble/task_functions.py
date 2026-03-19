@@ -29,6 +29,11 @@ TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"
+s3_client_kwargs = {
+    "bucket": bucket_pe,
+    "user": SECRET_S3_METEO_PE_USER,
+    "pwd": SECRET_S3_METEO_PE_PASSWORD,
+}
 
 with open(
     f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/previsions_densemble/config.json"
@@ -36,7 +41,7 @@ with open(
     CONFIG = json.load(fp)
 
 
-def create_client():
+def create_client() -> SFTPClient:
     return SFTPClient(
         conn_name="SSH_TRANSFER_INFRA_DATA_GOUV_FR",
         user="meteofrance",
@@ -115,11 +120,7 @@ def process_members(
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
-    S3Client(
-        bucket=bucket_pe,
-        user=SECRET_S3_METEO_PE_USER,
-        pwd=SECRET_S3_METEO_PE_PASSWORD,
-    ).send_file(
+    S3Client(**s3_client_kwargs).send_file(
         File(
             source_path=TMP_FOLDER,
             source_name=tmp_folder[:-1] + ".grib",
@@ -222,13 +223,13 @@ def fix_title(file_name: str):
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on S3
     latest_files = {}
-    for obj, size in S3Client(
-        bucket=bucket_pe,
-        user=SECRET_S3_METEO_PE_USER,
-        pwd=SECRET_S3_METEO_PE_PASSWORD,
-    ).get_all_files_names_and_sizes_from_parent_folder(
-        folder=f"{AIRFLOW_ENV}/{s3_folder}/{pack}/{grid}/",
-    ).items():
+    for obj, size in (
+        S3Client(**s3_client_kwargs)
+        .get_all_files_names_and_sizes_from_parent_folder(
+            folder=f"{AIRFLOW_ENV}/{s3_folder}/{pack}/{grid}/",
+        )
+        .items()
+    ):
         try:
             file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
@@ -287,11 +288,7 @@ def remove_old_occurrences(pack: str, grid: str):
     logging.info(f"Oldest date in dataset: {oldest_available_date}")
     threshold = oldest_available_date - TIME_DEPTH_TO_KEEP
     logging.info(f"Will delete everything before {threshold}")
-    s3_meteo = S3Client(
-        bucket=bucket_pe,
-        user=SECRET_S3_METEO_PE_USER,
-        pwd=SECRET_S3_METEO_PE_PASSWORD,
-    )
+    s3_meteo = S3Client(**s3_client_kwargs)
     dates_on_s3 = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
         for path in s3_meteo.get_folders_from_prefix(
@@ -341,6 +338,7 @@ def handle_cyclonic_alert(pack: str, grid: str):
     if len(current_resources) == 49:
         logging.info("Nothing to do here")
         return
+    s3_meteo = S3Client(**s3_client_kwargs)
     latest_date = max(
         path.split("/")[-2]
         for path in s3_meteo.get_folders_from_prefix(

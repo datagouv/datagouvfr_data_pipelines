@@ -22,7 +22,9 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 
 def check_if_already_processed(s3_path: str) -> bool:
-    files_in_folder = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_files_from_prefix(
+    files_in_folder = S3Client(
+        bucket=S3_BUCKET_DATA_PIPELINE_OPEN
+    ).get_files_from_prefix(
         prefix=s3_path,
         ignore_airflow_env=True,
         as_objects=True,

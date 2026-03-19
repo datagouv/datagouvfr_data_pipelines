@@ -30,11 +30,12 @@ s3_client_kwargs = {
 }
 already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"
+conn_name = "POSTGRES_METRIC"
 
 
 @task()
 def create_tabular_metrics_tables() -> None:
-    PostgresClient(conn_name="POSTGRES_METRIC").execute_sql_file(
+    PostgresClient(conn_name).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sql/",
             source_name="create_tables.sql",
@@ -145,7 +146,7 @@ def process_logs_file(file_path: str):
     # upserting data into the table
     # creating a temporary table to store the current data
     tmp_table_name = "tmp_table"
-    pgclient= PostgresClient(conn_name="POSTGRES_METRIC")
+    pgclient = PostgresClient(conn_name)
     pgclient.execute_query(
         f"""CREATE TEMP TABLE {tmp_table_name} (
             resource_id CHARACTER VARYING,
@@ -179,7 +180,7 @@ def process_logs():
     logging.info("Retrieving processed log files from db...")
     already_processed: list[str] = [
         row["file_name"]
-        for row in PostgresClient(conn_name="POSTGRES_METRIC").execute_query(
+        for row in PostgresClient(conn_name).execute_query(
             f"SELECT file_name from metric.{already_processed_table}"
         )
     ]
@@ -223,7 +224,7 @@ def process_logs():
             raise ValueError(f"More than one file extracted: {os.listdir(folder)}")
         process_logs_file(folder + os.listdir(folder)[0])
         shutil.rmtree(folder)
-        PostgresClient(conn_name="POSTGRES_METRIC").execute_query(
+        PostgresClient(conn_name).execute_query(
             f"""INSERT INTO metric.{already_processed_table} (file_name, date_processed)
             VALUES ('{log}', '{datetime.today().strftime("%Y-%m-%d")}');"""
         )

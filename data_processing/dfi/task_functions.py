@@ -207,7 +207,11 @@ def check_if_modif():
 @task()
 def gather_data(**context):
     logging.info("Getting resources list")
-    metadata_content = json.loads(S3Client(bucket=S3_BUCKET_DATA_PIPELINE).get_file_content("dev/dfi/metadata.json"))
+    metadata_content = json.loads(
+        S3Client(bucket=S3_BUCKET_DATA_PIPELINE).get_file_content(
+            "dev/dfi/metadata.json"
+        )
+    )
     urls_resources = [i.get("url") for i in metadata_content]
     information_date_about_dataset = re.findall(
         r"\((.*?)\)", metadata_content[0].get("title")

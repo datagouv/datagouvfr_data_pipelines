@@ -39,6 +39,7 @@ s3_client_kwargs = {
     "pwd": SECRET_S3_PASSWORD,
     "s3_url": S3_URL,
 }
+conn_name = "POSTGRES_METRIC"
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"
 FOUND_FOLDER = f"{TMP_FOLDER}found/"
@@ -47,7 +48,7 @@ OUTPUT_FOLDER = f"{TMP_FOLDER}outputs/"
 
 @task()
 def create_metrics_tables() -> None:
-    PostgresClient(conn_name="POSTGRES_METRIC").execute_sql_file(
+    PostgresClient(conn_name).execute_sql_file(
         file=File(
             source_path=f"{config.code_folder_full_path}/sql/",
             source_name="create_tables.sql",
@@ -205,7 +206,7 @@ def visit_postgres_duplication_safety(**context) -> None:
     processed_dates = context["ti"].xcom_pull(
         key="dates_processed", task_ids="aggregate_log"
     )
-    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
+    pgclient = PostgresClient(conn_name)
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing visit metrics from the {log_date} if they exists."
@@ -222,7 +223,7 @@ def visit_postgres_duplication_safety(**context) -> None:
 
 @task()
 def save_metrics_to_postgres() -> None:
-    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
+    pgclient = PostgresClient(conn_name)
     for obj_config in config.logs_config:
         # Looking for files such as 2025-09-24_resources.csv
         for lf in glob.glob(f"{OUTPUT_FOLDER}????-??-??_{obj_config.type}.csv"):
@@ -253,7 +254,7 @@ def copy_logs_to_processed_folder(**context) -> None:
 
 @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 def refresh_materialized_views() -> None:
-    PostgresClient(conn_name="POSTGRES_METRIC").execute_sql_file(
+    PostgresClient(conn_name).execute_sql_file(
         file=File(
             source_path=f"{config.code_folder_full_path}/sql/",
             source_name="refresh_materialized_views.sql",
@@ -326,7 +327,7 @@ def matomo_postgres_duplication_safety(**context) -> None:
     processed_dates = context["ti"].xcom_pull(
         key="dates_processed", task_ids="process_matomo"
     )
-    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
+    pgclient = PostgresClient(conn_name)
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing matomo metrics from the {log_date} if they exists."
@@ -353,7 +354,7 @@ def save_matomo_to_postgres() -> None:
             "columns": "(date_metric, organization_id, nb_outlink)",
         },
     ]
-    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
+    pgclient = PostgresClient(conn_name)
     for obj in pg_config:
         for lf in glob.glob(f"{TMP_FOLDER}matomo-outputs/{obj['name']}-*"):
             pgclient.copy_file(

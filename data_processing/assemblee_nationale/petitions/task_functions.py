@@ -166,7 +166,9 @@ def gather_petitions():
     # getting current file to ignore unused ids
     ids = (
         pd.read_csv(
-            S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_url(s3_folder + file_name),
+            S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_url(
+                s3_folder + file_name
+            ),
             sep=";",
             usecols=["identifiant"],
             dtype={"identifiant": float},

@@ -262,7 +262,9 @@ def send_exports_to_s3():
                             dest_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
                         )
                     )
-    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(list_files=list_files, is_public=True)
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
+        list_files=list_files, is_public=True
+    )
 
 
 def check_if_continue(**context):
