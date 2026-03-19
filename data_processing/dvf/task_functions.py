@@ -125,46 +125,46 @@ def create_whole_period_table() -> None:
 @task()
 def populate_copro_table() -> None:
     mapping = {
-        "EPCI": "epci",
-        "Commune": "commune",
-        "Numéro d'immatriculation": "numero_immatriculation",
-        "Type de syndic : bénévole / professionnel / non connu": "type_syndic",
-        "Identification du représentant légal  (raison sociale et le numéro SIRET du syndic professionnel ou Civilité/prénom/ nom du syndic bénévole ou coopératif)": "identification_representant_legal",
-        "SIRET du représentant légal": "siret_representant_legal",
-        "Code APE": "code_ape",
-        "Commune du représentant légal": "commune_representant_legal",
-        "Mandat en cours dans la copropriété": "mandat_en_cours_copropriete",
-        "Nom d’usage de la copropriété": "nom_usage_copropriete",
-        "Adresse de référence": "adresse_reference",
-        "Numéro et Voie (adresse de référence)": "numero_et_voie_adresse_reference",
-        "Code postal (adresse de référence)": "code_postal_adresse_reference",
-        "Commune (adresse de référence)": "commune_adresse_reference",
-        "Adresse complémentaire 1": "adresse_complementaire_1",
-        "Adresse complémentaire 2": "adresse_complementaire_2",
-        "Adresse complémentaire 3": "adresse_complementaire_3",
-        "Nombre d'adresses complémentaires": "nombre_adresses_complementaires",
+        "epci": "epci",
+        "commune": "commune",
+        "numero_d_immatriculation": "numero_immatriculation",
+        "type_de_syndic_benevole_professionnel_non_connu": "type_syndic",
+        "identification_du_representant_legal_raison_sociale_et_le_numer": "identification_representant_legal",
+        "siret_du_representant_legal": "siret_representant_legal",
+        "code_ape": "code_ape",
+        "commune_du_representant_legal": "commune_representant_legal",
+        "mandat_en_cours_dans_la_copropriete": "mandat_en_cours_copropriete",
+        "nom_d_usage_de_la_copropriete": "nom_usage_copropriete",
+        "adresse_de_reference": "adresse_reference",
+        "numero_et_voie_adresse_de_reference": "numero_et_voie_adresse_reference",
+        "code_postal_adresse_de_reference": "code_postal_adresse_reference",
+        "commune_adresse_de_reference": "commune_adresse_reference",
+        "adresse_complementaire_1": "adresse_complementaire_1",
+        "adresse_complementaire_2": "adresse_complementaire_2",
+        "adresse_complementaire_3": "adresse_complementaire_3",
+        "nombre_d_adresses_complementaires": "nombre_adresses_complementaires",
         "long": "long",
         "lat": "lat",
-        "Date du règlement de copropriété": "date_reglement_copropriete",
-        "Résidence service": "residence_service",
-        "Syndicat coopératif": "syndicat_cooperatif",
-        "Syndicat principal ou syndicat secondaire": "syndicat_principal_ou_secondaire",
-        "Si secondaire, n° d’immatriculation du principal": "si_secondaire_numero_immatriculation_principal",
-        "Nombre d’ASL auxquelles est rattaché le syndicat de copropriétaires": (
+        "date_du_reglement_de_copropriete": "date_reglement_copropriete",
+        "residence_service": "residence_service",
+        "syndicat_cooperatif": "syndicat_cooperatif",
+        "syndicat_principal_ou_syndicat_secondaire": "syndicat_principal_ou_secondaire",
+        "si_secondaire_n_d_immatriculation_du_principal": "si_secondaire_numero_immatriculation_principal",
+        "nombre_d_asl_auxquelles_est_rattache_le_syndicat_de_coproprieta": (
             "nombre_asl_rattache_syndicat_coproprietaires"
         ),
-        "Nombre d’AFUL auxquelles est rattaché le syndicat de copropriétaires": (
+        "nombre_d_aful_auxquelles_est_rattache_le_syndicat_de_copropriet": (
             "nombre_aful_rattache_syndicat_coproprietaires"
         ),
-        "Nombre d’Unions de syndicats auxquelles est rattaché le syndicat de copropriétaires": (
+        "nombre_d_unions_de_syndicats_auxquelles_est_rattache_le_syndica": (
             "nombre_unions_syndicats_rattache_syndicat_coproprietaires"
         ),
-        "Nombre total de lots": "nombre_total_lots",
-        "Nombre total de lots à usage d’habitation, de bureaux ou de commerces": (
+        "nombre_total_de_lots": "nombre_total_lots",
+        "nombre_total_de_lots_a_usage_d_habitation_de_bureaux_ou_de_comm": (
             "nombre_total_lots_usage_habitation_bureaux_ou_commerces"
         ),
-        "Nombre de lots à usage d’habitation": "nombre_lots_usage_habitation",
-        "Nombre de lots de stationnement": "nombre_lots_stationnement",
+        "nombre_de_lots_a_usage_d_habitation": "nombre_lots_usage_habitation",
+        "nombre_de_lots_de_stationnement": "nombre_lots_stationnement",
         # "Nombre d'arrêtés relevant du code de la santé publique en cours": (
         #     "nombre_arretes_code_sante_publique_en_cours"
         # ),
@@ -174,21 +174,24 @@ def populate_copro_table() -> None:
         # "Nombre d'arrêtés sur les équipements communs en cours": (
         #     "nombre_arretes_equipements_communs_en_cours"
         # ),
-        "Période de construction": "periode_construction",
-        "Référence Cadastrale 1": "reference_cadastrale_1",
-        "Référence Cadastrale 2": "reference_cadastrale_2",
-        "Référence Cadastrale 3": "reference_cadastrale_3",
-        "Nombre de parcelles cadastrales": "nombre_parcelles_cadastrales",
+        "periode_de_construction": "periode_construction",
+        "reference_cadastrale_1": "reference_cadastrale_1",
+        "reference_cadastrale_2": "reference_cadastrale_2",
+        "reference_cadastrale_3": "reference_cadastrale_3",
+        "nombre_de_parcelles_cadastrales": "nombre_parcelles_cadastrales",
         "nom_qp_2024": "nom_qp",
         "code_qp_2024": "code_qp",
-        "Copro dans ACV": "copro_dans_acv",
-        "Copro dans PVD": "copro_dans_pvd",
+        "copro_dans_acv": "copro_dans_acv",
+        "copro_dans_pvd": "copro_dans_pvd",
     }
     copro = pd.read_csv(
         f"{TMP_FOLDER}copro.csv",
         dtype=str,
         usecols=mapping.keys(),
     )
+    for col in mapping.keys():
+        if col not in copro.columns:
+            raise ValueError(f"Column {col} is expected")
     copro = copro.rename(mapping, axis=1)
     copro = copro.loc[copro["commune"].str.len() == 5]
     copro.to_csv(f"{TMP_FOLDER}copro_clean.csv", index=False)
