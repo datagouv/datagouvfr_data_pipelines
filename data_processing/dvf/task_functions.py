@@ -31,13 +31,6 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DPEDIR = f"{TMP_FOLDER}dpe/"
 schema = "dvf"
 
-pgclient = PostgresClient(
-    conn_name="POSTGRES_DVF",
-    schema=schema,
-)
-s3_restricted = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-
 
 def get_year_interval() -> tuple[int, int]:
     today = datetime.today()
@@ -54,7 +47,7 @@ def build_table_name(table: str) -> str:
 
 @task()
 def create_copro_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="create_copro_table.sql",
@@ -64,7 +57,7 @@ def create_copro_table() -> None:
 
 @task()
 def create_dpe_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="create_dpe_table.sql",
@@ -74,7 +67,7 @@ def create_dpe_table() -> None:
 
 @task()
 def create_dvf_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="create_dvf_table.sql",
@@ -84,7 +77,7 @@ def create_dvf_table() -> None:
 
 @task()
 def index_dvf_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="index_dvf_table.sql",
@@ -94,7 +87,7 @@ def index_dvf_table() -> None:
 
 @task()
 def create_stats_dvf_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="create_stats_dvf_table.sql",
@@ -104,7 +97,7 @@ def create_stats_dvf_table() -> None:
 
 @task()
 def create_distribution_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="create_distribution_table.sql",
@@ -114,7 +107,7 @@ def create_distribution_table() -> None:
 
 @task()
 def create_whole_period_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="create_whole_period_table.sql",
@@ -195,7 +188,7 @@ def populate_copro_table() -> None:
     copro = copro.rename(mapping, axis=1)
     copro = copro.loc[copro["commune"].str.len() == 5]
     copro.to_csv(f"{TMP_FOLDER}copro_clean.csv", index=False)
-    pgclient.copy_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
         file=File(source_path=TMP_FOLDER, source_name="copro_clean.csv"),
         table=build_table_name("copro"),
         has_header=True,
@@ -204,7 +197,7 @@ def populate_copro_table() -> None:
 
 @task()
 def populate_distribution_table() -> None:
-    pgclient.copy_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
         file=File(source_path=TMP_FOLDER, source_name="distribution_prix.csv"),
         table=build_table_name("distribution_prix"),
         has_header=True,
@@ -217,7 +210,7 @@ def populate_dvf_table() -> None:
     for file in files:
         *path, file = file.split("/")
         logging.info(f"Populating {file}")
-        pgclient.copy_file(
+        PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
             file=File(source_path="/".join(path), source_name=file),
             table=build_table_name("dvf"),
             has_header=True,
@@ -226,7 +219,7 @@ def populate_dvf_table() -> None:
 
 @task()
 def alter_dvf_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="alter_dvf_table.sql",
@@ -236,7 +229,7 @@ def alter_dvf_table() -> None:
 
 @task()
 def populate_stats_dvf_table() -> None:
-    pgclient.copy_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
         file=File(source_path=TMP_FOLDER, source_name="stats_dvf_api.csv"),
         table=build_table_name("stats_dvf"),
         has_header=True,
@@ -245,7 +238,7 @@ def populate_stats_dvf_table() -> None:
 
 @task()
 def populate_dpe_table() -> None:
-    pgclient.copy_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
         file=File(source_path=TMP_FOLDER, source_name="all_dpe.csv"),
         table=build_table_name("dpe"),
         has_header=False,
@@ -254,7 +247,7 @@ def populate_dpe_table() -> None:
 
 @task()
 def populate_whole_period_table() -> None:
-    pgclient.copy_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
         file=File(source_path=TMP_FOLDER, source_name="stats_whole_period.csv"),
         table=build_table_name("stats_whole_period"),
         has_header=True,
@@ -384,7 +377,7 @@ def process_dpe() -> None:
 
 @task()
 def index_dpe_table() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
             source_name="index_dpe_table.sql",
@@ -734,7 +727,7 @@ def process_dvf_stats() -> None:
         libelles_parents["libelle_geo"].fillna("NA").apply(unidecode)
     )
     libelles_biens = [
-        unidecode(types_bien.get(t).split(" ")[0].lower()) for t in types_of_interest
+        unidecode(types_bien[t].split(" ")[0].lower()) for t in types_of_interest
     ] + ["apt_maison"]
     prefixes = ["nb_ventes_", "moy_prix_m2_", "med_prix_m2_"]
     reordered_columns = (
@@ -1100,7 +1093,7 @@ def create_distribution_and_stats_whole_period() -> None:
 
 @task()
 def send_stats_to_s3() -> None:
-    s3_open.send_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,
@@ -1117,7 +1110,7 @@ def send_stats_to_s3() -> None:
 
 @task()
 def send_distribution_to_s3() -> None:
-    s3_restricted.send_file(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE).send_file(
         File(
             source_path=TMP_FOLDER,
             source_name="distribution_prix.csv",

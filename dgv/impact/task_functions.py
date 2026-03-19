@@ -22,7 +22,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from dateutil.relativedelta import relativedelta
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 @task()
@@ -288,7 +287,11 @@ def gather_kpis(**context):
         encoding="utf8",
     )
     history = pd.read_csv(
-        StringIO(s3_open.get_file_content("impact/statistiques_impact_datagouvfr.csv"))
+        StringIO(
+            S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_content(
+                "impact/statistiques_impact_datagouvfr.csv"
+            )
+        )
     )
     final = pd.concat([df, history])
     final.to_csv(
@@ -300,7 +303,7 @@ def gather_kpis(**context):
 
 @task()
 def send_stats_to_s3():
-    s3_open.send_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,

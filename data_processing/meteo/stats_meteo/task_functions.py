@@ -16,8 +16,6 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}stats_meteo/"
-s3_meteo = S3Client(bucket="meteofrance")
-
 MATOMO_PARAMS = {
     "module": "API",
     "format": "CSV",
@@ -125,7 +123,7 @@ def gather_meteo_stats(**context):
 @task()
 def send_to_s3(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
-    s3_meteo.send_files(
+    S3Client(bucket="meteofrance").send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,

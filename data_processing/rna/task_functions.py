@@ -22,7 +22,6 @@ from unidecode import unidecode
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}rna/"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config.json") as fp:
     config = json.load(fp)
 
@@ -92,7 +91,7 @@ def process_rna(file_type, **context):
 
 @task()
 def send_rna_to_s3(file_type):
-    s3_open.send_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,

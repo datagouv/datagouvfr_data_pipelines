@@ -45,7 +45,6 @@ entreprises_api_url = "https://recherche-entreprises.api.gouv.fr/search?q="
 # max 5 requests/second (rate limiting is 1/7)
 rate_limiting_delay = 1 / 5
 
-s3_open = S3Client(bucket="dataeng-open")
 s3_destination_folder = "dashboard/"
 
 MATOMO_PARAMS = {
@@ -279,7 +278,7 @@ def gather_and_upload(**context) -> None:
     stats.to_csv(TMP_FOLDER + "stats_support.csv")
 
     # sending to s3
-    s3_open.send_file(
+    S3Client(bucket="dataeng-open").send_file(
         File(
             source_path=TMP_FOLDER,
             source_name="stats_support.csv",
@@ -349,7 +348,7 @@ def get_and_upload_certification() -> None:
     with open(TMP_FOLDER + "issues.json", "w") as f:
         json.dump(issues, f, indent=4)
 
-    s3_open.send_files(
+    S3Client(bucket="dataeng-open").send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,
@@ -390,6 +389,7 @@ def get_and_upload_reuses_down() -> None:
 
     # getting historical data
     output_file_name = "stats_reuses_down.csv"
+    s3_open = S3Client(bucket="dataeng-open")
     hist = pd.read_csv(
         StringIO(s3_open.get_file_content(s3_destination_folder + output_file_name))
     )
@@ -473,6 +473,7 @@ def get_catalog_stats() -> None:
 
     resources_stats = {datetime.now().strftime("%Y-%m-%d"): resources_stats}
 
+    s3_open = S3Client(bucket="dataeng-open")
     hist_dq = json.loads(
         s3_open.get_file_content(s3_destination_folder + "datasets_quality.json")
     )
@@ -530,6 +531,7 @@ def get_hvd_dataservices_stats() -> None:
         },
     }
 
+    s3_open = S3Client(bucket="dataeng-open")
     hist_ds = json.loads(
         s3_open.get_file_content(
             s3_destination_folder + "hvd_dataservices_quality.json"

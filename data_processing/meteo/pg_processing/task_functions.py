@@ -30,14 +30,9 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pg/"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 
-s3_meteo = S3Client(bucket="meteofrance")
-
-
 SCHEMA_NAME = "meteo"
-pgclient = PostgresClient(
-    conn_name="POSTGRES_DB_02_INFRA_DATA_GOUV_FR", schema=SCHEMA_NAME
-)
-conn = BaseHook.get_connection("POSTGRES_DB_02_INFRA_DATA_GOUV_FR")
+conn_name = "POSTGRES_DB_02_INFRA_DATA_GOUV_FR"
+conn = BaseHook.get_connection(conn_name)
 db_params = {
     "database": conn.schema,
     "user": conn.login,
@@ -207,7 +202,7 @@ def create_tables_if_not_exists(**context):
     with open(f"{TMP_FOLDER}create.sql", "w") as file:
         file.write(output)
 
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name, schema=SCHEMA_NAME).execute_sql_file(
         file=File(
             source_path=TMP_FOLDER,
             source_name="create.sql",
@@ -218,7 +213,9 @@ def create_tables_if_not_exists(**context):
 # %%
 @task()
 def retrieve_latest_processed_date(**context):
-    data = pgclient.execute_query("SELECT MAX(processed) FROM dag_processed;")
+    data = PostgresClient(conn_name, schema=SCHEMA_NAME).execute_query(
+        "SELECT MAX(processed) FROM dag_processed;"
+    )
     logging.info(data)
     latest_db_insertion = data[0]["max"]
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", latest_db_insertion):
@@ -276,6 +273,7 @@ def process_resources(
     latest_db_insertion: str,
 ):
     # going through all resources of the dataset to check which ones to update
+    s3_meteo = S3Client(bucket="meteofrance")
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
@@ -684,7 +682,7 @@ def create_indexes(conn, table_name, period):
 def insert_latest_date_pg():
     new_latest_date = datetime.now().strftime("%Y-%m-%d")
     logging.info(new_latest_date)
-    pgclient.execute_query(
+    PostgresClient(conn_name, schema=SCHEMA_NAME).execute_query(
         f"INSERT INTO dag_processed (processed) VALUES ('{new_latest_date}');",
     )
 

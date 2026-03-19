@@ -25,7 +25,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(
     f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config.json"
@@ -97,7 +96,7 @@ def process_data():
 
 @task()
 def send_to_s3(file_type: str):
-    s3_open.send_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,
