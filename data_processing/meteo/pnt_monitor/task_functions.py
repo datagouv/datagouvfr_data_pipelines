@@ -17,12 +17,6 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-s3_pnt = S3Client(
-    bucket=S3_BUCKET_PNT,
-    user=SECRET_S3_PNT_USER,
-    pwd=SECRET_S3_PNT_PASSWORD,
-)
 too_old_filename = "too_old.json"
 
 
@@ -110,6 +104,7 @@ def notification_mattermost(**context):
     print("Too old resources:", too_old)
     nb_too_old = sum([len(too_old[d]) for d in too_old])
     print(nb_too_old, "resources are too old")
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
     # saving the list of issues to ping only if new issues
     previous_too_old = json.loads(s3_open.get_file_content("pnt/too_old.json"))
@@ -163,6 +158,11 @@ def notification_mattermost(**context):
 
 def update_tree():
     # listing current runs on s3
+    s3_pnt = S3Client(
+        bucket=S3_BUCKET_PNT,
+        user=SECRET_S3_PNT_USER,
+        pwd=SECRET_S3_PNT_PASSWORD,
+    )
     current_runs = sorted(
         [
             pref
@@ -250,6 +250,11 @@ def dump_and_send_tree() -> None:
 
 @task()
 def consolidate_logs():
+    s3_pnt = S3Client(
+        bucket=S3_BUCKET_PNT,
+        user=SECRET_S3_PNT_USER,
+        pwd=SECRET_S3_PNT_PASSWORD,
+    )
     logs, csvs = [], []
     for o in s3_pnt.get_files_from_prefix(
         prefix="logs/",

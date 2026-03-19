@@ -27,11 +27,6 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
-s3_meteo = S3Client(
-    bucket=bucket_pe,
-    user=SECRET_S3_METEO_PE_USER,
-    pwd=SECRET_S3_METEO_PE_PASSWORD,
-)
 s3_folder = "data"
 upload_dir = "/uploads/"
 
@@ -120,7 +115,11 @@ def process_members(
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
-    s3_meteo.send_file(
+    S3Client(
+        bucket=bucket_pe,
+        user=SECRET_S3_METEO_PE_USER,
+        pwd=SECRET_S3_METEO_PE_PASSWORD,
+    ).send_file(
         File(
             source_path=TMP_FOLDER,
             source_name=tmp_folder[:-1] + ".grib",
@@ -223,7 +222,11 @@ def fix_title(file_name: str):
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on S3
     latest_files = {}
-    for obj, size in s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
+    for obj, size in S3Client(
+        bucket=bucket_pe,
+        user=SECRET_S3_METEO_PE_USER,
+        pwd=SECRET_S3_METEO_PE_PASSWORD,
+    ).get_all_files_names_and_sizes_from_parent_folder(
         folder=f"{AIRFLOW_ENV}/{s3_folder}/{pack}/{grid}/",
     ).items():
         try:
@@ -284,6 +287,11 @@ def remove_old_occurrences(pack: str, grid: str):
     logging.info(f"Oldest date in dataset: {oldest_available_date}")
     threshold = oldest_available_date - TIME_DEPTH_TO_KEEP
     logging.info(f"Will delete everything before {threshold}")
+    s3_meteo = S3Client(
+        bucket=bucket_pe,
+        user=SECRET_S3_METEO_PE_USER,
+        pwd=SECRET_S3_METEO_PE_PASSWORD,
+    )
     dates_on_s3 = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
         for path in s3_meteo.get_folders_from_prefix(

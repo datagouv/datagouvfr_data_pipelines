@@ -30,9 +30,6 @@ resource_id = (
     if AIRFLOW_ENV != "prod"
     else "c94c9dfe-23eb-45aa-acd1-7438c4e977db"
 )
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-
-session = requests.Session()
 
 
 def build_status(page: BeautifulSoup) -> str:
@@ -73,7 +70,7 @@ def get_labels(page: BeautifulSoup) -> dict:
     }
 
 
-def get_limit_date(page: BeautifulSoup) -> str:
+def get_limit_date(page: BeautifulSoup) -> str | None:
     found = page.find("span", attrs={"class": "phase-date"})
     if found is None:
         return
@@ -124,7 +121,7 @@ def get_votes(page: BeautifulSoup) -> int | None:
 
 
 @simple_connection_retry
-def get_row(_id: int) -> dict | None:
+def get_row(_id: int, session: requests.Session) -> dict | None:
     url = f"https://petitions.assemblee-nationale.fr/initiatives/i-{_id}"
     # ping the ping, because all ids are not used
     ping = session.head(url)
@@ -169,7 +166,7 @@ def gather_petitions():
     # getting current file to ignore unused ids
     ids = (
         pd.read_csv(
-            s3_open.get_file_url(s3_folder + file_name),
+            S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_url(s3_folder + file_name),
             sep=";",
             usecols=["identifiant"],
             dtype={"identifiant": float},
@@ -186,6 +183,7 @@ def gather_petitions():
     data = []
     _id = min(ids) - 1
     unreach_in_a_row = 0
+    session = requests.Session()
     while True:
         _id += 1
         if _id > max_id and unreach_in_a_row > 10:
@@ -193,7 +191,7 @@ def gather_petitions():
         if _id in unused_ids:
             unreach_in_a_row += 1
             continue
-        row = get_row(_id)
+        row = get_row(_id, session)
         if row is None:
             unreach_in_a_row += 1
             continue
@@ -212,7 +210,7 @@ def gather_petitions():
 
 @task()
 def send_petitions_to_s3():
-    s3_open.send_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,

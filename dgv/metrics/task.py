@@ -32,14 +32,13 @@ from tqdm import tqdm
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
-s3_client = S3Client(
-    # bucket="infra",
-    bucket=S3_BUCKET_INFRA,
-    user=SECRET_S3_USER,
-    pwd=SECRET_S3_PASSWORD,
-    s3_url=S3_URL,
-)
-pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
+s3_client_kwargs = {
+    # "bucket": "infra",
+    "bucket": S3_BUCKET_INFRA,
+    "user": SECRET_S3_USER,
+    "pwd": SECRET_S3_PASSWORD,
+    "s3_url": S3_URL,
+}
 config = MetricsConfig()
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{config.tmp_folder}"
 FOUND_FOLDER = f"{TMP_FOLDER}found/"
@@ -48,7 +47,7 @@ OUTPUT_FOLDER = f"{TMP_FOLDER}outputs/"
 
 @task()
 def create_metrics_tables() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_METRIC").execute_sql_file(
         file=File(
             source_path=f"{config.code_folder_full_path}/sql/",
             source_name="create_tables.sql",
@@ -58,6 +57,7 @@ def create_metrics_tables() -> None:
 
 
 def get_new_logs(**context) -> bool:
+    s3_client = S3Client(**s3_client_kwargs)
     new_logs_path = list(s3_client.get_files_from_prefix(prefix="metrics-logs/new/"))
     if new_logs_path:
         ongoing_logs_path = s3_client.copy_many_objects(
@@ -93,6 +93,7 @@ def download_log(**context):
     )
 
     logging.info("Downloading raw logs...")
+    s3_client = S3Client(**s3_client_kwargs)
     for path in ongoing_logs_path:
         s3_client.download_files(
             list_files=[
@@ -204,6 +205,7 @@ def visit_postgres_duplication_safety(**context) -> None:
     processed_dates = context["ti"].xcom_pull(
         key="dates_processed", task_ids="aggregate_log"
     )
+    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing visit metrics from the {log_date} if they exists."
@@ -220,6 +222,7 @@ def visit_postgres_duplication_safety(**context) -> None:
 
 @task()
 def save_metrics_to_postgres() -> None:
+    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
     for obj_config in config.logs_config:
         # Looking for files such as 2025-09-24_resources.csv
         for lf in glob.glob(f"{OUTPUT_FOLDER}????-??-??_{obj_config.type}.csv"):
@@ -240,7 +243,7 @@ def copy_logs_to_processed_folder(**context) -> None:
     ongoing_logs_path = context["ti"].xcom_pull(
         key="ongoing_logs_path", task_ids="get_new_logs"
     )
-    s3_client.copy_many_objects(
+    S3Client(**s3_client_kwargs).copy_many_objects(
         ongoing_logs_path,
         f"{AIRFLOW_ENV}/metrics-logs/processed/",
         remove_source_file=True,
@@ -250,7 +253,7 @@ def copy_logs_to_processed_folder(**context) -> None:
 
 @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 def refresh_materialized_views() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_METRIC").execute_sql_file(
         file=File(
             source_path=f"{config.code_folder_full_path}/sql/",
             source_name="refresh_materialized_views.sql",
@@ -323,6 +326,7 @@ def matomo_postgres_duplication_safety(**context) -> None:
     processed_dates = context["ti"].xcom_pull(
         key="dates_processed", task_ids="process_matomo"
     )
+    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
     for log_date in processed_dates:
         logging.info(
             f"Deleting existing matomo metrics from the {log_date} if they exists."
@@ -349,6 +353,7 @@ def save_matomo_to_postgres() -> None:
             "columns": "(date_metric, organization_id, nb_outlink)",
         },
     ]
+    pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
     for obj in pg_config:
         for lf in glob.glob(f"{TMP_FOLDER}matomo-outputs/{obj['name']}-*"):
             pgclient.copy_file(
@@ -368,6 +373,7 @@ def delete_old_log_files() -> None:
     threshold = (datetime.now() - relativedelta(months=months_to_keep)).strftime(
         "%Y-%m-%d"
     )
+    s3_client = S3Client(**s3_client_kwargs)
     to_delete = [
         obj
         for obj in s3_client.get_files_from_prefix(

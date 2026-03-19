@@ -21,21 +21,20 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
-s3_client = S3Client(
-    # bucket="infra",
-    bucket=S3_BUCKET_INFRA,
-    user=SECRET_S3_USER,
-    pwd=SECRET_S3_PASSWORD,
-    s3_url=S3_URL,
-)
-pgclient = PostgresClient(conn_name="POSTGRES_METRIC")
+s3_client_kwargs = {
+    # "bucket": "infra",
+    "bucket": S3_BUCKET_INFRA,
+    "user": SECRET_S3_USER,
+    "pwd": SECRET_S3_PASSWORD,
+    "s3_url": S3_URL,
+}
 already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"
 
 
 @task()
 def create_tabular_metrics_tables() -> None:
-    pgclient.execute_sql_file(
+    PostgresClient(conn_name="POSTGRES_METRIC").execute_sql_file(
         file=File(
             source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sql/",
             source_name="create_tables.sql",
@@ -146,6 +145,7 @@ def process_logs_file(file_path: str):
     # upserting data into the table
     # creating a temporary table to store the current data
     tmp_table_name = "tmp_table"
+    pgclient= PostgresClient(conn_name="POSTGRES_METRIC")
     pgclient.execute_query(
         f"""CREATE TEMP TABLE {tmp_table_name} (
             resource_id CHARACTER VARYING,
@@ -179,11 +179,12 @@ def process_logs():
     logging.info("Retrieving processed log files from db...")
     already_processed: list[str] = [
         row["file_name"]
-        for row in pgclient.execute_query(
+        for row in PostgresClient(conn_name="POSTGRES_METRIC").execute_query(
             f"SELECT file_name from metric.{already_processed_table}"
         )
     ]
     logging.info("Retrieving existing log files in bucket...")
+    s3_client = S3Client(**s3_client_kwargs)
     all_logs = [
         file_path.split("/")[-1]
         for file_path in s3_client.get_files_from_prefix(
@@ -222,7 +223,7 @@ def process_logs():
             raise ValueError(f"More than one file extracted: {os.listdir(folder)}")
         process_logs_file(folder + os.listdir(folder)[0])
         shutil.rmtree(folder)
-        pgclient.execute_query(
+        PostgresClient(conn_name="POSTGRES_METRIC").execute_query(
             f"""INSERT INTO metric.{already_processed_table} (file_name, date_processed)
             VALUES ('{log}', '{datetime.today().strftime("%Y-%m-%d")}');"""
         )

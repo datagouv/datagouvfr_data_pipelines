@@ -20,8 +20,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections-mirroring/"
 ID_CURRENT_ELECTION = "LG2024"
@@ -155,6 +153,7 @@ def send_to_s3(**context):
     miom_files = context["ti"].xcom_pull(
         key="miom_files", task_ids="get_files_updated_miom"
     )
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_open.send_files(
         list_files=[
             File(
@@ -200,6 +199,7 @@ def send_to_s3(**context):
 @task()
 def download_from_s3():
     prefix = "elections-mirroring/" + ID_CURRENT_ELECTION + "/data/"
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_files = s3_open.get_files_from_prefix(
         prefix=prefix,
         ignore_airflow_env=False,
@@ -262,7 +262,7 @@ def send_exports_to_s3():
                             dest_name=f"{typeResultat}_{levelResultat}_{typeResultatFile}.csv",
                         )
                     )
-    s3_open.send_files(list_files=list_files, is_public=True)
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(list_files=list_files, is_public=True)
 
 
 def check_if_continue(**context):

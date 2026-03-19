@@ -34,13 +34,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{TMP_FOLDER}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
-s3_pnt = S3Client(
-    bucket=S3_BUCKET_PNT,
-    user=SECRET_S3_PNT_USER,
-    pwd=SECRET_S3_PNT_PASSWORD,
-)
 s3_folder = "pnt" if AIRFLOW_ENV == "prod" else "dev"
-meteo_client = MeteoClient()
 
 
 def get_last_batch_hour() -> datetime:
@@ -63,7 +57,7 @@ def get_last_batch_hour() -> datetime:
 
 @simple_connection_retry
 def get_new_batches(batches: list, url: str) -> list:
-    r = meteo_client.get(url, timeout=10)
+    r = MeteoClient().get(url, timeout=10)
     r.raise_for_status()
     new_batches = []
     if "links" in r.json():
@@ -113,6 +107,11 @@ def clean_old_runs_in_s3(**context):
     batches = context["ti"].xcom_pull(
         key="batches", task_ids="get_latest_theorical_batches"
     )
+    s3_pnt = S3Client(
+        bucket=S3_BUCKET_PNT,
+        user=SECRET_S3_PNT_USER,
+        pwd=SECRET_S3_PNT_PASSWORD,
+    )
     # we get the runs' names from the folders
     runs = s3_pnt.get_folders_from_prefix(
         prefix=f"{s3_folder}/",
@@ -146,6 +145,11 @@ def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs):
     s3_paths = []
     url_to_infos = {}
     s3_path_to_url = {}
+    s3_pnt = S3Client(
+        bucket=S3_BUCKET_PNT,
+        user=SECRET_S3_PNT_USER,
+        pwd=SECRET_S3_PNT_PASSWORD,
+    )
     for batch in tested_batches:
         for package in PACKAGES[model][pack][grid]["packages"]:
             for timeslot in package.time:
@@ -202,7 +206,7 @@ def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs):
 
 
 @simple_connection_retry
-def is_file_available(url: str) -> bool:
+def is_file_available(url: str, meteo_client) -> bool:
     # we'd prefer to use HEAD but the method is currently not allowed
     r = meteo_client.get(
         url,
@@ -231,6 +235,12 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
     # we could also put the content of the loop within an async function and process the files simultaneously
     uploaded = []
     my_packages = set()
+    meteo_client = MeteoClient()
+    s3_pnt = S3Client(
+        bucket=S3_BUCKET_PNT,
+        user=SECRET_S3_PNT_USER,
+        pwd=SECRET_S3_PNT_PASSWORD,
+    )
     for s3_path in to_get:
         url = s3_path_to_url[s3_path]
         package = url_to_infos[url]["package"]
@@ -249,7 +259,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
             # this is to make sure concurrent runs don't interfere or process the same data
             os.makedirs(f"{TMP_FOLDER}{path}/{package}", exist_ok=True)
             my_packages.add(package)
-        if not is_file_available(url):
+        if not is_file_available(url, meteo_client):
             continue
         s3_pnt.send_from_url(
             url=url,
@@ -298,6 +308,11 @@ def get_current_resources(model: str, pack: str, grid: str):
 def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # getting the current state of the resources
     current_resources: dict = get_current_resources(model, pack, grid)
+    s3_pnt = S3Client(
+        bucket=S3_BUCKET_PNT,
+        user=SECRET_S3_PNT_USER,
+        pwd=SECRET_S3_PNT_PASSWORD,
+    )
 
     # getting the latest available occurrence of each file on S3
     latest_files = {}

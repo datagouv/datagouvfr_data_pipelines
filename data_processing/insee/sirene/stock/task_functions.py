@@ -20,11 +20,9 @@ from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-
 
 def check_if_already_processed(s3_path: str) -> bool:
-    files_in_folder = s3_open.get_files_from_prefix(
+    files_in_folder = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_files_from_prefix(
         prefix=s3_path,
         ignore_airflow_env=True,
         as_objects=True,
@@ -103,6 +101,7 @@ def publish_file_s3(tmp_dir: str, resource_file: str, s3_path: str):
     with open(f"{os.path.dirname(__file__)}/config/{resource_file}") as json_file:
         data = json.load(json_file)
     logging.info(data)
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
     s3_open.send_files(
         list_files=[

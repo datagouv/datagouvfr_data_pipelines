@@ -30,7 +30,6 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}{DAG_NAME}/"
 api_metrics_url = "https://metric-api.data.gouv.fr/"
 grist_edito = "4MdJUBsdSgjE"
 grist_curation = "muvJRZ9cTGep"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 today = datetime.today()
 first_day_of_current_month = today.replace(day=1)
@@ -669,6 +668,7 @@ edito_tasks = [
 def send_tables_to_s3():
     print(os.listdir(TMP_FOLDER))
     print("Saving tops as millésimes")
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_open.send_files(
         list_files=[
             File(
