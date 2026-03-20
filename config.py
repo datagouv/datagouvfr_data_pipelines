@@ -29,6 +29,11 @@ MATTERMOST_SIMPLIFIONS_WEBHOOK_URL = Variable.get(
     "MATTERMOST_SIMPLIFIONS_WEBHOOK_URL", ""
 )
 
+# Tchap
+TCHAP_DATAGOUV_WEBHOOK = Variable.get("TCHAP_DATAGOUV_WEBHOOK", "")
+TCHAP_ROOM_DATAENG = Variable.get("TCHAP_ROOM_DATAENG", "")
+TCHAP_ROOM_DATAENG_TEST = Variable.get("TCHAP_ROOM_DATAENG_TEST", "")
+
 # Minio (to be removed when migration is complete)
 MINIO_URL = Variable.get("MINIO_URL", "object.files.data.gouv.fr")
 
