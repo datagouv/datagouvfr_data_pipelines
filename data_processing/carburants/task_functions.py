@@ -18,7 +18,6 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}carburants/"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 
 @task()
@@ -37,7 +36,7 @@ def download_latest_data():
 
 @task()
 def get_daily_prices():
-    s3_open.download_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).download_files(
         list_files=[
             File(
                 source_path="carburants/",
@@ -111,7 +110,7 @@ def generate_rupture_france():
 def send_files_s3():
     today = date.today().strftime("%Y-%m-%d")
 
-    s3_open.send_files(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,

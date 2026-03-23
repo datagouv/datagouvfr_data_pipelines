@@ -12,8 +12,6 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.mattermost import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
 
 
@@ -94,7 +92,7 @@ def process_organismes_formation(**context):
 @task()
 def send_file_to_s3(**context):
     res = context["ti"].xcom_pull(key="resource", task_ids="download_latest_data")
-    s3_open.send_file(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_file(
         File(
             source_path=TMP_FOLDER,
             source_name=f"{res['name']}_clean.csv",
@@ -107,6 +105,7 @@ def send_file_to_s3(**context):
 
 def compare_files_s3(**context):
     res = context["ti"].xcom_pull(key="resource", task_ids="download_latest_data")
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     is_same = s3_open.are_files_identical(
         file_1=File(
             source_path="formation/new/",

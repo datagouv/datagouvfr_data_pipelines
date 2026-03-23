@@ -15,7 +15,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from dateutil.relativedelta import relativedelta
 
 BASE_URL = "https://stats.data.gouv.fr/index.php"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 PARAMS_TOPS = {
     "module": "API",
@@ -205,6 +204,7 @@ def publish_top_mattermost(period: str, label: str, **context):
 
 @task()
 def send_tops_to_s3(period: str, s3: str, **context):
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     for _class in ["datasets", "reuses"]:
         top = context["ti"].xcom_pull(
             key=f"top_{_class}_dict",
@@ -215,6 +215,7 @@ def send_tops_to_s3(period: str, s3: str, **context):
 
 @task()
 def send_stats_to_s3(date: str, period: str, s3: str):
+    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     end = datetime.strptime(date, "%Y-%m-%d")
     start = build_start(end, period)
     dates = pd.date_range(

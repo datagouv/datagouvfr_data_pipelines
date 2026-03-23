@@ -21,7 +21,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}finess/"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
 
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config.json") as fp:
     config = json.load(fp)
@@ -185,7 +184,7 @@ def build_and_save(scope: str):
 
 @task()
 def send_to_s3(scope: str):
-    s3_open.send_file(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_file(
         File(
             source_path=TMP_FOLDER,
             source_name=f"finess_{scope}.csv",

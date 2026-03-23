@@ -27,7 +27,6 @@ bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
-s3_meteo = S3Client(bucket=bucket)
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
@@ -45,7 +44,7 @@ def previous_date_parse(date_string: str) -> datetime:
     return tmp
 
 
-def get_path(full_file_path: str) -> str:
+def get_path(full_file_path: str) -> tuple[str, str]:
     # get (BASE/DECAD, BASE/DECAD) for BASE/DECAD/DECADQ_01_1852-1949.csv.gz
     # and (BASE/INFOS_POSTES/01, BASE/INFOS_POSTES) for BASE/INFOS_POSTES/01/01010001_01_ANGLEFORT.pdf
     # NB: global_path is the key used to access config parameters
@@ -199,7 +198,7 @@ def get_current_files_on_ftp(ftp, **context) -> None:
 
 @task()
 def get_current_files_on_s3(**context) -> None:
-    s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
+    s3_files = S3Client(bucket=bucket).get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder
     )
     # getting the start of each time period to update datasets temporal_coverage
@@ -326,6 +325,7 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
             ftp.retrbinary("RETR " + file_name, local_file.write)
 
         # sending file to S3
+        s3_meteo = S3Client(bucket=bucket)
         try:
             s3_meteo.send_file(
                 File(
@@ -607,6 +607,7 @@ def log_modified_files(**context) -> None:
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     log_file_path = "data/updated_files.json"
+    s3_meteo = S3Client(bucket=bucket)
     log_file = json.loads(s3_meteo.get_file_content(log_file_path))
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
@@ -663,7 +664,7 @@ def delete_replaced_s3_files(**context) -> None:
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     for old_file in files_to_update_new_name.values():
-        s3_meteo.delete_file(file_path=s3_folder + old_file)
+        S3Client(bucket=bucket).delete_file(file_path=s3_folder + old_file)
 
 
 @task()

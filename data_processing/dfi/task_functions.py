@@ -29,8 +29,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
 METADATA_FILE = "metadata.json"
-s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config.json") as fp:
     config = json.load(fp)
 
@@ -161,7 +159,7 @@ def get_download_ressources_infos(urls, destination_dir):
 
 
 def send_metadata_to_s3():
-    s3_process.send_file(
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE).send_file(
         File(
             source_path=TMP_FOLDER,
             source_name=f"{METADATA_FILE}",
@@ -173,6 +171,7 @@ def send_metadata_to_s3():
 
 
 def check_if_modif():
+    s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
     dataset_content = local_client.dataset(
         id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
@@ -196,8 +195,8 @@ def check_if_modif():
         metadata_content = json.loads(
             s3_process.get_file_content("dev/dfi/metadata.json")
         )
-        previous = sorted([i.get("last_modified") for i in metadata_content])
-        current = sorted([i.get("last_modified") for i in metadata])
+        previous = sorted([i["last_modified"] for i in metadata_content])
+        current = sorted([i["last_modified"] for i in metadata])
         if len(set(previous).intersection(current)) != 2:
             send_metadata_to_s3()
             return True
@@ -208,7 +207,11 @@ def check_if_modif():
 @task()
 def gather_data(**context):
     logging.info("Getting resources list")
-    metadata_content = json.loads(s3_process.get_file_content("dev/dfi/metadata.json"))
+    metadata_content = json.loads(
+        S3Client(bucket=S3_BUCKET_DATA_PIPELINE).get_file_content(
+            "dev/dfi/metadata.json"
+        )
+    )
     urls_resources = [i.get("url") for i in metadata_content]
     information_date_about_dataset = re.findall(
         r"\((.*?)\)", metadata_content[0].get("title")
@@ -254,18 +257,16 @@ def gather_data(**context):
 @task()
 def send_to_s3():
     logging.info("Start to send files to S3")
-    exts = ["csv", "parquet"]
-    fileslist = [
-        File(
-            source_path=TMP_FOLDER,
-            source_name=f"{filename}",
-            dest_path="dfi/",
-            dest_name=f"{filename}",
-        )
-        for filename in [f"dfi.{ext}" for ext in exts]
-    ]
-    s3_open.send_files(
-        list_files=fileslist,
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
+        list_files=[
+            File(
+                source_path=TMP_FOLDER,
+                source_name=f"{filename}",
+                dest_path="dfi/",
+                dest_name=f"{filename}",
+            )
+            for filename in [f"dfi.{ext}" for ext in ["csv", "parquet"]]
+        ],
         ignore_airflow_env=True,
         is_public=True,
     )
