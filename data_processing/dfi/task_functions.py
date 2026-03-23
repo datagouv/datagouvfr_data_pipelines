@@ -195,7 +195,7 @@ def check_if_modif():
         metadata_content = json.loads(
             s3_process.get_file_content("dev/dfi/metadata.json")
         )
-        previous = sorted([i.get("last_modified") for i in metadata_content])
+        previous = sorted([i["last_modified"] for i in metadata_content])
         current = sorted([i["last_modified"] for i in metadata])
         if len(set(previous).intersection(current)) != 2:
             send_metadata_to_s3()
