@@ -32,15 +32,6 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
 
 SCHEMA_NAME = "meteo"
 conn_name = "POSTGRES_DB_02_INFRA_DATA_GOUV_FR"
-conn = BaseHook.get_connection(conn_name)
-db_params = {
-    "database": conn.schema,
-    "user": conn.login,
-    "password": conn.password,
-    "host": conn.host,
-    "port": conn.port,
-}
-
 TIMEOUT = 60 * 5
 
 
@@ -274,6 +265,14 @@ def process_resources(
 ):
     # going through all resources of the dataset to check which ones to update
     s3_meteo = S3Client(bucket="meteofrance")
+    conn = BaseHook.get_connection(conn_name)
+    db_params = {
+        "database": conn.schema,
+        "user": conn.login,
+        "password": conn.password,
+        "host": conn.host,
+        "port": conn.port,
+    }
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
