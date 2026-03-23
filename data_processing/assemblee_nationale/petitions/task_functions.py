@@ -73,7 +73,7 @@ def get_labels(page: BeautifulSoup) -> dict:
 def get_limit_date(page: BeautifulSoup) -> str | None:
     found = page.find("span", attrs={"class": "phase-date"})
     if found is None:
-        return
+        return None
     return standardize_date(remove_duplicate_blanks(found.text.replace("\n", "")))
 
 
