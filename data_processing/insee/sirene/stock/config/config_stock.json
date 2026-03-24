@@ -20,7 +20,7 @@
             "denominationUsuelle1UniteLegale": "VARCHAR",
             "denominationUsuelle2UniteLegale": "VARCHAR",
             "denominationUsuelle3UniteLegale": "VARCHAR",
-            "changementDenominationUsuelleUniteLegale": "VARCHAR",
+            "changementDenominationUsuelleUniteLegale": "BOOLEAN",
             "categorieJuridiqueUniteLegale": "VARCHAR",
             "changementCategorieJuridiqueUniteLegale": "BOOLEAN",
             "activitePrincipaleUniteLegale": "VARCHAR",
@@ -107,7 +107,7 @@
         "parquet_resource_id": "2b3a0c79-f97b-46b8-ac02-8be6c1f01a8c",
         "dtype": {
             "siren": "VARCHAR",
-            "nic": "BIGINT",
+            "nic": "VARCHAR",
             "siret": "VARCHAR",
             "dateFin": "DATE",
             "dateDebut": "DATE",
