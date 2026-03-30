@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from jinja2 import Environment, FileSystemLoader

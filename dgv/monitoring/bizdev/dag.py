@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.bizdev.task_functions import (
     TMP_FOLDER,
     curation_tasks,
     edito_tasks,
-    publish_mattermost,
+    publish,
     send_tables_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -54,4 +54,4 @@ with DAG(
         >> _send_tables_to_s3
     )
 
-    _send_tables_to_s3 >> publish_mattermost() >> clean_up_folder(TMP_FOLDER)
+    _send_tables_to_s3 >> publish() >> clean_up_folder(TMP_FOLDER)

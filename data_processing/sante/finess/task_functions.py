@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -225,11 +225,11 @@ def publish_on_datagouv(scope: str):
 
 
 @task()
-def send_notification_mattermost():
+def send_notification():
     dataset_id = config["etablissements"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
-            ":mega: Données Finess mises à jour.\n"
+            "📣 Données Finess mises à jour.\n\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id}/)"
         )

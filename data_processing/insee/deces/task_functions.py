@@ -18,7 +18,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
@@ -252,10 +252,10 @@ def publish_on_datagouv(**context):
 
 
 @task()
-def notification_mattermost():
+def notification():
     dataset_id = config["deces_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
-        f"Données décès agrégées :"
+        f"Données décès agrégées :\n\n"
         f"\n- uploadées sur S3"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"

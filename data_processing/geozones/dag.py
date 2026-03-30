@@ -4,7 +4,7 @@ from airflow import DAG
 from datagouvfr_data_pipelines.data_processing.geozones.task_functions import (
     TMP_FOLDER,
     download_and_process_geozones,
-    notification_mattermost,
+    notification,
     post_geozones,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -21,5 +21,5 @@ with DAG(
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> download_and_process_geozones()
         >> post_geozones()
-        >> notification_mattermost()
+        >> notification()
     )

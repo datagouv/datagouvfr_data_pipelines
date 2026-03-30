@@ -7,8 +7,8 @@ import pandas as pd
 import requests
 from airflow.decorators import task
 from airflow.models import Variable
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP, MATTERMOST_TMPAPIGOUV
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}migration_apigouv"
 GRIST_TOKEN = Variable.get("GRIST_APIGOUV_TOKEN", "metric")
@@ -512,7 +512,7 @@ def publish_api_to_datagouv(**context):
 
 
 @task()
-def publish_mattermost(**context):
+def publish(**context):
     list_sources = context["ti"].xcom_pull(
         key="list_sources", task_ids="import_api_to_grist"
     )
@@ -522,18 +522,18 @@ def publish_mattermost(**context):
         list_sources_str += "- " + ls + "\n"
     if len(list_sources) > 0:
         send_message(
-            ":mega: @magali.bouvat Nouvelles APIs ajoutées au Grist (à la fin du tableur) \n"
+            "📣 @magali.bouvat Nouvelles APIs ajoutées au Grist (à la fin du tableur) \n"
             + list_sources_str,
-            MATTERMOST_TMPAPIGOUV,
+            # MATTERMOST_TMPAPIGOUV,
         )
     apikos_str = ""
     for apiko in apikos:
         apikos_str += "\n - " + apiko
     if len(apikos) > 0:
         send_message(
-            ":mega: Problème avec l'intégration dans demo.data.gouv.fr de certaines apis :"
+            "📣 Problème avec l'intégration dans demo.data.gouv.fr de certaines apis :"
             + apikos_str,
-            MATTERMOST_TMPAPIGOUV,
+            # MATTERMOST_TMPAPIGOUV,
         )
 
 

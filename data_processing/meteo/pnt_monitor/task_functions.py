@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 too_old_filename = "too_old.json"
@@ -100,7 +100,7 @@ def scan_pnt_files(**context):
 
 
 @task()
-def notification_mattermost(**context):
+def notification(**context):
     unavailable_resources = context["ti"].xcom_pull(
         key="unavailable_resources", task_ids="scan_pnt_files"
     )
@@ -125,10 +125,10 @@ def notification_mattermost(**context):
 
     message = ""
     if too_old:
-        message += ":warning: "
+        message += "⚠️ "
         # if alert:
         #     message += "@geoffrey.aldebert "
-        message += f"Ces {nb_too_old} ressources n'ont pas été mises à jour récemment :"
+        message += f"Ces {nb_too_old} ressources n'ont pas été mises à jour récemment :\n"
         for dataset in too_old:
             message += f"\n- {dataset}:"
             for k in too_old[dataset]:
@@ -137,7 +137,7 @@ def notification_mattermost(**context):
     if unavailable_resources:
         if message:
             message += "\n\n"
-        message += "Certaines ressources n'ont pas de fichier associé :"
+        message += "Certaines ressources n'ont pas de fichier associé :\n"
         for dataset in unavailable_resources:
             message += f"\n- {dataset}:"
             for k in unavailable_resources[dataset]:
@@ -155,7 +155,7 @@ def notification_mattermost(**context):
     )
 
     if message:
-        message = "##### :crystal_ball: :sun_behind_rain_cloud: Données PNT\n" + message
+        message = "##### 🔮 🌦️ Données PNT\n" + message
         if len(message) > 55000:
             message = message[:55000] + "\n\nEt plus encore !"
         send_message(message)

@@ -25,7 +25,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from tqdm import tqdm
@@ -1986,7 +1986,7 @@ def notification_synthese(
     s3_url: str,
     s3_bucket_data_pipeline_open: str,
     tmp_folder: Path,
-    mattermost_channel: str,
+    channel: str,
     schema_name: str = "",
     list_schema_skip: list = [],
 ) -> None:
@@ -2003,7 +2003,7 @@ def notification_synthese(
     s3_open = S3Client(bucket=s3_bucket_data_pipeline_open)
 
     message = (
-        ":mega: *Rapport sur la consolidation des données répondant à un schéma.*\n"
+        "📣 *Rapport sur la consolidation des données répondant à un schéma.*\n"
     )
 
     if schema_name:
@@ -2074,7 +2074,7 @@ def notification_synthese(
                 )
             except Exception as e:
                 logging.warning(f"{s['name']} erreur : {e}")
-    send_message(message, mattermost_channel)
+    send_message(message, channel)
 
 
 # Template for consolidation datasets title

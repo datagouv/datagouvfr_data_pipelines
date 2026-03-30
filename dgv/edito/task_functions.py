@@ -10,10 +10,10 @@ from datagouvfr_data_pipelines.config import (
     # TWITTER_CONSUMER_KEY_SECRET,
     # TWITTER_ACCESS_TOKEN,
     # TWITTER_SECRET_TOKEN,
-    MATTERMOST_DATAGOUV_EDITO,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.datagouv import create_post
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from dateutil.relativedelta import relativedelta
 
 DATAGOUV_URL = "https://www.data.gouv.fr"
@@ -271,20 +271,24 @@ def create_edito_post(**context):
     context["ti"].xcom_push(
         key="admin_post_url",
         value=(
-            f":rolled_up_newspaper: Article du {name} créé et éditable [dans "
+            f"🗞️ Article du {name} créé et éditable [dans "
             f"l'espace admin]({DATAGOUV_URL}/admin/posts/{post_id})"
         ),
     )
 
 
 @task()
-def publish_mattermost(**context):
+def publish(**context):
     admin_post_url = context["ti"].xcom_pull(
         key="admin_post_url", task_ids="create_edito_post"
     )
     print(admin_post_url)
 
     send_message(
-        ":mega: @agarrone @ludine.pierquin \n - " + admin_post_url,
-        MATTERMOST_DATAGOUV_EDITO,
+        "📣 " + admin_post_url,
+        TCHAP_ROOM_MODERATION_NOUVEAUTES,
+        ping=[
+            "ludine",
+            "antonin",
+        ],
     )

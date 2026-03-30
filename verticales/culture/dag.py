@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.verticales.culture.task_functions import (
     get_perimeter_orgas,
     get_perimeter_stats,
     refresh_datasets_tops,
-    send_notification_mattermost,
+    send_notification,
     send_stats_to_s3,
 )
 
@@ -47,6 +47,6 @@ with DAG(
             >> _gather_stats
         )
 
-    (_gather_stats >> send_stats_to_s3() >> send_notification_mattermost())
+    (_gather_stats >> send_stats_to_s3() >> send_notification())
 
     _get_perimeter_orgas >> refresh_datasets_tops()

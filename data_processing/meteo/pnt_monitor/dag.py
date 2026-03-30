@@ -4,7 +4,7 @@ from airflow import DAG
 from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions import (
     consolidate_logs,
     dump_and_send_tree,
-    notification_mattermost,
+    notification,
     scan_pnt_files,
 )
 
@@ -22,6 +22,6 @@ with DAG(
     tags=["data_processing", "meteo", "pnt"],
     default_args=default_args,
 ):
-    scan_pnt_files() >> notification_mattermost()
+    scan_pnt_files() >> notification()
     dump_and_send_tree()
     consolidate_logs()

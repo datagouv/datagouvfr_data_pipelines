@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.config import (
     SENTRY_BASE_URL,
 )
 from datagouvfr_data_pipelines.utils.datagouv import prod_client
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from dateutil.parser import parse
 
 max_csvgz_size = 104857600
@@ -132,13 +132,13 @@ def get_and_send_errors():
     message = "#### Statistiques hydra :handshake: météo\n"
     message += f"{round(len(is_previz) / len(should_be_previz) * 100, 1)}% de ressources prévisualisables (< taille max) "
     message += f"\n({len(is_previz)}/{len(should_be_previz)} fichiers)\n"
-    message += "##### Durée d'analyse des fichiers :\n"
+    message += "##### Durée d'analyse des fichiers :\n\n"
     message += f"- moyenne : {round(df['parsing_time'].mean(), 1)}s\n"
     message += f"- médiane : {round(df['parsing_time'].median(), 1)}s\n"
-    message += "##### Délai entre maj et analyse :\n"
+    message += "##### Délai entre maj et analyse :\n\n"
     message += f"- moyenne : {timedelta(seconds=delay.mean())}\n"
     message += f"- médiane : {timedelta(seconds=delay.median())}s\n"
-    message += f"##### {sum(errors.values())} erreurs :\n"
+    message += f"##### {sum(errors.values())} erreurs :\n\n"
     for e in errors:
         message += f"- `{e or 'Inconnue'}`, {errors[e]} cas, exemples :\n"
         if e is None:

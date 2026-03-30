@@ -2,9 +2,9 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.decorators import task
-from datagouvfr_data_pipelines.config import MATTERMOST_MODERATION_NOUVEAUTES
+from datagouvfr_data_pipelines.config import TCHAP_ROOM_MODERATION_NOUVEAUTES
 from datagouvfr_data_pipelines.utils.datagouv import local_client
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_NAME = "dgv_administrateur"
 
@@ -19,14 +19,12 @@ def list_current_admins(**context):
 
 
 @task()
-def publish_mattermost(**context):
-    print("Publishing on mattermost")
+def publish(**context):
     admins = context["ti"].xcom_pull(key="admins", task_ids="list_current_admins")
-    message = f":superhero: Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr"
+    message = f"🦸 Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr\n"
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
-    print(message)
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
 
 default_args = {
@@ -43,4 +41,4 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-    list_current_admins() >> publish_mattermost()
+    list_current_admins() >> publish()

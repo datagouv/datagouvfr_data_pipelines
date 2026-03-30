@@ -43,7 +43,7 @@ with DAG(
     # ftp_waiting_room = ExternalTaskSensor(
     #     task_id="ftp_waiting_room",
     #     external_dag_id="data_processing_meteo",
-    #     external_task_id="notification_mattermost",
+    #     external_task_id="notification",
     #     execution_date_fn=second_run_execution_date,
     #     timeout=600,
     #     poke_interval=60,

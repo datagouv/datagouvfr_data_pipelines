@@ -6,7 +6,7 @@ from datagouvfr_data_pipelines.data_processing.dfi.task_functions import (
     TMP_FOLDER,
     check_if_modif,
     gather_data,
-    notification_mattermost,
+    notification,
     publish_on_datagouv,
     send_to_s3,
 )
@@ -38,5 +38,5 @@ with DAG(
         >> send_to_s3()
         >> publish_on_datagouv()
         >> clean_up_folder(TMP_FOLDER)
-        >> notification_mattermost()
+        >> notification()
     )

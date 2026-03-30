@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task
     check_if_modif,
     process_data,
     publish_on_datagouv,
-    send_notification_mattermost,
+    send_notification,
     send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -55,4 +55,4 @@ with DAG(
             )
             >> clean_up
         )
-    clean_up >> send_notification_mattermost()
+    clean_up >> send_notification()

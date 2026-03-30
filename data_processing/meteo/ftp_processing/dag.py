@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functio
     handle_updated_files_new_name,
     handle_updated_files_same_name,
     log_modified_files,
-    notification_mattermost,
+    notification,
     update_temporal_coverages,
     upload_new_files,
 )
@@ -58,7 +58,7 @@ with DAG(
             update_temporal_coverages(),
             log_modified_files(),
         ]
-        >> notification_mattermost()
+        >> notification()
     )
 
     _same_name >> delete_replaced_s3_files()

@@ -21,7 +21,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from unidecode import unidecode
@@ -1275,10 +1275,10 @@ def concat_and_publish_whole():
 
 
 @task()
-def notification_mattermost(**context) -> None:
+def notification(**context) -> None:
     dataset_id = context["ti"].xcom_pull(key="dataset_id", task_ids="publish_stats_dvf")
     send_message(
-        f"Stats DVF générées :"
+        f"Stats DVF générées :\n"
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id})"

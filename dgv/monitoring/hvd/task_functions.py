@@ -8,7 +8,7 @@ from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MATTERMOST_MODERATION_NOUVEAUTES,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.utils.grist import (
     GristTable,
     get_unique_values_from_multiple_choice_column,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from unidecode import unidecode
 
@@ -26,7 +26,7 @@ DOC_ID = "eJxok2H2va3E" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
 table = GristTable(DOC_ID, "Hvd_metadata_res")
 
 
-# %% Recap HVD mattermost
+# %% Recap HVD
 def slugify(s):
     return unidecode(s.lower().replace(" ", "-").replace("'", "-"))
 
@@ -134,13 +134,13 @@ def markdown_item(row):
     cat_item = (
         f"tagué : _{category}_"
         if isinstance(category, str)
-        else ":warning: tag manquant sur data.gouv"
+        else "⚠️ tag manquant sur data.gouv"
     )
     hvd = row["hvd_name"]
     hvd_item = (
         f"HVD : _{hvd}_"
         if isinstance(hvd, str)
-        else ":warning: HVD non renseigné sur ouverture"
+        else "⚠️ HVD non renseigné sur ouverture"
     )
     return (
         f"- [{row['title']}]({row['url']})\n"
@@ -152,7 +152,7 @@ def markdown_item(row):
 
 
 @task()
-def publish_mattermost(**context):
+def publish(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="get_hvd")
     s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_files = sorted(s3_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))
@@ -193,7 +193,7 @@ def publish_mattermost(**context):
     if len(new):
         message += (
             f":heavy_plus_sign: {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
-            "par rapport à la semaine dernière\n"
+            "par rapport à la semaine dernière\n\n"
         )
         for _, row in new.iterrows():
             message += markdown_item(row)
@@ -202,7 +202,7 @@ def publish_mattermost(**context):
             message += "\n\n"
         message += (
             f":heavy_minus_sign: {len(removed)} JDD (pour {len(get_unique_values_from_multiple_choice_column(['hvd_name']))} HVD) "
-            "par rapport à la semaine dernière\n"
+            "par rapport à la semaine dernière\n\n"
         )
         for _, row in removed.iterrows():
             message += markdown_item(row)
@@ -278,7 +278,7 @@ def publish_mattermost(**context):
         message += f"\n\n{len(have_unavailable_resources)} HVD ont des ressources inaccessibles :"
     for _, row in have_unavailable_resources.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
 
 # %% Grist
@@ -563,7 +563,7 @@ def update_grist(**context):
                     new_values={"unreachable": True},
                 )
         if to_send:
-            message = ":alert: @clarisse Les jeux de données suivants ont perdu leur tag HVD :"
+            message = "⚠️ @clarisse Les jeux de données suivants ont perdu leur tag HVD :\n"
             for _id, title, orga in to_send:
                 message += (
                     f"\n- [{title}](https://www.data.gouv.fr/datasets/{_id}/)"
@@ -573,7 +573,7 @@ def update_grist(**context):
                     conditions={"id2": _id},
                     new_values={"missing_hvd_tag": True},
                 )
-            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+            send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
     # updating quality metrics
     logging.info("Updating datasets quality metrics columns")
@@ -596,12 +596,12 @@ def update_grist(**context):
 
 
 @task()
-def publish_mattermost_grist(**context):
+def publish_grist(**context):
     new_rows = context["ti"].xcom_pull(key="new_rows", task_ids="update_grist")
     message = (
         f"#### {len(new_rows)} nouvelles lignes dans [la table Grist HVD]"
-        "(https://grist.numerique.gouv.fr/o/datagouv/eJxok2H2va3E/suivi-des-ouvertures-CITP-et-HVD/p/4)"
+        "(https://grist.numerique.gouv.fr/o/datagouv/eJxok2H2va3E/suivi-des-ouvertures-CITP-et-HVD/p/4)\n"
     )
     for title, url, orga in new_rows:
         message += f"\n- [{title}]({url}) de l'organisation {orga}"
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)

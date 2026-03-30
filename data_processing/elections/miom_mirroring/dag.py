@@ -21,11 +21,6 @@
 # DAG_NAME = "data_mirroring_elections"
 # ID_CURRENT_ELECTION = "LG2024"
 
-# default_args = {
-#     "email": ["pierlou.ramade@data.gouv.fr", "geoffrey.aldebert@data.gouv.fr"],
-#     "email_on_failure": False,
-# }
-
 # with DAG(
 #     dag_id=DAG_NAME,
 #     schedule="15 7 1 1 *",
@@ -33,7 +28,6 @@
 #     catchup=False,
 #     dagrun_timeout=timedelta(minutes=240),
 #     tags=["data_processing", "election"],
-#     default_args=default_args,
 # ):
 
 # (

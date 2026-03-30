@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
     DAG_FOLDER,
     DAG_NAME,
     TMP_FOLDER,
-    publish_mattermost_period,
+    publish_period,
     send_email_report_period,
 )
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
@@ -90,8 +90,8 @@ with DAG(
                         "PERIOD_DIGEST": freq,
                     },
                 ),
-                publish_mattermost_period.override(
-                    task_id=f"publish_mattermost_{scope}_{freq}"
+                publish_period.override(
+                    task_id=f"publish_{scope}_{freq}"
                 )(
                     today=today,
                     period=freq,

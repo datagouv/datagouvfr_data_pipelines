@@ -5,7 +5,7 @@
 # from datagouvfr_data_pipelines.dgv.apigouv.task_functions import (
 #     import_api_to_grist,
 #     publish_api_to_datagouv,
-#     publish_mattermost,
+#     publish,
 # )
 # from datagouvfr_data_pipelines.config import (
 #     AIRFLOW_DAG_TMP,
@@ -37,5 +37,5 @@
 #     )
 #     >> import_api_to_grist()
 #     >> publish_api_to_datagouv()
-#     >> publish_mattermost()
+#     >> publish()
 # )

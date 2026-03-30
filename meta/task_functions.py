@@ -10,15 +10,15 @@ from airflow.models import DagRun
 from airflow.providers.http.hooks.http import HttpHook
 from airflow.utils.state import State
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, AIRFLOW_ENV, AIRFLOW_URL
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 local_timezone = pytz.timezone("Europe/Paris")
 http_hook = HttpHook(http_conn_id="HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR", method="GET")
 
 DEFAULT_DAG_OWNERS = [
-    "geoffrey.aldebert",
-    "pierlou_ramade",
-    "hadrien_bossard",
+    "geoffrey",
+    "pierlou",
+    "hadrien",
 ]
 with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") as f:
     config = json.load(f)
@@ -89,13 +89,14 @@ def monitor_dags(
 
 
 @task()
-def notification_mattermost(**context):
+def notification(**context):
     todays_runs = context["ti"].xcom_pull(key="todays_runs", task_ids="monitor_dags")
     dag_ids = context["ti"].xcom_pull(key="dag_ids", task_ids="monitor_dags")
-    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):"
+    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):\n"
+    ping = set()
     logging.info(todays_runs)
     for dag, attempts in dict(sorted(todays_runs.items())).items():
-        message += f"\n- **{dag}** :"
+        message += f"\n- **{dag}** :\n"
         successes = {
             atp_id: attempts[atp_id]
             for atp_id in attempts
@@ -111,7 +112,7 @@ def notification_mattermost(**context):
             # setting time to UTC+2
             start_time = start_time.astimezone(local_timezone)
             message += (
-                f"\n - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
+                f"\n    - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
             )
             message += (
                 f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
@@ -132,26 +133,31 @@ def notification_mattermost(**context):
             # setting time to UTC+2
             start_time = start_time.astimezone(local_timezone)
             message += (
-                f"\n - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
+                f"\n    - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
             )
             message += (
                 f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
             )
             message += f"(status : {last_failure['status']}), "
             if not last_failure["failed_tasks"]:
-                message += "timeout :hourglass:"
+                message += "timeout ⌛️"
             else:
                 message += "tâches en échec :"
                 for ft in last_failure["failed_tasks"]:
                     url_log = last_failure["failed_tasks"][ft]
                     if AIRFLOW_ENV == "prod":
                         url_log = url_log.replace("http://localhost:8080", AIRFLOW_URL)
-                    message += f"\n   - {ft} ([voir log]({url_log}))"
+                    message += f"\n        - {ft} ([voir log]({url_log}))"
             # ping only if more than 10 failures or more than 2% failures
             if (
                 len(failures) > 10
                 or len(failures) / (len(failures) + len(successes)) > 0.02
             ):
+                ping |= set(
+                    config[dag_ids[dag]]
+                    if isinstance(config[dag_ids[dag]], list)
+                    else DEFAULT_DAG_OWNERS
+                )
                 message += "\n" + (
                     " ".join(
                         [
@@ -164,4 +170,4 @@ def notification_mattermost(**context):
                         ]
                     )
                 )
-    send_message(message)
+    send_message(message, ping=list(ping))
