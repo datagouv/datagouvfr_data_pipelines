@@ -11,7 +11,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     TCHAP_ROOM_MODERATION_NOUVEAUTES,
-    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (

@@ -21,7 +21,9 @@ def list_current_admins(**context):
 @task()
 def publish(**context):
     admins = context["ti"].xcom_pull(key="admins", task_ids="list_current_admins")
-    message = f"🦸 Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr\n"
+    message = (
+        f"🦸 Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr\n"
+    )
     for admin in admins:
         message += f"\n* [{admin['first_name']} {admin['last_name']}]({admin['page']})"
     send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)

@@ -27,9 +27,7 @@ def markdown_to_html(md: str) -> str:
 def send_message(
     text: str,
     room_id: str = (
-        TCHAP_ROOM_DATAENG
-        if AIRFLOW_ENV == "prod"
-        else TCHAP_ROOM_DATAENG_TEST
+        TCHAP_ROOM_DATAENG if AIRFLOW_ENV == "prod" else TCHAP_ROOM_DATAENG_TEST
     ),
     *,
     message_type: str = "notice",  # whether to send a real message or an insight
@@ -48,14 +46,13 @@ def send_message(
     }
     if ping:
         if ping[0] == "room":
-            payload["m.mentions"] = {
-                "room": True
-            }
+            payload["m.mentions"] = {"room": True}
         else:
             payload["m.mentions"] = {
                 "user_ids": [
                     f"@{map_ping[name]}:agent.dinum.tchap.gouv.fr"
-                    for name in ping if name in map_ping
+                    for name in ping
+                    if name in map_ping
                 ],
             }
     r = requests.post(

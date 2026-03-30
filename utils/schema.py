@@ -2002,9 +2002,7 @@ def notification_synthese(
     schemas = r.json()["schemas"]
     s3_open = S3Client(bucket=s3_bucket_data_pipeline_open)
 
-    message = (
-        "📣 *Rapport sur la consolidation des données répondant à un schéma.*\n"
-    )
+    message = "📣 *Rapport sur la consolidation des données répondant à un schéma.*\n"
 
     if schema_name:
         schemas = [s for s in schemas if s["name"] == schema_name]

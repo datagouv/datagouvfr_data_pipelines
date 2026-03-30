@@ -207,6 +207,4 @@ def refresh_datasets_tops(**context):
 
 @task()
 def send_notification():
-    send_message(
-        text="🎭️ Catalogue et stats de la verticale culture mis à jour."
-    )
+    send_message(text="🎭️ Catalogue et stats de la verticale culture mis à jour.")

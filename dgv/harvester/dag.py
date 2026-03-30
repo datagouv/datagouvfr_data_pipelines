@@ -165,9 +165,4 @@ with DAG(
     tags=["weekly", "harvester", "notification"],
     catchup=False,
 ):
-    (
-        get_pending_harvesters()
-        >> get_preview_state()
-        >> fill_in_grist()
-        >> publish()
-    )
+    (get_pending_harvesters() >> get_preview_state() >> fill_in_grist() >> publish())

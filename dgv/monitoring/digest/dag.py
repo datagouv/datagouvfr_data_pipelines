@@ -90,9 +90,7 @@ with DAG(
                         "PERIOD_DIGEST": freq,
                     },
                 ),
-                publish_period.override(
-                    task_id=f"publish_{scope}_{freq}"
-                )(
+                publish_period.override(task_id=f"publish_{scope}_{freq}")(
                     today=today,
                     period=freq,
                     scope=scope,

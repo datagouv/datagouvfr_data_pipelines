@@ -304,9 +304,7 @@ def publish_period(today: str, period: str, scope: str, **context):
         return
     message = f"{period.title()} Digest : {report_url} \n\n{stats}"
     channel = (
-        TCHAP_ROOM_ACTIVITES
-        if scope == "general"
-        else TCHAP_ROOM_MODERATION_NOUVEAUTES
+        TCHAP_ROOM_ACTIVITES if scope == "general" else TCHAP_ROOM_MODERATION_NOUVEAUTES
     )
     send_message(message, channel)
 
