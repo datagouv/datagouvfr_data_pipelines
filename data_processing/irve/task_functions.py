@@ -129,6 +129,7 @@ def get_all_irve_resources(
                 ],
                 "exclude_dataset_ids": [
                     "54231d4a88ee38334b5b9e1d",
+                    "685965d0ab901919e14a4a1b",
                 ],
                 "geojson_resource_id": "cf25b716-7edd-4c63-a495-4ca6aa5d5917",
                 "latest_resource_ids": {
