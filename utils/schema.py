@@ -760,60 +760,56 @@ def download_schema_files(
         build_ref_table_name(schema_name),
     )
 
-    if os.path.exists(ref_table_path):
-        df_ref = pd.read_csv(ref_table_path)
-        df_ref["is_downloaded"] = False
-
-        if len(df_ref[df_ref["is_valid_one_version"]]) > 0:
-            schema_data_path = Path(data_path) / schema_name.replace("/", "_")
-            schema_data_path.mkdir(exist_ok=True)
-
-            session = requests.Session()
-            for index, row in df_ref[df_ref["is_valid_one_version"]].iterrows():
-                rurl = row["resource_url"]
-                r = session.get(rurl, allow_redirects=True)
-
-                if r.status_code == 200:
-                    p = Path(schema_data_path) / row["dataset_slug"]
-                    p.mkdir(exist_ok=True)
-                    file_extension = row["resource_extension"]
-                    written_filename = f"{row['resource_id']}.{file_extension}"
-
-                    with open(f"{p}/{written_filename}", "wb") as f:
-                        f.write(r.content)
-
-                    df_ref.loc[
-                        (df_ref["resource_id"] == row["resource_id"]),
-                        "is_downloaded",
-                    ] = True
-
-                    logging.info(
-                        f"--- ⬇️✅ downloaded file [{row['resource_title']}] {rurl}"
-                    )
-                else:
-                    logging.info(
-                        f"--- ⬇️❌ File could not be downloaded: [{row['resource_title']}] {rurl}"
-                    )
-                    logging.info(f"Error looks like this: {r.text}")
-            session.close()
-
-        else:
-            logging.info("-- ⚠️ No valid resource for this schema")
-            if should_succeed:
-                return False
-
-        if should_succeed and len(df_ref) == 0:
-            return False
-        df_ref.to_csv(ref_table_path, index=False)
-
-    else:
+    if not os.path.exists(ref_table_path):
         logging.info(
             "-- ❌ No reference table made for this schema (schema not to consolidate, "
             "no version to consolidate or no resource found)."
         )
         if should_succeed:
             return False
+        return True
 
+    df_ref = pd.read_csv(ref_table_path)
+    df_ref["is_downloaded"] = False
+
+    if len(df_ref[df_ref["is_valid_one_version"]]) == 0:
+        logging.info("-- ⚠️ No valid resource for this schema")
+        if should_succeed:
+            return False
+        return True
+
+    schema_data_path = Path(data_path) / schema_name.replace("/", "_")
+    schema_data_path.mkdir(exist_ok=True)
+
+    session = requests.Session()
+    for _, row in df_ref[df_ref["is_valid_one_version"]].iterrows():
+        rurl = row["resource_url"]
+        r = session.get(rurl, allow_redirects=True)
+
+        if r.status_code == 200:
+            p = Path(schema_data_path) / row["dataset_slug"]
+            p.mkdir(exist_ok=True)
+            file_extension = row["resource_extension"]
+            written_filename = f"{row['resource_id']}.{file_extension}"
+
+            with open(f"{p}/{written_filename}", "wb") as f:
+                f.write(r.content)
+
+            df_ref.loc[
+                (df_ref["resource_id"] == row["resource_id"]),
+                "is_downloaded",
+            ] = True
+
+            logging.info(f"--- ⬇️✅ downloaded file [{row['resource_title']}] {rurl}")
+        else:
+            logging.info(
+                f"--- ⬇️❌ File could not be downloaded: [{row['resource_title']}] {rurl}"
+            )
+            logging.info(f"Error looks like this: {r.text}")
+    session.close()
+    if should_succeed and len(df_ref) == 0:
+        return False
+    df_ref.to_csv(ref_table_path, index=False)
     return True
 
 
@@ -1179,6 +1175,7 @@ def update_resource_metadata(
             logging.info("report is made from metadata and unchanged, passing")
             return True
 
+        schema_from_resource = None
         try:
             url = api_url + f"datasets/{dataset_id}/resources/{resource_id}/"
             r = requests.get(url, headers={"X-fields": "schema"})
@@ -1209,17 +1206,17 @@ def update_resource_metadata(
             if should_succeed:
                 return False
 
-        reponse_extras = local_client.resource(
-            id=resource_id,
-            dataset_id=dataset_id,
-            fetch=False,
-        ).update_extras(payload=validation_report)
-        if reponse_extras.status_code != 200:
+        try:
+            local_client.resource(
+                id=resource_id,
+                dataset_id=dataset_id,
+                fetch=False,
+            ).update_extras(payload=validation_report)
+            logging.info(f"Schema extras updated with: {validation_report}")
+        except Exception:
             logging.warning("🔴 Schema could not be added to extras")
             if should_succeed:
                 return False
-        else:
-            logging.info(f"Schema extras updated with: {validation_report}")
 
         # not touching metadata if nothing changes
         if (
@@ -1229,22 +1226,21 @@ def update_resource_metadata(
         ):
             obj = {"schema": schema_from_consolidation}
 
-            response = local_client.resource(
-                id=resource_id,
-                dataset_id=dataset_id,
-                fetch=False,
-            ).update(payload=obj)
-
-            if response.status_code != 200:
+            try:
+                local_client.resource(
+                    id=resource_id,
+                    dataset_id=dataset_id,
+                    fetch=False,
+                ).update(payload=obj)
+                logging.info(f"Schema metadata updated with: {obj}")
+            except Exception:
                 logging.warning("🔴 Schema could not be added on resource")
                 if should_succeed:
                     return False
-            else:
-                logging.info(f"Schema metadata updated with: {obj}")
         else:
             logging.info("Not updating schema metadata")
 
-        return reponse_extras.status_code == 200
+        return True
     else:
         logging.info(
             f"Validation report for v{version_name} doesn't exist for "
@@ -1278,37 +1274,35 @@ def upload_geojson(
     consolidated_dataset_id = config_dict[schema_name]["consolidated_dataset_id"]
     r_id = config_dict[schema_name]["geojson_resource_id"]
 
-    response = local_client.resource(
-        id=r_id,
-        dataset_id=consolidated_dataset_id,
-        fetch=False,
-        _from_response={
-            "filetype": "file"
-        },  # to be able to update the file without fetching
-    ).update(
-        file_to_upload=File(
-            source_path=schema_consolidated_data_path.as_posix(),
-            source_name=build_consolidation_name(
-                schema_name,
-                geojson_version_names_list[-1],
-                consolidation_date_str,
-                extension="geojson",
-            ),
-        ).full_source_path,
-        payload={
-            "type": "main",
-            "title": f"Export au format geojson (v{latest_version})",
-        },
-        timeout=120,
-    )
-
-    if not response.is_success:
+    try:
+        local_client.resource(
+            id=r_id,
+            dataset_id=consolidated_dataset_id,
+            fetch=False,
+            _from_response={
+                "filetype": "file",  # to be able to update the file without fetching
+            },
+        ).update(
+            file_to_upload=File(
+                source_path=schema_consolidated_data_path.as_posix(),
+                source_name=build_consolidation_name(
+                    schema_name,
+                    geojson_version_names_list[-1],
+                    consolidation_date_str,
+                    extension="geojson",
+                ),
+            ).full_source_path,
+            payload={
+                "type": "main",
+                "title": f"Export au format geojson (v{latest_version})",
+            },
+            timeout=120,
+        )
+        logging.info("--- ✅ Successfully updated GeoJSON file with metadata.")
+    except Exception:
         logging.warning("--- ⚠️: GeoJSON file could not be uploaded.")
-        logging.warning(response.text)
         if should_succeed:
             return False
-    else:
-        logging.info("--- ✅ Successfully updated GeoJSON file with metadata.")
     return True
 
 
@@ -1328,127 +1322,128 @@ def upload_consolidated(
     schema_consolidated_data_path = Path(consolidated_data_path) / schema_name.replace(
         "/", "_"
     )
-    if os.path.exists(schema_consolidated_data_path):
-        # Check if dataset_id is in config. If not, create a dataset on datagouv
-        schema_config = config_dict[schema_name]
-        if schema_config.get("publication"):
-            if "consolidated_dataset_id" not in schema_config.keys():
-                dataset = create_schema_consolidation_dataset(
-                    schema_name,
-                    schemas_catalogue_list,
-                )
-                consolidated_dataset_id = dataset.id
-                update_config_file(
-                    schema_name,
-                    "consolidated_dataset_id",
-                    consolidated_dataset_id,
-                    config_path,
-                )
-                logging.info(
-                    "-- 🟢 No consolidation dataset for this schema"
-                    f" - Successfully created (id: {consolidated_dataset_id})"
-                )
-            else:
-                consolidated_dataset_id = schema_config["consolidated_dataset_id"]
-
-            schemas_report_dict[schema_name]["consolidated_dataset_id"] = (
-                consolidated_dataset_id
-            )
-
-            # Creating last consolidation resources
-            version_names_list = [
-                filename.replace(
-                    "consolidation_" + schema_name.replace("/", "_") + "_v_",
-                    "",
-                ).replace("_" + consolidation_date_str + ".csv", "")
-                for filename in os.listdir(schema_consolidated_data_path)
-                if filename.endswith(".csv") and not filename.startswith(".")
-            ]
-            if not version_names_list:
-                logging.warning(
-                    "-- ⚠️ No consolidated file was created for the schema, see consolidate_resources logs"
-                )
-                return not should_succeed
-            sorted_version = sorted(version_names_list, key=comparer_versions)
-            latest_mapping = {"latest": sorted_version[-1]}
-            sorted_version.append("latest")
-            for version_name in sorted_version:
-                time.sleep(2)
-
-                # Uploading file (creating a new resource if version was not there before)
-                kwargs = {
-                    "file_to_upload": File(
-                        source_path=schema_consolidated_data_path.as_posix(),
-                        source_name=build_consolidation_name(
-                            schema_name,
-                            latest_mapping.get(version_name, version_name),
-                            consolidation_date_str,
-                        ),
-                    ).full_source_path,
-                    "payload": {
-                        "schema": {
-                            "name": schema_name,
-                            "version": latest_mapping.get(version_name, version_name),
-                        },
-                        "type": "main",
-                        "title": (
-                            "Consolidation de la v{} du schéma - {}".format(
-                                version_name, consolidation_date_str
-                            )
-                            if version_name != "latest"
-                            else "Consolidation de la dernière version à date du schéma (v{}) - {}".format(
-                                latest_mapping["latest"], consolidation_date_str
-                            )
-                        ),
-                        "format": "csv",
-                    },
-                }
-                try:
-                    r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
-                    local_client.resource(
-                        id=r_id,
-                        dataset_id=consolidated_dataset_id,
-                        fetch=False,
-                        _from_response={
-                            "filetype": "file"
-                        },  # to be able to update the file without fetching
-                    ).update(**kwargs)
-                    logging.info(
-                        f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})"
-                    )
-                except KeyError:
-                    kwargs["dataset_id"] = consolidated_dataset_id
-                    resource = local_client.resource().create_static(**kwargs)
-                    update_config_version_resource_id(
-                        schema_name, version_name, resource.id, config_path
-                    )
-                    logging.info(
-                        f"--- ➕ New latest resource ID created for {schema_name} v{version_name} (id: {resource.id})"
-                    )
-
-            # Upload GeoJSON file (e.g IRVE)
-            if bool_upload_geojson:
-                upload_success = upload_geojson(
-                    schema_consolidated_data_path,
-                    consolidation_date_str,
-                    schema_name,
-                    latest_mapping["latest"],
-                    config_dict,
-                    should_succeed,
-                )
-        else:
-            schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
-            logging.info("-- ❌ No publication for this schema.")
-            if should_succeed:
-                return False
-
-    else:
+    if not os.path.exists(schema_consolidated_data_path):
         schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
         logging.info("-- ❌ No consolidated file for this schema.")
         if should_succeed:
             return False
-    if should_succeed:
-        return upload_success
+        return True
+
+    # Check if dataset_id is in config. If not, create a dataset on datagouv
+    schema_config = config_dict[schema_name]
+    if not schema_config.get("publication"):
+        schemas_report_dict[schema_name]["consolidated_dataset_id"] = np.nan
+        logging.info("-- ❌ No publication for this schema.")
+        if should_succeed:
+            return False
+        return True
+
+    if "consolidated_dataset_id" not in schema_config.keys():
+        dataset = create_schema_consolidation_dataset(
+            schema_name,
+            schemas_catalogue_list,
+        )
+        consolidated_dataset_id = dataset.id
+        update_config_file(
+            schema_name,
+            "consolidated_dataset_id",
+            consolidated_dataset_id,
+            config_path,
+        )
+        logging.info(
+            "-- 🟢 No consolidation dataset for this schema"
+            f" - Successfully created (id: {consolidated_dataset_id})"
+        )
+    else:
+        consolidated_dataset_id = schema_config["consolidated_dataset_id"]
+
+    schemas_report_dict[schema_name]["consolidated_dataset_id"] = (
+        consolidated_dataset_id
+    )
+
+    # Creating last consolidation resources
+    version_names_list = [
+        filename.replace(
+            "consolidation_" + schema_name.replace("/", "_") + "_v_",
+            "",
+        ).replace("_" + consolidation_date_str + ".csv", "")
+        for filename in os.listdir(schema_consolidated_data_path)
+        if filename.endswith(".csv") and not filename.startswith(".")
+    ]
+    if not version_names_list:
+        logging.warning(
+            "-- ⚠️ No consolidated file was created for the schema, see consolidate_resources logs"
+        )
+        return not should_succeed
+    sorted_version = sorted(version_names_list, key=comparer_versions)
+    latest_mapping = {"latest": sorted_version[-1]}
+    sorted_version.append("latest")
+    for version_name in sorted_version:
+        time.sleep(2)
+
+        # Uploading file (creating a new resource if version was not there before)
+        kwargs = {
+            "file_to_upload": File(
+                source_path=schema_consolidated_data_path.as_posix(),
+                source_name=build_consolidation_name(
+                    schema_name,
+                    latest_mapping.get(version_name, version_name),
+                    consolidation_date_str,
+                ),
+            ).full_source_path,
+            "payload": {
+                "schema": {
+                    "name": schema_name,
+                    "version": latest_mapping.get(version_name, version_name),
+                },
+                "type": "main",
+                "title": (
+                    "Consolidation de la v{} du schéma - {}".format(
+                        version_name, consolidation_date_str
+                    )
+                    if version_name != "latest"
+                    else "Consolidation de la dernière version à date du schéma (v{}) - {}".format(
+                        latest_mapping["latest"], consolidation_date_str
+                    )
+                ),
+                "format": "csv",
+            },
+        }
+        try:
+            r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
+            local_client.resource(
+                id=r_id,
+                dataset_id=consolidated_dataset_id,
+                fetch=False,
+                _from_response={
+                    "filetype": "file",  # to be able to update the file without fetching
+                },
+            ).update(**kwargs)
+            logging.info(
+                f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})"
+            )
+        except KeyError:
+            kwargs["dataset_id"] = consolidated_dataset_id
+            resource = local_client.resource().create_static(**kwargs)
+            update_config_version_resource_id(
+                schema_name, version_name, resource.id, config_path
+            )
+            logging.info(
+                f"--- ➕ New latest resource ID created for {schema_name} v{version_name} (id: {resource.id})"
+            )
+
+    # Upload GeoJSON file (e.g IRVE)
+    if bool_upload_geojson:
+        upload_success = upload_geojson(
+            schema_consolidated_data_path,
+            consolidation_date_str,
+            schema_name,
+            latest_mapping["latest"],
+            config_dict,
+            should_succeed,
+        )
+        if should_succeed and not upload_success:
+            return False
     return True
 
 
@@ -1806,66 +1801,62 @@ def update_consolidation_documentation_report(
     logging.info(f"- ℹ️ STARTING SCHEMA: {schema_name}")
 
     schema_config = config_dict[schema_name]
-    if schema_config.get("publication"):
-        if os.path.isfile(ref_table_path):
-            if "consolidated_dataset_id" in schema_config.keys():
-                consolidated_dataset_id = schema_config["consolidated_dataset_id"]
-                kwargs = {
-                    "file_to_upload": File(
-                        source_path=ref_tables_path,
-                        source_name=build_ref_table_name(schema_name),
-                    ).full_source_path,
-                    "payload": {
-                        "type": "documentation",
-                        "title": f"Documentation sur la consolidation - {consolidation_date_str}",
-                    },
-                }
-                # Uploading documentation file (creating a new resource if version was not there before)
-                try:
-                    doc_r_id = config_dict[schema_name]["documentation_resource_id"]
-                    response = local_client.resource(
-                        id=doc_r_id,
-                        dataset_id=consolidated_dataset_id,
-                        fetch=False,
-                        _from_response={
-                            "filetype": "file"
-                        },  # to be able to update the file without fetching
-                    ).update(**kwargs)
-                    if response.is_success:
-                        logging.info(
-                            f"--- ✅ Updated documentation resource  for {schema_name} (id: {doc_r_id})"
-                        )
-                    else:
-                        logging.warning(
-                            "--- ⚠️ Documentation file could not be uploaded."
-                        )
-                        if should_succeed:
-                            return False
-                except KeyError:
-                    kwargs["dataset_id"] = consolidated_dataset_id
-                    resource = local_client.resource().create_static(**kwargs)
-                    update_config_file(
-                        schema_name,
-                        "documentation_resource_id",
-                        resource.id,
-                        config_path,
-                    )
-                    logging.info(
-                        f"--- ➕ New documentation resource created for {schema_name} (id: {resource.id})"
-                    )
-
-            else:
-                logging.info("-- ❌ No consolidation dataset ID for this schema.")
-                if should_succeed:
-                    return False
-
-        else:
-            logging.info("-- ❌ No reference table for this schema.")
-            if should_succeed:
-                return False
-
-    else:
+    if not schema_config.get("publication"):
         logging.info("-- ❌ No publication for this schema.")
+        # keeping this syntax instead of `return not should_succeed` for clarity
+        if should_succeed:
+            return False
+        return True
+    if not os.path.isfile(ref_table_path):
+        logging.info("-- ❌ No reference table for this schema.")
+        if should_succeed:
+            return False
+        return True
+    if "consolidated_dataset_id" not in schema_config.keys():
+        logging.info("-- ❌ No consolidation dataset ID for this schema.")
+        if should_succeed:
+            return False
+        return True
+    consolidated_dataset_id = schema_config["consolidated_dataset_id"]
+    kwargs = {
+        "file_to_upload": File(
+            source_path=ref_tables_path,
+            source_name=build_ref_table_name(schema_name),
+        ).full_source_path,
+        "payload": {
+            "type": "documentation",
+            "title": f"Documentation sur la consolidation - {consolidation_date_str}",
+        },
+    }
+    # Uploading documentation file (creating a new resource if version was not there before)
+    try:
+        doc_r_id = config_dict[schema_name].get("documentation_resource_id")
+        if not doc_r_id:
+            kwargs["dataset_id"] = consolidated_dataset_id
+            resource = local_client.resource().create_static(**kwargs)
+            update_config_file(
+                schema_name,
+                "documentation_resource_id",
+                resource.id,
+                config_path,
+            )
+            logging.info(
+                f"--- ➕ New documentation resource created for {schema_name} (id: {resource.id})"
+            )
+        else:
+            local_client.resource(
+                id=doc_r_id,
+                dataset_id=consolidated_dataset_id,
+                fetch=False,
+                _from_response={
+                    "filetype": "file",  # to be able to update the file without fetching
+                },
+            ).update(**kwargs)
+            logging.info(
+                f"--- ✅ Updated documentation resource  for {schema_name} (id: {doc_r_id})"
+            )
+    except Exception:
+        logging.warning("--- ⚠️ Documentation file could not be uploaded.")
         if should_succeed:
             return False
     return True
