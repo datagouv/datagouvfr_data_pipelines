@@ -147,7 +147,7 @@ def publish_on_datagouv(file_type: str):
 
 
 @task()
-def send_notification():
+def notification():
     dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(

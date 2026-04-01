@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Tout le catalogue de data.gouv.fr |
 | Données de sorties | Grist |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

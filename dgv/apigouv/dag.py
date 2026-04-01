@@ -37,5 +37,5 @@
 #     )
 #     >> import_api_to_grist()
 #     >> publish_api_to_datagouv()
-#     >> publish()
+#     >> notification()
 # )

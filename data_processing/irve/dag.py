@@ -97,7 +97,7 @@ with DAG(
             s3_url=MINIO_URL,
             s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
             tmp_folder=TMP_FOLDER,
-            channel=TCHAP_ROOM_DATAENG,
+            room_id=TCHAP_ROOM_DATAENG,
             schema_name="etalab/schema-irve-statique",
         )
         >> clean_up_folder(TMP_FOLDER.as_posix())

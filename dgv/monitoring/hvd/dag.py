@@ -40,7 +40,7 @@ with DAG(
         )
         >> get_hvd()
         >> send_to_s3()
-        >> publish()
+        >> notification()
     )
 
     # Grist

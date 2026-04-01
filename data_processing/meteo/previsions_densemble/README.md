@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Infra-quoditienne |
 | Données sources | SFTP |
 | Données de sorties | data.gouv.fr |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

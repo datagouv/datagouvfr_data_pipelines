@@ -35,7 +35,7 @@ def check_user_creation(**context):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check_user_creation")
     message = (
         f"⚠️ Attention, {nb_users} utilisateurs ont été créés "
@@ -77,5 +77,5 @@ with DAG(
         ShortCircuitOperator(
             task_id="check_user_creation", python_callable=check_user_creation
         )
-        >> [publish(), send_email_report()]
+        >> [notification(), send_email_report()]
     )

@@ -10,7 +10,7 @@
 | Fréquence de mise à jour | quotidienne |
 | Données sources | grist |
 | Données de sorties | topics sous-jacents à simplifions |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |
 
 ## Two DAGs for demo & production
 
@@ -47,7 +47,7 @@ DEMO_DATAGOUV_SECRET_API_KEY=<fetch it on your demo.data.gouv.fr account>
 DATAGOUV_SECRET_API_KEY=<same demo key>
 
 # This is for the Grist watcher DAG
-MATTERMOST_SIMPLIFIONS_WEBHOOK_URL=<mattermost webhook urk>
+TCHAP_SIMPLIFIONS_WEBHOOK_URL=<tchap room id>
 ```
 
 

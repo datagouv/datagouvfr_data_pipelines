@@ -193,7 +193,7 @@ def publish_on_datagouv():
 
 
 @task()
-def send_notification():
+def notification():
     send_message(
         text=(
             "📣 Données des pétitions du Sénat mises à jour.\n\n"

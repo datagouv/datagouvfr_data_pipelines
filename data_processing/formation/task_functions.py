@@ -139,7 +139,7 @@ def compare_files_s3(**context):
 
 
 @task()
-def send_notification(**context):
+def notification(**context):
     nb_of = context["ti"].xcom_pull(
         key="nb_of", task_ids="process_organismes_formation"
     )

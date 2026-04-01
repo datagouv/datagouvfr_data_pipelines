@@ -8,5 +8,5 @@
 | Description | Ce traitement monitore l'analyse des ressources de meteo.data.gouv.fr par hydra. |
 | Fréquence de mise à jour | Hebdomadaire |
 | Données sources | data.gouv.fr et Sentry |
-| Données de sorties | Mattermost |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Données de sorties | Tchap |
+| Channel Tchap d'information | bot-datagouv-dataeng |

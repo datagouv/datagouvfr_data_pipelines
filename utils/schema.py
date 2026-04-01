@@ -1986,7 +1986,7 @@ def notification_synthese(
     s3_url: str,
     s3_bucket_data_pipeline_open: str,
     tmp_folder: Path,
-    channel: str,
+    room_id: str,
     schema_name: str = "",
     list_schema_skip: list = [],
 ) -> None:
@@ -2072,7 +2072,7 @@ def notification_synthese(
                 )
             except Exception as e:
                 logging.warning(f"{s['name']} erreur : {e}")
-    send_message(message, channel)
+    send_message(message, room_id)
 
 
 # Template for consolidation datasets title

@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.pg_processing.task_function
     download_data,
     insert_latest_date_pg,
     retrieve_latest_processed_date,
-    send_notification,
+    notification,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
@@ -83,4 +83,4 @@ with DAG(
             _insert_latest_date_pg,
         )
 
-    _insert_latest_date_pg >> send_notification()
+    _insert_latest_date_pg >> notification()

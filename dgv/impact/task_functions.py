@@ -357,7 +357,7 @@ def publish_datagouv(DAG_FOLDER):
 
 
 @task()
-def send_notification(DAG_FOLDER):
+def notification(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config.json") as fp:
         data = json.load(fp)
     send_message(

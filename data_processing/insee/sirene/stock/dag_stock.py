@@ -48,7 +48,7 @@ with DAG(
             resource_file="config_stock.json",
             tmp_dir=TMP_FOLDER,
         )
-        >> publish(geoloc=False)
+        >> notification(geoloc=False)
         >> clean_up_folder(TMP_FOLDER)
         >> TriggerDagRunOperator(
             task_id="trigger_geocodage",

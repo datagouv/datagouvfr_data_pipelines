@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Données de data.gouv.fr et de schema.data.gouv.fr |
 | Données de sorties | Fichiers de métadonnées |
-| Channel Mattermost d'information | Aucun |
+| Channel Tchap d'information | Aucun |

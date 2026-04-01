@@ -47,6 +47,6 @@ with DAG(
             resource_file="config_geoloc.json",
             tmp_dir=TMP_FOLDER,
         )
-        >> publish(geoloc=True)
+        >> notification(geoloc=True)
         >> clean_up_folder(TMP_FOLDER)
     )

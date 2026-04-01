@@ -54,4 +54,4 @@ with DAG(
         >> _send_tables_to_s3
     )
 
-    _send_tables_to_s3 >> publish() >> clean_up_folder(TMP_FOLDER)
+    _send_tables_to_s3 >> notification() >> clean_up_folder(TMP_FOLDER)

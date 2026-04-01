@@ -182,7 +182,7 @@ def update_dataset_data_gouv(tmp_dir: str, resource_file: str, **context):
 
 
 @task()
-def publish(geoloc):
+def notification(geoloc):
     if geoloc:
         text = (
             "Sirene géolocalisé INSEE mis à jour\n\n- [Stockage données]"

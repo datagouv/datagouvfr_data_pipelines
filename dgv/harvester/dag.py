@@ -130,7 +130,7 @@ def fill_in_grist(**context):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     pending_harvesters = context["ti"].xcom_pull(
         key="harvesters_complete", task_ids="get_preview_state"
     )
@@ -165,4 +165,4 @@ with DAG(
     tags=["weekly", "harvester", "notification"],
     catchup=False,
 ):
-    (get_pending_harvesters() >> get_preview_state() >> fill_in_grist() >> publish())
+    (get_pending_harvesters() >> get_preview_state() >> fill_in_grist() >> notification())

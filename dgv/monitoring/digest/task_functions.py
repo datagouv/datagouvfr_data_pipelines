@@ -303,10 +303,10 @@ def publish_period(today: str, period: str, scope: str, **context):
     if not stats:
         return
     message = f"{period.title()} Digest : {report_url} \n\n{stats}"
-    channel = (
+    room_id = (
         TCHAP_ROOM_ACTIVITES if scope == "general" else TCHAP_ROOM_MODERATION_NOUVEAUTES
     )
-    send_message(message, channel)
+    send_message(message, room_id)
 
 
 @task()

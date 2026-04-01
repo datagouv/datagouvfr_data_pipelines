@@ -194,7 +194,7 @@ def publish_results_elections():
 
 
 @task()
-def send_notification():
+def notification():
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
         config = json.load(fp)
     send_message(

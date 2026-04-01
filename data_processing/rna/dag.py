@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     check_if_modif,
     process_rna,
     publish_on_datagouv,
-    send_notification,
+    notification,
     send_rna_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -43,4 +43,4 @@ with DAG(
             >> clean_up
         )
 
-    clean_up >> send_notification()
+    clean_up >> notification()

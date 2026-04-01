@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Mensuelle |
 | Données sources | [JDD RNA](https://www.data.gouv.fr/datasets/repertoire-national-des-associations/)|
 | Données de sorties | [Jeu de données](https://www.data.gouv.fr/datasets/rna-agrege-a-lechelle-nationale/) |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

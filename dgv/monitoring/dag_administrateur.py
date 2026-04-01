@@ -19,7 +19,7 @@ def list_current_admins(**context):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     admins = context["ti"].xcom_pull(key="admins", task_ids="list_current_admins")
     message = (
         f"🦸 Voici la liste des {len(admins)} administrateurs actuels de data.gouv.fr\n"
@@ -43,4 +43,4 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-    list_current_admins() >> publish()
+    list_current_admins() >> notification()

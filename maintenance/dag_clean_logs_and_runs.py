@@ -91,7 +91,7 @@ def delete_old_runs():
 
 
 @task()
-def send_notification(**context):
+def notification(**context):
     total_size_bytes = context["ti"].xcom_pull(
         key="total_size_bytes", task_ids="delete_old_logs_and_directories"
     )
@@ -131,5 +131,5 @@ with DAG(
             delete_old_logs_and_directories(),
             delete_old_runs(),
         ]
-        >> send_notification()
+        >> notification()
     )

@@ -225,7 +225,7 @@ def publish_on_datagouv(scope: str):
 
 
 @task()
-def send_notification():
+def notification():
     dataset_id = config["etablissements"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(

@@ -458,7 +458,7 @@ def publish_item(item, item_type):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     nb_datasets = float(
         context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets")
     )

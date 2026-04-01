@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne, hebdomadaire, mensuelle et annuelle |
 | Données sources | API de data.gouv.fr |
 | Données de sorties | Notebooks |
-| Channel Mattermost d'information | ~datagouv-activités |
+| Channel Tchap d'information | bot-datagouv-activités |

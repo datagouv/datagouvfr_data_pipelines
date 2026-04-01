@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Données publiées sur S3 par le DAG meteo |
 | Données de sorties | Jeux de données [Météo France](https://www.data.gouv.fr/organizations/meteo-france/#/datasets) |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

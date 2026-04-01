@@ -364,7 +364,7 @@ curation_tasks = [
 
 # %%
 @task()
-def get_top_orgas_publish():
+def get_top_orgas_notification():
     # Top 50 des orgas ayant produits le plus de JDD
     datasets = pd.read_csv(
         "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
@@ -655,7 +655,7 @@ def get_top_datasets_discussions():
 edito_tasks = [
     get_top_datasets_discussions(),
     get_top_datasets_visits(),
-    get_top_orgas_publish(),
+    get_top_orgas_notification(),
     get_top_orgas_visits(),
     get_top_resources_downloads(),
     get_top_reuses_visits(),
@@ -698,7 +698,7 @@ def send_tables_to_s3():
 
 
 @task(trigger_rule="none_skipped")
-def publish():
+def notification():
     list_curation = ["empty", "spam", "KO"]
     curation = [
         f for f in os.listdir(TMP_FOLDER) if any([k in f for k in list_curation])

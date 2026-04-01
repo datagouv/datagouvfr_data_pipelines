@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     get_discoverability,
     get_quality_reuses,
     publish_datagouv,
-    send_notification,
+    notification,
     send_stats_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -43,5 +43,5 @@ with DAG(
         >> send_stats_to_s3()
         >> publish_datagouv(DAG_FOLDER)
         >> clean_up_folder(TMP_FOLDER)
-        >> send_notification(DAG_FOLDER)
+        >> notification(DAG_FOLDER)
     )

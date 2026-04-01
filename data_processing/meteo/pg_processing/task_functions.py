@@ -688,7 +688,7 @@ def insert_latest_date_pg():
 
 # %%
 @task()
-def send_notification(**context):
+def notification(**context):
     start = context["ti"].xcom_pull(key="start", task_ids="create_tables_if_not_exists")
     # weirdly start is pushed as a timestamp (float) but pulled as a datetime
     if isinstance(start, datetime):

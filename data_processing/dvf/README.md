@@ -9,7 +9,7 @@
 | Fréquence de mise à jour | Manuelle |
 | Données sources | [JDD DVF](https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres/) |
 | Données de sorties | Postgres et [jeu de données](https://www.data.gouv.fr/datasets/statistiques-dvf/) |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |
 
 ## Description du traitement
 Le [code](https://github.com/etalab/datagouvfr_data_pipelines/tree/main/data_processing/dvf) permet de générer des statistiques à partir des [données des demandes de valeurs foncières](https://files.data.gouv.fr/geo-dvf/latest/csv/), agrégées à différentes échelles, et leur évolution dans le temps (au mois). Le choix a été fait de calculer les indicateurs suivants, mensuellement et sur la totalité de la période disponible (10 semestres) :

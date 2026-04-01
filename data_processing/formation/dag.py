@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.data_processing.formation.task_functions import (
     download_latest_data,
     process_organismes_formation,
     send_file_to_s3,
-    send_notification,
+    notification,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
@@ -28,6 +28,6 @@ with DAG(
         >> ShortCircuitOperator(
             task_id="compare_files_s3", python_callable=compare_files_s3
         )
-        >> send_notification()
+        >> notification()
         >> clean_up_folder(TMP_FOLDER)
     )

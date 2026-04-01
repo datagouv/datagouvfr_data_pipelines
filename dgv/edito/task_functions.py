@@ -278,7 +278,7 @@ def create_edito_post(**context):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     admin_post_url = context["ti"].xcom_pull(
         key="admin_post_url", task_ids="create_edito_post"
     )

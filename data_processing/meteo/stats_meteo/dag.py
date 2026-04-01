@@ -4,7 +4,7 @@ from airflow import DAG
 from datagouvfr_data_pipelines.data_processing.meteo.stats_meteo.task_functions import (
     TMP_FOLDER,
     gather_meteo_stats,
-    send_notification,
+    notification,
     send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -27,6 +27,6 @@ with DAG(
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> gather_meteo_stats()
         >> send_to_s3()
-        >> send_notification()
+        >> notification()
         >> clean_up_folder(TMP_FOLDER)
     )

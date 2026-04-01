@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | stats.data.gouv.fr |
 | Données de sorties | [Dataset des statistiques de consultations](https://www.data.gouv.fr/datasets/statistiques-de-consultation-de-data-gouv-fr/) |
-| Channel Mattermost d'information | Aucun |
+| Channel Tchap d'information | Aucun |

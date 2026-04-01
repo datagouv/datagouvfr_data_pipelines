@@ -39,13 +39,13 @@ with DAG(
 ):
 
     @task()
-    def publish():
+    def notification():
         return send_message(
             "📊 Données du dashboard de suivi des indicateurs mises à jour."
         )
 
     clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
-    _publish = publish()
+    _publish = notification()
     _gather_and_upload = gather_and_upload()
 
     (

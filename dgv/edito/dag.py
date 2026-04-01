@@ -20,4 +20,4 @@ with DAG(
     default_args=default_args,
     catchup=False,
 ):
-    create_edito_post() >> publish()
+    create_edito_post() >> notification()

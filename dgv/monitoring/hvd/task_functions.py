@@ -152,7 +152,7 @@ def markdown_item(row):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="get_hvd")
     s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     s3_files = sorted(s3_open.get_files_from_prefix("hvd/", ignore_airflow_env=True))

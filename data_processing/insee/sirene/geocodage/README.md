@@ -9,4 +9,4 @@
 | Fréquence de mise à jour |  Exécution gérée par le DAG `data_processing_sirene_publication` |
 | Données sources | [JDD INSEE data.gouv.fr](https://www.data.gouv.fr/datasets/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/) |
 | Données de sorties | [JDD Etalab data.gouv.fr](https://www.data.gouv.fr/datasets/base-sirene-des-etablissements-siret-geolocalisee-avec-la-base-dadresse-nationale-ban/) |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

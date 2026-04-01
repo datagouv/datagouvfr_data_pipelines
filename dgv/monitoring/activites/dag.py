@@ -41,4 +41,4 @@ with DAG(
     ]
 
     checks >> send_spam_to_grist()
-    checks >> publish() >> check_schema()
+    checks >> notification() >> check_schema()

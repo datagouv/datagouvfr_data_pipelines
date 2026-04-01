@@ -147,7 +147,7 @@ def send_to_s3(**context):
 
 
 @task()
-def send_notification(**context):
+def notification(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
     url = "https://object.files.data.gouv.fr/meteofrance/metrics/"
     send_message(

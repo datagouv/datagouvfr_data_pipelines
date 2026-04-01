@@ -512,7 +512,7 @@ def publish_api_to_datagouv(**context):
 
 
 @task()
-def publish(**context):
+def notification(**context):
     list_sources = context["ti"].xcom_pull(
         key="list_sources", task_ids="import_api_to_grist"
     )

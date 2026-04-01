@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne, hebdomadaire et mensuelle |
 | Données sources | stats.data.gouv.fr |
 | Données de sorties | Fichiers json |
-| Channel Mattermost d'information | ~datagouv-reporting |
+| Channel Tchap d'information | bot-datagouv-modération_activités |

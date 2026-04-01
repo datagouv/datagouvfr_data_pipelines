@@ -138,7 +138,7 @@ def publish_on_datagouv(file_type, **context):
 
 
 @task()
-def send_notification():
+def notification():
     dataset_id = config["import"]["csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(

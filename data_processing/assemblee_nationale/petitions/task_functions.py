@@ -252,7 +252,7 @@ def publish_on_datagouv():
 
 
 @task()
-def send_notification():
+def notification():
     send_message(
         text=(
             "📣 Données des pétitions de l'AN mises à jour.\n\n"
