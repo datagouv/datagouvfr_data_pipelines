@@ -9,8 +9,8 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions import (
     check_if_already_processed,
     get_files,
+    notification,
     publish_file_s3,
-    publish,
     update_dataset_data_gouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

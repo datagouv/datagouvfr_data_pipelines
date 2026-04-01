@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.bizdev.task_functions import (
     TMP_FOLDER,
     curation_tasks,
     edito_tasks,
-    publish,
+    notification,
     send_tables_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

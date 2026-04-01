@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     TMP_FOLDER,
     build_df_for_grist,
     get_hvd,
-    publish,
+    notification,
     publish_grist,
     send_to_s3,
     update_grist,
