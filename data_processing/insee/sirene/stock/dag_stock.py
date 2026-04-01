@@ -9,8 +9,8 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.insee.sirene.stock.task_functions import (
     check_if_already_processed,
     get_files,
+    notification,
     publish_file_s3,
-    publish_mattermost,
     update_dataset_data_gouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -48,7 +48,7 @@ with DAG(
             resource_file="config_stock.json",
             tmp_dir=TMP_FOLDER,
         )
-        >> publish_mattermost(geoloc=False)
+        >> notification(geoloc=False)
         >> clean_up_folder(TMP_FOLDER)
         >> TriggerDagRunOperator(
             task_id="trigger_geocodage",

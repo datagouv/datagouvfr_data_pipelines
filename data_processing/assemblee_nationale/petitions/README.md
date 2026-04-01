@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Hebdomadaire |
 | Données sources | Plateforme https://petitions.assemblee-nationale.fr |
 | Données de sorties | [Jeu de données](https://www.data.gouv.fr/datasets/petitions-de-lassemblee-nationale/) |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

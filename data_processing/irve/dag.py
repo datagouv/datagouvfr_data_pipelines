@@ -6,7 +6,7 @@ from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+    TCHAP_ROOM_DATAENG,
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -97,7 +97,7 @@ with DAG(
             s3_url=MINIO_URL,
             s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
             tmp_folder=TMP_FOLDER,
-            mattermost_channel=MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
+            room_id=TCHAP_ROOM_DATAENG,
             schema_name="etalab/schema-irve-statique",
         )
         >> clean_up_folder(TMP_FOLDER.as_posix())

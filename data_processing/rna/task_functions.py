@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from unidecode import unidecode
@@ -138,11 +138,11 @@ def publish_on_datagouv(file_type, **context):
 
 
 @task()
-def send_notification_mattermost():
+def notification():
     dataset_id = config["import"]["csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
-            ":mega: Données des associations mises à jour.\n"
+            "📣 Données des associations mises à jour.\n\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id})"
         )

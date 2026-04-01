@@ -5,11 +5,11 @@ from airflow import DAG
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
-    MATTERMOST_DATAGOUV_MOISSONNAGE,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.datagouv import datagouv_session, local_client
 from datagouvfr_data_pipelines.utils.grist import GristTable
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 PAD_AWAITING_VALIDATION = "https://pad.incubateur.net/173bEiKKTi2laBNyHwIPlQ"
 doc_id = "6xrGmKARsDFR" if AIRFLOW_ENV == "prod" else "fdg8zhb22dTp"
@@ -130,7 +130,7 @@ def fill_in_grist(**context):
 
 
 @task()
-def publish_mattermost(**context):
+def notification(**context):
     pending_harvesters = context["ti"].xcom_pull(
         key="harvesters_complete", task_ids="get_preview_state"
     )
@@ -138,23 +138,23 @@ def publish_mattermost(**context):
     issues = context["ti"].xcom_pull(key="issues", task_ids="fill_in_grist")
 
     text = (
-        ":mega: Rapport hebdo sur l'état des moissonneurs en attente"
-        " ([lien grist](https://grist.numerique.gouv.fr/o/datagouv/6xrGmKARsDFR/Suivi-moissonneurs/p/2)):\n"
+        "📣 Rapport hebdo sur l'état des moissonneurs en attente"
+        " ([lien grist](https://grist.numerique.gouv.fr/o/datagouv/6xrGmKARsDFR/Suivi-moissonneurs/p/2)):\n\n"
         f"- {len(pending_harvesters)} moissonneurs en attente\n"
     )
     if new:
-        text += f"- {len(new)} nouveaux moissonneurs :new:\n"
+        text += f"- {len(new)} nouveaux moissonneurs 🆕\n"
         for harvester in new:
             text += (
-                f"   * [{harvester['owner_name']}](https://www.data.gouv.fr/{harvester['owner_type']}s/{harvester['owner_id']}/)"
+                f"    * [{harvester['owner_name']}](https://www.data.gouv.fr/{harvester['owner_type']}s/{harvester['owner_id']}/)"
                 f" - moissonneur {harvester['backend'].upper()}"
                 f" - [admin](https://www.data.gouv.fr/admin/harvesters/{harvester['id']})\n"
             )
     if issues:
         text += "\n\n"
         for harvester in issues:
-            text += f":warning: plusieurs lignes dans la table grist pour {harvester['name']} ({harvester['id']})\n"
-    send_message(text, MATTERMOST_DATAGOUV_MOISSONNAGE)
+            text += f"⚠️ plusieurs lignes dans la table grist pour {harvester['name']} ({harvester['id']})\n"
+    send_message(text, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
 
 with DAG(
@@ -162,12 +162,12 @@ with DAG(
     schedule="0 9 * * WED",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["weekly", "harvester", "mattermost", "notification"],
+    tags=["weekly", "harvester", "notification"],
     catchup=False,
 ):
     (
         get_pending_harvesters()
         >> get_preview_state()
         >> fill_in_grist()
-        >> publish_mattermost()
+        >> notification()
     )

@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Toutes les 30min |
 | Données sources | [JDD Flux instantané](https://www.data.gouv.fr/datasets/prix-des-carburants-en-france-flux-instantane/) <br /> [JDD Flux quotidien](https://www.data.gouv.fr/datasets/prix-des-carburants-en-france-flux-quotidien/) |
 | Données de sorties | A modifier : Stocké sur [un repo github](https://github.com/etalab/prix-carburants-data) |
-| Channel Mattermost d'information | Non |
+| Channel Tchap d'information | Non |

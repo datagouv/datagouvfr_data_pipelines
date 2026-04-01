@@ -4,14 +4,14 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_MODERATION_NOUVEAUTES,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     SECRET_MAIL_DATAGOUV_BOT_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 TIME_PERIOD = {"hours": 1}
 NB_USERS_THRESHOLD = 25
@@ -35,13 +35,13 @@ def check_user_creation(**context):
 
 
 @task()
-def publish_mattermost(**context):
+def notification(**context):
     nb_users = context["ti"].xcom_pull(key="nb_users", task_ids="check_user_creation")
     message = (
-        f":warning: Attention, {nb_users} utilisateurs ont été créés "
+        f"⚠️ Attention, {nb_users} utilisateurs ont été créés "
         "sur data.gouv.fr dans la dernière heure."
     )
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
 
 @task()
@@ -77,5 +77,5 @@ with DAG(
         ShortCircuitOperator(
             task_id="check_user_creation", python_callable=check_user_creation
         )
-        >> [publish_mattermost(), send_email_report()]
+        >> [notification(), send_email_report()]
     )

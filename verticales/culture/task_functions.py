@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.grist import GristTable
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}culture/data/"
@@ -206,7 +206,5 @@ def refresh_datasets_tops(**context):
 
 
 @task()
-def send_notification_mattermost():
-    send_message(
-        text=":performing_arts: Catalogue et stats de la verticale culture mis à jour."
-    )
+def notification():
+    send_message(text="🎭️ Catalogue et stats de la verticale culture mis à jour.")

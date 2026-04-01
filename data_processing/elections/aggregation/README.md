@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Manuelle |
 | Données sources | Toutes les données des élections publiées par le MIOM sur data.gouv.fr (liste dans la description du JDD de sortie)|
 | Données de sorties | [Dataset données des élections agrégées](https://www.data.gouv.fr/datasets/donnees-des-elections-agregees/) |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

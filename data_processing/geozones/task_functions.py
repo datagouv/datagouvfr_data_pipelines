@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}geozones/"
 dataset_id = (
@@ -325,7 +325,8 @@ def post_geozones():
 
 
 @task()
-def notification_mattermost():
-    message = "Données Géozones mises à jours [ici]"
-    message += f"({local_client.base_url}/datasets/{dataset_id})"
-    send_message(message)
+def notification():
+    send_message(
+        "Données Géozones mises à jours [ici]"
+        f"({local_client.base_url}/datasets/{dataset_id})"
+    )

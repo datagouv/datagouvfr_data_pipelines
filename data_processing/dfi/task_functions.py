@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -331,10 +331,10 @@ def publish_on_datagouv(**context):
 
 
 @task()
-def notification_mattermost():
+def notification():
     dataset_id = config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
-        f"Données DFI agrégées :"
+        f"Données DFI agrégées :\n"
         f"\n- uploadées sur S3"
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"

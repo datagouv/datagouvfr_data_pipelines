@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions impor
     check_if_modif,
     config,
     publish_on_datagouv,
-    send_notification_mattermost,
+    notification,
     send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -60,4 +60,4 @@ with DAG(
             >> clean_up
         )
 
-    clean_up >> send_notification_mattermost()
+    clean_up >> notification()

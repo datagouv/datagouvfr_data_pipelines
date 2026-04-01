@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from dateutil import parser
 
@@ -668,7 +668,7 @@ def delete_replaced_s3_files(**context) -> None:
 
 
 @task()
-def notification_mattermost(**context) -> None:
+def notification(**context) -> None:
     new_files_datasets = context["ti"].xcom_pull(
         key="new_files_datasets", task_ids="upload_new_files"
     )
@@ -678,7 +678,7 @@ def notification_mattermost(**context) -> None:
     logging.info(new_files_datasets)
     logging.info(updated_datasets)
 
-    message = "##### 🌦️ Données météo mises à jour :"
+    message = "##### 🌦️ Données météo mises à jour :\n"
     if not (new_files_datasets or updated_datasets):
         message += "\nAucun changement."
     else:
@@ -687,7 +687,7 @@ def notification_mattermost(**context) -> None:
                 message += f"\n- [{path}]"
                 message += f"({local_client.base_url}/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/): "
                 if path in new_files_datasets:
-                    message += "nouvelles données :new:"
+                    message += "nouvelles données 🆕"
                 else:
                     message += "mise à jour des métadonnées"
 
@@ -724,7 +724,7 @@ def notification_mattermost(**context) -> None:
             ):
                 issues[dataset_id][r["id"]] = r["title"]
     if issues:
-        message += "\n:alert: Des ressources semblent mal placées :\n"
+        message += "\n\n⚠️ Des ressources semblent mal placées :\n\n"
         for dataset_id in issues:
             message += (
                 f"- [{paths[dataset_id]}]"

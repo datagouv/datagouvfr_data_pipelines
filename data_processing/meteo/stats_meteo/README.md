@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Mensuelle |
 | Données sources | API metrics et Matomo |
 | Données de sorties | S3 |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |

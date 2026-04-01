@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Repositories github |
 | Données de sorties | schema.(preprod.)data.gouv.fr |
-| Channel Mattermost d'information | Aucun |
+| Channel Tchap d'information | Aucun |

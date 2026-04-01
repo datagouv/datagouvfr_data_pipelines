@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 nb_days_to_keep = 60
 
@@ -91,7 +91,7 @@ def delete_old_runs():
 
 
 @task()
-def send_notification_mattermost(**context):
+def notification(**context):
     total_size_bytes = context["ti"].xcom_pull(
         key="total_size_bytes", task_ids="delete_old_logs_and_directories"
     )
@@ -103,7 +103,7 @@ def send_notification_mattermost(**context):
     total_size_bytes = round(total_size_bytes, 1)
     unit = units[k]
     send_message(
-        f"Les logs Airflow d'il y a plus de {nb_days_to_keep} jours ont été supprimés"
+        f"🧹 Les logs Airflow d'il y a plus de {nb_days_to_keep} jours ont été supprimés"
         f" ({total_size_bytes}{' ' * (len(unit) > 2) + unit} nettoyés)"
     )
 
@@ -131,5 +131,5 @@ with DAG(
             delete_old_logs_and_directories(),
             delete_old_runs(),
         ]
-        >> send_notification_mattermost()
+        >> notification()
     )

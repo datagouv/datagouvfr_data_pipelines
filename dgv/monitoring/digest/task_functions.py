@@ -6,8 +6,8 @@ import requests
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MATTERMOST_DATAGOUV_ACTIVITES,
-    MATTERMOST_DATASERVICES_ONLY,
+    TCHAP_ROOM_ACTIVITES,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     SECRET_MAIL_DATAGOUV_BOT_USER,
@@ -18,7 +18,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_latest_comments,
 )
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from IPython.display import HTML, display
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
@@ -295,20 +295,18 @@ def get_stats_period(today: str, period: str, scope: str) -> str | None:
 
 
 @task()
-def publish_mattermost_period(today: str, period: str, scope: str, **context):
+def publish_period(today: str, period: str, scope: str, **context):
     report_url = context["ti"].xcom_pull(
         key="report_url", task_ids=f"run_notebook_and_save_to_s3_{scope}_{period}"
     )
     stats = get_stats_period(today, period, scope)
     if not stats:
         return
-    message = f"{period.title()} Digest : {report_url} \n{stats}"
-    channel = (
-        MATTERMOST_DATAGOUV_ACTIVITES
-        if scope == "general"
-        else MATTERMOST_DATASERVICES_ONLY
+    message = f"{period.title()} Digest : {report_url} \n\n{stats}"
+    room_id = (
+        TCHAP_ROOM_ACTIVITES if scope == "general" else TCHAP_ROOM_MODERATION_NOUVEAUTES
     )
-    send_message(message, channel)
+    send_message(message, room_id)
 
 
 @task()

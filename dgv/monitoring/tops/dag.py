@@ -5,7 +5,7 @@ from airflow.models.baseoperator import chain
 from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     get_top,
-    publish_top_mattermost,
+    publish_top,
     send_stats_to_s3,
     send_tops_to_s3,
 )
@@ -78,7 +78,7 @@ with DAG(
                 )
                 for _class, class_label in classes.items()
             ],
-            publish_top_mattermost.override(task_id=f"publish_top_{freq}_mattermost")(
+            publish_top.override(task_id=f"publish_top_{freq}")(
                 period=freq,
                 label=freq_label,
             ),

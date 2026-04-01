@@ -10,8 +10,7 @@ from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MATTERMOST_DATAGOUV_EDITO,
-    MATTERMOST_MODERATION_NOUVEAUTES,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -20,7 +19,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.grist import GRIST_UI_URL, GristTable
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from langdetect import detect
@@ -365,7 +364,7 @@ curation_tasks = [
 
 # %%
 @task()
-def get_top_orgas_publish():
+def get_top_orgas_notification():
     # Top 50 des orgas ayant produits le plus de JDD
     datasets = pd.read_csv(
         "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3",
@@ -656,7 +655,7 @@ def get_top_datasets_discussions():
 edito_tasks = [
     get_top_datasets_discussions(),
     get_top_datasets_visits(),
-    get_top_orgas_publish(),
+    get_top_orgas_notification(),
     get_top_orgas_visits(),
     get_top_resources_downloads(),
     get_top_reuses_visits(),
@@ -699,8 +698,7 @@ def send_tables_to_s3():
 
 
 @task(trigger_rule="none_skipped")
-def publish_mattermost():
-    print("Publishing on mattermost")
+def notification():
     list_curation = ["empty", "spam", "KO"]
     curation = [
         f for f in os.listdir(TMP_FOLDER) if any([k in f for k in list_curation])
@@ -708,7 +706,7 @@ def publish_mattermost():
     if curation:
         print("   - Files for curation:")
         print(curation)
-        message = ":zap: Les rapports bizdev curation sont disponibles "
+        message = "⚡️ Les rapports bizdev curation sont disponibles "
         message += f"dans [grist]({GRIST_UI_URL + grist_curation}):"
         for file in curation:
             url = f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
@@ -717,13 +715,13 @@ def publish_mattermost():
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
             message += f"\n - [{file} ⬇️]({url})"
-        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
     edito = [f for f in os.listdir(TMP_FOLDER) if f not in curation]
     if edito:
         print("   - Files for édito:")
         print(edito)
-        message = ":zap: Les rapports bizdev édito sont disponibles "
+        message = "⚡️ Les rapports bizdev édito sont disponibles "
         message += f"dans [grist]({GRIST_UI_URL + grist_edito}):"
         for file in edito:
             url = f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
@@ -732,4 +730,4 @@ def publish_mattermost():
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
             message += f"\n - [{file} ⬇️]({url})"
-        send_message(message, MATTERMOST_DATAGOUV_EDITO)
+        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)

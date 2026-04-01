@@ -19,7 +19,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
     get_year_interval,
     index_dpe_table,
     index_dvf_table,
-    notification_mattermost,
+    notification,
     populate_copro_table,
     populate_distribution_table,
     populate_dpe_table,
@@ -101,7 +101,7 @@ with DAG(
             concat_and_publish_whole(),
         ]
         >> final_clean_up
-        >> notification_mattermost()
+        >> notification()
     )
 
     _process_stats = process_dvf_stats()

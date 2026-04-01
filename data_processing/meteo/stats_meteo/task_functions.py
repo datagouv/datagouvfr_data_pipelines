@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}stats_meteo/"
@@ -147,13 +147,13 @@ def send_to_s3(**context):
 
 
 @task()
-def send_notification(**context):
+def notification(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
     url = "https://object.files.data.gouv.fr/meteofrance/metrics/"
     send_message(
         text=(
-            "##### :bar_chart: :partly_sunny_rain: Statistiques mensuelles "
-            "de meteo.data.gouv disponibles sur S3 :"
+            "##### 📊 🌦️ Statistiques mensuelles "
+            "de meteo.data.gouv disponibles sur S3 :\n"
             f"\n- Statistiques détaillées (en [csv]({url + filename}.csv) "
             f"et en [json]({url + filename}.json))"
             f"\n- [Visites mensuelles]({url}visites_meteo.csv)"

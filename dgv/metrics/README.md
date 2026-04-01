@@ -9,7 +9,7 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Données issues de l'infrastructure de data.gouv.fr. |
 | Données de sorties | Tables Postgres. |
-| Channel Mattermost d'information | ~startup-datagouv-dataeng |
+| Channel Tchap d'information | bot-datagouv-dataeng |
 
 ## DAG
 

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from datagouvfr_data_pipelines.dgv.edito.task_functions import (
     create_edito_post,
-    publish_mattermost,
+    notification,
 )
 
 default_args = {
@@ -16,8 +16,8 @@ with DAG(
     schedule="0 8 1 * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["edito", "mattermost", "post", "twitter"],
+    tags=["edito", "post", "twitter"],
     default_args=default_args,
     catchup=False,
 ):
-    create_edito_post() >> publish_mattermost()
+    create_edito_post() >> notification()

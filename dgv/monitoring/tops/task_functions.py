@@ -6,11 +6,11 @@ import requests
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     MATOMO_TOKEN,
-    MATTERMOST_DATAGOUV_REPORTING,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from dateutil.relativedelta import relativedelta
 
@@ -188,18 +188,18 @@ def get_stats(dates: list[datetime], period: str) -> tuple[list, list, list]:
 
 
 @task()
-def publish_top_mattermost(period: str, label: str, **context):
+def publish_top(period: str, label: str, **context):
     for _class in ["datasets", "reuses"]:
         top = context["ti"].xcom_pull(
             key=f"top_{_class}", task_ids=f"get_top_{_class}_{period}"
         )
         header = (
-            ":rolled_up_newspaper: **Top 10 jeux de données** - "
+            "🗞️ **Top 10 jeux de données** - "
             if _class == "datasets"
-            else ":artist: **Top 10 réutilisations** - "
+            else "🧑‍🎨 **Top 10 réutilisations** - "
         )
         message = header + f"{label} (visites)\n\n{top}"
-        send_message(message, MATTERMOST_DATAGOUV_REPORTING)
+        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
 
 @task()

@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
+    # TCHAP_ROOM_SIMPLIFIONS,
+    TCHAP_ROOM_DATAENG,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.verticales.simplifions.diff_manager import (
     DiffManager,
 )
@@ -297,8 +298,8 @@ def watch_grist_data():
                     if diff:
                         for key, value in diff.items():
                             table_message += f"    - `{key}`:\n"
-                            table_message += f"      - :heavy_minus_sign: {DiffManager.format_diff_value(value['old'])}\n"
-                            table_message += f"      - :heavy_plus_sign: {DiffManager.format_diff_value(value['new'])}\n"
+                            table_message += f"      - ➕️ {DiffManager.format_diff_value(value['old'])}\n"
+                            table_message += f"      - ➖️ {DiffManager.format_diff_value(value['new'])}\n"
                     else:
                         table_message += "    - _(Aucune modification détectée)_\n"
 
@@ -322,7 +323,8 @@ def watch_grist_data():
 
     send_message(
         text=message,
-        endpoint_url=MATTERMOST_SIMPLIFIONS_WEBHOOK_URL,
+        # room_id=TCHAP_ROOM_SIMPLIFIONS,  # to restore when the bot is added to the channel
+        room_id=TCHAP_ROOM_DATAENG,
     )
 
 

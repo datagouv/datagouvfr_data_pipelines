@@ -9,4 +9,4 @@
 | Fréquence de mise à jour | Quotidienne |
 | Données sources | Données de data.gouv.fr et de schema.data.gouv.fr |
 | Données de sorties | Jeux de données sur data.gouv.fr et repository de schema.data.gouv.fr |
-| Channel Mattermost d'information | ~datagouv-schema-activites |
+| Channel Tchap d'information | bot-datagouv-dataeng |

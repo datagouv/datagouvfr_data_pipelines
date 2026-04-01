@@ -9,9 +9,9 @@ import requests
 from airflow.decorators import task
 from airflow.models import Variable
 from datagouvfr_data_pipelines.config import (
-    MATTERMOST_DATAGOUV_ACTIVITES,
-    MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE,
-    MATTERMOST_MODERATION_NOUVEAUTES,
+    TCHAP_ROOM_ACTIVITES,
+    TCHAP_ROOM_DATAENG,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     SPAM_WORDS,
@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.grist import GristTable
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
 from langdetect import LangDetectException, detect
 from unidecode import unidecode
@@ -178,7 +178,7 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
             inactive[o["id"]] = o["name"]
     if inactive:
         message = (
-            f"#### :sloth: Organisations créées il y a entre {days_before_flag} et "
+            f"#### 🦥 Organisations créées il y a entre {days_before_flag} et "
             f"{cutoff_days} jours, sans dataset ni réutilisation\n- "
         )
         message += "\n- ".join(
@@ -187,7 +187,7 @@ def get_inactive_orgas(cutoff_days=30, days_before_flag=7):
                 for i, n in inactive.items()
             ]
         )
-        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
 
 @task()
@@ -204,7 +204,7 @@ def alert_if_awaiting_spam_comments():
             f"@all Il y a {n} commentaire{'s' if n > 1 else ''} en attente "
             "de validation (voir [ici](https://www.data.gouv.fr/api/1/spam/))"
         )
-        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
 
 
 @task()
@@ -219,7 +219,7 @@ def alert_if_new_reports():
     if not unseen_reports:
         return
     Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
-    message = ":triangular_flag_on_post: @all De nouveaux signalements ont été faits :"
+    message = "🚩 @all De nouveaux signalements ont été faits :"
     for r in unseen_reports:
         if r["by"]:
             by = f"[{r['by']['slug']}]({r['by']['page']})"
@@ -241,7 +241,7 @@ def alert_if_new_reports():
             subject = f"[cet objet qui a été supprimé depuis]({subject})"
         user_message = r["message"].replace("\n", " ")
         message += f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{user_message}`"
-    send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
 
 
 @task()
@@ -283,10 +283,10 @@ def schema_suspicion(catalog: dict, resource: dict, orga: str):
             schema_title = schema
     if best_score > 0.6:
         message = (
-            ":mega: Nouveau jeu de donnée suspecté d'appartenir au schéma "
+            "📣 Nouveau jeu de donnée suspecté d'appartenir au schéma "
             f"**{schema_title}** {orga}: \n - [{resource['name']}]({resource['page']})"
         )
-        send_message(message, MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE)
+        send_message(message, TCHAP_ROOM_DATAENG)
 
 
 def parse_schema_catalog(catalog: dict, resource: dict) -> tuple:
@@ -336,17 +336,17 @@ def parse_resource_if_schema(
         if not schema_name:
             schema_name = resource["schema"]["name"]
         message = (
-            ":mega: Nouvelle ressource déclarée appartenant au schéma "
+            "📣 Nouvelle ressource déclarée appartenant au schéma "
             f"**{schema_name}** {orga}: \n - [Lien vers le jeu de donnée]({item['page']})"
         )
         if schema_type == "tableschema":
             if is_valid:
-                message += f"\n - [Ressource valide]({validata_url}) :partying_face:"
+                message += f"\n - [Ressource valide]({validata_url}) 🥳"
             else:
-                message += f"\n - [Ressource non valide]({validata_url}) :weary:"
+                message += f"\n - [Ressource non valide]({validata_url}) 😩"
         if publierDetection:
-            message += "\n - Made with publier.etalab.studio :doge-cool:"
-        send_message(message, MATTERMOST_DATAGOUV_SCHEMA_ACTIVITE)
+            message += "\n - Made with publier.etalab.studio 😎"
+        send_message(message, TCHAP_ROOM_DATAENG)
         return True
     return False
 
@@ -407,11 +407,11 @@ def send_spam_to_grist(**context):
 
 def publish_item(item, item_type):
     if item_type == "dataset":
-        message = ":loudspeaker: :label: Nouveau **Jeu de données** :\n"
+        message = "📢 🏷️ Nouveau **Jeu de données** :\n"
     elif item_type == "reuse":
-        message = ":loudspeaker: :art: Nouvelle **réutilisation** : \n"
+        message = "📢 🎨 Nouvelle **réutilisation** : \n"
     else:
-        message = ":loudspeaker: :robot_face: Nouvelle **API** : \n"
+        message = "📢 🤖 Nouvelle **API** : \n"
 
     if item["owner_type"] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
@@ -421,25 +421,25 @@ def publish_item(item, item_type):
         message += f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
     else:
         message += "**/!\\ sans rattachement**"
-    message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
-    send_message(message, MATTERMOST_DATAGOUV_ACTIVITES)
+    message += f"\n*{item['title'].strip()}* \n\n\n👉️ {item['page']}"
+    send_message(message, TCHAP_ROOM_ACTIVITES)
 
     if item["first_publication"] or item["spam"]:
         if item["spam"]:
-            message = f":warning: @all Spam potentiel ({item['spam']})\n"
+            message = f"⚠️ @all Spam potentiel ({item['spam']})\n"
         else:
             message = ""
 
         if item["first_publication"]:
-            message += ":loudspeaker: :one: "
+            message += "📢 1️⃣ "
             message += "Premier " if item_type == "dataset" else "Première "
 
         if item_type == "dataset":
-            message += ":books: jeu de données "
+            message += "📚️ jeu de données "
         elif item_type == "reuse":
-            message += ":recycle: réutilisation "
+            message += "♻️ réutilisation "
         else:
-            message += ":robot_face: API "
+            message += "🤖 API "
 
         if item["owner_type"] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
@@ -454,11 +454,11 @@ def publish_item(item, item_type):
         else:
             message += "**/!\\ sans rattachement**"
         message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
-        send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
 
 
 @task()
-def publish_mattermost(**context):
+def notification(**context):
     nb_datasets = float(
         context["ti"].xcom_pull(key="nb", task_ids="check_new_datasets")
     )
@@ -482,22 +482,22 @@ def publish_mattermost(**context):
     if nb_orgas > 0:
         for item in orgas:
             if item["spam"]:
-                message = f":warning: @all Spam potentiel ({item['spam']})\n"
+                message = f"⚠️ @all Spam potentiel ({item['spam']})\n"
             else:
                 message = ""
             if item["duplicated"]:
-                message += ":busts_in_silhouette: Duplicata potentiel\n"
+                message += "👥 Duplicata potentiel\n"
             else:
                 message += ""
             if item["potential_certif"]:
-                message += ":ballot_box_with_check: Certification potentielle\n"
+                message += "☑️ Certification potentielle\n"
             else:
                 message += ""
             message += (
-                ":loudspeaker: :office: Nouvelle **organisation** : "
-                f"*{item['name'].strip()}* \n\n\n:point_right: {item['page']}"
+                "📢 🏢 Nouvelle **organisation** : "
+                f"*{item['name'].strip()}* \n\n\n👉️ {item['page']}"
             )
-            send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+            send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
 
     if nb_datasets > 0:
         for item in datasets:
@@ -529,9 +529,9 @@ def publish_mattermost(**context):
     #             f"{comment['comment']['posted_by']['id']}/"
     #         )
     #         message = (
-    #             ':warning: @all Spam potentiel\n'
+    #             '⚠️ @all Spam potentiel\n'
     #             ':right_anger_bubble: Commentaire suspect de'
     #             f' [{comment["comment"]["posted_by"]["slug"]}]({owner_url})'
     #             f' dans la discussion :\n:point_right: {discussion_url}'
     #         )
-    #         send_message(message, MATTERMOST_MODERATION_NOUVEAUTES)
+    #         send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])

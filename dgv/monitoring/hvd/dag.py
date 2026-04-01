@@ -7,8 +7,8 @@ from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     TMP_FOLDER,
     build_df_for_grist,
     get_hvd,
-    publish_mattermost,
-    publish_mattermost_grist,
+    notification,
+    publish_grist,
     send_to_s3,
     update_grist,
 )
@@ -31,7 +31,7 @@ with DAG(
 ):
     clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
 
-    # Recap HVD mattermost
+    # Recap HVD
     (
         clean_up_recreate
         >> ShortCircuitOperator(
@@ -40,7 +40,7 @@ with DAG(
         )
         >> get_hvd()
         >> send_to_s3()
-        >> publish_mattermost()
+        >> notification()
     )
 
     # Grist
@@ -51,5 +51,5 @@ with DAG(
             task_id="update_grist",
             python_callable=update_grist,
         )
-        >> publish_mattermost_grist()
+        >> publish_grist()
     )

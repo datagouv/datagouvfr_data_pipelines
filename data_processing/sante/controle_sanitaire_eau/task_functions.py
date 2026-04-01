@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.utils.conversions import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -147,11 +147,11 @@ def publish_on_datagouv(file_type: str):
 
 
 @task()
-def send_notification_mattermost():
+def notification():
     dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         text=(
-            ":mega: Données du contrôle sanitaire de l'eau mises à jour.\n"
+            "📣 Données du contrôle sanitaire de l'eau mises à jour.\n\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id}/#/community-resources)"
         )

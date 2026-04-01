@@ -5,7 +5,7 @@ from datagouvfr_data_pipelines.data_processing.elections.aggregation.task_functi
     TMP_FOLDER,
     process_election_data,
     publish_results_elections,
-    send_notification,
+    notification,
     send_results_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -24,5 +24,5 @@ with DAG(
         >> send_results_to_s3()
         >> publish_results_elections()
         >> clean_up_folder(TMP_FOLDER)
-        >> send_notification()
+        >> notification()
     )

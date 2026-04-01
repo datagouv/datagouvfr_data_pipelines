@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
@@ -182,22 +182,19 @@ def update_dataset_data_gouv(tmp_dir: str, resource_file: str, **context):
 
 
 @task()
-def publish_mattermost(geoloc):
+def notification(geoloc):
     if geoloc:
         text = (
-            "Sirene géolocalisé INSEE mis à jour\n- [Stockage données]"
+            "Sirene géolocalisé INSEE mis à jour\n\n- [Stockage données]"
             "(https://object.infra.data.gouv.fr/browser/data-pipeline-open/siren%2Fgeoloc%2F)"
             "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/datasets/geolocalisation-"
             "des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques/) "
         )
     else:
         text = (
-            "Base Sirene mise à jour\n- [Stockage données]"
+            "Base Sirene mise à jour\n\n- [Stockage données]"
             "(https://object.infra.data.gouv.fr/browser/data-pipeline-open/siren%2Fstock%2F)"
             "\n- [Jeu de données data.gouv.fr](https://www.data.gouv.fr/datasets/base-sirene-des-"
             "entreprises-et-de-leurs-etablissements-siren-siret/) "
         )
-    send_message(
-        text=text,
-        image_url="https://static.data.gouv.fr/avatars/db/fbfd745ae543f6856ed59e3d44eb71.jpg",
-    )
+    send_message(text)

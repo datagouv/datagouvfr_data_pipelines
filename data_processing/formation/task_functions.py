@@ -9,7 +9,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}formation/"
@@ -139,7 +139,7 @@ def compare_files_s3(**context):
 
 
 @task()
-def send_notification(**context):
+def notification(**context):
     nb_of = context["ti"].xcom_pull(
         key="nb_of", task_ids="process_organismes_formation"
     )
@@ -148,7 +148,7 @@ def send_notification(**context):
     )
     send_message(
         text=(
-            ":mega: Données organismes formations mises à jour.\n"
+            "📣 Données organismes formations mises à jour.\n\n"
             f"- {nb_of} organismes de formation référencés\n"
             f"- {nb_siret} établissements (siret) représentés\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}"

@@ -14,7 +14,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
@@ -193,10 +193,10 @@ def publish_on_datagouv():
 
 
 @task()
-def send_notification_mattermost():
+def notification():
     send_message(
         text=(
-            ":mega: Données des pétitions du Sénat mises à jour.\n"
+            "📣 Données des pétitions du Sénat mises à jour.\n\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{DATASET_ID})"
         )

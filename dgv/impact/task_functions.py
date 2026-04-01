@@ -17,7 +17,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from dateutil.relativedelta import relativedelta
 
@@ -357,12 +357,12 @@ def publish_datagouv(DAG_FOLDER):
 
 
 @task()
-def send_notification_mattermost(DAG_FOLDER):
+def notification(DAG_FOLDER):
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}config.json") as fp:
         data = json.load(fp)
     send_message(
         text=(
-            ":mega: KPI de data.gouv mises à jour.\n"
+            "📣 KPI de data.gouv mises à jour.\n\n"
             f"- Données stockées sur S3 - [Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}]"
             f"(https://console.object.files.data.gouv.fr/browser/{S3_BUCKET_DATA_PIPELINE_OPEN}"
             f"impact)\n"

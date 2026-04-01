@@ -8,7 +8,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.activites.task_functions import (
     alert_if_new_reports,
     check_new,
     check_schema,
-    publish_mattermost,
+    notification,
     send_spam_to_grist,
 )
 
@@ -41,4 +41,4 @@ with DAG(
     ]
 
     checks >> send_spam_to_grist()
-    checks >> publish_mattermost() >> check_schema()
+    checks >> notification() >> check_schema()

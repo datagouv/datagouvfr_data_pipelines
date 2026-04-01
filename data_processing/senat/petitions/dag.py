@@ -5,7 +5,7 @@ from datagouvfr_data_pipelines.data_processing.senat.petitions.task_functions im
     TMP_FOLDER,
     gather_petitions,
     publish_on_datagouv,
-    send_notification_mattermost,
+    notification,
     send_petitions_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -25,5 +25,5 @@ with DAG(
         >> send_petitions_to_s3()
         >> publish_on_datagouv()
         >> clean_up_folder(TMP_FOLDER)
-        >> send_notification_mattermost()
+        >> notification()
     )

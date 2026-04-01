@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_support_tickets,
     get_visits,
 )
-from datagouvfr_data_pipelines.utils.mattermost import send_message
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 one_year_ago = datetime.today() - timedelta(days=365)
@@ -39,13 +39,13 @@ with DAG(
 ):
 
     @task()
-    def publish_mattermost():
+    def notification():
         return send_message(
-            ":bar_chart: Données du dashboard de suivi des indicateurs mises à jour."
+            "📊 Données du dashboard de suivi des indicateurs mises à jour."
         )
 
     clean_up_recreate = clean_up_folder(TMP_FOLDER, recreate=True)
-    _publish_mattermost = publish_mattermost()
+    _publish = notification()
     _gather_and_upload = gather_and_upload()
 
     (
@@ -56,10 +56,10 @@ with DAG(
             get_catalog_stats(),
             get_hvd_dataservices_stats(),
         ]
-        >> _publish_mattermost
+        >> _publish
     )
 
     (clean_up_recreate >> get_support_tickets(one_year_ago) >> _gather_and_upload,)
     (clean_up_recreate >> get_visits(one_year_ago) >> _gather_and_upload,)
 
-    _gather_and_upload >> _publish_mattermost
+    _gather_and_upload >> _publish
