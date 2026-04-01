@@ -8,10 +8,10 @@ from pathlib import Path
 import pandas as pd
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
-from datagouvfr_data_pipelines.data_processing.irve.geo_utils.geo import (
+from datagouvfr_data_pipelines.schema.irve.geo_utils.geo import (
     improve_geo_data_quality,
 )
-from datagouvfr_data_pipelines.utils.schema import (
+from datagouvfr_data_pipelines.schema.utils.consolidation import (
     append_stats_list,
     build_reference_table,
     comparer_versions,

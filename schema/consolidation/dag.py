@@ -22,7 +22,10 @@ from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
     update_resources,
     upload_consolidated_data,
 )
-from datagouvfr_data_pipelines.utils.schema import notification_synthese, upload_s3
+from datagouvfr_data_pipelines.schema.utils.consolidation import (
+    notification_synthese,
+    upload_s3,
+)
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}schema_consolidation/")

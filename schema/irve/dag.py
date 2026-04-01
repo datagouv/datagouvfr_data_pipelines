@@ -10,7 +10,7 @@ from datagouvfr_data_pipelines.config import (
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
+from datagouvfr_data_pipelines.schema.irve.task_functions import (
     consolidate_irve,
     create_consolidation_reports_irve,
     create_detailed_report_irve,
@@ -24,7 +24,10 @@ from datagouvfr_data_pipelines.data_processing.irve.task_functions import (
     update_resource_send_mail_producer_irve,
     upload_consolidated_irve,
 )
-from datagouvfr_data_pipelines.utils.schema import notification_synthese, upload_s3
+from datagouvfr_data_pipelines.schema.utils.consolidation import (
+    notification_synthese,
+    upload_s3,
+)
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 TMP_FOLDER = Path(f"{AIRFLOW_DAG_TMP}irve/")

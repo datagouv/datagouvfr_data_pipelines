@@ -19,7 +19,7 @@ from airflow.decorators import task
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.schema import comparer_versions
+from datagouvfr_data_pipelines.schema.utils.consolidation import comparer_versions
 from feedgen.feed import FeedGenerator
 from git import Git, Repo
 from table_schema_to_markdown import convert_source, sources_to_markdown
