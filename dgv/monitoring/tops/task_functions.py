@@ -199,7 +199,7 @@ def publish_top(period: str, label: str, **context):
             else "🧑‍🎨 **Top 10 réutilisations** - "
         )
         message = header + f"{label} (visites)\n\n{top}"
-        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
+        # send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)  # not notif for now, to be reassessed when Antonin comes back
 
 
 @task()
