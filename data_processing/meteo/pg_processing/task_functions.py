@@ -390,20 +390,21 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
         dest_name=file_path.name,
     ).download(timeout=TIMEOUT)
     csv_path = unzip_csv_gz(file_path.as_posix())
-    try:
+    pg_sync_url = get_hooked_name(
+        res["url"]
+        .replace("data/synchro_ftp/", "synchro_pg/")
+        .replace(".csv.gz", ".csv")
+    )
+    r = requests.head(pg_sync_url)
+    if r.ok:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
         # files are stored with hooked names on S3
         File(
-            url=get_hooked_name(
-                res["url"]
-                .replace("data/synchro_ftp/", "synchro_pg/")
-                .replace(".csv.gz", ".csv")
-            ),
+            url=pg_sync_url,
             dest_path=file_path.parent.as_posix(),
             dest_name=old_file,
         ).download(timeout=TIMEOUT)
-    except Exception:
-        # raise ValueError(f"Download error for {res['url']}: {e}")
+    else:
         logging.warning(
             "> This file is not in postgres mirror, creating an empty one for diff"
         )
