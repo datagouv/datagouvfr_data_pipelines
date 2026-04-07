@@ -6,11 +6,12 @@ import requests
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     MATOMO_TOKEN,
-    TCHAP_ROOM_MODERATION_NOUVEAUTES,
+    # TCHAP_ROOM_MODERATION_NOUVEAUTES,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import DATAGOUV_MATOMO_ID
-from datagouvfr_data_pipelines.utils.tchap import send_message
+
+# from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from dateutil.relativedelta import relativedelta
 
@@ -199,6 +200,7 @@ def publish_top(period: str, label: str, **context):
             else "🧑‍🎨 **Top 10 réutilisations** - "
         )
         message = header + f"{label} (visites)\n\n{top}"
+        print(message)
         # send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)  # not notif for now, to be reassessed when Antonin comes back
 
 
