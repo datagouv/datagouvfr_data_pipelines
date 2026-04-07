@@ -1,4 +1,5 @@
 import csv
+from email.utils import parsedate_to_datetime
 import gzip
 import json
 import logging
@@ -258,6 +259,22 @@ def fetch_resources(dataset: str) -> list[dict]:
     )
 
 
+def check_already_inserted(resource: dict, latest_db_insertion: str) -> bool:
+    if resource["internal"]["last_modified_internal"] < latest_db_insertion:
+        return True
+    pg_url = build_pg_file_url(resource["url"])
+    ftp_head = requests.head(resource["url"])
+    pg_head = requests.head(pg_url)
+    return (
+        ftp_head.ok
+        and pg_head.ok
+        and (
+            parsedate_to_datetime(ftp_head.headers["last-modified"])
+            < parsedate_to_datetime(pg_head.headers["last-modified"])
+        )
+    )
+
+
 def process_resources(
     resources: list[dict],
     dataset_name: str,
@@ -279,7 +296,7 @@ def process_resources(
             logging.info(resource["title"] + " is not a main resource")
             continue
         # that have been modified since latest insertion
-        if resource["internal"]["last_modified_internal"] < latest_db_insertion:
+        if check_already_inserted(resource, latest_db_insertion):
             logging.info(resource["title"] + " has not been updated since last check")
             continue
         # regex_infos looks like this: {'DEP': '07', 'AAAAMM': 'latest-2023-2024'} (for BASE/MENS)
@@ -373,6 +390,14 @@ def get_regex_infos(pattern: str, filename: str, params: dict) -> dict:
     return mydict
 
 
+def build_pg_file_url(ftp_file_url: str) -> str:
+    return get_hooked_name(
+        ftp_file_url.replace("data/synchro_ftp/", "synchro_pg/").replace(
+            ".csv.gz", ".csv"
+        )
+    )
+
+
 def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     if dataset == "BASE/QUOT":
         if "Vent" in res["title"]:
@@ -390,11 +415,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
         dest_name=file_path.name,
     ).download(timeout=TIMEOUT)
     csv_path = unzip_csv_gz(file_path.as_posix())
-    pg_sync_url = get_hooked_name(
-        res["url"]
-        .replace("data/synchro_ftp/", "synchro_pg/")
-        .replace(".csv.gz", ".csv")
-    )
+    pg_sync_url = build_pg_file_url(res["url"])
     r = requests.head(pg_sync_url)
     if r.ok:
         old_file = file_path.name.replace(".csv.gz", "_old.csv")
