@@ -74,14 +74,25 @@ queries = [
 
 def reformat_dfi(filenames, output_name):
     lines = []
-    with open(output_name, "w") as infile:
+    with open(output_name, "w") as outfile:
         for filename in filenames:
             logging.info(filename)
-            with py7zr.SevenZipFile(filename, mode="r") as archive:
-                for file in archive.getnames():
+            if filename.endswith(".7z"):
+                alias_open = py7zr.SevenZipFile
+            else:
+                alias_open = ZipFile
+            with alias_open(filename, mode="r") as archive:
+                if filename.endswith(".7z"):
+                    subfilenames = archive.getnames()
+                else:
+                    subfilenames = [f.filename for f in archive.filelist]
+                for file in subfilenames:
                     logging.info(file)
-                    archive.reset()
-                    archive.extract(targets=[file])
+                    if filename.endswith(".7z"):
+                        archive.reset()
+                        archive.extract(targets=[file])
+                    else:
+                        archive.extract(file)
                     with ZipFile(file) as zip_archive:
                         for zip in zip_archive.filelist:
                             for line in zip_archive.open(zip):
@@ -131,7 +142,7 @@ def reformat_dfi(filenames, output_name):
                                                 nature_dfi,
                                                 date_valid_dfi,
                                             ] + [origin, destination]
-                                            infile.write(",".join(out) + "\n")
+                                            outfile.write(",".join(out) + "\n")
                                     lines = []
                     Path(file).unlink()
 
@@ -171,11 +182,19 @@ def send_metadata_to_s3():
 
 
 def check_if_modif():
+    logging.info("Check if modification")
     s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
     dataset_content = local_client.dataset(
         id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
-    last_2_files = sorted(dataset_content.resources, key=lambda d: d.last_modified)[-2:]
+    last_2_files = sorted(
+        [
+            resource
+            for resource in dataset_content.resources
+            if resource.format in ("octet-stream", "zip")
+        ],
+        key=lambda d: d.last_modified,
+    )[-2:]
     metadata = [
         {
             "title": resource.title,
@@ -185,6 +204,7 @@ def check_if_modif():
         }
         for resource in last_2_files
     ]
+    logging.info("Metadata in resource is :\n" + json.dumps(metadata, indent=4))
     with open(f"{TMP_FOLDER}{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
     metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
@@ -217,6 +237,7 @@ def gather_data(**context):
         r"\((.*?)\)", metadata_content[0].get("title")
     )
     logging.info("Start downloading DFI files")
+    logging.info("Urls are :\n" + "\n".join(urls_resources))
     filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)
     download_files(filenames_infos)
     filenames = [
@@ -240,9 +261,18 @@ def gather_data(**context):
     logging.info(
         "Convert parquet to get the exact structure beetween parquet and CSV contrary to reformated CSV"
     )
+    logging.info(
+        "Parquet output file size is "
+        + str(Path(parquet_dfi).stat().st_size)
+        + " bytes"
+    )
     df = pd.read_parquet(parquet_dfi)
-    df.to_csv(parquet_dfi.replace(".parquet", ".csv"), index=False)
+    csv_dfi = parquet_dfi.replace(".parquet", ".csv")
+    df.to_csv(csv_dfi, index=False)
     logging.info(f"Convert parquet file {parquet_dfi} to CSV")
+    logging.info(
+        "Parquet output file size is " + str(Path(csv_dfi).stat().st_size) + " bytes"
+    )
     context["ti"].xcom_push(
         key="min_date", value=f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z"
     )
