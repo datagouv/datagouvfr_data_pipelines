@@ -220,7 +220,7 @@ def gather_data(**context):
     filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)
     download_files(filenames_infos)
     filenames = [
-        f"{filename_info.get('dest_path')}/{filename_info.get('dest_name')}"
+        f"{filename_info.get('dest_path')}{filename_info.get('dest_name')}"
         for filename_info in filenames_infos
     ]
     logging.info("End downloading DFI files")
