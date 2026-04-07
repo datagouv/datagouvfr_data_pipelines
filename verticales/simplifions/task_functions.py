@@ -3,10 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from airflow.decorators import task
-from datagouvfr_data_pipelines.config import (
-    # TCHAP_ROOM_SIMPLIFIONS,
-    TCHAP_ROOM_DATAENG,
-)
+from datagouvfr_data_pipelines.config import TCHAP_ROOM_SIMPLIFIONS
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.verticales.simplifions.diff_manager import (
     DiffManager,
@@ -323,8 +320,7 @@ def watch_grist_data():
 
     send_message(
         text=message,
-        # room_id=TCHAP_ROOM_SIMPLIFIONS,  # to restore when the bot is added to the channel
-        room_id=TCHAP_ROOM_DATAENG,
+        room_id=TCHAP_ROOM_SIMPLIFIONS,
     )
 
 
