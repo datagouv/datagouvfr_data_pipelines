@@ -39,6 +39,7 @@ with DAG(
     dagrun_timeout=timedelta(minutes=2000),
     tags=["data_processing", "meteo"],
     default_args=default_args,
+    max_active_runs=1,
 ):
     # ftp_waiting_room = ExternalTaskSensor(
     #     task_id="ftp_waiting_room",
