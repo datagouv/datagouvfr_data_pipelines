@@ -332,17 +332,16 @@ def process_resources(
             )
             # skipping if no diff
             if (
-                count_lines_in_file(build_deletions_file_name(csv_path)) == 0
-                and count_lines_in_file(build_additions_file_name(csv_path)) == 0
+                count_lines_in_file(build_deletions_file_name(csv_path)) != 0
+                or count_lines_in_file(build_additions_file_name(csv_path)) != 0
             ):
-                continue
-            delete_and_insert_into_pg(
-                _conn=_conn,
-                deletions=deletions,
-                regex_infos=regex_infos,
-                table=table_name,
-                csv_path=csv_path,
-            )
+                delete_and_insert_into_pg(
+                    _conn=_conn,
+                    deletions=deletions,
+                    regex_infos=regex_infos,
+                    table=table_name,
+                    csv_path=csv_path,
+                )
 
             if AIRFLOW_ENV == "prod":
                 hooked_file_name = csv_path.split("/")[-1]
