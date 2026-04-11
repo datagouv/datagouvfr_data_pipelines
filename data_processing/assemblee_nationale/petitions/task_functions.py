@@ -161,6 +161,22 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
     }
 
 
+def determine_last_petition_id(default: int) -> int:
+    url = "https://petitions.assemblee-nationale.fr/initiatives?order=recent&per_page=1"
+    headers = { "Accept": "text/html" }
+
+    r = requests.get(url, headers=headers)
+    if r.status_code == 200:
+        soup = BeautifulSoup(r.text, 'html.parser')
+        card_link = soup.find("a", attrs={"class": "card__link"})
+        try:
+            return int(card_link ["href"].split("-")[1])
+        except ValueError:
+            return default
+
+    return default
+
+
 @task()
 def gather_petitions():
     # getting current file to ignore unused ids
@@ -178,6 +194,8 @@ def gather_petitions():
     )
     max_id = max(ids)
     unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
+    # search last published petition.
+    max_id = determine_last_petition_id(max_id)
     # we go through all ids except the ones we know are unused
     # we don't know which id is the last one, so we stop:
     # - after we have more than 10 (arbitrary) unused ids in a row
@@ -188,7 +206,7 @@ def gather_petitions():
     session = requests.Session()
     while True:
         _id += 1
-        if _id > max_id and unreach_in_a_row > 10:
+        if _id > max_id and unreach_in_a_row > 40:
             break
         if _id in unused_ids:
             unreach_in_a_row += 1
