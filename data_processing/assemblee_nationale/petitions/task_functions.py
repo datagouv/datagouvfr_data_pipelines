@@ -188,7 +188,7 @@ def gather_petitions():
     session = requests.Session()
     while True:
         _id += 1
-        if _id > max_id and unreach_in_a_row > 10:
+        if _id > max_id and unreach_in_a_row > 40:
             break
         if _id in unused_ids:
             unreach_in_a_row += 1
