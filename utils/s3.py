@@ -194,7 +194,7 @@ class S3Client:
         )
         logging.info(f"ETag file 1 : {f1['ETag']}")
         logging.info(f"ETag file 2 : {f2['ETag']}")
-        if file_1["ETag"] == file_2["ETag"]:
+        if f1["ETag"] == f2["ETag"]:
             logging.info("Identical ETags, returning True")
             return True
 
