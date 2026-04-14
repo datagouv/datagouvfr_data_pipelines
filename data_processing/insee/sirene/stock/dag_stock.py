@@ -50,8 +50,8 @@ with DAG(
         )
         >> notification(geoloc=False)
         >> clean_up_folder(TMP_FOLDER)
-        >> TriggerDagRunOperator(
-            task_id="trigger_geocodage",
-            trigger_dag_id="data_processing_sirene_geocodage",
-        )
+        # >> TriggerDagRunOperator(
+        #     task_id="trigger_geocodage",
+        #     trigger_dag_id="data_processing_sirene_geocodage",
+        # )
     )
