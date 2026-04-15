@@ -1,4 +1,4 @@
-from markdown import markdown
+# from markdown import markdown
 import requests
 
 from datagouvfr_data_pipelines.config import (
@@ -21,7 +21,8 @@ map_ping = {
 
 
 def markdown_to_html(md: str) -> str:
-    return markdown(md).replace("\n", "")
+    return md
+    # return markdown(md).replace("\n", "")
 
 
 def send_message(
