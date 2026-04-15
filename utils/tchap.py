@@ -21,7 +21,7 @@ map_ping = {
 
 
 def markdown_to_html(md: str) -> str:
-    return markdown.markdown(md).replace("\n", "")
+    return markdown(md).replace("\n", "")
 
 
 def send_message(
