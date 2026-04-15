@@ -4,7 +4,7 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.task_group import TaskGroup
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
-from datagouvfr_data_pipelines.data_processing.dvf.task_functions import (
+from datagouvfr_data_pipelines.data_processing.dvf.explore.task_functions import (
     TMP_FOLDER,
     alter_dvf_table,
     concat_and_publish_whole,
@@ -38,7 +38,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 start, end = get_year_interval()
 
 with DAG(
-    dag_id="data_processing_dvf",
+    dag_id="data_processing_dvf_explore",
     schedule=None,
     start_date=datetime(2024, 8, 10),
     catchup=False,
@@ -51,7 +51,7 @@ with DAG(
         task_id="download_dvf_data",
         bash_command=(
             f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-            f"dvf/scripts/script_dl_dvf.sh {TMP_FOLDER} "
+            f"dvf/explore/scripts/script_dl_dvf.sh {TMP_FOLDER} "
             f"{start} {end} "
         ),
     )
@@ -62,7 +62,7 @@ with DAG(
                 task_id="download_copro",
                 bash_command=(
                     f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}"
-                    f"dvf/scripts/script_dl_copro.sh {TMP_FOLDER} "
+                    f"dvf/explore/scripts/script_dl_copro.sh {TMP_FOLDER} "
                 ),
             )
             >> create_copro_table()
@@ -74,7 +74,7 @@ with DAG(
             BashOperator(
                 task_id="download_dpe",
                 bash_command=(
-                    f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/scripts/script_dl_dpe.sh {TMP_FOLDER} "
+                    f"sh {AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/scripts/script_dl_dpe.sh {TMP_FOLDER} "
                 ),
             )
             >> process_dpe()
