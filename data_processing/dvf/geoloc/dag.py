@@ -31,7 +31,8 @@ with DAG(
                 >> clean_up_folder(TMP_FOLDER, recreate=True)
                 >> download_source_data()
             )
-        ) >> publish_datagouv()
+        )
+        >> publish_datagouv()
         # >> notification()
         # >> TriggerDagRunOperator(
         #     task_id="trigger_dvf_explore",
