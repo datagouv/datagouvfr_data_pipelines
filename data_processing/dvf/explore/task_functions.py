@@ -27,7 +27,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from unidecode import unidecode
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf_explore/"
+TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DPEDIR = f"{TMP_FOLDER}dpe/"
 schema = "dvf"
 
@@ -414,9 +414,9 @@ def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
 def process_dvf_stats() -> None:
     years = sorted(
         [
-            int(f.replace("full_", "").replace(".csv", ""))
+            int(f.replace("full-", "").replace(".csv", ""))
             for f in os.listdir(TMP_FOLDER)
-            if "full_" in f and ".gz" not in f
+            if "full-" in f
         ]
     )
     export = {}
@@ -450,9 +450,10 @@ def process_dvf_stats() -> None:
     for year in years:
         logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
-            TMP_FOLDER + f"full_{year}.csv",
+            TMP_FOLDER + f"full-{year}.csv.gz",
             sep=",",
             encoding="utf8",
+            compression="gzip",
             dtype={
                 "code_commune": str,
                 "code_departement": str,
