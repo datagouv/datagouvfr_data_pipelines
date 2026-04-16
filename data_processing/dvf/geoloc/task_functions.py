@@ -59,7 +59,11 @@ def download_source_data(**context):
         os.remove(dest_path)
 
     logging.info("Retrieving reference data...")
-    r = requests.get("https://unpkg.com/@etalab/decoupage-administratif/data/communes.json").json()
+    # one major version per year since 2020
+    version = max_year - 2020
+    r = requests.get(
+        f"https://unpkg.com/@etalab/decoupage-administratif@{version}/data/communes.json"
+    ).json()
     arrondissements_muni = [
         {"nom": k["nom"], "code": k["code"], "type": "COM"}
         for k in r
@@ -88,16 +92,8 @@ def build_parcelle_id(row: pd.Series) -> str:
             if pd.notna(prefix := row["Prefixe de section"])
             else "000"
         )
-        + (
-            section.rjust(2, "0")
-            if pd.notna(section := row["Section"])
-            else "00"
-        )
-        + (
-            num_plan.rjust(4, "0")
-            if pd.notna(num_plan := row["No plan"])
-            else "0000"
-        )
+        + (section.rjust(2, "0") if pd.notna(section := row["Section"]) else "00")
+        + (num_plan.rjust(4, "0") if pd.notna(num_plan := row["No plan"]) else "0000")
     )
 
 
@@ -113,7 +109,9 @@ def enrich_year(
     output = pd.DataFrame()
     output["id_mutation"] = ""
     output["date_mutation"] = (
-        source["Date mutation"].str.slice(6,)
+        source["Date mutation"].str.slice(
+            6,
+        )
         + "-"
         + source["Date mutation"].str.slice(3, 5)
         + "-"
@@ -121,19 +119,23 @@ def enrich_year(
     )
     output["numero_disposition"] = source["No disposition"]
     output["nature_mutation"] = source["Nature mutation"]
-    output["valeur_fonciere"] = source["Valeur fonciere"].str.replace(",", ".").astype(float)
+    output["valeur_fonciere"] = (
+        source["Valeur fonciere"].str.replace(",", ".").astype(float)
+    )
     output["adresse_numero"] = source["No voie"]
     output["adresse_suffixe"] = source["B/T/Q"]
     output["adresse_nom_voie"] = source.apply(
-        lambda row: row["Type de voie"] + " " + row["Voie"]
-        if pd.notna(row["Type de voie"]) and pd.notna(row["Voie"])
-        else pd.NA,
+        lambda row: (
+            row["Type de voie"] + " " + row["Voie"]
+            if pd.notna(row["Type de voie"]) and pd.notna(row["Voie"])
+            else pd.NA
+        ),
         axis=1,
     )
     output["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0")
     output["code_postal"] = source["Code postal"].str.rjust(5, "0")
-    # output["code_commune"] = 
-    # output["nom_commune"] = 
+    # output["code_commune"] =
+    # output["nom_commune"] =
     # output["code_departement"] = getCodeDepartement(communeActuelle.code)
     output["ancien_code_commune"] = ""
     output["ancien_nom_commune"] = ""
@@ -142,26 +144,33 @@ def enrich_year(
     output["numero_volume"] = source["No Volume"]
     for no in ["1er", "2eme", "3eme", "4eme", "5eme"]:
         output[f"lot{no[0]}_numero"] = source[f"{no} lot"]
-        output[f"lot{no[0]}_surface_carrez"] = source[f"Surface Carrez du {no} lot"].str.replace(",", ".").astype(float)
+        output[f"lot{no[0]}_surface_carrez"] = (
+            source[f"Surface Carrez du {no} lot"].str.replace(",", ".").astype(float)
+        )
     output["nombre_lots"] = source["Nombre de lots"]
     output["code_type_local"] = source["Code type local"]
     output["type_local"] = source["Type local"]
-    output["surface_reelle_bati"] = source["Surface reelle bati"].str.replace(",", ".").astype(float)
+    output["surface_reelle_bati"] = (
+        source["Surface reelle bati"].str.replace(",", ".").astype(float)
+    )
     output["nombre_pieces_principales"] = source["Nombre pieces principales"]
     output["code_nature_culture"] = source["Nature culture"]
     output["nature_culture"] = source["Nature culture"].map(map_cultures["cultures"])
     output["code_nature_culture_speciale"] = source["Nature culture speciale"]
-    output["nature_culture_speciale"] = source["Nature culture speciale"].map(map_cultures["cultures-speciales"])
-    output["surface_terrain"] = source["Surface terrain"].str.replace(",", ".").astype(float)
+    output["nature_culture_speciale"] = source["Nature culture speciale"].map(
+        map_cultures["cultures-speciales"]
+    )
+    output["surface_terrain"] = (
+        source["Surface terrain"].str.replace(",", ".").astype(float)
+    )
     output["longitude"] = ""
     output["latitude"] = ""
     del source
 
     logging.info("Creating mutation ids...")
     # new mutation id when either date or price changes
-    mask = (
-        (output["date_mutation"] != output["date_mutation"].shift())
-        | (output["valeur_fonciere"] != output["valeur_fonciere"].shift())
+    mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
+        output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
     output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
     print(output)
@@ -204,11 +213,7 @@ def enrich_years(files, **context):
 def publish_datagouv():
     dataset = local_client.dataset(GEOLOC_DATASET_ID)
     yearly_resources = sorted(
-        [
-            res for res in dataset.resources
-            if res.type == "main"
-            and "full" in res.url
-        ],
+        [res for res in dataset.resources if res.type == "main" and "full" in res.url],
         key=lambda r: r.title,
     )
     files = sorted(os.listdir(TMP_FOLDER))
