@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import ShortCircuitOperator
+
 # from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
