@@ -132,9 +132,18 @@ def enrich_year(
     )
     output["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0")
     output["code_postal"] = source["Code postal"].str.rjust(5, "0")
-    # output["code_commune"] =
-    # output["nom_commune"] =
-    # output["code_departement"] = getCodeDepartement(communeActuelle.code)
+    # not as sophisticated as the original code
+    output["code_commune"] = source.apply(build_code_commune, axis=1)
+    patterns = {
+        f"{sep}{sw}{sep}": f"{sep}{sw.lower()}{sep}"
+        for sw in {"Le", "La", "Les", "En", "Sur", "De"}
+        for sep in {"-", " "}
+    }
+    output["nom_commune"] = source["Commune"].str.title()
+    # this can be changed when upgrading to pandas 3 (pat can be a dict)
+    for pat, repl in patterns.items():
+        output["nom_commune"] = output["nom_commune"].str.replace(pat, repl)
+    output["code_departement"] = output["code_commune"].str.extract(r"^(97.|..)", expand=False)
     output["ancien_code_commune"] = ""
     output["ancien_nom_commune"] = ""
     output["id_parcelle"] = source.apply(build_parcelle_id, axis=1)
