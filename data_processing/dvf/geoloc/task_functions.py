@@ -109,9 +109,7 @@ def enrich_year(
     output = pd.DataFrame()
     output["id_mutation"] = ""
     output["date_mutation"] = (
-        source["Date mutation"].str.slice(
-            6,
-        )
+        source["Date mutation"].str.slice(6,)
         + "-"
         + source["Date mutation"].str.slice(3, 5)
         + "-"
@@ -190,15 +188,10 @@ def enrich_years(files, **context):
     arrondissements_muni = context["ti"].xcom_pull(
         key="arrondissements_muni", task_ids="download_source_data"
     )
-    map_cultures = {
-        scope: {
-            (row := list(it.items()))[0][1]: row[1][1]
-            for it in pd.read_csv(
-                DAG_FOLDER + f"dvf/geoloc/data/table-{scope}.csv"
-            ).to_dict(orient="records")
-        }
-        for scope in ["cultures", "cultures-speciales"]
-    }
+    map_cultures = {}
+    for scope in ["cultures", "cultures-speciales"]:
+        with open(DAG_FOLDER + f"dvf/geoloc/data/{scope}.json", "r") as f:
+            map_cultures[scope] = json.load(f)
     for file in files:
         enrich_year(
             file,
