@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import re
-from shapely.geometry.polygon import Polygon
 from time import sleep
 from zipfile import ZipFile
 
@@ -30,7 +29,7 @@ GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"
 def check_if_modif():
     # triggering the pipeline if any of the source dataset's resource has been
     # updated more recently than the agregated file
-    with open(DAG_FOLDER + f"dvf/explore/config.json", "r") as f:
+    with open(DAG_FOLDER + "dvf/explore/config.json", "r") as f:
         config = json.load(f)
     return Resource(
         id=config["concat"]["prod"]["resource_id"],
@@ -115,7 +114,7 @@ def get_parcelle_geometry(pid: str) -> Polygon | None:
         return get_parcelle_geometry(pid)
     try:
         return Polygon(r.json()["features"][0]["geometry"]["coordinates"][0][0])
-    except:
+    except Exception:
         return None
 
 
@@ -125,7 +124,7 @@ def add_geoloc(output: pd.DataFrame) -> None:
     # and assumes that many mutations touch the same parcel across the years
     parcelles = pd.DataFrame({"id_parcelle": output["id_parcelle"].unique()})
     logging.info(f"Retrieving geometry for {len(parcelles)} parcelles...")
-    parcelles["geometry"] = parcelles["id_parcelle"].apply(get_parcelle_geometry)   
+    parcelles["geometry"] = parcelles["id_parcelle"].apply(get_parcelle_geometry)
     parcelles = gpd.GeoDataFrame(parcelles)
     parcelles["longitude"] = parcelles.centroid.x
     parcelles["latitude"] = parcelles.centroid.y
@@ -148,7 +147,9 @@ def enrich_year(
     output = pd.DataFrame()
     output["id_mutation"] = ""
     output["date_mutation"] = (
-        source["Date mutation"].str.slice(6,)
+        source["Date mutation"].str.slice(
+            6,
+        )
         + "-"
         + source["Date mutation"].str.slice(3, 5)
         + "-"
@@ -182,7 +183,9 @@ def enrich_year(
     # this can be changed when upgrading to pandas 3 (pat can be a dict)
     for pat, repl in patterns.items():
         output["nom_commune"] = output["nom_commune"].str.replace(pat, repl)
-    output["code_departement"] = output["code_commune"].str.extract(r"^(97.|..)", expand=False)
+    output["code_departement"] = output["code_commune"].str.extract(
+        r"^(97.|..)", expand=False
+    )
     # TODO: fill in the "ancien..." columns
     output["ancien_code_commune"] = ""
     output["ancien_nom_commune"] = ""
