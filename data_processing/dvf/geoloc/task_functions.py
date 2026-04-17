@@ -2,12 +2,16 @@ import json
 import logging
 import os
 import re
+from shapely.geometry.polygon import Polygon
+from time import sleep
 from zipfile import ZipFile
 
 from airflow.decorators import task
 from datagouv import Dataset, Resource
+import geopandas as gpd
 import pandas as pd
 import requests
+from shapely import Polygon
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -97,6 +101,41 @@ def build_parcelle_id(row: pd.Series) -> str:
     )
 
 
+def get_parcelle_geometry(pid: str) -> Polygon | None:
+    # could also be with https://data.geopf.fr/geocodage/search?index=parcel
+    # but some parcels seem to be missing? e.g. 01033458AB0174
+    url = (
+        "https://apicarto.ign.fr/api/cadastre/parcelle?"
+        f"code_insee={pid[:5]}&section={pid[8:10]}&numero={pid[10:]}"
+    )
+    r = requests.get(url)
+    if r.status_code == 429:
+        logging.warning("Reached rate-limit, sleeping then retrying...")
+        sleep(r.headers.get("retry-after", 5))
+        return get_parcelle_geometry(pid)
+    try:
+        return Polygon(r.json()["features"][0]["geometry"]["coordinates"][0][0])
+    except:
+        return None
+
+
+def add_geoloc(output: pd.DataFrame) -> None:
+    # a potential improvement: reuse parcelles from one enrichment to another
+    # so that we don't retrieve the same twice, but that means more RAM consumption
+    # and assumes that many mutations touch the same parcel across the years
+    parcelles = pd.DataFrame({"id_parcelle": output["id_parcelle"].unique()})
+    logging.info(f"Retrieving geometry for {len(parcelles)} parcelles...")
+    parcelles["geometry"] = parcelles["id_parcelle"].apply(get_parcelle_geometry)   
+    parcelles = gpd.GeoDataFrame(parcelles)
+    parcelles["longitude"] = parcelles.centroid.x
+    parcelles["latitude"] = parcelles.centroid.y
+    del parcelles["geometry"]
+    # trying to be memory efficient so map instead of merge
+    for col in ["latitude", "longitude"]:
+        output[col] = output["id_parcelle"].map(parcelles.set_index("id_parcelle")[col])
+    del parcelles
+
+
 def enrich_year(
     file: str,
     arrond: dict,
@@ -144,6 +183,7 @@ def enrich_year(
     for pat, repl in patterns.items():
         output["nom_commune"] = output["nom_commune"].str.replace(pat, repl)
     output["code_departement"] = output["code_commune"].str.extract(r"^(97.|..)", expand=False)
+    # TODO: fill in the "ancien..." columns
     output["ancien_code_commune"] = ""
     output["ancien_nom_commune"] = ""
     output["id_parcelle"] = source.apply(build_parcelle_id, axis=1)
@@ -170,8 +210,6 @@ def enrich_year(
     output["surface_terrain"] = (
         source["Surface terrain"].str.replace(",", ".").astype(float)
     )
-    output["longitude"] = ""
-    output["latitude"] = ""
     del source
 
     logging.info("Creating mutation ids...")
@@ -180,6 +218,8 @@ def enrich_year(
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
     output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
+
+    add_geoloc(output)
     print(output)
 
     logging.info("Saving file...")
