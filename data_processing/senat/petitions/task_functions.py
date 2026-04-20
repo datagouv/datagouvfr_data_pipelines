@@ -12,6 +12,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.data_processing.assemblee_nationale.petitions.task_functions import (
+    get_latest_petition_id,
+)
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.tchap import send_message
@@ -109,31 +112,18 @@ def gather_petitions():
             dtype={"identifiant": float},
         )["identifiant"]
         .dropna()
-        .apply(int)
+        .astype(int)
     )
-    session = requests.Session()
-    max_id = max(ids)
+    max_id = get_latest_petition_id("senat")
     unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
-    # we go through all ids except the ones we know are unused
-    # we don't know which id is the last one, so we stop:
-    # - after we have more than 10 (arbitrary) unused ids in a row
-    # - if we are after the previous max id
+    # we go through all ids except the ones we know are unused, until the latest id
     data = []
-    _id = min(ids) - 1
-    unreach_in_a_row = 0
-    while True:
-        _id += 1
-        if _id > max_id and unreach_in_a_row > 10:
-            break
+    session = requests.Session()
+    for _id in range(min(ids), max_id + 1):
         if _id in unused_ids:
-            unreach_in_a_row += 1
             continue
         row = get_row(_id, session)
-        if row is None:
-            unreach_in_a_row += 1
-            continue
-        else:
-            unreach_in_a_row = 0
+        if row:
             data.append(row)
             if len(data) % 100 == 0:
                 logging.info(f"> fetched {len(data)}")
