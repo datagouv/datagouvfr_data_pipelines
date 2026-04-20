@@ -163,17 +163,19 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
 
 def get_latest_petition_id(scope: str) -> int:
     url = f"https://petitions.{scope}.fr/initiatives?order=recent&per_page=1"
-    headers = { "Accept": "text/html" }
+    headers = {"Accept": "text/html"}
 
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
-        soup = BeautifulSoup(r.text, 'html.parser')
+        soup = BeautifulSoup(r.text, "html.parser")
         card_link = soup.find("a", attrs={"class": "card__link"})
         try:
-            return int(card_link ["href"].split("-")[1])
+            return int(card_link["href"].split("-")[1])
         except Exception:
             pass
-    raise ValueError("Could not retrieve latest petition id, maybe site structure has changed")
+    raise ValueError(
+        "Could not retrieve latest petition id, maybe site structure has changed"
+    )
 
 
 @task()
