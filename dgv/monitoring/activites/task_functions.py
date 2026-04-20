@@ -454,7 +454,11 @@ def publish_item(item, item_type):
         else:
             message += "**/!\\ sans rattachement**"
         message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
-        send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
+        send_message(
+            message,
+            TCHAP_ROOM_MODERATION_NOUVEAUTES,
+            ping=["room"] if item["spam"] else [],
+        )
 
 
 @task()
@@ -497,7 +501,11 @@ def notification(**context):
                 "📢 🏢 Nouvelle **organisation** : "
                 f"*{item['name'].strip()}* \n\n\n👉️ {item['page']}"
             )
-            send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
+            send_message(
+                message,
+                TCHAP_ROOM_MODERATION_NOUVEAUTES,
+                ping=["room"] if item["spam"] else [],
+            )
 
     if nb_datasets > 0:
         for item in datasets:
