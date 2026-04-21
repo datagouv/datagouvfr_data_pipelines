@@ -161,6 +161,23 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
     }
 
 
+def get_latest_petition_id(scope: str) -> int:
+    url = f"https://petitions.{scope}.fr/initiatives?order=recent&per_page=1"
+    headers = {"Accept": "text/html"}
+
+    r = requests.get(url, headers=headers)
+    if r.status_code == 200:
+        soup = BeautifulSoup(r.text, "html.parser")
+        card_link = soup.find("a", attrs={"class": "card__link"})
+        try:
+            return int(card_link["href"].split("-")[1])
+        except Exception:
+            pass
+    raise ValueError(
+        "Could not retrieve latest petition id, maybe site structure has changed"
+    )
+
+
 @task()
 def gather_petitions():
     # getting current file to ignore unused ids
@@ -174,32 +191,21 @@ def gather_petitions():
             dtype={"identifiant": float},
         )["identifiant"]
         .dropna()
-        .apply(int)
+        .astype(int)
     )
-    max_id = max(ids)
+    max_id = get_latest_petition_id("assemblee-nationale")
     unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
-    # we go through all ids except the ones we know are unused
-    # we don't know which id is the last one, so we stop:
-    # - after we have more than 10 (arbitrary) unused ids in a row
-    # - if we are after the previous max id
+    # we go through all ids except the ones we know are unused, until the latest id
     data = []
-    _id = min(ids) - 1
-    unreach_in_a_row = 0
     session = requests.Session()
-    while True:
-        _id += 1
-        if _id > max_id and unreach_in_a_row > 10:
-            break
+    for _id in range(min(ids), max_id + 1):
         if _id in unused_ids:
-            unreach_in_a_row += 1
             continue
         row = get_row(_id, session)
-        if row is None:
-            unreach_in_a_row += 1
-            continue
-        else:
-            unreach_in_a_row = 0
+        if row:
             data.append(row)
+            if len(data) % 100 == 0:
+                logging.info(f"> fetched {len(data)}")
 
     df = pd.DataFrame(data)
     df.to_csv(
