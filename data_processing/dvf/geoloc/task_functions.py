@@ -129,6 +129,7 @@ def add_geoloc(output: pd.DataFrame) -> None:
     parcelles["longitude"] = parcelles.centroid.x
     parcelles["latitude"] = parcelles.centroid.y
     del parcelles["geometry"]
+    logging.info("Merging coordinates...")
     # trying to be memory efficient so map instead of merge
     for col in ["latitude", "longitude"]:
         output[col] = output["id_parcelle"].map(parcelles.set_index("id_parcelle")[col])
