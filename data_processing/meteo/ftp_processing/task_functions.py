@@ -418,7 +418,7 @@ def upload_new_files(**context) -> None:
 
     new_files_datasets = set()
     went_wrong = []
-    for idx, clean_file_path in enumerate(reversed(sorted(new_files))):
+    for clean_file_path in reversed(sorted(new_files)):
         file_with_ext, global_path, resource_name, description, url, is_doc = (
             build_resource(
                 clean_file_path,
@@ -445,7 +445,6 @@ def upload_new_files(**context) -> None:
                     "description": description or "",
                 },
             )
-            raise_if_duplicates(idx)
             new_files_datasets.add(global_path)
             updated_datasets.add(global_path)
         except KeyError:
@@ -473,7 +472,7 @@ def handle_updated_files_same_name(**context) -> None:
     resources_lists = get_resource_lists()
 
     new_files = []
-    for idx, file_path in enumerate(files_to_update_same_name):
+    for file_path in files_to_update_same_name:
         _, global_path = get_path(file_path)
         if global_path not in resources_lists:
             logging.warning(f"⚠️ no config for this file: {file_path}")
@@ -498,7 +497,6 @@ def handle_updated_files_same_name(**context) -> None:
                 "filesize": s3_files[s3_folder + file_path],
             },
         )
-        raise_if_duplicates(idx)
         updated_datasets.add(global_path)
     context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
     context["ti"].xcom_push(key="new_files", value=new_files)
@@ -518,7 +516,7 @@ def handle_updated_files_new_name(**context) -> None:
     resources_lists = get_resource_lists()
 
     new_files = []
-    for idx, file_path in enumerate(files_to_update_new_name):
+    for file_path in files_to_update_new_name:
         file_with_ext, global_path, resource_name, description, url, is_doc = (
             build_resource(file_path, s3_folder)
         )
@@ -553,7 +551,6 @@ def handle_updated_files_new_name(**context) -> None:
                 }
             ),
         )
-        raise_if_duplicates(idx)
         updated_datasets.add(global_path)
     context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
     context["ti"].xcom_push(key="new_files", value=new_files)
@@ -736,23 +733,3 @@ def notification(**context) -> None:
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)
-
-
-# %% TO BE REMOVED SOMEWHEN
-import pandas as pd  # noqa
-
-
-def raise_if_duplicates(idx: int) -> None:
-    if idx > 9 and idx % 10 != 0:
-        # checking for duplicates if not many cases (new file or new name)
-        # or every 10 files processed
-        return
-    catalog = pd.read_csv(
-        "https://www.data.gouv.fr/api/1/organizations/meteo-france/datasets-resources.csv",
-        sep=";",
-        usecols=["url", "id", "dataset.id"],
-    )
-    dups = catalog["id"].value_counts().reset_index()
-    dups = dups.loc[dups["count"] > 1, "id"].to_list()
-    if dups:
-        raise Exception("Duplicates:", dups)
