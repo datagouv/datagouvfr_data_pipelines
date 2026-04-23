@@ -4,8 +4,9 @@ curr_year=$3
 rm -rf $DATADIR
 mkdir -p $DATADIR
 
-URL_departements='https://www.insee.fr/api/1/statistiques/fichier/6051727/departement_2022.csv'
-URL_communes='https://www.insee.fr/api/1/statistiques/fichier/6051727/commune_2022.csv'
+# from https://www.data.gouv.fr/datasets/code-officiel-geographique-cog
+URL_departements='https://www.insee.fr/fr/statistiques/fichier/8740222/v_departement_2026.csv'
+URL_communes='https://www.insee.fr/fr/statistiques/fichier/8740222/v_commune_depuis_1943.csv'
 
 echo Downloading geo files...
 curl $URL_departements > $DATADIR/departements.csv

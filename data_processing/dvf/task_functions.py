@@ -121,43 +121,35 @@ def populate_copro_table() -> None:
         "epci": "epci",
         "commune": "commune",
         "numero_d_immatriculation": "numero_immatriculation",
-        "type_de_syndic_benevole_professionnel_non_connu": "type_syndic",
-        "identification_du_representant_legal_raison_sociale_et_le_numer": "identification_representant_legal",
-        "siret_du_representant_legal": "siret_representant_legal",
+        "type_syndic": "type_syndic",
+        "identification_representant_legal": "identification_representant_legal",
+        "siret_representant_legal": "siret_representant_legal",
         "code_ape": "code_ape",
-        "commune_du_representant_legal": "commune_representant_legal",
-        "mandat_en_cours_dans_la_copropriete": "mandat_en_cours_copropriete",
-        "nom_d_usage_de_la_copropriete": "nom_usage_copropriete",
-        "adresse_de_reference": "adresse_reference",
-        "numero_et_voie_adresse_de_reference": "numero_et_voie_adresse_reference",
-        "code_postal_adresse_de_reference": "code_postal_adresse_reference",
-        "commune_adresse_de_reference": "commune_adresse_reference",
+        "commune_representant_legal": "commune_representant_legal",
+        "mandat_en_cours": "mandat_en_cours_copropriete",
+        "nom_usage_copropriete": "nom_usage_copropriete",
+        "adresse_reference": "adresse_reference",
+        "numero_voie_adresse": "numero_et_voie_adresse_reference",
+        "code_postal_adresse": "code_postal_adresse_reference",
+        "commune_adresse": "commune_adresse_reference",
         "adresse_complementaire_1": "adresse_complementaire_1",
         "adresse_complementaire_2": "adresse_complementaire_2",
         "adresse_complementaire_3": "adresse_complementaire_3",
-        "nombre_d_adresses_complementaires": "nombre_adresses_complementaires",
-        "long": "long",
-        "lat": "lat",
-        "date_du_reglement_de_copropriete": "date_reglement_copropriete",
+        "nombre_adresses_complementaires": "nombre_adresses_complementaires",
+        "longitude": "long",
+        "latitude": "lat",
+        "date_reglement_copropriete": "date_reglement_copropriete",
         "residence_service": "residence_service",
         "syndicat_cooperatif": "syndicat_cooperatif",
         "syndicat_principal_ou_syndicat_secondaire": "syndicat_principal_ou_secondaire",
-        "si_secondaire_n_d_immatriculation_du_principal": "si_secondaire_numero_immatriculation_principal",
-        "nombre_d_asl_auxquelles_est_rattache_le_syndicat_de_coproprieta": (
-            "nombre_asl_rattache_syndicat_coproprietaires"
-        ),
-        "nombre_d_aful_auxquelles_est_rattache_le_syndicat_de_copropriet": (
-            "nombre_aful_rattache_syndicat_coproprietaires"
-        ),
-        "nombre_d_unions_de_syndicats_auxquelles_est_rattache_le_syndica": (
-            "nombre_unions_syndicats_rattache_syndicat_coproprietaires"
-        ),
-        "nombre_total_de_lots": "nombre_total_lots",
-        "nombre_total_de_lots_a_usage_d_habitation_de_bureaux_ou_de_comm": (
-            "nombre_total_lots_usage_habitation_bureaux_ou_commerces"
-        ),
-        "nombre_de_lots_a_usage_d_habitation": "nombre_lots_usage_habitation",
-        "nombre_de_lots_de_stationnement": "nombre_lots_stationnement",
+        "numero_immatriculation_syndicat_principal": "si_secondaire_numero_immatriculation_principal",
+        "nombre_asl": "nombre_asl_rattache_syndicat_coproprietaires",
+        "nombre_aful": "nombre_aful_rattache_syndicat_coproprietaires",
+        "nombre_unions_syndicats": "nombre_unions_syndicats_rattache_syndicat_coproprietaires",
+        "nombre_total_lots": "nombre_total_lots",
+        "nombre_lots_habitation_bureaux_commerces": "nombre_total_lots_usage_habitation_bureaux_ou_commerces",
+        "nombre_lots_habitation": "nombre_lots_usage_habitation",
+        "nombre_lots_stationnement": "nombre_lots_stationnement",
         # "Nombre d'arrêtés relevant du code de la santé publique en cours": (
         #     "nombre_arretes_code_sante_publique_en_cours"
         # ),
@@ -167,11 +159,11 @@ def populate_copro_table() -> None:
         # "Nombre d'arrêtés sur les équipements communs en cours": (
         #     "nombre_arretes_equipements_communs_en_cours"
         # ),
-        "periode_de_construction": "periode_construction",
+        "periode_construction": "periode_construction",
         "reference_cadastrale_1": "reference_cadastrale_1",
         "reference_cadastrale_2": "reference_cadastrale_2",
         "reference_cadastrale_3": "reference_cadastrale_3",
-        "nombre_de_parcelles_cadastrales": "nombre_parcelles_cadastrales",
+        "nombre_parcelles": "nombre_parcelles_cadastrales",
         "nom_qp_2024": "nom_qp",
         "code_qp_2024": "code_qp",
         "copro_dans_acv": "copro_dans_acv",
@@ -307,7 +299,7 @@ def process_dpe() -> None:
     bat_id = pd.read_csv(
         TMP_FOLDER + "csv/batiment_groupe_dpe_representatif_logement.csv",
         usecols=["batiment_groupe_id"],
-        sep=",",
+        sep=";",
     )
     prefixes = list(bat_id["batiment_groupe_id"].str.slice(0, 9).unique())
     logging.info(f"{len(prefixes)} prefixes to process")
@@ -319,7 +311,7 @@ def process_dpe() -> None:
             TMP_FOLDER + "csv/batiment_groupe_dpe_representatif_logement.csv",
             dtype=cols_dpe,
             usecols=cols_dpe.keys(),
-            sep=",",
+            sep=";",
             iterator=True,
             chunksize=chunk_size,
         )
@@ -342,7 +334,7 @@ def process_dpe() -> None:
             TMP_FOLDER + "csv/rel_batiment_groupe_parcelle.csv",
             dtype=str,
             usecols=cols_parcelles,
-            sep=",",
+            sep=";",
             iterator=True,
             chunksize=chunk_size,
         )
@@ -1213,6 +1205,7 @@ def concat_and_publish_whole():
             "title": f"DVF {period} - fichier unique",
         },
         file_to_upload=TMP_FOLDER + "dvf.csv.gz",
+        timeout=120,
     )
     csv_to_geoparquet(
         csv_file_path=TMP_FOLDER + "dvf.csv",
