@@ -49,7 +49,7 @@ def build_table_name(table: str) -> str:
 def create_copro_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="create_copro_table.sql",
         ),
     )
@@ -59,7 +59,7 @@ def create_copro_table() -> None:
 def create_dpe_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="create_dpe_table.sql",
         ),
     )
@@ -69,7 +69,7 @@ def create_dpe_table() -> None:
 def create_dvf_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="create_dvf_table.sql",
         ),
     )
@@ -79,7 +79,7 @@ def create_dvf_table() -> None:
 def index_dvf_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="index_dvf_table.sql",
         ),
     )
@@ -89,7 +89,7 @@ def index_dvf_table() -> None:
 def create_stats_dvf_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="create_stats_dvf_table.sql",
         ),
     )
@@ -99,7 +99,7 @@ def create_stats_dvf_table() -> None:
 def create_distribution_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="create_distribution_table.sql",
         ),
     )
@@ -109,7 +109,7 @@ def create_distribution_table() -> None:
 def create_whole_period_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         file=File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="create_whole_period_table.sql",
         ),
     )
@@ -221,7 +221,7 @@ def populate_dvf_table() -> None:
 def alter_dvf_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="alter_dvf_table.sql",
         ),
     )
@@ -379,7 +379,7 @@ def process_dpe() -> None:
 def index_dpe_table() -> None:
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).execute_sql_file(
         File(
-            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/sql/",
+            source_path=f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/sql/",
             source_name="index_dpe_table.sql",
         ),
     )
@@ -389,9 +389,9 @@ def index_dpe_table() -> None:
 def process_dvf_stats() -> None:
     years = sorted(
         [
-            int(f.replace("full_", "").replace(".csv", ""))
+            int(f.replace("full-", "").replace(".csv", ""))
             for f in os.listdir(TMP_FOLDER)
-            if "full_" in f and ".gz" not in f
+            if "full-" in f
         ]
     )
     export = {}
@@ -425,9 +425,10 @@ def process_dvf_stats() -> None:
     for year in years:
         logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
-            TMP_FOLDER + f"full_{year}.csv",
+            TMP_FOLDER + f"full-{year}.csv.gz",
             sep=",",
             encoding="utf8",
+            compression="gzip",
             dtype={
                 "code_commune": str,
                 "code_departement": str,
@@ -1123,7 +1124,7 @@ def send_distribution_to_s3() -> None:
 
 @task()
 def publish_stats_dvf(**context) -> None:
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/config.json") as fp:
         data = json.load(fp)
     local_client.resource(
         id=data["mensuelles"][AIRFLOW_ENV]["resource_id"],
@@ -1178,7 +1179,7 @@ def concat_and_publish_whole():
             if "full_" in f and ".gz" not in f
         ]
     )
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/config.json") as fp:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/config.json") as fp:
         data = json.load(fp)
     period = (
         f"janvier {min(years)} - décembre {max(years)}"
