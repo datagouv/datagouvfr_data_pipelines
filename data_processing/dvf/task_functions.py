@@ -120,7 +120,7 @@ def populate_copro_table() -> None:
     mapping = {
         "epci": "epci",
         "commune": "commune",
-        "numero_d_immatriculation": "numero_immatriculation",
+        "numero_immatriculation": "numero_immatriculation",
         "type_syndic": "type_syndic",
         "identification_representant_legal": "identification_representant_legal",
         "siret_representant_legal": "siret_representant_legal",
@@ -141,7 +141,7 @@ def populate_copro_table() -> None:
         "date_reglement_copropriete": "date_reglement_copropriete",
         "residence_service": "residence_service",
         "syndicat_cooperatif": "syndicat_cooperatif",
-        "syndicat_principal_ou_syndicat_secondaire": "syndicat_principal_ou_secondaire",
+        "syndicat_principal_ou_secondaire": "syndicat_principal_ou_secondaire",
         "numero_immatriculation_syndicat_principal": "si_secondaire_numero_immatriculation_principal",
         "nombre_asl": "nombre_asl_rattache_syndicat_coproprietaires",
         "nombre_aful": "nombre_aful_rattache_syndicat_coproprietaires",
