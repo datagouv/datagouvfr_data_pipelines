@@ -16,7 +16,7 @@ BEGIN
             nom_usage_copropriete VARCHAR(50),
             adresse_reference VARCHAR(200),
             numero_et_voie_adresse_reference VARCHAR(200),
-            code_postal_adresse_reference VARCHAR(5),
+            code_postal_adresse_reference VARCHAR(9),
             commune_adresse_reference VARCHAR(100),
             adresse_complementaire_1 VARCHAR(200),
             adresse_complementaire_2 VARCHAR(200),
