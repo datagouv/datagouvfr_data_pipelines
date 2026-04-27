@@ -407,11 +407,11 @@ def send_spam_to_grist(**context):
 
 def publish_item(item, item_type):
     if item_type == "dataset":
-        message = "📢 🏷️ Nouveau **Jeu de données** :\n"
+        message = "📢 🏷️ Nouveau **Jeu de données** :\n "
     elif item_type == "reuse":
-        message = "📢 🎨 Nouvelle **réutilisation** : \n"
+        message = "📢 🎨 Nouvelle **réutilisation** : \n "
     else:
-        message = "📢 🤖 Nouvelle **API** : \n"
+        message = "📢 🤖 Nouvelle **API** : \n "
 
     if item["owner_type"] == "organization":
         message += f"Organisation : [{item['owner_name']}]"
@@ -421,7 +421,7 @@ def publish_item(item, item_type):
         message += f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
     else:
         message += "**/!\\ sans rattachement**"
-    message += f"\n*{item['title'].strip()}* \n\n\n👉️ {item['page']}"
+    message += f" \n *{item['title'].strip()}* \n\n\n 👉️ {item['page']}"
     send_message(message, TCHAP_ROOM_ACTIVITES)
 
     if item["first_publication"] or item["spam"]:
@@ -453,7 +453,7 @@ def publish_item(item, item_type):
             )
         else:
             message += "**/!\\ sans rattachement** "
-        message += f"\n*{item['title'].strip()}* \n\n\n👉️ {item['page']}"
+        message += f" \n *{item['title'].strip()}* \n\n\n 👉️ {item['page']}"
         send_message(
             message,
             TCHAP_ROOM_MODERATION_NOUVEAUTES,
@@ -486,20 +486,20 @@ def notification(**context):
     if nb_orgas > 0:
         for item in orgas:
             if item["spam"]:
-                message = f"⚠️ @all Spam potentiel ({item['spam']})\n"
+                message = f"⚠️ @all Spam potentiel ({item['spam']}) \n "
             else:
                 message = ""
             if item["duplicated"]:
-                message += "👥 Duplicata potentiel\n"
+                message += "👥 Duplicata potentiel \n "
             else:
                 message += ""
             if item["potential_certif"]:
-                message += "☑️ Certification potentielle\n"
+                message += "☑️ Certification potentielle \n "
             else:
                 message += ""
             message += (
                 "📢 🏢 Nouvelle **organisation** : "
-                f"*{item['name'].strip()}* \n\n\n👉️ {item['page']}"
+                f"*{item['name'].strip()}* \n\n\n 👉️ {item['page']}"
             )
             send_message(
                 message,
