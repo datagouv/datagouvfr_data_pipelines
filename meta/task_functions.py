@@ -154,7 +154,7 @@ def notification(**context):
                     if isinstance(config[dag_ids[dag]], list)
                     else DEFAULT_DAG_OWNERS
                 )
-                message += "\n" + (
+                message += " \n " + (
                     " ".join(
                         [
                             "@" + owner
@@ -165,5 +165,6 @@ def notification(**context):
                             )
                         ]
                     )
+                    + " \n "
                 )
     send_message(message, ping=list(ping))
