@@ -2066,8 +2066,8 @@ def notification_synthese(
                     message += f"\n    - Ressources suspectées : {nb_suspectes}"
 
                 message += (
-                    f"\n -    Ressources valides : {nb_valides} "
-                    f"\n -    [Liste des ressources non valides]"
+                    f"\n    - Ressources valides : {nb_valides} "
+                    f"\n    - [Liste des ressources non valides]"
                     f"(https://{s3_url}/{s3_bucket_data_pipeline_open}/schema/"
                     f"schemas_consolidation/liste_erreurs/{erreurs_file_name})\n"
                 )
