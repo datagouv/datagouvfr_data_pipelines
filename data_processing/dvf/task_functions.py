@@ -271,10 +271,12 @@ def get_epci() -> None:
         for d in data
         for commune in d["liste_membres"]
     ]
-    pd.DataFrame(
+    epci = pd.DataFrame(
         epci_list,
         columns=["code_commune", "code_epci", "libelle_geo"],
-    ).to_csv(TMP_FOLDER + "epci.csv", sep=",", encoding="utf8", index=False)
+    )
+    assert max(epci["code_epci"].value_counts()) == 1  # sanity check
+    epci.to_csv(TMP_FOLDER + "epci.csv", sep=",", encoding="utf8", index=False)
 
 
 @task()
@@ -382,6 +384,30 @@ def index_dpe_table() -> None:
             source_name="index_dpe_table.sql",
         ),
     )
+
+
+def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
+    # keeping the best candidate for all commune codes
+    code_counts = communes["COM"].value_counts()
+    unique_codes = code_counts[code_counts == 1].index
+    duplicate_codes = code_counts[code_counts > 1].index
+    unique_rows = communes[communes["COM"].isin(unique_codes)]
+
+    # for duplicate codes: prefer NaN date, otherwise keep max date_fin (last commune status)
+    def select_row(group):
+        nan_rows = group[group["DATE_FIN"].isna()]
+        if not nan_rows.empty:
+            return nan_rows.iloc[[0]]  # take first NaN row
+        else:
+            return group.loc[[group["DATE_FIN"].idxmax()]]  # take max date row
+
+    duplicate_rows = (
+        communes[communes["COM"].isin(duplicate_codes)]
+        .groupby("COM", group_keys=False)
+        .apply(select_row)
+    )
+
+    return pd.concat([unique_rows, duplicate_rows]).sort_index()
 
 
 @task()
@@ -677,6 +703,7 @@ def process_dvf_stats() -> None:
         {"DEP": "code_geo", "LIBELLE": "libelle_geo"},
         axis=1,
     )
+    assert max(departements["code_geo"].value_counts()) == 1  # sanity check
     departements["code_parent"] = "nation"
     departements["echelle_geo"] = "departement"
     epci_communes = epci[["code_commune", "code_epci"]]
@@ -693,13 +720,15 @@ def process_dvf_stats() -> None:
     communes = pd.read_csv(
         TMP_FOLDER + "communes.csv",
         dtype=str,
-        usecols=["TYPECOM", "COM", "LIBELLE"],
+        usecols=["TYPECOM", "COM", "LIBELLE", "DATE_FIN"],
     )
-    communes = (
+    communes = filter_communes(
         communes.loc[communes["TYPECOM"].isin(["COM", "ARM"])]
-        .rename({"COM": "code_geo", "LIBELLE": "libelle_geo"}, axis=1)
-        .drop("TYPECOM", axis=1)
-    )
+    ).rename(
+        {"COM": "code_geo", "LIBELLE": "libelle_geo"},
+        axis=1,
+    )[["code_geo", "libelle_geo"]]
+    assert max(communes["code_geo"].value_counts()) == 1
     communes = pd.merge(
         communes,
         pd.DataFrame(communes_from_dvf, columns=["code_geo"]),
@@ -1132,7 +1161,7 @@ def publish_stats_dvf(**context) -> None:
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/{AIRFLOW_ENV}/dvf/stats_dvf.csv"
+                "/dvf/stats_dvf.csv"
             ),
             "filesize": os.path.getsize(TMP_FOLDER + "stats_dvf.csv"),
             "title": "Statistiques mensuelles DVF",
@@ -1152,7 +1181,7 @@ def publish_stats_dvf(**context) -> None:
         payload={
             "url": (
                 f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/{AIRFLOW_ENV}/dvf/stats_whole_period.csv"
+                "/dvf/stats_whole_period.csv"
             ),
             "filesize": os.path.getsize(TMP_FOLDER + "stats_whole_period.csv"),
             "title": "Statistiques totales DVF",
