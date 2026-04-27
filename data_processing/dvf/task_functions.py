@@ -180,6 +180,12 @@ def populate_copro_table() -> None:
             raise ValueError(f"Column {col} is expected")
     copro = copro.rename(mapping, axis=1)[[col for col in mapping.values()]]
     copro = copro.loc[copro["commune"].str.len() == 5]
+    if copro["numero_immatriculation"].nunique() != len(copro):
+        # to prevent error at insertion, but this should not happen, issue was escalated to producer
+        logging.warning(
+            "Duplicates found in column `numero_immatriculation`, dropping..."
+        )
+        copro = copro.drop_duplicates(subset="numero_immatriculation")
     copro.to_csv(f"{TMP_FOLDER}copro_clean.csv", index=False)
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
         file=File(source_path=TMP_FOLDER, source_name="copro_clean.csv"),
