@@ -178,7 +178,7 @@ def populate_copro_table() -> None:
     for col in mapping.keys():
         if col not in copro.columns:
             raise ValueError(f"Column {col} is expected")
-    copro = copro.rename(mapping, axis=1)[[col for col in mapping.keys()]]
+    copro = copro.rename(mapping, axis=1)[[col for col in mapping.values()]]
     copro = copro.loc[copro["commune"].str.len() == 5]
     copro.to_csv(f"{TMP_FOLDER}copro_clean.csv", index=False)
     PostgresClient(conn_name="POSTGRES_DVF", schema=schema).copy_file(
