@@ -173,6 +173,7 @@ def populate_copro_table() -> None:
         f"{TMP_FOLDER}copro.csv",
         dtype=str,
         usecols=mapping.keys(),
+        na_values=["non connu"],
     )
     for col in mapping.keys():
         if col not in copro.columns:
