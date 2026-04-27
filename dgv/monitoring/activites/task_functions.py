@@ -337,7 +337,7 @@ def parse_resource_if_schema(
             schema_name = resource["schema"]["name"]
         message = (
             "📣 Nouvelle ressource déclarée appartenant au schéma "
-            f"**{schema_name}** {orga}: \n - [Lien vers le jeu de donnée]({item['page']})"
+            f"**{schema_name}** {orga}: \n\n - [Lien vers le jeu de donnée]({item['page']})"
         )
         if schema_type == "tableschema":
             if is_valid:
