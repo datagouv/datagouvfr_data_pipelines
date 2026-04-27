@@ -275,7 +275,7 @@ def get_epci() -> None:
         epci_list,
         columns=["code_commune", "code_epci", "libelle_geo"],
     )
-    assert max(epci["code_epci"].value_counts()) == 1  # sanity check
+    assert max(epci["code_commune"].value_counts()) == 1  # sanity check
     epci.to_csv(TMP_FOLDER + "epci.csv", sep=",", encoding="utf8", index=False)
 
 
