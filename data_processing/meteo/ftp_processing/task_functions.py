@@ -721,15 +721,15 @@ def notification(**context) -> None:
             ):
                 issues[dataset_id][r["id"]] = r["title"]
     if issues:
-        message += "\n\n⚠️ Des ressources semblent mal placées :\n\n"
+        message += "\n\n⚠️ Des ressources semblent mal placées :\n"
         for dataset_id in issues:
             message += (
-                f"- [{paths[dataset_id]}]"
+                f"\n- [{paths[dataset_id]}]"
                 f"({local_client.base_url}/datasets/{dataset_id}/):\n"
             )
             for rid in issues[dataset_id]:
                 message += (
-                    f"   - [{issues[dataset_id][rid]}]({local_client.base_url}/datasets/"
+                    f"    - [{issues[dataset_id][rid]}]({local_client.base_url}/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
     send_message(message)

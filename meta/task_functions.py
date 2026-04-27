@@ -113,12 +113,10 @@ def notification(**context):
             start_time = start_time.astimezone(local_timezone)
             message += (
                 f"\n    - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
-            )
-            message += (
                 f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
             )
             message += f"{' en moyenne' if len(successes) > 1 else ''})."
-            message += f" Dernier passage terminé à {start_time.strftime('%H:%M')}."
+            message += f" Dernier passage terminé à {start_time.strftime('%H:%M')}.\n"
 
         failures = {
             atp_id: attempts[atp_id]
@@ -134,8 +132,6 @@ def notification(**context):
             start_time = start_time.astimezone(local_timezone)
             message += (
                 f"\n    - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
-            )
-            message += (
                 f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
             )
             message += f"(status : {last_failure['status']}), "

@@ -444,16 +444,16 @@ def publish_item(item, item_type):
         if item["owner_type"] == "organization":
             message += f"de l'organisation : [{item['owner_name']}]"
             message += (
-                f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
+                f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/) "
             )
         elif item["owner_type"] == "user":
             message += f"de l'utilisateur : [{item['owner_name']}]"
             message += (
-                f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/)"
+                f"(https://data.gouv.fr/{item['owner_type']}s/{item['owner_id']}/) "
             )
         else:
-            message += "**/!\\ sans rattachement**"
-        message += f"\n*{item['title'].strip()}* \n\n\n:point_right: {item['page']}"
+            message += "**/!\\ sans rattachement** "
+        message += f"\n*{item['title'].strip()}* \n\n\n👉️ {item['page']}"
         send_message(
             message,
             TCHAP_ROOM_MODERATION_NOUVEAUTES,
