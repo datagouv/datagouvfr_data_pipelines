@@ -115,7 +115,8 @@ def gather_petitions():
         .astype(int)
     )
     max_id = get_latest_petition_id("senat")
-    unused_ids = {k for k in range(1, max_id + 1) if k not in ids.values}
+    logging.info(f"Found max id: {max_id}")
+    unused_ids = {k for k in range(1, max(ids.values)) if k not in ids.values}
     # we go through all ids except the ones we know are unused, until the latest id
     data = []
     session = requests.Session()
