@@ -12,8 +12,9 @@ from datagouvfr_data_pipelines.config import (
     DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     S3_BUCKET_PNT,
-    SECRET_S3_PNT_PASSWORD,
-    SECRET_S3_PNT_USER,
+    S3_URL_RBX,
+    SECRET_S3_PASSWORD,
+    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     MAX_LAST_BATCHES,
@@ -29,7 +30,12 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 # if you want to roll back to dev mode
 # AIRFLOW_ENV = "dev"
 # DATAGOUV_URL = "https://demo.data.gouv.fr"
-
+s3_client_kwargs = {
+    "bucket": S3_BUCKET_PNT,
+    "user": SECRET_S3_USER,
+    "pwd": SECRET_S3_PASSWORD,
+    "s3_url": S3_URL_RBX,
+}
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{TMP_FOLDER}logs/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -107,11 +113,7 @@ def clean_old_runs_in_s3(**context):
     batches = context["ti"].xcom_pull(
         key="batches", task_ids="get_latest_theorical_batches"
     )
-    s3_pnt = S3Client(
-        bucket=S3_BUCKET_PNT,
-        user=SECRET_S3_PNT_USER,
-        pwd=SECRET_S3_PNT_PASSWORD,
-    )
+    s3_pnt = S3Client(**s3_client_kwargs)
     # we get the runs' names from the folders
     runs = s3_pnt.get_folders_from_prefix(
         prefix=f"{s3_folder}/",
@@ -145,11 +147,7 @@ def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs):
     s3_paths = []
     url_to_infos = {}
     s3_path_to_url = {}
-    s3_pnt = S3Client(
-        bucket=S3_BUCKET_PNT,
-        user=SECRET_S3_PNT_USER,
-        pwd=SECRET_S3_PNT_PASSWORD,
-    )
+    s3_pnt = S3Client(**s3_client_kwargs)
     for batch in tested_batches:
         for package in PACKAGES[model][pack][grid]["packages"]:
             for timeslot in package.time:
@@ -236,11 +234,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
     uploaded = []
     my_packages = set()
     meteo_client = MeteoClient()
-    s3_pnt = S3Client(
-        bucket=S3_BUCKET_PNT,
-        user=SECRET_S3_PNT_USER,
-        pwd=SECRET_S3_PNT_PASSWORD,
-    )
+    s3_pnt = S3Client(**s3_client_kwargs)
     for s3_path in to_get:
         url = s3_path_to_url[s3_path]
         package = url_to_infos[url]["package"]
@@ -308,11 +302,7 @@ def get_current_resources(model: str, pack: str, grid: str):
 def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     # getting the current state of the resources
     current_resources: dict = get_current_resources(model, pack, grid)
-    s3_pnt = S3Client(
-        bucket=S3_BUCKET_PNT,
-        user=SECRET_S3_PNT_USER,
-        pwd=SECRET_S3_PNT_PASSWORD,
-    )
+    s3_pnt = S3Client(**s3_client_kwargs)
 
     # getting the latest available occurrence of each file on S3
     latest_files = {}
