@@ -24,7 +24,7 @@ MINIO_URL = Variable.get("MINIO_URL", "object.files.data.gouv.fr")
 
 # S3
 S3_URL_EU_WEST = Variable.get("S3_URL_EU_WEST", "")
-S3_URL_SGB = Variable.get("S3_URL_SGB", "")
+S3_URL_SBG = Variable.get("S3_URL_SBG", "")
 S3_URL_RBX = Variable.get("S3_URL_RBX", "")
 S3_BUCKET_DATA_PIPELINE = Variable.get("S3_BUCKET_DATA_PIPELINE", "")
 S3_BUCKET_DATA_PIPELINE_OPEN = Variable.get("S3_BUCKET_DATA_PIPELINE_OPEN", "")
