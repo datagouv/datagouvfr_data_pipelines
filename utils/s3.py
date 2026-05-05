@@ -13,7 +13,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     MINIO_URL,
     SECRET_S3_DATA_PIPELINE_PASSWORD,
-    # S3_URL,
+    # S3_URL_EU_WEST,
     SECRET_S3_DATA_PIPELINE_USER,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File

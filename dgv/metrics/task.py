@@ -12,7 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     S3_BUCKET_INFRA,
-    S3_URL,
+    S3_URL_EU_WEST,
     SECRET_S3_PASSWORD,
     SECRET_S3_USER,
 )
@@ -37,7 +37,7 @@ s3_client_kwargs = {
     "bucket": S3_BUCKET_INFRA,
     "user": SECRET_S3_USER,
     "pwd": SECRET_S3_PASSWORD,
-    "s3_url": S3_URL,
+    "s3_url": S3_URL_EU_WEST,
 }
 conn_name = "POSTGRES_METRIC"
 config = MetricsConfig()

@@ -23,7 +23,9 @@ TCHAP_ROOM_SIMPLIFIONS = Variable.get("TCHAP_ROOM_SIMPLIFIONS", "")
 MINIO_URL = Variable.get("MINIO_URL", "object.files.data.gouv.fr")
 
 # S3
-S3_URL = Variable.get("S3_URL", "s3.eu-west-par.io.cloud.ovh.net")
+S3_URL_EU_WEST = Variable.get("S3_URL_EU_WEST", "")
+S3_URL_SGB = Variable.get("S3_URL_SGB", "")
+S3_URL_RBX = Variable.get("S3_URL_RBX", "")
 S3_BUCKET_DATA_PIPELINE = Variable.get("S3_BUCKET_DATA_PIPELINE", "")
 S3_BUCKET_DATA_PIPELINE_OPEN = Variable.get("S3_BUCKET_DATA_PIPELINE_OPEN", "")
 S3_BUCKET_INFRA = Variable.get("S3_BUCKET_INFRA", "")
