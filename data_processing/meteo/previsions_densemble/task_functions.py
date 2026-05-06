@@ -14,9 +14,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    MINIO_URL,
-    SECRET_S3_METEO_PE_PASSWORD,
-    SECRET_S3_METEO_PE_USER,
+    S3_URL_RBX,
+    SECRET_S3_PASSWORD,
+    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -31,8 +31,9 @@ s3_folder = "data"
 upload_dir = "/uploads/"
 s3_client_kwargs = {
     "bucket": bucket_pe,
-    "user": SECRET_S3_METEO_PE_USER,
-    "pwd": SECRET_S3_METEO_PE_PASSWORD,
+    "user": SECRET_S3_USER,
+    "pwd": SECRET_S3_PASSWORD,
+    "s3_url": S3_URL_RBX,
 }
 
 with open(
@@ -235,7 +236,7 @@ def publish_on_datagouv(pack: str, grid: str):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{MINIO_URL}/{bucket_pe}/{obj}",
+                    "url": f"https://{bucket_pe}.{S3_URL_RBX}/{obj}",
                     "title": fix_title(obj.split("/")[-1]),
                     "size": size,
                 }
