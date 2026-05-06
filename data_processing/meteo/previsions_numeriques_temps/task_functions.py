@@ -10,7 +10,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    MINIO_URL,
     S3_BUCKET_PNT,
     S3_URL_RBX,
     SECRET_S3_PASSWORD,
@@ -30,6 +29,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 # if you want to roll back to dev mode
 # AIRFLOW_ENV = "dev"
 # DATAGOUV_URL = "https://demo.data.gouv.fr"
+
 s3_client_kwargs = {
     "bucket": S3_BUCKET_PNT,
     "user": SECRET_S3_USER,
@@ -328,7 +328,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{MINIO_URL}/{S3_BUCKET_PNT}/{obj}",
+                    "url": f"https://{S3_BUCKET_PNT}.{S3_URL_RBX}/{obj}",
                     "title": obj.split("/")[-1],
                     "size": size,
                 }
