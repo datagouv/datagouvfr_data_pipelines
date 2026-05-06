@@ -31,7 +31,7 @@ with DAG(
     clean_previous_outputs = clean_up_folder(TMP_FOLDER, recreate=True)
     clean_up = clean_up_folder(
         TMP_FOLDER,
-        trigger_rule="none_failed_or_skipped",
+        trigger_rule="all_done_min_one_success",
     )
 
     for scope in config:
