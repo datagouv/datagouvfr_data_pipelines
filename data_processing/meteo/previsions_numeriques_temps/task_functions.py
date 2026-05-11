@@ -259,6 +259,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
             url=url,
             destination_file_path=s3_path,
             session=meteo_client,
+            is_public=True,
         )
         uploaded.append(s3_path)
     for p in my_packages:
