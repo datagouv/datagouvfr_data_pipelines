@@ -7,9 +7,12 @@ def _get(key, default=""):
     # so we use ad hoc env vars
     try:
         from airflow.models import Variable
+
         return Variable.get(key, default_var=default)
     except Exception:
-        logging.warning(f"Could not retrieve `{key}` from Airflow variables, loading from env")
+        logging.warning(
+            f"Could not retrieve `{key}` from Airflow variables, loading from env"
+        )
         return os.environ.get(key.upper(), default)
 
 
@@ -66,9 +69,7 @@ TWITTER_SECRET_TOKEN = _get("TWITTER_SECRET_TOKEN", "")
 
 # emails
 SECRET_MAIL_DATAGOUV_BOT_USER = _get("SECRET_MAIL_DATAGOUV_BOT_USER", "")
-SECRET_MAIL_DATAGOUV_BOT_PASSWORD = _get(
-    "SECRET_MAIL_DATAGOUV_BOT_PASSWORD", ""
-)
+SECRET_MAIL_DATAGOUV_BOT_PASSWORD = _get("SECRET_MAIL_DATAGOUV_BOT_PASSWORD", "")
 SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD = _get(
     "SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD", ""
 ).split(",")

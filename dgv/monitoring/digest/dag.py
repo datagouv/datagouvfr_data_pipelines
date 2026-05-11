@@ -7,6 +7,8 @@ from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
+    DATAGOUV_SECRET_API_KEY,
+    DEMO_DATAGOUV_SECRET_API_KEY,
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -82,7 +84,11 @@ with DAG(
                     s3_url=MINIO_URL,
                     s3_bucket=S3_BUCKET_DATA_PIPELINE_OPEN,
                     s3_output_filepath=S3_PATH + f"digest_{freq}/{today}/",
-                    env_vars={"AIRFLOW_ENV": AIRFLOW_ENV},
+                    env_vars={
+                        "AIRFLOW_ENV": AIRFLOW_ENV,
+                        "DATAGOUV_SECRET_API_KEY": DATAGOUV_SECRET_API_KEY,
+                        "DEMO_DATAGOUV_SECRET_API_KEY": DEMO_DATAGOUV_SECRET_API_KEY,
+                    },
                     parameters={
                         "WORKING_DIR": AIRFLOW_DAG_HOME,
                         "OUTPUT_DATA_FOLDER": (
