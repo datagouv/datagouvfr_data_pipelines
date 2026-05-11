@@ -11,18 +11,25 @@ from nbconvert import HTMLExporter
 
 @task()
 def execute_and_upload_notebook(
-    input_nb,
-    output_nb,
-    tmp_path,
-    s3_bucket,
-    s3_output_filepath,
-    parameters,
+    input_nb: str,
+    output_nb: str,
+    tmp_path: str,
+    s3_bucket: str,
+    s3_output_filepath: str,
+    parameters: dict = {},
+    env_vars: dict = {},
     **context,
 ):
     if not input_nb:
         raise ValueError("Input notebook is not specified")
     if not output_nb:
         raise ValueError("Output notebook is not specified")
+    for var, val in env_vars.items():
+        # Airflow variables can't be reached from within notebooks,
+        # if needed set them through env vars
+        if not var.isupper():
+            raise ValueError(f"All env vars must be uppercase, `{var}` is not")
+        os.environ[var] = val
 
     os.makedirs(os.path.dirname(tmp_path + "output/"), exist_ok=True)
 

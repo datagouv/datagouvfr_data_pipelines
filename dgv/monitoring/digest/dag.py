@@ -6,6 +6,7 @@ from airflow.models.baseoperator import chain
 from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
+    AIRFLOW_ENV,
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -15,12 +16,6 @@ from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
     TMP_FOLDER,
     publish_period,
     send_email_report_period,
-)
-from datagouvfr_data_pipelines.dgv.monitoring.digest.utils import (
-    show_discussions,
-    show_objects,
-    show_orgas,
-    show_users,
 )
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -87,6 +82,7 @@ with DAG(
                     s3_url=MINIO_URL,
                     s3_bucket=S3_BUCKET_DATA_PIPELINE_OPEN,
                     s3_output_filepath=S3_PATH + f"digest_{freq}/{today}/",
+                    env_vars={"AIRFLOW_ENV": AIRFLOW_ENV},
                     parameters={
                         "WORKING_DIR": AIRFLOW_DAG_HOME,
                         "OUTPUT_DATA_FOLDER": (
@@ -94,10 +90,6 @@ with DAG(
                         ),
                         "DATE_AIRFLOW": today,
                         "PERIOD_DIGEST": freq,
-                        "show_discussions": show_discussions,
-                        "show_objects": show_objects,
-                        "show_orgas": show_orgas,
-                        "show_users": show_users,
                     },
                 ),
                 publish_period.override(task_id=f"publish_{scope}_{freq}")(
