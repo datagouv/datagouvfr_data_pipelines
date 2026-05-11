@@ -16,6 +16,12 @@ from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
     publish_period,
     send_email_report_period,
 )
+from datagouvfr_data_pipelines.dgv.monitoring.digest.utils import (
+    show_discussions,
+    show_objects,
+    show_orgas,
+    show_users,
+)
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.utils.utils import (
@@ -88,6 +94,10 @@ with DAG(
                         ),
                         "DATE_AIRFLOW": today,
                         "PERIOD_DIGEST": freq,
+                        "show_discussions": show_discussions,
+                        "show_objects": show_objects,
+                        "show_orgas": show_orgas,
+                        "show_users": show_users,
                     },
                 ),
                 publish_period.override(task_id=f"publish_{scope}_{freq}")(
