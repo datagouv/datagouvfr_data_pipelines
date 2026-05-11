@@ -2,6 +2,8 @@
 
 ## data_processing_sirene_geocodage
 
+> Ce traitement a été décommissionné en avril 2026, au profit de l'utilisation du [jeu de données géolocalisé](https://www.data.gouv.fr/datasets/geolocalisation-des-etablissements-du-repertoire-sirene-pour-les-etudes-statistiques) produit par l'INSEE.
+
 | Information | Valeur |
 | -------- | -------- |
 | Fichier source     | `dag.py`     |
