@@ -1,9 +1,7 @@
-import json
 import re
 from datetime import datetime
 
 import requests
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.utils.datagouv import (
     check_duplicated_orga,
     get_last_items,
@@ -11,9 +9,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from IPython.display import HTML, display
 
-DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
-DAG_NAME = "dgv_digests"
-TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
 
 URL_PATTERN = "https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/[^ \n]*)?"
 
@@ -252,33 +247,3 @@ def show_discussions(
         show_html("<hr/>")
 
     return len(discussions), discussions
-
-
-def get_stats_period(today: str, period: str, scope: str) -> str | None:
-    with open(
-        TMP_FOLDER + f"/digest_{period}/{today}/output/stats.json", "r"
-    ) as json_file:
-        res = json.load(json_file)
-    if scope == "api":
-        if not (
-            res["stats"]["nb_dataservices"]
-            or res["stats"]["nb_discussions_dataservices"]
-        ):
-            # no message if no new API and no comment
-            return
-        return (
-            f"- {res['stats']['nb_dataservices']} APIs créées\n"
-            f"- {res['stats']['nb_discussions_dataservices']} discussions sur les APIs\n"
-        )
-    recap = (
-        f"- {res['stats']['nb_datasets']} datasets créés\n"
-        f"- {res['stats']['nb_reuses']} reuses créées\n"
-        f"- {res['stats']['nb_dataservices']} dataservices créés\n"
-    )
-    if period == "daily":
-        recap += (
-            f"- {res['stats']['nb_orgas']} orgas créées\n"
-            f"- {res['stats']['nb_discussions']} discussions créées\n"
-            f"- {res['stats']['nb_users']} utilisateurs créés"
-        )
-    return recap

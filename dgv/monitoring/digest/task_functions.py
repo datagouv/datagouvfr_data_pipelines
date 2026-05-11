@@ -1,14 +1,50 @@
+import json
+
 from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
+    AIRFLOW_DAG_TMP,
     TCHAP_ROOM_ACTIVITES,
     TCHAP_ROOM_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     SECRET_MAIL_DATAGOUV_BOT_USER,
 )
-from datagouvfr_data_pipelines.dgv.monitoring.digest.utils import get_stats_period
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from datagouvfr_data_pipelines.utils.tchap import send_message
+
+DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
+DAG_NAME = "dgv_digests"
+TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
+
+
+def get_stats_period(today: str, period: str, scope: str) -> str | None:
+    with open(
+        TMP_FOLDER + f"/digest_{period}/{today}/output/stats.json", "r"
+    ) as json_file:
+        res = json.load(json_file)
+    if scope == "api":
+        if not (
+            res["stats"]["nb_dataservices"]
+            or res["stats"]["nb_discussions_dataservices"]
+        ):
+            # no message if no new API and no comment
+            return
+        return (
+            f"- {res['stats']['nb_dataservices']} APIs créées\n"
+            f"- {res['stats']['nb_discussions_dataservices']} discussions sur les APIs\n"
+        )
+    recap = (
+        f"- {res['stats']['nb_datasets']} datasets créés\n"
+        f"- {res['stats']['nb_reuses']} reuses créées\n"
+        f"- {res['stats']['nb_dataservices']} dataservices créés\n"
+    )
+    if period == "daily":
+        recap += (
+            f"- {res['stats']['nb_orgas']} orgas créées\n"
+            f"- {res['stats']['nb_discussions']} discussions créées\n"
+            f"- {res['stats']['nb_users']} utilisateurs créés"
+        )
+    return recap
 
 
 @task()

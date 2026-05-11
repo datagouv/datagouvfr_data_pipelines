@@ -10,13 +10,11 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
-    publish_period,
-    send_email_report_period,
-)
-from datagouvfr_data_pipelines.dgv.monitoring.digest.utils import (
     DAG_FOLDER,
     DAG_NAME,
     TMP_FOLDER,
+    publish_period,
+    send_email_report_period,
 )
 from datagouvfr_data_pipelines.utils.notebook import execute_and_upload_notebook
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
