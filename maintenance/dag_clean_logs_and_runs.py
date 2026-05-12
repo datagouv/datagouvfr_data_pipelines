@@ -5,13 +5,14 @@ from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.decorators import task
-from airflow.models import DagRun
-from airflow.settings import Session
+from airflow_client.client.api import dag_run_api
+
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.tchap import send_message
+from datagouvfr_data_pipelines.utils.airflow import AirflowAPI
 
 nb_days_to_keep = 60
 
@@ -66,28 +67,21 @@ def delete_old_runs():
     """
     Query and delete runs older than the threshold date (2 months ago).
     """
+
     oldest_run_date = datetime.now(tz=timezone.utc) - timedelta(days=nb_days_to_keep)
 
-    # Create a session to interact with the metadata database
-    session = Session()
-
-    try:
-        all_runs = session.query(DagRun).all()
-        idx = 0
-        for run in all_runs:
-            if run.end_date is None or run.end_date > oldest_run_date:
-                continue
-            idx += 1
-            logging.info(f"Deleting run: dag_id={run.dag_id}, end_date={run.end_date}")
-            session.delete(run)
-            if idx % 50 == 0:
-                session.commit()
-        session.commit()
-    except Exception as e:
-        logging.error(f"Error deleting old runs: {str(e)}")
-        session.rollback()
-    finally:
-        session.close()
+    with AirflowAPI(conn_name="airflow").client as client:
+        try:
+            api = dag_run_api.DagRunApi(client)
+            runs = api.get_dag_runs(
+                dag_id="~", end_date_lte=oldest_run_date
+            )  # All DAGs run older than the threshold
+            for run in runs.dag_runs:
+                dag_id = run.dag_id
+                logging.info(f"Deleting run: dag_id={dag_id}, end_date={run.end_date}")
+                api.delete_dag_run(dag_id=dag_id, dag_run_id=run.dag_run_id)
+        except Exception as e:
+            logging.error(f"Error deleting old runs: {str(e)}")
 
 
 @task()
