@@ -9,8 +9,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     S3_BUCKET_PNT,
-    SECRET_S3_PNT_PASSWORD,
-    SECRET_S3_PNT_USER,
+    S3_URL_RBX,
+    SECRET_S3_USER,
+    SECRET_S3_PASSWORD,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -20,8 +21,9 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 too_old_filename = "too_old.json"
 s3_client_kwargs = {
     "bucket": S3_BUCKET_PNT,
-    "user": SECRET_S3_PNT_USER,
-    "pwd": SECRET_S3_PNT_PASSWORD,
+    "user": SECRET_S3_USER,
+    "pwd": SECRET_S3_PASSWORD,
+    "s3_url": S3_URL_RBX,
 }
 
 
