@@ -4,6 +4,7 @@ from airflow import DAG
 from datagouvfr_data_pipelines.meta.task_functions import (
     monitor_dags,
     notification,
+    raise_dags_not_found,
 )
 
 
@@ -15,4 +16,4 @@ with DAG(
     tags=["monitoring"],
     catchup=False,
 ):
-    monitor_dags() >> notification()
+    monitor_dags() >> notification() >> raise_dags_not_found()

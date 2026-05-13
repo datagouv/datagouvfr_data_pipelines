@@ -14,6 +14,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.airflow import AirflowAPI
 
+CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 nb_days_to_keep = 60
 
 
@@ -70,7 +71,7 @@ def delete_old_runs():
 
     oldest_run_date = datetime.now(tz=timezone.utc) - timedelta(days=nb_days_to_keep)
 
-    with AirflowAPI(conn_name="airflow").client as client:
+    with AirflowAPI(conn_name=CONN_NAME).client as client:
         try:
             api = dag_run_api.DagRunApi(client)
             runs = api.get_dag_runs(
