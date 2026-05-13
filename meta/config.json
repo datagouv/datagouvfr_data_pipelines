@@ -36,7 +36,6 @@
     "schema_consolidation": true,
     "irve_consolidation": true,
     "maintenance_clean_logs_and_runs": true,
-    "meta_dag": true,
     "schema_recommendations": true,
     "schema_website_publication": true,
     "verticale_culture": true,

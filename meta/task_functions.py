@@ -76,8 +76,6 @@ def monitor_dags(
                 continue  # Raise an error only at the end to avoid skipping the rest of DAGs
             for dag_run in dag_runs:
                 start_date, end_date = dag_run.start_date, dag_run.end_date
-                if not start_date:
-                    raise TypeError(f"Start date must be defined for DagRun {dag_run}")
                 if not end_date:
                     continue  # Skipping currently running DAGs here
                 status = dag_run.state
@@ -97,7 +95,7 @@ def monitor_dags(
                         },
                     }
                 else:
-                    duration = end_date - start_date
+                    duration = end_date - start_date  # type: ignore : start_date should not be None
                     todays_runs[dag_id][end_date] = {
                         "success": True,
                         "duration": duration.total_seconds(),
@@ -189,14 +187,17 @@ def notification(**context):
                     + " \n "
                 )
     send_message(message, ping=list(ping))
-
-
-@task()
-def raise_dags_not_found(**context):
+    # Notify in case of DAGs on the config
     dags_not_found = context["ti"].xcom_pull(
         key="dags_not_found", task_ids="monitor_dags"
     )
     if len(dags_not_found) > 0:
-        raise NotFoundException(
-            f"The following DAGs in config.json were not found: {', '.join(dags_not_found)}"
+        message = "**❓️ Les DAGs suivants n'ont pas pu être trouvés:** " + "\n\n-"
+        missing_dags_list = ", \n\n - ".join(dags_not_found)
+        message += missing_dags_list
+        message += (
+            "\n\nSolutions:\n\n"
+            f"1. Vérifiez de possibles erreurs d'import sur l'instance {AIRFLOW_URL}.\n\n"
+            "2. Si ces DAGs sont obsolètes ou à renommer, consultez le fichier `/meta/config.json`"
         )
+        send_message(message, ping=list(ping))
