@@ -34,6 +34,11 @@ def send_message(
     ping: list[str] = [],
 ) -> None:
     """Send a message to a Tchap channel."""
+    if not room_id:
+        if AIRFLOW_ENV == "prod":
+            raise ValueError("The room id is not set")
+        else:
+            room_id = TCHAP_ROOM_DATAENG_TEST
     assert message_type in {"text", "notice"}
     if ping:
         # notice doesn't ping
