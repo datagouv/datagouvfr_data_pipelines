@@ -34,6 +34,8 @@ def send_message(
     ping: list[str] = [],
 ) -> None:
     """Send a message to a Tchap channel."""
+    if not (TCHAP_BASE_URL and TCHAP_BOT_TOKEN):
+        raise ValueError("Tchap settings (URL and token) are not set")
     if not room_id:
         if AIRFLOW_ENV == "prod":
             raise ValueError("The room id is not set")
