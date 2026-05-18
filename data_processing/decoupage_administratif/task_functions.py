@@ -86,13 +86,15 @@ NPM_PACKAGE_VERSIONS = npm_package_latest_version_for_years()
 
 def generate_files_infos_decoupage_administratif():
     output = []
-    priority_by_type = {i:float((idx + 1) * 10) for idx, i in enumerate(reversed(commons_dict.keys()))}
+    priority_by_type = {
+        i: float((idx + 1) * 10) for idx, i in enumerate(reversed(commons_dict.keys()))
+    }
     for year, version in NPM_PACKAGE_VERSIONS.items():
         type_file = "main" if LATEST_YEAR in year else "other"
         mime_file = "application/json"
         format_file = "json"
         if version == "0.8.0":
-            priority = priority_by_type['epci'] + 1 / float(2020)
+            priority = priority_by_type["epci"] + 1 / float(2020)
             mytitle = "Données EPCI 2020"
             url = f"{base_unpkg_decoupage_administratif}@{version}/data/epci.json"
             r = requests.get(url, stream=True, headers={"Accept-Encoding": None})
@@ -165,7 +167,7 @@ def update_create_resources():
                 "mime": res.get("mime"),
                 "type": res.get("type"),
             }
-            logging.info(payload)
+            logging.info(json.dumps(payload))
             urls_res_dataset[res.get("title")].update(payload)
         else:
             logging.info("Create new ressource", res.get("url"))
@@ -178,18 +180,23 @@ def update_create_resources():
                 "type": res.get("type"),
             }
             dataset.create_remote(payload=payload)
-            logging.info(payload)
+            logging.info(json.dumps(payload))
 
 
 @task
 def specific_sort_ressources():
     dataset_reloaded = local_client.dataset(DATASET_ID)
-    ressources_unpkg = generate_files_infos_decoupage_administratif()    
-    urls_res_dataset_reloaded = {
-        res.url: res for res in dataset_reloaded.resources
-    }
+    ressources_unpkg = generate_files_infos_decoupage_administratif()
+    urls_res_dataset_reloaded = {res.url: res for res in dataset_reloaded.resources}
     # sorted_ids_res_datagouv = [urls_res_dataset_reloaded[j[0]].id for j in sorted([[i.get('url'), i.get('priority')] for i in ressources_unpkg], key=lambda x: x[1]) if j[0] in urls_res_dataset_reloaded]
-    sorted_ids_res_datagouv = [urls_res_dataset_reloaded[j[0]].id for j in sorted([[i.get('url'), i.get('priority')] for i in ressources_unpkg], key=lambda x: x[1]) if j[0]]
+    sorted_ids_res_datagouv = [
+        urls_res_dataset_reloaded[j[0]].id
+        for j in sorted(
+            [[i.get("url"), i.get("priority")] for i in ressources_unpkg],
+            key=lambda x: x[1],
+        )
+        if j[0]
+    ]
     local_client.session.put(
         dataset_reloaded.uri + "resources/",
         json=sorted_ids_res_datagouv,
@@ -210,6 +217,3 @@ def notification():
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{DATASET_ID}/)"
         )
     )
-
-
-NPM_PACKAGE_VERSIONS = npm_package_latest_version_for_years()

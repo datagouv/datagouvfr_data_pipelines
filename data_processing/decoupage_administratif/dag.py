@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from airflow.models import DAG
 
 from datagouvfr_data_pipelines.data_processing.decoupage_administratif.task_functions import (
@@ -19,7 +19,8 @@ default_args = {
 
 with DAG(
     dag_id=DAG_NAME,
-    schedule_interval=None,
+    schedule="0 0 1 * *",
+    start_date=datetime(2026, 5, 11),
     dagrun_timeout=timedelta(minutes=240),
     tags=["decoupage-administratif", "resources", "datagouv"],
     catchup=False,
