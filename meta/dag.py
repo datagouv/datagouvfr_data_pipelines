@@ -1,10 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from datagouvfr_data_pipelines.meta.task_functions import (
-    monitor_dags,
-    notification,
-)
+from datagouvfr_data_pipelines.meta.task_functions import monitor_dags, notification
 
 
 with DAG(

@@ -1,19 +1,23 @@
 import json
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytz
 from airflow.decorators import task
-from airflow.models import DagRun
-from airflow.providers.http.hooks.http import HttpHook
+from airflow_client.client.models.task_instance_response import TaskInstanceResponse
+from airflow_client.client.api import dag_api, dag_run_api, task_instance_api
+from airflow_client.client.exceptions import NotFoundException
+
+# from airflow.providers.http.hooks.http import HttpHook
 from airflow.utils.state import State
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, AIRFLOW_ENV, AIRFLOW_URL
 from datagouvfr_data_pipelines.utils.tchap import send_message
+from datagouvfr_data_pipelines.utils.airflow import AirflowAPI
 
+CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 local_timezone = pytz.timezone("Europe/Paris")
-http_hook = HttpHook(http_conn_id="HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR", method="GET")
 
 DEFAULT_DAG_OWNERS = [
     "geoffrey",
@@ -24,68 +28,83 @@ with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") 
     config = json.load(f)
 
 
-def get_ids(config: dict) -> dict[str, str]:
-    # TODO: call api/v2 in Airflow3
-    dags = http_hook.run("api/v1/dags").json()["dags"]
+def get_ids(config: dict, api: dag_api.DAGApi) -> dict[str, str]:
+    dags = api.get_dags().dags
     ids = {}
     for raw_id, included in config.items():
         if not included:
             continue
         if raw_id.endswith("*"):
             ids |= {
-                d["dag_id"]: raw_id for d in dags if d["dag_id"].startswith(raw_id[:-1])
+                dag.dag_id: raw_id for dag in dags if dag.dag_id.startswith(raw_id[:-1])
             }
         else:
             ids[raw_id] = raw_id
     return ids
 
 
+def generate_task_log_url(task: TaskInstanceResponse):
+    return (
+        f"{AIRFLOW_URL}/dags/{task.dag_id}/runs/{task.dag_run_id}/tasks/{task.task_id}"
+    )
+
+
 @task()
 def monitor_dags(
-    date=(datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),
+    date=(datetime.now() - timedelta(days=1)).replace(microsecond=0),
     **context,
 ):
-    dag_ids_to_monitor = get_ids(config)
-    logging.info("DAG list:", dag_ids_to_monitor)
-
-    logging.info("Start date considered:", date)
-    todays_runs = defaultdict(dict)
-    for dag_id in dag_ids_to_monitor:
-        dag_runs = DagRun.find(
-            dag_id=dag_id,
-            # /!\ this filters based on execution date and not start date, so we filter manually afterwards
-            # execution_start_date=start_date
-        )
-
-        for dag_run in dag_runs:
-            status = dag_run.get_state()
-            end_date = (
-                dag_run.end_date.strftime("%Y-%m-%d %H:%M:%S")
-                if dag_run.end_date
-                else None
-            )
-            if end_date and end_date >= date:
+    dags_not_found = []
+    with AirflowAPI(conn_name=CONN_NAME).client as client:
+        dag_api_client = dag_api.DAGApi(client)
+        dag_ids_to_monitor = get_ids(config, dag_api_client)
+        logging.info("DAG list:", dag_ids_to_monitor)
+        logging.info(f"Start date considered: {date.strftime('%Y-%m-%d %H:%M:%S')}")
+        todays_runs = defaultdict(dict)
+        for dag_id in dag_ids_to_monitor:
+            dag_run_api_client = dag_run_api.DagRunApi(client)
+            try:
+                date_dt = date.replace(
+                    tzinfo=timezone.utc
+                )  # The server needs a timezone-aware datetime or it throws a 500 error
+                dag_runs = dag_run_api_client.get_dag_runs(
+                    dag_id=dag_id,
+                    end_date_gte=date_dt,  # Does not filter out currently running DAGs
+                ).dag_runs
+            except NotFoundException:
+                dags_not_found.append(dag_id)
+                continue  # Raise an error only at the end to avoid skipping the rest of DAGs
+            for dag_run in dag_runs:
+                start_date, end_date = dag_run.start_date, dag_run.end_date
+                if not end_date:
+                    continue  # Skipping currently running DAGs here
+                status = dag_run.state
                 if status != State.SUCCESS:
-                    failed_task_instances = dag_run.get_task_instances(
-                        state=State.FAILED
-                    )
+                    task_instance_api_client = task_instance_api.TaskInstanceApi(client)
+                    failed_task_instances = task_instance_api_client.get_task_instances(
+                        dag_id=dag_run.dag_id,
+                        dag_run_id=dag_run.dag_run_id,
+                        state=[State.FAILED],
+                    ).task_instances
                     todays_runs[dag_id][end_date] = {
                         "success": False,
                         "status": status,
                         "failed_tasks": {
-                            task.task_id: task.log_url for task in failed_task_instances
+                            task.task_id: generate_task_log_url(task)
+                            for task in failed_task_instances
                         },
                     }
                 else:
-                    duration = dag_run.end_date - dag_run.start_date
+                    duration = end_date - start_date  # type: ignore : start_date should not be None
                     todays_runs[dag_id][end_date] = {
                         "success": True,
                         "duration": duration.total_seconds(),
                     }
-    context["ti"].xcom_push(key="todays_runs", value=todays_runs)
-    # sending the mapping between dag ids and prefixes in the config
-    context["ti"].xcom_push(key="dag_ids", value=dag_ids_to_monitor)
-    return todays_runs
+        context["ti"].xcom_push(key="dags_not_found", value=dags_not_found)
+        context["ti"].xcom_push(key="todays_runs", value=todays_runs)
+        # sending the mapping between dag ids and prefixes in the config
+        context["ti"].xcom_push(key="dag_ids", value=dag_ids_to_monitor)
+        return todays_runs
 
 
 @task()
@@ -168,3 +187,17 @@ def notification(**context):
                     + " \n "
                 )
     send_message(message, ping=list(ping))
+    # Notify in case of DAGs on the config
+    dags_not_found = context["ti"].xcom_pull(
+        key="dags_not_found", task_ids="monitor_dags"
+    )
+    if len(dags_not_found) > 0:
+        message = "**❓️ Les DAGs suivants n'ont pas pu être trouvés:** " + "\n\n-"
+        missing_dags_list = ", \n\n - ".join(dags_not_found)
+        message += missing_dags_list
+        message += (
+            "\n\nSolutions:\n\n"
+            f"1. Vérifiez de possibles erreurs d'import sur l'instance {AIRFLOW_URL}.\n\n"
+            "2. Si ces DAGs sont obsolètes ou à renommer, consultez le fichier `/meta/config.json`"
+        )
+        send_message(message, ping=list(ping))
