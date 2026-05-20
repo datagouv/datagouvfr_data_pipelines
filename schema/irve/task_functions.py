@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-from ast import literal_eval
 from datetime import datetime
 from pathlib import Path
 
@@ -169,9 +168,9 @@ def get_all_irve_resources(
     context["ti"].xcom_push(
         key="validata_reports_path", value=validata_reports_path.as_posix()
     )
-    context["ti"].xcom_push(key="schemas_report_dict", value=str(schemas_report_dict))
+    context["ti"].xcom_push(key="schemas_report_dict", value=schemas_report_dict)
     context["ti"].xcom_push(key="schemas_catalogue_list", value=schemas_catalogue_list)
-    context["ti"].xcom_push(key="config_dict", value=str(config_dict))
+    context["ti"].xcom_push(key="config_dict", value=config_dict)
 
 
 @task()
@@ -204,10 +203,8 @@ def consolidate_irve(tmp_path: Path, **context) -> None:
     consolidated_data_path = context["ti"].xcom_pull(
         key="consolidated_data_path", task_ids="get_all_irve_resources"
     )
-    schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(
-            key="schemas_report_dict", task_ids="get_all_irve_resources"
-        )
+    schemas_report_dict = context["ti"].xcom_pull(
+        key="schemas_report_dict", task_ids="get_all_irve_resources"
     )
     schemas_catalogue_list = context["ti"].xcom_pull(
         key="schemas_catalogue_list", task_ids="get_all_irve_resources"
@@ -285,8 +282,8 @@ def improve_irve_geo_data_quality(
         version = str(version_lookup[0]) if version_lookup else "inf"
         return comparer_versions(version)
 
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
+    config_dict = context["ti"].xcom_pull(
+        key="config_dict", task_ids="get_all_irve_resources"
     )
     latest_resource_id = config_dict["etalab/schema-irve-statique"][
         "latest_resource_ids"
@@ -331,13 +328,11 @@ def upload_consolidated_irve(
     consolidated_data_path = context["ti"].xcom_pull(
         key="consolidated_data_path", task_ids="get_all_irve_resources"
     )
-    schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(
-            key="schemas_report_dict", task_ids="get_all_irve_resources"
-        )
+    schemas_report_dict = context["ti"].xcom_pull(
+        key="schemas_report_dict", task_ids="get_all_irve_resources"
     )
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
+    config_dict = context["ti"].xcom_pull(
+        key="config_dict", task_ids="get_all_irve_resources"
     )
     schemas_catalogue_list = context["ti"].xcom_pull(
         key="schemas_catalogue_list", task_ids="get_all_irve_resources"
@@ -391,8 +386,8 @@ def update_consolidation_documentation_report_irve(
     consolidation_date_str = context["ti"].xcom_pull(
         key="consolidation_date_str", task_ids="get_all_irve_resources"
     )
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_all_irve_resources")
+    config_dict = context["ti"].xcom_pull(
+        key="config_dict", task_ids="get_all_irve_resources"
     )
     success = update_consolidation_documentation_report(
         schema_name,
@@ -416,10 +411,8 @@ def create_consolidation_reports_irve(**context) -> None:
     consolidation_date_str = context["ti"].xcom_pull(
         key="consolidation_date_str", task_ids="get_all_irve_resources"
     )
-    schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(
-            key="schemas_report_dict", task_ids="get_all_irve_resources"
-        )
+    schemas_report_dict = context["ti"].xcom_pull(
+        key="schemas_report_dict", task_ids="get_all_irve_resources"
     )
 
     reports_list = []

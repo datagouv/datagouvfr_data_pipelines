@@ -1,5 +1,4 @@
 import os
-from ast import literal_eval
 from datetime import datetime
 from pathlib import Path
 
@@ -92,18 +91,16 @@ def get_resources(
     context["ti"].xcom_push(
         key="validata_reports_path", value=validata_reports_path.as_posix()
     )
-    context["ti"].xcom_push(key="schemas_report_dict", value=str(schemas_report_dict))
+    context["ti"].xcom_push(key="schemas_report_dict", value=schemas_report_dict)
     context["ti"].xcom_push(key="schemas_catalogue_list", value=schemas_catalogue_list)
-    context["ti"].xcom_push(key="config_dict", value=str(config_dict))
+    context["ti"].xcom_push(key="config_dict", value=config_dict)
 
 
 @task()
 def download_resources(**context):
     # ## Downloading valid data
     # We download only data that is valid for at least one version of the schema.
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
     )
@@ -120,9 +117,7 @@ def download_resources(**context):
 
 @task()
 def consolidate_resources(tmp_path, **context):
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
     )
@@ -136,8 +131,8 @@ def consolidate_resources(tmp_path, **context):
     consolidation_date_str = context["ti"].xcom_pull(
         key="consolidation_date_str", task_ids="get_resources"
     )
-    schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(key="schemas_report_dict", task_ids="get_resources")
+    schemas_report_dict = context["ti"].xcom_pull(
+        key="schemas_report_dict", task_ids="get_resources"
     )
     print("Consolidating data")
     for schema_name in config_dict.keys():
@@ -156,9 +151,7 @@ def consolidate_resources(tmp_path, **context):
 
 @task()
 def upload_consolidated_data(config_path, **context):
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     consolidated_data_path = context["ti"].xcom_pull(
         key="consolidated_data_path", task_ids="get_resources"
     )
@@ -168,8 +161,8 @@ def upload_consolidated_data(config_path, **context):
     consolidation_date_str = context["ti"].xcom_pull(
         key="consolidation_date_str", task_ids="get_resources"
     )
-    schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(key="schemas_report_dict", task_ids="get_resources")
+    schemas_report_dict = context["ti"].xcom_pull(
+        key="schemas_report_dict", task_ids="get_resources"
     )
     print("Uploading consolidated data")
     for schema_name in config_dict.keys():
@@ -188,9 +181,7 @@ def upload_consolidated_data(config_path, **context):
 
 @task()
 def update_reference_tables(**context):
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
     )
@@ -204,9 +195,7 @@ def update_reference_tables(**context):
 
 @task()
 def update_resources(**context):
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
     )
@@ -224,9 +213,7 @@ def update_resources(**context):
 
 @task()
 def update_consolidation_documentation(config_path, **context):
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
     )
@@ -247,8 +234,8 @@ def update_consolidation_documentation(config_path, **context):
 
 @task()
 def create_consolidation_reports(**context):
-    schemas_report_dict = literal_eval(
-        context["ti"].xcom_pull(key="schemas_report_dict", task_ids="get_resources")
+    schemas_report_dict = context["ti"].xcom_pull(
+        key="schemas_report_dict", task_ids="get_resources"
     )
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
@@ -303,9 +290,7 @@ def create_consolidation_reports(**context):
 
 @task()
 def create_detailed_reports(**context):
-    config_dict = literal_eval(
-        context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
-    )
+    config_dict = context["ti"].xcom_pull(key="config_dict", task_ids="get_resources")
     ref_tables_path = context["ti"].xcom_pull(
         key="ref_tables_path", task_ids="get_resources"
     )

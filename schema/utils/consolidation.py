@@ -721,9 +721,9 @@ def build_reference_table(
                 )
                 > 0
             )
-            schemas_report_dict[schema_name]["nb_valid_resources"] = df[
-                "is_valid_one_version"
-            ].sum()
+            schemas_report_dict[schema_name]["nb_valid_resources"] = int(
+                df["is_valid_one_version"].sum()
+            )
             df = add_most_recent_valid_version(df)
             logging.info(df)
             df.to_csv(
