@@ -192,7 +192,7 @@ def notification(**context):
         key="dags_not_found", task_ids="monitor_dags"
     )
     if len(dags_not_found) > 0:
-        message = "**❓️ Les DAGs suivants n'ont pas pu être trouvés:** " + "\n\n-"
+        message = "**❓️ Les DAGs suivants n'ont pas pu être trouvés:** " + "\n\n- "
         missing_dags_list = ", \n\n - ".join(dags_not_found)
         message += missing_dags_list
         message += (
