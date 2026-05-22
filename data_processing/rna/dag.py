@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow.sdk import DAG
-from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     TMP_FOLDER,
     check_if_modif,

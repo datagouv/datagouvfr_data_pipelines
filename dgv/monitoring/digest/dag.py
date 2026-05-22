@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from airflow.sdk import DAG
 from airflow.models.baseoperator import chain
-from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
