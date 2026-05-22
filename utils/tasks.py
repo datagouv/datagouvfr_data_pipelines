@@ -1,4 +1,4 @@
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.operators.bash import BashOperator
 
 
 def clean_up_folder(folder: str, recreate: bool = False, **kwargs) -> BashOperator:
