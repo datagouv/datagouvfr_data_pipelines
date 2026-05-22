@@ -5,7 +5,7 @@ import re
 import frontmatter
 import pandas as pd
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.models import Variable
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.utils.tchap import send_message

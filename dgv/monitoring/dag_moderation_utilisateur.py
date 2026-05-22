@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.operators.python import ShortCircuitOperator
 from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_MODERATION_NOUVEAUTES,

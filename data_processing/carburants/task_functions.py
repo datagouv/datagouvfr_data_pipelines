@@ -3,7 +3,7 @@ import os
 import zipfile
 from datetime import date
 
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,

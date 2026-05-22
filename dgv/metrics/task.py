@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 import pandas as pd
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.utils.trigger_rule import TriggerRule
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,

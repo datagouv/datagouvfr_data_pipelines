@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import TCHAP_ROOM_SIMPLIFIONS
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.verticales.simplifions.diff_manager import (

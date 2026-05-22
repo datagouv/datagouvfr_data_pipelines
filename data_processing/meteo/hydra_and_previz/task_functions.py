@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     SECRET_SENTRY_API_TOKEN,
     SENTRY_BASE_URL,

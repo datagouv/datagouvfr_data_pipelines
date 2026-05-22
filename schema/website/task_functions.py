@@ -15,7 +15,7 @@ import pandas as pd
 import pytz
 import requests
 import yaml
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File

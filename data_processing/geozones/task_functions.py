@@ -6,7 +6,7 @@ from urllib.parse import quote_plus, urlencode
 
 import pandas as pd
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,

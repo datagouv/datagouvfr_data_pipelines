@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytz
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow_client.client.models.task_instance_response import TaskInstanceResponse
 from airflow_client.client.api import dag_api, dag_run_api, task_instance_api
 from airflow_client.client.exceptions import NotFoundException

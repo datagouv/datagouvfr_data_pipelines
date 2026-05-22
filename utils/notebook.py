@@ -3,7 +3,7 @@ import os
 
 import nbformat
 import papermill as pm
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from nbconvert import HTMLExporter

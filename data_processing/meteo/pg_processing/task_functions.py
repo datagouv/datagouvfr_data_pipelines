@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 import psycopg2
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,

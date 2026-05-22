@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 import pandas as pd
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouv import Client
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,

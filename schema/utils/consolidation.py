@@ -17,7 +17,7 @@ import pandas as pd
 import pytz
 import requests
 import yaml
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouv import Dataset
 from datagouvfr_data_pipelines.utils.datagouv import (
     ORGA_REFERENCE,

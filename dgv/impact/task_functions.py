@@ -6,7 +6,7 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouv import Client
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
