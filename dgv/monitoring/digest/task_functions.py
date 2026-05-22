@@ -3,11 +3,11 @@ import json
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    TCHAP_ROOM_ACTIVITES,
-    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     SECRET_MAIL_DATAGOUV_BOT_USER,
+    TCHAP_ROOM_ACTIVITES,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
 from datagouvfr_data_pipelines.utils.tchap import send_message

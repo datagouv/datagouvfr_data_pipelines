@@ -3,7 +3,6 @@ import logging
 import os
 import tarfile
 from datetime import date, datetime, timedelta
-from dateutil.relativedelta import relativedelta
 
 import pandas as pd
 from airflow.sdk import task
@@ -28,6 +27,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File, remove_files_from_d
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
+from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)

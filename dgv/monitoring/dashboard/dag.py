@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow.sdk import DAG
-from airflow.sdk import task
+from airflow.sdk import DAG, task
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     DAG_NAME,
     TMP_FOLDER,
@@ -13,8 +12,8 @@ from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     get_support_tickets,
     get_visits,
 )
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 one_year_ago = datetime.today() - timedelta(days=365)
 groups = [

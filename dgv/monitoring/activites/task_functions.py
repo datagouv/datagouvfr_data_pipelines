@@ -6,8 +6,7 @@ from time import sleep
 
 import pandas as pd
 import requests
-from airflow.sdk import task
-from airflow.sdk import Variable
+from airflow.sdk import Variable, task
 from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_ACTIVITES,
     TCHAP_ROOM_DATAENG,

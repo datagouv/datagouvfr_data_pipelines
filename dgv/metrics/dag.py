@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-from airflow.sdk import DAG
-from airflow.providers.standard.operators.python import ShortCircuitOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.dgv.metrics.task import (
     TMP_FOLDER,
     aggregate_log,

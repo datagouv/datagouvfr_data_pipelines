@@ -6,15 +6,15 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pytz
 from airflow.sdk import task
-from airflow_client.client.models.task_instance_response import TaskInstanceResponse
-from airflow_client.client.api import dag_api, dag_run_api, task_instance_api
-from airflow_client.client.exceptions import NotFoundException
 
 # from airflow.providers.http.hooks.http import HttpHook
 from airflow.utils.state import State
+from airflow_client.client.api import dag_api, dag_run_api, task_instance_api
+from airflow_client.client.exceptions import NotFoundException
+from airflow_client.client.models.task_instance_response import TaskInstanceResponse
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME, AIRFLOW_ENV, AIRFLOW_URL
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.airflow import AirflowAPI
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 local_timezone = pytz.timezone("Europe/Paris")

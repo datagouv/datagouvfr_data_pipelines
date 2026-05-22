@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from airflow.sdk import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 
 SCRIPTS_PATH = (

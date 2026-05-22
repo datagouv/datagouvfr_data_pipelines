@@ -9,7 +9,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from IPython.display import HTML, display
 
-
 URL_PATTERN = "https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/[^ \n]*)?"
 
 

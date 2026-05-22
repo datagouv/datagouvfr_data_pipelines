@@ -1,14 +1,14 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from airflow.sdk import DAG
 from airflow.providers.standard.operators.bash import BashOperator
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    TCHAP_ROOM_DATAENG,
     MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
+    TCHAP_ROOM_DATAENG,
 )
 from datagouvfr_data_pipelines.schema.consolidation.task_functions import (
     consolidate_resources,

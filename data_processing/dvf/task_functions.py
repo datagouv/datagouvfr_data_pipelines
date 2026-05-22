@@ -21,9 +21,9 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from unidecode import unidecode
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
