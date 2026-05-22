@@ -6,7 +6,7 @@ import frontmatter
 import pandas as pd
 import requests
 from airflow.sdk import task
-from airflow.models import Variable
+from airflow.sdk import Variable
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 from datagouvfr_data_pipelines.utils.tchap import send_message
 

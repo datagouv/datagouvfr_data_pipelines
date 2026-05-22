@@ -6,7 +6,7 @@ def _get(key, default=""):
     # In envs where Airflow db is unreachable (e.g withing notebooks), we can't access the variables
     # so we use ad hoc env vars
     try:
-        from airflow.models import Variable
+        from airflow.sdk import Variable
 
         return Variable.get(key, default_var=default)
     except Exception:
