@@ -1,5 +1,5 @@
 # from datetime import datetime, timedelta
-# from airflow import DAG
+# from airflow.sdk import DAG
 # from airflow.providers.standard.operators.bash import BashOperator
 # from airflow.operators.python import ShortCircuitOperator
 

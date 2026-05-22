@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 from datagouvfr_data_pipelines.config import AIRFLOW_ENV
 from datagouvfr_data_pipelines.schema.recommendations.task_functions import (

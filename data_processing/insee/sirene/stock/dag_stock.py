@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from airflow.operators.python import ShortCircuitOperator
 
 # from airflow.operators.trigger_dagrun import TriggerDagRunOperator

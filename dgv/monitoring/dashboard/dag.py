@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from airflow.sdk import task
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     DAG_NAME,

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 from datagouvfr_data_pipelines.verticales.culture.task_functions import (
     TMP_FOLDER,

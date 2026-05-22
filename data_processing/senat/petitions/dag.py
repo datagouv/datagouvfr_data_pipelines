@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.senat.petitions.task_functions import (
     TMP_FOLDER,
     gather_petitions,

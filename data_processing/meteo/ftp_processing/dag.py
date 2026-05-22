@@ -1,7 +1,7 @@
 import ftplib
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.config import (
     SECRET_FTP_METEO_ADDRESS,
     SECRET_FTP_METEO_PASSWORD,

@@ -3,7 +3,7 @@ import os
 import shutil
 from datetime import datetime, timedelta, timezone
 
-from airflow import DAG
+from airflow.sdk import DAG
 from airflow.sdk import task
 from airflow_client.client.api import dag_run_api
 

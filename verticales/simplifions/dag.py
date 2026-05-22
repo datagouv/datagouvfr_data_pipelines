@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouv import Client
 
 # In local, demo_client and local_client are both plugged to demo.datagouv.fr
