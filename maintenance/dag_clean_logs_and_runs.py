@@ -73,11 +73,16 @@ def delete_old_runs():
 
     with AirflowAPI(conn_name=CONN_NAME).client as client:
         try:
+            logging.info("DEBUG: connected to Airflow Client")
             api = dag_run_api.DagRunApi(client)
+            logging.info(f"DEBUG: DagRunAPI Client : {api}")
             runs = api.get_dag_runs(
                 dag_id="~", end_date_lte=oldest_run_date
             )  # All DAGs run older than the threshold
+            logging.info(f"DEBUG: Runs : {runs}")
             for run in runs.dag_runs:
+                logging.info(f"DEBUG: Loop on runs, iteration on run : {run}")
+                logging.info(f"DEBUG: dag_id {run.dag_id}, dag_run_id {run.dag_run_id}")
                 dag_id = run.dag_id
                 logging.info(f"Deleting run: dag_id={dag_id}, end_date={run.end_date}")
                 api.delete_dag_run(dag_id=dag_id, dag_run_id=run.dag_run_id)
