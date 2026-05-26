@@ -58,3 +58,26 @@ class AirflowAPI:
 
         # Instance of the API client to use as a context
         self.client = airflow_client.client.ApiClient(configuration)
+
+    @staticmethod
+    def paginate(api_call, result_attr: str, page_size: int = 100, **kwargs):
+        """Paginate through all results of an Airflow API list call.
+
+        :param api_call: bound API method to call (e.g. dag_api.get_dags)
+        :param result_attr: name of the list attribute on the response object
+                            ('dags', 'dag_runs', 'task_instances', ...)
+        :param page_size: number of items to fetch per request (default 100 to avoid overload)
+        :param kwargs: extra keyword arguments related to the bound API method
+                            ('end_date_lte', 'state', ...)
+        :return: flat list of all items across pages
+        """
+        all_items = []
+        offset = 0
+        while True:
+            response = api_call(limit=page_size, offset=offset, **kwargs)
+            items = getattr(response, result_attr)
+            all_items.extend(items)
+            offset += len(items)
+            if not items or offset >= response.total_entries:
+                break
+        return all_items

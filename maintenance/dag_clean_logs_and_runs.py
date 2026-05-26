@@ -70,25 +70,28 @@ def delete_old_runs():
     """
 
     oldest_run_date = datetime.now(tz=timezone.utc) - timedelta(days=nb_days_to_keep)
+    logging.info(f"Deleting runs with end_date <= {oldest_run_date}")
 
     with AirflowAPI(conn_name=CONN_NAME).client as client:
         try:
-            logging.info("DEBUG: connected to Airflow Client")
             api = dag_run_api.DagRunApi(client)
-            logging.info(f"DEBUG: oldest_run_date type: {type(oldest_run_date)}")
-            logging.info(f"DEBUG: oldest_run_date : {oldest_run_date}")
-            logging.info(f"DEBUG: get_dag_runs ALL : {api.get_dag_runs(dag_id="~")}")
-            logging.info(f"DEBUG: DagRunAPI Client : {api}")
-            runs = api.get_dag_runs(
-                dag_id="~", start_date_lte=oldest_run_date, end_date_lte=oldest_run_date
-            )  # All DAGs run older than the threshold
-            logging.info(f"DEBUG: Runs : {runs}")
-            for run in runs.dag_runs:
-                logging.info(f"DEBUG: Loop on runs, iteration on run : {run}")
-                logging.info(f"DEBUG: dag_id {run.dag_id}, dag_run_id {run.dag_run_id}")
-                dag_id = run.dag_id
-                logging.info(f"Deleting run: dag_id={dag_id}, end_date={run.end_date}")
-                api.delete_dag_run(dag_id=dag_id, dag_run_id=run.dag_run_id)
+
+            old_runs = AirflowAPI.paginate(
+                api.get_dag_runs,
+                "dag_runs",
+                dag_id="~",
+                state=["success", "failed"],  # exclude queued/running (no end_date)
+                end_date_lte=oldest_run_date,
+            )
+            logging.info(f"{len(old_runs)} run(s) to delete.")
+
+            for run in old_runs:
+                logging.info(
+                    f"Deleting run: dag_id={run.dag_id}, dag_run_id={run.dag_run_id}, end_date={run.end_date}"
+                )
+                api.delete_dag_run(dag_id=run.dag_id, dag_run_id=run.dag_run_id)
+
+            logging.info(f"Done: {len(old_runs)} run(s) deleted.")
         except Exception as e:
             logging.error(f"Error deleting old runs: {str(e)}")
 
