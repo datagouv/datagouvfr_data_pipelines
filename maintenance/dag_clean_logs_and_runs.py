@@ -75,6 +75,9 @@ def delete_old_runs():
         try:
             logging.info("DEBUG: connected to Airflow Client")
             api = dag_run_api.DagRunApi(client)
+            logging.info(f"DEBUG: oldest_run_date type: {type(oldest_run_date)}")
+            logging.info(f"DEBUG: oldest_run_date : {oldest_run_date}")
+            logging.info(f"DEBUG: get_dag_runs ALL : {api.get_dag_runs(dag_id="~")}")
             logging.info(f"DEBUG: DagRunAPI Client : {api}")
             runs = api.get_dag_runs(
                 dag_id="~", end_date_lte=oldest_run_date
