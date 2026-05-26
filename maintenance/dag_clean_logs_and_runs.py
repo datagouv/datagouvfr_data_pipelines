@@ -80,7 +80,7 @@ def delete_old_runs():
             logging.info(f"DEBUG: get_dag_runs ALL : {api.get_dag_runs(dag_id="~")}")
             logging.info(f"DEBUG: DagRunAPI Client : {api}")
             runs = api.get_dag_runs(
-                dag_id="~", end_date_lte=oldest_run_date
+                dag_id="~", start_date_lte=oldest_run_date, end_date_lte=oldest_run_date
             )  # All DAGs run older than the threshold
             logging.info(f"DEBUG: Runs : {runs}")
             for run in runs.dag_runs:
