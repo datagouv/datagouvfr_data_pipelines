@@ -29,7 +29,7 @@ with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") 
 
 
 def get_ids(config: dict, api: dag_api.DAGApi) -> dict[str, str]:
-    dags = api.get_dags().dags
+    dags = AirflowAPI.paginate(api.get_dags, "dags")
     ids = {}
     for raw_id, included in config.items():
         if not included:
@@ -67,25 +67,28 @@ def monitor_dags(
                 date_dt = date.replace(
                     tzinfo=timezone.utc
                 )  # The server needs a timezone-aware datetime or it throws a 500 error
-                dag_runs = dag_run_api_client.get_dag_runs(
+                dag_runs = AirflowAPI.paginate(
+                    dag_run_api_client.get_dag_runs,
+                    "dag_runs",
                     dag_id=dag_id,
-                    end_date_gte=date_dt,  # Does not filter out currently running DAGs
-                ).dag_runs
+                    end_date_gte=date_dt,
+                    state=["success", "failed"],  # exclude queued/running (no end_date)
+                )
             except NotFoundException:
                 dags_not_found.append(dag_id)
                 continue  # Raise an error only at the end to avoid skipping the rest of DAGs
             for dag_run in dag_runs:
                 start_date, end_date = dag_run.start_date, dag_run.end_date
-                if not end_date:
-                    continue  # Skipping currently running DAGs here
                 status = dag_run.state
                 if status != State.SUCCESS:
                     task_instance_api_client = task_instance_api.TaskInstanceApi(client)
-                    failed_task_instances = task_instance_api_client.get_task_instances(
+                    failed_task_instances = AirflowAPI.paginate(
+                        task_instance_api_client.get_task_instances,
+                        "task_instances",
                         dag_id=dag_run.dag_id,
                         dag_run_id=dag_run.dag_run_id,
                         state=[State.FAILED],
-                    ).task_instances
+                    )
                     todays_runs[dag_id][end_date] = {
                         "success": False,
                         "status": status,
