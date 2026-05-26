@@ -16,7 +16,6 @@ from datagouvfr_data_pipelines.utils.airflow import AirflowAPI
 
 CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 nb_days_to_keep = 60
-PAGE_SIZE = 100
 
 
 def get_directory_size(directory):
@@ -68,7 +67,6 @@ def delete_old_logs_and_directories(**context):
 def delete_old_runs():
     """
     Query and delete runs older than the threshold date (2 months ago).
-    Paginates through all matching runs to ensure none are missed.
     """
 
     oldest_run_date = datetime.now(tz=timezone.utc) - timedelta(days=nb_days_to_keep)
@@ -77,40 +75,23 @@ def delete_old_runs():
     with AirflowAPI(conn_name=CONN_NAME).client as client:
         try:
             api = dag_run_api.DagRunApi(client)
-            offset = 0
-            total_deleted = 0
 
-            while True:
-                runs = api.get_dag_runs(
-                    dag_id="~",
-                    state=[
-                        "success",
-                        "failed",
-                    ],  # Filter out ongoing DAGs without end_date
-                    end_date_lte=oldest_run_date,
-                    limit=PAGE_SIZE,
-                    offset=offset,
-                )
+            old_runs = AirflowAPI.paginate(
+                api.get_dag_runs,
+                "dag_runs",
+                dag_id="~",
+                state=["success", "failed"],  # exclude queued/running (no end_date)
+                end_date_lte=oldest_run_date,
+            )
+            logging.info(f"{len(old_runs)} run(s) to delete.")
+
+            for run in old_runs:
                 logging.info(
-                    f"Page offset={offset}: {len(runs.dag_runs)} run(s) "
-                    f"(total matching: {runs.total_entries})"
+                    f"Deleting run: dag_id={run.dag_id}, dag_run_id={run.dag_run_id}, end_date={run.end_date}"
                 )
+                api.delete_dag_run(dag_id=run.dag_id, dag_run_id=run.dag_run_id)
 
-                if not runs.dag_runs:
-                    break
-
-                for run in runs.dag_runs:
-                    logging.info(
-                        f"Deleting run: dag_id={run.dag_id}, dag_run_id={run.dag_run_id}, end_date={run.end_date}"
-                    )
-                    api.delete_dag_run(dag_id=run.dag_id, dag_run_id=run.dag_run_id)
-                    total_deleted += 1
-
-                offset += len(runs.dag_runs)
-                if offset >= runs.total_entries:
-                    break
-
-            logging.info(f"Done: {total_deleted} run(s) deleted.")
+            logging.info(f"Done: {len(old_runs)} run(s) deleted.")
         except Exception as e:
             logging.error(f"Error deleting old runs: {str(e)}")
 
