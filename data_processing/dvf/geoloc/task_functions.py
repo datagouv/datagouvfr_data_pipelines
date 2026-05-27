@@ -257,8 +257,7 @@ def enrich_year(
         ]
         geoloced.append(enriched.dropna(subset="longitude"))
     geoloced = pd.concat(geoloced + [remainders], ignore_index=True).sort_values(
-        by="id_mutation",
-        key=lambda col: col.str.split("-").str[1].astype(int)
+        by="id_mutation", key=lambda col: col.str.split("-").str[1].astype(int)
     )
     assert len(geoloced) == len(output)
     del output
