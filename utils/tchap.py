@@ -1,3 +1,5 @@
+import logging
+
 from markdown import markdown
 import requests
 
@@ -8,6 +10,9 @@ from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_DATAENG,
     TCHAP_ROOM_DATAENG_TEST,
 )
+
+# https://spec.matrix.org/unstable/client-server-api/#size-limits
+MAX_MESSAGE_LENGTH = 65536
 
 map_ping = {
     "geoffrey": "geoffrey.aldebert-data.gouv.fr",
@@ -45,11 +50,20 @@ def send_message(
     if ping:
         # notice doesn't ping
         message_type = "text"
+    formatted = markdown_to_html(text)
+    if formatted.__sizeof__() > MAX_MESSAGE_LENGTH:
+        logging.warning(
+            f"The message is too long ({formatted.__sizeof__()} bytes), truncating..."
+        )
+        formatted = formatted[:MAX_MESSAGE_LENGTH]
+        while formatted.__sizeof__() > MAX_MESSAGE_LENGTH:
+            formatted = formatted[:-10]
+
     payload = {
         "msgtype": f"m.{message_type}",
         "body": "_",
         "format": "org.matrix.custom.html",
-        "formatted_body": markdown_to_html(text),
+        "formatted_body": formatted,
     }
     if ping:
         if ping[0] == "room":
