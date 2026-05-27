@@ -2,28 +2,30 @@ import json
 import logging
 import os
 import re
-from time import sleep
 from zipfile import ZipFile
 
 from airflow.decorators import task
 from datagouv import Dataset, Resource
-import geopandas as gpd
 import pandas as pd
 import requests
-from shapely import Polygon
 
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    S3_URL_RBX,
+    SECRET_S3_PASSWORD,
+    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"
 GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"
+bucket = "dataeng-open"
 
 
 def check_if_modif():
@@ -100,46 +102,49 @@ def build_parcelle_id(row: pd.Series) -> str:
     )
 
 
-def get_parcelle_geometry(pid: str) -> Polygon | None:
-    # could also be with https://data.geopf.fr/geocodage/search?index=parcel
-    # but some parcels seem to be missing? e.g. 01033458AB0174
-    url = (
-        "https://apicarto.ign.fr/api/cadastre/parcelle?"
-        f"code_insee={pid[:5]}&section={pid[8:10]}&numero={pid[10:]}"
-    )
-    r = requests.get(url)
-    if r.status_code == 429:
-        logging.warning("Reached rate-limit, sleeping then retrying...")
-        sleep(r.headers.get("retry-after", 5))
-        return get_parcelle_geometry(pid)
-    try:
-        return Polygon(r.json()["features"][0]["geometry"]["coordinates"][0][0])
-    except Exception:
-        return None
-
-
-def add_geoloc(output: pd.DataFrame) -> None:
-    # a potential improvement: reuse parcelles from one enrichment to another
-    # so that we don't retrieve the same twice, but that means more RAM consumption
-    # and assumes that many mutations touch the same parcel across the years
-    parcelles = pd.DataFrame({"id_parcelle": output["id_parcelle"].unique()})
-    logging.info(f"Retrieving geometry for {len(parcelles)} parcelles...")
-    parcelles["geometry"] = parcelles["id_parcelle"].apply(get_parcelle_geometry)
-    parcelles = gpd.GeoDataFrame(parcelles)
-    parcelles["longitude"] = parcelles.centroid.x
-    parcelles["latitude"] = parcelles.centroid.y
-    del parcelles["geometry"]
-    logging.info("Merging coordinates...")
-    # trying to be memory efficient so map instead of merge
-    for col in ["latitude", "longitude"]:
-        output[col] = output["id_parcelle"].map(parcelles.set_index("id_parcelle")[col])
-    del parcelles
+def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFrame:
+    logging.info("Merging in batches with " + parcelle_file)
+    parcelles_prefixes = sorted(restr_output["id_parcelle"].str.slice(0, 2).unique())
+    merged = []
+    storage_options = {
+        "client_kwargs": {"endpoint_url": S3_URL_RBX},
+        "key": SECRET_S3_USER,
+        "secret": SECRET_S3_PASSWORD,
+    }
+    for idx, prefix in enumerate(parcelles_prefixes):
+        if idx == len(parcelles_prefixes) - 1:
+            high = "99999"
+        else:
+            high = parcelles_prefixes[idx + 1]
+        logging.info("> parcelles between", prefix, "and", high)
+        sample_dvf = restr_output.loc[
+            restr_output["id_parcelle"].str.startswith(prefix)
+        ]
+        sample_geo_parcelles = pd.read_parquet(
+            f"s3://{bucket}/{parcelle_file}",
+            storage_options=storage_options,
+            columns=["id", "latitude", "longitude"],
+            filters=[("id", ">=", prefix), ("id", "<", high)],
+        ).rename({"id": "id_parcelle"}, axis=1)
+        merged.append(
+            pd.merge(
+                sample_dvf,
+                sample_geo_parcelles,
+                on="id_parcelle",
+                how="left",
+            )
+        )
+        logging.info(
+            f"> {round(len(merged[-1].loc[merged[-1]['latitude'].isna()]) / len(merged[-1]) * 100, 2)}% missing"
+        )
+    return pd.concat(merged, ignore_index=True)
 
 
 def enrich_year(
     file: str,
-    arrond: dict,
+    # arrond: dict,
     map_cultures: dict[str, dict],
+    available_dates: dict[str, str],
 ):
     logging.info(f"Processing {file}")
     year = file.split(".")[0].split("-")[1]
@@ -223,34 +228,86 @@ def enrich_year(
     )
     output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
 
-    add_geoloc(output)
-    print(output)
+    # adding geo columns
+    restr_available_dates = [
+        max(k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}"))
+    ] + sorted([k for k in available_dates.keys() if k.startswith(f"{year}")])
+    if restr_available_dates[-1] < f"{year}-12-31":
+        restr_available_dates.append(f"{year}-12-31")
+    logging.info(restr_available_dates)
+    geoloced = []
+    remainders = None
+    for k in range(len(restr_available_dates) - 1):
+        dmin, dmax = restr_available_dates[k], restr_available_dates[k + 1]
+        restr_ouput = output.loc[
+            output["date_mutation"].between(
+                dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
+            )
+        ]
+        logging.info(len(restr_ouput), "rows between", dmin, "and", dmax)
+        if remainders is not None and not remainders.empty:
+            logging.info(f"- adding {len(remainders)} remainders")
+            restr_ouput = pd.concat([restr_ouput, remainders], ignore_index=True)
+        if len(restr_ouput) == 0:
+            logging.info("> skipping")
+            continue
+        enriched = merge_parcelles(restr_ouput, available_dates[dmin])
+        remainders = enriched.loc[enriched["longitude"].isna()][
+            [c for c in enriched.columns if c not in ["latitude", "longitude"]]
+        ]
+        geoloced.append(enriched.dropna(subset="longitude"))
+    geoloced = pd.concat(geoloced + [remainders], ignore_index=True).sort_values(
+        by="id_mutation",
+        key=lambda col: col.str.split("-").str[1].astype(int)
+    )
+    assert len(geoloced) == len(output)
+    del output
+    logging.warning(
+        f"No coords: {round(sum(geoloced['longitude'].isna()) / len(geoloced) * 100, 2)}%"
+    )
 
     logging.info("Saving file...")
-    output.to_csv(
+    geoloced.to_csv(
         TMP_FOLDER + f"full-{year}.csv.gz",
         index=False,
         compression="gzip",
     )
-    del output
+    del geoloced
 
 
 @task()
 def enrich_years(files, **context):
     # we can't parallelize for RAM containment
-    arrondissements_muni = context["ti"].xcom_pull(
-        key="arrondissements_muni", task_ids="download_source_data"
-    )
+
+    # arrondissements_muni = context["ti"].xcom_pull(
+    #     key="arrondissements_muni", task_ids="download_source_data"
+    # )
     map_cultures = {}
     for scope in ["cultures", "cultures-speciales"]:
         with open(DAG_FOLDER + f"dvf/geoloc/data/{scope}.json", "r") as f:
             map_cultures[scope] = json.load(f)
+    s3_client = S3Client(
+        bucket=bucket,
+        user=SECRET_S3_USER,
+        pwd=SECRET_S3_PASSWORD,
+        s3_url=S3_URL_RBX,
+    )
+    available_dates = {
+        o.split(".")[0].split("-", maxsplit=3)[-1]: o
+        for o in s3_client.get_files_from_prefix(
+            "parcelles/",
+            ignore_airflow_env=True,
+        )
+    }
+    logging.info(available_dates)
     for file in files:
         enrich_year(
             file,
-            arrond=arrondissements_muni,
+            # arrond=arrondissements_muni,  # not used (yet?)
             map_cultures=map_cultures,
+            available_dates=available_dates,
         )
+    # deleting in the end so that if the loop above fails, we can rerun safely
     for file in files:
         os.remove(TMP_FOLDER + file)
 
