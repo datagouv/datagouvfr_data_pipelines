@@ -103,6 +103,38 @@ def delete_old_runs():
                 state=["success", "failed"], 
                 end_date_lte=test_date,
             )))
+            test_date = datetime.now(tz=timezone.utc) - timedelta(days=15)
+            logging.info(len(AirflowAPI.paginate(
+                api.get_dag_runs,
+                "dag_runs",
+                dag_id="~",
+                state=["success", "failed"], 
+                end_date_lte=test_date,
+            )))
+            test_date = datetime.now(tz=timezone.utc) - timedelta(days=30)
+            logging.info(len(AirflowAPI.paginate(
+                api.get_dag_runs,
+                "dag_runs",
+                dag_id="~",
+                state=["success", "failed"], 
+                end_date_lte=test_date,
+            )))
+            test_date = datetime.now(tz=timezone.utc) - timedelta(days=45)
+            logging.info(len(AirflowAPI.paginate(
+                api.get_dag_runs,
+                "dag_runs",
+                dag_id="~",
+                state=["success", "failed"], 
+                end_date_lte=test_date,
+            )))
+            test_date = datetime.now(tz=timezone.utc) - timedelta(days=60)
+            logging.info(len(AirflowAPI.paginate(
+                api.get_dag_runs,
+                "dag_runs",
+                dag_id="~",
+                state=["success", "failed"], 
+                end_date_lte=test_date,
+            )))
             logging.info("#### DEBUG #####")
 
             for run in old_runs:
