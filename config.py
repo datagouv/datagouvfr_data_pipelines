@@ -8,7 +8,7 @@ def _get(key, default=""):
     try:
         from airflow.sdk import Variable
 
-        return Variable.get(key, default_var=default)
+        return Variable.get(key, default=default)
     except Exception:
         logging.warning(
             f"Could not retrieve `{key}` from Airflow variables, loading from env"
