@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.decorators import task
-from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.sdk import DAG, task
 from datagouvfr_data_pipelines.config import (
-    TCHAP_ROOM_MODERATION_NOUVEAUTES,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     SECRET_MAIL_DATAGOUV_BOT_USER,
+    TCHAP_ROOM_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.datagouv import get_last_items
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv

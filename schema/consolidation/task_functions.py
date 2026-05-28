@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.schema.utils.consolidation import (
     append_stats_list,
     build_reference_table,

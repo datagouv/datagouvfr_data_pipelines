@@ -1,5 +1,5 @@
 # from datetime import timedelta, datetime
-# from airflow import DAG
+# from airflow.sdk import DAG
 
 # from datagouvfr_data_pipelines.data_processing.meteo.hydra_and_previz.task_functions import (
 #     get_and_send_errors,

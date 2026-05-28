@@ -6,7 +6,7 @@ import tarfile
 from datetime import datetime
 
 import pandas as pd
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DAG_NAME,
     TMP_FOLDER,

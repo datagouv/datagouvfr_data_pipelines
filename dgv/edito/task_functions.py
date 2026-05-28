@@ -2,7 +2,7 @@ from datetime import date
 
 import pandas as pd
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 
 # import tweepy
 from datagouvfr_data_pipelines.config import (

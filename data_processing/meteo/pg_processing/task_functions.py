@@ -1,5 +1,4 @@
 import csv
-from email.utils import parsedate_to_datetime
 import gzip
 import json
 import logging
@@ -8,22 +7,23 @@ import re
 import shutil
 from collections import defaultdict
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import pandas as pd
 import psycopg2
 import requests
-from airflow.decorators import task
 from airflow.hooks.base import BaseHook
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from jinja2 import Environment, FileSystemLoader
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"

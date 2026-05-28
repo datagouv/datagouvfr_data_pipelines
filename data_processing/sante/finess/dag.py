@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions import (
     TMP_FOLDER,
     build_and_save,
     build_finess_table_etablissements,
     check_if_modif,
     config,
-    publish_on_datagouv,
     notification,
+    publish_on_datagouv,
     send_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

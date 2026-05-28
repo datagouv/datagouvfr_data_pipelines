@@ -3,8 +3,8 @@ import os
 import zipfile
 from datetime import date
 
-from airflow.decorators import task
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.operators.bash import BashOperator
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     S3_BUCKET_DATA_PIPELINE_OPEN,

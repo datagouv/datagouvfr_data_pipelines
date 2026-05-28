@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.meta.task_functions import monitor_dags, notification
-
 
 with DAG(
     dag_id="meta_dag",

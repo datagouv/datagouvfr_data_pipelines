@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.meteo.pnt_monitor.task_functions import (
     consolidate_logs,
     dump_and_send_tree,

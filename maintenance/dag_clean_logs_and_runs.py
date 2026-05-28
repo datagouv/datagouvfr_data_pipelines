@@ -3,16 +3,14 @@ import os
 import shutil
 from datetime import datetime, timedelta, timezone
 
-from airflow import DAG
-from airflow.decorators import task
+from airflow.sdk import DAG, task
 from airflow_client.client.api import dag_run_api
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
 )
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.airflow import AirflowAPI
+from datagouvfr_data_pipelines.utils.tchap import send_message
 
 CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 nb_days_to_keep = 60

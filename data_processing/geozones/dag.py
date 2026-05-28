@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.geozones.task_functions import (
     TMP_FOLDER,
     download_and_process_geozones,

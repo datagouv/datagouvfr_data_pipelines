@@ -5,7 +5,7 @@ import zipfile
 from datetime import datetime, timedelta
 
 import pandas as pd
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     INSEE_BASE_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
@@ -16,8 +16,8 @@ from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File, compute_checksum_from_file
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 

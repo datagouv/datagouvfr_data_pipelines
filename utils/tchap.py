@@ -2,7 +2,6 @@ import logging
 
 from markdown import markdown
 import requests
-
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     TCHAP_BASE_URL,

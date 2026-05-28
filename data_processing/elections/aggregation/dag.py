@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.task_functions import (
     TMP_FOLDER,
+    notification,
     process_election_data,
     publish_results_elections,
-    notification,
     send_results_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

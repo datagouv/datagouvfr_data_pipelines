@@ -5,7 +5,7 @@ import random
 import time
 
 import requests
-from airflow.models import Variable
+from airflow.sdk import Variable
 from datagouvfr_data_pipelines.config import METEO_PNT_APPLICATION_ID
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 

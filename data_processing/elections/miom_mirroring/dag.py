@@ -1,7 +1,7 @@
 # from datetime import datetime, timedelta
-# from airflow import DAG
-# from airflow.operators.bash import BashOperator
-# from airflow.operators.python import ShortCircuitOperator
+# from airflow.sdk import DAG
+# from airflow.providers.standard.operators.bash import BashOperator
+# from airflow.providers.standard.operators.python import ShortCircuitOperator
 
 # from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP
 # from datagouvfr_data_pipelines.data_processing.elections.miom_mirroring.task_functions import (

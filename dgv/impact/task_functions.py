@@ -6,7 +6,7 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 import requests
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouv import Client
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -17,8 +17,8 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from dateutil.relativedelta import relativedelta
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dgv_impact/"

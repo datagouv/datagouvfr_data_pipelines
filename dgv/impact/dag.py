@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     TMP_FOLDER,
     calculate_quality_score,
@@ -8,8 +8,8 @@ from datagouvfr_data_pipelines.dgv.impact.task_functions import (
     gather_kpis,
     get_discoverability,
     get_quality_reuses,
-    publish_datagouv,
     notification,
+    publish_datagouv,
     send_stats_to_s3,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.decorators import task
+from airflow.sdk import DAG, task
 from datagouvfr_data_pipelines.config import TCHAP_ROOM_MODERATION_NOUVEAUTES
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.tchap import send_message

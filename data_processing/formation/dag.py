@@ -1,14 +1,14 @@
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.standard.operators.python import ShortCircuitOperator
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.formation.task_functions import (
     TMP_FOLDER,
     compare_files_s3,
     download_latest_data,
+    notification,
     process_organismes_formation,
     send_file_to_s3,
-    notification,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 

@@ -1,9 +1,7 @@
-import requests
-from pydantic import BaseModel
-
-from airflow.sdk.bases.hook import BaseHook
-
 import airflow_client.client
+import requests
+from airflow.sdk.bases.hook import BaseHook
+from pydantic import BaseModel
 
 
 # What we expect back from auth/token

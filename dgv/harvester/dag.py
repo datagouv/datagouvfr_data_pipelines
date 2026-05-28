@@ -1,8 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.decorators import task
+from airflow.sdk import DAG, task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     TCHAP_ROOM_MODERATION_NOUVEAUTES,
