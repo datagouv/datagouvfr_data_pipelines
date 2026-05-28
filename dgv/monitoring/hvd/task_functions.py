@@ -179,20 +179,20 @@ def notification(**context):
         & (~previous_week["title"].isna())
     ]
 
-    message = "#### :flag-eu: :pokeball: Suivi HVD\n"
+    message = "#### 🇪🇺 🦋 Suivi HVD\n"
     hvds = get_unique_values_from_multiple_choice_column(this_week["hvd_name"])
 
     if len(hvds) == goal:
-        message += f"# :tada: :tada: {len(hvds)}/{goal} HVD référencés :tada: :tada: "
+        message += f"# 🎉 🎉 {len(hvds)}/{goal} HVD référencés 🎉 🎉 "
     else:
         message += f"{len(hvds)}/{goal} HVD référencés, "
     message += f"soit {round(len(hvds) / goal * 100, 1)}% "
     message += f"et un total de {this_week['url'].nunique()} JdD "
-    message += "([:arrow_down: télécharger le dernier fichier]"
-    message += f"({s3_open.get_file_url('hvd/' + filename)}))\n"
+    message += "([⬇️ télécharger le dernier fichier]"
+    message += f"({s3_open.get_file_url('hvd/' + filename)}))\n\n"
     if len(new):
         message += (
-            f":heavy_plus_sign: {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
+            f"➕️ {len(new)} JDD (pour {len(get_unique_values_from_multiple_choice_column(new['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n\n"
         )
         for _, row in new.iterrows():
@@ -201,7 +201,7 @@ def notification(**context):
         if len(new):
             message += "\n\n"
         message += (
-            f":heavy_minus_sign: {len(removed)} JDD (pour {len(get_unique_values_from_multiple_choice_column(['hvd_name']))} HVD) "
+            f"➖️ {len(removed)} JDD (pour {len(get_unique_values_from_multiple_choice_column(['hvd_name']))} HVD) "
             "par rapport à la semaine dernière\n\n"
         )
         for _, row in removed.iterrows():
@@ -209,7 +209,7 @@ def notification(**context):
 
     if not (len(new) or len(removed)):
         # could also delete the latest file
-        message += "Pas de changement par rapport à la semaine dernière"
+        message += "Pas de changement par rapport à la semaine dernière\n\n"
 
     df_ouverture = table.to_dataframe(columns_labels=False)
     for col in [
@@ -263,19 +263,26 @@ def notification(**context):
 
     missing_hvd_name = df_ouverture.loc[df_ouverture["hvd_name"].isna()]
     if len(missing_hvd_name):
-        message += f"\n\n{len(missing_hvd_name)} jeux de données n'ont pas d'ensemble de données renseigné :"
+        message += f"\n\n{len(missing_hvd_name)} jeux de données n'ont pas d'ensemble de données renseigné :\n"
     for _, row in missing_hvd_name.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
 
-    missing_hvd_tag = df_ouverture.loc[df_ouverture["missing_hvd_tag"] == "True"]
+    missing_hvd_tag = df_ouverture.loc[
+        df_ouverture["missing_hvd_tag"] == "True"
+    ].reset_index(drop=True)
     if len(missing_hvd_tag):
-        message += f"\n\n{len(missing_hvd_tag)} jeux de données n'ont plus le tag HVD :"
-    for _, row in missing_hvd_tag.iterrows():
+        message += (
+            f"\n\n{len(missing_hvd_tag)} jeux de données n'ont plus le tag HVD :\n"
+        )
+    threshold = 50
+    for _, row in missing_hvd_tag.iloc[:threshold].iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
+    if len(missing_hvd_tag) > threshold:
+        message += "\n - ... (voir grist pour la liste complète)"
 
     have_unavailable_resources = this_week.loc[this_week["has_unavailable_resources"]]
     if len(have_unavailable_resources):
-        message += f"\n\n{len(have_unavailable_resources)} HVD ont des ressources inaccessibles :"
+        message += f"\n\n{len(have_unavailable_resources)} HVD ont des ressources inaccessibles :\n"
     for _, row in have_unavailable_resources.iterrows():
         message += f"\n- [{row['title']}]({row['url']}) de {row['organization']}"
     send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
@@ -564,7 +571,7 @@ def update_grist(**context):
                 )
         if to_send:
             message = (
-                "⚠️ @clarisse Les jeux de données suivants ont perdu leur tag HVD :\n"
+                "⚠️ @clarisse Les jeux de données suivants ont perdu leur tag HVD :\n\n"
             )
             for _id, title, orga in to_send:
                 message += (
