@@ -1200,6 +1200,7 @@ def publish_stats_dvf(**context) -> None:
 
 @task()
 def concat_and_publish_whole():
+    # TODO: move this to data_processing_dvf_geoloc, it belongs better there
     years = sorted(
         [
             int(f.replace("full_", "").replace(".csv", ""))
