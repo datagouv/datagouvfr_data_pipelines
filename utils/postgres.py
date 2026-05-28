@@ -1,3 +1,4 @@
+import gzip
 import logging
 
 import psycopg2
@@ -41,15 +42,29 @@ class PostgresClient:
         return data
 
     def copy_file(
-        self, file: File, table: str, has_header: bool, commit: bool = True
+        self,
+        file: File,
+        table: str,
+        has_header: bool,
+        commit: bool = True,
+        compression: str | None = None,
     ) -> list[dict]:
+        def custom_open(file: File, compression: str | None):
+            match compression:
+                case None:
+                    return open(file.full_source_path, "r")
+                case "gzip":
+                    return gzip.open(file.full_source_path, "r")
+                case _:
+                    raise NotImplementedError
+
         with self.conn.cursor() as cur:
             cur.copy_expert(
                 sql=(
                     f"COPY {table} {file.get('column_order') or ''} FROM STDIN "
                     f"WITH CSV {'HEADER' * has_header} DELIMITER AS ','"
                 ),
-                file=open(file["source_path"] + file["source_name"], "r"),
+                file=custom_open(file, compression),
             )
             data = self._return_sql_results(cur)
             if commit:

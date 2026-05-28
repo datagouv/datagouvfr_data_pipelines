@@ -182,7 +182,19 @@ def enrich_year(
     output["code_commune"] = source.apply(build_code_commune, axis=1)
     patterns = {
         f"{sep}{sw}{sep}": f"{sep}{sw.lower()}{sep}"
-        for sw in {"Le", "La", "Les", "En", "Sur", "De"}
+        for sw in {
+            "Le",
+            "La",
+            "Les",
+            "En",
+            "Sur",
+            "Sous",
+            "De",
+            "Des",
+            "Du",
+            "Au",
+            "Aux",
+        }
         for sep in {"-", " "}
     }
     output["nom_commune"] = source["Commune"].str.title()
@@ -222,6 +234,8 @@ def enrich_year(
     del source
 
     logging.info("Creating mutation ids...")
+    # sorting to group mutations in the dataframe
+    output.sort_values(by=["date_mutation", "valeur_fonciere"], inplace=True)
     # new mutation id when either date or price changes
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
@@ -257,7 +271,7 @@ def enrich_year(
         ]
         geoloced.append(enriched.dropna(subset="longitude"))
     geoloced = pd.concat(geoloced + [remainders], ignore_index=True).sort_values(
-        by="id_mutation", key=lambda col: col.str.split("-").str[1].astype(int)
+        by="id_mutation", key=lambda col: col.str.split("-").str[1].astype(int), axis=1
     )
     assert len(geoloced) == len(output)
     del output

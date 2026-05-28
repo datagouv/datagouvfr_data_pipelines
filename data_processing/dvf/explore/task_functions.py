@@ -205,7 +205,7 @@ def populate_distribution_table() -> None:
 
 @task()
 def populate_dvf_table() -> None:
-    files = glob.glob(f"{TMP_FOLDER}full*.csv")
+    files = glob.glob(f"{TMP_FOLDER}full*.csv.gz")
     for file in files:
         *path, file = file.split("/")
         logging.info(f"Populating {file}")
@@ -213,6 +213,7 @@ def populate_dvf_table() -> None:
             file=File(source_path="/".join(path), source_name=file),
             table=build_table_name("dvf"),
             has_header=True,
+            compression="gzip",
         )
 
 
@@ -904,9 +905,9 @@ def create_distribution_and_stats_whole_period() -> None:
     # on récupère les données DVF
     years = sorted(
         [
-            int(f.replace("full_", "").replace(".csv", ""))
+            int(f.replace("full-", "").replace(".csv.gz", ""))
             for f in os.listdir(TMP_FOLDER)
-            if "full_" in f and ".gz" not in f
+            if "full-" in f
         ]
     )
     dvf = []
@@ -930,7 +931,7 @@ def create_distribution_and_stats_whole_period() -> None:
     for year in years:
         logging.info(f"Starting with {year}")
         df_ = pd.read_csv(
-            TMP_FOLDER + f"full_{year}.csv",
+            TMP_FOLDER + f"full-{year}.csv.gz",
             sep=",",
             encoding="utf8",
             dtype={
@@ -938,6 +939,7 @@ def create_distribution_and_stats_whole_period() -> None:
                 "code_departement": str,
             },
             usecols=to_keep,
+            compression="gzip",
         )
         df = df_.drop_duplicates()
         df["code_section"] = df["id_parcelle"].str[:10]
@@ -1203,9 +1205,9 @@ def concat_and_publish_whole():
     # TODO: move this to data_processing_dvf_geoloc, it belongs better there
     years = sorted(
         [
-            int(f.replace("full_", "").replace(".csv", ""))
+            int(f.replace("full-", "").replace(".csv.gz", ""))
             for f in os.listdir(TMP_FOLDER)
-            if "full_" in f and ".gz" not in f
+            if "full-" in f
         ]
     )
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/config.json") as fp:
@@ -1218,9 +1220,10 @@ def concat_and_publish_whole():
     write_headers = True
     for year in years:
         chunks = pd.read_csv(
-            TMP_FOLDER + f"full_{year}.csv",
+            TMP_FOLDER + f"full-{year}.csv.gz",
             dtype=str,
             chunksize=int(1e5),
+            compression="gzip",
         )
         logging.info(f"Exporting {year}...")
         for chunk in chunks:
