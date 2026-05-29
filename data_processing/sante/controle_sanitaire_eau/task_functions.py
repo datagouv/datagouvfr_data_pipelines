@@ -1,7 +1,6 @@
-import json
+import logging
 import os
 import re
-from datetime import datetime
 from io import BytesIO
 from zipfile import ZipFile
 
@@ -9,14 +8,11 @@ import pandas as pd
 import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.conversions import (
     csv_to_csvgz,
-    csv_to_parquet,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -25,17 +21,18 @@ from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
-
-with open(
-    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config.json"
-) as fp:
-    config = json.load(fp)
+dataset_id = "6a19b9c37d14bf8843ad1596"
+config = {
+    "RESULT": "5a84f909-4019-40c4-816a-f2f2c9372b24",
+    "COM_UDI": "3b646d13-a9d9-418c-9060-33a9b9cdde50",
+    "PLV": "75a43900-a916-4105-adcf-fe88f88194a8",
+}
 
 
 def check_if_modif():
-    return local_client.resource(
-        id=config["RESULT"]["parquet"][AIRFLOW_ENV]["resource_id"]
-    ).check_if_more_recent_update(dataset_id="5cf8d9ed8b4c4110294c841d")
+    return local_client.resource(id=config["RESULT"]).check_if_more_recent_update(
+        dataset_id="5cf8d9ed8b4c4110294c841d"
+    )
 
 
 @task()
@@ -48,13 +45,13 @@ def process_data():
     resources = [r for r in resources if re.search(r"dis-\d{4}.zip", r["title"])]
     columns = {file_type: [] for file_type in config.keys()}
     for idx, resource in enumerate(resources):
-        print(resource["title"])
+        logging.info(resource["title"])
         year = int(resource["title"].split(".")[0].split("-")[1])
         r = requests.get(resource["url"])
         r.raise_for_status()
         with ZipFile(BytesIO(r.content)) as zip_ref:
             for _, file in enumerate(zip_ref.namelist()):
-                print(">", file)
+                logging.info("> " + file)
                 file_type = "_".join(file.split("_")[1:-1])
                 assert file_type in config.keys()
                 with zip_ref.open(file) as f:
@@ -66,8 +63,8 @@ def process_data():
                 if not columns[file_type]:
                     columns[file_type] = list(df.columns)
                 elif list(df.columns) != columns[file_type]:
-                    print(columns[file_type])
-                    print(list(df.columns))
+                    logging.info(columns[file_type])
+                    logging.info(list(df.columns))
                     raise ValueError("Columns differ between files")
                 df["annee"] = year
                 df.to_csv(
@@ -78,20 +75,7 @@ def process_data():
                     header=idx == 0,
                 )
                 del df
-    for file_type in config.keys():
-        csv_to_parquet(
-            f"{TMP_FOLDER}{file_type}.csv",
-            sep=",",
-            dtype={
-                # specific dtypes are listed in the config, default to str
-                c: config[file_type]["dtype"].get(c, "VARCHAR")
-                for c in columns[file_type]
-            }
-            | {"annee": "INT32"},
-        )
-        if file_type == "RESULT":
-            # this one is too big for classic csv
-            csv_to_csvgz(f"{TMP_FOLDER}{file_type}.csv")
+                csv_to_csvgz(f"{TMP_FOLDER}{file_type}.csv")
 
 
 @task()
@@ -100,18 +84,11 @@ def send_to_s3(file_type: str):
         list_files=[
             File(
                 source_path=TMP_FOLDER,
-                source_name=f"{file_type}.{ext}",
+                source_name=f"{file_type}.csv.gz",
                 dest_path="controle_sanitaire_eau/",
-                dest_name=f"{file_type}.{ext}",
-                content_type=(
-                    "application/vnd.apache.parquet"
-                    if ext == "parquet"
-                    else "application/gzip"
-                    if ext == "csv.gz"
-                    else "text/csv"
-                ),
+                dest_name=f"{file_type}.csv.gz",
+                content_type="application/gzip",
             )
-            for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]
         ],
         ignore_airflow_env=True,
         is_public=True,
@@ -120,39 +97,25 @@ def send_to_s3(file_type: str):
 
 @task()
 def publish_on_datagouv(file_type: str):
-    date = datetime.today().strftime("%d-%m-%Y")
-    for ext in ["csv" if file_type != "RESULT" else "csv.gz", "parquet"]:
-        local_client.resource(
-            dataset_id=config[file_type][ext][AIRFLOW_ENV]["dataset_id"],
-            id=config[file_type][ext][AIRFLOW_ENV]["resource_id"],
-            is_communautary=True,
-            fetch=False,
-        ).update(
-            payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/controle_sanitaire_eau/{file_type}.{ext}"
-                ),
-                "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.{ext}"),
-                "title": (f"Données {file_type} (format {ext})"),
-                "format": ext,
-                "description": (
-                    f"{file_type} (format {ext})"
-                    " (créé à partir des [fichiers du Ministère des Solidarités et de la santé]"
-                    f"({local_client.base_url}/datasets/{config[file_type][ext][AIRFLOW_ENV]['dataset_id']}/))"
-                    f" (dernière mise à jour le {date})"
-                ),
-            },
-        )
+    local_client.resource(
+        dataset_id=config[file_type],
+        id=config[file_type],
+        is_communautary=True,
+        fetch=False,
+    ).update(
+        payload={
+            "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.csv.gz"),
+        },
+    )
 
 
 @task()
 def notification():
-    dataset_id = config["RESULT"]["parquet"][AIRFLOW_ENV]["dataset_id"]
+    dataset_id = local_client.Resource(config["RESULT"]).dataset_id
     send_message(
         text=(
             "📣 Données du contrôle sanitaire de l'eau mises à jour.\n\n"
             f"- Données stockées sur S3 - Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}\n"
-            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id}/#/community-resources)"
+            f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/datasets/{dataset_id})"
         )
     )
