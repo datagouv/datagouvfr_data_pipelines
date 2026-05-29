@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import os
@@ -288,6 +289,7 @@ def enrich_year(
         ]
         geoloced.append(enriched.dropna(subset="longitude"))
         del enriched
+        gc.collect()
     logging.info("Done with geoloc, concatenating results...")
     geoloced.append(remainders)
     del remainders
@@ -297,7 +299,9 @@ def enrich_year(
         logging.info(f"> {len(geoloced)} dfs still to concatenate")
         final = pd.concat([final, geoloced[0]], ignore_index=True)
         del geoloced[0]
+        gc.collect()
     del geoloced
+    logging.info("Sorting by mutation id...")
     final.sort_values(
         by="id_mutation",
         key=lambda col: col.str.split("-").str[1].astype(int),
