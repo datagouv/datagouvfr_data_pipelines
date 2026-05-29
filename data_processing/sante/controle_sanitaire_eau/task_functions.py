@@ -98,9 +98,8 @@ def send_to_s3(scope: str):
 @task()
 def publish_on_datagouv(scope: str):
     local_client.resource(
-        dataset_id=config[scope],
+        dataset_id=dataset_id,
         id=config[scope],
-        is_communautary=True,
         fetch=False,
     ).update(
         payload={
@@ -111,7 +110,6 @@ def publish_on_datagouv(scope: str):
 
 @task()
 def notification():
-    dataset_id = local_client.Resource(config["RESULT"]).dataset_id
     send_message(
         text=(
             "📣 Données du contrôle sanitaire de l'eau mises à jour.\n\n"
