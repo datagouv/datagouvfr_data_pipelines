@@ -150,6 +150,7 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
         logging.info(
             f"> {round(len(merged[-1].loc[merged[-1]['latitude'].isna()]) / len(merged[-1]) * 100, 2)}% missing"
         )
+    del restr_output
     return pd.concat(merged, ignore_index=True)
 
 
@@ -286,9 +287,12 @@ def enrich_year(
             [c for c in enriched.columns if c not in ["latitude", "longitude"]]
         ]
         geoloced.append(enriched.dropna(subset="longitude"))
+        del enriched
+    logging.info("Done with geoloc, concatenating results...")
     geoloced = pd.concat(geoloced + [remainders], ignore_index=True).sort_values(
         by="id_mutation", key=lambda col: col.str.split("-").str[1].astype(int)
     )
+    del remainders
     assert len(geoloced) == expected_len
     del output
     logging.warning(
