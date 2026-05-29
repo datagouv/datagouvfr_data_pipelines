@@ -30,10 +30,9 @@ config = {
 
 
 def check_if_modif():
-    # return local_client.resource(id=config["RESULT"]).check_if_more_recent_update(
-    #     dataset_id="5cf8d9ed8b4c4110294c841d"
-    # )
-    return True
+    return local_client.resource(id=config["RESULT"]).check_if_more_recent_update(
+        dataset_id="5cf8d9ed8b4c4110294c841d"
+    )
 
 
 @task()
