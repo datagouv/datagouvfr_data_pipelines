@@ -108,7 +108,7 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
     parcelles_prefixes = sorted(restr_output["id_parcelle"].str.slice(0, 2).unique())
     merged = []
     storage_options = {
-        "client_kwargs": {"endpoint_url": S3_URL_RBX},
+        "client_kwargs": {"endpoint_url": "https://" + S3_URL_RBX},
         "key": SECRET_S3_USER,
         "secret": SECRET_S3_PASSWORD,
     }
@@ -117,7 +117,7 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
             high = "99999"
         else:
             high = parcelles_prefixes[idx + 1]
-        logging.info("> parcelles between", prefix, "and", high)
+        logging.info(f"> parcelles between {prefix} and {high}")
         sample_dvf = restr_output.loc[
             restr_output["id_parcelle"].str.startswith(prefix)
         ]
