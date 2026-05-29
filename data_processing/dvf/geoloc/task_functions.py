@@ -121,6 +121,8 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
         sample_dvf = restr_output.loc[
             restr_output["id_parcelle"].str.startswith(prefix)
         ]
+        # for RAM optimization
+        restr_output.drop(sample_dvf.index, inplace=True)
         sample_geo_parcelles = pd.read_parquet(
             f"s3://{bucket}/{parcelle_file}",
             storage_options=storage_options,
@@ -135,6 +137,8 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
                 how="left",
             )
         )
+        del sample_dvf
+        del sample_geo_parcelles
         logging.info(
             f"> {round(len(merged[-1].loc[merged[-1]['latitude'].isna()]) / len(merged[-1]) * 100, 2)}% missing"
         )
@@ -242,6 +246,8 @@ def enrich_year(
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
     output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
+    output.reset_index(drop=True, inplace=True)
+    expected_len = len(output)
 
     # adding geo columns
     restr_available_dates = [
@@ -259,6 +265,7 @@ def enrich_year(
                 dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
             )
         ]
+        output.drop(restr_ouput.index, inplace=True)
         logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
         if remainders is not None and not remainders.empty:
             logging.info(f"- adding {len(remainders)} remainders")
@@ -274,7 +281,7 @@ def enrich_year(
     geoloced = pd.concat(geoloced + [remainders], ignore_index=True).sort_values(
         by="id_mutation", key=lambda col: col.str.split("-").str[1].astype(int)
     )
-    assert len(geoloced) == len(output)
+    assert len(geoloced) == expected_len
     del output
     logging.warning(
         f"No coords: {round(sum(geoloced['longitude'].isna()) / len(geoloced) * 100, 2)}%"
