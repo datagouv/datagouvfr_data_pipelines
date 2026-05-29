@@ -337,7 +337,7 @@ class S3Client:
         self,
         file_path: str,
     ) -> None:
-        """/!\ USE WITH CAUTION"""
+        """⚠️ USE WITH CAUTION"""
         if not self.does_file_exist_in_bucket(file_path):
             raise ValueError(
                 f"File '{file_path}' does not exist in bucket '{self.bucket.name}'"
