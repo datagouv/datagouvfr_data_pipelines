@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import ShortCircuitOperator
 from airflow.sdk import DAG
-from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
     TMP_FOLDER,
     config,
