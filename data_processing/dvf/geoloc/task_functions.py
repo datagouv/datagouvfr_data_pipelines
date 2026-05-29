@@ -289,23 +289,33 @@ def enrich_year(
         geoloced.append(enriched.dropna(subset="longitude"))
         del enriched
     logging.info("Done with geoloc, concatenating results...")
-    geoloced = pd.concat(geoloced + [remainders], ignore_index=True).sort_values(
-        by="id_mutation", key=lambda col: col.str.split("-").str[1].astype(int)
-    )
+    geoloced.append(remainders)
     del remainders
-    assert len(geoloced) == expected_len
+    # using pd.concat on geoloced directly is too RAM heavy, so workaround
+    final = pd.DataFrame()
+    while geoloced:
+        logging.info(f"> {len(geoloced)} dfs still to concatenate")
+        final = pd.concat([final, geoloced[0]], ignore_index=True)
+        del geoloced[0]
+    del geoloced
+    final.sort_values(
+        by="id_mutation",
+        key=lambda col: col.str.split("-").str[1].astype(int),
+        inplace=True,
+    )
+    assert len(final) == expected_len
     del output
     logging.warning(
-        f"No coords: {round(sum(geoloced['longitude'].isna()) / len(geoloced) * 100, 2)}%"
+        f"No coords: {round(sum(final['longitude'].isna()) / len(final) * 100, 2)}%"
     )
 
     logging.info("Saving file...")
-    geoloced.to_csv(
+    final.to_csv(
         TMP_FOLDER + f"full-{year}.csv.gz",
         index=False,
         compression="gzip",
     )
-    del geoloced
+    del final
 
 
 @task()
