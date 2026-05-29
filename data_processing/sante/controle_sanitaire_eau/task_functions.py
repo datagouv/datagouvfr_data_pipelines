@@ -43,7 +43,7 @@ def process_data():
         headers={"X-fields": "resources{title,url}"},
     ).json()["resources"]
     resources = [r for r in resources if re.search(r"dis-\d{4}.zip", r["title"])]
-    columns = {file_type: [] for file_type in config.keys()}
+    columns = {scope: [] for scope in config.keys()}
     for idx, resource in enumerate(resources):
         logging.info(resource["title"])
         year = int(resource["title"].split(".")[0].split("-")[1])
@@ -52,41 +52,42 @@ def process_data():
         with ZipFile(BytesIO(r.content)) as zip_ref:
             for _, file in enumerate(zip_ref.namelist()):
                 logging.info("> " + file)
-                file_type = "_".join(file.split("_")[1:-1])
-                assert file_type in config.keys()
+                scope = "_".join(file.split("_")[1:-1])
+                assert scope in config.keys()
                 with zip_ref.open(file) as f:
                     df = pd.read_csv(
                         f,
                         sep=",",
                         dtype=str,
                     )
-                if not columns[file_type]:
-                    columns[file_type] = list(df.columns)
-                elif list(df.columns) != columns[file_type]:
-                    logging.info(columns[file_type])
+                if not columns[scope]:
+                    columns[scope] = list(df.columns)
+                elif list(df.columns) != columns[scope]:
+                    logging.info(columns[scope])
                     logging.info(list(df.columns))
                     raise ValueError("Columns differ between files")
                 df["annee"] = year
                 df.to_csv(
-                    f"{TMP_FOLDER}{file_type}.csv",
+                    f"{TMP_FOLDER}{scope}.csv",
                     index=False,
                     encoding="utf8",
                     mode="w" if idx == 0 else "a",
                     header=idx == 0,
                 )
                 del df
-                csv_to_csvgz(f"{TMP_FOLDER}{file_type}.csv")
+    for scope in config.keys():
+        csv_to_csvgz(f"{TMP_FOLDER}{scope}.csv")
 
 
 @task()
-def send_to_s3(file_type: str):
+def send_to_s3(scope: str):
     S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,
-                source_name=f"{file_type}.csv.gz",
+                source_name=f"{scope}.csv.gz",
                 dest_path="controle_sanitaire_eau/",
-                dest_name=f"{file_type}.csv.gz",
+                dest_name=f"{scope}.csv.gz",
                 content_type="application/gzip",
             )
         ],
@@ -96,15 +97,15 @@ def send_to_s3(file_type: str):
 
 
 @task()
-def publish_on_datagouv(file_type: str):
+def publish_on_datagouv(scope: str):
     local_client.resource(
-        dataset_id=config[file_type],
-        id=config[file_type],
+        dataset_id=config[scope],
+        id=config[scope],
         is_communautary=True,
         fetch=False,
     ).update(
         payload={
-            "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.csv.gz"),
+            "filesize": os.path.getsize(TMP_FOLDER + f"{scope}.csv.gz"),
         },
     )
 

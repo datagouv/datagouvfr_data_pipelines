@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import ShortCircuitOperator
@@ -6,6 +5,7 @@ from airflow.sdk import DAG
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
     TMP_FOLDER,
+    config,
     check_if_modif,
     notification,
     process_data,
@@ -15,11 +15,6 @@ from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-
-with open(
-    f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/controle_sanitaire_eau/config.json"
-) as fp:
-    config = json.load(fp)
 
 default_args = {
     "retries": 5,
@@ -46,12 +41,12 @@ with DAG(
         >> clean_up_folder(TMP_FOLDER, recreate=True)
         >> _process_data
     )
-    for file_type in config.keys():
+    for scope in config.keys():
         (
             _process_data
-            >> send_to_s3.override(task_id=f"send_to_s3_{file_type}")(file_type)
-            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{file_type}")(
-                file_type
+            >> send_to_s3.override(task_id=f"send_to_s3_{scope}")(scope)
+            >> publish_on_datagouv.override(task_id=f"publish_on_datagouv_{scope}")(
+                scope
             )
             >> clean_up
         )
