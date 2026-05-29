@@ -75,12 +75,11 @@ def process_data():
                     header=idx == 0,
                 )
                 del df
-    for scope in config.keys():
-        csv_to_csvgz(f"{TMP_FOLDER}{scope}.csv")
 
 
 @task()
 def send_to_s3(scope: str):
+    csv_to_csvgz(f"{TMP_FOLDER}{scope}.csv")
     S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_files(
         list_files=[
             File(
