@@ -4,7 +4,7 @@ import os
 import re
 from zipfile import ZipFile
 
-from airflow.decorators import task
+from airflow.sdk import task
 from datagouv import Dataset
 import pandas as pd
 import requests
@@ -259,7 +259,7 @@ def enrich_year(
                 dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
             )
         ]
-        logging.info(len(restr_ouput), "rows between", dmin, "and", dmax)
+        logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
         if remainders is not None and not remainders.empty:
             logging.info(f"- adding {len(remainders)} remainders")
             restr_ouput = pd.concat([restr_ouput, remainders], ignore_index=True)
