@@ -5,7 +5,7 @@ import re
 from zipfile import ZipFile
 
 from airflow.decorators import task
-from datagouv import Dataset, Resource
+from datagouv import Dataset
 import pandas as pd
 import requests
 
@@ -31,11 +31,12 @@ bucket = "dataeng-open"
 def check_if_modif():
     # triggering the pipeline if any of the source dataset's resource has been
     # updated more recently than the agregated file
-    with open(DAG_FOLDER + "dvf/explore/config.json", "r") as f:
-        config = json.load(f)
-    return Resource(
-        id=config["concat"]["prod"]["resource_id"],
-    ).check_if_more_recent_update(dataset_id=SOURCE_DATASET_ID)
+    # with open(DAG_FOLDER + "dvf/explore/config.json", "r") as f:
+    #     config = json.load(f)
+    # return Resource(
+    #     id=config["concat"]["prod"]["resource_id"],
+    # ).check_if_more_recent_update(dataset_id=SOURCE_DATASET_ID)
+    return True
 
 
 @task()
