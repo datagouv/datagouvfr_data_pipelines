@@ -85,47 +85,45 @@ def get_support_tickets(start_date: datetime, **context):
                 months_count[tickets[k]["created_at_date"][:7]] += 1
         return months_count
 
-    # to be removed in April 2026
-    if datetime.today().strftime("%Y-%m") > "2026-04":
-        raise ValueError("Time to remove Zammad tickets")
-    remaining_zammad_tickets = {
-        "all": {
-            "2024-07": 1697,
-            "2024-08": 1310,
-            "2024-09": 1933,
-            "2024-10": 1908,
-            "2024-11": 1848,
-            "2024-12": 1657,
-            "2025-01": 2143,
-            "2025-02": 1966,
-            "2025-03": 2124,
-            "2025-04": 1000,
-        },
-        "hs": {
-            "2024-07": 54,
-            "2024-08": 38,
-            "2024-09": 43,
-            "2024-10": 33,
-            "2024-11": 14,
-            "2024-12": 22,
-            "2025-01": 35,
-            "2025-02": 43,
-            "2025-03": 39,
-            "2025-04": 14,
-        },
-        "spam": {
-            "2024-07": 534,
-            "2024-08": 429,
-            "2024-09": 278,
-            "2024-10": 516,
-            "2024-11": 474,
-            "2024-12": 238,
-            "2025-01": 318,
-            "2025-02": 326,
-            "2025-03": 427,
-            "2025-04": 232,
-        },
-    }
+    # keeping these for the record
+    # remaining_zammad_tickets = {
+    #     "all": {
+    #         "2024-07": 1697,
+    #         "2024-08": 1310,
+    #         "2024-09": 1933,
+    #         "2024-10": 1908,
+    #         "2024-11": 1848,
+    #         "2024-12": 1657,
+    #         "2025-01": 2143,
+    #         "2025-02": 1966,
+    #         "2025-03": 2124,
+    #         "2025-04": 1000,
+    #     },
+    #     "hs": {
+    #         "2024-07": 54,
+    #         "2024-08": 38,
+    #         "2024-09": 43,
+    #         "2024-10": 33,
+    #         "2024-11": 14,
+    #         "2024-12": 22,
+    #         "2025-01": 35,
+    #         "2025-02": 43,
+    #         "2025-03": 39,
+    #         "2025-04": 14,
+    #     },
+    #     "spam": {
+    #         "2024-07": 534,
+    #         "2024-08": 429,
+    #         "2024-09": 278,
+    #         "2024-10": 516,
+    #         "2024-11": 474,
+    #         "2024-12": 238,
+    #         "2025-01": 318,
+    #         "2025-02": 326,
+    #         "2025-03": 427,
+    #         "2025-04": 232,
+    #     },
+    # }
 
     not_spam_tickets = get_all_conversations()
     # /!\ spam tickets are deleted after 1 month in Crisp, so this will be underestimated
@@ -141,13 +139,6 @@ def get_support_tickets(start_date: datetime, **context):
         month: tickets["all"].get(month, 0) + tickets["spam"].get(month, 0)
         for month in tickets["all"].keys()
     }
-
-    # adding remaining zammad tickets for now
-    for scope in remaining_zammad_tickets.keys():
-        for month in remaining_zammad_tickets[scope].keys():
-            tickets[scope][month] = (
-                tickets[scope].get(month, 0) + remaining_zammad_tickets[scope][month]
-            )
 
     # restrain to one year
     start_month = start_date.strftime("%Y-%m")
@@ -434,9 +425,7 @@ def get_catalog_stats() -> None:
     dataset_quality = {
         k: {c: [] for c in cats} for k in ["all", "harvested", "local", "hvd"]
     }
-    dataset_quality.update(
-        {"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}}
-    )
+    dataset_quality |= {"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}}
     for d in datasets:
         dataset_quality["count"]["all"] += 1
         dataset_quality["count"]["harvested" if d[1] else "local"] += 1
