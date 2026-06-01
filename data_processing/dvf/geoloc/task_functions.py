@@ -163,6 +163,9 @@ def enrich_year(
 ):
     logging.info(f"Processing {file}")
     year = file.split(".")[0].split("-")[1]
+    if f"full-{year}.csv.gz" in os.listdir(TMP_FOLDER):
+        logging.info("> Already processed, skipping")
+        return
     source = pd.read_csv(TMP_FOLDER + file, dtype=str, sep="|")
     logging.info("Building output...")
     output = pd.DataFrame()
@@ -179,7 +182,7 @@ def enrich_year(
     output["numero_disposition"] = source["No disposition"]
     output["nature_mutation"] = source["Nature mutation"]
     output["valeur_fonciere"] = (
-        source["Valeur fonciere"].str.replace(",", ".").astype(float)
+        source["Valeur fonciere"].str.replace(",", ".").astype("float32")
     )
     output["adresse_numero"] = source["No voie"]
     output["adresse_suffixe"] = source["B/T/Q"]
@@ -228,13 +231,15 @@ def enrich_year(
     for no in ["1er", "2eme", "3eme", "4eme", "5eme"]:
         output[f"lot{no[0]}_numero"] = source[f"{no} lot"]
         output[f"lot{no[0]}_surface_carrez"] = (
-            source[f"Surface Carrez du {no} lot"].str.replace(",", ".").astype(float)
+            source[f"Surface Carrez du {no} lot"]
+            .str.replace(",", ".")
+            .astype("float32")
         )
     output["nombre_lots"] = source["Nombre de lots"]
     output["code_type_local"] = source["Code type local"]
     output["type_local"] = source["Type local"]
     output["surface_reelle_bati"] = (
-        source["Surface reelle bati"].str.replace(",", ".").astype(float)
+        source["Surface reelle bati"].str.replace(",", ".").astype("float32")
     )
     output["nombre_pieces_principales"] = source["Nombre pieces principales"]
     output["code_nature_culture"] = source["Nature culture"]
@@ -244,14 +249,14 @@ def enrich_year(
         map_cultures["cultures-speciales"]
     )
     output["surface_terrain"] = (
-        source["Surface terrain"].str.replace(",", ".").astype(float)
+        source["Surface terrain"].str.replace(",", ".").astype("float32")
     )
     del source
+    gc.collect()
 
     logging.info("Creating mutation ids...")
     # sorting to group mutations in the dataframe
     output["date_mutation"] = pd.to_datetime(output["date_mutation"])
-    output["valeur_fonciere"] = output["valeur_fonciere"].astype("float32")
     output.sort_values(by=["date_mutation", "valeur_fonciere"], inplace=True)
     output["date_mutation"] = output["date_mutation"].dt.strftime("%Y-%m-%d")
     # new mutation id when either date or price changes
@@ -259,6 +264,7 @@ def enrich_year(
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
     output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
+    del mask
     output.reset_index(drop=True, inplace=True)
     expected_len = len(output)
 
@@ -321,6 +327,7 @@ def enrich_year(
         compression="gzip",
     )
     del final
+    gc.collect()
 
 
 @task()
