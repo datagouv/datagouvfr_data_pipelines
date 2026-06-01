@@ -250,6 +250,8 @@ def enrich_year(
 
     logging.info("Creating mutation ids...")
     # sorting to group mutations in the dataframe
+    output["date_mutation"] = pd.to_datetime(output["date_mutation"]).astype("category")
+    output["valeur_fonciere"] = output["valeur_fonciere"].astype("float32")
     output.sort_values(by=["date_mutation", "valeur_fonciere"], inplace=True)
     # new mutation id when either date or price changes
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
