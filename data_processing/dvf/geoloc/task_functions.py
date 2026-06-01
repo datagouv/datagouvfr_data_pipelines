@@ -106,15 +106,7 @@ def build_parcelle_id(row: pd.Series) -> str:
 
 def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFrame:
     logging.info("Merging in batches with " + parcelle_file)
-    parcelles_prefixes = sorted(
-        restr_output["id_parcelle"]
-        .str[:3]
-        .where(
-            restr_output["id_parcelle"].str.startswith("97"),
-            restr_output["id_parcelle"].str[:2],
-        )
-        .unique()
-    )
+    parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique())
     merged = []
     storage_options = {
         "client_kwargs": {"endpoint_url": "https://" + S3_URL_RBX},
