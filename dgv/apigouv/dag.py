@@ -25,7 +25,7 @@
 #     schedule="0 18 * * *",
 #     start_date=datetime(2024, 10, 1),
 #     dagrun_timeout=timedelta(minutes=60),
-#     tags=["apigouv"],
+#     tags=["deprecated", "apigouv"],
 #     default_args=default_args,
 #     catchup=False,
 # ):

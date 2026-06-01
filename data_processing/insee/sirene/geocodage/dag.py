@@ -19,7 +19,7 @@ with DAG(
     schedule=None,  # triggered by data_processing_sirene_publication
     start_date=datetime(2024, 8, 10),
     catchup=False,
-    tags=["data_processing", "sirene", "geocodage"],
+    tags=["deprecated", "data_processing", "sirene", "geocodage"],
     params={},
 ):
     shared_kwargs = {

@@ -22,7 +22,7 @@ with DAG(
     schedule="5 6,7,8,9,10 21-23 * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=60),
-    tags=["data_processing", "sirene", "geolocalisation"],
+    tags=["deprecated", "data_processing", "sirene", "geolocalisation"],
     catchup=False,
 ):
     (
