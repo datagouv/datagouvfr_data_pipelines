@@ -24,7 +24,7 @@ with DAG(
     schedule="5 6,8,10 1-3 * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=120),
-    tags=["data_processing", "sirene", "publication"],
+    tags=["deprecated", "data_processing", "sirene", "publication"],
     catchup=False,
 ):
     (
