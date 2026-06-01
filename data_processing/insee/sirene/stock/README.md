@@ -1,6 +1,8 @@
 # Documentation
 
-## data_processing_sirene_publication
+## data_processing_sirene_publication & data_processing_sirene_geolocalisation
+
+> Ces traitements ont été décommissionnés en mai 2026, l'INSEE alimente maintenant les jeux de données en autonomie.
 
 | Information | Valeur |
 | -------- | -------- |
