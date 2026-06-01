@@ -262,7 +262,7 @@ def enrich_year(
     # adding geo columns
     restr_available_dates = [
         max(k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}"))
-    ] + sorted([k for k in available_dates.keys() if k.startswith(f"{year}")])
+    ] + sorted([k for k in available_dates.keys() if k.startswith(year)])
     if restr_available_dates[-1] < f"{year}-12-31":
         restr_available_dates.append(f"{year}-12-31")
     logging.info(restr_available_dates)
@@ -302,11 +302,9 @@ def enrich_year(
         gc.collect()
     del geoloced
     logging.info("Sorting by mutation id...")
-    final.sort_values(
-        by="id_mutation",
-        key=lambda col: col.str.split("-").str[1].astype(int),
-        inplace=True,
-    )
+    final["_sort_key"] = final["id_mutation"].str[len(year) + 1 :].astype("int32")
+    final.sort_values("_sort_key", inplace=True)
+    final.drop(columns="_sort_key", inplace=True)
     assert len(final) == expected_len
     del output
     logging.warning(
@@ -363,7 +361,7 @@ def enrich_years(files, **context):
 def publish_datagouv():
     dataset = local_client.dataset(GEOLOC_DATASET_ID)
     yearly_resources = sorted(
-        [res for res in dataset.resources if res.type == "main" and "full" in res.url],
+        [res for res in dataset.resources if res.type == "main" and "full-" in res.url],
         key=lambda r: r.title,
     )
     files = sorted(os.listdir(TMP_FOLDER))
