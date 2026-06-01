@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from time import sleep
 from zipfile import ZipFile
 
 from airflow.sdk import task
@@ -319,7 +320,9 @@ def enrich_year(
         compression="gzip",
     )
     del final
+    # end-of-loop garbage management, giving time to reclaim memory
     gc.collect()
+    sleep(5)
 
 
 @task()
