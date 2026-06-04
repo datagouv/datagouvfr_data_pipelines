@@ -3,7 +3,6 @@ from io import StringIO
 
 import paramiko
 from airflow.hooks.base import BaseHook
-from datagouvfr_data_pipelines.config import SECRET_SFTP_HOST
 from datagouvfr_data_pipelines.utils.retry import (
     _simple_connection_retry,
     simple_connection_retry,
@@ -20,9 +19,7 @@ class SFTPClient:
     def __init__(
         self,
         conn_name: str,
-        user: str,
         key_type: str = "RSA",
-        host: str = SECRET_SFTP_HOST,
         accept_unknown_keys: bool = True,
     ):
         if key_type not in ["RSA", "DSS", "ECDSA", "Ed25519"]:
@@ -42,8 +39,8 @@ class SFTPClient:
         if accept_unknown_keys:
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.connect(
-            host,
-            username=user,
+            conn_infos["host"],
+            username=conn_infos["login"],
             pkey=private_key,
         )
         self.sftp = self.ssh.open_sftp()

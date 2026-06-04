@@ -45,7 +45,6 @@ with open(
 def create_client() -> SFTPClient:
     return SFTPClient(
         conn_name="SSH_TRANSFER_INFRA_DATA_GOUV_FR",
-        user="meteofrance",
         # you may have to edit the dev value depending on your local conf
         key_type="RSA" if AIRFLOW_ENV == "dev" else "Ed25519",
     )
