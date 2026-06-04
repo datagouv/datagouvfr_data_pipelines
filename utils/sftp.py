@@ -25,8 +25,10 @@ class SFTPClient:
         if key_type not in ["RSA", "DSS", "ECDSA", "Ed25519"]:
             raise ValueError(f"{key_type} is not a valid key type")
         conn_infos = BaseHook.get_connection(conn_name).extra_dejson
-        print(BaseHook.get_connection(conn_name))
+        conn = BaseHook.get_connection(conn_name)
+        print(dir(conn))
         print(conn_infos)
+        print(conn.host, conn.login)
         if "private_key" in conn_infos:
             private_key = getattr(paramiko, key_type + "Key").from_private_key(
                 StringIO(conn_infos["private_key"])
