@@ -24,18 +24,15 @@ class SFTPClient:
     ):
         if key_type not in ["RSA", "DSS", "ECDSA", "Ed25519"]:
             raise ValueError(f"{key_type} is not a valid key type")
-        conn_infos = BaseHook.get_connection(conn_name).extra_dejson
         conn = BaseHook.get_connection(conn_name)
-        print(dir(conn))
-        print(conn_infos)
-        print(conn.host, conn.login)
-        if "private_key" in conn_infos:
+        extras = conn.extra_dejson
+        if "private_key" in extras:
             private_key = getattr(paramiko, key_type + "Key").from_private_key(
-                StringIO(conn_infos["private_key"])
+                StringIO(extras["private_key"])
             )
-        elif "key_file" in conn_infos:
+        elif "key_file" in extras:
             private_key = getattr(paramiko, key_type + "Key").from_private_key_file(
-                conn_infos["key_file"]
+                extras["key_file"]
             )
         else:
             raise KeyError("None of the required keys could be found")
@@ -43,8 +40,8 @@ class SFTPClient:
         if accept_unknown_keys:
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.connect(
-            conn_infos["host"],
-            username=conn_infos["login"],
+            conn.host,
+            username=conn.login,
             pkey=private_key,
         )
         self.sftp = self.ssh.open_sftp()
