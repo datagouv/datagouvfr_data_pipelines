@@ -9,7 +9,6 @@ from datagouvfr_data_pipelines.dgv.monitoring.activites.task_functions import (
     check_new,
     check_schema,
     notification,
-    send_spam_to_grist,
 )
 
 default_args = {
@@ -40,5 +39,4 @@ with DAG(
         ]
     ]
 
-    checks >> send_spam_to_grist()
     checks >> notification() >> check_schema()
