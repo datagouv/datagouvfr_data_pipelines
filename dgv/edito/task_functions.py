@@ -38,6 +38,10 @@ LAST_MONTH_DATE_STR_SHORT = f"{MONTHS[LAST_MONTH_DATE.month - 1]}"
 LAST_MONTH_DATE_STR = (
     f"{MONTHS[LAST_MONTH_DATE.month - 1]} {LAST_MONTH_DATE.strftime('%Y')}"
 )
+# French elision: "d'avril", "d'août", "d'octobre" but "de mars". The previous code
+# tested startswith("a"/"o") on a capitalised month name, so elision never triggered
+# (it produced "de Avril").
+LAST_MONTH_ELISION = "d'" if LAST_MONTH_DATE_STR[0].lower() in "ao" else "de "
 
 
 # def tweet_featured_from_catalog(url, obj_type, phrase_intro):
@@ -130,7 +134,7 @@ def create_edito_post(**context):
             usecols=["id", "slug", "created_at", "featured"],
         )
         recent = df.loc[df.created_at.str.match(LAST_MONTH_DATE_FMT)]
-        slugs = recent.loc[recent.featured, "slug"].values
+        featured_ids = recent.loc[recent.featured, "id"].tolist()
         count = len(recent)
         ids = recent["id"].to_list()
         visits = []
@@ -147,7 +151,6 @@ def create_edito_post(**context):
         visits = pd.DataFrame(
             {
                 "id": ids,
-                "slug": recent["slug"].to_list(),
                 "visits": visits,
             }
         )
@@ -155,113 +158,96 @@ def create_edito_post(**context):
         print(visits)
         mapping[object_type].update(
             {
-                "featured_slugs": slugs,
+                "featured_ids": featured_ids,
                 "count": count,
-                "trending_slugs": visits["slug"].to_list()[:6],
+                "trending_ids": visits["id"].to_list()[:6],
             }
         )
     print(mapping)
 
-    # Generate HTML
-    def list_datasets(datasets):
-        out = '<div class="my-4 not-prose space-y-4">\n'
-        for slug in datasets:
-            out += f'        <div data-udata-dataset="{slug}"></div>\n'
-        out += "    </div>\n"
-        return out
+    # Generate blocs
+    blocs = [
+        {
+            "class": "MarkdownBloc",
+            "content": (
+                f"En {LAST_MONTH_DATE_STR}, **{mapping['datasets']['count']} jeux de données** "
+                f"et **{mapping['reuses']['count']} réutilisations** ont été publiés sur "
+                "data.gouv.fr. [Découvrez plus de statistiques sur l'activité de la plateforme]"
+                "(http://activites-datagouv.app.etalab.studio/).\n\n"
+                "Retrouvez ici nos jeux de données et réutilisations coups de cœur du mois, "
+                f"ainsi que les publications récentes les plus populaires en {LAST_MONTH_DATE_STR}."
+            ),
+        },
+        {
+            "class": "DatasetsListBloc",
+            "title": "Les jeux de données du mois",
+            "subtitle": "Les jeux de données qui ont retenu notre attention ce mois-ci :",
+            "datasets": mapping["datasets"]["featured_ids"],
+        },
+        {
+            "class": "ReusesListBloc",
+            "title": "Les réutilisations du mois",
+            "subtitle": "Les réutilisations qui ont retenu notre attention ce mois-ci :",
+            "reuses": mapping["reuses"]["featured_ids"],
+        },
+        {
+            "class": "MarkdownBloc",
+            "title": "Les tendances du mois sur data.gouv.fr",
+            "content": (
+                "*Il s'agit des jeux de données et des réutilisations créés récemment "
+                f"les plus consultés au mois {LAST_MONTH_ELISION}{LAST_MONTH_DATE_STR}.*"
+            ),
+        },
+        {
+            "class": "DatasetsListBloc",
+            "title": "Les jeux de données les plus consultés",
+            "subtitle": "Les jeux de données publiés ce mois-ci les plus populaires :",
+            "datasets": mapping["datasets"]["trending_ids"],
+        },
+        {
+            "class": "ReusesListBloc",
+            "title": "Les réutilisations les plus consultées",
+            "subtitle": "Les réutilisations publiées ce mois-ci les plus populaires :",
+            "reuses": mapping["reuses"]["trending_ids"],
+        },
+        {
+            "class": "LinksListBloc",
+            "title": "Suivez l'actualité de la plateforme",
+            "paragraph": (
+                "Le suivi des sorties ne constitue que le sommet de l'iceberg de l'activité "
+                "de data.gouv.fr. Pour ne rien manquer de l'actualité de data.gouv.fr et de "
+                "l'open data, abonnez-vous à notre infolettre. Et si vous souhaitez nous aider "
+                "à améliorer la plateforme en testant les nouveautés en avant-première, "
+                "devenez beta testeur."
+            ),
+            "links": [
+                {
+                    "title": "S'abonner à l'infolettre",
+                    "url": "https://f.info.data.gouv.fr/f/lp/infolettre-data-gouv-fr-landing-page/lk3q01y6",
+                },
+                {
+                    "title": "Devenir beta testeur",
+                    "url": "https://tally.so/r/mOalMA",
+                },
+            ],
+        },
+    ]
 
-    def list_reuses(reuses):
-        out = '<div class="my-4 not-prose grid gap-4 md:grid-cols-2">\n'
-        for slug in reuses:
-            out += f'        <div class="flex-1" data-udata-reuse="{slug}"></div>\n'
-        out += "    </div>\n"
-        return out
-
-    content = f"""
-        <h3>
-            En {LAST_MONTH_DATE_STR}, {mapping["datasets"]["count"]}
-             jeux de données et {mapping["reuses"]["count"]}
-             réutilisations ont été publiés sur data.gouv.fr.
-        </h3>
-        <a
-            href="http://activites-datagouv.app.etalab.studio/"
-            target="_blank"
-        >
-            Découvrez plus de statistiques sur l'activité de la plateforme
-        </a>.
-        <p>
-            Retrouvez-ici nos jeux de données et réutilisations coups de coeur du mois,&nbsp;
-            ainsi que les publications récentes les plus populaires en {
-        LAST_MONTH_DATE_STR
-    }.
-        </p>
-        <div class="fr-my-6w">
-            <h3 >Les jeux de données du mois</h3>
-            <p>Les jeux de données qui ont retenu notre attention ce mois-ci :</p>
-            {list_datasets(mapping["datasets"]["featured_slugs"])}
-        </div>
-        <div class="fr-my-6w">
-            <h3>Les réutilisations du mois</h3>
-            <p>Les réutilisations qui ont retenu notre attention ce mois-ci :</p>
-            {list_reuses(mapping["reuses"]["featured_slugs"])}
-        </div>
-        <div class="fr-my-6w">
-            <h3>Les tendances du mois sur data.gouv.fr</h3>
-            <p>
-                <i>
-                    Il s'agit des jeux de données et des réutilisations créés récemment&nbsp;
-                    les plus consultés au mois&nbsp;
-                    {
-        "d’"
-        if LAST_MONTH_DATE_STR.startswith("a") or LAST_MONTH_DATE_STR.startswith("o")
-        else "de "
-    }
-                    {LAST_MONTH_DATE_STR}.
-                </i>
-            </p>
-            <p>Les jeux de données publiés ce mois-ci les plus populaires :</p>
-            {list_datasets(mapping["datasets"]["trending_slugs"])}
-            <p>Les réutilisations publiées ce mois-ci les plus populaires :</p>
-            {list_reuses(mapping["reuses"]["trending_slugs"])}
-        </div>
-        <h3>Suivez l’actualité de la plateforme</h3>
-        <p>
-            Le suivi des sorties ne constitue que le sommet de l’iceberg de l’activité de data.gouv.fr.
-            Pour ne rien manquer de l’actualité de data.gouv.fr et de l’open data,
-            <a
-                href="https://f.info.data.gouv.fr/f/lp/infolettre-data-gouv-fr-landing-page/lk3q01y6"
-                target="_blank"
-            >
-                &nbsp;abonnez-vous à notre infolettre
-            </a>.
-            <br />
-            Et si vous souhaitez nous aider à améliorer la plateforme en testant les nouveautés
-             en avant première, n’hésitez pas à
-            <a
-                href="https://tally.so/r/mOalMA"
-                target="_blank"
-            >
-                devenir beta testeur
-            </a>.
-        </p>
-    """
-
-    print(content)
+    print(blocs)
 
     # Create a POST
     headline = (
-        f"Vous lisez l’édition "
-        f"{'d’' if LAST_MONTH_DATE_STR.startswith('a') or LAST_MONTH_DATE_STR.startswith('o') else 'de '}"
-        f"{LAST_MONTH_DATE_STR} du suivi des sorties, un article dans lequel nous partageons les "
-        f"publications de jeux de données et de réutilisations qui ont retenu notre attention."
+        f"Vous lisez l'édition {LAST_MONTH_ELISION}{LAST_MONTH_DATE_STR} du suivi des sorties, "
+        "un article dans lequel nous partageons les publications de jeux de données et de "
+        "réutilisations qui ont retenu notre attention."
     )
     name = f"Suivi des sorties - {LAST_MONTH_DATE_STR}"
 
     data = create_post(
         name=name,
         headline=headline,
-        content=content,
-        body_type="html",
+        body_type="blocs",
+        blocs=blocs,
         tags=["suivi-des-sorties"],
     )
 
