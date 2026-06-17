@@ -411,7 +411,7 @@ PACKAGES = {
                 ],
             },
             "base_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids",
-            "product": "productPHEALTH",
+            "product": "productAROIFS",
             "extension": "grib2",
         },
     },
