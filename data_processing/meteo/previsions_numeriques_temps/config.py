@@ -431,7 +431,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/GUYANE0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H102H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H102H"]})],
             },
             "EURW1S40": {
                 "dataset_id": {
@@ -439,7 +439,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/EURW1S40/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H051H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
             },
             "POLYN0025": {
                 "dataset_id": {
@@ -447,7 +447,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/POLYN0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H048H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
             },
             "NCALED0025": {
                 "dataset_id": {
@@ -455,7 +455,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/NCALED0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H051H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
             },
             "GUYANE0025": {
                 "dataset_id": {
@@ -463,7 +463,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/GUYANE0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H051H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
             },
             "INDIEN0025": {
                 "dataset_id": {
@@ -471,7 +471,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/INDIEN0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H051H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
             },
             "CARAIB0025": {
                 "dataset_id": {
@@ -479,7 +479,7 @@ PACKAGES = {
                     "prod": "6a329577bebe7e84fb8fb689",
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/CARAIB0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": "001H051H"})],
+                "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
             },
             "base_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids",
             "product": "productPHEALTH",
