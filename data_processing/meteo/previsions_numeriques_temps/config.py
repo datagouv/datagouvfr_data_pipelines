@@ -388,4 +388,31 @@ PACKAGES = {
             "extension": "grib2",
         },
     },
+    "aromeifs": {
+        "$1": {
+            "0.025": {
+                "dataset_id": {
+                    "dev": "6a3294c7190dd2ab81bef620",
+                    "prod": "6a3294c7190dd2ab81bef620",
+                },
+                "check_availability_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids/0.025/packages/SP1",
+                "packages": [
+                    Package(name="SP1", **{"time": AROME_TIME}),
+                    Package(name="SP2", **{"time": AROME_TIME}),
+                    Package(name="SP3", **{"time": AROME_TIME}),
+                    Package(name="HP1", **{"time": AROME_TIME}),
+                    Package(name="HP2", **{"time": AROME_TIME}),
+                    Package(name="HP3", **{"time": AROME_TIME}),
+                    Package(name="IP1", **{"time": AROME_TIME}),
+                    Package(name="IP2", **{"time": AROME_TIME}),
+                    Package(name="IP3", **{"time": AROME_TIME}),
+                    Package(name="IP4", **{"time": AROME_TIME}),
+                    Package(name="IP5", **{"time": AROME_TIME}),
+                ],
+            },
+            "base_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids",
+            "product": "productPHEALTH",
+            "extension": "grib2",
+        },
+    },
 }
