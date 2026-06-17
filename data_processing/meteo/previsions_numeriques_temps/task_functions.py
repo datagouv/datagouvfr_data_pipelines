@@ -251,7 +251,11 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
             continue
         else:
             # early stop to update datagouv in case the queue is too long, next runs will do the rest
-            if len(uploaded) > 50:
+            # only breaking if we're not in the middle of a package
+            if (
+                not os.path.exists(f"{TMP_FOLDER}{path}/{package}")
+                and len(uploaded) > 50
+            ):
                 break
             # this is to make sure concurrent runs don't interfere or process the same data
             os.makedirs(f"{TMP_FOLDER}{path}/{package}", exist_ok=True)
