@@ -106,7 +106,15 @@ PACKAGES = {
                 },
                 "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.025/packages/SP1",
                 "packages": [
-                    Package(name="SP1", **{"min_hour": 1, "max_hour": 48, "nb_char": 3})
+                    Package(
+                        name="SP1",
+                        **{
+                            "min_hour": 1,
+                            "max_hour": 48,
+                            "nb_char": 3,
+                            "additional_time": ["051H"],
+                        },
+                    )
                 ],
             },
             "0.1": {
