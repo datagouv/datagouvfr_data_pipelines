@@ -386,6 +386,11 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 def clean_directory(model: str, pack: str, grid: str, **kwargs):
     # in case processes crash and leave stuff behind
     path = build_folder_path(model, pack, grid)
+    #### DEBUG START
+    if model == "phealth":
+        dir_content =  os.listdir(f"{TMP_FOLDER}{model}")
+        logging.info(f"DEBUG: \n{dir_content}")
+    #### DEBUG END
     files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
     threshold = datetime.now() - timedelta(hours=3)
     for f in files_and_folders:
