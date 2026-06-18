@@ -11,10 +11,10 @@ from botocore.config import Config
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
-    SECRET_S3_DATA_PIPELINE_PASSWORD,
-    # S3_URL_EU_WEST,
-    SECRET_S3_DATA_PIPELINE_USER,
+    S3_URL_RBX,
+    S3_URL_SBG,
+    SECRET_S3_PASSWORD,
+    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -24,11 +24,11 @@ class S3Client:
     def __init__(
         self,
         bucket: str,
-        user: str = SECRET_S3_DATA_PIPELINE_USER,
-        pwd: str = SECRET_S3_DATA_PIPELINE_PASSWORD,
+        user: str = SECRET_S3_USER,
+        pwd: str = SECRET_S3_PASSWORD,
         login: bool = True,
         config_kwargs: dict = {"connect_timeout": 3600, "read_timeout": 3600},
-        s3_url: str = MINIO_URL,  # to be removed when migration is complete
+        s3_url: str = S3_URL_SBG if AIRFLOW_ENV == "prod" else S3_URL_RBX,
     ):
         self.url = s3_url
         self.resource = boto3.resource(
