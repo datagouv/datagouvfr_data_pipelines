@@ -22,7 +22,6 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
 s3_client_kwargs = {
-    # "bucket": "infra",
     "bucket": S3_BUCKET_INFRA,
     "user": SECRET_S3_USER,
     "pwd": SECRET_S3_PASSWORD,

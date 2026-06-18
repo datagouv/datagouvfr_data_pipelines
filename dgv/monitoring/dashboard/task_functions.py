@@ -13,6 +13,7 @@ from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     MATOMO_TOKEN,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.crisp import (
     get_all_conversations,
@@ -358,7 +359,7 @@ def get_and_upload_certification() -> None:
 
 @task()
 def get_and_upload_reuses_down() -> None:
-    client = S3Client(bucket="data-pipeline-open")
+    client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     # getting latest data
     df = pd.read_csv(
         StringIO(
