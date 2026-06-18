@@ -9,6 +9,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MATOMO_TOKEN,
+    MINIO_URL,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
+    SECRET_S3_DATA_PIPELINE_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -30,6 +33,12 @@ MATOMO_PARAMS = {
     "token_auth": MATOMO_TOKEN,
     # "date": "{start},{end}",
     # "label": "{label}",
+}
+s3_client_kwargs = {
+    "bucket": "meteofrance",
+    "user": SECRET_S3_DATA_PIPELINE_USER,
+    "pwd": SECRET_S3_DATA_PIPELINE_PASSWORD,
+    "s3_url": MINIO_URL,
 }
 
 
@@ -123,7 +132,7 @@ def gather_meteo_stats(**context):
 @task()
 def send_to_s3(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
-    S3Client(bucket="meteofrance").send_files(
+    S3Client(**s3_client_kwargs).send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,

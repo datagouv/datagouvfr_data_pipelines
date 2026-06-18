@@ -19,6 +19,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
+    MINIO_URL,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
+    SECRET_S3_DATA_PIPELINE_USER,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
@@ -34,6 +37,12 @@ with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
 SCHEMA_NAME = "meteo"
 conn_name = "POSTGRES_DB_02_INFRA_DATA_GOUV_FR"
 TIMEOUT = 60 * 5
+s3_client_kwargs = {
+    "bucket": "meteofrance",
+    "user": SECRET_S3_DATA_PIPELINE_USER,
+    "pwd": SECRET_S3_DATA_PIPELINE_PASSWORD,
+    "s3_url": MINIO_URL,
+}
 
 
 def smart_cast(value: str, _type):
@@ -281,7 +290,7 @@ def process_resources(
     latest_db_insertion: str,
 ):
     # going through all resources of the dataset to check which ones to update
-    s3_meteo = S3Client(bucket="meteofrance")
+    s3_meteo = S3Client(**s3_client_kwargs)
     conn = BaseHook.get_connection(conn_name)
     db_params = {
         "database": conn.schema,

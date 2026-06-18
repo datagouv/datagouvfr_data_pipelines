@@ -17,6 +17,8 @@ from datagouvfr_data_pipelines.config import (
     SECRET_FTP_METEO_ADDRESS,
     SECRET_FTP_METEO_PASSWORD,
     SECRET_FTP_METEO_USER,
+    SECRET_S3_DATA_PIPELINE_PASSWORD,
+    SECRET_S3_DATA_PIPELINE_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -31,6 +33,12 @@ bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
+s3_client_kwargs = {
+    "bucket": bucket,
+    "user": SECRET_S3_DATA_PIPELINE_USER,
+    "pwd": SECRET_S3_DATA_PIPELINE_PASSWORD,
+    "s3_url": MINIO_URL,
+}
 
 
 def get_ftp() -> ftplib.FTP:
@@ -209,7 +217,7 @@ def get_current_files_on_ftp(**context) -> None:
 
 @task()
 def get_current_files_on_s3(**context) -> None:
-    s3_files = S3Client(bucket=bucket).get_all_files_names_and_sizes_from_parent_folder(
+    s3_files = S3Client(**s3_client_kwargs).get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder
     )
     # getting the start of each time period to update datasets temporal_coverage
@@ -290,7 +298,7 @@ def has_file_been_updated_already(
 @task()
 def get_and_upload_file_diff_ftp_s3(**context) -> None:
     ftp = get_ftp()
-    s3_meteo = S3Client(bucket=bucket)
+    s3_meteo = S3Client(**s3_client_kwargs)
     s3_files = context["ti"].xcom_pull(
         key="s3_files", task_ids="get_current_files_on_s3"
     )
@@ -648,7 +656,7 @@ def log_modified_files(**context) -> None:
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     log_file_path = "data/updated_files.json"
-    s3_meteo = S3Client(bucket=bucket)
+    s3_meteo = S3Client(**s3_client_kwargs)
     log_file = json.loads(s3_meteo.get_file_content(log_file_path))
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
@@ -700,7 +708,7 @@ def log_modified_files(**context) -> None:
 
 @task()
 def delete_replaced_s3_files(**context) -> None:
-    s3_client = S3Client(bucket=bucket)
+    s3_client = S3Client(**s3_client_kwargs)
     # files that have been renamed while update will be removed
     files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
