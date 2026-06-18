@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from datetime import time as dtime
 from difflib import SequenceMatcher
 from time import sleep
 
 import requests
-from airflow.sdk import Variable, task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_ACTIVITES,
     TCHAP_ROOM_DATAENG,
@@ -202,43 +202,6 @@ def alert_if_awaiting_spam_comments():
             "de validation (voir [ici](https://www.data.gouv.fr/api/1/spam/))"
         )
         send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
-
-
-@task()
-def alert_if_new_reports():
-    # DAG runs every 5min but if it fails we catch up with this variable
-    previous_report_check = Variable.get(
-        "previous_report_check",
-        (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat(),
-    )
-    reports = local_client.get_all_from_api_query("api/1/reports/")
-    unseen_reports = [r for r in reports if r["reported_at"] >= previous_report_check]
-    if not unseen_reports:
-        return
-    Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
-    message = "🚩 @all De nouveaux signalements ont été faits :"
-    for r in unseen_reports:
-        if r["by"]:
-            by = f"[{r['by']['slug']}]({r['by']['page']})"
-        else:
-            by = "un utilisateur non connecté"
-        subject = (
-            f"https://www.data.gouv.fr/api/1/{r['subject']['class'].lower()}s/"
-            f"{r['subject']['id']}/"
-        )
-        _ = requests.get(subject)
-        try:
-            _.raise_for_status()
-            _ = _.json()
-            subject = (
-                f"[cet objet]({_.get('page') or _.get('self_web_url')}): "
-                f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
-            )
-        except requests.exceptions.HTTPError:
-            subject = f"[cet objet qui a été supprimé depuis]({subject})"
-        user_message = r["message"].replace("\n", " ")
-        message += f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{user_message}`"
-    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
 
 
 @task()

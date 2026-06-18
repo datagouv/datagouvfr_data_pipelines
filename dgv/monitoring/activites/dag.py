@@ -5,7 +5,6 @@ from datagouvfr_data_pipelines.dgv.monitoring.activites.task_functions import (
     DAG_NAME,
     TIME_PERIOD,
     alert_if_awaiting_spam_comments,
-    alert_if_new_reports,
     check_new,
     check_schema,
     notification,
@@ -26,7 +25,6 @@ with DAG(
     catchup=False,
 ):
     alert_if_awaiting_spam_comments()
-    alert_if_new_reports()
     # get_inactive_orgas()
 
     checks = [
