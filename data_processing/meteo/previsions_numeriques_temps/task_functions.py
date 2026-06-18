@@ -386,6 +386,8 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 def clean_directory(model: str, pack: str, grid: str, **kwargs):
     # in case processes crash and leave stuff behind
     path = build_folder_path(model, pack, grid)
+    # in case the path doesn't exist yet
+    os.makedirs(f"{TMP_FOLDER}{path}", exist_ok=True)
     files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
     threshold = datetime.now() - timedelta(hours=3)
     for f in files_and_folders:
