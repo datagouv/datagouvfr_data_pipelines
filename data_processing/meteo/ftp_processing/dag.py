@@ -35,7 +35,7 @@ with DAG(
     schedule="30 7,10 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=900),
+    dagrun_timeout=timedelta(minutes=1200),
     tags=["data_processing", "meteo"],
     max_active_runs=1,
     default_args=default_args,
