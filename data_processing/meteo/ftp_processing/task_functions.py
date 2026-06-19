@@ -13,6 +13,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MINIO_URL,
+    SECRET_FTP_METEO_ADDRESS,
+    SECRET_FTP_METEO_PASSWORD,
+    SECRET_FTP_METEO_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -27,6 +30,12 @@ bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
+
+
+def get_ftp() -> ftplib.FTP:
+    ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
+    ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
+    return ftp
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
@@ -144,7 +153,8 @@ def build_resource(
     return file_with_ext, global_path, resource_name, description, url, is_doc
 
 
-def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
+def list_ftp_files_recursive(path: str = "", base_path: str = "") -> list:
+    ftp = get_ftp()
     files = []
     try:
         ftp.cwd(path)
@@ -172,7 +182,8 @@ def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
 
 
 @task()
-def get_current_files_on_ftp(ftp, **context) -> None:
+def get_current_files_on_ftp(**context) -> None:
+    ftp = get_ftp()
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
@@ -253,7 +264,8 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
 
 
 @task()
-def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
+def get_and_upload_file_diff_ftp_s3(**context) -> None:
+    ftp = get_ftp()
     s3_files = context["ti"].xcom_pull(
         key="s3_files", task_ids="get_current_files_on_s3"
     )

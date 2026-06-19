@@ -1,12 +1,6 @@
-import ftplib
 from datetime import datetime, timedelta
 
 from airflow.sdk import DAG
-from datagouvfr_data_pipelines.config import (
-    SECRET_FTP_METEO_ADDRESS,
-    SECRET_FTP_METEO_PASSWORD,
-    SECRET_FTP_METEO_USER,
-)
 from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functions import (
     TMP_FOLDER,
     delete_replaced_s3_files,
@@ -21,9 +15,6 @@ from datagouvfr_data_pipelines.data_processing.meteo.ftp_processing.task_functio
     upload_new_files,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
-
-ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
-ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
 
 default_args = {
     "retries": 5,
@@ -45,10 +36,10 @@ with DAG(
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> [
-            get_current_files_on_ftp(ftp),
+            get_current_files_on_ftp(),
             get_current_files_on_s3(),
         ]
-        >> get_and_upload_file_diff_ftp_s3(ftp)
+        >> get_and_upload_file_diff_ftp_s3()
         >> [
             _same_name,
             handle_updated_files_new_name(),
