@@ -13,12 +13,11 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
-    CHILDREN,
     DAG_FOLDER,
     DAG_NAME,
     S3_PATH,
     TMP_FOLDER,
-    clean_old,
+    clean_old_daily,
     publish_period,
     send_email_report_period,
 )
@@ -116,13 +115,8 @@ with DAG(
                         scope=scope,
                     )
                 )
-                if freq != "daily":
-                    tasks[scope][freq].append(
-                        clean_old.override(task_id=f"clean_old_{CHILDREN[freq]}")(
-                            today=today,
-                            period=freq,
-                        )
-                    )
+                if freq == "weekly":
+                    tasks[scope][freq].append(clean_old_daily(today=today))
             tasks[scope][freq].append(clean_up)
             chain(*tasks[scope][freq])
 

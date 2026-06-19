@@ -83,22 +83,12 @@ def send_email_report_period(today: str, period: str, scope: str, **context):
     )
 
 
-CHILDREN = {
-    "weekly": "daily",
-    "monthly": "weekly",
-    "yearly": "monthly",
-}
-
-
 @task()
-def clean_old(today: str, period: str):
-    # so that we don't keep indefinitely daily/weekly/monthly files
-    if period == "daily":
-        return
+def clean_old_daily(today: str):
+    # purging daily files, keeping the rest as history
     client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-    child = CHILDREN[period]
     for folder in client.get_folders_from_prefix(
-        S3_PATH + f"digest_{child}/", ignore_airflow_env=True
+        S3_PATH + f"digest_daily/", ignore_airflow_env=True
     ):
         date = folder.split("/")[-2]  # by construction
         if date < today:
