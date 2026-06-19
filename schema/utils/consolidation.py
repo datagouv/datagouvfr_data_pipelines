@@ -4,7 +4,7 @@ import os
 import pickle
 import shutil
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Literal
@@ -1960,15 +1960,19 @@ def final_directory_clean_up(
 def upload_s3(
     tmp_folder: str,
     s3_bucket_data_pipeline_open: str,
-    s3_output_filepath: str,
 ) -> None:
     s3_open = S3Client(bucket=s3_bucket_data_pipeline_open)
+    s3_output_path = "schema/schemas_consolidation/"
     s3_open.send_files(
         list_files=[
             File(
                 source_path=path,
                 source_name=name,
-                dest_path=(s3_output_filepath + path).replace(tmp_folder, ""),
+                dest_path=(
+                    s3_output_path
+                    + f"{datetime.today().strftime('%Y-%m-%d')}/"
+                    + path.replace(tmp_folder, "")
+                ),
                 dest_name=name,
             )
             for path, subdirs, files in os.walk(tmp_folder + "/output/")
@@ -1978,7 +1982,16 @@ def upload_s3(
         ignore_airflow_env=True,
         is_public=True,
     )
-    return
+    # removing old occurrences, keeping only one monthly is older than one month
+    for folder in s3_open.get_folders_from_prefix(
+        s3_output_path, ignore_airflow_env=True
+    ):
+        date = folder.split("/")[-1]
+        if not date.endswith("-01") and date < (
+            datetime.now() - timedelta(days=30)
+        ).strftime("%Y-%m-%d"):
+            for file in s3_open.get_files_from_prefix(folder, ignore_airflow_env=True):
+                s3_open.delete_file(file)
 
 
 @task()
