@@ -88,7 +88,7 @@ def clean_old_daily(today: str):
     # purging daily files, keeping the rest as history
     client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     for folder in client.get_folders_from_prefix(
-        S3_PATH + f"digest_daily/", ignore_airflow_env=True
+        S3_PATH + "digest_daily/", ignore_airflow_env=True
     ):
         date = folder.split("/")[-2]  # by construction
         if date < today:
