@@ -7,6 +7,7 @@ import time
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from pathlib import Path
+import re
 from typing import Any, Literal
 from urllib.parse import quote
 
@@ -1986,7 +1987,11 @@ def upload_s3(
     for folder in s3_open.get_folders_from_prefix(
         s3_output_path, ignore_airflow_env=True
     ):
-        date = folder.split("/")[-1]
+        date = folder.split("/")[-2]
+        if date == "liste_erreurs":
+            continue
+        if not re.match(r"\d{4}-\d{2}-\d{2}", date):
+            raise ValueError(f"Unexpected folder: {date}")
         if not date.endswith("-01") and date < (
             datetime.now() - timedelta(days=30)
         ).strftime("%Y-%m-%d"):
