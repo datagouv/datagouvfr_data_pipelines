@@ -344,9 +344,6 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
                     source_name=file_name,
                     dest_path=s3_folder + true_path + "/",
                     dest_name=file_name,
-                    content_type="application/gzip"
-                    if file_name.endswith("csv.gz")
-                    else None,
                 ),
                 ignore_airflow_env=True,
                 is_public=True,
