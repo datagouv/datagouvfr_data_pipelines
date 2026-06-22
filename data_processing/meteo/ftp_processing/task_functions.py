@@ -248,15 +248,15 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
     def check_headers(url: str) -> bool:
         # this is rather long, trying to guess from data we have before using this
         r = requests.head(url)
-        if r.ok and r.headers.get("last-modified"):
+        if (
+            r.ok
+            and r.headers.get("last-modified")
+            and parsedate_to_datetime(r.headers["last-modified"]).strftime("%Y-%m-%d")
+            == datetime.today().strftime("%Y-%m-%d")
+        ):
             # if we have uploaded the file today already
-            if parsedate_to_datetime(r.headers["last-modified"]).strftime(
-                "%Y-%m-%d"
-            ) == datetime.today().strftime("%Y-%m-%d"):
-                logging.info(
-                    f"> {ftp_file['file_path']} has already been uploaded today"
-                )
-                return True
+            logging.info(f"> {ftp_file['file_path']} has already been uploaded today")
+            return True
         return False
 
     file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
