@@ -153,8 +153,7 @@ def build_resource(
     return file_with_ext, global_path, resource_name, description, url, is_doc
 
 
-def list_ftp_files_recursive(path: str = "", base_path: str = "") -> list:
-    ftp = get_ftp()
+def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
     files = []
     try:
         ftp.cwd(path)
@@ -173,7 +172,9 @@ def list_ftp_files_recursive(path: str = "", base_path: str = "") -> list:
         for item in files:
             # assuming no folder contains a dot (we'll make sure it doesn't happen)
             if "." not in item[1]:
-                files += list_ftp_files_recursive(f"{path}/{item[1]}", current_path)
+                files += list_ftp_files_recursive(
+                    ftp, f"{path}/{item[1]}", current_path
+                )
     except ftplib.error_perm:
         pass
     return files
@@ -182,7 +183,7 @@ def list_ftp_files_recursive(path: str = "", base_path: str = "") -> list:
 @task()
 def get_current_files_on_ftp(**context) -> None:
     ftp = get_ftp()
-    raw_ftp_files = list_ftp_files_recursive()
+    raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
     # des fichiers qui changent de nom lors de mises à jour (QUOT_SIM2_2020-202309.csv.gz
