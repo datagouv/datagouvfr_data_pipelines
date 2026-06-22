@@ -1,3 +1,4 @@
+from email.utils import parsedate_to_datetime
 import ftplib
 import json
 import logging
@@ -245,6 +246,14 @@ def get_current_files_on_s3(**context) -> None:
 
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
     file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
+    r = requests.head(file_url)
+    if r.ok and r.headers.get("last-modified"):
+        # if we have uploaded the file today already
+        if parsedate_to_datetime(r.headers["last-modified"]).strftime(
+            "%Y-%m-%d"
+        ) == datetime.today().strftime("%Y-%m-%d"):
+            logging.info(f"> {ftp_file['file_path']} has already been uploaded today")
+            return True
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
