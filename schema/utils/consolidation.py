@@ -1970,7 +1970,7 @@ def upload_s3(
                 source_name=name,
                 dest_path=(
                     s3_output_path
-                    + f"{datetime.today().strftime('%Y-%m-%d')}/"
+                    + f"{datetime.today().strftime('%Y-%m-%d')}"
                     + path.replace(tmp_folder, "")
                 ),
                 dest_name=name,
