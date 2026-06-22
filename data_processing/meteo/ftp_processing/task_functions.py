@@ -245,22 +245,28 @@ def get_current_files_on_s3(**context) -> None:
 
 
 def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
+    def check_headers(url: str) -> bool:
+        # this is rather long, trying to guess from data we have before using this
+        r = requests.head(url)
+        if r.ok and r.headers.get("last-modified"):
+            # if we have uploaded the file today already
+            if parsedate_to_datetime(r.headers["last-modified"]).strftime(
+                "%Y-%m-%d"
+            ) == datetime.today().strftime("%Y-%m-%d"):
+                logging.info(
+                    f"> {ftp_file['file_path']} has already been uploaded today"
+                )
+                return True
+        return False
+
     file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
-    r = requests.head(file_url)
-    if r.ok and r.headers.get("last-modified"):
-        # if we have uploaded the file today already
-        if parsedate_to_datetime(r.headers["last-modified"]).strftime(
-            "%Y-%m-%d"
-        ) == datetime.today().strftime("%Y-%m-%d"):
-            logging.info(f"> {ftp_file['file_path']} has already been uploaded today")
-            return True
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
     )
     if not last_modified_datagouv:
-        logging.info(f"This file is not on datagouv yet: {ftp_file['file_path']}")
-        return False
+        logging.info(f"> This file is not on datagouv yet: {ftp_file['file_path']}")
+        return check_headers(file_url)
     has_been_modified = last_modified_datagouv > ftp_file["modif_date"].replace(
         tzinfo=timezone.utc
     )
@@ -268,7 +274,8 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
         logging.info(
             f"> {ftp_file['file_path']} has already been modified on data.gouv"
         )
-    return has_been_modified
+        return True
+    return check_headers(file_url)
 
 
 @task()
