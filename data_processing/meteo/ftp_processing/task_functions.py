@@ -173,9 +173,7 @@ def list_ftp_files_recursive(path: str = "", base_path: str = "") -> list:
         for item in files:
             # assuming no folder contains a dot (we'll make sure it doesn't happen)
             if "." not in item[1]:
-                files += list_ftp_files_recursive(
-                    ftp, f"{path}/{item[1]}", current_path
-                )
+                files += list_ftp_files_recursive(f"{path}/{item[1]}", current_path)
     except ftplib.error_perm:
         pass
     return files
@@ -184,7 +182,7 @@ def list_ftp_files_recursive(path: str = "", base_path: str = "") -> list:
 @task()
 def get_current_files_on_ftp(**context) -> None:
     ftp = get_ftp()
-    raw_ftp_files = list_ftp_files_recursive(ftp)
+    raw_ftp_files = list_ftp_files_recursive()
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
     # des fichiers qui changent de nom lors de mises à jour (QUOT_SIM2_2020-202309.csv.gz
