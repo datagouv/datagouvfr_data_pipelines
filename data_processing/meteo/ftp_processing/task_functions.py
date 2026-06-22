@@ -265,6 +265,7 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
 @task()
 def get_and_upload_file_diff_ftp_s3(**context) -> None:
     ftp = get_ftp()
+    s3_meteo = S3Client(bucket=bucket)
     s3_files = context["ti"].xcom_pull(
         key="s3_files", task_ids="get_current_files_on_s3"
     )
@@ -336,7 +337,6 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
             ftp.retrbinary("RETR " + file_name, local_file.write)
 
         # sending file to S3
-        s3_meteo = S3Client(bucket=bucket)
         try:
             s3_meteo.send_file(
                 File(
@@ -344,7 +344,9 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
                     source_name=file_name,
                     dest_path=s3_folder + true_path + "/",
                     dest_name=file_name,
-                    content_type="application/gzip" if file_name.endswith("csv.gz") else None,
+                    content_type="application/gzip"
+                    if file_name.endswith("csv.gz")
+                    else None,
                 ),
                 ignore_airflow_env=True,
                 is_public=True,
@@ -668,12 +670,13 @@ def log_modified_files(**context) -> None:
 
 @task()
 def delete_replaced_s3_files(**context) -> None:
+    s3_client = S3Client(bucket=bucket)
     # files that have been renamed while update will be removed
     files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     for old_file in files_to_update_new_name.values():
-        S3Client(bucket=bucket).delete_file(file_path=s3_folder + old_file)
+        s3_client.delete_file(file_path=s3_folder + old_file)
 
 
 @task()
