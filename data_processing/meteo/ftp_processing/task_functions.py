@@ -361,8 +361,12 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
         ftp.cwd("/" + true_path)
         # downloading the file from FTP
-        with open(TMP_FOLDER + file_name, "wb") as local_file:
-            ftp.retrbinary("RETR " + file_name, local_file.write)
+        try:
+            with open(TMP_FOLDER + file_name, "wb") as local_file:
+                ftp.retrbinary("RETR " + file_name, local_file.write)
+        except ftplib.error_perm as e:
+            logging.warning(f"> Could not retrieve file from FTP: {e}")
+            continue
 
         # sending file to S3
         try:
