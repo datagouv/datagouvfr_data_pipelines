@@ -335,6 +335,18 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         # (otherwise the new one will just overwrite the old one) and upload the new
         # one, which will replace its previous version (we change the resource URL).
         logging.info(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
+        # we are recreating the file structure from FTP to S3
+        true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
+        file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
+        ftp.cwd("/" + true_path)
+        # downloading the file from FTP
+        try:
+            with open(TMP_FOLDER + file_name, "wb") as local_file:
+                ftp.retrbinary("RETR " + file_name, local_file.write)
+        except ftplib.error_perm as e:
+            logging.warning(f"> Could not retrieve {file_name} from FTP: {e}")
+            continue
+
         if file_to_transfer in s3_files:
             if (
                 s3_files[file_to_transfer]["file_path"]
@@ -356,17 +368,6 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         else:
             logging.info("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
-        # we are recreating the file structure from FTP to S3
-        true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
-        file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
-        ftp.cwd("/" + true_path)
-        # downloading the file from FTP
-        try:
-            with open(TMP_FOLDER + file_name, "wb") as local_file:
-                ftp.retrbinary("RETR " + file_name, local_file.write)
-        except ftplib.error_perm as e:
-            logging.warning(f"> Could not retrieve file from FTP: {e}")
-            continue
 
         # sending file to S3
         try:
