@@ -252,15 +252,40 @@ def copy_logs_to_processed_folder(**context) -> None:
     )
 
 
+# Order matters: each view reads the upstream materialized views, so we refresh
+# the base views first, then the aggregates.
+MATERIALIZED_VIEWS = [
+    "metrics_datasets",
+    "metrics_reuses",
+    "metrics_dataservices",
+    "metrics_organizations",
+    "datasets",
+    "reuses",
+    "dataservices",
+    "organizations",
+    "resources",
+    "site",
+    "datasets_total",
+    "reuses_total",
+    "dataservices_total",
+    "organizations_total",
+    "resources_total",
+]
+
+
 @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 def refresh_materialized_views() -> None:
-    PostgresClient(conn_name).execute_sql_file(
-        file=File(
-            source_path=f"{config.code_folder_full_path}/sql/",
-            source_name="refresh_materialized_views.sql",
-            column_order=None,
-        ),
-    )
+    client = PostgresClient(conn_name)
+    # CONCURRENTLY avoids an ACCESS EXCLUSIVE lock on each view: without it, any
+    # SELECT on the view (metrics API) blocks during the refresh and ends up as a
+    # 504 behind the load balancer. It cannot run inside a transaction, so we set
+    # autocommit and send one REFRESH per execute() (a multi-statement execute
+    # would be wrapped in a single transaction by Postgres). It requires a UNIQUE
+    # index on each view (see create_tables.sql).
+    client.conn.autocommit = True
+    with client.conn.cursor() as cur:
+        for view in MATERIALIZED_VIEWS:
+            cur.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY metric.{view}")
 
 
 @task()
