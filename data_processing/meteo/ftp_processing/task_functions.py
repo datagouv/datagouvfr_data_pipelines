@@ -246,7 +246,7 @@ def get_current_files_on_s3(**context) -> None:
 
 def check_headers(url: str, today: str, file_path: str) -> bool:
     # this is rather long, trying to guess from data we have before using this
-    r = requests.head(url)
+    r = requests.head(url, timeout=20)
     if (
         r.ok
         and r.headers.get("last-modified")
@@ -256,6 +256,8 @@ def check_headers(url: str, today: str, file_path: str) -> bool:
         # if we have uploaded the file today already
         logging.info(f"> {file_path} has already been uploaded today")
         return True
+    if not r.ok:
+        logging.warning(f"> could not reach {file_path} to check headers")
     return False
 
 
