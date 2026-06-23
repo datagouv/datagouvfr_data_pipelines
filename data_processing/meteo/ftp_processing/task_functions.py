@@ -244,25 +244,29 @@ def get_current_files_on_s3(**context) -> None:
     context["ti"].xcom_push(key="period_starts", value=period_starts)
 
 
-def check_headers(url: str, today: str, file_path: str) -> bool:
+def check_headers(file_path: str, today: str, s3_meteo: S3Client) -> bool:
     # this is rather long, trying to guess from data we have before using this
-    r = requests.head(url, timeout=20)
-    if (
-        r.ok
-        and r.headers.get("last-modified")
-        and parsedate_to_datetime(r.headers["last-modified"]).strftime("%Y-%m-%d")
-        == today
-    ):
-        # if we have uploaded the file today already
-        logging.info(f"> {file_path} has already been uploaded today")
-        return True
-    if not r.ok:
-        logging.warning(f"> could not reach {file_path} to check headers")
+    try:
+        metadata = s3_meteo.client.head_object(Bucket=bucket, Key=file_path)
+        if (
+            parsedate_to_datetime(
+                metadata["ResponseMetadata"]["HTTPHeaders"]["last-modified"]
+            ).strftime("%Y-%m-%d")
+            == today
+        ):
+            # if we have uploaded the file today already
+            logging.info(f"> {file_path} has already been uploaded today")
+            return True
+    except Exception as e:
+        logging.warning(f"> could not reach {file_path} to check headers: {e}")
     return False
 
 
 def has_file_been_updated_already(
-    ftp_file: dict, resources_lists: dict, today: str
+    ftp_file: dict,
+    resources_lists: dict,
+    today: str,
+    s3_meteo: S3Client,
 ) -> bool:
     file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
     _, global_path = get_path(ftp_file["file_path"])
@@ -271,7 +275,7 @@ def has_file_been_updated_already(
     )
     if not last_modified_datagouv:
         logging.info(f"> This file is not on datagouv yet: {ftp_file['file_path']}")
-        return check_headers(file_url, today, ftp_file["file_path"])
+        return check_headers(f"{s3_folder}{ftp_file['file_path']}", today, s3_meteo)
     has_been_modified = last_modified_datagouv > ftp_file["modif_date"].replace(
         tzinfo=timezone.utc
     )
@@ -280,7 +284,7 @@ def has_file_been_updated_already(
             f"> {ftp_file['file_path']} has already been modified on data.gouv"
         )
         return True
-    return check_headers(file_url, today, ftp_file["file_path"])
+    return check_headers(f"{s3_folder}{ftp_file['file_path']}", today, s3_meteo)
 
 
 @task()
@@ -307,7 +311,9 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         f
         for f in ftp_files
         if f not in s3_files
-        or not has_file_been_updated_already(ftp_files[f], resources_lists, today)
+        or not has_file_been_updated_already(
+            ftp_files[f], resources_lists, today, s3_meteo
+        )
     ]
     logging.info(
         f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}"
