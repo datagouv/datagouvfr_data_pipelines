@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow.models.baseoperator import chain
+from airflow.sdk.bases.operator import chain
 from airflow.sdk import DAG
 
 # from airflow.operators.dummy import DummyOperator
