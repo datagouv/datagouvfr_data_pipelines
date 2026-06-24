@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-from airflow.models.baseoperator import chain
 from airflow.providers.standard.operators.python import ShortCircuitOperator
 from airflow.sdk import DAG
+from airflow.sdk.bases.operator import chain
 from datagouvfr_data_pipelines.dgv.monitoring.tops.task_functions import (
     get_top,
     publish_top,
