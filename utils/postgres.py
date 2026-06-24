@@ -2,7 +2,7 @@ import gzip
 import logging
 
 import psycopg2
-from airflow.hooks.base import BaseHook
+from airflow.sdk.bases.hook import BaseHook
 from datagouvfr_data_pipelines.utils.filesystem import File
 
 

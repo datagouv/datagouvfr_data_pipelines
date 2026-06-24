@@ -2,7 +2,7 @@ import logging
 from io import StringIO
 
 import paramiko
-from airflow.hooks.base import BaseHook
+from airflow.sdk.bases.hook import BaseHook
 from datagouvfr_data_pipelines.utils.retry import (
     _simple_connection_retry,
     simple_connection_retry,
