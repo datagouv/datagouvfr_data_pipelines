@@ -172,8 +172,7 @@ def create_edito_post(**context):
             "content": (
                 f"En {LAST_MONTH_DATE_STR}, **{mapping['datasets']['count']} jeux de données** "
                 f"et **{mapping['reuses']['count']} réutilisations** ont été publiés sur "
-                "data.gouv.fr. [Découvrez plus de statistiques sur l'activité de la plateforme]"
-                "(http://activites-datagouv.app.etalab.studio/).\n\n"
+                "data.gouv.fr.\n\n"
                 "Retrouvez ici nos jeux de données et réutilisations coups de cœur du mois, "
                 f"ainsi que les publications récentes les plus populaires en {LAST_MONTH_DATE_STR}."
             ),
