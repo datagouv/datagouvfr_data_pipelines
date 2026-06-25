@@ -38,7 +38,8 @@ class AirflowAPI:
         # See configuration.py for a list of all supported configuration parameters.
         if not airflow_conn.schema or not airflow_conn.host:
             raise TypeError(f"Schema and host must be set for connection {conn_name}")
-        self.host = f"{airflow_conn.schema}://{airflow_conn.host}"
+        port = f":{str(airflow_conn.port)}" if airflow_conn.port else ""
+        self.host = f"{airflow_conn.schema}://{airflow_conn.host}{port}"
         configuration = airflow_client.client.Configuration(host=self.host)
         if not airflow_conn.login or not airflow_conn.password:
             raise TypeError(
