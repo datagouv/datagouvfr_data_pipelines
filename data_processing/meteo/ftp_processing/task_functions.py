@@ -541,6 +541,7 @@ def handle_updated_files_same_name(**context) -> None:
             fetch=False,
         ).update(
             payload={
+                "url": url,
                 "filesize": s3_files[s3_folder + file_path],
             },
         )
