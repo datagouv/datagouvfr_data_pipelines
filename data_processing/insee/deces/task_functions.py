@@ -223,9 +223,7 @@ def publish_on_datagouv(**context):
             fetch=False,
         ).update(
             payload={
-                "url": s3_client.get_file_url(
-                    f"deces/deces.{_ext}"
-                ),
+                "url": s3_client.get_file_url(f"deces/deces.{_ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"deces.{_ext}"),
                 "title": (
                     f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"

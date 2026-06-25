@@ -209,7 +209,9 @@ def get_current_files_on_ftp(**context) -> None:
 
 @task()
 def get_current_files_on_s3(**context) -> None:
-    s3_files = S3Client(bucket=bucket).get_all_files_names_and_sizes_from_parent_folder(folder=s3_folder)
+    s3_files = S3Client(bucket=bucket).get_all_files_names_and_sizes_from_parent_folder(
+        folder=s3_folder
+    )
     # getting the start of each time period to update datasets temporal_coverage
     period_starts = {}
     for file in s3_files:

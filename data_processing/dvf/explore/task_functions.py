@@ -1162,10 +1162,7 @@ def publish_stats_dvf(**context) -> None:
         fetch=False,
     ).update(
         payload={
-            "url": s3_client.get_file_url(
-                
-                "dvf/stats_dvf.csv"
-            ),
+            "url": s3_client.get_file_url("dvf/stats_dvf.csv"),
             "filesize": os.path.getsize(TMP_FOLDER + "stats_dvf.csv"),
             "title": "Statistiques mensuelles DVF",
             "format": "csv",
@@ -1182,9 +1179,7 @@ def publish_stats_dvf(**context) -> None:
         fetch=False,
     ).update(
         payload={
-            "url": s3_client.get_file_url(
-                "dvf/stats_whole_period.csv"
-            ),
+            "url": s3_client.get_file_url("dvf/stats_whole_period.csv"),
             "filesize": os.path.getsize(TMP_FOLDER + "stats_whole_period.csv"),
             "title": "Statistiques totales DVF",
             "format": "csv",

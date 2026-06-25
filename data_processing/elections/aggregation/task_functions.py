@@ -154,9 +154,7 @@ def publish_results_elections():
             fetch=False,
         ).update(
             payload={
-                "url": s3_client.get_file_url(
-                    f"elections/general_results.{ext}"
-                ),
+                "url": s3_client.get_file_url(f"elections/general_results.{ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"general_results.{ext}"),
                 "title": "Résultats généraux",
                 "format": ext,
@@ -175,9 +173,7 @@ def publish_results_elections():
             fetch=False,
         ).update(
             payload={
-                "url": s3_client.get_file_url(
-                    f"elections/candidats_results.{ext}"
-                ),
+                "url": s3_client.get_file_url(f"elections/candidats_results.{ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"candidats_results.{ext}"),
                 "title": "Résultats par candidat",
                 "format": ext,

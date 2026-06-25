@@ -122,9 +122,7 @@ def publish_on_datagouv(file_type, **context):
             fetch=False,
         ).update(
             payload={
-                "url": s3_client.get_file_url(
-                    f"rna/{file_type}.{ext}"
-                ),
+                "url": s3_client.get_file_url(f"rna/{file_type}.{ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.{ext}"),
                 "title": (f"Données {file_type.title()} au {date} (format {ext})"),
                 "format": ext,

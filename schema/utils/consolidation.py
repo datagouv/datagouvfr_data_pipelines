@@ -2015,7 +2015,7 @@ def notification_synthese(
     """
     assert schema_name or len(list_schema_skip) > 0
 
-    s3_client= S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     last_conso = datetime.today().strftime("%Y-%m-%d")
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
@@ -2090,7 +2090,8 @@ def notification_synthese(
                     f"\n    - [Liste des ressources non valides]"
                     + s3_client.get_file_url(
                         f"(schema/schemas_consolidation/liste_erreurs/{erreurs_file_name})"
-                    ) + "\n"
+                    )
+                    + "\n"
                 )
             except Exception as e:
                 logging.warning(f"{s['name']} erreur : {e}")
