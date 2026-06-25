@@ -2,6 +2,7 @@ import gzip
 import logging
 
 import psycopg2
+from psycopg2 import sql
 from airflow.hooks.base import BaseHook
 from datagouvfr_data_pipelines.utils.filesystem import File
 
@@ -40,6 +41,25 @@ class PostgresClient:
             data = self._return_sql_results(cur)
             self.conn.commit()
         return data
+
+    def refresh_materialized_view(self, view: str, schema: str | None = None) -> None:
+        """Refresh a materialized view with REFRESH ... CONCURRENTLY.
+
+        CONCURRENTLY avoids an ACCESS EXCLUSIVE lock on the view: without it,
+        any SELECT on the view blocks during the refresh. It cannot run inside a
+        transaction (hence autocommit) and requires a UNIQUE index on the view.
+        No result set to fetch, so we don't go through execute_query/_return_sql_results.
+        The view/schema are quoted with sql.Identifier (an identifier can't be
+        passed as a %s parameter).
+        """
+        schema = schema or self.schema
+        self.conn.autocommit = True
+        with self.conn.cursor() as cur:
+            cur.execute(
+                sql.SQL("REFRESH MATERIALIZED VIEW CONCURRENTLY {}").format(
+                    sql.Identifier(schema, view)
+                )
+            )
 
     def copy_file(
         self,

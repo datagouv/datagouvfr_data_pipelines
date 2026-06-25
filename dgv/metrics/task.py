@@ -275,17 +275,12 @@ MATERIALIZED_VIEWS = [
 
 @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 def refresh_materialized_views() -> None:
+    # CONCURRENTLY (see PostgresClient.refresh_materialized_view) keeps the
+    # metrics API readable during the refresh, avoiding the 504 it caused behind
+    # the load balancer. It requires a UNIQUE index on each view (create_tables.sql).
     client = PostgresClient(conn_name)
-    # CONCURRENTLY avoids an ACCESS EXCLUSIVE lock on each view: without it, any
-    # SELECT on the view (metrics API) blocks during the refresh and ends up as a
-    # 504 behind the load balancer. It cannot run inside a transaction, so we set
-    # autocommit and send one REFRESH per execute() (a multi-statement execute
-    # would be wrapped in a single transaction by Postgres). It requires a UNIQUE
-    # index on each view (see create_tables.sql).
-    client.conn.autocommit = True
-    with client.conn.cursor() as cur:
-        for view in MATERIALIZED_VIEWS:
-            cur.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY metric.{view}")
+    for view in MATERIALIZED_VIEWS:
+        client.refresh_materialized_view(view, schema="metric")
 
 
 @task()
