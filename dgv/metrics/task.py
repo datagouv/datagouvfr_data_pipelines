@@ -278,9 +278,9 @@ def refresh_materialized_views() -> None:
     # CONCURRENTLY (see PostgresClient.refresh_materialized_view) keeps the
     # metrics API readable during the refresh, avoiding the 504 it caused behind
     # the load balancer. It requires a UNIQUE index on each view (create_tables.sql).
-    client = PostgresClient(conn_name)
+    client = PostgresClient(conn_name, schema=config.database_schema)
     for view in MATERIALIZED_VIEWS:
-        client.refresh_materialized_view(view, schema="metric")
+        client.refresh_materialized_view(view)
 
 
 @task()

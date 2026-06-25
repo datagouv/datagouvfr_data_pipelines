@@ -121,6 +121,9 @@ CREATE TABLE IF NOT EXISTS metric.matomo_dataservices
 
 
 -- Aggregated metrics tables
+-- When adding/removing a materialized view here, keep MATERIALIZED_VIEWS in
+-- dgv/metrics/task.py in sync (and add its UNIQUE index below): a view missing
+-- from that list is silently never refreshed.
 CREATE MATERIALIZED VIEW IF NOT EXISTS metric.metrics_datasets AS
     SELECT visits.__id as __id,
            COALESCE(visits.date_metric, matomo.date_metric) as date_metric,

@@ -42,7 +42,7 @@ class PostgresClient:
             self.conn.commit()
         return data
 
-    def refresh_materialized_view(self, view: str, schema: str | None = None) -> None:
+    def refresh_materialized_view(self, view: str) -> None:
         """Refresh a materialized view with REFRESH ... CONCURRENTLY.
 
         CONCURRENTLY avoids an ACCESS EXCLUSIVE lock on the view: without it,
@@ -52,14 +52,17 @@ class PostgresClient:
         The view/schema are quoted with sql.Identifier (an identifier can't be
         passed as a %s parameter).
         """
-        schema = schema or self.schema
+        previous_autocommit = self.conn.autocommit
         self.conn.autocommit = True
-        with self.conn.cursor() as cur:
-            cur.execute(
-                sql.SQL("REFRESH MATERIALIZED VIEW CONCURRENTLY {}").format(
-                    sql.Identifier(schema, view)
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    sql.SQL("REFRESH MATERIALIZED VIEW CONCURRENTLY {}").format(
+                        sql.Identifier(self.schema, view)
+                    )
                 )
-            )
+        finally:
+            self.conn.autocommit = previous_autocommit
 
     def copy_file(
         self,
