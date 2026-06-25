@@ -394,17 +394,3 @@ CREATE INDEX IF NOT EXISTS organizations_metric_month ON metric.organizations US
 CREATE INDEX IF NOT EXISTS reuses_metric_month ON metric.reuses USING btree (metric_month);
 CREATE INDEX IF NOT EXISTS resources_metric_month ON metric.resources USING btree (metric_month);
 CREATE INDEX IF NOT EXISTS dataservices_metric_month ON metric.dataservices USING btree (metric_month);
-
--- One-shot cleanup of the old single-column indexes on the key id: redundant
--- now that they are the prefix of the unique index above. Idempotent DROP
--- (no-op on later runs), placed after the unique indexes are created.
-DROP INDEX IF EXISTS metric.datasets_dataset_id;
-DROP INDEX IF EXISTS metric.organizations_organization_id;
-DROP INDEX IF EXISTS metric.reuses_reuse_id;
-DROP INDEX IF EXISTS metric.resources_resource_id;
-DROP INDEX IF EXISTS metric.dataservices_dataservice_id;
-DROP INDEX IF EXISTS metric.datasets_total_dataset_id;
-DROP INDEX IF EXISTS metric.organizations_total_organization_id;
-DROP INDEX IF EXISTS metric.reuses_total_reuse_id;
-DROP INDEX IF EXISTS metric.resources_total_resource_id;
-DROP INDEX IF EXISTS metric.dataservices_total_dataservice_id;
