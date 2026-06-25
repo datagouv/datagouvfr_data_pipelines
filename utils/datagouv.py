@@ -85,32 +85,39 @@ datagouv_session.headers.update({"X-API-KEY": DATAGOUV_SECRET_API_KEY})
 def create_post(
     name: str,
     headline: str,
-    content: str,
     body_type: str,
-    tags: list | None = [],
+    content: str | None = None,
+    blocs: list[dict] | None = None,
+    tags: list | None = None,
 ) -> dict:
     """Create a post in data.gouv.fr
 
     Args:
         name: name of post.
         headline: headline of post
-        content: content of post
-        body_type: body type of post (html or markdown)
-        tags: Option list of tags for post
+        body_type: body type of post (html, markdown or blocs)
+        content: textual content of post (required for html/markdown body types)
+        blocs: list of blocs for the "blocs" body type, each a dict with a "class"
+            key giving the bloc type (e.g. "DatasetsListBloc", "MarkdownBloc")
+        tags: optional list of tags for post
 
     Returns:
        json: return API result in a dictionnary containing metadatas
     """
+    payload = {
+        "name": name,
+        "headline": headline,
+        "body_type": body_type,
+        "tags": tags or [],
+    }
+    if body_type == "blocs":
+        payload["blocs"] = blocs or []
+    else:
+        payload["content"] = content
 
     r = datagouv_session.post(
         f"{local_client.base_url}/api/1/posts/",
-        json={
-            "name": name,
-            "headline": headline,
-            "content": content,
-            "body_type": body_type,
-            "tags": tags,
-        },
+        json=payload,
     )
     assert r.status_code == 201
     return r.json()

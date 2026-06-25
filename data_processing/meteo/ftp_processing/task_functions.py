@@ -1,3 +1,4 @@
+from email.utils import parsedate_to_datetime
 import ftplib
 import json
 import logging
@@ -13,6 +14,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MINIO_URL,
+    SECRET_FTP_METEO_ADDRESS,
+    SECRET_FTP_METEO_PASSWORD,
+    SECRET_FTP_METEO_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -27,6 +31,12 @@ bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
+
+
+def get_ftp() -> ftplib.FTP:
+    ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
+    ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
+    return ftp
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
@@ -172,7 +182,8 @@ def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
 
 
 @task()
-def get_current_files_on_ftp(ftp, **context) -> None:
+def get_current_files_on_ftp(**context) -> None:
+    ftp = get_ftp()
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
@@ -233,15 +244,38 @@ def get_current_files_on_s3(**context) -> None:
     context["ti"].xcom_push(key="period_starts", value=period_starts)
 
 
-def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool:
+def check_headers(file_path: str, today: str, s3_meteo: S3Client) -> bool:
+    # this is rather long, trying to guess from data we have before using this
+    try:
+        metadata = s3_meteo.client.head_object(Bucket=bucket, Key=file_path)
+        if (
+            parsedate_to_datetime(
+                metadata["ResponseMetadata"]["HTTPHeaders"]["last-modified"]
+            ).strftime("%Y-%m-%d")
+            == today
+        ):
+            # if we have uploaded the file today already
+            logging.info(f"> {file_path} has already been uploaded today")
+            return True
+    except Exception as e:
+        logging.warning(f"> could not reach {file_path} to check headers: {e}")
+    return False
+
+
+def has_file_been_updated_already(
+    ftp_file: dict,
+    resources_lists: dict,
+    today: str,
+    s3_meteo: S3Client,
+) -> bool:
     file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
     )
     if not last_modified_datagouv:
-        logging.info(f"This file is not on datagouv yet: {ftp_file['file_path']}")
-        return False
+        logging.info(f"> This file is not on datagouv yet: {ftp_file['file_path']}")
+        return check_headers(f"{s3_folder}{ftp_file['file_path']}", today, s3_meteo)
     has_been_modified = last_modified_datagouv > ftp_file["modif_date"].replace(
         tzinfo=timezone.utc
     )
@@ -249,11 +283,14 @@ def has_file_been_updated_already(ftp_file: dict, resources_lists: dict) -> bool
         logging.info(
             f"> {ftp_file['file_path']} has already been modified on data.gouv"
         )
-    return has_been_modified
+        return True
+    return check_headers(f"{s3_folder}{ftp_file['file_path']}", today, s3_meteo)
 
 
 @task()
-def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
+def get_and_upload_file_diff_ftp_s3(**context) -> None:
+    ftp = get_ftp()
+    s3_meteo = S3Client(bucket=bucket)
     s3_files = context["ti"].xcom_pull(
         key="s3_files", task_ids="get_current_files_on_s3"
     )
@@ -269,11 +306,14 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
     # our best try: check the modification date on the FTP and take the file if its modification
     # date on datagouv is less recent
     resources_lists = get_resource_lists()
+    today = datetime.today().strftime("%Y-%m-%d")
     diff_files = [
         f
         for f in ftp_files
         if f not in s3_files
-        or not has_file_been_updated_already(ftp_files[f], resources_lists)
+        or not has_file_been_updated_already(
+            ftp_files[f], resources_lists, today, s3_meteo
+        )
     ]
     logging.info(
         f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}"
@@ -295,6 +335,18 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
         # (otherwise the new one will just overwrite the old one) and upload the new
         # one, which will replace its previous version (we change the resource URL).
         logging.info(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
+        # we are recreating the file structure from FTP to S3
+        true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
+        file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
+        ftp.cwd("/" + true_path)
+        # downloading the file from FTP
+        try:
+            with open(TMP_FOLDER + file_name, "wb") as local_file:
+                ftp.retrbinary("RETR " + file_name, local_file.write)
+        except ftplib.error_perm as e:
+            logging.warning(f"> Could not retrieve {file_name} from FTP: {e}")
+            continue
+
         if file_to_transfer in s3_files:
             if (
                 s3_files[file_to_transfer]["file_path"]
@@ -316,16 +368,8 @@ def get_and_upload_file_diff_ftp_s3(ftp, **context) -> None:
         else:
             logging.info("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
-        # we are recreating the file structure from FTP to S3
-        true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
-        file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
-        ftp.cwd("/" + true_path)
-        # downloading the file from FTP
-        with open(TMP_FOLDER + file_name, "wb") as local_file:
-            ftp.retrbinary("RETR " + file_name, local_file.write)
 
         # sending file to S3
-        s3_meteo = S3Client(bucket=bucket)
         try:
             s3_meteo.send_file(
                 File(
@@ -656,12 +700,13 @@ def log_modified_files(**context) -> None:
 
 @task()
 def delete_replaced_s3_files(**context) -> None:
+    s3_client = S3Client(bucket=bucket)
     # files that have been renamed while update will be removed
     files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     for old_file in files_to_update_new_name.values():
-        S3Client(bucket=bucket).delete_file(file_path=s3_folder + old_file)
+        s3_client.delete_file(file_path=s3_folder + old_file)
 
 
 @task()

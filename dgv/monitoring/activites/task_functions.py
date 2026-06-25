@@ -1,12 +1,11 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from datetime import time as dtime
 from difflib import SequenceMatcher
 from time import sleep
 
-import pandas as pd
 import requests
-from airflow.sdk import Variable, task
+from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_ACTIVITES,
     TCHAP_ROOM_DATAENG,
@@ -21,7 +20,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     get_latest_comments,
     local_client,
 )
-from datagouvfr_data_pipelines.utils.grist import GristTable
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.utils import check_if_monday, time_is_between
 from langdetect import LangDetectException, detect
@@ -207,43 +205,6 @@ def alert_if_awaiting_spam_comments():
 
 
 @task()
-def alert_if_new_reports():
-    # DAG runs every 5min but if it fails we catch up with this variable
-    previous_report_check = Variable.get(
-        "previous_report_check",
-        (datetime.now(timezone.utc) - timedelta(**TIME_PERIOD)).isoformat(),
-    )
-    reports = local_client.get_all_from_api_query("api/1/reports/")
-    unseen_reports = [r for r in reports if r["reported_at"] >= previous_report_check]
-    if not unseen_reports:
-        return
-    Variable.set("previous_report_check", datetime.now(timezone.utc).isoformat())
-    message = "🚩 @all De nouveaux signalements ont été faits :"
-    for r in unseen_reports:
-        if r["by"]:
-            by = f"[{r['by']['slug']}]({r['by']['page']})"
-        else:
-            by = "un utilisateur non connecté"
-        subject = (
-            f"https://www.data.gouv.fr/api/1/{r['subject']['class'].lower()}s/"
-            f"{r['subject']['id']}/"
-        )
-        _ = requests.get(subject)
-        try:
-            _.raise_for_status()
-            _ = _.json()
-            subject = (
-                f"[cet objet]({_.get('page') or _.get('self_web_url')}): "
-                f"{r['subject']['class']} `{_.get('title') or _.get('name')}`"
-            )
-        except requests.exceptions.HTTPError:
-            subject = f"[cet objet qui a été supprimé depuis]({subject})"
-        user_message = r["message"].replace("\n", " ")
-        message += f"\n- par {by}, pour `{r['reason']}`, au sujet de {subject} avec le message suivant : `{user_message}`"
-    send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES, ping=["room"])
-
-
-@task()
 def check_new_comments(**context):
     latest_comments = get_latest_comments(
         start_date=datetime.now() - timedelta(**TIME_PERIOD)
@@ -375,35 +336,6 @@ def check_schema(**context):
                 pass
 
 
-@task()
-def send_spam_to_grist(**context):
-    records = []
-    for _type in [
-        "datasets",
-        "reuses",
-        "organizations",
-        "dataservices",
-    ]:
-        arr = context["ti"].xcom_pull(key=_type, task_ids=f"check_new_{_type}")
-        logging.info(arr)
-        if not arr:
-            continue
-        for obj in arr:
-            if obj.get("spam"):
-                obj["type"] = _type
-                # standardize title and name for clarity
-                if obj.get("title"):
-                    obj["name"] = obj["title"]
-                    del obj["title"]
-                records.append(obj)
-    if records:
-        df = pd.DataFrame(records)
-        df["date"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        GristTable(grist_curation, "Alertes_spam_potentiel").from_dataframe(
-            df, append="lazy"
-        )
-
-
 def publish_item(item, item_type):
     if item_type == "dataset":
         message = "📢 🏷️ Nouveau **Jeu de données** :\n "
@@ -423,15 +355,9 @@ def publish_item(item, item_type):
     message += f" \n *{item['title'].strip()}* \n\n\n 👉️ {item['page']}"
     send_message(message, TCHAP_ROOM_ACTIVITES)
 
-    if item["first_publication"] or item["spam"]:
-        if item["spam"]:
-            message = f"⚠️ @all Spam potentiel ({item['spam']})\n"
-        else:
-            message = ""
-
-        if item["first_publication"]:
-            message += "📢 1️⃣ "
-            message += "Premier " if item_type == "dataset" else "Première "
+    if item["first_publication"]:
+        message = "📢 1️⃣ "
+        message += "Premier " if item_type == "dataset" else "Première "
 
         if item_type == "dataset":
             message += "📚️ jeu de données "
@@ -456,7 +382,6 @@ def publish_item(item, item_type):
         send_message(
             message,
             TCHAP_ROOM_MODERATION_NOUVEAUTES,
-            ping=["room"] if item["spam"] else [],
         )
 
 
@@ -484,14 +409,10 @@ def notification(**context):
 
     if nb_orgas > 0:
         for item in orgas:
-            if item["spam"]:
-                message = f"⚠️ @all Spam potentiel ({item['spam']}) \n "
+            if item["duplicated"]:
+                message = "👥 Duplicata potentiel \n "
             else:
                 message = ""
-            if item["duplicated"]:
-                message += "👥 Duplicata potentiel \n "
-            else:
-                message += ""
             if item["potential_certif"]:
                 message += "☑️ Certification potentielle \n "
             else:
@@ -503,7 +424,6 @@ def notification(**context):
             send_message(
                 message,
                 TCHAP_ROOM_MODERATION_NOUVEAUTES,
-                ping=["room"] if item["spam"] else [],
             )
 
     if nb_datasets > 0:

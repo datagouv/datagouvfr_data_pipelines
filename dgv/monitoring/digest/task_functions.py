@@ -3,6 +3,7 @@ import json
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
+    S3_BUCKET_DATA_PIPELINE_OPEN,
     SECRET_MAIL_DATAGOUV_BOT_PASSWORD,
     SECRET_MAIL_DATAGOUV_BOT_RECIPIENTS_PROD,
     SECRET_MAIL_DATAGOUV_BOT_USER,
@@ -10,10 +11,12 @@ from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_MODERATION_NOUVEAUTES,
 )
 from datagouvfr_data_pipelines.utils.mails import send_mail_datagouv
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/monitoring/digest/"
 DAG_NAME = "dgv_digests"
+S3_PATH = "dgv/"
 TMP_FOLDER = AIRFLOW_DAG_TMP + DAG_NAME
 
 
@@ -78,3 +81,16 @@ def send_email_report_period(today: str, period: str, scope: str, **context):
         subject=f"{period.title()} digest of " + today,
         message=message,
     )
+
+
+@task()
+def clean_old_daily(today: str):
+    # purging daily files, keeping the rest as history
+    client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
+    for folder in client.get_folders_from_prefix(
+        S3_PATH + "digest_daily/", ignore_airflow_env=True
+    ):
+        date = folder.split("/")[-2]  # by construction
+        if date < today:
+            for file in client.get_files_from_prefix(folder, ignore_airflow_env=True):
+                client.delete_file(file)

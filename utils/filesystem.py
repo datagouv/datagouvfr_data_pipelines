@@ -34,9 +34,14 @@ class File:
             if not remote_source:
                 self.assert_file_exists(self.source_path, self.source_name)
                 if not content_type:
-                    self.content_type = magic.from_file(
-                        self.source_path + self.source_name,
-                        mime=True,
+                    self.content_type = (
+                        # csv.gz is not properly detected so we bypass
+                        "application/gzip"
+                        if source_name.endswith("csv.gz")
+                        else magic.from_file(
+                            self.source_path + self.source_name,
+                            mime=True,
+                        )
                     )
 
     def __getitem__(self, item: str):

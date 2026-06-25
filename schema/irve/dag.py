@@ -84,7 +84,6 @@ with DAG(
         >> upload_s3.override(task_id="upload_s3_irve")(
             tmp_folder=TMP_FOLDER.as_posix(),
             s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
-            s3_output_filepath=f"schema/schemas_consolidation/{datetime.today().strftime('%Y-%m-%d')}",
         )
         >> BashOperator(
             task_id="commit_changes",

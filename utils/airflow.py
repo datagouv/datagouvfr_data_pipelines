@@ -1,6 +1,6 @@
 import airflow_client.client
-import requests
 from airflow.sdk.bases.hook import BaseHook
+import requests
 from pydantic import BaseModel
 
 

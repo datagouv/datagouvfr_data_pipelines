@@ -3,7 +3,7 @@ import logging
 
 import psycopg2
 from psycopg2 import sql
-from airflow.hooks.base import BaseHook
+from airflow.sdk.bases.hook import BaseHook
 from datagouvfr_data_pipelines.utils.filesystem import File
 
 

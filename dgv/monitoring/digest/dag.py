@@ -1,9 +1,9 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from airflow.models.baseoperator import chain
 from airflow.providers.standard.operators.python import ShortCircuitOperator
 from airflow.sdk import DAG
+from airflow.sdk.bases.operator import chain
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
@@ -15,7 +15,9 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
     DAG_FOLDER,
     DAG_NAME,
+    S3_PATH,
     TMP_FOLDER,
+    clean_old_daily,
     publish_period,
     send_email_report_period,
 )
@@ -27,7 +29,6 @@ from datagouvfr_data_pipelines.utils.utils import (
     check_if_monday,
 )
 
-S3_PATH = "dgv/"
 today = datetime.today().strftime("%Y-%m-%d")
 
 
@@ -114,6 +115,8 @@ with DAG(
                         scope=scope,
                     )
                 )
+                if freq == "weekly":
+                    tasks[scope][freq].append(clean_old_daily(today=today))
             tasks[scope][freq].append(clean_up)
             chain(*tasks[scope][freq])
 
