@@ -33,7 +33,6 @@ from tqdm import tqdm
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
 s3_client_kwargs = {
-    # "bucket": "infra",
     "bucket": S3_BUCKET_INFRA,
     "user": SECRET_S3_USER,
     "pwd": SECRET_S3_PASSWORD,
