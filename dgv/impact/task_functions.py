@@ -334,8 +334,7 @@ def publish_datagouv(DAG_FOLDER):
         fetch=False,
     ).update(
         payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/"
+            "url": S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_url(
                 "impact/statistiques_impact_datagouvfr.csv"
             ),
             "filesize": os.path.getsize(
@@ -364,7 +363,7 @@ def notification(DAG_FOLDER):
         text=(
             "📣 KPI de data.gouv mises à jour.\n\n"
             f"- Données stockées sur S3 - [Bucket {S3_BUCKET_DATA_PIPELINE_OPEN}]"
-            f"(https://console.object.files.data.gouv.fr/browser/{S3_BUCKET_DATA_PIPELINE_OPEN}"
+            f"(https://files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
             f"impact)\n"
             f"- Données publiées [sur data.gouv.fr]({local_client.base_url}/"
             f"datasets/{data[AIRFLOW_ENV]['dataset_id']})"

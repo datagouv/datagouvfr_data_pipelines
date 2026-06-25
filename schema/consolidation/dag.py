@@ -6,7 +6,6 @@ from airflow.sdk import DAG
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     TCHAP_ROOM_DATAENG,
 )
@@ -90,7 +89,6 @@ with DAG(
             ),
         )
         >> notification_synthese(
-            s3_url=MINIO_URL,
             s3_bucket_data_pipeline_open=S3_BUCKET_DATA_PIPELINE_OPEN,
             tmp_folder=TMP_FOLDER,
             room_id=TCHAP_ROOM_DATAENG,

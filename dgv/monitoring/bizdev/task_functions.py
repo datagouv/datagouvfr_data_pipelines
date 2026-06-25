@@ -699,6 +699,7 @@ def send_tables_to_s3():
 
 @task(trigger_rule="none_skipped")
 def notification():
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     list_curation = ["empty", "spam", "KO"]
     curation = [
         f for f in os.listdir(TMP_FOLDER) if any([k in f for k in list_curation])
@@ -709,12 +710,12 @@ def notification():
         message = "⚡️ Les rapports bizdev curation sont disponibles "
         message += f"dans [grist]({GRIST_UI_URL + grist_curation}):"
         for file in curation:
-            url = f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+            url = f"{AIRFLOW_ENV}"
             if any([k in file for k in ["spam", "KO"]]):
                 url += f"/bizdev/{file}"
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
-            message += f"\n - [{file} ⬇️]({url})"
+            message += f"\n - [{file} ⬇️]({s3_client.get_file_url(url)})"
         send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)
 
     edito = [f for f in os.listdir(TMP_FOLDER) if f not in curation]
@@ -724,10 +725,10 @@ def notification():
         message = "⚡️ Les rapports bizdev édito sont disponibles "
         message += f"dans [grist]({GRIST_UI_URL + grist_edito}):"
         for file in edito:
-            url = f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/{AIRFLOW_ENV}"
+            url = f"{AIRFLOW_ENV}"
             if any([k in file for k in ["spam", "KO"]]):
                 url += f"/bizdev/{file}"
             else:
                 url += f"/bizdev/{datetime.today().strftime('%Y-%m-%d')}/{file}"
-            message += f"\n - [{file} ⬇️]({url})"
+            message += f"\n - [{file} ⬇️]({s3_client.get_file_url(url)})"
         send_message(message, TCHAP_ROOM_MODERATION_NOUVEAUTES)

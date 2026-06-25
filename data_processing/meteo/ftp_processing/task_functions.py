@@ -13,12 +13,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
     SECRET_FTP_METEO_ADDRESS,
     SECRET_FTP_METEO_PASSWORD,
     SECRET_FTP_METEO_USER,
-    SECRET_S3_DATA_PIPELINE_PASSWORD,
-    SECRET_S3_DATA_PIPELINE_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -33,12 +30,6 @@ bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:
     config = json.load(fp)
 hooks = ["latest", "previous"]
-s3_client_kwargs = {
-    "bucket": bucket,
-    "user": SECRET_S3_DATA_PIPELINE_USER,
-    "pwd": SECRET_S3_DATA_PIPELINE_PASSWORD,
-    "s3_url": MINIO_URL,
-}
 
 
 def get_ftp() -> ftplib.FTP:
@@ -124,12 +115,13 @@ def build_file_id(file: str, path: str) -> str:
 def build_resource(
     file_path: str,
     s3_folder: str,
+    s3_client: S3Client,
 ) -> tuple[str, str, str | None, str | None, str, bool]:
     # file_path has to be the full file path as structured on the FTP
     # for files on s3, removing the s3 folder upstream is required
     _, global_path = get_path(file_path)
     file_with_ext = file_path.split("/")[-1]
-    url = f"https://{MINIO_URL}/{bucket}/{s3_folder + file_path}"
+    url = s3_client.get_file_url(s3_folder + file_path)
     # differenciation ressource principale VS documentation
     is_doc = False
     description = ""
@@ -276,7 +268,7 @@ def has_file_been_updated_already(
     today: str,
     s3_meteo: S3Client,
 ) -> bool:
-    file_url = f"https://{MINIO_URL}/{bucket}/{s3_folder}{ftp_file['file_path']}"
+    file_url = s3_meteo.get_file_url(f"{s3_folder}{ftp_file['file_path']}")
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (
         resources_lists.get(global_path, {}).get(file_url, {}).get("last_modified")
@@ -423,6 +415,7 @@ def get_file_extention(file: str) -> str:
 
 @task()
 def upload_new_files(**context) -> None:
+    s3_client = S3Client(bucket="meteofrance")
     new_files = context["ti"].xcom_pull(
         key="new_files", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -451,7 +444,7 @@ def upload_new_files(**context) -> None:
         clean_file_path = file_path.replace(s3_folder, "")
         _, global_path = get_path(clean_file_path)
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://{MINIO_URL}/{bucket}/{file_path}"
+        url = s3_client.get_file_url(file_path)
         # we add the file to the new files list if the URL is not in the dataset
         # it is supposed to be in, and if it's not already in the list,
         # and if it's not an old file that has been renamed (values of new_name)
@@ -475,6 +468,7 @@ def upload_new_files(**context) -> None:
             build_resource(
                 clean_file_path,
                 s3_folder,
+                s3_client,
             )
         )
         logging.info(
@@ -512,6 +506,7 @@ def upload_new_files(**context) -> None:
 
 @task()
 def handle_updated_files_same_name(**context) -> None:
+    s3_client = S3Client(bucket="meteofrance")
     updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -530,7 +525,7 @@ def handle_updated_files_same_name(**context) -> None:
             logging.warning(f"⚠️ no config for this file: {file_path}")
             continue
         file_with_ext = file_path.split("/")[-1]
-        url = f"https://{MINIO_URL}/{bucket}/{s3_folder + file_path}"
+        url = s3_client.get_file_url(s3_folder + file_path)
         logging.info(f"Resource already exists and name unchanged: {file_with_ext}")
         # only pinging the resource to update the size of the file
         # and therefore also updating the last modification date
@@ -556,6 +551,7 @@ def handle_updated_files_same_name(**context) -> None:
 
 @task()
 def handle_updated_files_new_name(**context) -> None:
+    s3_client = S3Client(bucket="meteofrance")
     updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -570,14 +566,14 @@ def handle_updated_files_new_name(**context) -> None:
     new_files = []
     for file_path in files_to_update_new_name:
         file_with_ext, global_path, resource_name, description, url, is_doc = (
-            build_resource(file_path, s3_folder)
+            build_resource(file_path, s3_folder, s3_client)
         )
         # resource is updated with a new name, we redirect the existing resource, rename it
         # and update size and description
         logging.info(f"Updating URL and metadata for: {file_with_ext}")
         # accessing the file's old path using its new one
         old_file_path = files_to_update_new_name[file_path]
-        old_url = f"https://{MINIO_URL}/{bucket}/{s3_folder + old_file_path}"
+        old_url = s3_client.get_file_url(s3_folder + old_file_path)
         if not resources_lists[global_path].get(old_url):
             logging.info(
                 "⚠️ this file is not on data.gouv yet, it will be added as a new file"

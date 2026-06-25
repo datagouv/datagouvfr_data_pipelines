@@ -20,6 +20,9 @@ import requests
 import yaml
 from airflow.sdk import task
 from datagouv import Dataset
+from tqdm import tqdm
+
+from datagouvfr_data_pipelines.config import S3_BUCKET_DATA_PIPELINE_OPEN
 from datagouvfr_data_pipelines.utils.datagouv import (
     ORGA_REFERENCE,
     VALIDATA_BASE_URL,
@@ -29,7 +32,6 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
-from tqdm import tqdm
 
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)
@@ -2001,7 +2003,6 @@ def upload_s3(
 
 @task()
 def notification_synthese(
-    s3_url: str,
     s3_bucket_data_pipeline_open: str,
     tmp_folder: Path,
     room_id: str,
@@ -2014,6 +2015,7 @@ def notification_synthese(
     """
     assert schema_name or len(list_schema_skip) > 0
 
+    s3_client= S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     last_conso = datetime.today().strftime("%Y-%m-%d")
     r = requests.get("https://schema.data.gouv.fr/schemas/schemas.json")
     r.raise_for_status()
@@ -2029,8 +2031,8 @@ def notification_synthese(
     for s in schemas:
         if s["schema_type"] == "tableschema":
             try:
-                filename = (
-                    f"https://{s3_url}/{s3_bucket_data_pipeline_open}/schema/schemas_consolidation/"
+                filename = s3_client.get_file_url(
+                    "schema/schemas_consolidation/"
                     f"{last_conso}/output/ref_tables/ref_table_{s['name'].replace('/', '_')}.csv"
                 )
                 df = pd.read_csv(filename)

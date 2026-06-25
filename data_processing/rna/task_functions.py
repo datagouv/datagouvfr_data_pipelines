@@ -111,6 +111,7 @@ def send_rna_to_s3(file_type):
 
 @task()
 def publish_on_datagouv(file_type, **context):
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     latest = context["ti"].xcom_pull(key="latest", task_ids=f"process_rna_{file_type}")
     y, m, d = latest[:4], latest[4:6], latest[6:]
     date = f"{d} {MOIS_FR[m]} {y}"
@@ -121,9 +122,8 @@ def publish_on_datagouv(file_type, **context):
             fetch=False,
         ).update(
             payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/rna/{file_type}.{ext}"
+                "url": s3_client.get_file_url(
+                    f"rna/{file_type}.{ext}"
                 ),
                 "filesize": os.path.getsize(TMP_FOLDER + f"{file_type}.{ext}"),
                 "title": (f"Données {file_type.title()} au {date} (format {ext})"),
