@@ -209,9 +209,7 @@ def get_current_files_on_ftp(**context) -> None:
 
 @task()
 def get_current_files_on_s3(**context) -> None:
-    s3_files = S3Client(
-        **s3_client_kwargs
-    ).get_all_files_names_and_sizes_from_parent_folder(folder=s3_folder)
+    s3_files = S3Client(bucket=bucket).get_all_files_names_and_sizes_from_parent_folder(folder=s3_folder)
     # getting the start of each time period to update datasets temporal_coverage
     period_starts = {}
     for file in s3_files:
@@ -290,7 +288,7 @@ def has_file_been_updated_already(
 @task()
 def get_and_upload_file_diff_ftp_s3(**context) -> None:
     ftp = get_ftp()
-    s3_meteo = S3Client(**s3_client_kwargs)
+    s3_meteo = S3Client(bucket=bucket)
     s3_files = context["ti"].xcom_pull(
         key="s3_files", task_ids="get_current_files_on_s3"
     )
@@ -652,7 +650,7 @@ def log_modified_files(**context) -> None:
         key="files_to_update_same_name", task_ids="get_and_upload_file_diff_ftp_s3"
     )
     log_file_path = "data/updated_files.json"
-    s3_meteo = S3Client(**s3_client_kwargs)
+    s3_meteo = S3Client(bucket=bucket)
     log_file = json.loads(s3_meteo.get_file_content(log_file_path))
     today = datetime.now().strftime("%Y-%m-%d")
     log_file["latest_update"] = today
@@ -704,7 +702,7 @@ def log_modified_files(**context) -> None:
 
 @task()
 def delete_replaced_s3_files(**context) -> None:
-    s3_client = S3Client(**s3_client_kwargs)
+    s3_client = S3Client(bucket=bucket)
     # files that have been renamed while update will be removed
     files_to_update_new_name = context["ti"].xcom_pull(
         key="files_to_update_new_name", task_ids="get_and_upload_file_diff_ftp_s3"

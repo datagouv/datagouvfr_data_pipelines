@@ -2088,8 +2088,9 @@ def notification_synthese(
                 message += (
                     f"\n    - Ressources valides : {nb_valides} "
                     f"\n    - [Liste des ressources non valides]"
-                    f"(https://{s3_url}/{s3_bucket_data_pipeline_open}/schema/"
-                    f"schemas_consolidation/liste_erreurs/{erreurs_file_name})\n"
+                    + s3_client.get_file_url(
+                        f"(schema/schemas_consolidation/liste_erreurs/{erreurs_file_name})"
+                    ) + "\n"
                 )
             except Exception as e:
                 logging.warning(f"{s['name']} erreur : {e}")
