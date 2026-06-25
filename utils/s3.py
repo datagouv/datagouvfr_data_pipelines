@@ -360,7 +360,7 @@ class S3Client:
         self,
         file_path: str,
     ) -> str:
-        return f"https://{self.url}/{self.bucket.name}/{file_path}"
+        return f"https://{self.bucket.name}.{self.url}/{file_path}"
 
     @simple_connection_retry
     def get_all_files_names_and_sizes_from_parent_folder(
