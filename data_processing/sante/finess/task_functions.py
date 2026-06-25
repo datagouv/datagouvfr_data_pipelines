@@ -207,9 +207,8 @@ def publish_on_datagouv(scope: str):
         fetch=False,
     ).update(
         payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                f"/finess/finess_{scope}.csv"
+            "url": S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_url(
+                f"finess/finess_{scope}.csv"
             ),
             "filesize": os.path.getsize(TMP_FOLDER + f"finess_{scope}.csv"),
             "title": (f"{config[scope]['title']} au {date}"),

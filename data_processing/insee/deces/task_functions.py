@@ -213,6 +213,7 @@ def send_to_s3():
 
 @task()
 def publish_on_datagouv(**context):
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     min_date = context["ti"].xcom_pull(key="min_date", task_ids="gather_data")
     max_date = context["ti"].xcom_pull(key="max_date", task_ids="gather_data")
     for _ext in ["csv", "parquet"]:
@@ -222,10 +223,7 @@ def publish_on_datagouv(**context):
             fetch=False,
         ).update(
             payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/deces/deces.{_ext}"
-                ),
+                "url": s3_client.get_file_url(f"deces/deces.{_ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"deces.{_ext}"),
                 "title": (
                     f"Personnes décédées entre {min_date} et {build_year_month(max_date)} (format {_ext})"

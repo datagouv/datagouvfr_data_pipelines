@@ -9,7 +9,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    MINIO_URL,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.dgv.monitoring.digest.task_functions import (
@@ -82,7 +81,6 @@ with DAG(
                     ),
                     output_nb=today + f"{('' if scope == 'general' else '-api')}.ipynb",
                     tmp_path=TMP_FOLDER + f"/digest_{freq}/{today}/",
-                    s3_url=MINIO_URL,
                     s3_bucket=S3_BUCKET_DATA_PIPELINE_OPEN,
                     s3_output_filepath=S3_PATH + f"digest_{freq}/{today}/",
                     env_vars={

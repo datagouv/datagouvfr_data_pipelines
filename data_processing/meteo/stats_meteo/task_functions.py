@@ -9,9 +9,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     MATOMO_TOKEN,
-    MINIO_URL,
-    SECRET_S3_DATA_PIPELINE_PASSWORD,
-    SECRET_S3_DATA_PIPELINE_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -33,12 +30,6 @@ MATOMO_PARAMS = {
     "token_auth": MATOMO_TOKEN,
     # "date": "{start},{end}",
     # "label": "{label}",
-}
-s3_client_kwargs = {
-    "bucket": "meteofrance",
-    "user": SECRET_S3_DATA_PIPELINE_USER,
-    "pwd": SECRET_S3_DATA_PIPELINE_PASSWORD,
-    "s3_url": MINIO_URL,
 }
 
 
@@ -132,7 +123,7 @@ def gather_meteo_stats(**context):
 @task()
 def send_to_s3(**context):
     filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
-    S3Client(**s3_client_kwargs).send_files(
+    S3Client(bucket="meteofrance").send_files(
         list_files=[
             File(
                 source_path=TMP_FOLDER,
@@ -157,14 +148,14 @@ def send_to_s3(**context):
 
 @task()
 def notification(**context):
+    s3_client = S3Client(bucket="meteofrance")
     filename = context["ti"].xcom_pull(key="filename", task_ids="gather_meteo_stats")
-    url = "https://object.files.data.gouv.fr/meteofrance/metrics/"
     send_message(
         text=(
             "##### 📊 🌦️ Statistiques mensuelles "
             "de meteo.data.gouv disponibles sur S3 :\n"
-            f"\n- Statistiques détaillées (en [csv]({url + filename}.csv) "
-            f"et en [json]({url + filename}.json))"
-            f"\n- [Visites mensuelles]({url}visites_meteo.csv)"
+            f"\n- Statistiques détaillées (en [csv]({s3_client.get_file_url('metrics/' + filename + '.csv')}) "
+            f"et en [json]({s3_client.get_file_url('metrics/' + filename + '.json')})"
+            f"\n- [Visites mensuelles]({s3_client.get_file_url('metrics/visites_meteo.csv')})"
         )
     )

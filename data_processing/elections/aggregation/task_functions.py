@@ -144,6 +144,7 @@ def send_results_to_s3():
 
 @task()
 def publish_results_elections():
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
         config = json.load(fp)
     for ext in ["csv", "parquet"]:
@@ -153,10 +154,7 @@ def publish_results_elections():
             fetch=False,
         ).update(
             payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/elections/general_results.{ext}"
-                ),
+                "url": s3_client.get_file_url(f"elections/general_results.{ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"general_results.{ext}"),
                 "title": "Résultats généraux",
                 "format": ext,
@@ -175,10 +173,7 @@ def publish_results_elections():
             fetch=False,
         ).update(
             payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/elections/candidats_results.{ext}"
-                ),
+                "url": s3_client.get_file_url(f"elections/candidats_results.{ext}"),
                 "filesize": os.path.getsize(TMP_FOLDER + f"candidats_results.{ext}"),
                 "title": "Résultats par candidat",
                 "format": ext,

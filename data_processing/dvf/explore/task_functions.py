@@ -14,7 +14,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MINIO_URL,
     S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -1154,6 +1153,7 @@ def send_distribution_to_s3() -> None:
 
 @task()
 def publish_stats_dvf(**context) -> None:
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/config.json") as fp:
         data = json.load(fp)
     local_client.resource(
@@ -1162,10 +1162,7 @@ def publish_stats_dvf(**context) -> None:
         fetch=False,
     ).update(
         payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                "/dvf/stats_dvf.csv"
-            ),
+            "url": s3_client.get_file_url("dvf/stats_dvf.csv"),
             "filesize": os.path.getsize(TMP_FOLDER + "stats_dvf.csv"),
             "title": "Statistiques mensuelles DVF",
             "format": "csv",
@@ -1182,10 +1179,7 @@ def publish_stats_dvf(**context) -> None:
         fetch=False,
     ).update(
         payload={
-            "url": (
-                f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                "/dvf/stats_whole_period.csv"
-            ),
+            "url": s3_client.get_file_url("dvf/stats_whole_period.csv"),
             "filesize": os.path.getsize(TMP_FOLDER + "stats_whole_period.csv"),
             "title": "Statistiques totales DVF",
             "format": "csv",
@@ -1316,5 +1310,5 @@ def notification(**context) -> None:
         f"\n- intégré en base de données"
         f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id})"
-        f"\n- données uploadées [sur S3]({MINIO_URL}/browser/{S3_BUCKET_DATA_PIPELINE_OPEN}/dvf/)"
+        f"\n- données uploadées [sur S3](https://files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}/dvf/)"
     )

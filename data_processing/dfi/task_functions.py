@@ -292,9 +292,8 @@ def publish_on_datagouv(**context):
             fetch=False,
         ).update(
             payload={
-                "url": (
-                    f"https://object.files.data.gouv.fr/{S3_BUCKET_DATA_PIPELINE_OPEN}"
-                    f"/dfi/dfi.{_ext}"
+                "url": S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).get_file_url(
+                    f"dfi/dfi.{_ext}"
                 ),
                 "filesize": os.path.getsize(TMP_FOLDER + f"dfi.{_ext}"),
                 "title": (
