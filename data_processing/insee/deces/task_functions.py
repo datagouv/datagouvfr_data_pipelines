@@ -24,11 +24,17 @@ from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}deces/"
+CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config.json") as fp:
     config = json.load(fp)
 
 
-def check_if_modif():
+def check_if_modif(task_instance):
+    # Note : tried to get state.SKIPPED but next steps states are cleared while re-running,
+    # so falled back to manual run detection
+    if str(task_instance.run_id).startswith("manual"):
+        logging.info("Manual rerun detected, bypassing short-circuit.")
+        return True
     return local_client.resource(
         id=config["deces_csv"][AIRFLOW_ENV]["resource_id"],
     ).check_if_more_recent_update(dataset_id="5de8f397634f4164071119c5")
