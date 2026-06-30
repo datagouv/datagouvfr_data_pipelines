@@ -73,7 +73,9 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
     Descendants are intentionally not computed here: they are obtained downstream
     by a reverse lookup on ``ancestors``.
     """
-    child_types = ", ".join(f"igeo:{insee_type}" for insee_type in map_type if insee_type != "Etat")
+    child_types = ", ".join(
+        f"igeo:{insee_type}" for insee_type in map_type if insee_type != "Etat"
+    )
     query = f"""PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
     PREFIX igeo:<http://rdf.insee.fr/def/geo#>
 
