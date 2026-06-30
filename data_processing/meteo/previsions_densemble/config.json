@@ -5,14 +5,16 @@
                 "dev": "67aa2ae95e47705917948c5c",
                 "prod": "67ac5e277e258045630bf687"
             },
-            "nb_membres": 35
+            "nb_membres": 35,
+            "display": true
         },
         "glob025": {
             "dataset_id": {
                 "dev": "67aa2b23dc82578a96dda62d",
                 "prod": "67ac5dffb832ee7684ed1c40"
             },
-            "nb_membres": 35
+            "nb_membres": 35,
+            "display": true
         }
     },
     "arome":{
@@ -61,7 +63,8 @@
                 "prod": "67ac5caede55a41eb156f1bc"
             },
             "nb_membres": 16,
-            "alerte_cyclonique": true
+            "alerte_cyclonique": true,
+            "display": true
         }
     },
     "mfwam":{
