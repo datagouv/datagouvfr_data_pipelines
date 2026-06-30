@@ -749,10 +749,11 @@ def notification(**context) -> None:
             config[path]["name_template"]
         )
         paths[config[path]["dataset_id"][AIRFLOW_ENV]] = path
+    count_ids = defaultdict(int)
     for dataset_id in allowed_patterns:
         resp = requests.get(
             f"{local_client.base_url}/api/1/datasets/{dataset_id}/",
-            headers={"X-fields": "resources{title,id,type}"},
+            headers={"X-fields": "resources{title,id,type,url}"},
         )
         if not resp.ok:
             logging.warning(
@@ -761,16 +762,19 @@ def notification(**context) -> None:
             continue
         resources = resp.json()["resources"]
         for r in resources:
-            if (
-                r["type"] == "main"
-                and any(k for k in allowed_patterns[dataset_id])
-                and not any(
-                    r["title"].startswith(template.split("_")[0])
-                    for template in allowed_patterns[dataset_id]
-                )
+            if r["type"] != "main":
+                continue
+            clean_file_path = r["url"].split(s3_folder)[1]
+            file_name = clean_file_path.split("/")[-1]
+            true_path, global_path = get_path(clean_file_path)
+            count_ids[build_file_id(file_name, global_path)] += 1
+            if any(k for k in allowed_patterns[dataset_id]) and not any(
+                r["title"].startswith(template.split("_")[0])
+                for template in allowed_patterns[dataset_id]
             ):
                 issues[dataset_id][r["id"]] = r["title"]
     if issues:
+        # this most likely means MF misnamed some files, needs investigation
         message += "\n\n⚠️ Des ressources semblent mal placées :\n"
         for dataset_id in issues:
             message += (
@@ -782,4 +786,12 @@ def notification(**context) -> None:
                     f"    - [{issues[dataset_id][rid]}]({local_client.base_url}/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
+    not_unique = {k: v for k, v in count_ids if v > 1}
+    if not_unique:
+        # this most likely means either:
+        # - multiple files with the same id coexist on the S3, requires a cleanup to keep only one (the latest)
+        # - MF pushed multiple files with the same id (unlikely)
+        message += "\n\n⚠️ Des ressources semblent en trop :\n"
+        for file_id in not_unique:
+            message += f"    - {file_id}\n"
     send_message(message)
