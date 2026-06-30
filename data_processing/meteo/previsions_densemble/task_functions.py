@@ -285,7 +285,7 @@ def publish_on_datagouv(pack: str, grid: str):
 
 @task()
 def remove_old_occurrences(pack: str, grid: str):
-    # removing too old files from S3 and cleaning SFTP if remainders 
+    # removing too old files from S3 and cleaning SFTP if remainders
     current_resources: dict = get_current_resources(pack, grid)
     oldest_available_date = datetime.strptime(
         min([r["date"] for r in current_resources.values()]),
