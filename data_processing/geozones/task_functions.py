@@ -64,14 +64,25 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         arrondissement.
       - ancestors: every ancestor id, transitively.
 
+    Why both, even though parents is always a subset of ancestors? They answer
+    different questions, and we denormalize on purpose because this export is a
+    reference dataset read far more often than it is regenerated (~once a year):
+      - parents is the minimal navigation edge (breadcrumb, "one level up"). It is
+        also the only field that keeps the *direct* relation and a zone's several
+        distinct parent branches (a commune belongs both to a department and to an
+        EPCI); ancestors flattens those together and loses that distinction.
+      - ancestors is the flattened transitive closure, so a consumer can answer
+        "is X inside Y?" with a single O(1) membership test (``Y in X.ancestors``)
+        instead of walking the graph. Crucially, it is what lets descendants be
+        derived downstream by a reverse lookup ("all communes of region 27" =
+        every zone whose ancestors contains "fr:region:27"), which is why we do
+        not compute descendants here.
+
     Both lists are restricted to zones actually present in the export
     (``exported_ids``) so we never reference a filtered-out zone, and "country:fr"
     is added as a top-level ancestor of every French zone. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
     excluded directly in the SPARQL query.
-
-    Descendants are intentionally not computed here: they are obtained downstream
-    by a reverse lookup on ``ancestors``.
     """
     child_types = ", ".join(
         f"igeo:{insee_type}" for insee_type in map_type if insee_type != "Etat"
