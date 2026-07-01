@@ -1,3 +1,4 @@
+import gzip
 import json
 import logging
 import os
@@ -177,6 +178,58 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
     return parents, ancestors
 
 
+# IGN administrative contours (the source geo.api.gouv.fr itself is built on),
+# published per level and resolution. 100m is a good size/precision balance.
+# Communes also need the associated/delegated file, otherwise merged (déléguées)
+# communes get no geometry. Municipal arrondissements (Paris/Lyon/Marseille) and
+# countries are not published here, so those zones keep a null geometry.
+GEOMETRY_ENDPOINT = "https://contours-administratifs.s3.rbx.io.cloud.ovh.net"
+GEOMETRY_SOURCES = {
+    "fr:commune": ["communes-100m", "communes-associees-deleguees-100m"],
+    "fr:epci": ["epci-100m"],
+    "fr:departement": ["departements-100m"],
+    "fr:region": ["regions-100m"],
+}
+
+
+def resolve_geometry_year() -> int:
+    """Most recent millésime available in the contours bucket (files lag the year)."""
+    current = datetime.now().year
+    for year in range(current, current - 3, -1):
+        probe = f"{GEOMETRY_ENDPOINT}/{year}/geojson/regions-1000m.geojson.gz"
+        if requests.head(probe).status_code == 200:
+            return year
+    raise ValueError("No contours-administratifs millésime found in the last 3 years")
+
+
+def fetch_geozones_geometries() -> dict:
+    """
+    Download IGN administrative contours and return, per level, a mapping from
+    INSEE code to its GeoJSON geometry, e.g. {"fr:commune": {"21231": {...}}}.
+
+    Geometry is an enrichment, not critical data: a source that fails to download
+    is logged and skipped rather than aborting the whole geozones export.
+    """
+    year = resolve_geometry_year()
+    geometries = defaultdict(dict)
+    for level, names in GEOMETRY_SOURCES.items():
+        for name in names:
+            url = f"{GEOMETRY_ENDPOINT}/{year}/geojson/{name}.geojson.gz"
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                features = json.loads(gzip.decompress(response.content))["features"]
+            except (requests.RequestException, ValueError, KeyError) as e:
+                logging.warning("Skipping geometry source %s: %s", url, e)
+                continue
+            for feature in features:
+                code = feature["properties"].get("code")
+                if code:
+                    # first wins: current communes take precedence over delegated ones
+                    geometries[level].setdefault(code, feature["geometry"])
+    return geometries
+
+
 @task()
 def download_and_process_geozones():
     query = """PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -351,9 +404,18 @@ def download_and_process_geozones():
         geoz["parents"] = parents_by_id.get(geoz["_id"], [])
         geoz["ancestors"] = ancestors_by_id.get(geoz["_id"], [])
 
+    # Enrich each zone with its IGN administrative contour, joined on the INSEE
+    # code. Zones with no published geometry (countries, municipal arrondissements)
+    # keep a null geom so every record exposes the key.
+    geometries = fetch_geozones_geometries()
+    for geoz in export:
+        geoz["geom"] = geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+
     os.mkdir(TMP_FOLDER)
     with open(geozones_file.full_source_path, "w", encoding="utf8") as f:
-        json.dump(export, f, ensure_ascii=False, indent=4)
+        # No indent: with geometries, indent=4 puts every coordinate on its own
+        # line and bloats this machine-consumed export ~5x (~460 MB vs ~85 MB).
+        json.dump(export, f, ensure_ascii=False)
 
     with open(countries_file.full_source_path, "w", encoding="utf8") as f:
         json.dump(countries_json, f, ensure_ascii=False, indent=4)
