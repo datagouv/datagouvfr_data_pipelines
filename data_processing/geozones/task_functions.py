@@ -230,6 +230,56 @@ def fetch_geozones_geometries() -> dict:
     return geometries
 
 
+POPULATION_ENDPOINT = "https://geo.api.gouv.fr"
+
+
+def fetch_geozones_populations() -> dict:
+    """
+    Return the legal population per zone as {level: {code: population}}.
+
+    Source is geo.api.gouv.fr (INSEE census, recent millésime): communes and
+    EPCI expose it directly, department and region populations are summed from
+    their communes since geo.api does not serve them. The INSEE SPARQL endpoint
+    also carries population but is frozen at 2016, so it is not used.
+
+    Best-effort: a geo.api failure is logged and yields no population rather than
+    aborting the export.
+    """
+    populations = {
+        "fr:commune": {},
+        "fr:epci": {},
+        "fr:departement": defaultdict(int),
+        "fr:region": defaultdict(int),
+    }
+    try:
+        communes = requests.get(
+            f"{POPULATION_ENDPOINT}/communes",
+            params={"fields": "code,population,codeDepartement,codeRegion"},
+        )
+        communes.raise_for_status()
+        epcis = requests.get(
+            f"{POPULATION_ENDPOINT}/epcis", params={"fields": "code,population"}
+        )
+        epcis.raise_for_status()
+    except requests.RequestException as e:
+        logging.warning("Could not fetch populations from geo.api.gouv.fr: %s", e)
+        return populations
+
+    for epci in epcis.json():
+        if epci.get("population"):
+            populations["fr:epci"][epci["code"]] = epci["population"]
+    for commune in communes.json():
+        pop = commune.get("population")
+        if pop is None:
+            continue
+        populations["fr:commune"][commune["code"]] = pop
+        if commune.get("codeDepartement"):
+            populations["fr:departement"][commune["codeDepartement"]] += pop
+        if commune.get("codeRegion"):
+            populations["fr:region"][commune["codeRegion"]] += pop
+    return populations
+
+
 @task()
 def download_and_process_geozones():
     query = """PREFIX rdf:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -410,6 +460,11 @@ def download_and_process_geozones():
     geometries = fetch_geozones_geometries()
     for geoz in export:
         geoz["geom"] = geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+
+    # Enrich with the legal population (geo.api.gouv.fr), joined on the INSEE code.
+    populations = fetch_geozones_populations()
+    for geoz in export:
+        geoz["population"] = populations.get(geoz["level"], {}).get(geoz["codeINSEE"])
 
     os.mkdir(TMP_FOLDER)
     with open(geozones_file.full_source_path, "w", encoding="utf8") as f:
