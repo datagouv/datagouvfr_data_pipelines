@@ -116,6 +116,7 @@ def create_whole_period_table() -> None:
 
 @task()
 def populate_copro_table() -> None:
+    # mapping instead of using the source columns directly for safety (easier to change the mapping than the columns names)
     mapping = {
         "epci": "epci",
         "commune": "commune",
@@ -255,6 +256,7 @@ def populate_whole_period_table() -> None:
 
 @task()
 def get_epci() -> None:
+    # for downstream merging
     epci = requests.get(
         "https://unpkg.com/@etalab/decoupage-administratif/data/epci.json"
     ).json()
@@ -1242,6 +1244,7 @@ def concat_and_publish_whole():
         file_to_upload=TMP_FOLDER + "dvf.csv.gz",
         timeout=120,
     )
+    # TODO: make this complete, maybe the new infra can take it
     csv_to_geoparquet(
         csv_file_path=TMP_FOLDER + "dvf.csv",
         dtype={

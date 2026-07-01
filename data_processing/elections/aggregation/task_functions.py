@@ -79,7 +79,7 @@ _types = {
 
 @task()
 def process_election_data():
-    # getting preprocessed resources
+    # getting preprocessed resources, the magic is there (when creating standardized files), here we only concatenate them
     resources_url = [
         r["url"]
         for r in Client().get_all_from_api_query(
@@ -89,6 +89,7 @@ def process_election_data():
             "?organization=646b7187b50b2a93b1ae3d45&sort=-created_at_internal"
         )
     ]
+    # when creating a standardized file, make sure to name it properly so that it is considered here (and don't name other files the same)
     resources = {
         "general": [r for r in resources_url if "general-results.csv" in r],
         "candidats": [r for r in resources_url if "candidats-results.csv" in r],
@@ -114,6 +115,7 @@ def process_election_data():
                 header=idx == 0,
             )
             del df
+        # hydra is not (yet) able to ingest the big csv, maybe soon? :eyes:
         logging.info("Export en parquet...")
         csv_to_parquet(
             csv_file_path=TMP_FOLDER + f"{scope}_results.csv",

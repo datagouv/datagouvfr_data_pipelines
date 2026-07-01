@@ -268,6 +268,7 @@ def has_file_been_updated_already(
     today: str,
     s3_meteo: S3Client,
 ) -> bool:
+    # making sure we don't process the same file more than once a day
     file_url = s3_meteo.get_file_url(f"{s3_folder}{ftp_file['file_path']}")
     _, global_path = get_path(ftp_file["file_path"])
     last_modified_datagouv = (

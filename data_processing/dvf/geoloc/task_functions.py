@@ -38,6 +38,8 @@ def check_if_modif():
     # return Resource(
     #     id=config["concat"]["prod"]["resource_id"],
     # ).check_if_more_recent_update(dataset_id=SOURCE_DATASET_ID)
+
+    # bypassing for now, the DAG has not completed yet
     return True
 
 
@@ -53,9 +55,10 @@ def download_source_data(**context):
     for res in data:
         logging.info(res.title)
         file_name = res.url.split("/")[-1]
-        max_year = max(max_year, int(file_name.split(".")[0].split("-")[1]))
+        # checking that the year is where we expect it in the resource's title
         if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
             raise ValueError(f"Unexpected file name: {file_name}")
+        max_year = max(max_year, int(file_name.split(".")[0].split("-")[1]))
         dest_path = TMP_FOLDER + file_name
         res.download(dest_path)
         with ZipFile(dest_path, mode="r") as z:
@@ -67,7 +70,8 @@ def download_source_data(**context):
         os.remove(dest_path)
 
     logging.info("Retrieving reference data...")
-    # one major version per year since 2020
+    # downloading cadastre data for downstream merges
+    # one major version per year since 2020, which was version 0.x.y (then incremented each year, ask Thomas for more infos)
     version = max_year - 2020
     r = requests.get(
         f"https://unpkg.com/@etalab/decoupage-administratif@{version}/data/communes.json"
@@ -106,6 +110,7 @@ def build_parcelle_id(row: pd.Series) -> str:
 
 
 def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFrame:
+    # getting and merging parcelle's geographical columns from parquet files made by Thomas
     logging.info("Merging in batches with " + parcelle_file)
     parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique())
     merged = []
@@ -114,6 +119,7 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
         "key": SECRET_S3_USER,
         "secret": SECRET_S3_PASSWORD,
     }
+    # it would be too RAM heavy to merge everything at once, so batch-merging using the parcelle's prefixes
     for idx, prefix in enumerate(parcelles_prefixes):
         if idx == len(parcelles_prefixes) - 1:
             high = "99999"
@@ -141,6 +147,7 @@ def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFr
         )
         del sample_dvf
         del sample_geo_parcelles
+        # expecting around 1-2% missing coords per batch
         logging.info(
             f"> {round(len(merged[-1].loc[merged[-1]['latitude'].isna()]) / len(merged[-1]) * 100, 2)}% missing"
         )
@@ -154,6 +161,7 @@ def enrich_year(
     map_cultures: dict[str, dict],
     available_dates: dict[str, str],
 ):
+    # the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
     logging.info(f"Processing {file}")
     year = file.split(".")[0].split("-")[1]
     if f"full-{year}.csv.gz" in os.listdir(TMP_FOLDER):
@@ -277,9 +285,11 @@ def enrich_year(
                 dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
             )
         ]
+        # dropping from original df to keep RAM low
         output.drop(restr_ouput.index, inplace=True)
         logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
         if remainders is not None and not remainders.empty:
+            # for parcelles that didn't get geolocalized in the expected batch, we'll try again at each upcoming batch
             logging.info(f"- adding {len(remainders)} remainders")
             restr_ouput = pd.concat([restr_ouput, remainders], ignore_index=True)
         if len(restr_ouput) == 0:

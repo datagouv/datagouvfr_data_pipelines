@@ -139,7 +139,7 @@ def build_folder_path(model: str, pack: str, grid: str) -> str:
     return f"{base_path}/{grid.replace('.', '')}"
 
 
-def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs):
+def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs) -> bool:
     tested_batches = kwargs["ti"].xcom_pull(
         key="tested_batches", task_ids="get_latest_theorical_batches"
     )
@@ -151,6 +151,7 @@ def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs):
     for batch in tested_batches:
         for package in PACKAGES[model][pack][grid]["packages"]:
             for timeslot in package.time:
+                # if you want to (re)construct these URLs (for instance to add a new PNT model), you can ping (with the token) a truncated version (ending at "/packages/" for instance) and see what you get
                 url = (
                     f"{kwargs['infos']['base_url']}/{grid}/packages/"
                     + f"{package.name}/{kwargs['infos']['product']}"
@@ -241,6 +242,8 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
         logging.info("_________________________")
         logging.info(url_to_infos[url]["filename"])
         # we don't download the files anymore, but we keep the folder creation for cross-run communication
+        # (we used to download the files when we performed the structure integrity check)
+        # (concurrent runs are allowed for these DAGs, the presence of the folder indicates to a run that another is processing the batch)
         if (
             os.path.isdir(f"{TMP_FOLDER}{path}/{package}")
             and package not in my_packages
@@ -275,7 +278,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
     context["ti"].xcom_push(key="uploaded", value=uploaded)
 
 
-def build_file_id_and_date(file_name: str):
+def build_file_id_and_date(file_name: str) -> str:
     # final files look like "arome__001__HP1__00H__2025-02-24T09:00:00Z.grib2"
     # on data.gouv we will expose only the latest occurrence of model+grid+package+batch
     # so we build an id (aka just remove the date) to compare files
@@ -283,7 +286,7 @@ def build_file_id_and_date(file_name: str):
     return f"{model}_{grid}_{package}_{batch}", date
 
 
-def get_current_resources(model: str, pack: str, grid: str):
+def get_current_resources(model: str, pack: str, grid: str) -> dict:
     current_resources = {}
     for r in requests.get(
         f"{local_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
@@ -384,7 +387,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 
 @task()
 def clean_directory(model: str, pack: str, grid: str, **kwargs):
-    # in case processes crash and leave stuff behind
+    # in case processes crash and leave stuff behind, so that upcoming DAG runs don't consider they're being processed (see above about how they "communicate")
     path = build_folder_path(model, pack, grid)
     files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
     threshold = datetime.now() - timedelta(hours=3)
