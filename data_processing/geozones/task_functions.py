@@ -466,7 +466,7 @@ def download_and_process_geozones():
     for geoz in export:
         geoz["population"] = populations.get(geoz["level"], {}).get(geoz["codeINSEE"])
 
-    os.mkdir(TMP_FOLDER)
+    os.makedirs(TMP_FOLDER, exist_ok=True)
     with open(geozones_file.full_source_path, "w", encoding="utf8") as f:
         # No indent: with geometries, indent=4 puts every coordinate on its own
         # line and bloats this machine-consumed export ~5x (~460 MB vs ~85 MB).
