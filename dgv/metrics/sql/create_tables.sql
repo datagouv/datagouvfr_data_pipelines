@@ -121,6 +121,9 @@ CREATE TABLE IF NOT EXISTS metric.matomo_dataservices
 
 
 -- Aggregated metrics tables
+-- When adding/removing a materialized view here, keep MATERIALIZED_VIEWS in
+-- dgv/metrics/task.py in sync (and add its UNIQUE index below): a view missing
+-- from that list is silently never refreshed.
 CREATE MATERIALIZED VIEW IF NOT EXISTS metric.metrics_datasets AS
     SELECT visits.__id as __id,
            COALESCE(visits.date_metric, matomo.date_metric) as date_metric,
@@ -358,26 +361,39 @@ CREATE INDEX IF NOT EXISTS visits_dataservices_dataservice_id ON metric.visits_d
 CREATE INDEX IF NOT EXISTS visits_dataservices_organization_id ON metric.visits_dataservices USING btree (organization_id);
 CREATE INDEX IF NOT EXISTS visits_dataservices_date_metric ON metric.visits_dataservices USING btree (date_metric);
 
--- Index on monthly aggregated tables
-CREATE INDEX IF NOT EXISTS datasets_dataset_id ON metric.datasets USING btree (dataset_id);
+-- UNIQUE index on each materialized view: required by REFRESH MATERIALIZED
+-- VIEW CONCURRENTLY (see refresh_materialized_views in task.py), which avoids
+-- blocking reads from the metrics API during the refresh.
+-- The key follows each view's grain: the GROUP BY for aggregated views
+-- (uniqueness guaranteed by construction), the (id, date_metric) couple for the
+-- base metrics_* views (sources deduplicated by date by the
+-- visit/matomo_postgres_duplication_safety tasks).
+-- These unique indexes also act as a plain index for lookups on their prefix:
+-- no need for a separate single-column index on the 1st column.
+CREATE UNIQUE INDEX IF NOT EXISTS metrics_datasets_unique ON metric.metrics_datasets USING btree (dataset_id, date_metric);
+CREATE UNIQUE INDEX IF NOT EXISTS metrics_reuses_unique ON metric.metrics_reuses USING btree (reuse_id, date_metric);
+CREATE UNIQUE INDEX IF NOT EXISTS metrics_dataservices_unique ON metric.metrics_dataservices USING btree (dataservice, date_metric);
+CREATE UNIQUE INDEX IF NOT EXISTS metrics_organizations_unique ON metric.metrics_organizations USING btree (organization_id, date_metric);
+
+CREATE UNIQUE INDEX IF NOT EXISTS datasets_unique ON metric.datasets USING btree (dataset_id, organization_id, metric_month);
+CREATE UNIQUE INDEX IF NOT EXISTS reuses_unique ON metric.reuses USING btree (reuse_id, metric_month);
+CREATE UNIQUE INDEX IF NOT EXISTS organizations_unique ON metric.organizations USING btree (organization_id, metric_month);
+CREATE UNIQUE INDEX IF NOT EXISTS resources_unique ON metric.resources USING btree (resource_id, dataset_id, metric_month);
+CREATE UNIQUE INDEX IF NOT EXISTS dataservices_unique ON metric.dataservices USING btree (dataservice_id, metric_month);
+
+CREATE UNIQUE INDEX IF NOT EXISTS site_unique ON metric.site USING btree (metric_month);
+
+CREATE UNIQUE INDEX IF NOT EXISTS datasets_total_unique ON metric.datasets_total USING btree (dataset_id);
+CREATE UNIQUE INDEX IF NOT EXISTS reuses_total_unique ON metric.reuses_total USING btree (reuse_id);
+CREATE UNIQUE INDEX IF NOT EXISTS organizations_total_unique ON metric.organizations_total USING btree (organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS resources_total_unique ON metric.resources_total USING btree (resource_id, dataset_id);
+CREATE UNIQUE INDEX IF NOT EXISTS dataservices_total_unique ON metric.dataservices_total USING btree (dataservice_id);
+
+-- Secondary indexes not covered by the unique index prefix (API filters on
+-- metric_month alone, or on organization_id alone for datasets).
 CREATE INDEX IF NOT EXISTS datasets_metric_month ON metric.datasets USING btree (metric_month);
 CREATE INDEX IF NOT EXISTS datasets_organization_id ON metric.datasets USING btree (organization_id);
-
-CREATE INDEX IF NOT EXISTS organizations_organization_id ON metric.organizations USING btree (organization_id);
 CREATE INDEX IF NOT EXISTS organizations_metric_month ON metric.organizations USING btree (metric_month);
-
-CREATE INDEX IF NOT EXISTS reuses_reuse_id ON metric.reuses USING btree (reuse_id);
 CREATE INDEX IF NOT EXISTS reuses_metric_month ON metric.reuses USING btree (metric_month);
-
-CREATE INDEX IF NOT EXISTS resources_resource_id ON metric.resources USING btree (resource_id);
 CREATE INDEX IF NOT EXISTS resources_metric_month ON metric.resources USING btree (metric_month);
-
-CREATE INDEX IF NOT EXISTS dataservices_dataservice_id ON metric.dataservices USING btree (dataservice_id);
 CREATE INDEX IF NOT EXISTS dataservices_metric_month ON metric.dataservices USING btree (metric_month);
-
--- Index on total tables
-CREATE INDEX IF NOT EXISTS datasets_total_dataset_id ON metric.datasets_total USING btree (dataset_id);
-CREATE INDEX IF NOT EXISTS organizations_total_organization_id ON metric.organizations_total USING btree (organization_id);
-CREATE INDEX IF NOT EXISTS reuses_total_reuse_id ON metric.reuses_total USING btree (reuse_id);
-CREATE INDEX IF NOT EXISTS resources_total_resource_id ON metric.resources_total USING btree (resource_id);
-CREATE INDEX IF NOT EXISTS dataservices_total_dataservice_id ON metric.dataservices_total USING btree (dataservice_id);
