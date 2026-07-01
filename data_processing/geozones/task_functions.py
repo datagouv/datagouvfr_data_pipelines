@@ -211,6 +211,7 @@ def fetch_geozones_geometries() -> dict:
     is logged and skipped rather than aborting the whole geozones export.
     """
     year = resolve_geometry_year()
+    logging.info("Fetching IGN geometries (millésime %s)", year)
     geometries = defaultdict(dict)
     for level, names in GEOMETRY_SOURCES.items():
         for name in names:
@@ -300,6 +301,7 @@ def download_and_process_geozones():
         OPTIONAL { ?suppression_evt igeo:suppression ?zone . }
     }"""
     df = pd.read_csv(BytesIO(query_insee_sparql(query)))
+    logging.info("INSEE zones fetched: %s rows", len(df))
     df["type"] = df["territory"].apply(lambda x: x.split("#")[1])
     df["is_deleted"] = df["suppression_evt"].apply(lambda s: isinstance(s, str))
     for c in df.columns:
@@ -453,6 +455,7 @@ def download_and_process_geozones():
     for geoz in export:
         geoz["parents"] = parents_by_id.get(geoz["_id"], [])
         geoz["ancestors"] = ancestors_by_id.get(geoz["_id"], [])
+    logging.info("Hierarchy computed for %s French zones", len(ancestors_by_id))
 
     # Enrich each zone with its IGN administrative contour, joined on the INSEE
     # code. Zones with no published geometry (countries, municipal arrondissements)
@@ -460,17 +463,28 @@ def download_and_process_geozones():
     geometries = fetch_geozones_geometries()
     for geoz in export:
         geoz["geom"] = geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+    logging.info(
+        "Geometry attached to %s zones", sum(1 for z in export if z.get("geom"))
+    )
 
     # Enrich with the legal population (geo.api.gouv.fr), joined on the INSEE code.
     populations = fetch_geozones_populations()
     for geoz in export:
         geoz["population"] = populations.get(geoz["level"], {}).get(geoz["codeINSEE"])
+    logging.info(
+        "Population attached to %s zones",
+        sum(1 for z in export if z.get("population") is not None),
+    )
 
-    os.mkdir(TMP_FOLDER)
+    os.makedirs(TMP_FOLDER, exist_ok=True)
     with open(geozones_file.full_source_path, "w", encoding="utf8") as f:
-        # No indent: with geometries, indent=4 puts every coordinate on its own
-        # line and bloats this machine-consumed export ~5x (~460 MB vs ~85 MB).
         json.dump(export, f, ensure_ascii=False)
+    logging.info(
+        "Wrote %s zones to %s (%.0f MB)",
+        len(export),
+        geozones_file.full_source_path,
+        os.path.getsize(geozones_file.full_source_path) / 1e6,
+    )
 
     with open(countries_file.full_source_path, "w", encoding="utf8") as f:
         json.dump(countries_json, f, ensure_ascii=False, indent=4)
