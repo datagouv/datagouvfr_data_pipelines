@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.utils.conversions import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -29,7 +30,9 @@ config = {
 }
 
 
-def check_if_modif():
+def check_if_modif(dag_run=None):
+    if force_rebuild_requested(dag_run):
+        return True
     return local_client.resource(id=config["RESULT"]).check_if_more_recent_update(
         dataset_id="5cf8d9ed8b4c4110294c841d"
     )

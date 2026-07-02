@@ -11,7 +11,10 @@ from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task
     publish_on_datagouv,
     send_to_s3,
 )
-from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
+from datagouvfr_data_pipelines.utils.tasks import (
+    clean_up_folder,
+    force_rebuild_params,
+)
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 
@@ -28,6 +31,7 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "sante", "eau"],
     default_args=default_args,
+    params=force_rebuild_params(),
 ):
     _process_data = process_data()
     clean_up = clean_up_folder(TMP_FOLDER)

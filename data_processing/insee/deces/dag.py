@@ -10,7 +10,10 @@ from datagouvfr_data_pipelines.data_processing.insee.deces.task_functions import
     publish_on_datagouv,
     send_to_s3,
 )
-from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
+from datagouvfr_data_pipelines.utils.tasks import (
+    clean_up_folder,
+    force_rebuild_params,
+)
 
 default_args = {
     "retries": 5,
@@ -27,6 +30,7 @@ with DAG(
     tags=["deces", "consolidation", "datagouv"],
     catchup=False,
     default_args=default_args,
+    params=force_rebuild_params(),
 ):
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
