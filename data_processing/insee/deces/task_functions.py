@@ -156,7 +156,8 @@ def gather_data(**context):
             how="left",
             on=["date_deces", "code_insee_deces", "numero_acte_deces"],
         )
-        df["opposition"] = df["opposition"].fillna(False)
+        # Est na suite au merge quand opposition n'est pas true
+        df["opposition"] = df["opposition"].notna()
         del data
         df.to_csv(
             TMP_FOLDER + "deces.csv",
