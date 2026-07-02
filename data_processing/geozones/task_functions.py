@@ -12,16 +12,15 @@ import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}geozones/"
-dataset_id = (
-    "554210a9c751df2666a7b26c" if AIRFLOW_ENV == "prod" else "64bfc429d6e029048e577d3e"
-)
+# same dataset id on demo (demo.data.gouv.fr) and prod (www.data.gouv.fr): only the
+# client switches between the two instances, so the id is not env-dependent
+dataset_id = "554210a9c751df2666a7b26c"
 dataset = local_client.dataset(dataset_id, fetch=False)
 geozones_file = File(
     source_path=TMP_FOLDER,
@@ -579,7 +578,7 @@ def post_geozones():
     )
 
     dataset.create_static(
-        file_to_upload=countries_file,
+        file_to_upload=countries_file.full_source_path,
         payload={
             "description": (
                 "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
@@ -593,7 +592,7 @@ def post_geozones():
     )
 
     dataset.create_static(
-        file_to_upload=levels_file,
+        file_to_upload=levels_file.full_source_path,
         payload={
             "filesize": os.path.getsize(levels_file.full_source_path),
             "mime": "application/json",
