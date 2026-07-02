@@ -1,3 +1,4 @@
+import logging
 from typing import Callable
 
 import requests
@@ -8,7 +9,9 @@ def log_retry_attempt(state):
     exception = state.outcome.exception()
     exception_name = type(exception).__name__
     exception_message = str(exception)
-    print(f"Retrying {state.fn.__name__} due to {exception_name}: {exception_message}")
+    logging.warning(
+        f"Retrying {state.fn.__name__} due to {exception_name}: {exception_message}"
+    )
 
 
 def _simple_connection_retry(

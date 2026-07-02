@@ -5,7 +5,6 @@ import re
 from datetime import datetime, timedelta
 
 import pandas as pd
-import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -18,6 +17,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
@@ -93,9 +93,10 @@ def get_fields(row: str) -> dict[str, str]:
 @task()
 def gather_data(**context):
     logging.info("Getting resources list")
-    resources = requests.get(
+    resources = RequestRetry.get(
         "https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5/",
         headers={"X-fields": "resources{url,title}"},
+        timeout=60,
     ).json()["resources"]
     year_regex = r"deces-\d{4}.txt"
     month_regex = r"deces-\d{4}-m\d{2}.txt"
@@ -138,7 +139,7 @@ def gather_data(**context):
     for idx, (origin, rurl) in enumerate(urls.items()):
         data = []
         logging.info(f"Proccessing {origin}")
-        rows = requests.get(rurl).text.split("\n")
+        rows = RequestRetry.get(rurl, timeout=600).text.split("\n")
         for r in rows:
             if not r:
                 continue
