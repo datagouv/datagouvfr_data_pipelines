@@ -4,7 +4,6 @@ import hashlib
 import os
 from typing import Any
 
-import magic
 from datagouvfr_data_pipelines.utils.download import download_files
 
 
@@ -34,6 +33,11 @@ class File:
             if not remote_source:
                 self.assert_file_exists(self.source_path, self.source_name)
                 if not content_type:
+                    # importing magic at module level triggers ctypes.find_library
+                    # (a subprocess call to ldconfig) at import time, which can hang
+                    # long enough to blow the Airflow DAG import timeout
+                    import magic
+
                     self.content_type = (
                         # csv.gz is not properly detected so we bypass
                         "application/gzip"
