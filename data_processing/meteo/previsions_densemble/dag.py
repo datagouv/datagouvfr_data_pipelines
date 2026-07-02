@@ -59,4 +59,7 @@ def create_dag(pack: str, grid: str):
 dags = []
 for pack in CONFIG:
     for grid in CONFIG[pack]:
-        dags.append(create_dag(pack, grid))
+        if CONFIG[pack][grid].get("display"):
+            # for now MF only pushes a subset of packs, because when we tried to retrieve more, our stack couldn't handle
+            # TODO: see with them if they want to push more (and if we can handle), or if they'd rather push directly to S3
+            dags.append(create_dag(pack, grid))
