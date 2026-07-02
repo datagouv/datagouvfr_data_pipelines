@@ -579,7 +579,7 @@ def post_geozones():
     )
 
     dataset.create_static(
-        file_to_upload=countries_file,
+        file_to_upload=countries_file.full_source_path,
         payload={
             "description": (
                 "Géozones (pays uniquement) créées à partir du [Référentiel des pays et des territoires]"
@@ -593,7 +593,7 @@ def post_geozones():
     )
 
     dataset.create_static(
-        file_to_upload=levels_file,
+        file_to_upload=levels_file.full_source_path,
         payload={
             "filesize": os.path.getsize(levels_file.full_source_path),
             "mime": "application/json",
