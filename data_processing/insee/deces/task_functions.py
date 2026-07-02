@@ -39,11 +39,11 @@ def check_if_modif(task_instance):
     ).check_if_more_recent_update(dataset_id="5de8f397634f4164071119c5")
 
 
-def clean_period(file_name):
+def clean_period(file_name: str) -> str:
     return file_name.replace("deces-", "").replace(".txt", "")
 
 
-def build_temporal_coverage(min_date, max_date):
+def build_temporal_coverage(min_date: str, max_date: str) -> tuple[str, str]:
     # min_date is just a year
     min_iso = f"{min_date}-01-01T00:00:00.000000Z"
     # max_date looks like YYYY-mMM, we're setting the end to the end of the month
@@ -55,7 +55,7 @@ def build_temporal_coverage(min_date, max_date):
     return min_iso, max_iso
 
 
-def build_year_month(period):
+def build_year_month(period: str) -> str:
     if "m" not in period:
         return period
     year, month = period.split("-")
@@ -63,14 +63,15 @@ def build_year_month(period):
     return f"{month} {year}"
 
 
-def reshape_date(date_no_dash):
+def reshape_date(date_no_dash: str) -> str:
     year = date_no_dash[:4]
     month = date_no_dash[4:6]
     day = date_no_dash[6:8]
     return f"{year}-{month}-{day}"
 
 
-def get_fields(row):
+def get_fields(row: str) -> dict[str, str]:
+    # see the description of the source dataset, what follows comes from there
     nom_prenom = row[:80].strip()
     d = {
         "nom": nom_prenom.split("*")[0],
@@ -102,11 +103,13 @@ def gather_data(**context):
     month_regex = r"deces-\d{4}-m\d{2}.txt"
     full_years = []
     urls = {}
+    # getting full years first
     for r in resources:
         if re.match(year_regex, r["title"]):
             urls[clean_period(r["title"])] = r["url"]
             full_years.append(r["title"][6:10])
     logging.info(full_years)
+    # then monthly data for the current year
     for r in resources:
         if re.match(month_regex, r["title"]) and r["title"][6:10] not in full_years:
             logging.info(r["title"])
@@ -180,6 +183,7 @@ def gather_data(**context):
         "fichier_origine": "VARCHAR",
         "opposition": "BOOLEAN",
     }
+    # hydra is not (yet) able to ingest the csv
     csv_to_parquet(
         TMP_FOLDER + "deces.csv",
         sep=",",
@@ -241,6 +245,7 @@ def publish_on_datagouv(**context):
                 ),
             },
         )
+    # updating the dataset's temporal coverage because we can
     min_iso, max_iso = build_temporal_coverage(min_date, max_date)
     local_client.dataset(
         config["deces_csv"][AIRFLOW_ENV]["dataset_id"], fetch=False

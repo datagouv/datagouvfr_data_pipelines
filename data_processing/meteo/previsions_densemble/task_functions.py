@@ -28,7 +28,7 @@ ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
-upload_dir = "/uploads/"
+upload_dir = "/uploads/"  # this is where MF pushes the files
 s3_client_kwargs = {
     "bucket": bucket_pe,
     "user": SECRET_S3_USER,
@@ -53,6 +53,7 @@ def create_client() -> SFTPClient:
 def get_file_infos(file_name: str):
     # files look like this: arome_pecaledonie_202409230600_mb0_ncaled0025_00:00.grib
     pack, _, date, membre, grid, echeance = file_name.split(".")[0].split("_")
+    # the labels are not exactly MF-approved, but that doesn't really matter, we handle files, not data
     return {
         "pack": pack,
         "grid": grid,
@@ -72,6 +73,7 @@ def get_files_list_on_sftp(pack: str, grid: str, **context):
     nb = 0
     for f in files:
         if not f.endswith(".grib"):
+            # most likely files that are not done uploading
             logging.warning(f"> ignoring {f}")
         else:
             infos = get_file_infos(f)
@@ -95,9 +97,10 @@ def get_files_list_on_sftp(pack: str, grid: str, **context):
 
 def process_members(
     members: list[str], date: str, echeance: str, pack: str, grid: str, sftp
-):
+) -> int:
     tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
     if os.path.isdir(TMP_FOLDER + tmp_folder):
+        # we allow concurrent DAG runs for these DAGs, this is how they "communicate", aka know if another run is already processing a batch
         logging.info(f"{tmp_folder} is already being processed by another run")
         return 0
     logging.info(f"Processing {tmp_folder}")
@@ -112,7 +115,7 @@ def process_members(
             logging.warning("Seems like it has already been processed")
             shutil.rmtree(TMP_FOLDER + tmp_folder)
             return 0
-    # concatenating all members of the occurrence into a grib
+    # concatenating all members of the occurrence into a grib, MF said that was the thing to do, they know it better
     logging.info("> Concatenating")
     subprocess.run(
         f"cat {TMP_FOLDER + tmp_folder}* > {TMP_FOLDER + tmp_folder[:-1]}.grib",
@@ -120,6 +123,7 @@ def process_members(
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
+    # TODO: pass a S3Client as argument to prevent instanciation at every iteration
     S3Client(**s3_client_kwargs).send_file(
         File(
             source_path=TMP_FOLDER,
@@ -134,6 +138,7 @@ def process_members(
     logging.info("> Cleaning")
     shutil.rmtree(TMP_FOLDER + tmp_folder)
     if AIRFLOW_ENV == "prod":
+        # only cleaning the SFTP in production
         for file in members:
             sftp.delete_file(upload_dir + file)
     return 1
@@ -182,7 +187,7 @@ def transfer_files_to_s3(pack: str, grid: str, **context):
     return count
 
 
-def build_file_id_and_date(file_name: str):
+def build_file_id_and_date(file_name: str) -> tuple[str, str]:
     # final files look like "arome_ncaled0025_202501021800_03:00.grib"
     # on data.gouv we will expose only the latest occurrence of pack+grid+echeance
     # so we build an id (aka just remove the date) to compare files
@@ -190,7 +195,7 @@ def build_file_id_and_date(file_name: str):
     return f"{pack}_{grid}_{echeance}", date
 
 
-def get_current_resources(pack: str, grid: str):
+def get_current_resources(pack: str, grid: str) -> dict:
     current_resources = {}
     for r in requests.get(
         f"{local_client.base_url}/api/1/datasets/{CONFIG[pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
@@ -213,7 +218,7 @@ def get_current_resources(pack: str, grid: str):
     return current_resources
 
 
-def fix_title(file_name: str):
+def fix_title(file_name: str) -> str:
     # names are not perfectly accurate, but it's cleaner to modify only the title
     # as the whole file structure is automatically made from original names
     return file_name.replace("arome", "pearome").replace("arpege", "pearp")
@@ -280,6 +285,7 @@ def publish_on_datagouv(pack: str, grid: str):
 
 @task()
 def remove_old_occurrences(pack: str, grid: str):
+    # removing too old files from S3 and cleaning SFTP if remainders
     current_resources: dict = get_current_resources(pack, grid)
     oldest_available_date = datetime.strptime(
         min([r["date"] for r in current_resources.values()]),
@@ -372,7 +378,7 @@ def handle_cyclonic_alert(pack: str, grid: str):
 
 @task()
 def clean_directory():
-    # in case processes crash and leave stuff behind
+    # in case processes crash and leave stuff behind, so that upcoming DAG runs don't consider they're being processed (see above about how they "communicate")
     files_and_folders = os.listdir(TMP_FOLDER)
     threshold = datetime.now() - timedelta(hours=6)
     for f in files_and_folders:

@@ -1,3 +1,8 @@
+# we used to have rather big delays between the moment when MF provided the files through its API and the moment they were pushed on datagouv
+# with the drop of the integrity check (open with pygrib etc.) and the new S3 infra, things are much better
+# also this updates the JSON file that gives a look of the "filetree" on the MF PNT S3
+
+
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta

@@ -123,7 +123,7 @@ def get_votes(page: BeautifulSoup) -> int | None:
 @simple_connection_retry
 def get_row(_id: int, session: requests.Session) -> dict | None:
     url = f"https://petitions.assemblee-nationale.fr/initiatives/i-{_id}"
-    # ping the ping, because all ids are not used
+    # ping the url, because all ids are not used
     ping = session.head(url)
     # if we get redirected to the home page, early stop
     # and we'll save the id as unused for later processes

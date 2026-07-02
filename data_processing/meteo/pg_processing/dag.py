@@ -1,3 +1,6 @@
+# TODO: à décommissionner lorsque la recherche guidée basée sur l'API tabulaire sera jugée OK (avec drop de la db météo)
+
+
 from datetime import datetime, timedelta
 
 from airflow.sdk import DAG
