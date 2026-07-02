@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import ShortCircuitOperator
-from airflow.sdk import DAG
+from airflow.sdk import DAG, Param
 from datagouvfr_data_pipelines.data_processing.sante.finess.task_functions import (
     TMP_FOLDER,
     build_and_save,
@@ -27,6 +27,13 @@ with DAG(
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "sante", "finess"],
     default_args=default_args,
+    params={
+        "force_rebuild": Param(
+            False,
+            type="boolean",
+            description="Reconstruit et pousse sur datagouv les fichiers FINESS quelque soit le résultat des test check_if_modif.",
+        ),
+    },
 ):
     clean_previous_outputs = clean_up_folder(TMP_FOLDER, recreate=True)
     clean_up = clean_up_folder(

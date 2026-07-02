@@ -26,7 +26,11 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config.json") as fp:
     config = json.load(fp)
 
 
-def check_if_modif(scope: str):
+def check_if_modif(scope: str, dag_run=None):
+    conf = getattr(dag_run, "conf", None) or {}
+    if conf.get("force_rebuild"):
+        logging.info(f"force_rebuild=True for {scope}, bypassing short-circuit.")
+        return True
     return prod_client.resource(
         id=config[scope]["prod"]["resource_id"]
     ).check_if_more_recent_update(
