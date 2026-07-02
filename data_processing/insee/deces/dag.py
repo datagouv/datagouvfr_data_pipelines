@@ -34,11 +34,11 @@ with DAG(
     params=force_rebuild_params(),
 ):
     (
-        clean_up_folder(TMP_FOLDER, recreate=True)
-        >> ShortCircuitOperator(
+        ShortCircuitOperator(
             task_id="check_if_modif",
             python_callable=check_if_modif,
         )
+        >> clean_up_folder(TMP_FOLDER, recreate=True)
         >> gather_data()
         >> send_to_s3()
         >> publish_on_datagouv()
