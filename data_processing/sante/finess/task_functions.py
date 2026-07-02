@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
@@ -26,7 +27,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}sante/finess/config.json") as fp:
     config = json.load(fp)
 
 
-def check_if_modif(scope: str):
+def check_if_modif(scope: str, dag_run=None):
+    if force_rebuild_requested(dag_run, context=scope):
+        return True
     return prod_client.resource(
         id=config[scope]["prod"]["resource_id"]
     ).check_if_more_recent_update(

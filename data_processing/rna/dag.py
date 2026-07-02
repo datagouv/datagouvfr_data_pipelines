@@ -10,7 +10,10 @@ from datagouvfr_data_pipelines.data_processing.rna.task_functions import (
     publish_on_datagouv,
     send_rna_to_s3,
 )
-from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
+from datagouvfr_data_pipelines.utils.tasks import (
+    clean_up_folder,
+    force_rebuild_params,
+)
 
 with DAG(
     dag_id="data_processing_rna",
@@ -20,6 +23,7 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "rna", "association"],
+    params=force_rebuild_params(),
 ):
     clean_previous_outputs = clean_up_folder(TMP_FOLDER, recreate=True)
     clean_up = clean_up_folder(TMP_FOLDER)

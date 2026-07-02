@@ -16,6 +16,7 @@ from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 from unidecode import unidecode
@@ -26,7 +27,9 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}rna/config.json") as fp:
     config = json.load(fp)
 
 
-def check_if_modif():
+def check_if_modif(dag_run=None):
+    if force_rebuild_requested(dag_run):
+        return True
     return local_client.resource(
         id=config["import"]["csv"][AIRFLOW_ENV]["resource_id"]
     ).check_if_more_recent_update(dataset_id="58e53811c751df03df38f42d")

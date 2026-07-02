@@ -19,6 +19,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.utils.utils import MOIS_FR
 
@@ -28,11 +29,8 @@ with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}insee/deces/config.json") as fp:
     config = json.load(fp)
 
 
-def check_if_modif(task_instance):
-    # Note : tried to get state.SKIPPED but next steps states are cleared while re-running,
-    # so falled back to manual run detection
-    if str(task_instance.run_id).startswith("manual"):
-        logging.info("Manual rerun detected, bypassing short-circuit.")
+def check_if_modif(dag_run=None):
+    if force_rebuild_requested(dag_run):
         return True
     return local_client.resource(
         id=config["deces_csv"][AIRFLOW_ENV]["resource_id"],
