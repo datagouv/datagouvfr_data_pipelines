@@ -35,6 +35,7 @@ hooks = ["latest", "previous"]
 def get_ftp() -> ftplib.FTP:
     ftp = ftplib.FTP(SECRET_FTP_METEO_ADDRESS)
     ftp.login(SECRET_FTP_METEO_USER, SECRET_FTP_METEO_PASSWORD)
+    # ftp.set_debuglevel(2) # Keep for debug if necessary
     return ftp
 
 
@@ -47,10 +48,10 @@ def clean_hooks(string: str, hooks: list = hooks) -> str:
 
 def previous_date_parse(date_string: str) -> datetime:
     # this returns the last occurrence of the date, not a future one
-    tmp = parser.parse(date_string)
-    if tmp > datetime.today():
-        tmp = tmp.replace(year=tmp.year - 1)
-    return tmp
+    dt = parser.parse(date_string)
+    if dt > datetime.today():
+        dt = dt.replace(year=dt.year - 1)
+    return dt
 
 
 def get_path(full_file_path: str) -> tuple[str, str]:
@@ -154,7 +155,14 @@ def build_resource(
     return file_with_ext, global_path, resource_name, description, url, is_doc
 
 
-def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
+def list_ftp_files_recursive(
+    ftp: ftplib.FTP, path: str = "", base_path: str = ""
+) -> list:
+    # Issues : "Bug de mutation : for item in files: puis files += ...
+    # itère sur la liste pendant qu'on l'agrandit → appels cwd parasites
+    # (chemins mal reconstruits), gaspillage réseau en ~O(dossiers²),
+    # et bug de correction latent (doublons possibles)."
+    # Function shoud be improved with actual ftp package to list this, we can create a dataclass for better understanding
     files = []
     try:
         ftp.cwd(path)
@@ -163,10 +171,12 @@ def list_ftp_files_recursive(ftp, path: str = "", base_path: str = "") -> list:
             "LIST",
             lambda x: files.append(
                 (
-                    current_path.split("//")[-1],
-                    x.split()[-1],
-                    int(x.split()[4]),
-                    x.split()[5:8],
+                    current_path.split("//")[-1],  # current repository path
+                    x.split()[-1],  # filename
+                    int(x.split()[4]),  # size in bytes
+                    x.split()[
+                        5:8
+                    ],  # last modified date, ex: ["Jul", "1", "12:00"] - if not wasting time in case this list is filtered out,  previous_date_parse should be applied directly there
                 )
             ),
         )
@@ -339,7 +349,12 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         # we are recreating the file structure from FTP to S3
         true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
-        ftp.cwd("/" + true_path)
+        try:
+            ftp.cwd("/" + true_path)
+        except ftplib.error_temp as e:
+            logging.warning(f"FTP connection error : {e} - Resetting connection.")
+            ftp = get_ftp()
+            ftp.cwd("/" + true_path)
         # downloading the file from FTP
         try:
             with open(TMP_FOLDER + file_name, "wb") as local_file:
