@@ -152,10 +152,10 @@ def gather_data(**context):
     df_opposition["opposition"] = True
 
     # Étape 3 : traitement des fichiers à consolider :
-        # téléchargé
-        # traité : renommé et nettoyé
-        # les décès opposés sont retirés
-        # dump dans deces.csv
+    # - téléchargé
+    # - traité : renommé et nettoyé
+    # - les décès opposés sont retirés
+    # - dump dans deces.csv
 
     errors = []
     for idx, (origin, rurl) in enumerate(urls.items()):
@@ -173,9 +173,7 @@ def gather_data(**context):
             except Exception:
                 logging.warning(r)
                 errors.append((origin, rurl, r))
-        logging.info(
-            f"\t> {len(data)} lignes et {len(response.content)} bits"
-        )
+        logging.info(f"\t> {len(data)} lignes et {len(response.content)} bits")
 
         # can't have the whole dataframe in RAM, so saving in batches
         df = pd.merge(
