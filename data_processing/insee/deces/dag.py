@@ -27,17 +27,18 @@ with DAG(
     schedule="0 * * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(minutes=240),
+    max_active_runs=1,
     tags=["deces", "consolidation", "datagouv"],
     catchup=False,
     default_args=default_args,
     params=force_rebuild_params(),
 ):
     (
-        clean_up_folder(TMP_FOLDER, recreate=True)
-        >> ShortCircuitOperator(
+        ShortCircuitOperator(
             task_id="check_if_modif",
             python_callable=check_if_modif,
         )
+        >> clean_up_folder(TMP_FOLDER, recreate=True)
         >> gather_data()
         >> send_to_s3()
         >> publish_on_datagouv()

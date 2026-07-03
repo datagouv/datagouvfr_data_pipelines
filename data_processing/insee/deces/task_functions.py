@@ -5,7 +5,6 @@ import re
 from datetime import datetime, timedelta
 
 import pandas as pd
-import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -18,6 +17,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
@@ -93,10 +93,17 @@ def get_fields(row: str) -> dict[str, str]:
 @task()
 def gather_data(**context):
     logging.info("Getting resources list")
-    resources = requests.get(
+    resources = RequestRetry.get(
         "https://www.data.gouv.fr/api/1/datasets/5de8f397634f4164071119c5/",
         headers={"X-fields": "resources{url,title}"},
-    ).json()["resources"]
+        timeout=60,
+    )
+    resources.raise_for_status()
+    resources = resources.json()["resources"]
+    logging.info(f"{len(resources)} ressources existent dans le dataset")
+
+    # Étape 1 : identification des fichiers à consolider
+
     year_regex = r"deces-\d{4}.txt"
     month_regex = r"deces-\d{4}-m\d{2}.txt"
     full_years = []
@@ -106,12 +113,19 @@ def gather_data(**context):
         if re.match(year_regex, r["title"]):
             urls[clean_period(r["title"])] = r["url"]
             full_years.append(r["title"][6:10])
-    logging.info(full_years)
     # then monthly data for the current year
     for r in resources:
         if re.match(month_regex, r["title"]) and r["title"][6:10] not in full_years:
-            logging.info(r["title"])
             urls[clean_period(r["title"])] = r["url"]
+
+    logging.info(
+        "À consolider :"
+        f"\n- {len(full_years)} années complètes"
+        f"\n- {len(urls) - len(full_years)} mois"
+        f"\n- Périodes : {sorted(urls.keys())}"
+    )
+
+    # Étape 2 : identification du fichier d'opposition à la diffusion du décès par les familles
 
     opposition_url = [r["url"] for r in resources if "opposition" in r["title"]]
     if len(opposition_url) != 1:
@@ -122,6 +136,9 @@ def gather_data(**context):
         opposition_url[0],
         sep=";",
         dtype=str,
+    )
+    logging.info(
+        f"Fichier d'opposition à la diffusion: {len(df_opposition)} lignes depuis {opposition_url[0]}"
     )
     df_opposition.rename(
         {
@@ -134,11 +151,19 @@ def gather_data(**context):
     )
     df_opposition["opposition"] = True
 
+    # Étape 3 : traitement des fichiers à consolider :
+    # - téléchargé
+    # - traité : renommé et nettoyé
+    # - les décès opposés sont retirés
+    # - dump dans deces.csv
+
     errors = []
     for idx, (origin, rurl) in enumerate(urls.items()):
         data = []
-        logging.info(f"Proccessing {origin}")
-        rows = requests.get(rurl).text.split("\n")
+        logging.info(f"Processing {origin} ({idx + 1}/{len(urls)}) depuis {rurl}")
+        response = RequestRetry.get(rurl, timeout=600)
+        response.raise_for_status()
+        rows = response.text.split("\n")
         for r in rows:
             if not r:
                 continue
@@ -147,7 +172,9 @@ def gather_data(**context):
                 data.append({**fields, "fichier_origine": origin})
             except Exception:
                 logging.warning(r)
-                errors.append(r)
+                errors.append((origin, rurl, r))
+        logging.info(f"\t> {len(data)} lignes et {len(response.content)} bits")
+
         # can't have the whole dataframe in RAM, so saving in batches
         df = pd.merge(
             pd.DataFrame(data),
@@ -155,7 +182,8 @@ def gather_data(**context):
             how="left",
             on=["date_deces", "code_insee_deces", "numero_acte_deces"],
         )
-        df["opposition"] = df["opposition"].fillna(False)
+        # Est na suite au merge quand opposition n'est pas true
+        df["opposition"] = df["opposition"].notna()
         del data
         df.to_csv(
             TMP_FOLDER + "deces.csv",
@@ -164,7 +192,10 @@ def gather_data(**context):
             header=idx == 0,
         )
         del df
-    logging.warning(f"> {len(errors)} erreur(s)")
+    logging.warning(f"{len(errors)} erreur(s). 100 premières : \n {errors[:100]}")
+
+    # Étape 4 : conversion de deces.csv en parquet
+
     # conversion to parquet, opposition is a boolean, dates should be dates but
     # partially missing ones are uncastable (e.g 1950-00-12)
     dtype = {
