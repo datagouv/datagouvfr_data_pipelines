@@ -16,7 +16,7 @@ MAX_MESSAGE_LENGTH = 65536
 map_ping = {
     "geoffrey": "geoffrey.aldebert-data.gouv.fr",
     "hadrien": "hadrien.bossard.ext-mail.numerique.gouv.fr",
-    "pierlou": "pierlou.ramade-data.gouv.fr",
+    "estelle": "estelle.bertrand-beta.gouv.fr",
     "valentin": "valentin.shamsnejad-beta.gouv.fr",
     "alexandre": "alexandre.bulte.ext-numerique.gouv.fr",
     "ludine": "ludine.pierquin.ext-mail.numerique.gouv.fr",

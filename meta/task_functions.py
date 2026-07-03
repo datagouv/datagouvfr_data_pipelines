@@ -21,7 +21,7 @@ local_timezone = pytz.timezone("Europe/Paris")
 
 DEFAULT_DAG_OWNERS = [
     "geoffrey",
-    "pierlou",
+    "estelle",
     "hadrien",
 ]
 with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") as f:
