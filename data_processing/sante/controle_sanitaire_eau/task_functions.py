@@ -5,7 +5,6 @@ from io import BytesIO
 from zipfile import ZipFile
 
 import pandas as pd
-import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -16,6 +15,7 @@ from datagouvfr_data_pipelines.utils.conversions import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
@@ -41,7 +41,7 @@ def check_if_modif(dag_run=None):
 @task()
 def process_data():
     # this is done in one task to get the files only once
-    resources = requests.get(
+    resources = RequestRetry.get(
         "https://www.data.gouv.fr/api/1/datasets/5cf8d9ed8b4c4110294c841d/",
         headers={"X-fields": "resources{title,url}"},
     ).json()["resources"]
@@ -50,7 +50,7 @@ def process_data():
     for idx, resource in enumerate(resources):
         logging.info(resource["title"])
         year = int(resource["title"].split(".")[0].split("-")[1])
-        r = requests.get(resource["url"])
+        r = RequestRetry.get(resource["url"])
         r.raise_for_status()
         with ZipFile(BytesIO(r.content)) as zip_ref:
             for _, file in enumerate(zip_ref.namelist()):
