@@ -4,7 +4,7 @@ version: 2.1
 parameters:
   python-version:
     type: string
-    default: "3.10"
+    default: "3.12"
 
 jobs:
   lint:
@@ -19,6 +19,7 @@ jobs:
           command: |
             python -m venv venv
             . venv/bin/activate
+            pip install --upgrade pip
             pip install ruff>=0.11.2
             ruff --version
             ruff check .
