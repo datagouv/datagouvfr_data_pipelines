@@ -4,8 +4,8 @@ from airflow.providers.standard.operators.python import ShortCircuitOperator
 from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.sante.controle_sanitaire_eau.task_functions import (
     TMP_FOLDER,
-    config,
     check_if_modif,
+    config,
     notification,
     process_data,
     publish_on_datagouv,

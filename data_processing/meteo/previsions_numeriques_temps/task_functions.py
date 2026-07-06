@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
+
 import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (

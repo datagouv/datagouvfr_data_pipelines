@@ -1,4 +1,4 @@
-DO $$ 
+DO $$
 BEGIN
     IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'distribution_prix' AND TABLE_SCHEMA = 'dvf') THEN
         TRUNCATE TABLE dvf.distribution_prix;

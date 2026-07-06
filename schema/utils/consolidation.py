@@ -2,12 +2,12 @@ import json
 import logging
 import os
 import pickle
+import re
 import shutil
 import time
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from pathlib import Path
-import re
 from typing import Any, Literal
 from urllib.parse import quote
 
@@ -20,8 +20,6 @@ import requests
 import yaml
 from airflow.sdk import task
 from datagouv import Dataset
-from tqdm import tqdm
-
 from datagouvfr_data_pipelines.config import S3_BUCKET_DATA_PIPELINE_OPEN
 from datagouvfr_data_pipelines.utils.datagouv import (
     ORGA_REFERENCE,
@@ -32,6 +30,7 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
+from tqdm import tqdm
 
 pd.set_option("display.max_columns", None)
 tqdm.pandas(desc="pandas progress bar", mininterval=30)

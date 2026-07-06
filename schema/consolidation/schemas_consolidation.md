@@ -68,4 +68,3 @@ etalab/schema-irve-statique:
 - Consolider les JSONschemas
 - Pour la date à prendre en compte au moment de la déduplication, certains schémas ont un champ "date" qu'il serait peut-être plus pertinent d'utiliser que la date de dernier update de la ressource dont est issue l'observation
 - Lorsqu'une ressource n'est pas validée simplement parce que certaines de ses observations (ex : lignes de CSV) ne respectent pas le schéma, trouver un moyen d'inclure dans le fichier consolidé les observations respectant bien le schéma, c'est-à-dire seulement une partie de la ressource en question
-

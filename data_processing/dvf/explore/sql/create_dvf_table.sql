@@ -1,4 +1,4 @@
-DO $$ 
+DO $$
 BEGIN
     IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'dvf' AND TABLE_SCHEMA = 'dvf') THEN
         TRUNCATE TABLE dvf.dvf;
@@ -50,6 +50,6 @@ BEGIN
         WITH (
             OIDS = FALSE
         )
-        TABLESPACE pg_default;  
+        TABLESPACE pg_default;
     END IF;
 END $$;
