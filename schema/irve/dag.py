@@ -61,8 +61,10 @@ with DAG(
             env={
                 "GIT_SSH_COMMAND": (
                     "ssh "
-                    # Fail instead of asking interactive questions and hagging indefinitely
-                    "-o BatchMode=yes "
+                    # # Fail instead of asking interactive questions and hagging indefinitely
+                    # "-o BatchMode=yes "
+                    # Temporary debug fix
+                    "-o StrictHostKeyChecking=accept-new "
                     # Fail fast instead of hanging forever on a stalled SSH git clone
                     # so Airflow retry can actually occur quickly
                     "-o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
