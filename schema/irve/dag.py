@@ -53,10 +53,22 @@ with DAG(
     default_args=default_args,
 ):
     (
-        clean_up_folder(TMP_FOLDER.as_posix(), recreate=True)
-        >> BashOperator(
+        BashOperator(
             task_id="clone_dag_schema_repo",
-            bash_command=f"cd {TMP_FOLDER} && git clone {GIT_REPO} --depth 1 ",
+            # Recreating the folder before cloning to avoid stale data when a retry occurs
+            bash_command=f"rm -rf {TMP_FOLDER} && mkdir -p {TMP_FOLDER} && cd {TMP_FOLDER} && timeout 300 git clone {GIT_REPO} --depth 1 ",
+            execution_timeout=timedelta(minutes=10),
+            env={
+                "GIT_SSH_COMMAND": (
+                    "ssh "
+                    # Fail instead of asking interactive questions and hagging indefinitely
+                    "-o BatchMode=yes "
+                    # Fail fast instead of hanging forever on a stalled SSH git clone
+                    # so Airflow retry can actually occur quickly
+                    "-o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+                ),
+            },
+            append_env=True,
         )
         >> get_all_irve_resources(
             tmp_path=TMP_FOLDER,
