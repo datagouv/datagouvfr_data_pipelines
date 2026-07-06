@@ -88,9 +88,8 @@ with DAG(
             task_id="commit_changes",
             bash_command=(
                 f"cd {TMP_FOLDER.as_posix()}/schema.data.gouv.fr/ && git add config_consolidation.yml "
-                ' && git commit -m "Update config consolidation file - '
-                f"{datetime.today().strftime('%Y-%m-%d')}"
-                '" || echo "No changes to commit"'
+                ' && git commit -m "Update config consolidation file - {{ ds }}"'
+                ' || echo "No changes to commit"'
                 " && git push origin main"
             ),
         )
