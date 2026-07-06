@@ -1,11 +1,9 @@
 import logging
 import os
 import re
-from io import BytesIO
 from zipfile import ZipFile
 
 import pandas as pd
-import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
@@ -15,13 +13,16 @@ from datagouvfr_data_pipelines.utils.conversions import (
     csv_to_csvgz,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}controle_sanitaire_eau/"
+CHUNK_SIZE = 100_000
 dataset_id = "6a19b9c37d14bf8843ad1596"
 config = {
     "RESULT": "5a84f909-4019-40c4-816a-f2f2c9372b24",
@@ -41,43 +42,59 @@ def check_if_modif(dag_run=None):
 @task()
 def process_data():
     # this is done in one task to get the files only once
-    resources = requests.get(
+    resources = RequestRetry.get(
         "https://www.data.gouv.fr/api/1/datasets/5cf8d9ed8b4c4110294c841d/",
         headers={"X-fields": "resources{title,url}"},
     ).json()["resources"]
     resources = [r for r in resources if re.search(r"dis-\d{4}.zip", r["title"])]
     columns = {scope: [] for scope in config.keys()}
-    for idx, resource in enumerate(resources):
+    started_scopes = set()
+    for resource in resources:
         logging.info(resource["title"])
         year = int(resource["title"].split(".")[0].split("-")[1])
-        r = requests.get(resource["url"])
-        r.raise_for_status()
-        with ZipFile(BytesIO(r.content)) as zip_ref:
-            for _, file in enumerate(zip_ref.namelist()):
+        # Les fichiers font plusieurs centaines de Mo, ils sont dont d'abord
+        # téléchargés avant d'être ouverts afin d'éviter des erreurs OOM
+        zip_path = f"{TMP_FOLDER}{resource['title']}"
+        download_files(
+            list_urls=[
+                File(
+                    url=resource["url"],
+                    dest_path=TMP_FOLDER,
+                    dest_name=resource["title"],
+                )
+            ]
+        )
+        with ZipFile(zip_path) as zip_ref:
+            for file in zip_ref.namelist():
                 logging.info("> " + file)
                 scope = "_".join(file.split("_")[1:-1])
                 assert scope in config.keys()
                 with zip_ref.open(file) as f:
-                    df = pd.read_csv(
+                    # lecture par chunk pour éviter les erreurs OOM
+                    for chunk in pd.read_csv(
                         f,
                         sep=",",
                         dtype=str,
-                    )
-                if not columns[scope]:
-                    columns[scope] = list(df.columns)
-                elif list(df.columns) != columns[scope]:
-                    logging.info(columns[scope])
-                    logging.info(list(df.columns))
-                    raise ValueError("Columns differ between files")
-                df["annee"] = year
-                df.to_csv(
-                    f"{TMP_FOLDER}{scope}.csv",
-                    index=False,
-                    encoding="utf8",
-                    mode="w" if idx == 0 else "a",
-                    header=idx == 0,
-                )
-                del df
+                        chunksize=CHUNK_SIZE,
+                    ):
+                        if not columns[scope]:
+                            columns[scope] = list(chunk.columns)
+                        elif list(chunk.columns) != columns[scope]:
+                            logging.info(columns[scope])
+                            logging.info(list(chunk.columns))
+                            raise ValueError("Columns differ between files")
+                        is_first = scope not in started_scopes
+                        chunk["annee"] = year
+                        chunk.to_csv(
+                            f"{TMP_FOLDER}{scope}.csv",
+                            index=False,
+                            encoding="utf8",
+                            mode="w" if is_first else "a",
+                            header=is_first,
+                        )
+                        started_scopes.add(scope)
+        # Supprime le fichier avant de traiter le suivant
+        os.remove(zip_path)
 
 
 @task()
