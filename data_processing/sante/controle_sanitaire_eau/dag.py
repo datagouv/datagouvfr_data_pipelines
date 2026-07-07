@@ -28,7 +28,7 @@ with DAG(
     schedule="0 7 * * *",
     start_date=datetime(2024, 8, 10),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=240),
+    dagrun_timeout=timedelta(minutes=300),
     tags=["data_processing", "sante", "eau"],
     default_args=default_args,
     params=force_rebuild_params(),
