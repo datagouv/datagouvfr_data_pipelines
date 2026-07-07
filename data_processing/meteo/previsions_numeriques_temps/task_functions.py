@@ -389,19 +389,19 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 def clean_directory(model: str, pack: str, grid: str, **kwargs):
     # in case processes crash and leave stuff behind, so that upcoming DAG runs don't consider they're being processed (see above about how they "communicate")
     built_path = build_folder_path(model, pack, grid)
-    tmp_folder = Path(f"{TMP_FOLDER}{built_path}")
+    tmp_folder = Path(TMP_FOLDER) / Path(built_path)
     # TMP_FOLDER may not exist yet (clean_directory runs before create_working_dir in the DAG)
     if not tmp_folder.is_dir():
         return
     threshold = datetime.now() - timedelta(hours=3)
     for path in tmp_folder.iterdir():
         creation_date = datetime.fromtimestamp(path.stat().st_ctime)
-        if creation_date < threshold and "issues" not in path.__str__():
+        if creation_date < threshold and "issues" not in str(path):
             if path.is_dir():
                 shutil.rmtree(path)
             else:
                 path.unlink()
             logging.warning(
-                f"Deleted {path.__str__()} (created at "
+                f"Deleted {path} (created at "
                 f"{creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
             )
