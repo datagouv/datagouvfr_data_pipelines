@@ -407,22 +407,22 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
     else:
         file_path = f"{TMP_FOLDER}{config[dataset]['table_name']}/"
     file_name = get_hooked_name(res["url"].split("/")[-1])
-    file_path = Path(file_path + file_name)
+    full_path = Path(file_path + file_name)
     # download the freshest version of the file, save it with hooked name
     File(
         url=res["url"],
-        dest_path=file_path.parent.as_posix(),
-        dest_name=file_path.name,
+        dest_path=full_path.parent.as_posix(),
+        dest_name=full_path.name,
     ).download(timeout=TIMEOUT)
-    csv_path = unzip_csv_gz(file_path.as_posix())
+    csv_path = unzip_csv_gz(full_path.as_posix())
     pg_sync_url = build_pg_file_url(res["url"])
     r = requests.head(pg_sync_url)
     if r.ok:
-        old_file = file_path.name.replace(".csv.gz", "_old.csv")
+        old_file = full_path.name.replace(".csv.gz", "_old.csv")
         # files are stored with hooked names on S3
         File(
             url=pg_sync_url,
-            dest_path=file_path.parent.as_posix(),
+            dest_path=full_path.parent.as_posix(),
             dest_name=old_file,
         ).download(timeout=TIMEOUT)
     else:
@@ -433,7 +433,7 @@ def download_resource(res: dict, dataset: str) -> tuple[Path, str]:
             columns = f.readline()
         with open(build_old_file_name(csv_path), "w") as f:
             f.write(columns)
-    return file_path, csv_path
+    return full_path, csv_path
 
 
 def unzip_csv_gz(file_path: str) -> str:
@@ -451,10 +451,10 @@ def get_diff(_conn, csv_path: str, regex_infos: dict, table: str):
         additions_file = build_additions_file_name(csv_path)
         deletions_file = build_deletions_file_name(csv_path)
 
-        with open(csv_path, "r") as new_file, open(old_file, "r") as old_file:
+        with open(csv_path, "r") as new_file, open(old_file, "r") as old_f:
             # skipping headers
             new_file.readline()
-            old_file.readline()
+            old_f.readline()
             # removing carriage return so that if the last row doesn't have one
             # it'll not be considered new when data is appended
             new_lines = set(
@@ -464,7 +464,7 @@ def get_diff(_conn, csv_path: str, regex_infos: dict, table: str):
             )
             old_lines = set(
                 r.replace("\n", "")
-                for r in old_file
+                for r in old_f
                 if _filter is None or r.startswith(_filter)
             )
 
@@ -505,7 +505,7 @@ def get_diff(_conn, csv_path: str, regex_infos: dict, table: str):
     old_file = build_old_file_name(csv_path)
     additions_file = build_additions_file_name(csv_path)
     deletions_file = build_deletions_file_name(csv_path)
-    with open(csv_path, "r") as new_file, open(old_file, "r") as old_file:
+    with open(csv_path, "r") as new_file, open(old_file, "r") as _old_f:
         header = new_file.readline()
         # old_header = old_file.readline()
         # if header != old_header:

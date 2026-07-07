@@ -101,8 +101,8 @@ def build_file_id(file: str, path: str) -> str:
     # for this case, id of both files would be QUOT_SIM2_latest
     file_id = file
     if config.get(path, {}).get("source_pattern"):
-        params = re.match(config[path]["source_pattern"], file)
-        params = params.groupdict() if params else {}
+        match = re.match(config[path]["source_pattern"], file)
+        params = match.groupdict() if match else {}
         if "PERIOD" in params and any([h in params["PERIOD"] for h in hooks]):
             # this will have to change if more hooks are added
             params["PERIOD"] = "latest" if "latest" in params["PERIOD"] else "previous"
@@ -227,8 +227,8 @@ def get_current_files_on_s3(**context) -> None:
         path = get_path(file.replace(s3_folder, ""))
         file_with_ext = file.split("/")[-1]
         if config.get(path, {}).get("source_pattern"):
-            params = re.match(config[path]["source_pattern"], file_with_ext)
-            params = params.groupdict() if params else {}
+            match = re.match(config[path]["source_pattern"], file_with_ext)
+            params = match.groupdict() if match else {}
             if params and "PERIOD" in params:
                 period_starts[path] = min(
                     int(clean_hooks(params["PERIOD"]).split("-")[0]),
@@ -781,7 +781,7 @@ def notification(**context) -> None:
                 continue
             clean_file_path = r["url"].split(s3_folder)[1]
             file_name = clean_file_path.split("/")[-1]
-            true_path, global_path = get_path(clean_file_path)
+            _, global_path = get_path(clean_file_path)
             count_ids[build_file_id(file_name, global_path)] += 1
             if any(k for k in allowed_patterns[dataset_id]) and not any(
                 r["title"].startswith(template.split("_")[0])

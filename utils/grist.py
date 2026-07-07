@@ -142,7 +142,7 @@ class GristTable:
             columns_to_add = [c for c in df.columns if c not in returned_columns.keys()]
             if columns_to_add:
                 logging.info(f"Adding missing columns: {columns_to_add}")
-                columns_to_add = {
+                columns_payload = {
                     "columns": [
                         {
                             "id": col,
@@ -154,7 +154,7 @@ class GristTable:
                 r = RequestRetry.post(
                     f"{self.base_url}/columns",
                     headers=headers,
-                    json=columns_to_add,
+                    json=columns_payload,
                 )
                 handle_grist_error(r)
             # re-getting the columns post potential update
