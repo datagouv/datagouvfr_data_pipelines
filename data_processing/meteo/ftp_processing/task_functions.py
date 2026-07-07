@@ -801,7 +801,7 @@ def notification(**context) -> None:
                     f"    - [{issues[dataset_id][rid]}]({local_client.base_url}/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
-    not_unique = {k: v for k, v in count_ids if v > 1}
+    not_unique = {k: v for k, v in count_ids.items() if v > 1}
     if not_unique:
         # this most likely means either:
         # - multiple files with the same id coexist on the S3, requires a cleanup to keep only one (the latest)
