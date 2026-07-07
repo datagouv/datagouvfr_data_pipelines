@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import shutil
 import subprocess
 from collections import defaultdict
@@ -91,7 +90,8 @@ def get_files_list_on_sftp(pack: str, grid: str, **context):
     logging.info(f"{nb} files to process")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     if to_process:
-        with open(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json", "w") as f:
+        manifest = Path(TMP_FOLDER) / f"{pack}_{grid}_{timestamp}.json"
+        with manifest.open("w") as f:
             json.dump(to_process, f)
     context["ti"].xcom_push(key="timestamp", value=timestamp)
 
@@ -106,26 +106,27 @@ def process_members(
     sftp,
 ) -> int:
     tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
-    if os.path.isdir(TMP_FOLDER + tmp_folder):
+    work_dir = Path(TMP_FOLDER) / tmp_folder.rstrip("/")
+    if work_dir.is_dir():
         # we allow concurrent DAG runs for these DAGs, this is how they "communicate", aka know if another run is already processing a batch
         logging.info(f"{tmp_folder} is already being processed by another run")
         return 0
     logging.info(f"Processing {tmp_folder}")
-    os.mkdir(TMP_FOLDER + tmp_folder)
+    work_dir.mkdir()
     for file in members:
         try:
             sftp.download_file(
                 remote_file_path=upload_dir + file,
-                local_file_path=TMP_FOLDER + tmp_folder + file,
+                local_file_path=str(work_dir / file),
             )
         except FileNotFoundError:
             logging.warning("Seems like it has already been processed")
-            shutil.rmtree(TMP_FOLDER + tmp_folder)
+            shutil.rmtree(work_dir)
             return 0
     # concatenating all members of the occurrence into a grib, MF said that was the thing to do, they know it better
     logging.info("> Concatenating")
     subprocess.run(
-        f"cat {TMP_FOLDER + tmp_folder}* > {TMP_FOLDER + tmp_folder[:-1]}.grib",
+        f"cat {work_dir}/* > {work_dir.parent / (work_dir.name + '.grib')}",
         shell=True,
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
@@ -142,7 +143,7 @@ def process_members(
         is_public=True,
     )
     logging.info("> Cleaning")
-    shutil.rmtree(TMP_FOLDER + tmp_folder)
+    shutil.rmtree(work_dir)
     if AIRFLOW_ENV == "prod":
         # only cleaning the SFTP in production
         for file in members:
@@ -154,10 +155,11 @@ def transfer_files_to_s3(pack: str, grid: str, **context):
     timestamp = context["ti"].xcom_pull(
         key="timestamp", task_ids="get_files_list_on_sftp"
     )
-    if not os.path.isfile(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json"):
+    manifest = Path(TMP_FOLDER) / f"{pack}_{grid}_{timestamp}.json"
+    if not manifest.is_file():
         logging.info("No file to process, skipping")
         return
-    with open(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json", "r") as f:
+    with manifest.open() as f:
         files = json.load(f)
     # we are storing files by datetime => echeance => members
     dates_echeances = defaultdict(lambda: defaultdict(list))
@@ -191,7 +193,7 @@ def transfer_files_to_s3(pack: str, grid: str, **context):
                     f"Too many members: {nb} for {CONFIG[pack][grid]['nb_membres']} expected"
                 )
     logging.info(f"{count} file{'s' * (count > 1)} transfered")
-    os.remove(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json")
+    manifest.unlink()
     return count
 
 
