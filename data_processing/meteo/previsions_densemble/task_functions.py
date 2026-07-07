@@ -96,7 +96,13 @@ def get_files_list_on_sftp(pack: str, grid: str, **context):
 
 
 def process_members(
-    members: list[str], date: str, echeance: str, pack: str, grid: str, sftp
+    members: list[str],
+    date: str,
+    echeance: str,
+    pack: str,
+    grid: str,
+    s3_client: S3Client,
+    sftp,
 ) -> int:
     tmp_folder = f"{pack}_{grid}_{date}_{echeance}/"
     if os.path.isdir(TMP_FOLDER + tmp_folder):
@@ -123,8 +129,7 @@ def process_members(
         stderr=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
-    # TODO: pass a S3Client as argument to prevent instanciation at every iteration
-    S3Client(**s3_client_kwargs).send_file(
+    s3_client.send_file(
         File(
             source_path=TMP_FOLDER,
             source_name=tmp_folder[:-1] + ".grib",
@@ -159,6 +164,7 @@ def transfer_files_to_s3(pack: str, grid: str, **context):
         dates_echeances[infos["date"]][infos["echeance"]].append(file)
     count = 0
     sftp = create_client()
+    s3_client = S3Client(**s3_client_kwargs)
     for date in dates_echeances:
         for echeance in dates_echeances[date]:
             # checking if all members of the occurrence have arrived
@@ -170,6 +176,7 @@ def transfer_files_to_s3(pack: str, grid: str, **context):
                     echeance=echeance,
                     pack=pack,
                     grid=grid,
+                    s3_client=s3_client,
                     sftp=sftp,
                 )
             elif nb < CONFIG[pack][grid]["nb_membres"]:
