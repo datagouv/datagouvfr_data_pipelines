@@ -18,7 +18,7 @@ with DAG(
     dag_id="data_processing_carburants",
     schedule="5,35 4-20 * * *",
     start_date=datetime(2024, 8, 10),
-    dagrun_timeout=timedelta(minutes=15),
+    dagrun_timeout=timedelta(minutes=30),
     tags=["carburants", "prix", "rupture"],
     catchup=False,
 ):
