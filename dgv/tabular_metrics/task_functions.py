@@ -79,12 +79,12 @@ def get_params(url: str) -> dict[str, str] | None:
     # URLs look like this: /api/resources/5f29737c-5393-46f9-8140-2509992adc7a/data/?code_insee_commune__exact=29020
     split = url.split("?")
     if len(split) != 2:
-        return
+        return None
     try:
         params = split[1].split("&")
         return {k: v for k, v in [p.split("=") for p in params]}
     except Exception:
-        return
+        return None
 
 
 def process_logs_file(file_path: str):

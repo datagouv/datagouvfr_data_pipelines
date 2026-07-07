@@ -62,7 +62,7 @@ with DAG(
         ),
     }
 
-    tasks = defaultdict(dict)
+    tasks: dict = defaultdict(dict)
     scopes = ["general", "api"]
     freqs = ["daily", "weekly", "monthly", "yearly"]
     for scope in scopes:

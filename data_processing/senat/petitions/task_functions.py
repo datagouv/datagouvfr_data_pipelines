@@ -45,7 +45,7 @@ def build_status(page: BeautifulSoup) -> str:
 def get_limit_date(page: BeautifulSoup) -> str | None:
     found = page.find("span", attrs={"class": "phase-date"})
     if found is None:
-        return
+        return None
     period = remove_duplicate_blanks(found.text.replace("\n", ""))
     return standardize_date(period.split("-")[1].strip())
 
@@ -53,7 +53,7 @@ def get_limit_date(page: BeautifulSoup) -> str | None:
 def get_votes(page: BeautifulSoup) -> int | None:
     found = page.find("span", attrs={"class": "progress__bar__number"})
     if found is None:
-        return
+        return None
     return int(found.text.replace(" ", ""))
 
 
@@ -70,7 +70,7 @@ def get_row(_id: int, session) -> dict | None:
     url = f"https://petitions.senat.fr/initiatives/i-{_id}"
     ping = session.head(url)
     if ping.headers.get("Location") == "https://petitions.senat.fr/":
-        return
+        return None
     r = session.get(url)
     page = BeautifulSoup(r.text, "html.parser")
     title = (

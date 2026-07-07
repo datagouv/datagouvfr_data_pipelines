@@ -58,7 +58,7 @@ def send_message(
         while formatted.__sizeof__() > MAX_MESSAGE_LENGTH:
             formatted = formatted[:-10]
 
-    payload = {
+    payload: dict = {
         "msgtype": f"m.{message_type}",
         "body": "_",
         "format": "org.matrix.custom.html",

@@ -25,7 +25,7 @@ topic_id = (
 )
 metrics_api_url = "https://metric-api.data.gouv.fr/api/{}/data/?{}_id__exact={}"
 
-objects = {
+objects: dict[str, dict] = {
     "datasets": {
         "catalog_id": "f868cca6-8da1-4369-a78d-47463f19a9a3",
         "metrics_keys": {

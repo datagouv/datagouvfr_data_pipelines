@@ -1,11 +1,12 @@
 import json
+from typing import Optional
 
 import requests_mock
 
 
 class ExternalResourcesMock:
     # Global data mocker shared across all instances
-    _data_mocker = None
+    _data_mocker: Optional[requests_mock.Mocker] = None
 
     def __init__(self):
         self.records = {}  # Store records per resource

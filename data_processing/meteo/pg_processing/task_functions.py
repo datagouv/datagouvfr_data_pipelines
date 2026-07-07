@@ -9,6 +9,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from typing import Callable
 
 import pandas as pd
 import psycopg2
@@ -43,7 +44,7 @@ def smart_cast(value: str, _type):
         return None
 
 
-type_mapping = {
+type_mapping: dict[str, Callable] = {
     "character varying": str,
     "double precision": lambda x: smart_cast(x, float),
     "integer": lambda x: smart_cast(x, int),
@@ -534,7 +535,7 @@ def get_diff(_conn, csv_path: str, regex_infos: dict, table: str):
     return _build_deletions(_conn, csv_path, table_name)
 
 
-def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
+def create_filters(csv_path: str, dep: str, threshold: int = 5_000_000):
     # returns a list of prefixes to filter the rows
     # once we know the batches will be of a reasonable size
     postes = pd.read_csv(
@@ -543,7 +544,7 @@ def create_filters(csv_path: str, dep: str, threshold: int = 5e6):
         dtype=str,
         usecols=["NUM_POSTE"],
     )["NUM_POSTE"]
-    maxes = defaultdict(int)
+    maxes: dict = defaultdict(int)
     k = 0
     while True:
         k += 1

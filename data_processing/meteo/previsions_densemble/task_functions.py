@@ -160,7 +160,7 @@ def transfer_files_to_s3(pack: str, grid: str, **context):
     with open(TMP_FOLDER + f"{pack}_{grid}_{timestamp}.json", "r") as f:
         files = json.load(f)
     # we are storing files by datetime => echeance => members
-    dates_echeances = defaultdict(lambda: defaultdict(list))
+    dates_echeances: dict = defaultdict(lambda: defaultdict(list))
     for file, infos in files.items():
         dates_echeances[infos["date"]][infos["echeance"]].append(file)
     count = 0
@@ -235,7 +235,7 @@ def fix_title(file_name: str) -> str:
 @task()
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on S3
-    latest_files = {}
+    latest_files: dict = {}
     for obj, size in (
         S3Client(**s3_client_kwargs)
         .get_all_files_names_and_sizes_from_parent_folder(

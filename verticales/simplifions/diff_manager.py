@@ -19,7 +19,7 @@ class DiffManager:
         return {"id": new_doc_id, "name": new_name}
 
     @staticmethod
-    def _list_simplifions_backups() -> dict:
+    def _list_simplifions_backups() -> list:
         documents = GristV2Manager._list_workspace_documents()
         name_pattern = re.compile(
             r"Simplifions Copy - \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"

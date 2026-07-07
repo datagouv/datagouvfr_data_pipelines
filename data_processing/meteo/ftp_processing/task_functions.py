@@ -222,7 +222,7 @@ def get_current_files_on_s3(**context) -> None:
         folder=s3_folder
     )
     # getting the start of each time period to update datasets temporal_coverage
-    period_starts = {}
+    period_starts: dict = {}
     for file in s3_files:
         path = get_path(file.replace(s3_folder, ""))
         file_with_ext = file.split("/")[-1]
@@ -533,7 +533,7 @@ def handle_updated_files_same_name(**context) -> None:
     )
     resources_lists = get_resource_lists()
 
-    new_files = []
+    new_files: list = []
     for file_path in files_to_update_same_name:
         _, global_path = get_path(file_path)
         if global_path not in resources_lists:
@@ -625,7 +625,7 @@ def update_temporal_coverages(**context) -> None:
     period_starts = context["ti"].xcom_pull(
         key="period_starts", task_ids="get_current_files_on_s3"
     )
-    updated_datasets = set()
+    updated_datasets: set = set()
     # datasets have been updated in all three tasks, we gather them here
     for _task in [
         "upload_new_files",
@@ -753,7 +753,7 @@ def notification(**context) -> None:
                 else:
                     message += "mise à jour des métadonnées"
 
-    issues = defaultdict(dict)
+    issues: dict = defaultdict(dict)
     allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
@@ -764,7 +764,7 @@ def notification(**context) -> None:
             config[path]["name_template"]
         )
         paths[config[path]["dataset_id"][AIRFLOW_ENV]] = path
-    count_ids = defaultdict(int)
+    count_ids: dict = defaultdict(int)
     for dataset_id in allowed_patterns:
         resp = requests.get(
             f"{local_client.base_url}/api/1/datasets/{dataset_id}/",

@@ -212,7 +212,7 @@ def update_tree():
 
 
 def build_tree(paths: Iterable[str]):
-    tree = {}
+    tree: dict = {}
     for _, path in enumerate(paths):
         parts = path.split("/")
         *dirs, file = parts

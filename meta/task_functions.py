@@ -30,7 +30,7 @@ with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") 
 
 def get_ids(config: dict, api: dag_api.DAGApi) -> dict[str, str]:
     dags = AirflowAPI.paginate(api.get_dags, "dags")
-    ids = {}
+    ids: dict[str, str] = {}
     for raw_id, included in config.items():
         if not included:
             continue
@@ -98,7 +98,7 @@ def monitor_dags(
                         },
                     }
                 else:
-                    duration = end_date - start_date  # type: ignore : start_date should not be None
+                    duration = end_date - start_date  # type: ignore  # start_date should not be None
                     todays_runs[dag_id][end_date] = {
                         "success": True,
                         "duration": duration.total_seconds(),

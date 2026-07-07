@@ -31,7 +31,7 @@ def get_stats_period(today: str, period: str, scope: str) -> str | None:
             or res["stats"]["nb_discussions_dataservices"]
         ):
             # no message if no new API and no comment
-            return
+            return None
         return (
             f"- {res['stats']['nb_dataservices']} APIs créées\n"
             f"- {res['stats']['nb_discussions_dataservices']} discussions sur les APIs\n"

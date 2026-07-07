@@ -428,8 +428,8 @@ def process_dvf_stats() -> None:
         encoding="utf8",
         dtype=str,
     )
-    sections_from_dvf = set()
-    communes_from_dvf = set()
+    sections_from_dvf: set = set()
+    communes_from_dvf: set = set()
     to_keep = [
         "id_mutation",
         "date_mutation",
@@ -628,7 +628,7 @@ def process_dvf_stats() -> None:
                 )
                 dfs_dict[echelle] = merged
 
-            general = {"code_geo": "nation"}
+            general: dict = {"code_geo": "nation"}
             for t in types_of_interest:
                 general[
                     "nb_ventes_" + unidecode(types_bien[t].split(" ")[0].lower())
@@ -833,7 +833,7 @@ def create_distribution_and_stats_whole_period() -> None:
         if round(borne, -2) <= borne_inf or round(borne, -2) >= borne_sup:
             return round(borne)
         else:
-            return round(borne, -2)
+            return int(round(borne, -2))
 
     def distrib_from_prix(
         prix: pd.Series,
@@ -852,7 +852,7 @@ def create_distribution_and_stats_whole_period() -> None:
         inf = q[0][0] - 1 if min(prix) == int(min(prix)) else q[0][0]
         # due to int, the upper bound is rounded down so +1 to include it
         sup = q[-1][1] + 1
-        intervalles = (
+        intervalles: list = (
             [[inf, q[0][1]]]
             + [
                 [q[0][1] + size * k, q[0][1] + size * (k + 1)]

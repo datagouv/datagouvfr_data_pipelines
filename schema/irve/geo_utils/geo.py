@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from collections import defaultdict
 
 import geojson
 import pandas as pd
@@ -113,6 +114,8 @@ def fix_code_insee(
         r = session.get(url)
         r.raise_for_status()
         return r
+
+    counters: dict[str, int] = defaultdict(int)
 
     def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
         if (

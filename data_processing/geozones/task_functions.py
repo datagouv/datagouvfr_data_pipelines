@@ -132,7 +132,7 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         if child and parent and child != parent:
             direct_parents[child].add(parent)
 
-    ancestors_cache = {}
+    ancestors_cache: dict = {}
 
     def ancestors_of(geoid, visiting):
         if geoid in ancestors_cache:
@@ -146,7 +146,7 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         ancestors_cache[geoid] = result
         return result
 
-    parents_cache = {}
+    parents_cache: dict = {}
 
     def closest_exported_parents(geoid, visiting):
         """Direct parents present in the export, climbing over filtered-out ones."""
@@ -211,7 +211,7 @@ def fetch_geozones_geometries() -> dict:
     """
     year = resolve_geometry_year()
     logging.info("Fetching IGN geometries (millésime %s)", year)
-    geometries = defaultdict(dict)
+    geometries: dict = defaultdict(dict)
     for level, names in GEOMETRY_SOURCES.items():
         for name in names:
             url = f"{GEOMETRY_ENDPOINT}/{year}/geojson/{name}.geojson.gz"
@@ -245,7 +245,7 @@ def fetch_geozones_populations() -> dict:
     Best-effort: a geo.api failure is logged and yields no population rather than
     aborting the export.
     """
-    populations = {
+    populations: dict = {
         "fr:commune": {},
         "fr:epci": {},
         "fr:departement": defaultdict(int),

@@ -1,4 +1,5 @@
 import re
+from typing import Any
 from urllib.parse import parse_qs
 
 import httpx
@@ -12,7 +13,7 @@ from .external_resources_mock import ExternalResourcesMock
 # respx intercepts `httpx` calls (reads via datagouv-client's get_all_from_api_query).
 # TODO: migrate all the thingz to httpx/datagouv-client
 class DatagouvfrMock(ExternalResourcesMock):
-    _respx_mock = None
+    _respx_mock: Any = None
 
     def __init__(self):
         super().__init__()

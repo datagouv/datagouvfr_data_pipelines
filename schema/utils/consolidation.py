@@ -907,7 +907,7 @@ def consolidate_data(
                     inspection = requests.get(
                         f"https://tabular-api.data.gouv.fr/api/resources/{row['resource_id']}/profile/"
                     )
-                    csv_kwargs = {"encoding": None, "sep": None}
+                    csv_kwargs: dict[str, Any] = {"encoding": None, "sep": None}
                     excel_kwargs = {"engine": "openpyxl"}
                     if inspection.ok:
                         profile = inspection.json()["profile"]
@@ -1142,7 +1142,7 @@ def update_resource_metadata(
     version_name: str,
     dataset_id: str,
     resource_id: str,
-    validata_report_path: Path,
+    validata_report_path: str,
     api_url: str,
     update_version: bool,
     should_succeed: bool,
@@ -1495,7 +1495,7 @@ def get_owner_or_admin_mails(
     else:
         owner_id = None
 
-    mails_type = None
+    mails_type: Literal["organisation_admins", "owner"] | None = None
     mails_list = []
 
     session = requests.Session()

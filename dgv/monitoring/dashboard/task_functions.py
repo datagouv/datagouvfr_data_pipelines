@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from io import StringIO
 from time import sleep
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 import pandas as pd
@@ -73,7 +73,7 @@ def get_support_tickets(start_date: datetime, **context):
         segment_prefixes: list[str] | None = None,
     ) -> dict[str, int]:
         # turns a list of tickets into the monthly count
-        months_count = defaultdict(int)
+        months_count: dict[str, int] = defaultdict(int)
         for k in range(len(tickets)):
             tickets[k]["created_at_date"] = datetime.fromtimestamp(
                 tickets[k][created_at_key] / 1000
@@ -423,7 +423,7 @@ def get_catalog_stats() -> None:
 
     # getting datasets quality and count
     cats = list(max(datasets, key=lambda x: len(x[2]))[2].keys())
-    dataset_quality = {
+    dataset_quality: dict[str, Any] = {
         k: {c: [] for c in cats} for k in ["all", "harvested", "local", "hvd"]
     }
     dataset_quality |= {"count": {k: 0 for k in ["all", "harvested", "local", "hvd"]}}
@@ -445,7 +445,7 @@ def get_catalog_stats() -> None:
     dataset_quality = {datetime.now().strftime("%Y-%m-%d"): dataset_quality}
 
     # getting resources types and formats
-    resources_stats = {"all": {}, "hvd": {}}
+    resources_stats: dict[str, Any] = {"all": {}, "hvd": {}}
     for r in resources:
         if r["format"] not in resources_stats["all"]:
             resources_stats["all"][r["format"]] = 0

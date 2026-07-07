@@ -7,6 +7,7 @@ import shutil
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from time import sleep
+from typing import Any
 from urllib import parse
 
 import frictionless
@@ -25,9 +26,9 @@ from git import Git, Repo
 from table_schema_to_markdown import convert_source, sources_to_markdown
 from unidecode import unidecode
 
-ERRORS_REPORT = []
-SCHEMA_INFOS = {}
-SCHEMA_CATALOG = {}
+ERRORS_REPORT: list[Any] = []
+SCHEMA_INFOS: dict[str, Any] = {}
+SCHEMA_CATALOG: dict[str, Any] = {}
 
 
 @task()
@@ -117,7 +118,7 @@ def check_schema(
     # get tags of repo
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
 
-    list_schemas = {}
+    list_schemas: dict = {}
 
     # Defining SCHEMA_INFOS object for website use
     SCHEMA_INFOS[schema_name] = {
@@ -152,7 +153,7 @@ def check_schema(
             # jsonschema will use jsonschema package
             # other will only check if schema.yml file is present and contains correct information
             if schema_type == "tableschema":
-                list_schemas: dict = manage_tableschema(
+                list_schemas = manage_tableschema(
                     src_folder,
                     dest_folder,
                     list_schemas,
@@ -180,7 +181,7 @@ def check_schema(
                 )
     if not list_schemas:
         logging.warning("No valid version for this schema")
-        return
+        return {}
     # Find latest valid version and create a specific folder "latest" copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(schema_name, folders)
     # Indicate in schema_info object name of latest schema
@@ -485,8 +486,8 @@ def manage_tableschema(
                 )
 
             # Create sources file
-            with open(dest_folder + schema_file, "r") as f:
-                schema_content = json.load(f)
+            with open(dest_folder + schema_file, "r") as schema_f:
+                schema_content = json.load(schema_f)
             sources_md = sources_to_markdown(schema_content)
             if sources_md:
                 with open(dest_folder + "/" + "sources.md", "w") as out:
@@ -720,13 +721,13 @@ def generate_catalog_datapackage(latest_folder, dpkg_name, conf, list_schemas):
 
 def generate_catalog_object(
     latest_folder: str,
-    list_schemas: list,
+    list_schemas: dict,
     schema_file: str,
     schema_type: str,
     schema_name: str,
     folders: dict,
     obj_info: dict | None = None,
-    datapackage: str | None = None,
+    datapackage: dict | None = None,
 ) -> dict:
     """Generate dictionnary containing all relevant information for catalog"""
     # If tableschema, relevant information are directly into schema.json,

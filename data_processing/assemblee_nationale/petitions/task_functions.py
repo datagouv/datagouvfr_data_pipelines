@@ -116,7 +116,7 @@ def get_decision(page: BeautifulSoup) -> str | None:
 def get_votes(page: BeautifulSoup) -> int | None:
     found = page.find("span", attrs={"class": "progress__bar__number"})
     if found is None:
-        return
+        return None
     return int(found.text.replace(" ", ""))
 
 
@@ -128,7 +128,7 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
     # if we get redirected to the home page, early stop
     # and we'll save the id as unused for later processes
     if ping.headers.get("Location") == "https://petitions.assemblee-nationale.fr/":
-        return
+        return None
     r = session.get(url)
     page = BeautifulSoup(r.text, "html.parser")
     labels = get_labels(page)
