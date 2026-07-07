@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 from datetime import datetime, timedelta
-
+from pathlib import Path
 import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
@@ -388,19 +388,20 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
 @task()
 def clean_directory(model: str, pack: str, grid: str, **kwargs):
     # in case processes crash and leave stuff behind, so that upcoming DAG runs don't consider they're being processed (see above about how they "communicate")
-    path = build_folder_path(model, pack, grid)
-    files_and_folders = os.listdir(f"{TMP_FOLDER}{path}")
+    built_path = build_folder_path(model, pack, grid)
+    tmp_folder = Path(TMP_FOLDER) / Path(built_path)
+    # TMP_FOLDER may not exist yet (clean_directory runs before create_working_dir in the DAG)
+    if not tmp_folder.is_dir():
+        return
     threshold = datetime.now() - timedelta(hours=3)
-    for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(
-            os.path.getctime(f"{TMP_FOLDER}{path}/{f}")
-        )
-        if creation_date < threshold and "issues" not in f:
-            try:
-                shutil.rmtree(f"{TMP_FOLDER}{path}/{f}")
-            except NotADirectoryError:
-                os.remove(f"{TMP_FOLDER}{path}/{f}")
+    for path in tmp_folder.iterdir():
+        creation_date = datetime.fromtimestamp(path.stat().st_ctime)
+        if creation_date < threshold and "issues" not in str(path):
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
             logging.warning(
-                f"Deleted {TMP_FOLDER}{path}/{f} (created at "
+                f"Deleted {path} (created at "
                 f"{creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
             )
