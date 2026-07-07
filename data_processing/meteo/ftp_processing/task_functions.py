@@ -11,7 +11,6 @@ import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
-    AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     SECRET_FTP_METEO_ADDRESS,
     SECRET_FTP_METEO_PASSWORD,
@@ -24,7 +23,7 @@ from datagouvfr_data_pipelines.utils.tchap import send_message
 from dateutil import parser
 
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_ftp/"
+TMP_FOLDER = "/tmp/meteo_ftp/"  # temporarily write to local /tmp instead of shared volume due to perf issues
 s3_folder = "data/synchro_ftp/"
 bucket = "meteofrance"
 with open(f"{AIRFLOW_DAG_HOME}{ROOT_FOLDER}meteo/config.json") as fp:

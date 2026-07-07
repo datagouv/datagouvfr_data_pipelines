@@ -44,6 +44,7 @@ class File:
                         # (a subprocess call to ldconfig) at import time, which can hang
                         # long enough to blow the Airflow DAG import timeout
                         import magic
+
                         self.content_type = magic.from_file(
                             self.source_path + self.source_name,
                             mime=True,
