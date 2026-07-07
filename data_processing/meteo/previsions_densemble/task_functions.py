@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import requests
 from airflow.sdk import task
@@ -386,15 +387,18 @@ def handle_cyclonic_alert(pack: str, grid: str):
 @task()
 def clean_directory():
     # in case processes crash and leave stuff behind, so that upcoming DAG runs don't consider they're being processed (see above about how they "communicate")
-    files_and_folders = os.listdir(TMP_FOLDER)
+    tmp_folder = Path(TMP_FOLDER)
+    # TMP_FOLDER may not exist yet (clean_directory runs before create_working_dir in the DAG)
+    if not tmp_folder.is_dir():
+        return
     threshold = datetime.now() - timedelta(hours=6)
-    for f in files_and_folders:
-        creation_date = datetime.fromtimestamp(os.path.getctime(TMP_FOLDER + f))
+    for path in tmp_folder.iterdir():
+        creation_date = datetime.fromtimestamp(path.stat().st_ctime)
         if creation_date < threshold:
-            try:
-                shutil.rmtree(TMP_FOLDER + f)
-            except NotADirectoryError:
-                os.remove(TMP_FOLDER + f)
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
             logging.warning(
-                f"Deleted {f} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
+                f"Deleted {path.name} (created at {creation_date.strftime('%Y-%m-%d %H:%M-%S')})"
             )
