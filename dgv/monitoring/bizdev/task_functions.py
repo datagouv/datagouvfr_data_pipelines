@@ -244,7 +244,7 @@ def process_empty_datasets():
     def get_last_month_visits(dataset_id: str):
         data = local_client.get_all_from_api_query(
             (
-                f"{api_metrics_url}api/organizations/data/?metric_month__exact={last_month}"
+                f"{api_metrics_url}api/datasets/data/?metric_month__exact={last_month}"
                 f"&dataset_id__exact={dataset_id}"
             ),
             next_page="links.next",
