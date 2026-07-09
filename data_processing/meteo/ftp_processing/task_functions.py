@@ -556,7 +556,7 @@ def upload_new_files(**context) -> None:
             and not clean_file_path.endswith("/")
         ):
             # this handles the case of files having been deleted from data.gouv
-            # but not from S3
+            # but not from S3 #! it doesnt handle it
             logging.info(f"This file is not on data.gouv, uploading: {clean_file_path}")
             new_files.append(clean_file_path)
 
@@ -594,6 +594,8 @@ def upload_new_files(**context) -> None:
             updated_datasets.add(global_path)
         except KeyError:
             logging.warning("⚠️ no config for this file")
+            #! why go over all those steps for files not in config ? waste of compute
+            # They should never be part of the whole parsing (s3,ftp,...) and could directly go into a warning phase from the listing ops
             # the file was not uploaded, removing it from the list of new files
             went_wrong.append(clean_file_path)
     context["ti"].xcom_push(key="new_files_datasets", value=new_files_datasets)
