@@ -1,4 +1,3 @@
-from email.utils import parsedate_to_datetime
 import ftplib
 import json
 import logging
@@ -6,6 +5,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import requests
 from airflow.sdk import task
@@ -409,7 +409,11 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}"
     )
 
-    # re-getting S3 files in case new files have been transfered for downstream tasks
+    logging.info(
+        "Re-fetch S3 files in case new files have been transfered for downstream tasks"
+    )
+
+    # re-fetch S3 files in case new files have been transfered for downstream tasks
     s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder,
     )
@@ -430,7 +434,7 @@ def get_file_extention(file: str) -> str:
 
 @task()
 def upload_new_files(**context) -> None:
-    s3_client = S3Client(bucket="meteofrance")
+    s3_client = S3Client(bucket=bucket)
     new_files = context["ti"].xcom_pull(
         key="new_files", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -521,7 +525,7 @@ def upload_new_files(**context) -> None:
 
 @task()
 def handle_updated_files_same_name(**context) -> None:
-    s3_client = S3Client(bucket="meteofrance")
+    s3_client = S3Client(bucket=bucket)
     updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -567,7 +571,7 @@ def handle_updated_files_same_name(**context) -> None:
 
 @task()
 def handle_updated_files_new_name(**context) -> None:
-    s3_client = S3Client(bucket="meteofrance")
+    s3_client = S3Client(bucket=bucket)
     updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="get_and_upload_file_diff_ftp_s3"
     )
@@ -801,7 +805,7 @@ def notification(**context) -> None:
                     f"    - [{issues[dataset_id][rid]}]({local_client.base_url}/datasets/"
                     f"{dataset_id}/#/resources/{rid})\n"
                 )
-    not_unique = {k: v for k, v in count_ids if v > 1}
+    not_unique = {k: v for k, v in count_ids.items() if v > 1}
     if not_unique:
         # this most likely means either:
         # - multiple files with the same id coexist on the S3, requires a cleanup to keep only one (the latest)
