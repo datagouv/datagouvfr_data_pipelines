@@ -39,6 +39,7 @@ def get_ftp() -> ftplib.FTP:
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
+    # TODO: rename _ by name (= resource name and s3 file name?) since this function only serves this purpose
     _ = string
     for h in hooks:
         _ = _.replace(f"{h}-", "")
@@ -103,6 +104,8 @@ def build_file_id(file: str, path: str) -> str:
     if config.get(path, {}).get("source_pattern"):
         params = re.match(config[path]["source_pattern"], file)
         params = params.groupdict() if params else {}
+        # TODO: hooks are technically a constant here and should be called HOOKS for better clarity
+        # Could even be a typed Literal["previous","latest"]
         if "PERIOD" in params and any([h in params["PERIOD"] for h in hooks]):
             # this will have to change if more hooks are added
             params["PERIOD"] = "latest" if "latest" in params["PERIOD"] else "previous"
@@ -162,6 +165,7 @@ def list_ftp_files_recursive(
     # (chemins mal reconstruits), gaspillage réseau en ~O(dossiers²),
     # et bug de correction latent (doublons possibles)."
     # Function shoud be improved with actual ftp package to list this, we can create a dataclass for better understanding
+    # Also, logic on recursion and // should be improved to avoid this trick that makes it hard to read
     files = []
     try:
         ftp.cwd(path)
@@ -170,9 +174,11 @@ def list_ftp_files_recursive(
             "LIST",
             lambda x: files.append(
                 (
-                    current_path.split("//")[-1],  # current repository path
-                    x.split()[-1],  # filename
-                    int(x.split()[4]),  # size in bytes
+                    current_path.split("//")[
+                        -1
+                    ],  # current repository path, ex: "/REF_CC/SIM" for file path "/REF_CC/SIM/QUOT_SIM2_latest-…csv.gz"
+                    x.split()[-1],  # filename, ex: "QUOT_SIM2_latest-…csv.gz"
+                    int(x.split()[4]),  # file size in bytes
                     x.split()[
                         5:8
                     ],  # last modified date, ex: ["Jul", "1", "12:00"] - if not wasting time in case this list is filtered out,  previous_date_parse should be applied directly there
@@ -205,12 +211,32 @@ def get_current_files_on_ftp(**context) -> None:
             path = path.lstrip("/")
             # we keep path in the key just in case two files would have the same name/id
             # but in different folders
-            _, global_path = get_path(path + "/" + file)
+            _, global_path = get_path(
+                path + "/" + file
+            )  # get global_path = "BASE/DECAD" for "BASE/DECAD/DECADQ_01_1852-1949.csv.gz"
             ftp_files[path + "/" + build_file_id(file, global_path)] = {
-                "file_path": path + "/" + file,
+                "file_path": path
+                + "/"
+                + file,  # end up like "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
                 "size": size,
                 "modif_date": previous_date_parse(" ".join(date_list)),
             }
+            # It looks like :
+            # ftp_files["/REF_CC/SIM/QUOT_SIM2_latest"] = {
+            #     "file_path": "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
+            #     "size": int,
+            #     "modif_date": datetime,
+            # }
+            # Ex:
+            # "BASE/INFOS_POSTES/49/Departement_49_station_49307001_commune_LOIRE-AUTHION": {'file_path': 'BASE/INFOS_POSTES/49/49307001_49_LOIRE-AUTHION.pdf', 'size': 1180595, 'modif_date': datetime.datetime(2026, 7, 2, 8, 40)}
+            # "BASE/HOR/HOR_departement_58_periode_previous": {'file_path': 'BASE/HOR/H_58_previous-2020-2024.csv.gz', 'size': 20233492, 'modif_date': datetime.datetime(2026, 7, 1, 8, 16)}
+            # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_latest": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_latest-2025-2026.csv.gz', 'size': 6470, 'modif_date': datetime.datetime(2026, 7, 9, 5, 26)}
+            # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_previous": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_previous-1950-2024.csv.gz', 'size': 42935, 'modif_date': datetime.datetime(2026, 7, 2, 14, 46)}
+            # "BASE/DECADAGRO/DECADAGRO_departement_95_periode_avant-1949": {'file_path': 'BASE/DECADAGRO/DECADAGRO_95_avant-1949.csv.gz', 'size': 64813, 'modif_date': datetime.datetime(2026, 7, 2, 13, 49)}
+            # ! Here, it means that when multiple files have the same ID (generated through build_file_id) on the sftp, 
+            # they override one another in the dict into the loop. Because sftp files are listed alphabetically, 
+            # this behavior is "silent" and doesn't cause a visible error. Might still be managed otherwise
+
     for f in ftp_files:
         logging.info(f"{f}: {ftp_files[f]}")
     context["ti"].xcom_push(key="ftp_files", value=ftp_files)
