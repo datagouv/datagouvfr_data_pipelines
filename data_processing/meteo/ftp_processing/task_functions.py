@@ -1,3 +1,7 @@
+"""
+This script is being refactored and is heavy in comments. 
+"""
+from email.utils import parsedate_to_datetime
 import ftplib
 import json
 import logging
@@ -40,6 +44,7 @@ def get_ftp() -> ftplib.FTP:
 
 
 def clean_hooks(string: str, hooks: list = hooks) -> str:
+    # TODO: rename _ by name (= resource name and s3 file name?) since this function only serves this purpose
     _ = string
     for h in hooks:
         _ = _.replace(f"{h}-", "")
@@ -104,6 +109,8 @@ def build_file_id(file: str, path: str) -> str:
     if config.get(path, {}).get("source_pattern"):
         params = re.match(config[path]["source_pattern"], file)
         params = params.groupdict() if params else {}
+        # TODO: hooks are technically a constant here and should be called HOOKS for better clarity
+        # Could even be a typed Literal["previous","latest"]
         if "PERIOD" in params and any([h in params["PERIOD"] for h in hooks]):
             # this will have to change if more hooks are added
             params["PERIOD"] = "latest" if "latest" in params["PERIOD"] else "previous"
@@ -163,6 +170,7 @@ def list_ftp_files_recursive(
     # (chemins mal reconstruits), gaspillage réseau en ~O(dossiers²),
     # et bug de correction latent (doublons possibles)."
     # Function shoud be improved with actual ftp package to list this, we can create a dataclass for better understanding
+    # Also, logic on recursion and // should be improved to avoid this trick that makes it hard to read
     files = []
     try:
         ftp.cwd(path)
@@ -171,9 +179,11 @@ def list_ftp_files_recursive(
             "LIST",
             lambda x: files.append(
                 (
-                    current_path.split("//")[-1],  # current repository path
-                    x.split()[-1],  # filename
-                    int(x.split()[4]),  # size in bytes
+                    current_path.split("//")[
+                        -1
+                    ],  # current repository path, ex: "/REF_CC/SIM" for file path "/REF_CC/SIM/QUOT_SIM2_latest-…csv.gz"
+                    x.split()[-1],  # filename, ex: "QUOT_SIM2_latest-…csv.gz"
+                    int(x.split()[4]),  # file size in bytes
                     x.split()[
                         5:8
                     ],  # last modified date, ex: ["Jul", "1", "12:00"] - if not wasting time in case this list is filtered out,  previous_date_parse should be applied directly there
@@ -206,12 +216,32 @@ def get_current_files_on_ftp(**context) -> None:
             path = path.lstrip("/")
             # we keep path in the key just in case two files would have the same name/id
             # but in different folders
-            _, global_path = get_path(path + "/" + file)
+            _, global_path = get_path(
+                path + "/" + file
+            )  # get global_path = "BASE/DECAD" for "BASE/DECAD/DECADQ_01_1852-1949.csv.gz"
             ftp_files[path + "/" + build_file_id(file, global_path)] = {
-                "file_path": path + "/" + file,
+                "file_path": path
+                + "/"
+                + file,  # end up like "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
                 "size": size,
                 "modif_date": previous_date_parse(" ".join(date_list)),
             }
+            # It looks like :
+            # ftp_files["/REF_CC/SIM/QUOT_SIM2_latest"] = {
+            #     "file_path": "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
+            #     "size": int,
+            #     "modif_date": datetime,
+            # }
+            # Ex:
+            # "BASE/INFOS_POSTES/49/Departement_49_station_49307001_commune_LOIRE-AUTHION": {'file_path': 'BASE/INFOS_POSTES/49/49307001_49_LOIRE-AUTHION.pdf', 'size': 1180595, 'modif_date': datetime.datetime(2026, 7, 2, 8, 40)}
+            # "BASE/HOR/HOR_departement_58_periode_previous": {'file_path': 'BASE/HOR/H_58_previous-2020-2024.csv.gz', 'size': 20233492, 'modif_date': datetime.datetime(2026, 7, 1, 8, 16)}
+            # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_latest": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_latest-2025-2026.csv.gz', 'size': 6470, 'modif_date': datetime.datetime(2026, 7, 9, 5, 26)}
+            # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_previous": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_previous-1950-2024.csv.gz', 'size': 42935, 'modif_date': datetime.datetime(2026, 7, 2, 14, 46)}
+            # "BASE/DECADAGRO/DECADAGRO_departement_95_periode_avant-1949": {'file_path': 'BASE/DECADAGRO/DECADAGRO_95_avant-1949.csv.gz', 'size': 64813, 'modif_date': datetime.datetime(2026, 7, 2, 13, 49)}
+            # ! Here, it means that when multiple files have the same ID (generated through build_file_id) on the sftp,
+            # they override one another in the dict into the loop. Because sftp files are listed alphabetically,
+            # this behavior is "silent" and doesn't cause a visible error. Might still be managed otherwise
+
     for f in ftp_files:
         logging.info(f"{f}: {ftp_files[f]}")
     context["ti"].xcom_push(key="ftp_files", value=ftp_files)
@@ -222,11 +252,18 @@ def get_current_files_on_s3(**context) -> None:
     s3_files = S3Client(bucket=bucket).get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder
     )
+    # s3_files = generator with item like {"data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz" : 123456}
     # getting the start of each time period to update datasets temporal_coverage
     period_starts = {}
     for file in s3_files:
+        # file = "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz"
+        # s3_folder = "data/synchro_ftp/" => get_path("REF_CC/SIM/QUOT_SIM2_latest-....csv.gz")
+        # path = ("REF_CC/SIM","REF_CC/SIM)
         path = get_path(file.replace(s3_folder, ""))
-        file_with_ext = file.split("/")[-1]
+        #! Bug here, get_path returns a tuple, not a string so the "if" block after would never work
+        # Here later in the code, it is used to update the temporal coverage metadata on the dataset
+        # This was verified on SIM - quot. and indeed it isn't updated since the commit date (feb 25)
+        file_with_ext = file.split("/")[-1]  # = "QUOT_SIM2_latest-....csv.gz"
         if config.get(path, {}).get("source_pattern"):
             params = re.match(config[path]["source_pattern"], file_with_ext)
             params = params.groupdict() if params else {}
@@ -235,6 +272,9 @@ def get_current_files_on_s3(**context) -> None:
                     int(clean_hooks(params["PERIOD"]).split("-")[0]),
                     period_starts.get(path, datetime.today().year),
                 )
+    # Because period_starts might contain various date patterns that didn't exist +1y ago,
+    # it must be checked first before re-enabling this block
+    logging.info("DEBUG: period_starts values:")
     logging.info(period_starts)
 
     # de même ici, on utilise les balises pour cibler les fichiers du S3
@@ -243,11 +283,23 @@ def get_current_files_on_s3(**context) -> None:
     for file_path in s3_files:
         clean_file_path = file_path.replace(s3_folder, "")
         file_name = clean_file_path.split("/")[-1]
-        true_path, global_path = get_path(clean_file_path)
+        true_path, global_path = get_path(
+            clean_file_path
+        )  # (BASE/INFOS_POSTES/01, BASE/INFOS_POSTES) for BASE/INFOS_POSTES/01/01010001_01_ANGLEFORT.pdf
         final_s3_files[true_path + "/" + build_file_id(file_name, global_path)] = {
             "file_path": clean_file_path,
             "size": s3_files[file_path],
         }
+        # Ex. for "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz"
+        # final_s3_files["REF_CC/SIM" + "/" + build_file_id("QUOT_SIM2_latest-20260501-202060608.csv.gz", "REF_CC/SIM")]
+        # final_s3_files["REF_CC/SIM/QUOT_SIM2_latest"] = {
+        #     "file_path": REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz,
+        #     "size": int,
+        # }
+        #! Here again, if multiple files have the same build_file_id on S3, they are overriden in the loop
+        # Because S3 listing is alphabetical order, it should be okay-ish but might silently fails in case of
+        # 20260501-202060608 vs 202605-202060608 (it has been seen by memory)
+
     for f in final_s3_files:
         logging.info(f"{f}: {final_s3_files[f]}")
     context["ti"].xcom_push(key="s3_files", value=final_s3_files)
@@ -302,12 +354,28 @@ def has_file_been_updated_already(
 def get_and_upload_file_diff_ftp_s3(**context) -> None:
     ftp = get_ftp()
     s3_meteo = S3Client(bucket=bucket)
+    # s3_files = {
+    # "REF_CC/SIM/QUOT_SIM2_latest" : {
+    # "file_path": "REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz",
+    # "size": int,
+    # },
+    # "...": {...},
+    # }
     s3_files = context["ti"].xcom_pull(
         key="s3_files", task_ids="get_current_files_on_s3"
     )
+    # ftp_files = {
+    # "/REF_CC/SIM/QUOT_SIM2_latest" : {
+    #     "file_path": "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
+    #     "size": int,
+    #     "modif_date": datetime,
+    # },
+    # "...": {...},
+    # }
     ftp_files = context["ti"].xcom_pull(
         key="ftp_files", task_ids="get_current_files_on_ftp"
     )
+
     # much debated part of the code: how to best get which files to consider here
     # first it was only done with the files' names but what if a file is updated but not renamed?
     # then we thought about checking the size and comparing with S3
@@ -321,10 +389,10 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
     diff_files = [
         f
         for f in ftp_files
-        if f not in s3_files
+        if f not in s3_files  # if NEW
         or not has_file_been_updated_already(
             ftp_files[f], resources_lists, today, s3_meteo
-        )
+        )  # if NOT UPDATED YET
     ]
     logging.info(
         f"Synchronizing {len(diff_files)} file{'s' if len(diff_files) > 1 else ''}"
@@ -347,43 +415,61 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         # one, which will replace its previous version (we change the resource URL).
         logging.info(f"Transfering {ftp_files[file_to_transfer]['file_path']}...")
         # we are recreating the file structure from FTP to S3
+        # file_to_transfer = "/REF_CC/SIM/QUOT_SIM2_latest"
+        # file_path = "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
         true_path, global_path = get_path(ftp_files[file_to_transfer]["file_path"])
         file_name = ftp_files[file_to_transfer]["file_path"].split("/")[-1]
+        # file_name = "QUOT_SIM2_latest-2020-202311.csv.gz"
         try:
-            ftp.cwd("/" + true_path)
+            ftp.cwd("/" + true_path)  # going to "/REF_CC/SIM"
         except ftplib.error_temp as e:
             logging.warning(f"FTP connection error : {e} - Resetting connection.")
             ftp = get_ftp()
             ftp.cwd("/" + true_path)
         # downloading the file from FTP
         try:
-            with open(TMP_FOLDER + file_name, "wb") as local_file:
-                ftp.retrbinary("RETR " + file_name, local_file.write)
+            with open(
+                TMP_FOLDER + file_name, "wb"
+            ) as local_file:  # TMP_FOLDER = "/tmp/meteo_ftp/"
+                ftp.retrbinary(
+                    "RETR " + file_name, local_file.write
+                )  # create/write "QUOT_SIM2_latest-2020-202311.csv.gz"
         except ftplib.error_perm as e:
             logging.warning(f"> Could not retrieve {file_name} from FTP: {e}")
             continue
 
-        if file_to_transfer in s3_files:
+        if (
+            file_to_transfer in s3_files
+        ):  # if "/REF_CC/SIM/QUOT_SIM2_latest" in {"/REF_CC/SIM/QUOT_SIM2_latest":..., }
             if (
                 s3_files[file_to_transfer]["file_path"]
                 != ftp_files[file_to_transfer]["file_path"]
             ):
+                #! issue here : if an old file were to be stored as latest (see mentions above)
+                # the diff doesn't check which names match a more recent version.
+                # an accidental deletion on the ftp of the latest file trigger an update
+                # to an older file if this one is still on the sftp - but that's an edge case
                 logging.info(
                     f"♻️ Old version {s3_files[file_to_transfer]['file_path']} "
                     f"will be replaced with {ftp_files[file_to_transfer]['file_path']}"
                 )
                 # storing files that have changed name with update as {"new_name": "old_name"}
+                # {"/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz": "/REF_CC/SIM/QUOT_SIM2_latest-2020-202310.csv.gz", "...":"..."}
                 files_to_update_new_name[ftp_files[file_to_transfer]["file_path"]] = (
                     s3_files[file_to_transfer]["file_path"]
                 )
             else:
                 logging.info("🔃 This file already exists, it will only be updated")
                 files_to_update_same_name.append(
-                    s3_files[file_to_transfer]["file_path"]
+                    s3_files[file_to_transfer][
+                        "file_path"
+                    ]  # s3/ftp file path are the same
                 )
+                # ["/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz", ...]
         else:
             logging.info("🆕 This is a completely new file")
             new_files.append(ftp_files[file_to_transfer]["file_path"])
+            # ["/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz", ...]
 
         # sending file to S3
         try:
@@ -397,7 +483,7 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
                 ignore_airflow_env=True,
                 is_public=True,
             )
-            updated_datasets.add(global_path)
+            updated_datasets.add(global_path)  # set of {"BASE/DECAD", ...}
         except Exception:
             logging.error("⚠️ Unable to send file")
         os.remove(f"{TMP_FOLDER}{file_name}")
@@ -410,11 +496,8 @@ def get_and_upload_file_diff_ftp_s3(**context) -> None:
         f"{len(files_to_update_new_name)} updated new name: {files_to_update_new_name}"
     )
 
-    logging.info(
-        "Re-fetch S3 files in case new files have been transfered for downstream tasks"
-    )
-
-    # re-fetch S3 files in case new files have been transfered for downstream tasks
+    # re-getting S3 files in case new files have been transfered for downstream tasks
+    # probably new files pushed by this same task above in s3_meteo.send_file(...)
     s3_files = s3_meteo.get_all_files_names_and_sizes_from_parent_folder(
         folder=s3_folder,
     )
@@ -460,6 +543,7 @@ def upload_new_files(**context) -> None:
 
     # adding files that are on s3, not updated from FTP in this batch,
     # but that are missing on data.gouv
+    #! any file in s3 and in config will be uploaded, regarless of duplicate latest
     for file_path in reversed(s3_files.keys()):
         clean_file_path = file_path.replace(s3_folder, "")
         _, global_path = get_path(clean_file_path)
@@ -477,7 +561,7 @@ def upload_new_files(**context) -> None:
             and not clean_file_path.endswith("/")
         ):
             # this handles the case of files having been deleted from data.gouv
-            # but not from S3
+            # but not from S3 #! it doesnt handle it
             logging.info(f"This file is not on data.gouv, uploading: {clean_file_path}")
             new_files.append(clean_file_path)
 
@@ -515,6 +599,8 @@ def upload_new_files(**context) -> None:
             updated_datasets.add(global_path)
         except KeyError:
             logging.warning("⚠️ no config for this file")
+            #! why go over all those steps for files not in config ? waste of compute
+            # They should never be part of the whole parsing (s3,ftp,...) and could directly go into a warning phase from the listing ops
             # the file was not uploaded, removing it from the list of new files
             went_wrong.append(clean_file_path)
     context["ti"].xcom_push(key="new_files_datasets", value=new_files_datasets)
@@ -553,7 +639,7 @@ def handle_updated_files_same_name(**context) -> None:
             logging.info(
                 "⚠️ this file is not on data.gouv yet, it will be added as a new file"
             )
-            # new_files.append(file_path)
+            # new_files.append(file_path) #! why is it commented ?
             continue
         local_client.resource(
             id=resources_lists[global_path][url]["id"],
@@ -611,7 +697,7 @@ def handle_updated_files_new_name(**context) -> None:
                 "filesize": s3_files[s3_folder + file_path],
             }
             | (
-                # for resources that we want to keep the same name
+                # for resources that we want to keep the same name #! why if this is for new name
                 {}
                 if resource_name is None
                 else {
