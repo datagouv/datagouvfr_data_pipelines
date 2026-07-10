@@ -20,6 +20,7 @@ from datagouvfr_data_pipelines.schema.utils.consolidation import comparer_versio
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from feedgen.feed import FeedGenerator
 from git import Git, Repo
 from table_schema_to_markdown import convert_source, sources_to_markdown
@@ -980,15 +981,23 @@ def get_template_github_issues():
         url = (
             "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?state=all"
         )
+
+        # raise_for_status must happen inside the retried function, otherwise a rate
+        # limiting response (403/429) is a successful call and never triggers a retry
+        @simple_connection_retry
+        def get_page(page: int):
+            response = requests.get(
+                url + f"&page={page}",
+                # could need to specify token if rate limited
+            )
+            response.raise_for_status()
+            return response.json()
+
         issues = []
         page = 1
         while True:
             try:
-                response = requests.get(
-                    url + f"&page={page}",
-                    # could need to specify token if rate limited
-                )
-                response.raise_for_status()
+                batch = get_page(page)
             except Exception as e:
                 raise Exception(
                     f"Error while trying to get all Github issues : {e}"
@@ -996,8 +1005,8 @@ def get_template_github_issues():
                     "in the headers, or wait a couple of minutes and retry"
                 )
             # unauthenticated calls have a 60 calls/hour rate limit, we call twice in parallel (prod/preprod), keeping slack
-            issues.extend(response.json())
-            if len(response.json()) < 30:
+            issues.extend(batch)
+            if len(batch) < 30:
                 break
             page += 1
             sleep(2.5)
