@@ -266,7 +266,11 @@ def get_current_files_on_s3(**context) -> None:
     # de même ici, on utilise les balises pour cibler les fichiers du S3
     # qui devront être remplacés
     final_s3_files = {}
+    period_starts: dict = {}  # getting the start of each time period to update datasets temporal_coverage
     for file_path in s3_files:
+        # file = "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz"
+        # s3_folder = "data/synchro_ftp/" => get_path("REF_CC/SIM/QUOT_SIM2_latest-....csv.gz")
+        # path = ("REF_CC/SIM","REF_CC/SIM)
         clean_file_path = file_path.replace(s3_folder, "")
         file_name = clean_file_path.split("/")[-1]
         true_path, global_path = get_path(
@@ -288,32 +292,22 @@ def get_current_files_on_s3(**context) -> None:
             #     "file_path": REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz,
             #     "size": int,
             # }
-            #! Here again, if multiple files have the same build_file_id on S3, they are overriden in the loop
-            # Because S3 listing is alphabetical order, it should be okay-ish but might silently fails in case of
-            # 20260501-202060608 vs 202605-202060608 (it has been seen by memory)
-
-    # getting the start of each time period to update datasets temporal_coverage
-    period_starts: dict = {}
-    for file in s3_files:
-        # file = "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz"
-        # s3_folder = "data/synchro_ftp/" => get_path("REF_CC/SIM/QUOT_SIM2_latest-....csv.gz")
-        # path = ("REF_CC/SIM","REF_CC/SIM)
-        path = get_path(file.replace(s3_folder, ""))
-        #! Bug here, get_path returns a tuple, not a string so the "if" block after would never work
-        # Here later in the code, it is used to update the temporal coverage metadata on the dataset
-        # This was verified on SIM - quot. and indeed it isn't updated since the commit date (feb 25)
-        file_with_ext = file.split("/")[-1]  # = "QUOT_SIM2_latest-....csv.gz"
-        if config.get(path, {}).get("source_pattern"):
-            match = re.match(config[path]["source_pattern"], file_with_ext)
-            params = match.groupdict() if match else {}
-            if params and "PERIOD" in params:
-                period_starts[path] = min(
-                    int(clean_hooks(params["PERIOD"]).split("-")[0]),
-                    period_starts.get(path, datetime.today().year),
-                )
+            if config.get(global_path, {}).get("source_pattern"):
+                match = re.match(config[global_path]["source_pattern"], file_name)
+                params = match.groupdict() if match else {}
+                if params and "PERIOD" in params:
+                    starting_year = int(
+                        clean_hooks(params["PERIOD"]).split("-")[0][0:4]
+                    )
+                    period_starts[global_path] = min(
+                        starting_year,
+                        period_starts.get(
+                            global_path, datetime.today().year
+                        ),  # keep only the min year looping on files
+                    )
     # Because period_starts might contain various date patterns that didn't exist +1y ago,
     # it must be checked first before re-enabling this block
-    logging.info("DEBUG: period_starts values:")
+    logging.info("period_starts values:")
     logging.info(period_starts)
 
     for f in final_s3_files:
@@ -731,39 +725,44 @@ def handle_updated_files_new_name(**context) -> None:
 
 @task()
 def update_temporal_coverages(**context) -> None:
+
     period_starts = context["ti"].xcom_pull(
         key="period_starts", task_ids="get_current_files_on_s3"
     )
     updated_datasets: set = set()
-    # datasets have been updated in all three tasks, we gather them here
-    for _task in [
-        "upload_new_files",
-        "handle_updated_files_same_name",
-        "handle_updated_files_new_name",
-    ]:
-        updated_datasets = updated_datasets | context["ti"].xcom_pull(
-            key="updated_datasets", task_ids=_task
-        )
-    logging.info("Updating datasets temporal_coverage")
-    for path in updated_datasets:
-        if path in period_starts:
-            # for now the tags are erased when touching the metadata so we save them and put them back
-            tags = requests.get(
-                f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
-            ).json()["tags"]
-            local_client.dataset(
-                config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
-            ).update(
-                payload={
-                    "temporal_coverage": {
-                        "start": datetime(period_starts[path], 1, 1).strftime(
-                            "%Y-%m-%dT%H:%M:%S.%fZ"
-                        ),
-                        "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                    },
-                    "tags": tags,
-                },
-            )
+
+    logging.info("DEBUG:")
+    logging.info(period_starts)
+    # Commenting while testing this correction
+    # # datasets have been updated in all three tasks, we gather them here
+    # for _task in [
+    #     "upload_new_files",
+    #     "handle_updated_files_same_name",
+    #     "handle_updated_files_new_name",
+    # ]:
+    #     updated_datasets = updated_datasets | context["ti"].xcom_pull(
+    #         key="updated_datasets", task_ids=_task
+    #     )
+    # logging.info("Updating datasets temporal_coverage")
+    # for path in updated_datasets:
+    #     if path in period_starts:
+    #         # for now the tags are erased when touching the metadata so we save them and put them back
+    #         tags = requests.get(
+    #             f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
+    #         ).json()["tags"]
+    #         local_client.dataset(
+    #             config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
+    #         ).update(
+    #             payload={
+    #                 "temporal_coverage": {
+    #                     "start": datetime(period_starts[path], 1, 1).strftime(
+    #                         "%Y-%m-%dT%H:%M:%S.%fZ"
+    #                     ),
+    #                     "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+    #                 },
+    #                 "tags": tags,
+    #             },
+    #         )
     context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
 
 
