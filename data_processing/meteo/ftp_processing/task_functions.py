@@ -1,6 +1,7 @@
 """
-This script is being refactored and is heavy in comments. 
+This script is being refactored and is heavy in comments.
 """
+
 from email.utils import parsedate_to_datetime
 import ftplib
 import json
@@ -206,6 +207,7 @@ def get_current_files_on_ftp(**context) -> None:
     ftp = get_ftp()
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
+    unprocessed_ftp_files = []
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
     # des fichiers qui changent de nom lors de mises à jour (QUOT_SIM2_2020-202309.csv.gz
     # qui devient QUOT_SIM2_2020-202310.csv.gz), on utilise des balises afin de cibler ces fichiers
@@ -216,35 +218,42 @@ def get_current_files_on_ftp(**context) -> None:
             path = path.lstrip("/")
             # we keep path in the key just in case two files would have the same name/id
             # but in different folders
-            _, global_path = get_path(
+            true_path, global_path = get_path(
                 path + "/" + file
             )  # get global_path = "BASE/DECAD" for "BASE/DECAD/DECADQ_01_1852-1949.csv.gz"
-            ftp_files[path + "/" + build_file_id(file, global_path)] = {
-                "file_path": path
-                + "/"
-                + file,  # end up like "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
-                "size": size,
-                "modif_date": previous_date_parse(" ".join(date_list)),
-            }
-            # It looks like :
-            # ftp_files["/REF_CC/SIM/QUOT_SIM2_latest"] = {
-            #     "file_path": "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
-            #     "size": int,
-            #     "modif_date": datetime,
-            # }
-            # Ex:
-            # "BASE/INFOS_POSTES/49/Departement_49_station_49307001_commune_LOIRE-AUTHION": {'file_path': 'BASE/INFOS_POSTES/49/49307001_49_LOIRE-AUTHION.pdf', 'size': 1180595, 'modif_date': datetime.datetime(2026, 7, 2, 8, 40)}
-            # "BASE/HOR/HOR_departement_58_periode_previous": {'file_path': 'BASE/HOR/H_58_previous-2020-2024.csv.gz', 'size': 20233492, 'modif_date': datetime.datetime(2026, 7, 1, 8, 16)}
-            # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_latest": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_latest-2025-2026.csv.gz', 'size': 6470, 'modif_date': datetime.datetime(2026, 7, 9, 5, 26)}
-            # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_previous": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_previous-1950-2024.csv.gz', 'size': 42935, 'modif_date': datetime.datetime(2026, 7, 2, 14, 46)}
-            # "BASE/DECADAGRO/DECADAGRO_departement_95_periode_avant-1949": {'file_path': 'BASE/DECADAGRO/DECADAGRO_95_avant-1949.csv.gz', 'size': 64813, 'modif_date': datetime.datetime(2026, 7, 2, 13, 49)}
-            # ! Here, it means that when multiple files have the same ID (generated through build_file_id) on the sftp,
-            # they override one another in the dict into the loop. Because sftp files are listed alphabetically,
-            # this behavior is "silent" and doesn't cause a visible error. Might still be managed otherwise
+            if global_path not in config:
+                logging.info(
+                    f"This file is not in config and won't be processed: {true_path}"
+                )
+                unprocessed_ftp_files.append(true_path)
+            else:
+                ftp_files[path + "/" + build_file_id(file, global_path)] = {
+                    "file_path": path
+                    + "/"
+                    + file,  # end up like "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
+                    "size": size,
+                    "modif_date": previous_date_parse(" ".join(date_list)),
+                }
+                # It looks like :
+                # ftp_files["/REF_CC/SIM/QUOT_SIM2_latest"] = {
+                #     "file_path": "/REF_CC/SIM/QUOT_SIM2_latest-2020-202311.csv.gz"
+                #     "size": int,
+                #     "modif_date": datetime,
+                # }
+                # Ex:
+                # "BASE/INFOS_POSTES/49/Departement_49_station_49307001_commune_LOIRE-AUTHION": {'file_path': 'BASE/INFOS_POSTES/49/49307001_49_LOIRE-AUTHION.pdf', 'size': 1180595, 'modif_date': datetime.datetime(2026, 7, 2, 8, 40)}
+                # "BASE/HOR/HOR_departement_58_periode_previous": {'file_path': 'BASE/HOR/H_58_previous-2020-2024.csv.gz', 'size': 20233492, 'modif_date': datetime.datetime(2026, 7, 1, 8, 16)}
+                # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_latest": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_latest-2025-2026.csv.gz', 'size': 6470, 'modif_date': datetime.datetime(2026, 7, 9, 5, 26)}
+                # "BASE/DECAD_COMP/DECAD-COMP_departement_03_periode_previous": {'file_path': 'BASE/DECAD_COMP/DECADQ-COMP_03_previous-1950-2024.csv.gz', 'size': 42935, 'modif_date': datetime.datetime(2026, 7, 2, 14, 46)}
+                # "BASE/DECADAGRO/DECADAGRO_departement_95_periode_avant-1949": {'file_path': 'BASE/DECADAGRO/DECADAGRO_95_avant-1949.csv.gz', 'size': 64813, 'modif_date': datetime.datetime(2026, 7, 2, 13, 49)}
+                # ! Here, it means that when multiple files have the same ID (generated through build_file_id) on the sftp,
+                # they override one another in the dict into the loop. Because sftp files are listed alphabetically,
+                # this behavior is "silent" and doesn't cause a visible error. Might still be managed otherwise
 
     for f in ftp_files:
         logging.info(f"{f}: {ftp_files[f]}")
     context["ti"].xcom_push(key="ftp_files", value=ftp_files)
+    context["ti"].xcom_push(key="unprocessed_ftp_files", value=unprocessed_ftp_files)
 
 
 @task()
@@ -253,6 +262,36 @@ def get_current_files_on_s3(**context) -> None:
         folder=s3_folder
     )
     # s3_files = generator with item like {"data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz" : 123456}
+    unprocessed_s3_files = []
+    # de même ici, on utilise les balises pour cibler les fichiers du S3
+    # qui devront être remplacés
+    final_s3_files = {}
+    for file_path in s3_files:
+        clean_file_path = file_path.replace(s3_folder, "")
+        file_name = clean_file_path.split("/")[-1]
+        true_path, global_path = get_path(
+            clean_file_path
+        )  # (BASE/INFOS_POSTES/01, BASE/INFOS_POSTES) for BASE/INFOS_POSTES/01/01010001_01_ANGLEFORT.pdf
+        if global_path not in config:
+            logging.info(
+                f"This file is not in config and won't be processed: {true_path}"
+            )
+            unprocessed_s3_files.append(true_path)
+        else:
+            final_s3_files[true_path + "/" + build_file_id(file_name, global_path)] = {
+                "file_path": clean_file_path,
+                "size": s3_files[file_path],
+            }
+            # Ex. for "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz"
+            # final_s3_files["REF_CC/SIM" + "/" + build_file_id("QUOT_SIM2_latest-20260501-202060608.csv.gz", "REF_CC/SIM")]
+            # final_s3_files["REF_CC/SIM/QUOT_SIM2_latest"] = {
+            #     "file_path": REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz,
+            #     "size": int,
+            # }
+            #! Here again, if multiple files have the same build_file_id on S3, they are overriden in the loop
+            # Because S3 listing is alphabetical order, it should be okay-ish but might silently fails in case of
+            # 20260501-202060608 vs 202605-202060608 (it has been seen by memory)
+
     # getting the start of each time period to update datasets temporal_coverage
     period_starts: dict = {}
     for file in s3_files:
@@ -277,32 +316,11 @@ def get_current_files_on_s3(**context) -> None:
     logging.info("DEBUG: period_starts values:")
     logging.info(period_starts)
 
-    # de même ici, on utilise les balises pour cibler les fichiers du S3
-    # qui devront être remplacés
-    final_s3_files = {}
-    for file_path in s3_files:
-        clean_file_path = file_path.replace(s3_folder, "")
-        file_name = clean_file_path.split("/")[-1]
-        true_path, global_path = get_path(
-            clean_file_path
-        )  # (BASE/INFOS_POSTES/01, BASE/INFOS_POSTES) for BASE/INFOS_POSTES/01/01010001_01_ANGLEFORT.pdf
-        final_s3_files[true_path + "/" + build_file_id(file_name, global_path)] = {
-            "file_path": clean_file_path,
-            "size": s3_files[file_path],
-        }
-        # Ex. for "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz"
-        # final_s3_files["REF_CC/SIM" + "/" + build_file_id("QUOT_SIM2_latest-20260501-202060608.csv.gz", "REF_CC/SIM")]
-        # final_s3_files["REF_CC/SIM/QUOT_SIM2_latest"] = {
-        #     "file_path": REF_CC/SIM/QUOT_SIM2_latest-20260501-202060608.csv.gz,
-        #     "size": int,
-        # }
-        #! Here again, if multiple files have the same build_file_id on S3, they are overriden in the loop
-        # Because S3 listing is alphabetical order, it should be okay-ish but might silently fails in case of
-        # 20260501-202060608 vs 202605-202060608 (it has been seen by memory)
-
     for f in final_s3_files:
         logging.info(f"{f}: {final_s3_files[f]}")
+
     context["ti"].xcom_push(key="s3_files", value=final_s3_files)
+    context["ti"].xcom_push(key="unprocessed_s3_files", value=unprocessed_s3_files)
     context["ti"].xcom_push(key="period_starts", value=period_starts)
 
 
@@ -828,6 +846,12 @@ def notification(**context) -> None:
     updated_datasets = context["ti"].xcom_pull(
         key="updated_datasets", task_ids="update_temporal_coverages"
     )
+    unprocessed_ftp_files = context["ti"].xcom_pull(
+        key="unprocessed_ftp_files", task_ids="get_current_files_on_ftp"
+    )
+    unprocessed_s3_files = context["ti"].xcom_pull(
+        key="unprocessed_s3_files", task_ids="get_current_files_on_s3"
+    )
     logging.info(new_files_datasets)
     logging.info(updated_datasets)
 
@@ -900,4 +924,14 @@ def notification(**context) -> None:
         message += "\n\n⚠️ Des ressources semblent en trop :\n"
         for file_id in not_unique:
             message += f"    - {file_id}\n"
+    if unprocessed_ftp_files:
+        # this means MétéoFrance should remove them from the FTP or give us details about config
+        message += "\n\n⚠️ Des fichiers sur le FTP ne font pas partie de la config. :\n"
+        for path in unprocessed_ftp_files:
+            message += f"    - {path}\n"
+    if unprocessed_s3_files:
+        # this means we need to clean our S3 to remove this files
+        message += "\n\n⚠️ Des fichiers sur le S3 ne font pas partie de la config. :\n"
+        for path in unprocessed_s3_files:
+            message += f"    - {path}\n"
     send_message(message)
