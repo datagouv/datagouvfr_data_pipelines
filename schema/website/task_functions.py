@@ -20,6 +20,7 @@ from datagouvfr_data_pipelines.schema.utils.consolidation import comparer_versio
 from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_markdown
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from feedgen.feed import FeedGenerator
 from git import Git, Repo
 from table_schema_to_markdown import convert_source, sources_to_markdown
@@ -975,30 +976,45 @@ def check_and_save_schemas(suffix, **context):
     logging.info(f"End of process errors: {ERRORS_REPORT}")
 
 
-def get_template_github_issues():
+def get_template_github_issues(suffix):
     def get_all_issues():
+        if suffix == "_prod":
+            logging.info(
+                "Waiting for 1h to reset the 60 calls/hour rate limit for unauthenticated Github resquests"
+            )
+            sleep(3600)
         url = (
             "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?state=all"
         )
-        issues = []
-        page = 1
-        while True:
+
+        # raise_for_status must happen inside the retried function, otherwise a rate
+        # limiting response (403/429) is a successful call and never triggers a retry
+        @simple_connection_retry
+        def get_page(page: int):
             response = requests.get(
                 url + f"&page={page}",
                 # could need to specify token if rate limited
             )
-            if response.status_code == 200:
-                issues.extend(response.json())
-                if len(response.json()) < 30:
-                    break
-                page += 1
-            else:
+            response.raise_for_status()
+            return response.json()
+
+        issues = []
+        page = 1
+        while True:
+            try:
+                batch = get_page(page)
+            except Exception as e:
                 raise Exception(
-                    "This shouldn't fail, maybe consider adding a token "
+                    f"Error while trying to get all Github issues : {e}"
+                    "Note: This shouldn't fail, maybe consider adding a token "
                     "in the headers, or wait a couple of minutes and retry"
                 )
             # unauthenticated calls have a 60 calls/hour rate limit, we call twice in parallel (prod/preprod), keeping slack
-            sleep(2.5)
+            issues.extend(batch)
+            if len(batch) < 30:
+                break
+            page += 1
+            sleep(30)
         return issues
 
     logging.info("Getting issues from repo")
@@ -1106,7 +1122,7 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
-    issues = get_template_github_issues()
+    issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
     # in one state or another
     logging.info("Gathering issues in groups")
