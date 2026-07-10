@@ -983,21 +983,23 @@ def get_template_github_issues():
         issues = []
         page = 1
         while True:
-            response = requests.get(
-                url + f"&page={page}",
-                # could need to specify token if rate limited
-            )
-            if response.status_code == 200:
-                issues.extend(response.json())
-                if len(response.json()) < 30:
-                    break
-                page += 1
-            else:
+            try:
+                response = requests.get(
+                    url + f"&page={page}",
+                    # could need to specify token if rate limited
+                )
+                response.raise_for_status()
+            except Exception as e:
                 raise Exception(
-                    "This shouldn't fail, maybe consider adding a token "
+                    f"Error while trying to get all Github issues : {e}"
+                    "Note: This shouldn't fail, maybe consider adding a token "
                     "in the headers, or wait a couple of minutes and retry"
                 )
             # unauthenticated calls have a 60 calls/hour rate limit, we call twice in parallel (prod/preprod), keeping slack
+            issues.extend(response.json())
+            if len(response.json()) < 30:
+                break
+            page += 1
             sleep(2.5)
         return issues
 
