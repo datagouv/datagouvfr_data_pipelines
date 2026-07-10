@@ -978,7 +978,7 @@ def check_and_save_schemas(suffix, **context):
 
 
 def get_template_github_issues(suffix):
-    def get_all_issues():
+    def get_all_issues(suffix):
         if suffix == "_prod":
             logging.info(
                 "Waiting for 1h to reset the 60 calls/hour rate limit for unauthenticated Github resquests"
@@ -1002,6 +1002,7 @@ def get_template_github_issues(suffix):
         issues = []
         page = 1
         while True:
+            sleep(60)  # about 12 pages x 2 (prod/preprod) so 24min waiting
             try:
                 batch = get_page(page)
             except Exception as e:
@@ -1015,11 +1016,11 @@ def get_template_github_issues(suffix):
             if len(batch) < 30:
                 break
             page += 1
-            sleep(30)
+
         return issues
 
     logging.info("Getting issues from repo")
-    issues = get_all_issues()
+    issues = get_all_issues(suffix)
     logging.info("Sorting relevant issues")
     dates = {}
     for issue in issues:
