@@ -1,3 +1,6 @@
+"""
+This script is being refactored and is heavy in comments. 
+"""
 from email.utils import parsedate_to_datetime
 import ftplib
 import json
