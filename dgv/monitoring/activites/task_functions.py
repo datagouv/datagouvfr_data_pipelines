@@ -234,7 +234,7 @@ def get_organization(data: dict) -> str:
 
 def schema_suspicion(catalog: dict, resource: dict, orga: str):
     schemas = [schema["title"] for schema in catalog]
-    best_score = 0
+    best_score = 0.0
     schema_title = ""
     for schema in schemas:
         score = similar(schema, resource["name"])

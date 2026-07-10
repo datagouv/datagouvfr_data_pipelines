@@ -37,7 +37,7 @@ with DAG(
     default_args=default_args,
 ):
     branches = ["main", "preprod"]
-    tasks = {}
+    tasks: dict = {}
     for branch in branches:
         suffix = "_prod" if branch == "main" else f"_{branch}"
         tmp_folder = f"{AIRFLOW_DAG_TMP}schema_website_publication{suffix}/"

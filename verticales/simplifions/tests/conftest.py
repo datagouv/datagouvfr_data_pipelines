@@ -29,7 +29,7 @@ def _task_passthrough(fn=None, **kwargs):
     return decorator
 
 
-airflow_decorators_mock.task = _task_passthrough
+setattr(airflow_decorators_mock, "task", _task_passthrough)
 sys.modules["airflow"] = airflow_mock
 sys.modules["airflow.decorators"] = airflow_decorators_mock
 

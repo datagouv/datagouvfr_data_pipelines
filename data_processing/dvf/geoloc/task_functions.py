@@ -6,11 +6,10 @@ import re
 from time import sleep
 from zipfile import ZipFile
 
-from airflow.sdk import task
-from datagouv import Dataset
 import pandas as pd
 import requests
-
+from airflow.sdk import task
+from datagouv import Dataset
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,

@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
+
 import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
@@ -232,7 +233,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
     path = build_folder_path(model, pack, grid)
     logging.info(f"Getting {len(to_get)} files")
     # we could also put the content of the loop within an async function and process the files simultaneously
-    uploaded = []
+    uploaded: list = []
     my_packages = set()
     meteo_client = MeteoClient()
     s3_pnt = S3Client(**s3_client_kwargs)
@@ -278,7 +279,7 @@ def send_files_to_s3(model: str, pack: str, grid: str, **context) -> None:
     context["ti"].xcom_push(key="uploaded", value=uploaded)
 
 
-def build_file_id_and_date(file_name: str) -> str:
+def build_file_id_and_date(file_name: str) -> tuple[str, str]:
     # final files look like "arome__001__HP1__00H__2025-02-24T09:00:00Z.grib2"
     # on data.gouv we will expose only the latest occurrence of model+grid+package+batch
     # so we build an id (aka just remove the date) to compare files
@@ -316,7 +317,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
     s3_pnt = S3Client(**s3_client_kwargs)
 
     # getting the latest available occurrence of each file on S3
-    latest_files = {}
+    latest_files: dict = {}
     batches_on_s3 = [
         path.split("/")[-2]
         for path in s3_pnt.get_folders_from_prefix(

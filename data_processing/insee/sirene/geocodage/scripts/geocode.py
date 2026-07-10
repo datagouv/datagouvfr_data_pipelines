@@ -8,6 +8,7 @@ import random
 import re
 import sqlite3
 import sys
+from typing import Any
 
 # modules installés sur le serveur distant
 import requests
@@ -123,7 +124,7 @@ ok = 0
 total = 0
 cache = 0
 numbers = re.compile("(^[0-9]*)")
-stats = {
+stats: dict[str, Any] = {
     "action": "progress",
     "housenumber": 0,
     "interpolation": 0,

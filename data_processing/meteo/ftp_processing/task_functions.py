@@ -107,8 +107,8 @@ def build_file_id(file: str, path: str) -> str:
     # for this case, id of both files would be QUOT_SIM2_latest
     file_id = file
     if config.get(path, {}).get("source_pattern"):
-        params = re.match(config[path]["source_pattern"], file)
-        params = params.groupdict() if params else {}
+        match = re.match(config[path]["source_pattern"], file)
+        params = match.groupdict() if match else {}
         # TODO: hooks are technically a constant here and should be called HOOKS for better clarity
         # Could even be a typed Literal["previous","latest"]
         if "PERIOD" in params and any([h in params["PERIOD"] for h in hooks]):
@@ -254,7 +254,7 @@ def get_current_files_on_s3(**context) -> None:
     )
     # s3_files = generator with item like {"data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz" : 123456}
     # getting the start of each time period to update datasets temporal_coverage
-    period_starts = {}
+    period_starts: dict = {}
     for file in s3_files:
         # file = "data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz"
         # s3_folder = "data/synchro_ftp/" => get_path("REF_CC/SIM/QUOT_SIM2_latest-....csv.gz")
@@ -265,8 +265,8 @@ def get_current_files_on_s3(**context) -> None:
         # This was verified on SIM - quot. and indeed it isn't updated since the commit date (feb 25)
         file_with_ext = file.split("/")[-1]  # = "QUOT_SIM2_latest-....csv.gz"
         if config.get(path, {}).get("source_pattern"):
-            params = re.match(config[path]["source_pattern"], file_with_ext)
-            params = params.groupdict() if params else {}
+            match = re.match(config[path]["source_pattern"], file_with_ext)
+            params = match.groupdict() if match else {}
             if params and "PERIOD" in params:
                 period_starts[path] = min(
                     int(clean_hooks(params["PERIOD"]).split("-")[0]),
@@ -624,7 +624,7 @@ def handle_updated_files_same_name(**context) -> None:
     )
     resources_lists = get_resource_lists()
 
-    new_files = []
+    new_files: list = []
     for file_path in files_to_update_same_name:
         _, global_path = get_path(file_path)
         if global_path not in resources_lists:
@@ -716,7 +716,7 @@ def update_temporal_coverages(**context) -> None:
     period_starts = context["ti"].xcom_pull(
         key="period_starts", task_ids="get_current_files_on_s3"
     )
-    updated_datasets = set()
+    updated_datasets: set = set()
     # datasets have been updated in all three tasks, we gather them here
     for _task in [
         "upload_new_files",
@@ -844,7 +844,7 @@ def notification(**context) -> None:
                 else:
                     message += "mise à jour des métadonnées"
 
-    issues = defaultdict(dict)
+    issues: dict = defaultdict(dict)
     allowed_patterns = defaultdict(list)
     paths = {}
     for path in config:
@@ -855,7 +855,7 @@ def notification(**context) -> None:
             config[path]["name_template"]
         )
         paths[config[path]["dataset_id"][AIRFLOW_ENV]] = path
-    count_ids = defaultdict(int)
+    count_ids: dict = defaultdict(int)
     for dataset_id in allowed_patterns:
         resp = requests.get(
             f"{local_client.base_url}/api/1/datasets/{dataset_id}/",
@@ -872,7 +872,7 @@ def notification(**context) -> None:
                 continue
             clean_file_path = r["url"].split(s3_folder)[1]
             file_name = clean_file_path.split("/")[-1]
-            true_path, global_path = get_path(clean_file_path)
+            _, global_path = get_path(clean_file_path)
             count_ids[build_file_id(file_name, global_path)] += 1
             if any(k for k in allowed_patterns[dataset_id]) and not any(
                 r["title"].startswith(template.split("_")[0])

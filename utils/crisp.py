@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import requests
 from datagouvfr_data_pipelines.config import (
@@ -38,7 +39,7 @@ def get_page_conversations(
 
 def get_all_conversations() -> list[dict]:
     logging.info("Getting normal tickets")
-    shared_kwargs = {
+    shared_kwargs: dict[str, Any] = {
         "url": base_url,
         "tier": "plugin",
         "auth": requests.auth.HTTPBasicAuth(CRISP_PLUGIN_ID, CRISP_PLUGIN_TOKEN),
@@ -57,7 +58,7 @@ def get_all_conversations() -> list[dict]:
 def get_all_spam_conversations() -> list[dict]:
     # the /spams endpoint is not available with plugin credentials
     logging.info("Getting spam tickets")
-    shared_kwargs = {
+    shared_kwargs: dict[str, Any] = {
         "url": base_url + "spams/",
         "tier": "user",
         "auth": requests.auth.HTTPBasicAuth(CRISP_USER_ID, CRISP_USER_TOKEN),

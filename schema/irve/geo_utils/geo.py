@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from collections import defaultdict
 
 import geojson
 import pandas as pd
@@ -114,6 +115,8 @@ def fix_code_insee(
         r.raise_for_status()
         return r
 
+    counters: dict[str, int] = defaultdict(int)
+
     def enrich_row_address(row: pd.Series, session: requests.Session) -> pd.Series:
         if (
             # having this means the row has been enriched from yesterday's file, we just keep it
@@ -142,7 +145,7 @@ def fix_code_insee(
                 row["consolidated_commune"] = commune["nom"]
                 row["consolidated_is_lon_lat_correct"] = True
                 row["consolidated_is_code_insee_verified"] = True
-                enrich_row_address.already_good += 1
+                counters["already_good"] += 1
                 return row
             elif row[code_insee_col] in commune["codesPostaux"]:
                 # the INSEE code is actually a postcode
@@ -152,14 +155,14 @@ def fix_code_insee(
                 row["consolidated_commune"] = commune["nom"]
                 row["consolidated_is_lon_lat_correct"] = True
                 row["consolidated_is_code_insee_verified"] = True
-                enrich_row_address.code_fixed += 1
+                counters["code_fixed"] += 1
                 return row
             else:
                 # Lat lon match a commune which does not match the INSEE code
-                enrich_row_address.code_coords_mismatch += 1
+                counters["code_coords_mismatch"] += 1
         else:
             # Lat lon do not match any commune
-            enrich_row_address.no_match_coords += 1
+            counters["no_match_coords"] += 1
 
         if (
             pd.notna(row[code_insee_col])
@@ -179,7 +182,7 @@ def fix_code_insee(
                 row[code_insee_col] = commune["code"]
                 row["consolidated_is_code_insee_modified"] = True
                 row["consolidated_is_code_insee_verified"] = True
-                enrich_row_address.code_insee_is_postcode_in_address += 1
+                counters["code_insee_is_postcode_in_address"] += 1
                 return row
 
         if isinstance(row[code_insee_col], str) and row[code_insee_col]:
@@ -196,14 +199,14 @@ def fix_code_insee(
                             row["consolidated_code_postal"] = postcode
                             row["consolidated_commune"] = commune["nom"]
                             row["consolidated_is_code_insee_verified"] = True
-                            enrich_row_address.code_insee_has_postcode_in_address += 1
+                            counters["code_insee_has_postcode_in_address"] += 1
                             return row
 
         # None of the above checks succeeded. Code INSEE validity cannot be checked.
         # Geo data is not enriched using code INSEE due to risk of introducing fake data
         row["consolidated_code_postal"] = ""
         row["consolidated_commune"] = ""
-        enrich_row_address.nothing_matches += 1
+        counters["nothing_matches"] += 1
         # logging.warning(
         #     f"Could not retrieve infos for this combination: "
         #     f"coords: {row[coordinates_column]}, code INSEE: {row[code_insee_col]}"
@@ -213,13 +216,13 @@ def fix_code_insee(
     cols = list(df.columns)
     total_rows = len(df)
     session = requests.Session()
-    enrich_row_address.already_good = 0
-    enrich_row_address.code_fixed = 0
-    enrich_row_address.code_coords_mismatch = 0
-    enrich_row_address.no_match_coords = 0
-    enrich_row_address.code_insee_is_postcode_in_address = 0
-    enrich_row_address.code_insee_has_postcode_in_address = 0
-    enrich_row_address.nothing_matches = 0
+    counters["already_good"] = 0
+    counters["code_fixed"] = 0
+    counters["code_coords_mismatch"] = 0
+    counters["no_match_coords"] = 0
+    counters["code_insee_is_postcode_in_address"] = 0
+    counters["code_insee_has_postcode_in_address"] = 0
+    counters["nothing_matches"] = 0
 
     logging.info("Getting data from yesterday's file")
     # to prevent calling the address API for every row everyday, we get yesterday's data
@@ -282,30 +285,30 @@ def fix_code_insee(
     )
 
     logging.info(
-        f"Coords OK. INSEE codes already correct, simply enriched: {enrich_row_address.already_good}/{total_rows}"
+        f"Coords OK. INSEE codes already correct, simply enriched: {counters['already_good']}/{total_rows}"
     )
     logging.info(
         "Coords OK. INSEE code field contained postcode. Fixed and enriched: "
-        f"{enrich_row_address.code_fixed}/{total_rows}"
+        f"{counters['code_fixed']}/{total_rows}"
     )
     logging.info(
         "Coords not matching code INSEE field as code INSEE or postcode: "
-        f"{enrich_row_address.code_coords_mismatch}/{total_rows}"
+        f"{counters['code_coords_mismatch']}/{total_rows}"
     )
     logging.info(
-        f"Coords not matching any commune: {enrich_row_address.no_match_coords}/{total_rows}"
+        f"Coords not matching any commune: {counters['no_match_coords']}/{total_rows}"
     )
     logging.info(
         "Code INSEE is postcode in address. Fixed and enriched: "
-        f"{enrich_row_address.code_insee_is_postcode_in_address}/{total_rows}"
+        f"{counters['code_insee_is_postcode_in_address']}/{total_rows}"
     )
     logging.info(
         "Code INSEE has postcode in address. "
-        f"Enriched: {enrich_row_address.code_insee_has_postcode_in_address}/{total_rows}"
+        f"Enriched: {counters['code_insee_has_postcode_in_address']}/{total_rows}"
     )
     logging.info(
         "No indication of postcode/code INSEE in address or coordinates matching code INSEE field. "
-        f"No enriching performed: {enrich_row_address.nothing_matches}/{total_rows}"
+        f"No enriching performed: {counters['nothing_matches']}/{total_rows}"
     )
     return df
 

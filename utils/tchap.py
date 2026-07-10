@@ -1,6 +1,5 @@
 import logging
 
-from markdown import markdown
 import requests
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
@@ -9,6 +8,7 @@ from datagouvfr_data_pipelines.config import (
     TCHAP_ROOM_DATAENG,
     TCHAP_ROOM_DATAENG_TEST,
 )
+from markdown import markdown
 
 # https://spec.matrix.org/unstable/client-server-api/#size-limits
 MAX_MESSAGE_LENGTH = 65536
@@ -58,7 +58,7 @@ def send_message(
         while formatted.__sizeof__() > MAX_MESSAGE_LENGTH:
             formatted = formatted[:-10]
 
-    payload = {
+    payload: dict = {
         "msgtype": f"m.{message_type}",
         "body": "_",
         "format": "org.matrix.custom.html",

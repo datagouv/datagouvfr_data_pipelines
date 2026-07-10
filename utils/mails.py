@@ -25,9 +25,9 @@ def send_mail_datagouv(
         raise ValueError("Not enough information to send message")
 
     sender = email_user
-    message = message
-    subject = subject
-    message = emails.html(html="<p>%s</p>" % message, subject=subject, mail_from=sender)
+    email_message = emails.html(
+        html="<p>%s</p>" % message, subject=subject, mail_from=sender
+    )
 
     smtp = {
         "host": "mail.data.gouv.fr",
@@ -38,7 +38,7 @@ def send_mail_datagouv(
         "timeout": 60,
     }
     if attachment_path:
-        message.attach(
+        email_message.attach(
             data=open(attachment_path),
             filename=attachment_path.split("/")[-1],
         )
@@ -46,7 +46,7 @@ def send_mail_datagouv(
     retry = True
     tries = 0
     while retry:
-        r = message.send(to=email_recipients, smtp=smtp)
+        r = email_message.send(to=email_recipients, smtp=smtp)
         logging.info(r)
         tries = tries + 1
         if (r.status_code == 250) | (tries == 5):

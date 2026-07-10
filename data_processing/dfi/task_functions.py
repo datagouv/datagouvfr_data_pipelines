@@ -32,7 +32,7 @@ METADATA_FILE = "metadata.json"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config.json") as fp:
     config = json.load(fp)
 
-CREATE_NATURE_DFI_CODES = """CREATE OR REPLACE TABLE nature_dfi_codes AS 
+CREATE_NATURE_DFI_CODES = """CREATE OR REPLACE TABLE nature_dfi_codes AS
    SELECT data.code_nature_dfi::INTEGER AS code_nature_dfi, data.nom_nature_dfi
    FROM (VALUES (1,'document d’arpentage'),
    (2,'croquis de conservation'),

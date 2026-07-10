@@ -68,13 +68,13 @@ def list_months_between(start_date: datetime, end_date: datetime) -> list[str]:
         list[str]: A list of strings representing each month between the start and end dates included in the format 'YYYY-MM'.
     """
 
-    start_date = start_date.replace(day=1).date()
-    end_date = end_date.replace(day=1).date()
+    start = start_date.replace(day=1).date()
+    end = end_date.replace(day=1).date()
 
     months = []
-    current_date = start_date
+    current_date = start
 
-    while current_date <= end_date:
+    while current_date <= end:
         months.append(current_date.strftime("%Y-%m"))
         current_date += relativedelta(months=1)
 

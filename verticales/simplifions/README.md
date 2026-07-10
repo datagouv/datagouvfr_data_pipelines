@@ -91,7 +91,7 @@ cd /home/caillou/Apps/datagouv/data-engineering-stack/dags/datagouvfr_data_pipel
 rm -rf venv/
 ```
 
-Pour forcer airflow à lister ses DAGs : 
+Pour forcer airflow à lister ses DAGs :
 
 ```bash
 docker exec -it airflow-demo-test /bin/bash

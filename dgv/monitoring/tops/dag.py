@@ -62,7 +62,7 @@ with DAG(
         "reuses": "réutilisations",
     }
 
-    tasks = {}
+    tasks: dict = {}
     for freq, freq_label in freqs.items():
         prefix = "dai" if freq == "day" else freq
         tasks[freq] = []
