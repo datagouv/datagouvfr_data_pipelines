@@ -976,8 +976,13 @@ def check_and_save_schemas(suffix, **context):
     logging.info(f"End of process errors: {ERRORS_REPORT}")
 
 
-def get_template_github_issues():
+def get_template_github_issues(suffix):
     def get_all_issues():
+        if suffix == "_prod":
+            logging.info(
+                "Waiting for 1h to reset the 60 calls/hour rate limit for unauthenticated Github resquests"
+            )
+            sleep(3600)
         url = (
             "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?state=all"
         )
@@ -1009,7 +1014,7 @@ def get_template_github_issues():
             if len(batch) < 30:
                 break
             page += 1
-            sleep(2.5)
+            sleep(30)
         return issues
 
     logging.info("Getting issues from repo")
@@ -1117,7 +1122,7 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
-    issues = get_template_github_issues()
+    issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
     # in one state or another
     logging.info("Gathering issues in groups")
