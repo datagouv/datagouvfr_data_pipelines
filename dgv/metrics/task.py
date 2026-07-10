@@ -251,15 +251,35 @@ def copy_logs_to_processed_folder(**context) -> None:
     )
 
 
+# Order matters: each view reads the upstream materialized views, so we refresh
+# the base views first, then the aggregates.
+MATERIALIZED_VIEWS = [
+    "metrics_datasets",
+    "metrics_reuses",
+    "metrics_dataservices",
+    "metrics_organizations",
+    "datasets",
+    "reuses",
+    "dataservices",
+    "organizations",
+    "resources",
+    "site",
+    "datasets_total",
+    "reuses_total",
+    "dataservices_total",
+    "organizations_total",
+    "resources_total",
+]
+
+
 @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 def refresh_materialized_views() -> None:
-    PostgresClient(conn_name).execute_sql_file(
-        file=File(
-            source_path=f"{config.code_folder_full_path}/sql/",
-            source_name="refresh_materialized_views.sql",
-            column_order=None,
-        ),
-    )
+    # CONCURRENTLY (see PostgresClient.refresh_materialized_view) keeps the
+    # metrics API readable during the refresh, avoiding the 504 it caused behind
+    # the load balancer. It requires a UNIQUE index on each view (create_tables.sql).
+    client = PostgresClient(conn_name, schema=config.database_schema)
+    for view in MATERIALIZED_VIEWS:
+        client.refresh_materialized_view(view)
 
 
 @task()

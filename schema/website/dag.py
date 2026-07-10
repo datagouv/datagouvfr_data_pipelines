@@ -29,7 +29,9 @@ with DAG(
     dag_id="schema_website_publication",
     schedule="0 2 * * *",
     start_date=datetime(2024, 8, 10),
-    dagrun_timeout=timedelta(minutes=60),
+    dagrun_timeout=timedelta(
+        minutes=120
+    ),  # 1H timeout + 1H waiting between preprod and prod for update_news_feed task
     tags=["schemas", "backend", "schema.data.gouv.fr"],
     catchup=False,
     default_args=default_args,

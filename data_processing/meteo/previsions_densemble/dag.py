@@ -27,7 +27,7 @@ def create_dag(pack: str, grid: str):
         dagrun_timeout=timedelta(minutes=600),
         tags=["data_processing", "meteo", "sftp", pack],
         # runs can run in parallel, safeguards ensure they won't interfere
-        max_active_runs=2,
+        max_active_runs=6,
     )
     with dag:
         shared_kwargs = {"pack": pack, "grid": grid}
