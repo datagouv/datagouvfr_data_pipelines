@@ -30,8 +30,8 @@ with DAG(
     schedule="0 2 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(
-        minutes=120
-    ),  # 1H timeout + 1H waiting between preprod and prod for update_news_feed task
+        minutes=210
+    ),  # 2H timeout + 1H waiting between preprod and prod for update_news_feed task + 30min sleep fetching pages
     tags=["schemas", "backend", "schema.data.gouv.fr"],
     catchup=False,
     default_args=default_args,
