@@ -207,7 +207,7 @@ def get_current_files_on_ftp(**context) -> None:
     ftp = get_ftp()
     raw_ftp_files = list_ftp_files_recursive(ftp)
     ftp_files = {}
-    unprocessed_ftp_files = []
+    unprocessed_ftp_files = set()
     # pour distinguer les nouveaux fichiers (nouvelle décennie révolue, période stock...)
     # des fichiers qui changent de nom lors de mises à jour (QUOT_SIM2_2020-202309.csv.gz
     # qui devient QUOT_SIM2_2020-202310.csv.gz), on utilise des balises afin de cibler ces fichiers
@@ -223,9 +223,9 @@ def get_current_files_on_ftp(**context) -> None:
             )  # get global_path = "BASE/DECAD" for "BASE/DECAD/DECADQ_01_1852-1949.csv.gz"
             if global_path not in config:
                 logging.info(
-                    f"This file is not in config and won't be processed: {true_path}"
+                    f"This file is not in config and won't be processed: {path + '/' + file}"
                 )
-                unprocessed_ftp_files.append(true_path)
+                unprocessed_ftp_files.add(true_path)
             else:
                 ftp_files[path + "/" + build_file_id(file, global_path)] = {
                     "file_path": path
@@ -262,7 +262,7 @@ def get_current_files_on_s3(**context) -> None:
         folder=s3_folder
     )
     # s3_files = generator with item like {"data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_latest-....csv.gz" : 123456}
-    unprocessed_s3_files = []
+    unprocessed_s3_files = set()
     # de même ici, on utilise les balises pour cibler les fichiers du S3
     # qui devront être remplacés
     final_s3_files = {}
@@ -278,9 +278,9 @@ def get_current_files_on_s3(**context) -> None:
         )  # (BASE/INFOS_POSTES/01, BASE/INFOS_POSTES) for BASE/INFOS_POSTES/01/01010001_01_ANGLEFORT.pdf
         if global_path not in config:
             logging.info(
-                f"This file is not in config and won't be processed: {true_path}"
+                f"This file is not in config and won't be processed: {clean_file_path}"
             )
-            unprocessed_s3_files.append(true_path)
+            unprocessed_s3_files.add(true_path)
         else:
             final_s3_files[true_path + "/" + build_file_id(file_name, global_path)] = {
                 "file_path": clean_file_path,
@@ -296,15 +296,26 @@ def get_current_files_on_s3(**context) -> None:
                 match = re.match(config[global_path]["source_pattern"], file_name)
                 params = match.groupdict() if match else {}
                 if params and "PERIOD" in params:
-                    starting_year = int(
-                        clean_hooks(params["PERIOD"]).split("-")[0][0:4]
-                    )
-                    period_starts[global_path] = min(
-                        starting_year,
-                        period_starts.get(
-                            global_path, datetime.today().year
-                        ),  # keep only the min year looping on files
-                    )
+                    # first run of consecutive digits (tolerates a non-digit prefix),
+                    # ex: "latest-20260501-20260628" -> "20260501"
+                    year_match = re.search(r"\d+", params["PERIOD"])
+                    digits = year_match.group() if year_match else ""
+                    # a valid date has 4 (YYYY), 6 (YYYYMM) or 8 (YYYYMMDD) digits; anything else
+                    # (<4, 5-7, >8) is abnormal for a date and worth flagging
+                    if len(digits) not in (4, 6, 8):
+                        logging.warning(
+                            f"Abnormal date in PERIOD ({len(digits)} digits: '{digits}') "
+                            f"for {true_path}"
+                        )
+                        continue
+                    if digits:
+                        starting_year = int(digits[:4])  # first 4 digits = the year
+                        period_starts[global_path] = min(
+                            starting_year,
+                            period_starts.get(
+                                global_path, datetime.today().year
+                            ),  # keep only the min year looping on files
+                        )
     # Because period_starts might contain various date patterns that didn't exist +1y ago,
     # it must be checked first before re-enabling this block
     logging.info("period_starts values:")
@@ -750,14 +761,17 @@ def update_temporal_coverages(**context) -> None:
     #         tags = requests.get(
     #             f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
     #         ).json()["tags"]
+    #         start = period_starts[path]
+    #         # The dataset should already have the correct start date for the temporal coverage :
+    #         temporal_coverage = requests.get("http://www.data.gouv.fr/api/1/datasets/64a3df55936fa69f811e33af/", headers={"accept":"application/json", "x-fields":"temporal_coverage{start}"}).json()["temporal_coverage"]
+    #         if temporal_coverage:
+    #           start = min(start, temporal_coverage["start"][:4])
     #         local_client.dataset(
     #             config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
     #         ).update(
     #             payload={
     #                 "temporal_coverage": {
-    #                     "start": datetime(period_starts[path], 1, 1).strftime(
-    #                         "%Y-%m-%dT%H:%M:%S.%fZ"
-    #                     ),
+    #                     "start": datetime(start, 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
     #                     "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
     #                 },
     #                 "tags": tags,
