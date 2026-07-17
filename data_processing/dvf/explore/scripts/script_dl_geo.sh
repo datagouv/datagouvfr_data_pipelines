@@ -21,7 +21,4 @@ do
   echo Downloading $YEAR... && [ ! -f $DATADIR/full_$YEAR.csv.gz ] && curl -L https://files.data.gouv.fr/geo-dvf/latest/csv/$YEAR/full.csv.gz > $DATADIR/full-$YEAR.csv.gz
 done
 
-echo Unzipping DVF files...
-find $DATADIR -name '*.gz' -exec gunzip -f '{}' \;
-
 cd $DATADIR && ls -lh
