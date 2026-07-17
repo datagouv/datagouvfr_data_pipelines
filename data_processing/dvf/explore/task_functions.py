@@ -416,7 +416,7 @@ def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
 def process_dvf_stats() -> None:
     years = sorted(
         [
-            int(f.replace("full-", "").replace(".csv", ""))
+            int(f.replace("full-", "").replace(".csv", "").replace(".gz", ""))
             for f in os.listdir(TMP_FOLDER)
             if "full-" in f
         ]
