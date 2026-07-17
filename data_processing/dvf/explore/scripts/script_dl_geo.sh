@@ -18,7 +18,7 @@ jq -r '.[].contents[] | select(.name | endswith("edigeo")) | .contents[] | selec
 
 for YEAR in `seq $five_ago $curr_year`
 do
-  echo Downloading $YEAR... && [ ! -f $DATADIR/full_$YEAR.csv.gz ] && curl  https://files.data.gouv.fr/geo-dvf/latest/csv/$YEAR/full.csv.gz > $DATADIR/full_$YEAR.csv.gz
+  echo Downloading $YEAR... && [ ! -f $DATADIR/full_$YEAR.csv.gz ] && curl -L https://files.data.gouv.fr/geo-dvf/latest/csv/$YEAR/full.csv.gz > $DATADIR/full_$YEAR.csv.gz
 done
 
 echo Unzipping DVF files...
