@@ -421,6 +421,7 @@ def process_dvf_stats() -> None:
             if "full-" in f
         ]
     )
+    logging.info(f"Years to process: {years}")
     export = {}
     epci = pd.read_csv(
         TMP_FOLDER + "epci.csv",
