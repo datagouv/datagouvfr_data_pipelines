@@ -10,7 +10,6 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from email.utils import parsedate_to_datetime
 
 import requests
 from airflow.sdk import task
