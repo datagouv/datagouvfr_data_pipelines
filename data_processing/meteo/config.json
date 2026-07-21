@@ -245,17 +245,6 @@
         },
         "table_name": "refcc_simmens"
     },
-    "REF_CC/ETP_QUOT": {
-        "source_pattern": "QUOT_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
-        "name_template": "QUOT_ETPgrille_{PERIOD}",
-        "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP spatialisées quotidiennes sur l'année {PERIOD}",
-        "dataset_id": {
-            "prod": "661d079b6357625e12013241",
-            "dev": "661d06b9852e185c7b180db0"
-        },
-        "table_name": "refcc_etpquot"
-    },
     "REF_CC/ETP_DECAD": {
         "source_pattern": "DECAD_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "DECAD_ETPgrille_{PERIOD}",
