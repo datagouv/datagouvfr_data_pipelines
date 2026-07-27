@@ -20,7 +20,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install --upgrade pip
-            pip install ruff>=0.11.2
+            pip install ruff==0.15.20
             ruff --version
             ruff check .
             ruff format --check .

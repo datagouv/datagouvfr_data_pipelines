@@ -759,15 +759,23 @@ def update_temporal_coverages(**context) -> None:
             start = period_starts[path]
             # The dataset should already have the correct start date for the temporal coverage, ex. "1949-01-01" :
             # Note: below in `"x-fields":"temporal_coverage{start}"`, `start` refers to the json path and NOT to the variable above - not a f-string error
-            temporal_coverage = requests.get(f"http://www.data.gouv.fr/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/", headers={"accept":"application/json", "x-fields":"temporal_coverage{start}"}).json()["temporal_coverage"]
+            temporal_coverage = requests.get(
+                f"http://www.data.gouv.fr/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/",
+                headers={
+                    "accept": "application/json",
+                    "x-fields": "temporal_coverage{start}",
+                },
+            ).json()["temporal_coverage"]
             if temporal_coverage:
-              start = min(start, temporal_coverage["start"][:4])
+                start = min(start, temporal_coverage["start"][:4])
             local_client.dataset(
                 config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
             ).update(
                 payload={
                     "temporal_coverage": {
-                        "start": datetime(start, 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                        "start": datetime(start, 1, 1).strftime(
+                            "%Y-%m-%dT%H:%M:%S.%fZ"
+                        ),
                         "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                     },
                     "tags": tags,
