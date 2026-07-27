@@ -861,8 +861,6 @@ def notification(**context) -> None:
     unprocessed_s3_files = context["ti"].xcom_pull(
         key="unprocessed_s3_files", task_ids="get_current_files_on_s3"
     )
-    logging.info(new_files_datasets)
-    logging.info(updated_datasets)
 
     message = "##### 🌦️ Données météo mises à jour :\n"
     if not (new_files_datasets or updated_datasets):
