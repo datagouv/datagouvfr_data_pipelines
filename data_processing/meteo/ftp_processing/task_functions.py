@@ -741,41 +741,38 @@ def update_temporal_coverages(**context) -> None:
     )
     updated_datasets: set = set()
 
-    logging.info("DEBUG:")
-    logging.info(period_starts)
-    # Commenting while testing this correction
-    # # datasets have been updated in all three tasks, we gather them here
-    # for _task in [
-    #     "upload_new_files",
-    #     "handle_updated_files_same_name",
-    #     "handle_updated_files_new_name",
-    # ]:
-    #     updated_datasets = updated_datasets | context["ti"].xcom_pull(
-    #         key="updated_datasets", task_ids=_task
-    #     )
-    # logging.info("Updating datasets temporal_coverage")
-    # for path in updated_datasets:
-    #     if path in period_starts:
-    #         # for now the tags are erased when touching the metadata so we save them and put them back
-    #         tags = requests.get(
-    #             f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
-    #         ).json()["tags"]
-    #         start = period_starts[path]
-    #         # The dataset should already have the correct start date for the temporal coverage :
-    #         temporal_coverage = requests.get("http://www.data.gouv.fr/api/1/datasets/64a3df55936fa69f811e33af/", headers={"accept":"application/json", "x-fields":"temporal_coverage{start}"}).json()["temporal_coverage"]
-    #         if temporal_coverage:
-    #           start = min(start, temporal_coverage["start"][:4])
-    #         local_client.dataset(
-    #             config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
-    #         ).update(
-    #             payload={
-    #                 "temporal_coverage": {
-    #                     "start": datetime(start, 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-    #                     "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-    #                 },
-    #                 "tags": tags,
-    #             },
-    #         )
+    for _task in [
+        "upload_new_files",
+        "handle_updated_files_same_name",
+        "handle_updated_files_new_name",
+    ]:
+        updated_datasets = updated_datasets | context["ti"].xcom_pull(
+            key="updated_datasets", task_ids=_task
+        )
+    logging.info("Updating datasets temporal_coverage")
+    for path in updated_datasets:
+        if path in period_starts:
+            # for now the tags are erased when touching the metadata so we save them and put them back
+            tags = requests.get(
+                f"{local_client.base_url}/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/"
+            ).json()["tags"]
+            start = period_starts[path]
+            # The dataset should already have the correct start date for the temporal coverage, ex. "1949-01-01" :
+            # Note: below in `"x-fields":"temporal_coverage{start}"`, `start` refers to the json path and NOT to the variable above - not a f-string error
+            temporal_coverage = requests.get(f"http://www.data.gouv.fr/api/1/datasets/{config[path]['dataset_id'][AIRFLOW_ENV]}/", headers={"accept":"application/json", "x-fields":"temporal_coverage{start}"}).json()["temporal_coverage"]
+            if temporal_coverage:
+              start = min(start, temporal_coverage["start"][:4])
+            local_client.dataset(
+                config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
+            ).update(
+                payload={
+                    "temporal_coverage": {
+                        "start": datetime(start, 1, 1).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                        "end": datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                    },
+                    "tags": tags,
+                },
+            )
     context["ti"].xcom_push(key="updated_datasets", value=updated_datasets)
 
 
