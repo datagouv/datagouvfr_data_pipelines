@@ -245,17 +245,6 @@
         },
         "table_name": "refcc_simmens"
     },
-    "REF_CC/ETP_DECAD": {
-        "source_pattern": "DECAD_ETPgrille_(?P<PERIOD>[^_]+).csv.gz",
-        "name_template": "DECAD_ETPgrille_{PERIOD}",
-        "doc_pattern": "^(?:(?!csv\\.gz$).)*$",
-        "description_template": "Données ETP spatialisées décadaires sur l'année {PERIOD}",
-        "dataset_id": {
-            "prod": "661d0762109ece6f985e9857",
-            "dev": "661d0734eddf136314176ecd"
-        },
-        "table_name": "refcc_etpdecad"
-    },
     "REF_CC/ETP_FAO": {
         "source_pattern": "ETP_Hargreaves_coefficient_0.175_(?P<PERIOD>[^_]+).csv.gz",
         "name_template": "ETP_Hargreaves_coefficient_0.175_{PERIOD}",
@@ -299,17 +288,6 @@
             "dev": "67a0cfdc2a98ab4e3079792d"
         },
         "table_name": null
-    },
-    "REF_CC/NIVO": {
-        "source_pattern": "donnees_nivologiques_(?P<PERIOD>[^_]+).csv.gz",
-        "name_template": "donnees_nivologiques_{PERIOD}",
-        "doc_pattern": null,
-        "description_template": "Données nivologiques sur l'année {PERIOD}",
-        "dataset_id": {
-            "prod": "68243ea47db32bb739936ef7",
-            "dev": "68244550505b067d9cc89ddb"
-        },
-        "table_name": "refcc_nivo"
     },
     "REF_STATION": {
         "source_pattern": "FICHECLIM_(?P<ID>[^_.]+).(?P<EXT>[^_]+)",
