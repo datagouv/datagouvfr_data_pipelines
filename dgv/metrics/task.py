@@ -22,14 +22,14 @@ from datagouvfr_data_pipelines.dgv.metrics.task_functions import (
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File, remove_files_from_directory
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 from datagouvfr_data_pipelines.utils.utils import get_unique_list
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
 tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
-s3_client_kwargs = {
+s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_INFRA,
     "conn_name": "S3_EU_WEST",
 }

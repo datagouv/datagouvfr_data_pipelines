@@ -14,11 +14,11 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
-s3_client_kwargs = {
+s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_INFRA,
     "conn_name": "S3_EU_WEST",
 }
