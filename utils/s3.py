@@ -39,7 +39,7 @@ class S3Client:
             S3ServiceResource,
             boto3.resource(
                 "s3",
-                endpoint_url=self.url,
+                endpoint_url=f"https://{self.url}",
                 aws_access_key_id=self.login if login else None,
                 aws_secret_access_key=self.password if login else None,
                 config=Config(**config_kwargs),
