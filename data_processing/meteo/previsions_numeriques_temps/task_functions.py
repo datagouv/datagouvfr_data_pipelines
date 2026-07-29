@@ -11,10 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    S3_BUCKET_PNT,
-    S3_URL_RBX,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
+    S3_BUCKET_PNT
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     MAX_LAST_BATCHES,
@@ -25,17 +22,15 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 
 # if you want to roll back to dev mode
 # AIRFLOW_ENV = "dev"
 # DATAGOUV_URL = "https://demo.data.gouv.fr"
 
-s3_client_kwargs = {
+s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_PNT,
-    "user": SECRET_S3_USER,
-    "pwd": SECRET_S3_PASSWORD,
-    "s3_url": S3_URL_RBX,
+    "conn_name": "S3_RBX",
 }
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{TMP_FOLDER}logs/"
@@ -340,7 +335,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{S3_BUCKET_PNT}.{S3_URL_RBX}/{obj}",
+                    "url": f"https://{S3_BUCKET_PNT}.{s3_pnt.url}/{obj}",
                     "title": obj.split("/")[-1],
                     "size": size,
                 }

@@ -15,13 +15,10 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    S3_URL_RBX,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
@@ -30,11 +27,9 @@ TIME_DEPTH_TO_KEEP = timedelta(hours=24)
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
-s3_client_kwargs = {
+s3_client_kwargs: S3ClientKwargs = {
     "bucket": bucket_pe,
-    "user": SECRET_S3_USER,
-    "pwd": SECRET_S3_PASSWORD,
-    "s3_url": S3_URL_RBX,
+    "conn_name": "S3_RBX",
 }
 
 with open(
@@ -236,19 +231,16 @@ def fix_title(file_name: str) -> str:
 def publish_on_datagouv(pack: str, grid: str):
     # getting the latest available occurrence of each file on S3
     latest_files: dict = {}
-    for obj, size in (
-        S3Client(**s3_client_kwargs)
-        .get_all_files_names_and_sizes_from_parent_folder(
-            folder=f"{AIRFLOW_ENV}/{s3_folder}/{pack}/{grid}/",
-        )
-        .items()
-    ):
+    s3_client = S3Client(**s3_client_kwargs)
+    for obj, size in s3_client.get_all_files_names_and_sizes_from_parent_folder(
+        folder=f"{AIRFLOW_ENV}/{s3_folder}/{pack}/{grid}/",
+    ).items():
         try:
             file_id, file_date = build_file_id_and_date(obj.split("/")[-1])
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{bucket_pe}.{S3_URL_RBX}/{obj}",
+                    "url": f"https://{bucket_pe}.{s3_client.url}/{obj}",
                     "title": fix_title(obj.split("/")[-1]),
                     "size": size,
                 }

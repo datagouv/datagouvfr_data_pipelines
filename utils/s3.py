@@ -2,7 +2,7 @@ from io import BytesIO, StringIO
 import json
 import logging
 import os
-from typing import cast, Iterator
+from typing import cast, Iterator, TypedDict, Required
 from uuid import uuid4
 
 from airflow.sdk.bases.hook import BaseHook
@@ -16,6 +16,13 @@ from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
+class S3ClientKwargs(TypedDict, total=False):
+    bucket: Required[str]
+    conn_name: str
+    login: bool
+    config_kwargs: dict
+
+
 class S3Client:
     def __init__(
         self,
@@ -26,13 +33,15 @@ class S3Client:
     ):
         conn = BaseHook.get_connection(conn_name)
         self.url = conn.extra_dejson["endpoint_url"]
+        self.login = conn.login
+        self.password = conn.password
         self.resource = cast(
             S3ServiceResource,
             boto3.resource(
                 "s3",
                 endpoint_url=self.url,
-                aws_access_key_id=conn.login if login else None,
-                aws_secret_access_key=conn.password if login else None,
+                aws_access_key_id=self.login if login else None,
+                aws_secret_access_key=self.password if login else None,
                 config=Config(**config_kwargs),
             ),
         )
