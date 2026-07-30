@@ -31,7 +31,7 @@ tqdm.pandas(desc="pandas progress bar", mininterval=5)
 
 s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_INFRA,
-    "conn_name": "S3_EU_WEST",
+    "conn_name": "S3_EU_WEST_PAR",
 }
 conn_name = "POSTGRES_METRIC"
 config = MetricsConfig()

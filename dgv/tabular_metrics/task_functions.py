@@ -20,7 +20,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
 s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_INFRA,
-    "conn_name": "S3_EU_WEST",
+    "conn_name": "S3_EU_WEST_PAR",
 }
 already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"
