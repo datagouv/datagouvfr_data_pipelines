@@ -29,7 +29,7 @@ s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
 s3_client_kwargs: S3ClientKwargs = {
     "bucket": bucket_pe,
-    "conn_name": "S3_RBX",
+    "conn_name": "S3_OVH_RBX",
 }
 
 with open(

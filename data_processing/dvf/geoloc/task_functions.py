@@ -347,7 +347,7 @@ def enrich_years(files, **context):
             map_cultures[scope] = json.load(f)
     s3_client = S3Client(
         bucket=bucket,
-        conn_name="S3_RBX",
+        conn_name="S3_OVH_RBX",
     )
     available_dates = {
         o.split(".")[0].split("-", maxsplit=3)[-1]: o

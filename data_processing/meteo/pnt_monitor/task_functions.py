@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.tchap import send_message
 too_old_filename = "too_old.json"
 s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_PNT,
-    "conn_name": "S3_RBX",
+    "conn_name": "S3_OVH_RBX",
 }
 
 

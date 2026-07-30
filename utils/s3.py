@@ -27,7 +27,7 @@ class S3Client:
     def __init__(
         self,
         bucket: str,
-        conn_name: str = "S3_SBG" if AIRFLOW_ENV == "prod" else "S3_RBX",
+        conn_name: str = "S3_OVH_SBG" if AIRFLOW_ENV == "prod" else "S3_OVH_RBX",
         login: bool = True,
         config_kwargs: dict = {"connect_timeout": 3600, "read_timeout": 3600},
     ):

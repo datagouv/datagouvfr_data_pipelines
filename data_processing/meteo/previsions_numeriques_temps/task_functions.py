@@ -11,7 +11,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     DATAGOUV_SECRET_API_KEY,
     DEMO_DATAGOUV_SECRET_API_KEY,
-    S3_BUCKET_PNT
+    S3_BUCKET_PNT,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     MAX_LAST_BATCHES,
@@ -30,7 +30,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 
 s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_PNT,
-    "conn_name": "S3_RBX",
+    "conn_name": "S3_OVH_RBX",
 }
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pnt/"
 LOG_PATH = f"{TMP_FOLDER}logs/"
