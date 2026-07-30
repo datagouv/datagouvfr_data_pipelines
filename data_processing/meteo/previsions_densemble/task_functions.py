@@ -240,7 +240,7 @@ def publish_on_datagouv(pack: str, grid: str):
             if file_id not in latest_files or file_date > latest_files[file_id]["date"]:
                 latest_files[file_id] = {
                     "date": file_date,
-                    "url": f"https://{bucket_pe}.{s3_client.url}/{obj}",
+                    "url": s3_client.get_file_url(obj),
                     "title": fix_title(obj.split("/")[-1]),
                     "size": size,
                 }
