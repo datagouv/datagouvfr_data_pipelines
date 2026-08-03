@@ -1,5 +1,5 @@
 import logging
-from io import StringIO
+from io import StringIO, BytesIO
 
 import paramiko
 from airflow.sdk.bases.hook import BaseHook
@@ -22,9 +22,14 @@ class SFTPClient:
         key_type: str = "RSA",
         accept_unknown_keys: bool = True,
     ):
+
         if key_type not in ["RSA", "DSS", "ECDSA", "Ed25519"]:
             raise ValueError(f"{key_type} is not a valid key type")
         conn = BaseHook.get_connection(conn_name)
+        if not conn.host or not conn.login:
+            raise TypeError(
+                f"The connection host and login (user) must be defined for the connection {conn_name}."
+            )
         extras = conn.extra_dejson
         if "private_key" in extras:
             private_key = getattr(paramiko, key_type + "Key").from_private_key(
@@ -41,6 +46,7 @@ class SFTPClient:
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.connect(
             conn.host,
+            port=conn.port if conn.port else 22,
             username=conn.login,
             pkey=private_key,
         )
@@ -48,6 +54,18 @@ class SFTPClient:
 
     def list_files_in_directory(self, directory: str):
         return self.sftp.listdir(directory)
+
+    def get_file_stats(
+        self,
+        remote_file_path: str,
+    ) -> paramiko.SFTPAttributes:
+        return self.sftp.stat(remote_file_path)
+
+    def download_buffer(self, remote_file_path: str) -> BytesIO:
+        buffer = BytesIO()
+        self.sftp.getfo(remote_file_path, buffer)
+        buffer.seek(0)
+        return buffer
 
     @retry_except_filenotfound
     def download_file(self, remote_file_path: str, local_file_path: str):
