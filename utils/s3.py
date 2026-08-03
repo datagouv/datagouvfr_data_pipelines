@@ -32,7 +32,7 @@ class S3Client:
         config_kwargs: dict = {"connect_timeout": 3600, "read_timeout": 3600},
     ):
         conn = BaseHook.get_connection(conn_name)
-        self.url = conn.extra_dejson["endpoint_url"]
+        self.url = conn.extra_dejson["host"]
         self.login = conn.login
         self.password = conn.password
         self.resource = cast(
