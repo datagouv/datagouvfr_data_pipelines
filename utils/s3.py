@@ -1,42 +1,49 @@
-import io
+from io import BytesIO, StringIO
 import json
 import logging
 import os
-from typing import Iterator
+from typing import cast, Iterator, TypedDict, Required
 from uuid import uuid4
 
+from airflow.sdk.bases.hook import BaseHook
 import boto3
-import requests
 from botocore.config import Config
-from datagouvfr_data_pipelines.config import (
-    AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
-    S3_URL_RBX,
-    S3_URL_SBG,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
-)
+from mypy_boto3_s3.service_resource import S3ServiceResource
+import requests
+
+from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP, AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+
+
+class S3ClientKwargs(TypedDict, total=False):
+    bucket: Required[str]
+    conn_name: str
+    login: bool
+    config_kwargs: dict
 
 
 class S3Client:
     def __init__(
         self,
         bucket: str,
-        user: str = SECRET_S3_USER,
-        pwd: str = SECRET_S3_PASSWORD,
+        conn_name: str = "S3_OVH_SBG" if AIRFLOW_ENV == "prod" else "S3_OVH_RBX",
         login: bool = True,
         config_kwargs: dict = {"connect_timeout": 3600, "read_timeout": 3600},
-        s3_url: str = S3_URL_SBG if AIRFLOW_ENV == "prod" else S3_URL_RBX,
     ):
-        self.url = s3_url
-        self.resource = boto3.resource(
-            "s3",
-            endpoint_url="https://" + self.url,
-            aws_access_key_id=user if login else None,
-            aws_secret_access_key=pwd if login else None,
-            config=Config(**config_kwargs),
+        conn = BaseHook.get_connection(conn_name)
+        self.url = conn.extra_dejson["endpoint_url"]
+        self.login = conn.login
+        self.password = conn.password
+        self.resource = cast(
+            S3ServiceResource,
+            boto3.resource(
+                "s3",
+                endpoint_url=f"https://{self.url}",
+                aws_access_key_id=self.login if login else None,
+                aws_secret_access_key=self.password if login else None,
+                config=Config(**config_kwargs),
+            ),
         )
         if bucket not in [b.name for b in self.resource.buckets.all()]:
             raise ValueError(f"Bucket '{bucket}' does not exist.")
@@ -55,39 +62,6 @@ class S3Client:
             if e.response["Error"]["Code"] == "404":
                 return False
             raise e
-
-    @simple_connection_retry
-    def send_file(
-        self,
-        file: File,
-        *,
-        ignore_airflow_env: bool = False,
-        burn_after_sending: bool = False,
-        is_public: bool = False,
-    ) -> None:
-        """Send a file to a S3 bucket"""
-        dest_path = file.full_dest_path
-        if not ignore_airflow_env:
-            dest_path = f"{AIRFLOW_ENV}/{dest_path}"
-        logging.info("⬆️ Sending " + file.full_source_path)
-        logging.info(f"to {self.bucket.name}/{dest_path}")
-        self.bucket.upload_file(
-            file.full_source_path,
-            dest_path,
-            ExtraArgs={"ContentType": file.content_type}
-            | ({"ACL": "public-read"} if is_public else {}),
-        )
-        if burn_after_sending:
-            file.delete()
-
-    def send_files(
-        self,
-        list_files: list[File],
-        **kwargs,
-    ) -> None:
-        """Send list of files to a S3 bucket"""
-        for file in list_files:
-            self.send_file(file, **kwargs)
 
     @simple_connection_retry
     def download_files(
@@ -119,6 +93,15 @@ class S3Client:
     ) -> str:
         """Return the content of a file from a S3 bucket as a string."""
         return self.bucket.Object(file_path).get()["Body"].read().decode(encoding)
+
+    @simple_connection_retry
+    def get_file_content_bytes(
+        self,
+        file_path: str,
+    ) -> BytesIO:
+        """Return the content of a file from a S3 bucket as a BytesIO object."""
+        body = self.bucket.Object(file_path).get()["Body"].read()
+        return BytesIO(body)
 
     @simple_connection_retry
     def get_files_from_prefix(
@@ -378,6 +361,51 @@ class S3Client:
         }
 
     @simple_connection_retry
+    def send_file(
+        self,
+        file: File,
+        *,
+        ignore_airflow_env: bool = False,
+        burn_after_sending: bool = False,
+        is_public: bool = False,
+    ) -> None:
+        """Send a file to a S3 bucket"""
+        dest_path = file.full_dest_path
+        if not ignore_airflow_env:
+            dest_path = f"{AIRFLOW_ENV}/{dest_path}"
+        logging.info("⬆️ Sending " + file.full_source_path)
+        logging.info(f"to {self.bucket.name}/{dest_path}")
+        self.bucket.upload_file(
+            file.full_source_path,
+            dest_path,
+            ExtraArgs={"ContentType": file.content_type}
+            | ({"ACL": "public-read"} if is_public else {}),
+        )
+        if burn_after_sending:
+            file.delete()
+
+    def send_files(
+        self,
+        list_files: list[File],
+        **kwargs,
+    ) -> None:
+        """Send list of files to a S3 bucket"""
+        for file in list_files:
+            self.send_file(file, **kwargs)
+
+    @simple_connection_retry
+    def send_buffer(
+        self,
+        buffer: StringIO,
+        key: str,
+    ) -> None:
+        """Send a file buffer StringIO to a S3 bucket"""
+        self.bucket.put_object(
+            Key=key,
+            Body=buffer.getvalue(),
+        )
+
+    @simple_connection_retry
     def send_dict_as_file(
         self,
         dict_to_send: dict,
@@ -387,11 +415,11 @@ class S3Client:
         is_public: bool = False,
     ) -> None:
         """Send a dictionary to the specified json file path."""
-        raw_data = io.BytesIO(json.dumps(dict_to_send, indent=2).encode(encoding))
+        raw_data = BytesIO(json.dumps(dict_to_send, indent=2).encode(encoding))
         self.bucket.put_object(
             Key=file_path,
             Body=raw_data,
-            **({"ACL": "public-read"} if is_public else {}),
+            **({"ACL": "public-read"} if is_public else {}),  # type: ignore
         )
 
     @simple_connection_retry

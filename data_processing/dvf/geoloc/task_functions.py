@@ -14,9 +14,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_URL_RBX,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.s3 import S3Client
@@ -108,15 +105,17 @@ def build_parcelle_id(row: pd.Series) -> str:
     )
 
 
-def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFrame:
+def merge_parcelles(
+    restr_output: pd.DataFrame, parcelle_file: str, s3_client: S3Client
+) -> pd.DataFrame:
     # getting and merging parcelle's geographical columns from parquet files made by Thomas
     logging.info("Merging in batches with " + parcelle_file)
     parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique())
     merged = []
     storage_options = {
-        "client_kwargs": {"endpoint_url": "https://" + S3_URL_RBX},
-        "key": SECRET_S3_USER,
-        "secret": SECRET_S3_PASSWORD,
+        "client_kwargs": {"endpoint_url": "https://" + s3_client.url},
+        "key": s3_client.login,
+        "secret": s3_client.password,
     }
     # it would be too RAM heavy to merge everything at once, so batch-merging using the parcelle's prefixes
     for idx, prefix in enumerate(parcelles_prefixes):
@@ -159,6 +158,7 @@ def enrich_year(
     # arrond: dict,
     map_cultures: dict[str, dict],
     available_dates: dict[str, str],
+    s3_client: S3Client,
 ):
     # the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
     logging.info(f"Processing {file}")
@@ -294,7 +294,7 @@ def enrich_year(
         if len(restr_ouput) == 0:
             logging.info("> skipping")
             continue
-        enriched = merge_parcelles(restr_ouput, available_dates[dmin])
+        enriched = merge_parcelles(restr_ouput, available_dates[dmin], s3_client)
         remainders = enriched.loc[enriched["longitude"].isna()][
             [c for c in enriched.columns if c not in ["latitude", "longitude"]]
         ]
@@ -347,9 +347,7 @@ def enrich_years(files, **context):
             map_cultures[scope] = json.load(f)
     s3_client = S3Client(
         bucket=bucket,
-        user=SECRET_S3_USER,
-        pwd=SECRET_S3_PASSWORD,
-        s3_url=S3_URL_RBX,
+        conn_name="S3_OVH_RBX",
     )
     available_dates = {
         o.split(".")[0].split("-", maxsplit=3)[-1]: o
@@ -365,6 +363,7 @@ def enrich_years(files, **context):
             # arrond=arrondissements_muni,  # not used (yet?)
             map_cultures=map_cultures,
             available_dates=available_dates,
+            s3_client=s3_client,
         )
     # deleting in the end so that if the loop above fails, we can rerun safely
     for file in files:
