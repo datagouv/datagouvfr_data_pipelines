@@ -372,42 +372,43 @@ def enrich_years(files, **context):
 
 @task()
 def publish_datagouv():
-    dataset = local_client.dataset(GEOLOC_DATASET_ID)
-    yearly_resources = sorted(
-        [res for res in dataset.resources if res.type == "main" and "full-" in res.url],
-        key=lambda r: r.title,
-    )
-    files = sorted(os.listdir(TMP_FOLDER))
+    # april delivery: five full years, october delivery: one more file
+    # (oldest year last semester and latest year first semester)
+    files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
+    if len(files) not in {5, 6}:
+        raise ValueError(f"Unexpected number of files to publish: {len(files)}")
 
-    # we want to replace resources when we can, so that we keep the history
-    if len(yearly_resources) == 5:
-        # october delivery: one more file (oldest year last semester and latest year first semester)
-        assert len(files) == 6
-        for idx, file in enumerate(files):
-            kwargs = {
-                "payload": {
-                    "title": f"DVF {file.split('.')[0].split(('-'))[1]}",
-                },
-                "file_to_upload": TMP_FOLDER + file,
-            }
-            if idx < 5:
-                yearly_resources[idx].update(**kwargs)
-            else:
-                dataset.create_static(**kwargs)
-    elif len(yearly_resources) == 6:
-        # april delivery: one file fewer (five full years)
-        assert len(files) == 5
-        for idx, res in enumerate(yearly_resources):
-            if idx < 5:
-                file = files[idx]
-                res.update(
-                    payload={"title": f"DVF {file.split('.')[0].split(('-'))[1]}"},
-                    file_to_upload=TMP_FOLDER + file,
-                )
-            else:
-                res.delete()
-    else:
-        raise ValueError("Unexpected number of resources in geoloc dataset")
+    # matching resources to files by year (and not by index), so that a given year always
+    # keeps the same resource: we want to replace resources when we can, so that we keep
+    # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
+    # tree) are not managed here.
+    dataset = local_client.dataset(GEOLOC_DATASET_ID)
+    existing = {
+        match.group(1): res
+        for res in dataset.resources
+        if res.type == "main" and (match := re.search(r"full-(\d{4})\.", res.url)) # url match avoids any wrong match with a resource renamed on UI
+    }  # {"2021": Resource(title="DVF 2021"...), ..., "2025": Resource(...)}
+
+    to_publish = set()
+    for file in files:
+        year = file.split(".")[0].split("-")[1]  # "full-2022.csv.gz" => "2022"
+        to_publish.add(year)
+        kwargs = {
+            "payload": {"title": f"DVF {year}"},
+            "file_to_upload": TMP_FOLDER + file,
+        }
+        if year in existing:
+            logging.info(f"Updating resource for {year}")
+            existing[year].update(**kwargs)
+        else:
+            logging.info(f"Creating resource for {year}")
+            dataset.create_static(**kwargs)
+
+    # oldest year last semester that fell out of the rolling window
+    for year, res in existing.items():
+        if year not in to_publish:
+            logging.info(f"Deleting resource for {year}, out of the window")
+            res.delete()
 
 
 @task()
