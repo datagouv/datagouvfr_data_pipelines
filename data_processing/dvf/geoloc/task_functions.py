@@ -161,15 +161,15 @@ def enrich_year(
     s3_client: S3Client,
 ):
     # the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
-    logging.info(f"Processing {file}")
-    year = file.split(".")[0].split("-")[1]
+    year = file.split(".")[0].split("-")[1]  #  # "valeursfoncieres-2023.txt" => "2023"
     if f"full-{year}.csv.gz" in os.listdir(TMP_FOLDER):
-        logging.info("> Already processed, skipping")
+        logging.info(f"Skipping {file} - already processed")  # In case of retry
         return
+    
+    logging.info(f"Processing {file}")
     source = pd.read_csv(TMP_FOLDER + file, dtype=str, sep="|")
     logging.info("Building output...")
     output = pd.DataFrame()
-    output["id_mutation"] = ""
     output["date_mutation"] = (
         source["Date mutation"].str.slice(
             6,
@@ -263,7 +263,7 @@ def enrich_year(
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
-    output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
+    output.insert(0, "id_mutation", f"{year}-" + mask.cumsum().astype(str)) # First col
     del mask
     output.reset_index(drop=True, inplace=True)
     expected_len = len(output)
@@ -344,19 +344,22 @@ def enrich_years(files, **context):
     map_cultures = {}
     for scope in ["cultures", "cultures-speciales"]:
         with open(DAG_FOLDER + f"dvf/geoloc/data/{scope}.json", "r") as f:
-            map_cultures[scope] = json.load(f)
+            map_cultures[scope] = json.load(
+                f
+            )  # {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
     s3_client = S3Client(
         bucket=bucket,
         conn_name="S3_OVH_RBX",
     )
+    # Maps each cadastre snapshot date to its S3 file path
     available_dates = {
         o.split(".")[0].split("-", maxsplit=3)[-1]: o
         for o in s3_client.get_files_from_prefix(
             "parcelles/",
             ignore_airflow_env=True,
         )
-    }
-    logging.info(available_dates)
+    }  # {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
+    logging.info(f"Available cadastre snapshots : {available_dates}")
     for file in files:
         enrich_year(
             file,
@@ -386,7 +389,10 @@ def publish_datagouv():
     existing = {
         match.group(1): res
         for res in dataset.resources
-        if res.type == "main" and (match := re.search(r"full-(\d{4})\.", res.url)) # url match avoids any wrong match with a resource renamed on UI
+        if res.type == "main"
+        and (
+            match := re.search(r"full-(\d{4})\.", res.url)
+        )  # url match avoids any wrong match with a resource renamed on UI
     }  # {"2021": Resource(title="DVF 2021"...), ..., "2025": Resource(...)}
 
     to_publish = set()
