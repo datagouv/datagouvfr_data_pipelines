@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 
 def build_code_commune(row: pd.Series) -> str:
+    """Returns the 5 caracters commune code"""
     code_dep = row["Code departement"]
     code_com = row["Code commune"]
     if code_dep.startswith("97"):
@@ -22,6 +23,8 @@ def build_code_commune(row: pd.Series) -> str:
 
 
 def build_parcelle_id(row: pd.Series) -> str:
+    """Build 14 caracters parcelle ID
+    shared both by DVF df and parcelles coordinates parquet file"""
     return (
         build_code_commune(row)
         + (
@@ -51,14 +54,14 @@ def match_year_to_snapshots(year, available_dates) -> list[str]:
     return restr_available_dates
 
 
-def enrich_parcelles_with_coord(
+def enrich_parcelles_with_snapshot_coord(
     dvf_batch_df: pd.DataFrame,
-    parcelle_coord_file: str,
+    snapshot_file: str,
     s3_client: S3Client,
     bucket: str,
 ) -> pd.DataFrame:
     # getting and merging parcelle's geographical columns from parquet files made by Thomas
-    logging.info("Streaming " + parcelle_coord_file)
+    logging.info("Streaming " + snapshot_file)
     # TODO: sorting below preserve row order from prior implem. Need to verify if necessary otherwise can be removed
     dvf_batch_df = dvf_batch_df.sort_values(
         by="id_parcelle", key=lambda s: s.str[:3], kind="stable", ignore_index=True
@@ -73,7 +76,7 @@ def enrich_parcelles_with_coord(
         scheme="https",
     )
     coord_pf = pq.ParquetFile(
-        f"{bucket}/{parcelle_coord_file}", filesystem=fs, pre_buffer=True
+        f"{bucket}/{snapshot_file}", filesystem=fs, pre_buffer=True
     )
     logging.info(
         f"> {coord_pf.metadata.num_rows:,} parcelles in {coord_pf.metadata.num_row_groups} row groups"
@@ -104,13 +107,73 @@ def enrich_parcelles_with_coord(
     del coord_to_keep_chunks
     gc.collect()
 
-    enriched = pd.merge(dvf_batch_df, coord_to_keep_df, on="id_parcelle", how="left")
+    enriched_batch_df = pd.merge(
+        dvf_batch_df, coord_to_keep_df, on="id_parcelle", how="left"
+    )
     del dvf_batch_df, coord_to_keep_df
     # expecting around 1-2% missing coords
     logging.info(
-        f"> {round(len(enriched.loc[enriched['latitude'].isna()]) / len(enriched) * 100, 2)}% missing"
+        f"> {round(len(enriched_batch_df.loc[enriched_batch_df['latitude'].isna()]) / len(enriched_batch_df) * 100, 2)}% missing"
     )
-    return enriched
+    return enriched_batch_df
+
+
+def enrich_parcelles_with_coord(
+    dvf_df: pd.DataFrame,
+    year: str,
+    available_dates: dict[str, str],
+    s3_client: S3Client,
+    bucket: str,
+):
+    restr_available_dates = match_year_to_snapshots(year, available_dates)
+    logging.info(restr_available_dates)
+    geoloced = []
+    remainders = None
+    for k in range(len(restr_available_dates) - 1):
+        dmin, dmax = (
+            restr_available_dates[k],
+            restr_available_dates[k + 1],
+        )  # lower and upper date bounds for current snapshot
+        matching_mutations_df = dvf_df.loc[
+            dvf_df["date_mutation"].between(
+                dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
+            )
+        ]  # the rows between the snapshot date bounds to process
+        dvf_df.drop(
+            matching_mutations_df.index, inplace=True
+        )  # dropping them from original df to keep RAM low
+        logging.info(f"{len(matching_mutations_df)} rows between {dmin} and {dmax}")
+        if remainders is not None and not remainders.empty:
+            # for parcelles that didn't get geolocalized in the expected batch, we'll try again at each upcoming batch
+            logging.info(f"- adding {len(remainders)} remainders")
+            matching_mutations_df = pd.concat(
+                [matching_mutations_df, remainders], ignore_index=True
+            )
+        if len(matching_mutations_df) == 0:
+            logging.info("> skipping")
+            continue
+        enriched = enrich_parcelles_with_snapshot_coord(
+            matching_mutations_df, available_dates[dmin], s3_client, bucket
+        )
+        remainders = enriched.loc[enriched["longitude"].isna()][
+            [c for c in enriched.columns if c not in ["latitude", "longitude"]]
+        ]
+        geoloced.append(enriched.dropna(subset="longitude"))
+        del enriched
+        gc.collect()
+    logging.info("Done with geoloc, concatenating results...")
+    geoloced.append(remainders)
+    del remainders
+
+    # using pd.concat on geoloced directly is too RAM heavy, so workaround
+    enriched_df = pd.DataFrame()
+    while geoloced:
+        logging.info(f"> {len(geoloced)} dfs still to concatenate")
+        enriched_df = pd.concat([enriched_df, geoloced[0]], ignore_index=True)
+        del geoloced[0]
+        gc.collect()
+    del geoloced
+    return enriched_df
 
 
 def enrich_year(
@@ -234,62 +297,15 @@ def enrich_year(
     output.reset_index(drop=True, inplace=True)
     expected_len = len(output)
 
-    # TODO : Make coordinates enrichment a function to simplify reading
-    # adding geo columns
-    # A parcel's coordinates change over time,
-    # so each transaction must be looked up in the cadastre snapshot in force at the time
-    restr_available_dates = match_year_to_snapshots(year, available_dates)
-    logging.info(restr_available_dates)
-    geoloced = []
-    remainders = None
-    for k in range(len(restr_available_dates) - 1):
-        dmin, dmax = (
-            restr_available_dates[k],
-            restr_available_dates[k + 1],
-        )  # lower and upper date bounds for current snapshot
-        restr_ouput = output.loc[
-            output["date_mutation"].between(
-                dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
-            )
-        ]  # the rows between the snapshot date bounds to process
-        output.drop(
-            restr_ouput.index, inplace=True
-        )  # dropping them from original df to keep RAM low
-        logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
-        if remainders is not None and not remainders.empty:
-            # for parcelles that didn't get geolocalized in the expected batch, we'll try again at each upcoming batch
-            logging.info(f"- adding {len(remainders)} remainders")
-            restr_ouput = pd.concat([restr_ouput, remainders], ignore_index=True)
-        if len(restr_ouput) == 0:
-            logging.info("> skipping")
-            continue
-        enriched = enrich_parcelles_with_coord(
-            restr_ouput, available_dates[dmin], s3_client, bucket
-        )
-        remainders = enriched.loc[enriched["longitude"].isna()][
-            [c for c in enriched.columns if c not in ["latitude", "longitude"]]
-        ]
-        geoloced.append(enriched.dropna(subset="longitude"))
-        del enriched
-        gc.collect()
-    logging.info("Done with geoloc, concatenating results...")
-    geoloced.append(remainders)
-    del remainders
-
-    # using pd.concat on geoloced directly is too RAM heavy, so workaround
-    final = pd.DataFrame()
-    while geoloced:
-        logging.info(f"> {len(geoloced)} dfs still to concatenate")
-        final = pd.concat([final, geoloced[0]], ignore_index=True)
-        del geoloced[0]
-        gc.collect()
-    del geoloced
+    final = enrich_parcelles_with_coord(
+        output, year, available_dates, s3_client, bucket
+    )  # Add lat, long coordinates tied to parcelle ID
+    del output
     logging.info("Sorting by mutation id...")
     final["_sort_key"] = final["id_mutation"].str[len(year) + 1 :].astype("int32")
     final.sort_values("_sort_key", inplace=True)
     final.drop(columns="_sort_key", inplace=True)
     assert len(final) == expected_len
-    del output  # TODO: why output is not del before ? looks like it should be dropped after end of loop "for k in range(len(restr_available_dates) - 1):"
     logging.warning(
         f"No coords: {round(sum(final['longitude'].isna()) / len(final) * 100, 2)}%"
     )
