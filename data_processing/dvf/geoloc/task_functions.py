@@ -110,7 +110,7 @@ def merge_parcelles(
 ) -> pd.DataFrame:
     # getting and merging parcelle's geographical columns from parquet files made by Thomas
     logging.info("Merging in batches with " + parcelle_file)
-    parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique())
+    parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique()) # 2 digits department + 1st digit of the commune code like "380"
     merged = []
     storage_options = {
         "client_kwargs": {"endpoint_url": "https://" + s3_client.url},
@@ -119,16 +119,16 @@ def merge_parcelles(
     }
     # it would be too RAM heavy to merge everything at once, so batch-merging using the parcelle's prefixes
     for idx, prefix in enumerate(parcelles_prefixes):
+        # Define upper bound prefix to exclude from batch
         if idx == len(parcelles_prefixes) - 1:
-            high = "99999"
+            high = "99999" # ensure exclusive upper bound at end of prefix list is above any possible code
         else:
-            high = parcelles_prefixes[idx + 1]
+            high = parcelles_prefixes[idx + 1] # next prefix that exists for exclusive upper bound
         logging.info(f"> parcelles between {prefix} and {high}")
         sample_dvf = restr_output.loc[
             restr_output["id_parcelle"].str.startswith(prefix)
         ]
-        # for RAM optimization
-        restr_output.drop(sample_dvf.index, inplace=True)
+        restr_output.drop(sample_dvf.index, inplace=True) # Remove currently processed batch for RAM optimization
         sample_geo_parcelles = pd.read_parquet(
             f"s3://{bucket}/{parcelle_file}",
             storage_options=storage_options,
