@@ -7,6 +7,8 @@ from time import sleep
 from zipfile import ZipFile
 
 import pandas as pd
+import pyarrow.fs as pafs
+import pyarrow.parquet as pq
 import requests
 from airflow.sdk import task
 from datagouv import Dataset
@@ -105,52 +107,65 @@ def build_parcelle_id(row: pd.Series) -> str:
     )
 
 
-def merge_parcelles(
-    restr_output: pd.DataFrame, parcelle_file: str, s3_client: S3Client
+def enrich_parcelles_with_coord(
+    dvf_batch_df: pd.DataFrame, parcelle_coord_file: str, s3_client: S3Client
 ) -> pd.DataFrame:
     # getting and merging parcelle's geographical columns from parquet files made by Thomas
-    logging.info("Merging in batches with " + parcelle_file)
-    parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique()) # 2 digits department + 1st digit of the commune code like "380"
-    merged = []
-    storage_options = {
-        "client_kwargs": {"endpoint_url": "https://" + s3_client.url},
-        "key": s3_client.login,
-        "secret": s3_client.password,
-    }
-    # it would be too RAM heavy to merge everything at once, so batch-merging using the parcelle's prefixes
-    for idx, prefix in enumerate(parcelles_prefixes):
-        # Define upper bound prefix to exclude from batch
-        if idx == len(parcelles_prefixes) - 1:
-            high = "99999" # ensure exclusive upper bound at end of prefix list is above any possible code
-        else:
-            high = parcelles_prefixes[idx + 1] # next prefix that exists for exclusive upper bound
-        logging.info(f"> parcelles between {prefix} and {high}")
-        sample_dvf = restr_output.loc[
-            restr_output["id_parcelle"].str.startswith(prefix)
-        ]
-        restr_output.drop(sample_dvf.index, inplace=True) # Remove currently processed batch for RAM optimization
-        sample_geo_parcelles = pd.read_parquet(
-            f"s3://{bucket}/{parcelle_file}",
-            storage_options=storage_options,
-            columns=["id", "latitude", "longitude"],
-            filters=[("id", ">=", prefix), ("id", "<", high)],
-        ).rename({"id": "id_parcelle"}, axis=1)
-        merged.append(
-            pd.merge(
-                sample_dvf,
-                sample_geo_parcelles,
-                on="id_parcelle",
-                how="left",
+    logging.info("Streaming " + parcelle_coord_file)
+    # TODO: sorting below preserve row order from prior implem. Need to verify if necessary otherwise can be removed
+    dvf_batch_df = dvf_batch_df.sort_values(
+        by="id_parcelle", key=lambda s: s.str[:3], kind="stable", ignore_index=True
+    )  # sort by 2 digits department + 1st digit of the commune code like "380"
+    parcelle_ids = pd.Index(dvf_batch_df["id_parcelle"].unique())
+
+    # Open just once the file to accelerate time
+    fs = pafs.S3FileSystem(  # type: ignore - lazily init. by pafs GH-38364
+        access_key=s3_client.login,
+        secret_key=s3_client.password,
+        endpoint_override=s3_client.url,
+        scheme="https",
+    )
+    coord_pf = pq.ParquetFile(
+        f"{bucket}/{parcelle_coord_file}", filesystem=fs, pre_buffer=True
+    )
+    logging.info(
+        f"> {coord_pf.metadata.num_rows:,} parcelles in {coord_pf.metadata.num_row_groups} row groups"
+    )
+
+    # one sequential pass, keeping only the parcelles we need
+    coord_to_keep_chunks = []
+    for i, coord_batch in enumerate(
+        coord_pf.iter_batches(
+            batch_size=100_000, columns=["id", "latitude", "longitude"]
+        )
+    ):
+        coord_batch_df = coord_batch.to_pandas()
+        coord_to_keep = coord_batch_df.loc[coord_batch_df["id"].isin(parcelle_ids)]
+        if not coord_to_keep.empty:
+            coord_to_keep_chunks.append(coord_to_keep)
+        del coord_batch_df, coord_batch, coord_to_keep
+        if i % 20 == 0:
+            logging.info(
+                f"> batch {i}, {sum(map(len, coord_to_keep_chunks)):,} parcelles matched so far"
             )
-        )
-        del sample_dvf
-        del sample_geo_parcelles
-        # expecting around 1-2% missing coords per batch
-        logging.info(
-            f"> {round(len(merged[-1].loc[merged[-1]['latitude'].isna()]) / len(merged[-1]) * 100, 2)}% missing"
-        )
-    del restr_output
-    return pd.concat(merged, ignore_index=True)
+    del parcelle_ids
+
+    coord_to_keep_df = pd.concat(coord_to_keep_chunks, ignore_index=True).rename(
+        {"id": "id_parcelle"}, axis=1
+    )
+    assert (
+        coord_to_keep_df["id_parcelle"].is_unique
+    )  # if id is NOT unique in the parquet file, duplicates would appear in the join
+    del coord_to_keep_chunks
+    gc.collect()
+
+    enriched = pd.merge(dvf_batch_df, coord_to_keep_df, on="id_parcelle", how="left")
+    del dvf_batch_df, coord_to_keep_df
+    # expecting around 1-2% missing coords
+    logging.info(
+        f"> {round(len(enriched.loc[enriched['latitude'].isna()]) / len(enriched) * 100, 2)}% missing"
+    )
+    return enriched
 
 
 def enrich_year(
@@ -165,11 +180,11 @@ def enrich_year(
     if f"full-{year}.csv.gz" in os.listdir(TMP_FOLDER):
         logging.info(f"Skipping {file} - already processed")  # In case of retry
         return
-    
+
     logging.info(f"Processing {file}")
     source = pd.read_csv(TMP_FOLDER + file, dtype=str, sep="|")
     logging.info("Building output...")
-    output = pd.DataFrame() 
+    output = pd.DataFrame()
     # Columns are created in their order left-to-right :
     # ("id_mutation" col will be added first later)
     output["date_mutation"] = (
@@ -180,7 +195,7 @@ def enrich_year(
         + source["Date mutation"].str.slice(3, 5)
         + "-"
         + source["Date mutation"].str.slice(0, 2)
-    ) # Make str date ISO : DD/MM/YYYY => YYYY-MM-DD
+    )  # Make str date ISO : DD/MM/YYYY => YYYY-MM-DD
     output["numero_disposition"] = source["No disposition"]
     output["nature_mutation"] = source["Nature mutation"]
     output["valeur_fonciere"] = (
@@ -195,10 +210,14 @@ def enrich_year(
             else pd.NA
         ),
         axis=1,
-    ) # todo : vectorized ? "RUE" + "DE LA REPUBLIQUE" => "RUE DE LA REPUBLIQUE"
-    output["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0") # "143" => "0143"
+    )  # todo : vectorized ? "RUE" + "DE LA REPUBLIQUE" => "RUE DE LA REPUBLIQUE"
+    output["adresse_code_voie"] = source["Code voie"].str.rjust(
+        4, "0"
+    )  # "143" => "0143"
     output["code_postal"] = source["Code postal"].str.rjust(5, "0")
-    output["code_commune"] = source.apply(build_code_commune, axis=1) # not as sophisticated as the original code
+    output["code_commune"] = source.apply(
+        build_code_commune, axis=1
+    )  # not as sophisticated as the original code
     patterns = {
         f"{sep}{sw}{sep}": f"{sep}{sw.lower()}{sep}"
         for sw in {
@@ -222,7 +241,7 @@ def enrich_year(
         output["nom_commune"] = output["nom_commune"].str.replace(pat, repl)
     output["code_departement"] = output["code_commune"].str.extract(
         r"^(97.|..)", expand=False
-    ) # Note:  97. match the only overseas departements that are part of DVF : Guadeloupe, Martinique, Guyane, La Réunion
+    )  # Note:  97. match the only overseas departements that are part of DVF : Guadeloupe, Martinique, Guyane, La Réunion
     # TODO: fill in the "ancien..." columns
     output["ancien_code_commune"] = ""
     output["ancien_nom_commune"] = ""
@@ -264,30 +283,41 @@ def enrich_year(
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
-    output.insert(0, "id_mutation", f"{year}-" + mask.cumsum().astype(str)) # First col
+    output.insert(0, "id_mutation", f"{year}-" + mask.cumsum().astype(str))  # First col
     del mask
     output.reset_index(drop=True, inplace=True)
     expected_len = len(output)
 
-    # adding geo columns 
-    # A parcel's coordinates change over time, 
+    # adding geo columns
+    # A parcel's coordinates change over time,
     # so each transaction must be looked up in the cadastre snapshot in force at the time
     restr_available_dates = [
-        max(k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}")) # take last snapshot of the prior year, e.g. "2022-10-01"
-    ] + sorted([k for k in available_dates.keys() if k.startswith(year)]) # all snapshots of the current year
+        max(
+            k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}")
+        )  # take last snapshot of the prior year, e.g. "2022-10-01"
+    ] + sorted(
+        [k for k in available_dates.keys() if k.startswith(year)]
+    )  # all snapshots of the current year
     if restr_available_dates[-1] < f"{year}-12-31":
-        restr_available_dates.append(f"{year}-12-31") # closing bound of the current year, not a snapshot
+        restr_available_dates.append(
+            f"{year}-12-31"
+        )  # closing bound of the current year, not a snapshot
     logging.info(restr_available_dates)
     geoloced = []
     remainders = None
     for k in range(len(restr_available_dates) - 1):
-        dmin, dmax = restr_available_dates[k], restr_available_dates[k + 1] # lower and upper date bounds for current snapshot
+        dmin, dmax = (
+            restr_available_dates[k],
+            restr_available_dates[k + 1],
+        )  # lower and upper date bounds for current snapshot
         restr_ouput = output.loc[
             output["date_mutation"].between(
                 dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
             )
-        ] # the rows between the snapshet date bounds to process
-        output.drop(restr_ouput.index, inplace=True) # dropping them from original df to keep RAM low
+        ]  # the rows between the snapshet date bounds to process
+        output.drop(
+            restr_ouput.index, inplace=True
+        )  # dropping them from original df to keep RAM low
         logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
         if remainders is not None and not remainders.empty:
             # for parcelles that didn't get geolocalized in the expected batch, we'll try again at each upcoming batch
@@ -296,7 +326,9 @@ def enrich_year(
         if len(restr_ouput) == 0:
             logging.info("> skipping")
             continue
-        enriched = merge_parcelles(restr_ouput, available_dates[dmin], s3_client)
+        enriched = enrich_parcelles_with_coord(
+            restr_ouput, available_dates[dmin], s3_client
+        )
         remainders = enriched.loc[enriched["longitude"].isna()][
             [c for c in enriched.columns if c not in ["latitude", "longitude"]]
         ]
