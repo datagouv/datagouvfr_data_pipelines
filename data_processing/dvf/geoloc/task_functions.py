@@ -169,7 +169,9 @@ def enrich_year(
     logging.info(f"Processing {file}")
     source = pd.read_csv(TMP_FOLDER + file, dtype=str, sep="|")
     logging.info("Building output...")
-    output = pd.DataFrame()
+    output = pd.DataFrame() 
+    # Columns are created in their order left-to-right :
+    # ("id_mutation" col will be added first later)
     output["date_mutation"] = (
         source["Date mutation"].str.slice(
             6,
@@ -178,7 +180,7 @@ def enrich_year(
         + source["Date mutation"].str.slice(3, 5)
         + "-"
         + source["Date mutation"].str.slice(0, 2)
-    )
+    ) # Make str date ISO : DD/MM/YYYY => YYYY-MM-DD
     output["numero_disposition"] = source["No disposition"]
     output["nature_mutation"] = source["Nature mutation"]
     output["valeur_fonciere"] = (
@@ -193,11 +195,10 @@ def enrich_year(
             else pd.NA
         ),
         axis=1,
-    )
-    output["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0")
+    ) # todo : vectorized ? "RUE" + "DE LA REPUBLIQUE" => "RUE DE LA REPUBLIQUE"
+    output["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0") # "143" => "0143"
     output["code_postal"] = source["Code postal"].str.rjust(5, "0")
-    # not as sophisticated as the original code
-    output["code_commune"] = source.apply(build_code_commune, axis=1)
+    output["code_commune"] = source.apply(build_code_commune, axis=1) # not as sophisticated as the original code
     patterns = {
         f"{sep}{sw}{sep}": f"{sep}{sw.lower()}{sep}"
         for sw in {
@@ -221,7 +222,7 @@ def enrich_year(
         output["nom_commune"] = output["nom_commune"].str.replace(pat, repl)
     output["code_departement"] = output["code_commune"].str.extract(
         r"^(97.|..)", expand=False
-    )
+    ) # Note:  97. match the only overseas departements that are part of DVF : Guadeloupe, Martinique, Guyane, La Réunion
     # TODO: fill in the "ancien..." columns
     output["ancien_code_commune"] = ""
     output["ancien_nom_commune"] = ""
@@ -268,24 +269,25 @@ def enrich_year(
     output.reset_index(drop=True, inplace=True)
     expected_len = len(output)
 
-    # adding geo columns
+    # adding geo columns 
+    # A parcel's coordinates change over time, 
+    # so each transaction must be looked up in the cadastre snapshot in force at the time
     restr_available_dates = [
-        max(k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}"))
-    ] + sorted([k for k in available_dates.keys() if k.startswith(year)])
+        max(k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}")) # take last snapshot of the prior year, e.g. "2022-10-01"
+    ] + sorted([k for k in available_dates.keys() if k.startswith(year)]) # all snapshots of the current year
     if restr_available_dates[-1] < f"{year}-12-31":
-        restr_available_dates.append(f"{year}-12-31")
+        restr_available_dates.append(f"{year}-12-31") # closing bound of the current year, not a snapshot
     logging.info(restr_available_dates)
     geoloced = []
     remainders = None
     for k in range(len(restr_available_dates) - 1):
-        dmin, dmax = restr_available_dates[k], restr_available_dates[k + 1]
+        dmin, dmax = restr_available_dates[k], restr_available_dates[k + 1] # lower and upper date bounds for current snapshot
         restr_ouput = output.loc[
             output["date_mutation"].between(
                 dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
             )
-        ]
-        # dropping from original df to keep RAM low
-        output.drop(restr_ouput.index, inplace=True)
+        ] # the rows between the snapshet date bounds to process
+        output.drop(restr_ouput.index, inplace=True) # dropping them from original df to keep RAM low
         logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
         if remainders is not None and not remainders.empty:
             # for parcelles that didn't get geolocalized in the expected batch, we'll try again at each upcoming batch
