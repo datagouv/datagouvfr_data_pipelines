@@ -193,6 +193,9 @@ def enrich_year(
     logging.info(f"Processing {file}")
     source = pd.read_csv(tmp_folder + file, dtype=str, sep="|")
     logging.info("Building output...")
+    # TODO: group cols operations type : copy of cols, simple cols vectorized ops, more complex ops
+    # TODO: reorder cols at the end to enforce correct order + verify col type
+    # TODO: verify if variable names change in and outside function is a memory issue
     output = pd.DataFrame()
     # Columns are created in their order left-to-right :
     # ("id_mutation" col will be added first later)
