@@ -16,7 +16,9 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc import utils
+from dags.datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year import (
+    enrich_year,
+)
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
@@ -111,7 +113,7 @@ def enrich_years(files, **context):
     }  # {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
     logging.info(f"Available cadastre snapshots : {available_dates}")
     for file in files:
-        utils.enrich_year(
+        enrich_year(
             file,
             TMP_FOLDER,
             map_cultures=map_cultures,
