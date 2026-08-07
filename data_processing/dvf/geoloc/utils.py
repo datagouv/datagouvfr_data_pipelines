@@ -77,8 +77,7 @@ def build_code_commune(source: pd.DataFrame) -> pd.Series:
 
 def build_parcelle_id(source: pd.DataFrame, code_commune: pd.Series) -> pd.Series:
     """Build 14 caracters parcelle ID
-    shared both by DVF df and parcelles coordinates parquet file.
-    Takes code_commune already built, so the commune logic is not run twice."""
+    shared both by DVF df and parcelles coordinates parquet file."""
     return (
         code_commune
         + source["Prefixe de section"].str.rjust(3, "0").fillna("000")
@@ -90,15 +89,16 @@ def build_parcelle_id(source: pd.DataFrame, code_commune: pd.Series) -> pd.Serie
 def build_output_columns(
     source: pd.DataFrame, map_cultures: dict[str, dict]
 ) -> dict[str, pd.Series]:
-    """One entry per output column, grouped by how the column is obtained."""
+    """Build all DVF cols that are based off the source only.
+    Output one dict entry per col."""
     cols = {}
 
-    # --- copied from the source, renamed only (floats already parsed by read_csv)
+    # Cols copied from the source, renamed only (floats already parsed by read_csv)
     cols |= {new: source[old] for old, new in PASSTHROUGH_COLUMNS.items()}
     cols |= {new: source[old] for old, new in FLOAT_COLUMNS.items()}
     cols |= {name: "" for name in EMPTY_COLUMNS}
 
-    # --- computed cols
+    # Computed cols
     date = source["Date mutation"]
     cols["date_mutation"] = (
         date.str[6:] + "-" + date.str[3:5] + "-" + date.str[:2]
@@ -152,7 +152,10 @@ def enrich_parcelles_with_snapshot_coord(
     s3_client: S3Client,
     bucket: str,
 ) -> pd.DataFrame:
-    # getting and merging parcelle's geographical columns from parquet files made by Thomas
+    """Match parcelle's lat, long coordinates for a snapshot file to the DVF batch,
+    relying on parcelle ID.
+    Note: snapshot parquet files are produced by Thomas G.
+    """
     logging.info("Streaming " + snapshot_file)
     parcelle_ids = pd.Index(dvf_batch_df["id_parcelle"].unique())
 
@@ -215,6 +218,10 @@ def enrich_parcelles_with_coord(
     s3_client: S3Client,
     bucket: str,
 ):
+    """Enrich DVF dataframe with parcelle's lat, long coordinates.
+    Those parcelle coordinates can be defined at a slightly different timeframe than the mutation,
+    so looping through each available snapshot of parcelle coordinates.
+    """
     restr_available_dates = match_year_to_snapshots(year, available_dates)
     logging.info(restr_available_dates)
     geoloced = []
