@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from datagouvfr_data_pipelines.utils.s3 import S3Client
-from dags.datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.latlong import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.latlong import (
     enrich_parcelles_with_coord,
 )
 

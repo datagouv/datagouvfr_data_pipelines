@@ -16,7 +16,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
-from dags.datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year import (
     enrich_year,
 )
 
