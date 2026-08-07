@@ -62,10 +62,6 @@ def enrich_parcelles_with_snapshot_coord(
 ) -> pd.DataFrame:
     # getting and merging parcelle's geographical columns from parquet files made by Thomas
     logging.info("Streaming " + snapshot_file)
-    # TODO: sorting below preserve row order from prior implem. Need to verify if necessary otherwise can be removed
-    dvf_batch_df = dvf_batch_df.sort_values(
-        by="id_parcelle", key=lambda s: s.str[:3], kind="stable", ignore_index=True
-    )  # sort by 2 digits department + 1st digit of the commune code like "380"
     parcelle_ids = pd.Index(dvf_batch_df["id_parcelle"].unique())
 
     # Open just once the file to accelerate time
@@ -97,7 +93,10 @@ def enrich_parcelles_with_snapshot_coord(
                 f"> batch {i}, {sum(map(len, coord_to_keep_chunks)):,} parcelles matched so far"
             )
     del parcelle_ids
-
+    if not coord_to_keep_chunks:
+        raise ValueError(
+            f"No matching parcelles ID between DVF batch and coordinates snapshot {snapshot_file}"
+        )
     coord_to_keep_df = pd.concat(coord_to_keep_chunks, ignore_index=True).rename(
         {"id": "id_parcelle"}, axis=1
     )
@@ -110,11 +109,10 @@ def enrich_parcelles_with_snapshot_coord(
     enriched_batch_df = pd.merge(
         dvf_batch_df, coord_to_keep_df, on="id_parcelle", how="left"
     )
-    del dvf_batch_df, coord_to_keep_df
-    # expecting around 1-2% missing coords
+    del coord_to_keep_df
     logging.info(
         f"> {round(len(enriched_batch_df.loc[enriched_batch_df['latitude'].isna()]) / len(enriched_batch_df) * 100, 2)}% missing"
-    )
+    )  # expecting around 1-2% missing coords
     return enriched_batch_df
 
 
@@ -152,6 +150,10 @@ def enrich_parcelles_with_coord(
         if len(matching_mutations_df) == 0:
             logging.info("> skipping")
             continue
+        # TODO: sorting below preserve row order from prior implem. Need to verify if necessary otherwise can be removed
+        matching_mutations_df = matching_mutations_df.sort_values(
+            by="id_parcelle", key=lambda s: s.str[:3], kind="stable", ignore_index=True
+        )  # sort by 2 digits department + 1st digit of the commune code like "380"
         enriched = enrich_parcelles_with_snapshot_coord(
             matching_mutations_df, available_dates[dmin], s3_client, bucket
         )
@@ -162,7 +164,8 @@ def enrich_parcelles_with_coord(
         del enriched
         gc.collect()
     logging.info("Done with geoloc, concatenating results...")
-    geoloced.append(remainders)
+    if remainders is not None:
+        geoloced.append(remainders)
     del remainders
 
     # using pd.concat on geoloced directly is too RAM heavy, so workaround
