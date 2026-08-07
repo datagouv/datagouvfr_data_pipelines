@@ -93,6 +93,10 @@ def enrich_years(files, **context):
             map_cultures[scope] = json.load(
                 f
             )  # {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
+    with open(DAG_FOLDER + "dvf/geoloc/data/output_schema.json", "r") as f:
+        output_schema = json.load(
+            f
+        )  # {"id_mutation": "object", ...}, in the published column order
     s3_client = S3Client(
         bucket=bucket,
         conn_name="S3_OVH_RBX",
@@ -111,6 +115,7 @@ def enrich_years(files, **context):
             file,
             TMP_FOLDER,
             map_cultures=map_cultures,
+            output_schema=output_schema,
             available_dates=available_dates,
             s3_client=s3_client,
             bucket=bucket,
