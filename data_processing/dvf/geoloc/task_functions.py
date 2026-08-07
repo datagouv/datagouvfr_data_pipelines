@@ -22,8 +22,8 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year impo
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
-SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"
-GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"
+SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
+GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
 bucket = "dataeng-open"
 
 
