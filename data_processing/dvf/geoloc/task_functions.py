@@ -14,6 +14,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year import (
@@ -25,6 +26,15 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
 GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
 bucket = "dataeng-open"
+
+
+@simple_connection_retry
+def download_resource(res, dest_path: str) -> None:
+    """Download one source file, retrying on network hiccups.
+    data.gouv's static host can stall mid-stream and httpx's default read timeout is 5s,
+    which is short for these ~70 MB files. Resource.download() drops its **kwargs, so the
+    timeout cannot be raised from here: we retry the whole file instead."""
+    res.download(dest_path)
 
 
 def check_if_modif():
@@ -49,15 +59,17 @@ def download_source_data(**context):
         raise ValueError(f"Unexpected number of resources: {len(data)}")
     files = []
     max_year = 2000
+    titles = [f'"{res.title}"' for res in data]
+    logging.info(f"Available ressources : {','.join(titles)}...")
     for res in data:
-        logging.info(res.title)
+        logging.info(f'Downloading ressource "{res.title}"...')
         file_name = res.url.split("/")[-1]
         # checking that the year is where we expect it in the resource's title
         if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
             raise ValueError(f"Unexpected file name: {file_name}")
         max_year = max(max_year, int(file_name.split(".")[0].split("-")[1]))
         dest_path = TMP_FOLDER + file_name
-        res.download(dest_path)
+        download_resource(res, dest_path)
         with ZipFile(dest_path, mode="r") as z:
             zipped = z.namelist()
             if len(zipped) != 1:
@@ -89,6 +101,7 @@ def enrich_years(files, **context):
     # arrondissements_muni = context["ti"].xcom_pull(
     #     key="arrondissements_muni", task_ids="download_source_data"
     # )
+    logging.info("Loading config data...")
     map_cultures = {}
     for scope in ["cultures", "cultures-speciales"]:
         with open(DAG_FOLDER + f"dvf/geoloc/data/{scope}.json", "r") as f:
@@ -112,6 +125,7 @@ def enrich_years(files, **context):
         )
     }  # {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
     logging.info(f"Available cadastre snapshots : {available_dates}")
+    logging.info(f"Starting year enrichment over {len(files)} files...")
     for file in files:
         enrich_year(
             file,
@@ -122,6 +136,7 @@ def enrich_years(files, **context):
             s3_client=s3_client,
             bucket=bucket,
         )
+    logging.info("Year enrichment over. Deleting temporary files...")
     # deleting in the end so that if the loop above fails, we can rerun safely
     for file in files:
         os.remove(TMP_FOLDER + file)
