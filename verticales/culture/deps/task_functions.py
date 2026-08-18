@@ -1,6 +1,6 @@
 import logging
 
-import requests
+import pandas as pd
 from airflow.sdk import task
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.grist import GristTable
@@ -13,28 +13,19 @@ topic_id = "69f2fca0f4f30af95d4bab8a"
 # document Grist "Portail-Culture-univers-DEPS", reconsommé par la verticale
 GRIST_DOC_ID = "mrvekg9fyhQZ"
 GRIST_TOPS_TABLE = "Tops"
-
-# La colonne libellée « id » à l'export est exposée par l'API sous le colId
-# `id2` : Grist réserve `id` pour l'identifiant de ligne.
 GRIST_ID_COLUMN = "id2"
 
-# Critère de tri de chaque top, appliqué à l'objet renvoyé par l'API.
-# Les dates ISO 8601 se trient correctement en chaînes de caractères.
+DATASETS_CATALOG_ID = "f868cca6-8da1-4369-a78d-47463f19a9a3"
+
 TOPS = {
-    "top-datasets": lambda dataset: dataset["metrics"]["resources_downloads"],
-    "top-reuses": lambda dataset: dataset["metrics"]["reuses"],
-    "new-datasets": lambda dataset: dataset["created_at"],
+    "top-datasets": "metric.resources_downloads",
+    "top-reuses": "metric.reuses",
+    "new-datasets": "created_at",
 }
 
 
 @task()
 def get_perimeter(**context):
-    """Récupère les identifiants des jeux de données rattachés au topic.
-
-    Le contenu d'un topic est exposé par la sous-ressource paginée `/elements/`.
-    Un élément peut être marqué « donnée non trouvée », d'où le champ `element`
-    potentiellement nul.
-    """
     ids = [
         element["element"]["id"]
         for element in local_client.get_all_from_api_query(
@@ -47,37 +38,40 @@ def get_perimeter(**context):
         raise ValueError("Aucun jeu de données dans le topic univers-culture-deps")
 
     ids = sorted(set(ids))
-
     logging.info(f"> {len(ids)} jeux de données dans le périmètre DEPS")
     context["ti"].xcom_push(key="datasets", value=ids)
 
 
 @task()
 def refresh_tops(**context):
-    """Recalcule les trois tops et met à jour les 9 lignes préexistantes de la
-    table Grist, identifiées par (type, type_content, ordre).
-    """
+    """Recalcule les trois tops de l'univers DEPS."""
     ids = context["ti"].xcom_pull(key="datasets", task_ids="get_perimeter")
 
-    datasets = []
-    for obj_id in ids:
-        r = requests.get(f"{local_client.base_url}/api/2/datasets/{obj_id}/")
-        if r.status_code == 404:
-            # Jeu de données supprimé mais toujours rattaché au topic.
-            logging.warning(f"Jeu de données introuvable : {obj_id}")
-            continue
+    logging.info("Loading catalog...")
+    datasets_catalog = pd.read_csv(
+        f"https://www.data.gouv.fr/api/1/datasets/r/{DATASETS_CATALOG_ID}",
+        sep=";",
+        dtype=str,
+        usecols=[
+            "id",
+            "title",
+            "slug",
+            "created_at",
+            "metric.reuses",
+            "metric.resources_downloads",
+        ],
+    )
 
-        r.raise_for_status()
-        datasets.append(r.json())
+    datasets_catalog = datasets_catalog.loc[datasets_catalog["id"].isin(ids)]
 
-    logging.info(f"> {len(datasets)} jeux de données récupérés")
+    logging.info(f"> {len(datasets_catalog)} jeux de données récupérés")
 
     table = GristTable(GRIST_DOC_ID, GRIST_TOPS_TABLE)
 
-    for top_type, sort_key in TOPS.items():
-        top = sorted(datasets, key=sort_key, reverse=True)[:3]
+    for top_type, column in TOPS.items():
+        top = datasets_catalog.sort_values(by=column, ascending=False).head(3)
 
-        for ordre, dataset in enumerate(top, start=1):
+        for ordre, (_, dataset) in enumerate(top.iterrows(), start=1):
             table.update_records(
                 conditions={
                     "type": top_type,
