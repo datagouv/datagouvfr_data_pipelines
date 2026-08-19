@@ -22,6 +22,7 @@ from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_mark
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from feedgen.feed import FeedGenerator
 from git import Git, Repo
 from table_schema_to_markdown import convert_source, sources_to_markdown
@@ -30,6 +31,7 @@ from unidecode import unidecode
 ERRORS_REPORT: list[Any] = []
 SCHEMA_INFOS: dict[str, Any] = {}
 SCHEMA_CATALOG: dict[str, Any] = {}
+KNOWN_TYPES = {"tableschema", "jsonschema", "other", "datapackage"}
 
 
 @task()
@@ -90,8 +92,15 @@ def get_consolidated_version(tag) -> tuple[str, bool]:
     return ".".join(version_items), valid_version
 
 
-def manage_errors(repertoire_slug: str, version: str, reason: str):
-    """Create dictionnary that will populate ERRORS_REPORT object"""
+def get_schema_name(conf: dict) -> str:
+    """schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
+    Ex : etalab / schema-irve-statique"""
+    return "/".join(conf["url"].split(".git")[0].split("/")[-2:])
+
+
+def manage_errors(repertoire_slug: str, version: str | None, reason: str):
+    """Create dictionnary that will populate ERRORS_REPORT object
+    version is None when the whole schema is at fault, not one of its releases"""
     ERRORS_REPORT.append(
         {
             "schema": repertoire_slug,
@@ -106,9 +115,7 @@ def check_schema(
 ) -> dict:
     global SCHEMA_INFOS
     """Check validity of schema and all of its releases"""
-    # schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
-    # Ex : etalab / schema-irve-statique
-    schema_name = "/".join(conf["url"].split(".git")[0].split("/")[-2:])
+    schema_name = get_schema_name(conf)
     # define source folder and create it
     # source folder will help us to checkout to every release and analyze source code for each one
     src_folder = folders["CACHE_FOLDER"] + "/" + schema_name + "/"
@@ -182,6 +189,10 @@ def check_schema(
                 )
     if not list_schemas:
         logging.warning("No valid version for this schema")
+        # the entry was created before any validation: remove it, otherwise it reaches
+        # update_news_feed without a "latest" key and gets published with version None
+        SCHEMA_INFOS.pop(schema_name, None)
+        manage_errors(repertoire_slug, None, "aucune version valide")
         return {}
     # Find latest valid version and create a specific folder "latest" copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(schema_name, folders)
@@ -205,12 +216,12 @@ def check_schema(
     return schema_to_add_to_catalog
 
 
-def check_datapackage(conf, folders):
+def check_datapackage(repertoire_slug, conf, folders):
     global SCHEMA_INFOS
     """Check validity of schemas from a datapackage repo for all of its releases"""
     # define source folder and create it
     # source folder will help us to checkout to every release and analyze source code for each one
-    dpkg_name = "/".join(conf["url"].split(".git")[0].split("/")[-2:])
+    dpkg_name = get_schema_name(conf)
     src_folder = f"{folders['CACHE_FOLDER']}/{'/'.join(conf['url'].split('.git')[0].split('/')[-2:])}/"
     os.makedirs(src_folder, exist_ok=True)
     # clone repo in source folder
@@ -221,6 +232,9 @@ def check_datapackage(conf, folders):
 
     list_schemas = {}
     schemas_to_add_to_catalog = []
+    # a datapackage registers itself plus one entry per nested schema, keep track of
+    # all of them so they can all be removed if no release turns out to be valid
+    registered_names = {dpkg_name}
 
     # Defining SCHEMA_INFOS object for website use
     SCHEMA_INFOS[dpkg_name] = {
@@ -310,6 +324,7 @@ def check_datapackage(conf, folders):
                                 "labels": conf.get("labels"),
                                 "consolidation_dataset_id": conf.get("consolidation"),
                             }
+                        registered_names.add(schema_name)
 
                         SCHEMA_INFOS[schema_name]["versions"][version] = {"pages": []}
 
@@ -388,6 +403,10 @@ def check_datapackage(conf, folders):
     if not one_valid:
         logging.warning("No valid version for this datapackage, see report:")
         logging.info(frictionless_report)
+        # same as in check_schema: drop the entries created before validation
+        for name in registered_names:
+            SCHEMA_INFOS.pop(name, None)
+        manage_errors(repertoire_slug, None, "aucune version valide")
         return
     # Find latest valid version and create a specific folder "latest" copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(dpkg_name, folders)
@@ -899,6 +918,11 @@ def check_and_save_schemas(suffix, **context):
     clean_and_create_folder(folders["CACHE_FOLDER"])
     clean_and_create_folder(folders["DATA_FOLDER1"])
 
+    # these are module-level accumulators, unlike SCHEMA_CATALOG they are never
+    # reassigned: clear them in case two task instances share a worker process
+    SCHEMA_INFOS.clear()
+    ERRORS_REPORT.clear()
+
     # Initiate Catalog
     SCHEMA_CATALOG["$schema"] = (
         "https://opendataschema.frama.io/catalog/schema-catalog.json"
@@ -911,19 +935,36 @@ def check_and_save_schemas(suffix, **context):
         logging.info("_______________________________")
         logging.info(f"Starting with {repertoire_slug}")
         logging.info(conf)
-        if conf["type"] != "datapackage":
-            logging.info(f"Recognized as {conf['type']}")
-            schema_to_add_to_catalog: dict = check_schema(
-                repertoire_slug, conf, conf["type"], folders
-            )
-            if schema_to_add_to_catalog:
-                SCHEMA_CATALOG["schemas"].append(schema_to_add_to_catalog)
-        else:
-            logging.info("Recognized as datapackage")
-            schemas_to_add_to_catalog = check_datapackage(conf, folders)
-            if schemas_to_add_to_catalog:
-                for schema in schemas_to_add_to_catalog:
-                    SCHEMA_CATALOG["schemas"].append(schema)
+        try:
+            if conf["type"] not in KNOWN_TYPES:
+                raise ValueError(f"type de schéma inconnu : '{conf['type']}'")
+            if conf["type"] != "datapackage":
+                logging.info(f"Recognized as {conf['type']}")
+                schema_to_add_to_catalog: dict = check_schema(
+                    repertoire_slug, conf, conf["type"], folders
+                )
+                if schema_to_add_to_catalog:
+                    SCHEMA_CATALOG["schemas"].append(schema_to_add_to_catalog)
+            else:
+                logging.info("Recognized as datapackage")
+                schemas_to_add_to_catalog = check_datapackage(
+                    repertoire_slug, conf, folders
+                )
+                if schemas_to_add_to_catalog:
+                    for schema in schemas_to_add_to_catalog:
+                        SCHEMA_CATALOG["schemas"].append(schema)
+        except Exception as e:
+            # one broken schema must not prevent the whole website from being published:
+            # log it, keep it for the final notification, and move on to the next one
+            logging.error(f"/!\\ {repertoire_slug} n'a pas pu être traité : {e}")
+            if conf.get("url"):
+                SCHEMA_INFOS.pop(get_schema_name(conf), None)
+            # git errors are multi-line and very verbose, keep the report readable:
+            # the complete error stays in the task logs above
+            reason = " ".join(str(e).split())
+            reason = reason[:300] + "..." if len(reason) > 300 else reason
+            manage_errors(repertoire_slug, None, f"{type(e).__name__}: {reason}")
+            continue
         logging.info(f"--- {repertoire_slug} processed")
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
@@ -1513,3 +1554,47 @@ def final_clean_up(suffix, **context):
     remove_all_files_extension(folders["DATA_FOLDER1"], ".json")
     remove_all_files_extension(folders["DATA_FOLDER1"], ".yml")
     remove_all_files_extension(folders["DATA_FOLDER1"], ".yaml")
+
+
+@task()
+def notification_synthese(branch, suffix, **context):
+    errors = context["ti"].xcom_pull(
+        key="ERRORS_REPORT", task_ids="check_and_save_schemas" + suffix
+    )
+    if not errors:
+        logging.info("Aucune erreur à signaler")
+        return
+
+    # errors are recorded per version, group them by schema to keep the message readable
+    # version is None => the schema itself was skipped, not just one of its releases
+    blocking: dict[str, list[str]] = {}
+    rejected: dict[str, dict[str, list[str]]] = {}
+    for error in errors:
+        if error["version"] is None:
+            blocking.setdefault(error["schema"], []).append(error["type"])
+        else:
+            rejected.setdefault(error["schema"], {}).setdefault(
+                error["type"], []
+            ).append(error["version"])
+
+    def detail(schema: str) -> str:
+        return " ; ".join(
+            f"{reason} ({', '.join(versions)})"
+            for reason, versions in rejected.get(schema, {}).items()
+        )
+
+    message = f"⚠️ *schema.data.gouv.fr - publication du site (`{branch}`)*\n"
+    if blocking:
+        message += f"\n**{len(blocking)} schéma(s) non publié(s) :**\n"
+        for schema in sorted(blocking):
+            reasons = " ; ".join(blocking[schema])
+            versions_detail = detail(schema)
+            message += f"- **{schema}** : {reasons}"
+            message += f" - {versions_detail}\n" if versions_detail else "\n"
+    others = sorted(set(rejected) - set(blocking))
+    if others:
+        message += f"\n**{len(others)} schéma(s) avec des versions rejetées :**\n"
+        for schema in others:
+            message += f"- **{schema}** : {detail(schema)}\n"
+    logging.info(message)
+    send_message(message)
