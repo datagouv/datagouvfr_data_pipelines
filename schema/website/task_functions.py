@@ -1557,7 +1557,7 @@ def final_clean_up(suffix, **context):
 
 
 @task()
-def notification_synthese(branch, suffix, **context):
+def notification(branch, suffix, **context):
     errors = context["ti"].xcom_pull(
         key="ERRORS_REPORT", task_ids="check_and_save_schemas" + suffix
     )
