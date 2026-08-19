@@ -116,7 +116,7 @@ with DAG(
                 bash_command=f"rm -rf {tmp_folder}",
             )
             >> notification.override(
-                task_id="notification_synthese" + suffix,
+                task_id="notification" + suffix,
                 trigger_rule="all_done",
             )(
                 branch=branch,
