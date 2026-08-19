@@ -438,6 +438,13 @@ def check_datapackage(repertoire_slug, conf, folders):
 
     SCHEMA_INFOS[dpkg_name]["latest"] = sf
 
+    # a nested schema present only in older releases was registered above but never
+    # got a "latest": drop it rather than publishing a versionless entry
+    orphans = registered_names - set(SCHEMA_INFOS[dpkg_name]["schemas"]) - {dpkg_name}
+    for name in orphans:
+        logging.warning(f"{name} is not in the latest datapackage, dropping it")
+        SCHEMA_INFOS.pop(name, None)
+
     statc = generate_catalog_datapackage(
         latest_folder,
         dpkg_name,
@@ -1148,6 +1155,13 @@ def update_news_feed(tmp_folder, suffix, **context):
                     )
     for schema in old:
         if schema not in new:
+            # a schema that never had a valid version was never really published:
+            # nothing to announce, and it must not enter the feed without a version
+            if not old[schema].get("latest"):
+                logging.info(
+                    f"{schema} had no valid version, not adding it to the feed"
+                )
+                continue
             if "deleted_schema" not in changes[today]:
                 changes[today]["deleted_schema"] = []
             changes[today]["deleted_schema"].append(
@@ -1585,16 +1599,16 @@ def notification(branch, suffix, **context):
 
     message = f"⚠️ *schema.data.gouv.fr - publication du site (`{branch}`)*\n"
     if blocking:
-        message += f"\n**{len(blocking)} schéma(s) non publié(s) :**\n"
+        message += f"\n**{len(blocking)} schéma(s) non publié(s) :**\n\n"
         for schema in sorted(blocking):
             reasons = " ; ".join(blocking[schema])
             versions_detail = detail(schema)
             message += f"- **{schema}** : {reasons}"
-            message += f" - {versions_detail}\n" if versions_detail else "\n"
+            message += f" - {versions_detail}\n\n" if versions_detail else "\n\n"
     others = sorted(set(rejected) - set(blocking))
     if others:
-        message += f"\n**{len(others)} schéma(s) avec des versions rejetées :**\n"
+        message += f"\n**{len(others)} schéma(s) avec des versions rejetées :**\n\n"
         for schema in others:
-            message += f"- **{schema}** : {detail(schema)}\n"
+            message += f"- **{schema}** : {detail(schema)}\n\n"
     logging.info(message)
     send_message(message)
