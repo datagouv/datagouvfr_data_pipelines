@@ -1208,7 +1208,7 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
-    # TODO: this call can go once the committed file is clean
+    # TODO: this call can go once the committed file is clean and its reference line 1251 
     duplicates_removed = deduplicate_updates(updates)
     issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
