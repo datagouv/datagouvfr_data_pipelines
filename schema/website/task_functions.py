@@ -1118,7 +1118,6 @@ def get_template_github_issues(suffix):
                     )
     return dates
 
-# TODO: this could be removed in a later version once everything is cleaned for sure
 def deduplicate_updates(updates: dict) -> bool:
     """Remove repeated entries per date and change type, keeping the first occurrence.
     Before new_version entries were made unique per schema, a schema gaining several
@@ -1209,7 +1208,7 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
-    # cleaning the duplicates left by the previous version of the new_version logic
+    # TODO: this call can go once the committed file is clean
     duplicates_removed = deduplicate_updates(updates)
     issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
