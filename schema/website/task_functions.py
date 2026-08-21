@@ -33,6 +33,11 @@ SCHEMA_INFOS: dict[str, Any] = {}
 SCHEMA_CATALOG: dict[str, Any] = {}
 KNOWN_TYPES = {"tableschema", "jsonschema", "other", "datapackage"}
 
+# TODO: the whole code could be refactored to separate concerns : 
+# backend : schemas data should be processed and stored in a readable data model for better debugging
+# frontend : anything related to the code that should be produced based of this data model should be in separate function - and even steps
+# that would allow cleaner retries where we dont mix up data model and code writing
+
 
 @task()
 def initialization(tmp_folder, branch, **context):
@@ -1113,6 +1118,23 @@ def get_template_github_issues(suffix):
                     )
     return dates
 
+def deduplicate_updates(updates: dict) -> bool:
+    """Remove repeated entries per date and change type, keeping the first occurrence.
+    Before new_version entries were made unique per schema, a schema gaining several
+    versions at once produced as many identical entries. Returns True if it removed any."""
+    removed = 0
+    for change_types in updates.values():
+        for change_type, entries in change_types.items():
+            unique = []
+            for entry in entries:
+                if entry not in unique:
+                    unique.append(entry)
+            removed += len(entries) - len(unique)
+            change_types[change_type] = unique
+    if removed:
+        logging.warning(f"Removed {removed} duplicate entries from the news feed")
+    return bool(removed)
+
 
 @task()
 def update_news_feed(tmp_folder, suffix, **context):
@@ -1140,19 +1162,26 @@ def update_news_feed(tmp_folder, suffix, **context):
                 }
             )
         else:
-            for v in new[schema]["versions"]:
-                if v not in old[schema]["versions"]:
-                    if "new_version" not in changes[today]:
-                        changes[today]["new_version"] = []
-                    changes[today]["new_version"].append(
-                        {
-                            "schema_name": schema,
-                            "version": (
-                                f"{old[schema].get('latest')} => "
-                                f"{new[schema].get('latest')}"
-                            ),
-                        }
-                    )
+            # a schema can gain several versions in one run (new releases, or older
+            # tags becoming visible): the feed announces the move of "latest", so it
+            # is one entry per schema, and only when latest actually moves up
+            # (latest can also go down if a release is deleted or stops validating,
+            # which is not a "montée de version")
+            # old comes from the published file, it may predate the guarantee that
+            # every schema has a latest, hence the check before comparing
+            old_latest = old[schema].get("latest")
+            new_latest = new[schema].get("latest")
+            if old_latest and comparer_versions(new_latest) > comparer_versions(
+                old_latest
+            ):
+                if "new_version" not in changes[today]:
+                    changes[today]["new_version"] = []
+                changes[today]["new_version"].append(
+                    {
+                        "schema_name": schema,
+                        "version": f"{old_latest} => {new_latest}",
+                    }
+                )
     for schema in old:
         if schema not in new:
             # a schema that never had a valid version was never really published:
@@ -1179,6 +1208,8 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
+    # TODO: this call can go once the committed file is clean and its reference line 1251 
+    duplicates_removed = deduplicate_updates(updates)
     issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
     # in one state or another
@@ -1217,17 +1248,20 @@ def update_news_feed(tmp_folder, suffix, **context):
     #         },
     #     ],
     # }
-    if changes[today]:
-        logging.info(f"Updating news feed with: {changes[today]}")
-        # updating schema-updates.json
-        if today not in updates:
-            updates.update(changes)
-        else:
-            for change_type in changes[today]:
-                if change_type not in updates[today]:
-                    updates[today][change_type] = changes[today][change_type]
-                else:
-                    updates[today][change_type] += changes[today][change_type]
+    if changes[today] or duplicates_removed:
+        if changes[today]:
+            logging.info(f"Updating news feed with: {changes[today]}")
+            # updating schema-updates.json
+            if today not in updates:
+                updates.update(changes)
+            else:
+                for change_type in changes[today]:
+                    if change_type not in updates[today]:
+                        updates[today][change_type] = changes[today][change_type]
+                    else:
+                        updates[today][change_type] += changes[today][change_type]
+            # a retry re-appends what the previous attempt already wrote to the file
+            deduplicate_updates(updates)
         updates = {k: updates[k] for k in sorted(updates.keys())}
         logging.info(updates)
         with open(schema_updates_file, "w", encoding="utf-8") as f:
@@ -1273,6 +1307,11 @@ def update_news_feed(tmp_folder, suffix, **context):
             tmp_folder + "schema.data.gouv.fr/site/actualites.md", "w", encoding="utf-8"
         ) as f:
             f.write(md)
+
+        if not changes[today]:
+            # cleanup-only pass: nothing new to append to the RSS feeds
+            logging.info("No update today, only removed duplicates from the news feed")
+            return
 
         # updating RSS feed
         tz = pytz.timezone("CET")
