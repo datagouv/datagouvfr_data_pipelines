@@ -1165,10 +1165,16 @@ def update_news_feed(tmp_folder, suffix, **context):
         else:
             # a schema can gain several versions in one run (new releases, or older
             # tags becoming visible): the feed announces the move of "latest", so it
-            # is one entry per schema, and none at all if latest did not move
+            # is one entry per schema, and only when latest actually moves up
+            # (latest can also go down if a release is deleted or stops validating,
+            # which is not a "montée de version")
+            # old comes from the published file, it may predate the guarantee that
+            # every schema has a latest, hence the check before comparing
             old_latest = old[schema].get("latest")
             new_latest = new[schema].get("latest")
-            if old_latest != new_latest:
+            if old_latest and comparer_versions(new_latest) > comparer_versions(
+                old_latest
+            ):
                 if "new_version" not in changes[today]:
                     changes[today]["new_version"] = []
                 changes[today]["new_version"].append(
