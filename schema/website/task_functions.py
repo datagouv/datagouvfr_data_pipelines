@@ -1136,6 +1136,47 @@ def deduplicate_updates(updates: dict) -> bool:
     return bool(removed)
 
 
+# TODO: this is called at the start of the task, so it cleans what previous runs left.
+# A retry appends its items again after this point, and they stay until the next run:
+# to make the feeds retry-safe this should also run after the items are appended, which
+# means reworking the "if changes[today] or duplicates_removed" block and the early return.
+def deduplicate_rss(rss_folder: str) -> int:
+    """Remove repeated <item> elements from the RSS feeds, keeping the first occurrence.
+    Same cause as deduplicate_updates, except the feeds are only ever appended to, so
+    they are not fixed by rewriting schema-updates.json. Returns how many were removed."""
+    removed = 0
+    for file_name in sorted(os.listdir(rss_folder)):
+        if not file_name.endswith(".xml"):
+            continue
+        tree = ET.parse(rss_folder + file_name)
+        channel = tree.getroot().find("./channel")
+        if channel is None:
+            continue
+        seen: set = set()
+        removed_here = 0
+        for item in channel.findall("item"):
+            # two items with the same title, link, description and date are
+            # indistinguishable for a feed reader
+            key = tuple((child.tag, child.text) for child in item)
+            if key in seen:
+                channel.remove(item)
+                removed_here += 1
+            else:
+                seen.add(key)
+        if removed_here:
+            logging.warning(f"Removed {removed_here} duplicate items from {file_name}")
+            # TODO: this xml elements addition could be factorized (done a second time later)
+            # - depends if we keep this dedupe logic after initial cleaning
+            # ElementTree drops the namespaces it considers unused when writing,
+            # they have to be set back by hand as the rest of this file does
+            root = tree.getroot()
+            root.set("xmlns:atom", "http://www.w3.org/2005/Atom")
+            root.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
+            tree.write(rss_folder + file_name)
+            removed += removed_here
+    return removed
+
+
 @task()
 def update_news_feed(tmp_folder, suffix, **context):
     new = context["ti"].xcom_pull(
@@ -1208,8 +1249,12 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
-    # TODO: this call can go once the committed file is clean and its reference line 1251 
+    # TODO: this call can go once the committed file is clean and its reference later 
     duplicates_removed = deduplicate_updates(updates)
+    # the RSS feeds carry the same duplicates but are not rebuilt from schema-updates.json,
+    # they are only ever appended to: they have to be cleaned separately. This runs on
+    # every execution, it must not depend on there being changes or updates to write.
+    deduplicate_rss(tmp_folder + "schema.data.gouv.fr/site/.vuepress/public/rss/")
     issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
     # in one state or another
