@@ -33,6 +33,11 @@ SCHEMA_INFOS: dict[str, Any] = {}
 SCHEMA_CATALOG: dict[str, Any] = {}
 KNOWN_TYPES = {"tableschema", "jsonschema", "other", "datapackage"}
 
+# TODO: the whole code could be refactored to separate concerns : 
+# backend : schemas data should be processed and stored in a readable data model for better debugging
+# frontend : anything related to the code that should be produced based of this data model should be in separate function - and even steps
+# that would allow cleaner retries where we dont mix up data model and code writing
+
 
 @task()
 def initialization(tmp_folder, branch, **context):
