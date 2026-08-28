@@ -1,8 +1,11 @@
 import logging
 import gc
+import re
+import os
+from time import sleep
 from functools import lru_cache
 from time import monotonic
-
+import pandas as pd
 import numpy as np
 import pyarrow.parquet as pq
 import shapely
@@ -12,6 +15,14 @@ from pyproj import Transformer
 WGS84 = "EPSG:4326"
 # how many ambiguous points to detail in the logs before only counting them
 AMBIGUOUS_SAMPLE = 20
+# INSEE COG, "commune depuis 1943". The numeric segment is the COG edition and changes with
+# each yearly release: check https://www.insee.fr/fr/information/8377162 when it 404s.
+INSEE_COMMUNES_URL = (
+    "https://www.insee.fr/fr/statistiques/fichier/8377162/v_commune_depuis_1943.csv"
+)
+# Paris, Lyon and Marseille: DVF carries the arrondissement, so the parent commune must not
+# shadow it in the lookup
+PLM_PARENTS = ("75056", "69123", "13055")
 
 
 @lru_cache(maxsize=None)
@@ -22,6 +33,44 @@ def _transformer(srid: int) -> Transformer:
     reads our (longitude, latitude) as (latitude, longitude) and silently misplaces every
     single point. Cached because building a Transformer costs more than using it."""
     return Transformer.from_crs(WGS84, f"EPSG:{srid}", always_xy=True)
+
+
+@lru_cache(maxsize=1)
+def load_commune_names() -> dict[str, str]:
+    """INSEE commune code -> the name that code carries today.
+
+    Two passes over the COG "commune depuis 1943" file, as the rule goes:
+    1. the row still in force for a code, i.e. the one with an empty DATE_FIN;
+    2. for the codes that no longer have one, the row that ended most recently - the last
+       name that code ever carried. A code can hold several rows (39209 went Épy ->
+       Épy-Lanéria -> Val-d'Épy -> Val d'Épy -> Val-d'Épy), hence the sort.
+
+    TYPECOM is restricted to COM and ARM to leave out the communes associées and déléguées,
+    and the Paris/Lyon/Marseille parents are dropped so those cities resolve to their
+    arrondissement, which is what DVF carries. Cached: the file is ~3.4 MB and the years
+    are enriched in a loop."""
+    referential = pd.read_csv(
+        INSEE_COMMUNES_URL,
+        dtype=str,
+        usecols=["TYPECOM", "COM", "LIBELLE", "DATE_FIN"],
+    )
+    referential = referential[
+        referential["TYPECOM"].isin(("COM", "ARM"))
+        & ~referential["COM"].isin(PLM_PARENTS)
+    ]
+    current = referential[referential["DATE_FIN"].isna()]
+    names = dict(zip(current["COM"], current["LIBELLE"]))
+    # sorted ascending so that, for a code with several closed rows, the last one written
+    # wins - the most recent DATE_FIN
+    retired = referential[
+        referential["DATE_FIN"].notna() & ~referential["COM"].isin(names)
+    ].sort_values("DATE_FIN")
+    names.update(zip(retired["COM"], retired["LIBELLE"]))
+    logging.info(
+        f"INSEE referential: {len(current):,} active commune codes"
+        f" + {len(names) - len(current):,} retired ones resolved to their last name"
+    )
+    return names
 
 
 def project_to_departement(
@@ -182,9 +231,9 @@ class ParcellesIndex:
         """For each WGS84 point, find the cadastre parcelle that contains it.
 
         Returns (parcelle_ids, communes)
-        
+
         Exceptions :
-        
+
         - Returns empty for a parcelle long/lat:
             - Are empty in DVF
             - Fall in no parcelle from the cadastre.
@@ -261,3 +310,90 @@ def check_parcelles_indexes(departements: list[str], cadastre_file: str, **conte
         del index  # the tree holds the geometries: drop it before loading the next one
         gc.collect()
     logging.info(f"{len(departements)} departements indexed, {total:,} parcelles total")
+
+
+def enrich_with_cadastre(file, cadastre_file, tmp_folder):
+    if not (match := re.fullmatch(r"temp-(\d{4})\.parquet", file)):
+        raise ValueError(f"Unexpected file name: {file}")
+    year = match.group(1)
+    if f"full-{year}.csv.gz" in os.listdir(tmp_folder):
+        logging.info(f"Skipping {file} - already processed")  # In case of retry
+        return
+    df = pd.read_parquet(tmp_folder + file, dtype_backend="pyarrow")
+    for column in ("cadastre_parcelle_id", "cadastre_commune"):
+        df[column] = pd.Series(pd.NA, index=df.index, dtype="string[pyarrow]")
+
+    for departement, rows in df.groupby("code_departement", sort=False):
+        index = ParcellesIndex.for_departement(str(departement), cadastre_file)
+        parcelle_ids, communes = index.match(
+            rows["longitude"].to_numpy(dtype="float64"),
+            rows["latitude"].to_numpy(dtype="float64"),
+            rows["id_parcelle"].to_numpy(),
+        )
+        del index  # the arrays below are plain numpy, they don't reference the tree
+        gc.collect()
+        # match() returns "" where the cadastre has nothing to say (parcelle gone to the
+        # domaine public, or a geometry the cadastre published broken): those rows keep the
+        # codes DVF built from the source text rather than being blanked
+        found = parcelle_ids != ""
+        df.loc[rows.index[found], "cadastre_parcelle_id"] = parcelle_ids[found]
+        df.loc[rows.index[found], "cadastre_commune"] = communes[found]
+    # A row the cadastre had no answer for is neither a parcelle nor a commune change.
+    # Not merely defensive: without it those rows are excluded only because a missing
+    # cadastre_commune propagates NA through the comparisons, which holds on the arrow
+    # backend read above and NOT on object dtypes, where "01004" != None is True and every
+    # unmatched row would be recorded as having changed commune.
+    matched = df["cadastre_parcelle_id"].notna()
+
+    # Only parcelle_id has changed in new cadastre
+    mask_only_parcelles_change = (
+        matched
+        & (df["id_parcelle"] != df["cadastre_parcelle_id"])
+        & (df["code_commune"] == df["cadastre_commune"])
+    )
+    df.loc[mask_only_parcelles_change, "ancien_id_parcelle"] = df["id_parcelle"]
+    df.loc[mask_only_parcelles_change, "id_parcelle"] = df["cadastre_parcelle_id"]
+    # Commune has changed since and so parcelle id
+    # (disjoint from the mask above, which requires the commune unchanged, so the
+    # id_parcelle just written cannot leak into ancien_id_parcelle below)
+    mask_commune_change = matched & (df["code_commune"] != df["cadastre_commune"])
+    df.loc[mask_commune_change, "ancien_code_commune"] = df["code_commune"]
+    df.loc[mask_commune_change, "ancien_nom_commune"] = df["nom_commune"]
+    df.loc[mask_commune_change, "ancien_id_parcelle"] = df["id_parcelle"]
+    df.loc[mask_commune_change, "code_commune"] = df["cadastre_commune"]
+    df.loc[mask_commune_change, "id_parcelle"] = df["cadastre_parcelle_id"]
+    # the name has to follow the code, and it is looked up on the NEW code, so this has to
+    # come after code_commune was overwritten just above
+    nom_commune = df.loc[mask_commune_change, "code_commune"].map(load_commune_names())
+    unresolved = nom_commune.isna()
+    if unresolved.any():
+        missing = sorted(set(df.loc[mask_commune_change, "code_commune"][unresolved]))
+        logging.error(
+            f"{int(unresolved.sum()):,} rows ({len(missing)} distinct codes) have a commune"
+            " code the cadastre gave but the INSEE referential does not know:"
+            f" {missing[:AMBIGUOUS_SAMPLE]}. Their nom_commune keeps the previous commune's"
+            " name, which the new code contradicts - check whether INSEE_COMMUNES_URL still"
+            " points at the current COG edition."
+        )
+        # keeping the old name rather than blanking the column: a stale name is easier to
+        # spot and to repair downstream than a hole
+        nom_commune = nom_commune.fillna(df.loc[mask_commune_change, "nom_commune"])
+    df.loc[mask_commune_change, "nom_commune"] = nom_commune
+    logging.info(
+        f"{int(mask_commune_change.sum()):,} rows changed commune,"
+        f" {int(mask_only_parcelles_change.sum()):,} changed parcelle only,"
+        f" {int((~matched).sum()):,} had no cadastre match"
+    )
+
+    # working columns, not part of the published schema
+    df.drop(columns=["cadastre_parcelle_id", "cadastre_commune"], inplace=True)
+    logging.info("Saving file...")
+    df.to_csv(
+        tmp_folder + f"full-{year}.csv.gz",
+        index=False,
+        compression="gzip",
+    )
+    del df
+    # end-of-loop garbage management, giving time to reclaim memory
+    gc.collect()
+    sleep(5)

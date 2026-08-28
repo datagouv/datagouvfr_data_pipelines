@@ -141,7 +141,7 @@ def enrich_year(
 ):
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
     year = file.split(".")[0].split("-")[1]  #  # "valeursfoncieres-2023.txt" => "2023"
-    if f"full-{year}.csv.gz" in os.listdir(tmp_folder):
+    if f"temp-{year}.parquet" in os.listdir(tmp_folder):
         logging.info(f"Skipping {file} - already processed")  # In case of retry
         return
 
@@ -204,11 +204,15 @@ def enrich_year(
         f"No coords: {round(sum(final['longitude'].isna()) / len(final) * 100, 2)}%"
     )
 
+    # parquet, not csv.gz: this file only exists for enrich_with_cadastre to read back, and
+    # a gzip round-trip costs ~45s per million rows against ~7s, while losing every dtype
+    # the assert above just checked (the float32 columns come back float64). The published
+    # full-<year>.csv.gz is written at the end of that step instead.
     logging.info("Saving file...")
-    final.to_csv(
-        tmp_folder + f"full-{year}.csv.gz",
+    final.to_parquet(
+        tmp_folder + f"temp-{year}.parquet",
+        compression="zstd",
         index=False,
-        compression="gzip",
     )
     del final
     # end-of-loop garbage management, giving time to reclaim memory

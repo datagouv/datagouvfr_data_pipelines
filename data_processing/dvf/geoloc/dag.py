@@ -7,8 +7,9 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import 
     TMP_FOLDER,
     check_if_modif,
     download_dvf_source_data,
-    download_cadastre_source_data,
     enrich_years,
+    download_cadastre_source_data,
+    process_cadastre_cols,
     publish_datagouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -38,10 +39,11 @@ with DAG(
                     python_callable=check_if_modif,
                 )
                 >> clean_up_folder(TMP_FOLDER, recreate=True)
-                >> download_cadastre_source_data()
                 >> download_dvf_source_data()
             )
         )
+        >> download_cadastre_source_data()
+        >> process_cadastre_cols()
         >> publish_datagouv()
         # >> notification()
         # >> TriggerDagRunOperator(

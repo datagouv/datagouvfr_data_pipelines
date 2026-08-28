@@ -18,12 +18,11 @@ from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
     enrich_year,
 )
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.spatial_index import (
-    check_parcelles_indexes,
-    list_departements,
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
+    enrich_with_cadastre,
 )
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
@@ -54,60 +53,6 @@ def check_if_modif():
 
     # bypassing for now, the DAG has not completed yet
     return True
-
-
-@task()
-def download_cadastre_source_data(**context):
-    """
-    Load the right cadastre file and store locally its indexed parcelle geometries
-    for faster match against centroid geopoint of the parcelles from DVF.
-    """
-    # Technical choice notes: Measurement on samples shows it is faster to load the full file
-    # then filter it locally with duckdb rather than directly filter and load with duckdb.
-    # This current task takes about 15min on a PC with wifi +350Mbps for download
-    # todo : later add a parametrize way to run specifically for october or april run for debug
-    year = str(date.today().year)
-    millesime = f"{year}-03-01" if 4 <= date.today().month < 10 else f"{year}-06-01"
-    url = (
-        "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
-        f"{millesime}/geoparquet/france/cadastre.parquet"
-    )
-    if not requests.head(url, allow_redirects=True, timeout=15).ok:
-        raise Exception(
-            f"The required millesime {millesime} is not available. Checkout on https://cadastre.data.gouv.fr/data/etalab-cadastre/"
-        )
-    logging.info(f"Start loading the required millesime {millesime}...")
-    raw = f"{TMP_FOLDER}cadastre-raw.parquet"  # about 21go, all layers
-    with requests.get(url, stream=True, timeout=60) as r:
-        r.raise_for_status()
-        with open(raw, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8 << 20):
-                f.write(chunk)
-
-    logging.info("Cadastre downloaded, filtering on parcelles...")
-    con = duckdb.connect()
-    con.execute(
-        f"SET memory_limit='4GB'; SET temp_directory='{TMP_FOLDER}duckdb_spill';"
-    )
-    con.execute(f"""
-        COPY (
-            SELECT
-                departement,
-                -- 2154 for all departments but DOM : 5490 (971/972), 2972 (973), 2975 (974), 4471 (976).
-                geom_srid,
-                commune,
-                id AS parcelle_id,
-                geometry
-            FROM read_parquet('{raw}')
-            WHERE type_objet = 'parcelles'
-        ) TO '{CADASTRE_FILE}' (FORMAT parquet, COMPRESSION zstd)
-    """)
-    os.remove(raw)
-    logging.info(f"Parcelles written to {CADASTRE_FILE}")
-    check_parcelles_indexes(
-        list_departements(CADASTRE_FILE), cadastre_file=CADASTRE_FILE
-    )
-
 
 @task()
 def download_dvf_source_data(params: dict, **context):
@@ -212,6 +157,67 @@ def enrich_years(files, **context):
             bucket=bucket,
         )
     logging.info("Year enrichment over. Deleting temporary files...")
+    # deleting in the end so that if the loop above fails, we can rerun safely
+    for file in files:
+        os.remove(TMP_FOLDER + file)
+
+@task()
+def download_cadastre_source_data(**context):
+    """
+    Load the right cadastre file and store locally its indexed parcelle geometries
+    for faster match against centroid geopoint of the parcelles from DVF.
+    """
+    # Technical choice notes: Measurement on samples shows it is faster to load the full file
+    # then filter it locally with duckdb rather than directly filter and load with duckdb.
+    # This current task takes about 15min on a PC with wifi +350Mbps for download
+    # todo : later add a parametrize way to run specifically for october or april run for debug
+    year = str(date.today().year)
+    millesime = f"{year}-03-01" if 4 <= date.today().month < 10 else f"{year}-06-01"
+    url = (
+        "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
+        f"{millesime}/geoparquet/france/cadastre.parquet"
+    )
+    if not requests.head(url, allow_redirects=True, timeout=15).ok:
+        raise Exception(
+            f"The required millesime {millesime} is not available. Checkout on https://cadastre.data.gouv.fr/data/etalab-cadastre/"
+        )
+    logging.info(f"Start loading the required millesime {millesime}...")
+    raw = f"{TMP_FOLDER}cadastre-raw.parquet"  # about 21go, all layers
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(raw, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8 << 20):
+                f.write(chunk)
+
+    logging.info("Cadastre downloaded, filtering on parcelles...")
+    con = duckdb.connect()
+    con.execute(
+        f"SET memory_limit='4GB'; SET temp_directory='{TMP_FOLDER}duckdb_spill';"
+    )
+    con.execute(f"""
+        COPY (
+            SELECT
+                departement,
+                -- 2154 for all departments but DOM : 5490 (971/972), 2972 (973), 2975 (974), 4471 (976).
+                geom_srid,
+                commune,
+                id AS parcelle_id,
+                geometry
+            FROM read_parquet('{raw}')
+            WHERE type_objet = 'parcelles'
+        ) TO '{CADASTRE_FILE}' (FORMAT parquet, COMPRESSION zstd)
+    """)
+    os.remove(raw)
+    logging.info(f"Parcelles written to {CADASTRE_FILE}")
+
+
+@task()
+def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
+    files = sorted(
+        f for f in os.listdir(TMP_FOLDER) if f.startswith("temp-")
+    )  # If year_to_run set up, len(files) == 1
+    for file in files:
+        enrich_with_cadastre(file, cadastre_file, tmp_folder=TMP_FOLDER)
     # deleting in the end so that if the loop above fails, we can rerun safely
     for file in files:
         os.remove(TMP_FOLDER + file)
