@@ -4,7 +4,8 @@ import os
 import re
 
 from zipfile import ZipFile
-
+from datetime import date
+import duckdb
 import requests
 from airflow.sdk import task
 from datagouv import Dataset
@@ -20,9 +21,14 @@ from datagouvfr_data_pipelines.utils.tchap import send_message
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.enrich_year import (
     enrich_year,
 )
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.spatial_index import (
+    check_parcelles_indexes,
+    list_departements,
+)
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
+CADASTRE_FILE = f"{TMP_FOLDER}cadastre.parquet"
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
 GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
 bucket = "dataeng-open"
@@ -51,23 +57,92 @@ def check_if_modif():
 
 
 @task()
-def download_source_data(**context):
+def download_cadastre_source_data(**context):
+    """
+    Load the right cadastre file and store locally its indexed parcelle geometries
+    for faster match against centroid geopoint of the parcelles from DVF.
+    """
+    # Technical choice notes: Measurement on samples shows it is faster to load the full file
+    # then filter it locally with duckdb rather than directly filter and load with duckdb.
+    # This current task takes about 15min on a PC with wifi +350Mbps for download
+    # todo : later add a parametrize way to run specifically for october or april run for debug
+    year = str(date.today().year)
+    millesime = f"{year}-03-01" if 4 <= date.today().month < 10 else f"{year}-06-01"
+    url = (
+        "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
+        f"{millesime}/geoparquet/france/cadastre.parquet"
+    )
+    if not requests.head(url, allow_redirects=True, timeout=15).ok:
+        raise Exception(
+            f"The required millesime {millesime} is not available. Checkout on https://cadastre.data.gouv.fr/data/etalab-cadastre/"
+        )
+    logging.info(f"Start loading the required millesime {millesime}...")
+    raw = f"{TMP_FOLDER}cadastre-raw.parquet"  # about 21go, all layers
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(raw, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8 << 20):
+                f.write(chunk)
+
+    logging.info("Cadastre downloaded, filtering on parcelles...")
+    con = duckdb.connect()
+    con.execute(
+        f"SET memory_limit='4GB'; SET temp_directory='{TMP_FOLDER}duckdb_spill';"
+    )
+    con.execute(f"""
+        COPY (
+            SELECT
+                departement,
+                -- 2154 for all departments but DOM : 5490 (971/972), 2972 (973), 2975 (974), 4471 (976).
+                geom_srid,
+                commune,
+                id AS parcelle_id,
+                geometry
+            FROM read_parquet('{raw}')
+            WHERE type_objet = 'parcelles'
+        ) TO '{CADASTRE_FILE}' (FORMAT parquet, COMPRESSION zstd)
+    """)
+    os.remove(raw)
+    logging.info(f"Parcelles written to {CADASTRE_FILE}")
+    check_parcelles_indexes(
+        list_departements(CADASTRE_FILE), cadastre_file=CADASTRE_FILE
+    )
+
+
+@task()
+def download_dvf_source_data(params: dict, **context):
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
     data = [res for res in dvf_dataset.resources if res.type == "main"]
     if len(data) not in {5, 6}:
         # 5 full years, or half first and last years and 4 full years
         raise ValueError(f"Unexpected number of resources: {len(data)}")
-    files = []
-    max_year = 2000
     titles = [f'"{res.title}"' for res in data]
     logging.info(f"Available ressources : {','.join(titles)}...")
-    for res in data:
-        logging.info(f'Downloading ressource "{res.title}"...')
-        file_name = res.url.split("/")[-1]
-        # checking that the year is where we expect it in the resource's title
+
+    file_names = {res.url.split("/")[-1]: res for res in data}
+    # checking that the year is where we expect it in the resource's url
+    for file_name in file_names:
         if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
             raise ValueError(f"Unexpected file name: {file_name}")
-        max_year = max(max_year, int(file_name.split(".")[0].split("-")[1]))
+    # computed on the whole window, before any filtering, so that the reference data
+    # downloaded below is the same as in a complete run
+    max_year = max(int(f.split(".")[0].split("-")[1]) for f in file_names)
+
+    if params.get("year_to_run"):
+        # debug mode: rebuilding a single year
+        year_to_run = params["year_to_run"]
+        file_names = {
+            f: res
+            for f, res in file_names.items()
+            if f == f"valeursfoncieres-{year_to_run}.txt.zip"
+        }
+        if not file_names:
+            raise ValueError(f"No source resource for year {year_to_run}")
+        logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
+
+    files = []
+    for file_name, res in file_names.items():
+        logging.info(f'Downloading ressource "{res.title}"...')
         dest_path = TMP_FOLDER + file_name
         download_resource(res, dest_path)
         with ZipFile(dest_path, mode="r") as z:
@@ -143,11 +218,12 @@ def enrich_years(files, **context):
 
 
 @task()
-def publish_datagouv():
+def publish_datagouv(params: dict):
+    year_to_run = params.get("year_to_run")
     # april delivery: five full years, october delivery: one more file
     # (oldest year last semester and latest year first semester)
     files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
-    if len(files) not in {5, 6}:
+    if not year_to_run and len(files) not in {5, 6}:
         raise ValueError(f"Unexpected number of files to publish: {len(files)}")
 
     # matching resources to files by year (and not by index), so that a given year always
@@ -180,10 +256,12 @@ def publish_datagouv():
             dataset.create_static(**kwargs)
 
     # oldest year last semester that fell out of the rolling window
-    for year, res in existing.items():
-        if year not in to_publish:
-            logging.info(f"Deleting resource for {year}, out of the window")
-            res.delete()
+    # (skipped in debug mode: only one year is built, the others are not obsolete)
+    if not year_to_run:
+        for year, res in existing.items():
+            if year not in to_publish:
+                logging.info(f"Deleting resource for {year}, out of the window")
+                res.delete()
 
 
 @task()
