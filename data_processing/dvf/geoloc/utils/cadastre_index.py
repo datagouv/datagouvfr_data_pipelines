@@ -323,8 +323,12 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
     for column in ("cadastre_parcelle_id", "cadastre_commune"):
         df[column] = pd.Series(pd.NA, index=df.index, dtype="string[pyarrow]")
 
+    logging.info("Start matching parcelles long/lat to cadastre...")
+    started = monotonic()  # todo : finish setting monotonic clock and check
     for departement, rows in df.groupby("code_departement", sort=False):
+        logging.info(f"> Create index for department n°{departement}")
         index = ParcellesIndex.for_departement(str(departement), cadastre_file)
+        logging.info(f"> Matching {len(rows)} parcelles")
         parcelle_ids, communes = index.match(
             rows["longitude"].to_numpy(dtype="float64"),
             rows["latitude"].to_numpy(dtype="float64"),
@@ -336,6 +340,7 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
         # domaine public, or a geometry the cadastre published broken): those rows keep the
         # codes DVF built from the source text rather than being blanked
         found = parcelle_ids != ""
+        logging.info(f"> Matching {len(rows)} parcelles")
         df.loc[rows.index[found], "cadastre_parcelle_id"] = parcelle_ids[found]
         df.loc[rows.index[found], "cadastre_commune"] = communes[found]
     # A row the cadastre had no answer for is neither a parcelle nor a commune change.
