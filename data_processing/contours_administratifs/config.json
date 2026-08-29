@@ -1,0 +1,10 @@
+{
+    "contours-administratifs": {
+        "dev": {
+            "dataset_id": "683424e996857155175d4f68"
+        },
+        "prod": {
+            "dataset_id": "683424e996857155175d4f68"
+        }
+    }
+}
