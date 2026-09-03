@@ -33,7 +33,7 @@ SCHEMA_INFOS: dict[str, Any] = {}
 SCHEMA_CATALOG: dict[str, Any] = {}
 KNOWN_TYPES = {"tableschema", "jsonschema", "other", "datapackage"}
 
-# TODO: the whole code could be refactored to separate concerns : 
+# TODO: the whole code could be refactored to separate concerns :
 # backend : schemas data should be processed and stored in a readable data model for better debugging
 # frontend : anything related to the code that should be produced based of this data model should be in separate function - and even steps
 # that would allow cleaner retries where we dont mix up data model and code writing
@@ -1032,11 +1032,11 @@ def check_and_save_schemas(suffix, **context):
 
 def get_template_github_issues(suffix):
     def get_all_issues(suffix):
-        if suffix == "_prod":
-            logging.info(
-                "Waiting for 1h to reset the 60 calls/hour rate limit for unauthenticated Github resquests"
-            )
-            sleep(3600)
+        # if suffix == "_prod":
+        #     logging.info(
+        #         "Waiting for 1h to reset the 60 calls/hour rate limit for unauthenticated Github resquests"
+        #     )
+        #     sleep(3600)
         url = (
             "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?state=all"
         )
@@ -1117,6 +1117,7 @@ def get_template_github_issues(suffix):
                         {"title": issue["title"], "url": issue["html_url"]}
                     )
     return dates
+
 
 def deduplicate_updates(updates: dict) -> bool:
     """Remove repeated entries per date and change type, keeping the first occurrence.
@@ -1249,7 +1250,7 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
-    # TODO: this call can go once the committed file is clean and its reference later 
+    # TODO: this call can go once the committed file is clean and its reference later
     duplicates_removed = deduplicate_updates(updates)
     # the RSS feeds carry the same duplicates but are not rebuilt from schema-updates.json,
     # they are only ever appended to: they have to be cleaned separately. This runs on

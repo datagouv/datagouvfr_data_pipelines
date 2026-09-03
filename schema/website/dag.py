@@ -37,7 +37,7 @@ with DAG(
     catchup=False,
     default_args=default_args,
 ):
-    branches = ["main", "preprod"]
+    branches = ["main"]
     tasks: dict = {}
     for branch in branches:
         suffix = "_prod" if branch == "main" else f"_{branch}"
