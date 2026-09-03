@@ -12,7 +12,6 @@ import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
-    MATOMO_TOKEN,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.crisp import (
@@ -59,7 +58,6 @@ MATOMO_PARAMS = {
     "expanded": 1,
     "translateColumnNames": 1,
     "language": "fr",
-    "token_auth": MATOMO_TOKEN,
     # "idSite": {site_id},
     # "date": "{start},{end}",
     # "label": "{label}",

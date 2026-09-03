@@ -8,7 +8,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MATOMO_TOKEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     DATAGOUV_MATOMO_ID,
@@ -64,7 +63,6 @@ def get_months(site_id, year):
         "format": "json",
         "period": "day",
         "date": f"{year}-01-01,yesterday",
-        "token_auth": MATOMO_TOKEN,
     }
     r = requests.post("https://stats.data.gouv.fr/", data=params)
     r.raise_for_status()
