@@ -394,7 +394,7 @@ def build_resource_info_table(row, dataset_dict):
         "taille détectée": detected_size,
         "téléchargements": row.get("downloads"),
         "dernière modification": row.get("modified"),
-        "dernière maj tabular": tabular_preview_last_update,
+        "dernière mise à jour tabular": tabular_preview_last_update,
         "délai tabular (jours)": _tabular_delay(
             extras.get("analysis:parsing:finished_at"), row.get("modified")
         ),
@@ -404,11 +404,10 @@ def build_resource_info_table(row, dataset_dict):
             v in {"source_unreachable", "parsing_error", "cors_blocked", "cors_missing"}
             for v in errors
         ),
-        "a un too big": any(v == "file_too_big" for v in errors),
         "aperçu manquant": not previews and not any(v is not None for v in errors),
         "erreur source inaccessible": "source_unreachable" in set(errors),
         "erreur analyse": "parsing_error" in set(errors),
-        "erreur cors": "cors_blocked" in set(errors),
+        "erreur cors bloqué": "cors_blocked" in set(errors),
         "erreur cors header manquant": "cors_missing" in set(errors),
         "erreur cors inconnu": "cors_unknown" in set(errors),
         "erreur fichier trop volumineux": "file_too_big" in set(errors),
@@ -442,75 +441,90 @@ def _read_export(path: str) -> pd.DataFrame:
     return df.fillna(value="")
 
 
-@task()
-def get_preview_stats() -> None:
-    df = _read_export(f"{TMP_FOLDER}export_resource.csv")
-    # Exclude resources belonging to archived datasets: "dataset.archived" is
-    # "false" when not archived and an ISO date when archived.
-    archived = df["dataset.archived"].fillna("").astype(str).str.strip().str.lower()
-    df = df[archived.eq("false")]
+def build_stats(df_res: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate the per-resource detail rows into the monthly format stats.
 
-    df_dataset = _read_export(f"{TMP_FOLDER}export_dataset.csv")
-    dataset_dict = {
-        row["id"]: {"harvest": bool(row.get("harvest.backend"))}
-        for _, row in df_dataset.iterrows()
-    }
-
-    df_res = pd.DataFrame.from_dict(
-        [build_resource_info_table(row, dataset_dict) for _, row in df.iterrows()]
-    )
-
+    Columns of ``df_res`` are expected to come from ``build_resource_info_table``
+    (famille, format normalisé, a un aperçu, a une erreur,
+    erreur fichier trop volumineux, aperçu manquant, id).
+    """
     total = len(df_res)
     stats = (
         df_res.groupby(["famille", "format normalisé"])
         .agg(
-            Nombre=("id", "count"),
-            Prévisualisable=("a un aperçu", "sum"),
-            Erreur=("a une erreur", "sum"),
-            TooBig=("a un too big", "sum"),
-            Manquant=("aperçu manquant", "sum"),
+            nombre=("id", "count"),
+            prévisualisable=("a un aperçu", "sum"),
+            erreur=("a une erreur", "sum"),
+            trop_volumineux=("erreur fichier trop volumineux", "sum"),
+            manquant=("aperçu manquant", "sum"),
         )
         .reset_index()
     )
     # Collapse formats with very few resources (mostly junk values)
     # into the "Autre" row so the stats are not cluttered by a long tail.
-    stats.loc[stats["Nombre"] < MIN_FORMAT_COUNT, "format normalisé"] = "Autre"
-    stats.loc[stats["Nombre"] < MIN_FORMAT_COUNT, "famille"] = "Autre"
+    stats.loc[stats["nombre"] < MIN_FORMAT_COUNT, "format normalisé"] = "Autre"
+    stats.loc[stats["nombre"] < MIN_FORMAT_COUNT, "famille"] = "Autre"
     stats = (
         stats.groupby(["famille", "format normalisé"])
         .agg(
-            Nombre=("Nombre", "sum"),
-            Prévisualisable=("Prévisualisable", "sum"),
-            Erreur=("Erreur", "sum"),
-            TooBig=("TooBig", "sum"),
-            Manquant=("Manquant", "sum"),
+            nombre=("nombre", "sum"),
+            prévisualisable=("prévisualisable", "sum"),
+            erreur=("erreur", "sum"),
+            trop_volumineux=("trop_volumineux", "sum"),
+            manquant=("manquant", "sum"),
         )
         .reset_index()
     )
-    stats["% catalogue"] = (stats["Nombre"] / total * 100).round(1)
+    stats["% catalogue"] = (stats["nombre"] / total * 100).round(1)
     stats["% prévisualisable"] = (
-        stats["Prévisualisable"] / stats["Nombre"] * 100
+        stats["prévisualisable"] / stats["nombre"] * 100
     ).round(1)
-    stats["% erreur"] = (stats["Erreur"] / stats["Nombre"] * 100).round(1)
-    stats["% too big"] = (stats["TooBig"] / stats["Nombre"] * 100).round(1)
+    stats["% erreur"] = (stats["erreur"] / stats["nombre"] * 100).round(1)
+    stats["% trop volumineux"] = (
+        stats["trop_volumineux"] / stats["nombre"] * 100
+    ).round(1)
     stats["% prévisualisation manquante"] = (
-        stats["Manquant"] / stats["Nombre"] * 100
+        stats["manquant"] / stats["nombre"] * 100
     ).round(1)
-    stats = stats.drop(columns=["Erreur", "TooBig", "Manquant"])
-    stats["Mois"] = datetime.datetime.today().strftime("%Y-%m")
-    stats.columns = [
-        "Famille de format",
-        "Format",
-        "Nombre",
-        "Prévisualisable",
-        "% catalogue",
-        "% prévisualisable",
-        "% erreur",
-        "% too big",
-        "% prévisualisation manquante",
-        "Mois",
-    ]
-    stats = stats.sort_values(["Famille de format", "Nombre"], ascending=[True, False])
+    stats = stats.drop(columns=["erreur", "trop_volumineux", "manquant"])
+    stats["mois"] = datetime.datetime.today().strftime("%Y-%m")
+    stats = stats.sort_values(["famille", "nombre"], ascending=[True, False])
+    return stats
+
+
+def compute_stats(resource_df: pd.DataFrame, dataset_df: pd.DataFrame) -> tuple:
+    """Run the full per-resource -> stats computation from export DataFrames.
+
+    Excludes resources belonging to archived datasets ("dataset.archived" is
+    "false" when not archived and an ISO date when archived), builds the detail
+    table, then aggregates the monthly format stats.
+    """
+    archived = (
+        resource_df["dataset.archived"].fillna("").astype(str).str.strip().str.lower()
+    )
+    resource_df = resource_df[archived.eq("false")]
+
+    dataset_dict = {
+        row["id"]: {"harvest": bool(row.get("harvest.backend"))}
+        for _, row in dataset_df.iterrows()
+    }
+
+    df_res = pd.DataFrame.from_dict(
+        [
+            build_resource_info_table(row, dataset_dict)
+            for _, row in resource_df.iterrows()
+        ]
+    )
+
+    return df_res, build_stats(df_res)
+
+
+@task()
+def get_preview_stats() -> None:
+    df = _read_export(f"{TMP_FOLDER}export_resource.csv")
+    df_dataset = _read_export(f"{TMP_FOLDER}export_dataset.csv")
+
+    df_res, stats = compute_stats(df, df_dataset)
 
     stats.to_csv(TMP_FOLDER + "stats_current.csv", index=False)
     df_res.to_csv(TMP_FOLDER + detail_file_name, index=False, compression="gzip")
@@ -521,7 +535,7 @@ def upload_preview_stats() -> None:
     s3 = S3Client(conn_name="S3_OVH_RBX", bucket=bucket)
 
     current = pd.read_csv(TMP_FOLDER + "stats_current.csv", dtype="string")
-    key_cols = ["Famille de format", "Format", "Mois"]
+    key_cols = ["famille", "format normalisé", "mois"]
 
     history_key = s3_destination_folder + history_file_name
     if s3.does_file_exist_in_bucket(history_key):
