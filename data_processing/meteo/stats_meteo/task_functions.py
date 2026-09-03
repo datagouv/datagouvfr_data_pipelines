@@ -8,7 +8,6 @@ from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    MATOMO_TOKEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
@@ -27,7 +26,6 @@ MATOMO_PARAMS = {
     "expanded": 1,
     "translateColumnNames": 1,
     "language": "fr",
-    "token_auth": MATOMO_TOKEN,
     # "date": "{start},{end}",
     # "label": "{label}",
 }

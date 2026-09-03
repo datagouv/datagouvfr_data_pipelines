@@ -5,7 +5,6 @@ import pandas as pd
 import requests
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
-    MATOMO_TOKEN,
     # TCHAP_ROOM_MODERATION_NOUVEAUTES,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
@@ -28,7 +27,6 @@ PARAMS_TOPS = {
     "flat": 1,
     "filter_limit": 12,
     "filter_column": "label",
-    "token_auth": MATOMO_TOKEN,
 }
 
 PARAMS_GENERAL = {
@@ -40,7 +38,6 @@ PARAMS_GENERAL = {
     "method": "Actions.get",
     "expanded": 1,
     "flat": 1,
-    "token_auth": MATOMO_TOKEN,
 }
 
 
