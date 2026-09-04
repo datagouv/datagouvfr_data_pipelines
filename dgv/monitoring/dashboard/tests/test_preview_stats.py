@@ -20,11 +20,7 @@ RESOURCE_EXPORT = FIXTURES / "export_resource.csv"
 @pytest.fixture(scope="module")
 def computed():
     df = ps._read_export(str(RESOURCE_EXPORT))
-    # dataset dict built from the fixture's own dataset ids (all non-harvest)
-    dataset_df = pd.DataFrame(
-        [{"id": rid, "harvest.backend": "false"} for rid in df["dataset.id"].unique()]
-    )
-    df_res, stats = ps.compute_stats(df, dataset_df)
+    df_res, stats = ps.compute_stats(df)
     return df_res.set_index("id"), stats
 
 
@@ -93,10 +89,24 @@ def test_source_unreachable_error(detail):
     assert row["a une erreur"]
 
 
-def test_cors_blocked_error(detail):
+def test_cors_no_error(detail):
     row = detail.loc["1ff1bc41-6404-4099-85a2-5d17e21aafb2"]
-    assert row["erreur cors bloqué"]
-    assert row["a une erreur"]
+    assert not row["erreur cors bloqué"]
+    assert not row["a une erreur"]
+
+
+def test_cors_blocked_error(detail):
+    # non-trusted allow-origin (not data.gouv.fr) blocks pdf/xml/json previews
+    for rid in [
+        "12698089-218d-49b1-a01c-a11c52240528",  # pdf, datasets.grandbesancon.fr
+        "ca4e299b-bbb8-49f5-92af-cb68ff0a025c",  # pdf, colmar.ixbus.net
+        "0af9a1cc-facf-47a6-afa6-009112baa347",  # xml, datasets.grandbesancon.fr
+        "4b711039-a8b7-4826-b8ca-29c875dafc58",  # json, datasets.grandbesancon.fr
+    ]:
+        row = detail.loc[rid]
+        assert row["erreur cors bloqué"]
+        assert row["a une erreur"]
+        assert not row["a un aperçu"]
 
 
 def test_cors_missing_header_error(detail):
@@ -125,20 +135,25 @@ def test_remote_shp_without_extras_is_missing(detail):
 
 
 def test_archived_resources_are_excluded(detail, stats):
-    # fixture has 116 rows, 5 archived -> 111 resources are kept
-    assert len(detail) == 111
-    assert stats["nombre"].sum() == 111
+    # fixture has 120 rows, 5 archived -> 115 resources are kept
+    assert len(detail) == 115
+    assert stats["nombre"].sum() == 115
 
 
 def test_detail_source_distribution(detail):
-    # both harvest and static sources are represented
-    assert detail["source"].value_counts().to_dict() == {"harvest": 86, "static": 25}
+    # static resources are hosted on static.data.gouv.fr; harvested resources
+    # carry a harvest.last_update timestamp; the rest are remote
+    assert detail["source"].value_counts().to_dict() == {
+        "harvest": 71,
+        "static": 25,
+        "remote": 19,
+    }
 
 
 def test_detail_family_distribution(detail):
     assert detail["famille"].value_counts().to_dict() == {
-        "Données structurées": 40,
-        "Document": 18,
+        "Données structurées": 42,
+        "Document": 20,
         "Tabulaire": 16,
         "Autre": 13,
         "API": 11,
@@ -148,11 +163,11 @@ def test_detail_family_distribution(detail):
 
 
 def test_detail_error_totals(detail):
-    assert int(detail["a une erreur"].sum()) == 23
+    assert int(detail["a une erreur"].sum()) == 22
     assert int(detail["aperçu manquant"].sum()) == 15
     assert int(detail["erreur source inaccessible"].sum()) == 5
     assert int(detail["erreur analyse"].sum()) == 8
-    assert int(detail["erreur cors bloqué"].sum()) == 5
+    assert int(detail["erreur cors bloqué"].sum()) == 4
     assert int(detail["erreur cors header manquant"].sum()) == 5
     assert int(detail["erreur cors inconnu"].sum()) == 5
     assert int(detail["erreur fichier trop volumineux"].sum()) == 12
@@ -180,24 +195,24 @@ def test_stats_columns(stats):
 
 def test_stats_rows_and_counts(stats):
     by = stats.set_index(["famille", "format normalisé"])
-    assert by.loc[("Document", "pdf"), "nombre"] == 18
-    assert by.loc[("Données structurées", "json"), "nombre"] == 26
-    assert by.loc[("Autre", "Autre"), "nombre"] == 67
-    assert stats["nombre"].sum() == 111
+    assert by.loc[("Document", "pdf"), "nombre"] == 20
+    assert by.loc[("Données structurées", "json"), "nombre"] == 27
+    assert by.loc[("Autre", "Autre"), "nombre"] == 68
+    assert stats["nombre"].sum() == 115
 
 
 def test_stats_percentages(stats):
     by = stats.set_index(["famille", "format normalisé"])
     pdf = by.loc[("Document", "pdf")]
-    assert pdf["% catalogue"] == pytest.approx(16.2)
-    assert pdf["% prévisualisable"] == pytest.approx(55.6)
-    assert pdf["% erreur"] == pytest.approx(33.3)
-    assert pdf["% trop volumineux"] == pytest.approx(5.6)
+    assert pdf["% catalogue"] == pytest.approx(17.4)
+    assert pdf["% prévisualisable"] == pytest.approx(75.0)
+    assert pdf["% erreur"] == pytest.approx(15.0)
+    assert pdf["% trop volumineux"] == pytest.approx(5.0)
 
     autre = by.loc[("Autre", "Autre")]
     assert autre["prévisualisable"] == 31
-    assert autre["% prévisualisable"] == pytest.approx(46.3)
-    assert autre["% trop volumineux"] == pytest.approx(11.9)
-    assert autre["% prévisualisation manquante"] == pytest.approx(22.4)
+    assert autre["% prévisualisable"] == pytest.approx(45.6)
+    assert autre["% trop volumineux"] == pytest.approx(11.8)
+    assert autre["% prévisualisation manquante"] == pytest.approx(22.1)
 
     assert (stats["mois"].str.fullmatch(r"\d{4}-\d{2}")).all()

@@ -19,13 +19,9 @@ s3_destination_folder = "dashboard/"
 EXPORT_RESOURCE_URL = (
     "https://www.data.gouv.fr/api/1/datasets/r/4babf5f2-6a9c-45b5-9144-ca5eae6a7a6d"
 )
-EXPORT_DATASET_URL = (
-    "https://www.data.gouv.fr/api/1/datasets/r/f868cca6-8da1-4369-a78d-47463f19a9a3"
-)
 
 # the aggregated stats keep a growing history at the top level.
 # the per-resource detail is overwritten on each run.
-# (no "_latest" suffix, no dated folder for it).
 history_file_name = "stats_catalog_preview.csv"
 detail_file_name = "preview_catalog.csv.gz"
 
@@ -55,7 +51,6 @@ FORMAT_FAMILIES = {
         "gtfs",
         "gtfs-rt",
         "netex",
-        "siri",
         "grib",
         "grib2",
         "geotiff",
@@ -363,7 +358,7 @@ def _tabular_delay(tab_date, mod):
         return None
 
 
-def build_resource_info_table(row, dataset_dict):
+def build_resource_info_table(row):
     extras = json.loads(row.get("extras") or "{}")
     detected_size = extras.get("check:headers:content-length") or extras.get(
         "analysis:content-length"
@@ -374,9 +369,18 @@ def build_resource_info_table(row, dataset_dict):
     url = row.get("url") or ""
     if url.startswith("https://static.data.gouv.fr/resources/"):
         source = "static"
+    elif (
+        row.get("harvest.last_update")
+        or row.get("harvest.issued_at")
+        or row.get("harvest.modified_at")
+    ):
+        # harvest.last_update only accounts for resources that have been harvested since
+        # its introduction in August 2026.
+        # The fallback on older (but incomplete) harvest.issued_at and harvest.modified_at
+        # covers zombie resources, the ones that still exists but are not harvested anymore.
+        source = "harvest"
     else:
-        harvest = dataset_dict.get(row.get("dataset.id"), {}).get("harvest", False)
-        source = "harvest" if harvest else "remote"
+        source = "remote"
     previews, errors = get_resource_previews(row)
 
     tabular_preview_last_update = extras.get("analysis:parsing:finished_at")
@@ -404,7 +408,7 @@ def build_resource_info_table(row, dataset_dict):
             v in {"source_unreachable", "parsing_error", "cors_blocked", "cors_missing"}
             for v in errors
         ),
-        "aperçu manquant": not previews and not any(v is not None for v in errors),
+        "aperçu manquant": not previews and not errors,
         "erreur source inaccessible": "source_unreachable" in set(errors),
         "erreur analyse": "parsing_error" in set(errors),
         "erreur cors bloqué": "cors_blocked" in set(errors),
@@ -417,7 +421,7 @@ def build_resource_info_table(row, dataset_dict):
 
 @task()
 def download_exports() -> None:
-    """Download the resources and datasets catalog export files."""
+    """Download the resources catalog export file."""
     from datagouvfr_data_pipelines.utils.download import download_files
 
     download_files(
@@ -426,11 +430,6 @@ def download_exports() -> None:
                 url=EXPORT_RESOURCE_URL,
                 dest_path=TMP_FOLDER,
                 dest_name="export_resource.csv",
-            ),
-            File(
-                url=EXPORT_DATASET_URL,
-                dest_path=TMP_FOLDER,
-                dest_name="export_dataset.csv",
             ),
         ]
     )
@@ -492,8 +491,8 @@ def build_stats(df_res: pd.DataFrame) -> pd.DataFrame:
     return stats
 
 
-def compute_stats(resource_df: pd.DataFrame, dataset_df: pd.DataFrame) -> tuple:
-    """Run the full per-resource -> stats computation from export DataFrames.
+def compute_stats(resource_df: pd.DataFrame) -> tuple:
+    """Run the full per-resource -> stats computation from the resource export.
 
     Excludes resources belonging to archived datasets ("dataset.archived" is
     "false" when not archived and an ISO date when archived), builds the detail
@@ -504,14 +503,9 @@ def compute_stats(resource_df: pd.DataFrame, dataset_df: pd.DataFrame) -> tuple:
     )
     resource_df = resource_df[archived.eq("false")]
 
-    dataset_dict = {
-        row["id"]: {"harvest": bool(row.get("harvest.backend"))}
-        for _, row in dataset_df.iterrows()
-    }
-
     df_res = pd.DataFrame.from_dict(
         [
-            build_resource_info_table(row, dataset_dict)
+            build_resource_info_table(row)
             for _, row in resource_df.iterrows()
         ]
     )
@@ -522,9 +516,8 @@ def compute_stats(resource_df: pd.DataFrame, dataset_df: pd.DataFrame) -> tuple:
 @task()
 def get_preview_stats() -> None:
     df = _read_export(f"{TMP_FOLDER}export_resource.csv")
-    df_dataset = _read_export(f"{TMP_FOLDER}export_dataset.csv")
 
-    df_res, stats = compute_stats(df, df_dataset)
+    df_res, stats = compute_stats(df)
 
     stats.to_csv(TMP_FOLDER + "stats_current.csv", index=False)
     df_res.to_csv(TMP_FOLDER + detail_file_name, index=False, compression="gzip")
