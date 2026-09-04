@@ -25,7 +25,7 @@ EXPORT_DATASET_URL = (
 
 # the aggregated stats keep a growing history at the top level.
 # the per-resource detail is overwritten on each run.
-# level each run (no "_latest" suffix, no dated folder for it).
+# (no "_latest" suffix, no dated folder for it).
 history_file_name = "stats_catalog_preview.csv"
 detail_file_name = "preview_catalog.csv.gz"
 
@@ -248,7 +248,7 @@ def get_resource_previews(row: dict) -> tuple[list[str], list[str]]:
             except Exception:
                 pass
         raw_methods = extras.get("check:cors:allow-methods") or ""
-        allowed_methods = [m.strip().upper() for m in raw_methods.split(",")]
+        allowed_methods = [m.strip().upper() for m in raw_methods.split(",") if m.strip()]
         supports_get = len(allowed_methods) == 0 or "GET" in allowed_methods
         cors_allowed = (has_public_cors or has_specific_cors) and supports_get
     elif extras.get("check:cors:status") is not None:
