@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta
 
 from airflow.sdk import DAG, task
+from datagouvfr_data_pipelines.dgv.monitoring.dashboard.preview_stats import (
+    download_exports,
+    get_preview_stats,
+    upload_preview_stats,
+)
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions import (
     DAG_NAME,
     TMP_FOLDER,
@@ -54,6 +59,7 @@ with DAG(
             get_and_upload_reuses_down(),
             get_catalog_stats(),
             get_hvd_dataservices_stats(),
+            download_exports() >> get_preview_stats() >> upload_preview_stats(),
         ]
         >> _publish
     )
