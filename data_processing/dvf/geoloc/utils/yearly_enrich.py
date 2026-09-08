@@ -172,16 +172,20 @@ def enrich_year(
 
     # ADD MUTATIONS ID
     logging.info("Creating mutation ids...")
-    output["date_mutation"] = pd.to_datetime(output["date_mutation"])
-    output.sort_values(by=["date_mutation", "valeur_fonciere"], inplace=True)
-    output["date_mutation"] = output["date_mutation"].dt.strftime("%Y-%m-%d")
-    # new mutation id when either date or price changes
+    # A mutation's rows are already consecutive in the source file, so the id is a run-length
+    # grouping over that order: a new id whenever the date or the price differs from the
+    # previous row.
+    # TODO: `!=` reads an empty valeur_fonciere as a change of price, because NaN equals
+    # nothing, and splits those rows out of their mutation. The reference keeps them
+    # together (408 of the 491 empty-price rows in the first 112k rows of 2023).
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
     output.insert(0, "id_mutation", f"{year}-" + mask.cumsum().astype(str))  # First col
     del mask
-    output.reset_index(drop=True, inplace=True)
+    # the geoloc step reorders rows (one batch per cadastre snapshot, each sorted by
+    # id_parcelle), so the source position rides along to restore the file order at the end
+    output["_source_row"] = np.arange(len(output), dtype="int32")
 
     # ADD LAT, LONG COORDINATES
     expected_len = len(output)
@@ -191,11 +195,14 @@ def enrich_year(
     del output
     assert len(final) == expected_len
 
-    # SORT
-    logging.info("Sorting by mutation id...")
-    final["_sort_key"] = final["id_mutation"].str[len(year) + 1 :].astype("int32")
-    final.sort_values("_sort_key", inplace=True)
-    final.drop(columns="_sort_key", inplace=True)
+    # RESTORE THE SOURCE FILE ORDER
+    # the reference geo-dvf files are in source order too - neither chronological nor sorted
+    # by commune - so only the row position can put the rows back where they belong. Sorting
+    # on the mutation id instead would only restore the order between mutations, leaving the
+    # rows within one in whatever order the geoloc batching happened to produce.
+    logging.info("Restoring source order...")
+    final.sort_values("_source_row", inplace=True)
+    final.drop(columns="_source_row", inplace=True)
 
     # SCHEMA CHECKS & WRITE
     assert list(final.columns) == list(output_schema), list(final.columns)
