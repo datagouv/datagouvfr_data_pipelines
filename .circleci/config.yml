@@ -20,7 +20,10 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             pip install --upgrade pip
-            pip install ruff>=0.11.2
+            # version alignée sur .pre-commit-config.yaml : sans borne haute, une
+            # nouvelle version de ruff élargit les règles par défaut et met la CI
+            # au rouge sur du code qui n'a pas bougé
+            pip install ruff==0.15.20
             ruff --version
             ruff check .
             ruff format --check .
