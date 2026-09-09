@@ -9,7 +9,6 @@ stats), not on renames.
 
 from pathlib import Path
 
-import pandas as pd
 import pytest
 from datagouvfr_data_pipelines.dgv.monitoring.dashboard import preview_stats as ps
 
