@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+from collections.abc import Iterable
 from datetime import datetime
 from functools import reduce
 
@@ -29,6 +30,12 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DPEDIR = f"{TMP_FOLDER}dpe/"
 schema = "dvf"
+
+# Dans DVF, les mutations de Paris, Lyon et Marseille portent le code de leur
+# arrondissement municipal (751xx, 693xx, 132xx) ; le code de la commune n'apparaît
+# jamais. Sans rattachement, ces trois villes sont les seules communes de France
+# sans aucune statistique. On indexe par préfixe d'arrondissement.
+COMMUNES_PLM = {"751": "75056", "693": "69123", "132": "13055"}
 
 
 def get_year_interval() -> tuple[int, int]:
@@ -412,6 +419,27 @@ def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([unique_rows, duplicate_rows]).sort_index()
 
 
+def add_communes_plm(mutations: pd.DataFrame, echelles: Iterable[str]) -> pd.DataFrame:
+    """Rattache les mutations des arrondissements municipaux à leur commune.
+
+    Chaque mutation d'un arrondissement de Paris, Lyon ou Marseille est dupliquée
+    sous le code de sa commune, de sorte que les statistiques de ces villes soient
+    calculées sur leurs mutations et non agrégées depuis celles des arrondissements.
+    Les codes des autres échelles sont vidés sur ces doublons pour qu'ils ne soient
+    comptés qu'une fois par département, EPCI et section.
+    """
+    plm = pd.concat(
+        [
+            mutations.loc[
+                mutations["code_commune"].str.startswith(prefixe, na=False)
+            ].assign(code_commune=code_commune)
+            for prefixe, code_commune in COMMUNES_PLM.items()
+        ]
+    )
+    plm[[f"code_{e}" for e in echelles if e != "commune"]] = np.nan
+    return pd.concat([mutations, plm], ignore_index=True)
+
+
 @task()
 def process_dvf_stats() -> None:
     years = sorted(
@@ -528,6 +556,9 @@ def process_dvf_stats() -> None:
         logging.info(
             f"Après retrait des ventes sans prix au m² et valeurs aberrantes : {len(ventes_nodup)}"
         )
+        # seules les agrégations géographiques rattachent les arrondissements à leur
+        # commune ; les stats nationales restent calculées sur les mutations réelles
+        ventes_avec_plm = add_communes_plm(ventes_nodup, echelles_of_interest)
         export_intermediary = []
 
         # avoid unnecessary steps due to half years
@@ -541,7 +572,7 @@ def process_dvf_stats() -> None:
         for m in month_range:
             dfs_dict = {}
             for echelle in echelles_of_interest:
-                grouped = ventes_nodup.groupby(
+                grouped = ventes_avec_plm.groupby(
                     [f"code_{echelle}", "month", "type_local"]
                 )["prix_m2"]
 
@@ -591,8 +622,8 @@ def process_dvf_stats() -> None:
                 merged = pd.merge(merged, median_, on=[f"code_{echelle}"])
 
                 # appartement + maison
-                combined = ventes_nodup.loc[
-                    ventes_nodup["code_type_local"].isin([1, 2])
+                combined = ventes_avec_plm.loc[
+                    ventes_avec_plm["code_type_local"].isin([1, 2])
                 ].groupby([f"code_{echelle}", "month"])["prix_m2"]
 
                 nb = combined.count()
@@ -683,6 +714,7 @@ def process_dvf_stats() -> None:
         del export_intermediary
         del ventes
         del ventes_nodup
+        del ventes_avec_plm
         gc.collect()
         logging.info(f"Done with {year}")
 
@@ -1006,12 +1038,18 @@ def create_distribution_and_stats_whole_period() -> None:
     dvf = dvf[
         ["code_" + e for e in echelles_of_interest] + ["code_type_local", "prix_m2"]
     ]
+    # cf. process_dvf_stats : seules les agrégations géographiques rattachent les
+    # arrondissements à leur commune, les stats nationales portent sur dvf
+    dvf_avec_plm = add_communes_plm(dvf, echelles_of_interest)
     threshold = 100
     tranches = []
     stats_period = []
     for t in types_of_interest:
         restr_type_dvf = dvf.loc[
             dvf["code_type_local"].isin(types_of_interest[t])
+        ].drop("code_type_local", axis=1)
+        restr_type_avec_plm = dvf_avec_plm.loc[
+            dvf_avec_plm["code_type_local"].isin(types_of_interest[t])
         ].drop("code_type_local", axis=1)
         # échelle nationale
         intervalles, volumes = distrib_from_prix(restr_type_dvf["prix_m2"])
@@ -1039,7 +1077,7 @@ def create_distribution_and_stats_whole_period() -> None:
         for e in echelles_of_interest:
             logging.info(f"Starting {e} {t}")
             # stats
-            grouped = restr_type_dvf[[f"code_{e}", "prix_m2"]].groupby(f"code_{e}")
+            grouped = restr_type_avec_plm[[f"code_{e}", "prix_m2"]].groupby(f"code_{e}")
             nb = grouped.count().reset_index()
             nb.columns = ["code_geo", f"nb_ventes_whole_{t}"]
             mean = grouped.mean().reset_index()
@@ -1054,7 +1092,7 @@ def create_distribution_and_stats_whole_period() -> None:
             # distribution
             if echelles_of_interest[e]:
                 codes_geo = set(echelles.loc[echelles["echelle_geo"] == e, "code_geo"])
-                restr_dvf = restr_type_dvf[[f"code_{e}", "prix_m2"]].set_index(
+                restr_dvf = restr_type_avec_plm[[f"code_{e}", "prix_m2"]].set_index(
                     f"code_{e}"
                 )["prix_m2"]
                 idx = set(restr_dvf.index)
