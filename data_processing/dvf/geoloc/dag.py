@@ -16,7 +16,7 @@ with DAG(
     schedule=None,
     start_date=datetime(2026, 4, 15),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=1200),
+    dagrun_timeout=timedelta(minutes=3600),
     tags=["data_processing", "dvf"],
 ):
     (
