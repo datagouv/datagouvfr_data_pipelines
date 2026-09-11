@@ -1,12 +1,15 @@
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import ShortCircuitOperator
-from airflow.sdk import DAG
+from airflow.sdk import DAG, Param
+from airflow.sdk.definitions.param import ParamsDict
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import (
     TMP_FOLDER,
     check_if_modif,
-    download_source_data,
+    download_dvf_source_data,
     enrich_years,
+    download_cadastre_source_data,
+    process_cadastre_cols,
     publish_datagouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -18,6 +21,15 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=1200),
     tags=["data_processing", "dvf"],
+    params=ParamsDict(
+        {
+            "year_to_run": Param(
+                None,
+                type=["null", "integer"],
+                description="Only rebuild the selected year if set, for faster debug.",
+            )
+        },
+    ),
 ):
     (
         enrich_years(
@@ -27,9 +39,11 @@ with DAG(
                     python_callable=check_if_modif,
                 )
                 >> clean_up_folder(TMP_FOLDER, recreate=True)
-                >> download_source_data()
+                >> download_dvf_source_data()
             )
         )
+        >> download_cadastre_source_data()
+        >> process_cadastre_cols()
         >> publish_datagouv()
         # >> notification()
         # >> TriggerDagRunOperator(
