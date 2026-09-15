@@ -243,7 +243,9 @@ def get_resource_previews(row: dict) -> tuple[list[str], list[str]]:
             except Exception:
                 pass
         raw_methods = extras.get("check:cors:allow-methods") or ""
-        allowed_methods = [m.strip().upper() for m in raw_methods.split(",") if m.strip()]
+        allowed_methods = [
+            m.strip().upper() for m in raw_methods.split(",") if m.strip()
+        ]
         supports_get = len(allowed_methods) == 0 or "GET" in allowed_methods
         cors_allowed = (has_public_cors or has_specific_cors) and supports_get
     elif extras.get("check:cors:status") is not None:
@@ -504,10 +506,7 @@ def compute_stats(resource_df: pd.DataFrame) -> tuple:
     resource_df = resource_df[archived.eq("false")]
 
     df_res = pd.DataFrame.from_dict(
-        [
-            build_resource_info_table(row)
-            for _, row in resource_df.iterrows()
-        ]
+        [build_resource_info_table(row) for _, row in resource_df.iterrows()]
     )
 
     return df_res, build_stats(df_res)
@@ -532,7 +531,7 @@ def upload_preview_stats() -> None:
 
     history_key = s3_destination_folder + history_file_name
     if s3.does_file_exist_in_bucket(history_key):
-        logging.info(f"Existing history found, appending new rows")
+        logging.info("Existing history found, appending new rows")
         history = pd.read_csv(
             StringIO(s3.get_file_content(history_key)),
             dtype="string",
