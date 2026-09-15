@@ -187,13 +187,6 @@ def get_visits(
     # }
 
     months_to_process = list_months_between(start_date, end_date)
-    if datetime.today().strftime("%Y-%m") > "2026-07":
-        raise ValueError("Time to remove old support URL")
-    old_url_stats_support = {
-        "site_id": "176",
-        "label": "%40%252Findex",
-        "title": "old_support",
-    }
     # stats are spread across /support and /support/
     url_stats_support = {
         "site_id": DATAGOUV_MATOMO_ID,
@@ -210,7 +203,6 @@ def get_visits(
         # url_stats_home_dgv,
         url_stats_support,
         url_stats_slash_support,
-        old_url_stats_support,
     ]:
         r = requests.post(
             "https://stats.data.gouv.fr/index.php",
@@ -248,7 +240,7 @@ def gather_and_upload(**context) -> None:
     # homepage = context["ti"].xcom_pull(key="homepage", task_ids="get_visits")
     support = {
         k: context["ti"].xcom_pull(key=k, task_ids="get_visits")
-        for k in ["support", "/support", "old_support"]
+        for k in ["support", "/support"]
     }
 
     stats = pd.DataFrame(
