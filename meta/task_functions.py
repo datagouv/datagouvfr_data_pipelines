@@ -28,6 +28,22 @@ with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") 
     config = json.load(f)
 
 
+def get_owners(config_value: bool | dict) -> list[str]:
+    """Owners to ping for a DAG, depending on its value in config.json:
+    - true: default owners
+    - dict with any of these keys:
+        - "override": these owners instead of the default ones
+        - "include": owners added on top of the default ones
+        - "exclude": owners removed from the default ones
+    """
+    if not isinstance(config_value, dict):
+        return DEFAULT_DAG_OWNERS
+    owners = config_value.get("override", DEFAULT_DAG_OWNERS)
+    owners = owners + [o for o in config_value.get("include", []) if o not in owners]
+    excluded = config_value.get("exclude", [])
+    return [owner for owner in owners if owner not in excluded]
+
+
 def get_ids(config: dict, api: dag_api.DAGApi) -> dict[str, str]:
     dags = AirflowAPI.paginate(api.get_dags, "dags")
     ids: dict[str, str] = {}
@@ -179,24 +195,9 @@ def notification(**context):
                 len(failures) > 10
                 or len(failures) / (len(failures) + len(successes)) > 0.02
             ):
-                ping |= set(
-                    config[dag_ids[dag]]
-                    if isinstance(config[dag_ids[dag]], list)
-                    else DEFAULT_DAG_OWNERS
-                )
-                message += " \n " + (
-                    " ".join(
-                        [
-                            "@" + owner
-                            for owner in (
-                                config[dag_ids[dag]]
-                                if isinstance(config[dag_ids[dag]], list)
-                                else DEFAULT_DAG_OWNERS
-                            )
-                        ]
-                    )
-                    + " \n "
-                )
+                owners = get_owners(config[dag_ids[dag]])
+                ping |= set(owners)
+                message += " \n " + " ".join("@" + owner for owner in owners) + " \n "
     send_message(message, ping=list(ping))
     # Notify in case of DAGs on the config
     dags_not_found = context["ti"].xcom_pull(
