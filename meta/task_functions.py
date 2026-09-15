@@ -117,7 +117,15 @@ def notification(**context):
     message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):\n"
     ping = set()
     logging.info(todays_runs)
-    for dag, attempts in dict(sorted(todays_runs.items())).items():
+    # alphabetical order, but DAGs with at least one failed run are listed last
+    ordered_dags = sorted(
+        todays_runs.items(),
+        key=lambda item: (
+            any(not atp["success"] for atp in item[1].values()),
+            item[0],
+        ),
+    )
+    for dag, attempts in ordered_dags:
         message += f"\n- **{dag}** :\n"
         successes = {
             atp_id: attempts[atp_id]
