@@ -16,9 +16,6 @@
     "data_processing_carburants": true,
     "data_processing_rna": true,
     "data_processing_senat_petitions": true,
-    "data_processing_sirene_geocodage": true,
-    "data_processing_sirene_geolocalisation": true,
-    "data_processing_sirene_publication": true,
     "data_processing_stats_meteo": true,
     "dgv_administrateur": true,
     "dgv_bizdev": true,
@@ -43,5 +40,6 @@
     "verticale_simplifions*": [
         "valentin",
         "alexandre"
-    ]
+    ],
+    "data_processing_dfi_consolidation": true
 }
