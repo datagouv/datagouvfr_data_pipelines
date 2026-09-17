@@ -15,8 +15,12 @@ Ces dags permettent de faire tourner des pipelines de données de différents ty
 - variabiliser les paramètres de vos DAGs dans des variables Airflow
 
 ## Linting
+
 Ce dépôt est formaté avec [`ruff`](https://docs.astral.sh/ruff/) en [configuration par défaut](https://docs.astral.sh/ruff/configuration/), avant de commit :
+
 ```
 ruff check --fix .
 ruff format .
 ```
+
+After cloning this repository, don't forget to install https://pre-commit.com/ and run `pre-commit install` to install the git hook scripts.
