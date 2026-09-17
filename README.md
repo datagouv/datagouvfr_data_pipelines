@@ -24,3 +24,37 @@ ruff format .
 ```
 
 After cloning this repository, don't forget to install https://pre-commit.com/ and run `pre-commit install` to install the git hook scripts.
+
+<details><summary>Example of pre-commit output</summary><pre><code>
+When committing for the first time after the install, you should see pre-commit running:
+
+```
+(.venv) ➜  datagouvfr_data_pipelines git:(add-doc-for-pre-commit) ✗ gcmsg "docs: add sentence on installing pre-commit"
+[INFO] Initializing environment for https://github.com/pre-commit/pre-commit-hooks.
+[INFO] Initializing environment for https://github.com/astral-sh/ruff-pre-commit.
+[INFO] Initializing environment for https://github.com/pre-commit/mirrors-mypy.
+[INFO] Initializing environment for https://github.com/pre-commit/mirrors-mypy:tokenize-rt==3.2.0,types-requests,types-psutil,types-redis.
+[INFO] Installing environment for https://github.com/pre-commit/pre-commit-hooks.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+[INFO] Installing environment for https://github.com/astral-sh/ruff-pre-commit.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+[INFO] Installing environment for https://github.com/pre-commit/mirrors-mypy.
+[INFO] Once installed this environment will be reused.
+[INFO] This may take a few minutes...
+check yaml...........................................(no files to check)Skipped
+check json...........................................(no files to check)Skipped
+check toml...........................................(no files to check)Skipped
+detect private key.......................................................Passed
+fix end of files.........................................................Passed
+trim trailing whitespace.................................................Passed
+debug statements (python)............................(no files to check)Skipped
+check python ast.....................................(no files to check)Skipped
+ruff check...........................................(no files to check)Skipped
+ruff format..........................................(no files to check)Skipped
+mypy.................................................(no files to check)Skipped
+[add-doc-for-pre-commit 4faac87e] docs: add sentence on installing pre-commit
+ 1 file changed, 4 insertions(+)
+</code></pre>
+</details>
