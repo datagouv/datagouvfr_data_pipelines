@@ -25,10 +25,10 @@ ruff format .
 
 After cloning this repository, don't forget to install https://pre-commit.com/ and run `pre-commit install` to install the git hook scripts.
 
-<details><summary>Example of pre-commit output</summary><pre><code>
+<details><summary>Example of pre-commit output</summary>
 When committing for the first time after the install, you should see pre-commit running:
 
-```
+<pre><code>
 (.venv) ➜  datagouvfr_data_pipelines git:(add-doc-for-pre-commit) ✗ gcmsg "docs: add sentence on installing pre-commit"
 [INFO] Initializing environment for https://github.com/pre-commit/pre-commit-hooks.
 [INFO] Initializing environment for https://github.com/astral-sh/ruff-pre-commit.
