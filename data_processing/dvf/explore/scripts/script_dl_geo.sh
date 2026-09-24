@@ -12,7 +12,7 @@ echo Downloading geo files...
 curl $URL_departements > $DATADIR/departements.csv
 curl $URL_communes > $DATADIR/communes.csv
 
-curl https://cadastre.data.gouv.fr/data/dgfip-pci-vecteur-latest.json > $DATADIR/dgfip-pci-vecteur-latest.json
+curl -L https://cadastre.data.gouv.fr/data/dgfip-pci-vecteur-latest.json > $DATADIR/dgfip-pci-vecteur-latest.json
 
 jq -r '.[].contents[] | select(.name | endswith("edigeo")) | .contents[] | select(.name | endswith("feuilles"))| .contents[].contents[].contents[].name' $DATADIR/dgfip-pci-vecteur-latest.json | cut -d '/' -f 11 | sed 's/edigeo-\|\.tar\.bz2//g' >| $DATADIR/sections.txt
 
