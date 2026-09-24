@@ -394,6 +394,28 @@ def index_dpe_table() -> None:
     )
 
 
+def set_communes_parent(
+    communes: pd.DataFrame, epci_communes: pd.DataFrame
+) -> pd.DataFrame:
+    """Rattache chaque commune à son EPCI, ou à défaut à son département."""
+    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
+    # les arrondissements municipaux ne sont membres d'aucun EPCI : ils prennent
+    # celui de leur ville
+    communes.loc[communes["code_geo"].str.startswith("751"), "code_parent"] = (
+        "200054781"
+    )
+    communes.loc[communes["code_geo"].str.startswith("132"), "code_parent"] = (
+        "200054807"
+    )
+    communes.loc[communes["code_geo"].str.startswith("693"), "code_parent"] = (
+        "200046977"
+    )
+    communes["code_parent"] = communes["code_parent"].fillna(
+        communes["code_geo"].str.slice(0, 2)
+    )
+    return communes
+
+
 def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
     # keeping the best candidate for all commune codes
     code_counts = communes["COM"].value_counts()
@@ -779,11 +801,7 @@ def process_dvf_stats() -> None:
     epci_communes = epci_communes.rename(
         {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
     )
-    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
-    communes.loc[communes["code_geo"].str.startswith("75"), "code_parent"] = "200054781"
-    communes.loc[communes["code_geo"].str.startswith("13"), "code_parent"] = "200054807"
-    communes.loc[communes["code_geo"].str.startswith("69"), "code_parent"] = "200046977"
-    communes["code_parent"].fillna(communes["code_geo"].str.slice(0, 2), inplace=True)
+    communes = set_communes_parent(communes, epci_communes)
     communes["libelle_geo"].fillna("NA", inplace=True)
     communes["echelle_geo"] = "commune"
     logging.info("Done with géo")
