@@ -1,0 +1,17 @@
+# Development dependencies for contributors (linting, formatting, tests).
+#
+# ruff and mypy are pinned here to the same versions pinned in
+# .pre-commit-config.yaml (see the `rev:` of the astral-sh/ruff-pre-commit
+# and pre-commit/mirrors-mypy entries), so that running the tools directly or
+# through pre-commit yields identical results for everyone.
+#
+# Note: this file does NOT include the runtime dependencies that the DAGs
+# import. It only provides the development / quality tooling. See the README.
+pre-commit==4.2.0
+pytest==8.3.4
+ruff==0.15.20
+mypy==2.1.0
+tokenize-rt==3.2.0
+types-requests==2.33.0.20260906
+types-psutil==7.2.2.20260906
+types-redis==4.6.0.20241004

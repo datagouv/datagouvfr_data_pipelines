@@ -14,6 +14,42 @@ Ces dags permettent de faire tourner des pipelines de données de différents ty
 - réaliser une PR sur ce dépôt en respectant la structure de celui-ci (créer un sous-dossier par traitement réalisé)
 - variabiliser les paramètres de vos DAGs dans des variables Airflow
 
+## Mise en place de l'environnement de développement
+
+Ce dépôt ne contient pas de `pyproject.toml` ni de fichier de dépendances pour les imports des DAGs (voir la section « Linting »). L'environnement de développement sert uniquement aux **outils de qualité** (lint, format, tests, pre-commit) et est isolé du reste.
+
+### Prérequis
+
+- **Python 3.12** : c'est la version utilisée par la stack Airflow qui exécute ces DAGs (cf. `Dockerfile` de `apache/airflow`). Une version proche fonctionne en général, mais 3.12 est recommandé et celle que l'on vise.
+- L'outil [`uv`](https://docs.astral.sh/uv/) est recommandé mais **pas obligatoire** : une procédure sans `uv` est fournie ci-dessous.
+
+### Avec `uv` (recommandé, reproductible)
+
+Le fichier `.python-version` à la racine fixe la version de Python (3.12) ; `uv` le lit automatiquement.
+
+```
+uv venv
+uv pip install -r dev-requirements.txt
+pre-commit install
+```
+
+### Sans `uv`
+
+```
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r dev-requirements.txt
+pre-commit install
+```
+
+(Remplacer `python3.12` par l'interpréteur 3.12 de la machine ; `pyenv` lit aussi `.python-version`.)
+
+### Notes importantes
+
+- **`dev-requirements.txt` ne contient pas les dépendances d'exécution des DAGs** : il fournit uniquement les outils de développement (lint, format, tests, pre-commit). L'installation des imports utilisés par les DAGs n'est pas couverte ici.
+- **Il est possible de travailler avec des versions différentes** (pas de VM, autre version de Python, `uv` absent) : le fichier `.python-version` est une indication, pas une contrainte. Le seul point de cohérence obligatoire entre contributeurs/trices est porté par pre-commit, qui installe des versions **exactes** de `ruff` et `mypy` (voir `.pre-commit-config.yaml`).
+- L'environnement créé (`.venv/`) est ignoré par git ; ne pas le committer.
+
 ## Linting
 
 Ce dépôt est formaté avec [`ruff`](https://docs.astral.sh/ruff/) en [configuration par défaut](https://docs.astral.sh/ruff/configuration/), avant de commit :
@@ -23,10 +59,18 @@ ruff check --fix .
 ruff format .
 ```
 
-After cloning this repository, don't forget to install https://pre-commit.com/ and run `pre-commit install` to install the git hook scripts.
+`ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans `dev-requirements.txt`). Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; il installe lui-même les bonnes versions dans un environnement isolé :
 
-<details><summary>Example of pre-commit output</summary>
-When committing for the first time after the install, you should see pre-commit running:
+```
+pre-commit run --all-files
+```
+
+ou laisser pre-commit s'exécuter automatiquement au `commit` grâce au hook installé à l'étape « Mise en place ».
+
+Après avoir cloné ce dépôt, ne pas oublier pas d'installer https://pre-commit.com/ et d'exécuter `pre-commit install` pour installer les scripts de hooks git.
+
+<details><summary>Exemple de sortie de pre-commit</summary>
+Lors du premier `commit` après l'installation, pre-commit devrait s'exécuter :
 
 <pre><code>
 (.venv) ➜  datagouvfr_data_pipelines git:(add-doc-for-pre-commit) ✗ gcmsg "docs: add sentence on installing pre-commit"
