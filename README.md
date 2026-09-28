@@ -33,6 +33,33 @@ uv pip install -r dev-requirements.txt
 pre-commit install
 ```
 
+### Lorsque `uv venv` ne peut pas s'exécuter dans le répertoire courant
+
+Selon l'environnement (machine, VM, montage réseau type SSHFS, conteneur isolé…), la création d'un environnement virtuel **dans le répertoire du dépôt** peut échouer (ex. `Operation not permitted` au moment de résoudre l'interpréteur `.venv/bin/python3`). C'est en particulier le cas sous une VM utilisée via un montage distant.
+
+Dans ce cas, on crée l'environnement dans un emplacement **local et persistant** (par exemple `$HOME`, hors du dépôt), puis on l'active afin que les commandes du README s'appliquent normalement à celui-ci :
+
+```
+uv venv --python 3.12 "$HOME/.venvs/datagouvfr_data_pipelines"
+source "$HOME/.venvs/datagouvfr_data_pipelines/bin/activate"
+```
+
+Après `source …/activate`, les commandes `uv pip install -r dev-requirements.txt`, `pre-commit`, `pytest` et `ruff` utilisent l'environnement ainsi activé, sans re-téléchargement:
+
+```
+uv pip install -r dev-requirements.txt
+pre-commit install
+```
+
+Pour l'utiliser ensuite **sans activation manuelle**, exporter de façon persistante (ex. dans le fichier de démarrage du shell) ; `uv` s'appuie alors sur `VIRTUAL_ENV` à chaque nouveau shell :
+
+```sh
+export VIRTUAL_ENV="$HOME/.venvs/datagouvfr_data_pipelines"
+export PATH="$VIRTUAL_ENV/bin:$PATH"
+```
+
+> Note : l'environnement est créé **une seule fois** dans `$HOME` ; il persiste entre les redémarrages (contrairement à un répertoire temporaire type `/tmp`).
+
 ### Sans `uv`
 
 ```
