@@ -49,16 +49,50 @@ def _coordinates(node):
 
 
 def add_geozones_bboxes(export: list[dict]) -> None:
-    """
-    Set `bbox` on every zone: the tight WGS84 envelope [minx, miny, maxx, maxy] of
-    its full geometry (all polygons), or None for zones without geometry.
-    """
+    # Zones with a geometry (any state, deleted included): bbox is the tight
+    # envelope of all their polygons, [minx, miny, maxx, maxy] in WGS84.
     for zone in export:
         zone["bbox"] = None
         if not zone.get("geom"):
             continue
         lons, lats = zip(*(p[:2] for p in _coordinates(zone["geom"]["coordinates"])))
         zone["bbox"] = [min(lons), min(lats), max(lons), max(lats)]
+
+    def union(zones: list[dict]) -> list[float]:
+        boxes = [z["bbox"] for z in zones if z["bbox"]]
+        return [
+            round(f(b[i] for b in boxes), 4) for i, f in enumerate((min, min, max, max))
+        ]
+
+    # Four top-level zones have no geometry: derive them from active zones only
+    # (the export holds deleted historical versions of the same ids).
+    active = [z for z in export if not z["is_deleted"]]
+    departements = [z for z in active if z["level"] == "fr:departement"]
+
+    # metro = départements with a 2-char code (includes 2A and 2B)
+    metro = [z for z in departements if len(z["codeINSEE"]) == 2]
+    # DROM = départements with a 3-char code and a région parent. The COM (975, 977,
+    # 987...) have no région parent, so they are left out here and in France below,
+    # to match "France entière" datasets drawn as metro + DROM.
+    drom = [
+        z
+        for z in departements
+        if len(z["codeINSEE"]) == 3
+        and any(p.startswith("fr:region:") for p in z["parents"])
+    ]
+    # France = all régions (13 metro + 5 DROM); world = the whole globe.
+    regions = [z for z in active if z["level"] == "fr:region"]
+    derived = {
+        "country-subset:fr:metro": union(metro),
+        "country-subset:fr:drom": union(drom),
+        "country:fr": union(regions),
+        "country-group:world": [-180, -90, 180, 90],
+    }
+    # Every other geometry-less zone (other countries, DROM-COM, EU, arrondissements)
+    # deliberately stays None.
+    for zone in active:
+        if zone["_id"] in derived:
+            zone["bbox"] = derived[zone["_id"]]
 
 
 def query_insee_sparql(query: str) -> bytes:
