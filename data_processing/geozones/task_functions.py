@@ -488,9 +488,7 @@ def download_and_process_geozones():
         "Geometry attached to %s zones", sum(1 for z in export if z.get("geom"))
     )
     add_geozones_bboxes(export)
-    logging.info(
-        "Bbox attached to %s zones", sum(1 for z in export if z.get("bbox"))
-    )
+    logging.info("Bbox attached to %s zones", sum(1 for z in export if z.get("bbox")))
 
     # Enrich with the legal population (geo.api.gouv.fr), joined on the INSEE code.
     populations = fetch_geozones_populations()
