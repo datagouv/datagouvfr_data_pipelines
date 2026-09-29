@@ -58,41 +58,25 @@ def add_geozones_bboxes(export: list[dict]) -> None:
         lons, lats = zip(*(p[:2] for p in _coordinates(zone["geom"]["coordinates"])))
         zone["bbox"] = [min(lons), min(lats), max(lons), max(lats)]
 
-    def union(zones: list[dict]) -> list[float]:
-        boxes = [z["bbox"] for z in zones if z["bbox"]]
-        return [
-            round(f(b[i] for b in boxes), 4) for i, f in enumerate((min, min, max, max))
-        ]
-
-    # Four top-level zones have no geometry: derive them from active zones only
-    # (the export holds deleted historical versions of the same ids).
-    active = [z for z in export if not z["is_deleted"]]
-    departements = [z for z in active if z["level"] == "fr:departement"]
-
-    # metro = départements with a 2-char code (includes 2A and 2B)
-    metro = [z for z in departements if len(z["codeINSEE"]) == 2]
-    # DROM = départements with a 3-char code and a région parent. The COM (975, 977,
-    # 987...) have no région parent, so they are left out here and in France below,
-    # to match "France entière" datasets drawn as metro + DROM.
-    drom = [
-        z
-        for z in departements
-        if len(z["codeINSEE"]) == 3
-        and any(p.startswith("fr:region:") for p in z["parents"])
-    ]
-    # France = all régions (13 metro + 5 DROM); world = the whole globe.
-    regions = [z for z in active if z["level"] == "fr:region"]
-    derived = {
-        "country-subset:fr:metro": union(metro),
-        "country-subset:fr:drom": union(drom),
-        "country:fr": union(regions),
-        "country-group:world": [-180, -90, 180, 90],
-    }
-    # Every other geometry-less zone (other countries, DROM-COM, EU, arrondissements)
+    # Metropolitan France has no geometry: its bbox is the union of the bboxes of the
+    # active métropolitan départements (2-char code, 2A/2B included), rounded to 4
+    # decimals. Active only, the export holds deleted historical versions of the same
+    # ids. Every other geometry-less zone (countries, DROM, EU, arrondissements...)
     # deliberately stays None.
-    for zone in active:
-        if zone["_id"] in derived:
-            zone["bbox"] = derived[zone["_id"]]
+    boxes = [
+        z["bbox"]
+        for z in export
+        if not z["is_deleted"]
+        and z["level"] == "fr:departement"
+        and len(z["codeINSEE"]) == 2
+        and z["bbox"]
+    ]
+    for zone in export:
+        if zone["_id"] == "country-subset:fr:metro" and not zone["is_deleted"]:
+            zone["bbox"] = [
+                round(f(b[i] for b in boxes), 4)
+                for i, f in enumerate((min, min, max, max))
+            ]
 
 
 def query_insee_sparql(query: str) -> bytes:
@@ -136,7 +120,9 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
 
     Both lists are restricted to zones actually present in the export
     (``exported_ids``) so we never reference a filtered-out zone, and "country:fr"
-    is added as a top-level ancestor of every French zone. Statistical zonings
+    is added as a top-level ancestor of every French zone. Métropolitan
+    départements are also linked to "country-subset:fr:metro" (not in the INSEE
+    relations), which their descendants inherit. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
     excluded directly in the SPARQL query.
     """
@@ -187,6 +173,15 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         parent = to_geoid(parent_type, parent_code)
         if child and parent and child != parent:
             direct_parents[child].add(parent)
+
+    # Metropolitan France is not in the INSEE relations: link the métropolitan
+    # départements (2-char code, 2A/2B included) to it. Communes and other
+    # descendants inherit it through the ancestors closure.
+    metro = "country-subset:fr:metro"
+    if metro in exported_ids:
+        for geoid in exported_ids:
+            if geoid.startswith("fr:departement:") and len(geoid.split(":")[-1]) == 2:
+                direct_parents[geoid].add(metro)
 
     ancestors_cache: dict = {}
 
