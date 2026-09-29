@@ -121,7 +121,7 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
     Both lists are restricted to zones actually present in the export
     (``exported_ids``) so we never reference a filtered-out zone, and "country:fr"
     is added as a top-level ancestor of every French zone. Métropolitan
-    régions are also linked to "country-subset:fr:metro" (not in the INSEE
+    régions and EPCI are also linked to "country-subset:fr:metro" (not in the INSEE
     relations), which their descendants inherit. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
     excluded directly in the SPARQL query.
@@ -198,6 +198,19 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
             result |= ancestors_of(parent, visiting | {geoid})
         ancestors_cache[geoid] = result
         return result
+
+    # EPCI have no geography of their own: one is metropolitan if its communes are
+    # (none mixes metro and overseas). Needs the closure above to know which
+    # communes are metro, then the cache is reset as EPCI ancestors changed.
+    if metro in exported_ids:
+        for child, child_parents in list(direct_parents.items()):
+            if not child.startswith("fr:commune:"):
+                continue
+            if metro in ancestors_of(child, frozenset()):
+                for parent in child_parents:
+                    if parent.startswith("fr:epci:"):
+                        direct_parents[parent].add(metro)
+        ancestors_cache.clear()
 
     parents_cache: dict = {}
 
