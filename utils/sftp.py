@@ -1,5 +1,5 @@
 import logging
-from io import StringIO, BytesIO
+from io import BytesIO, StringIO
 
 import paramiko
 from airflow.sdk.bases.hook import BaseHook

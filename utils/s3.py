@@ -1,19 +1,18 @@
-from io import BytesIO, StringIO
 import json
 import logging
 import os
-from typing import cast, Iterator, TypedDict, Required
+from io import BytesIO, StringIO
+from typing import Iterator, Required, TypedDict, cast
 from uuid import uuid4
 
-from airflow.sdk.bases.hook import BaseHook
 import boto3
-from botocore.config import Config
-from mypy_boto3_s3.service_resource import S3ServiceResource
 import requests
-
+from airflow.sdk.bases.hook import BaseHook
+from botocore.config import Config
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP, AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from mypy_boto3_s3.service_resource import S3ServiceResource
 
 
 class S3ClientKwargs(TypedDict, total=False):

@@ -2,7 +2,6 @@
 This script is being refactored and is heavy in comments.
 """
 
-from email.utils import parsedate_to_datetime
 import ftplib
 import json
 import logging
@@ -10,6 +9,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import requests
 from airflow.sdk import task

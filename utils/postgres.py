@@ -2,9 +2,9 @@ import gzip
 import logging
 
 import psycopg2
-from psycopg2 import sql
 from airflow.sdk.bases.hook import BaseHook
 from datagouvfr_data_pipelines.utils.filesystem import File
+from psycopg2 import sql
 
 
 class PostgresClient:
