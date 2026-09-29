@@ -39,6 +39,28 @@ levels_file = File(
 )
 
 
+def _coordinates(node):
+    """Yield every (lon, lat) position of a GeoJSON coordinates array."""
+    if isinstance(node[0], (int, float)):
+        yield node
+    else:
+        for child in node:
+            yield from _coordinates(child)
+
+
+def add_geozones_bboxes(export: list[dict]) -> None:
+    """
+    Set `bbox` on every zone: the tight WGS84 envelope [minx, miny, maxx, maxy] of
+    its full geometry (all polygons), or None for zones without geometry.
+    """
+    for zone in export:
+        zone["bbox"] = None
+        if not zone.get("geom"):
+            continue
+        lons, lats = zip(*(p[:2] for p in _coordinates(zone["geom"]["coordinates"])))
+        zone["bbox"] = [min(lons), min(lats), max(lons), max(lats)]
+
+
 def query_insee_sparql(query: str) -> bytes:
     """Run a SPARQL query against the INSEE endpoint and return the CSV payload."""
     endpoint = "https://rdf.insee.fr/sparql?query="
@@ -464,6 +486,10 @@ def download_and_process_geozones():
         geoz["geom"] = geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
     logging.info(
         "Geometry attached to %s zones", sum(1 for z in export if z.get("geom"))
+    )
+    add_geozones_bboxes(export)
+    logging.info(
+        "Bbox attached to %s zones", sum(1 for z in export if z.get("bbox"))
     )
 
     # Enrich with the legal population (geo.api.gouv.fr), joined on the INSEE code.
