@@ -121,7 +121,7 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
     Both lists are restricted to zones actually present in the export
     (``exported_ids``) so we never reference a filtered-out zone, and "country:fr"
     is added as a top-level ancestor of every French zone. Métropolitan
-    départements are also linked to "country-subset:fr:metro" (not in the INSEE
+    régions are also linked to "country-subset:fr:metro" (not in the INSEE
     relations), which their descendants inherit. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
     excluded directly in the SPARQL query.
@@ -175,13 +175,15 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
             direct_parents[child].add(parent)
 
     # Metropolitan France is not in the INSEE relations: link the métropolitan
-    # départements (2-char code, 2A/2B included) to it. Communes and other
-    # descendants inherit it through the ancestors closure.
+    # régions to it, i.e. the parents (régions) of the départements with a 2-char code
+    # (2A/2B included). Départements, communes and other descendants inherit it
+    # through the ancestors closure.
     metro = "country-subset:fr:metro"
     if metro in exported_ids:
         for geoid in exported_ids:
             if geoid.startswith("fr:departement:") and len(geoid.split(":")[-1]) == 2:
-                direct_parents[geoid].add(metro)
+                for region in direct_parents[geoid]:
+                    direct_parents[region].add(metro)
 
     ancestors_cache: dict = {}
 
