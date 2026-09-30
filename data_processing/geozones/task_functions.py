@@ -66,17 +66,22 @@ def add_geozones_bboxes(export: list[dict]) -> None:
     active = [z for z in export if not z["is_deleted"]]
     by_id = {z["_id"]: z for z in active}
 
-    def set_union(zone_id: str, field: str) -> None:
-        boxes = [z["bbox"] for z in active if zone_id in z[field] and z["bbox"]]
+    def set_union_of_children(zone_id: str) -> None:
+        boxes = [z["bbox"] for z in active if zone_id in z["parents"] and z["bbox"]]
         by_id[zone_id]["bbox"] = [
             round(f(b[i] for b in boxes), 4) for i, f in enumerate((min, min, max, max))
         ]
 
-    # Metropolitan France: its children, the métropolitan régions and EPCI.
-    set_union("country-subset:fr:metro", "parents")
-    # France: all its descendants with a bbox (metro included, so it comes after).
-    # Its children are metro and DROM-COM, and DROM-COM has no bbox yet.
-    set_union("country:fr", "ancestors")
+    # Bottom-up, as each zone needs the bboxes of its children: the subsets, then the
+    # DROM-COM made of two of them, then France made of metro and DROM-COM.
+    for zone_id in (
+        "country-subset:fr:metro",
+        "country-subset:fr:drom",
+        "country-subset:fr:com",
+        "country-subset:fr:dromcom",
+        "country:fr",
+    ):
+        set_union_of_children(zone_id)
     # The world is the whole globe.
     by_id["country-group:world"]["bbox"] = [-180, -90, 180, 90]
 
