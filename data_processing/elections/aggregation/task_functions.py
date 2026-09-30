@@ -26,7 +26,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
 # prod outputs are at the root of the bucket (published URLs), other envs are prefixed
 OUTPUT_FOLDER = "elections/" if AIRFLOW_ENV == "prod" else f"{AIRFLOW_ENV}/elections/"
-MIOM_API_URL = "https://www.data.gouv.fr/api/1/datasets/"
+SOURCE_DATASETS_API_URL = "https://www.data.gouv.fr/api/1/datasets/"
 
 
 def load_sources() -> dict:
@@ -38,12 +38,12 @@ def load_sources() -> dict:
 
 @task()
 def check_sources_updates():
-    # MIOM datasets are always on prod, whatever the environment
+    # the source datasets are always on prod, whatever the environment
     alerts = []
     for id_election, source in sorted(load_sources().items()):
-        dataset_id = source["miom_dataset_id"]
+        dataset_id = source["source_dataset_id"]
         link = f"https://www.data.gouv.fr/datasets/{dataset_id}"
-        response = requests.get(f"{MIOM_API_URL}{dataset_id}/", timeout=60)
+        response = requests.get(f"{SOURCE_DATASETS_API_URL}{dataset_id}/", timeout=60)
         if not response.ok:
             alerts.append(
                 f"- [{id_election}]({link}) : jeu inaccessible (HTTP {response.status_code})"
@@ -53,13 +53,13 @@ def check_sources_updates():
         if dataset.get("archived"):
             alerts.append(f"- [{id_election}]({link}) : jeu archivé")
         last_update = datetime.fromisoformat(dataset["last_update"])
-        if last_update > datetime.fromisoformat(source["miom_last_update"]):
+        if last_update > datetime.fromisoformat(source["source_last_update"]):
             alerts.append(
                 f"- [{id_election}]({link}) : modifié le {last_update:%Y-%m-%d}"
-                f" (config : {source['miom_last_update'][:10]})"
+                f" (config : {source['source_last_update'][:10]})"
             )
     if not alerts:
-        logging.info("All MIOM sources are up to date")
+        logging.info("All source datasets are up to date")
         return
     logging.warning("\n".join(alerts))
     # we only warn, our copies on S3 remain the reference for the aggregation
@@ -67,7 +67,7 @@ def check_sources_updates():
         text=(
             "Élections : jeux sources du Ministère de l'Intérieur à vérifier\n\n"
             + "\n".join(alerts)
-            + "\n\nSi une correction est reprise, mettre à jour `miom_last_update`"
+            + "\n\nSi une correction est reprise, mettre à jour `source_last_update`"
             " dans `sources.json`."
         )
     )

@@ -1,10 +1,46 @@
 {
+    "1992_sena": {
+        "id_elections": [
+            "1992_sena_t1",
+            "1992_sena_t2"
+        ],
+        "source_dataset_id": "536993a9a3a729239d204262",
+        "source_last_update": "2014-01-06T09:26:25.362000+00:00",
+        "files": {
+            "general": "elections/sources/1992_sena/general-results.csv",
+            "candidats": "elections/sources/1992_sena/candidats-results.csv"
+        }
+    },
+    "1995_sena": {
+        "id_elections": [
+            "1995_sena_t1",
+            "1995_sena_t2"
+        ],
+        "source_dataset_id": "536993aaa3a729239d204263",
+        "source_last_update": "2014-01-06T09:09:36.986000+00:00",
+        "files": {
+            "general": "elections/sources/1995_sena/general-results.csv",
+            "candidats": "elections/sources/1995_sena/candidats-results.csv"
+        }
+    },
+    "1998_sena": {
+        "id_elections": [
+            "1998_sena_t1",
+            "1998_sena_t2"
+        ],
+        "source_dataset_id": "536993aaa3a729239d204264",
+        "source_last_update": "2014-01-06T10:43:13.809000+00:00",
+        "files": {
+            "general": "elections/sources/1998_sena/general-results.csv",
+            "candidats": "elections/sources/1998_sena/candidats-results.csv"
+        }
+    },
     "1999_euro_t1": {
         "id_elections": [
             "1999_euro_t1"
         ],
-        "miom_dataset_id": "56051296c751df578e8dabf1",
-        "miom_last_update": "2015-09-25T11:24:26.685000+00:00",
+        "source_dataset_id": "56051296c751df578e8dabf1",
+        "source_last_update": "2015-09-25T11:24:26.685000+00:00",
         "files": {
             "general": "elections/sources/1999_euro_t1/general-results.csv",
             "candidats": "elections/sources/1999_euro_t1/candidats-results.csv"
@@ -15,11 +51,23 @@
             "2001_cant_t1",
             "2001_cant_t2"
         ],
-        "miom_dataset_id": "56050b87c751df639d8dabf0",
-        "miom_last_update": "2015-09-25T10:54:07.519000+00:00",
+        "source_dataset_id": "56050b87c751df639d8dabf0",
+        "source_last_update": "2015-09-25T10:54:07.519000+00:00",
         "files": {
             "general": "elections/sources/2001_cant/general-results.csv",
             "candidats": "elections/sources/2001_cant/candidats-results.csv"
+        }
+    },
+    "2001_sena": {
+        "id_elections": [
+            "2001_sena_t1",
+            "2001_sena_t2"
+        ],
+        "source_dataset_id": "536993aba3a729239d204265",
+        "source_last_update": "2014-01-06T09:27:10.596000+00:00",
+        "files": {
+            "general": "elections/sources/2001_sena/general-results.csv",
+            "candidats": "elections/sources/2001_sena/candidats-results.csv"
         }
     },
     "2002_legi": {
@@ -27,8 +75,8 @@
             "2002_legi_t1",
             "2002_legi_t2"
         ],
-        "miom_dataset_id": "56050d47c751df39c98dabef",
-        "miom_last_update": "2015-09-25T11:01:47.620000+00:00",
+        "source_dataset_id": "56050d47c751df39c98dabef",
+        "source_last_update": "2015-09-25T11:01:47.620000+00:00",
         "files": {
             "general": "elections/sources/2002_legi/general-results.csv",
             "candidats": "elections/sources/2002_legi/candidats-results.csv"
@@ -39,8 +87,8 @@
             "2002_pres_t1",
             "2002_pres_t2"
         ],
-        "miom_dataset_id": "56050e14c751df39c98dabf0",
-        "miom_last_update": "2015-09-25T11:05:16.875000+00:00",
+        "source_dataset_id": "56050e14c751df39c98dabf0",
+        "source_last_update": "2015-09-25T11:05:16.875000+00:00",
         "files": {
             "general": "elections/sources/2002_pres/general-results.csv",
             "candidats": "elections/sources/2002_pres/candidats-results.csv"
@@ -51,8 +99,8 @@
             "2004_cant_t1",
             "2004_cant_t2"
         ],
-        "miom_dataset_id": "56050ad3c751df3f0a8dabf2",
-        "miom_last_update": "2015-09-25T10:51:08.704000+00:00",
+        "source_dataset_id": "56050ad3c751df3f0a8dabf2",
+        "source_last_update": "2015-09-25T10:51:08.704000+00:00",
         "files": {
             "general": "elections/sources/2004_cant/general-results.csv",
             "candidats": "elections/sources/2004_cant/candidats-results.csv"
@@ -62,8 +110,8 @@
         "id_elections": [
             "2004_euro_t1"
         ],
-        "miom_dataset_id": "56050f65c751df578e8dabf0",
-        "miom_last_update": "2015-09-25T11:10:58.333000+00:00",
+        "source_dataset_id": "56050f65c751df578e8dabf0",
+        "source_last_update": "2015-09-25T11:10:58.333000+00:00",
         "files": {
             "general": "elections/sources/2004_euro_t1/general-results.csv",
             "candidats": "elections/sources/2004_euro_t1/candidats-results.csv"
@@ -74,11 +122,23 @@
             "2004_regi_t1",
             "2004_regi_t2"
         ],
-        "miom_dataset_id": "56051521c751df61e78dabf0",
-        "miom_last_update": "2015-09-25T11:35:09.886000+00:00",
+        "source_dataset_id": "56051521c751df61e78dabf0",
+        "source_last_update": "2015-09-25T11:35:09.886000+00:00",
         "files": {
             "general": "elections/sources/2004_regi/general-results.csv",
             "candidats": "elections/sources/2004_regi/candidats-results.csv"
+        }
+    },
+    "2004_sena": {
+        "id_elections": [
+            "2004_sena_t1",
+            "2004_sena_t2"
+        ],
+        "source_dataset_id": "536993aba3a729239d204266",
+        "source_last_update": "2014-01-06T09:22:16.224000+00:00",
+        "files": {
+            "general": "elections/sources/2004_sena/general-results.csv",
+            "candidats": "elections/sources/2004_sena/candidats-results.csv"
         }
     },
     "2007_legi": {
@@ -86,8 +146,8 @@
             "2007_legi_t1",
             "2007_legi_t2"
         ],
-        "miom_dataset_id": "56050c1dc751df578e8dabee",
-        "miom_last_update": "2015-09-25T10:56:51.166000+00:00",
+        "source_dataset_id": "56050c1dc751df578e8dabee",
+        "source_last_update": "2015-09-25T10:56:51.166000+00:00",
         "files": {
             "general": "elections/sources/2007_legi/general-results.csv",
             "candidats": "elections/sources/2007_legi/candidats-results.csv"
@@ -98,8 +158,8 @@
             "2007_pres_t1",
             "2007_pres_t2"
         ],
-        "miom_dataset_id": "560d37b188ee38187e83905b",
-        "miom_last_update": "2015-10-01T15:41:15.026000+00:00",
+        "source_dataset_id": "560d37b188ee38187e83905b",
+        "source_last_update": "2015-10-01T15:41:15.026000+00:00",
         "files": {
             "general": "elections/sources/2007_pres/general-results.csv",
             "candidats": "elections/sources/2007_pres/candidats-results.csv"
@@ -110,8 +170,8 @@
             "2008_cant_t1",
             "2008_cant_t2"
         ],
-        "miom_dataset_id": "560d392088ee38152183905b",
-        "miom_last_update": "2015-10-01T15:46:58.910000+00:00",
+        "source_dataset_id": "560d392088ee38152183905b",
+        "source_last_update": "2015-10-01T15:46:58.910000+00:00",
         "files": {
             "general": "elections/sources/2008_cant/general-results.csv",
             "candidats": "elections/sources/2008_cant/candidats-results.csv"
@@ -122,19 +182,31 @@
             "2008_muni_t1",
             "2008_muni_t2"
         ],
-        "miom_dataset_id": "560521ca88ee3865ae5b59f0",
-        "miom_last_update": "2015-09-25T12:28:57.051000+00:00",
+        "source_dataset_id": "560521ca88ee3865ae5b59f0",
+        "source_last_update": "2015-09-25T12:28:57.051000+00:00",
         "files": {
             "general": "elections/sources/2008_muni/general-results.csv",
             "candidats": "elections/sources/2008_muni/candidats-results.csv"
+        }
+    },
+    "2008_sena": {
+        "id_elections": [
+            "2008_sena_t1",
+            "2008_sena_t2"
+        ],
+        "source_dataset_id": "536993aba3a729239d204267",
+        "source_last_update": "2014-01-06T10:43:16.504000+00:00",
+        "files": {
+            "general": "elections/sources/2008_sena/general-results.csv",
+            "candidats": "elections/sources/2008_sena/candidats-results.csv"
         }
     },
     "2009_euro_t1": {
         "id_elections": [
             "2009_euro_t1"
         ],
-        "miom_dataset_id": "560510abc751df639d8dabf1",
-        "miom_last_update": "2015-09-25T11:16:19.671000+00:00",
+        "source_dataset_id": "560510abc751df639d8dabf1",
+        "source_last_update": "2015-09-25T11:16:19.671000+00:00",
         "files": {
             "general": "elections/sources/2009_euro_t1/general-results.csv",
             "candidats": "elections/sources/2009_euro_t1/candidats-results.csv"
@@ -145,8 +217,8 @@
             "2010_regi_t1",
             "2010_regi_t2"
         ],
-        "miom_dataset_id": "56051467c751df578e8dabf3",
-        "miom_last_update": "2015-09-25T11:32:10.273000+00:00",
+        "source_dataset_id": "56051467c751df578e8dabf3",
+        "source_last_update": "2015-09-25T11:32:10.273000+00:00",
         "files": {
             "general": "elections/sources/2010_regi/general-results.csv",
             "candidats": "elections/sources/2010_regi/candidats-results.csv"
@@ -157,11 +229,23 @@
             "2011_cant_t1",
             "2011_cant_t2"
         ],
-        "miom_dataset_id": "56050a25c751df39c98dabee",
-        "miom_last_update": "2015-09-25T10:48:11.220000+00:00",
+        "source_dataset_id": "56050a25c751df39c98dabee",
+        "source_last_update": "2015-09-25T10:48:11.220000+00:00",
         "files": {
             "general": "elections/sources/2011_cant/general-results.csv",
             "candidats": "elections/sources/2011_cant/candidats-results.csv"
+        }
+    },
+    "2011_sena": {
+        "id_elections": [
+            "2011_sena_t1",
+            "2011_sena_t2"
+        ],
+        "source_dataset_id": "536993aca3a729239d204268",
+        "source_last_update": "2014-01-06T10:46:29.063000+00:00",
+        "files": {
+            "general": "elections/sources/2011_sena/general-results.csv",
+            "candidats": "elections/sources/2011_sena/candidats-results.csv"
         }
     },
     "2012_legi": {
@@ -169,8 +253,8 @@
             "2012_legi_t1",
             "2012_legi_t2"
         ],
-        "miom_dataset_id": "560506f1c751df3f0a8dabf0",
-        "miom_last_update": "2015-09-25T10:34:54.065000+00:00",
+        "source_dataset_id": "560506f1c751df3f0a8dabf0",
+        "source_last_update": "2015-09-25T10:34:54.065000+00:00",
         "files": {
             "general": "elections/sources/2012_legi/general-results.csv",
             "candidats": "elections/sources/2012_legi/candidats-results.csv"
@@ -181,8 +265,8 @@
             "2012_pres_t1",
             "2012_pres_t2"
         ],
-        "miom_dataset_id": "5605053fc751df3f0a8dabef",
-        "miom_last_update": "2015-09-25T11:37:42.382000+00:00",
+        "source_dataset_id": "5605053fc751df3f0a8dabef",
+        "source_last_update": "2015-09-25T11:37:42.382000+00:00",
         "files": {
             "general": "elections/sources/2012_pres/general-results.csv",
             "candidats": "elections/sources/2012_pres/candidats-results.csv"
@@ -192,8 +276,8 @@
         "id_elections": [
             "2014_euro_t1"
         ],
-        "miom_dataset_id": "560511e7c751df61e78dabee",
-        "miom_last_update": "2015-09-25T11:21:39.452000+00:00",
+        "source_dataset_id": "560511e7c751df61e78dabee",
+        "source_last_update": "2015-09-25T11:21:39.452000+00:00",
         "files": {
             "general": "elections/sources/2014_euro_t1/general-results.csv",
             "candidats": "elections/sources/2014_euro_t1/candidats-results.csv"
@@ -204,11 +288,23 @@
             "2014_muni_t1",
             "2014_muni_t2"
         ],
-        "miom_dataset_id": "56051ff788ee3865ae5b59ef",
-        "miom_last_update": "2015-09-25T12:21:44.279000+00:00",
+        "source_dataset_id": "56051ff788ee3865ae5b59ef",
+        "source_last_update": "2015-09-25T12:21:44.279000+00:00",
         "files": {
             "general": "elections/sources/2014_muni/general-results.csv",
             "candidats": "elections/sources/2014_muni/candidats-results.csv"
+        }
+    },
+    "2014_sena": {
+        "id_elections": [
+            "2014_sena_t1",
+            "2014_sena_t2"
+        ],
+        "source_dataset_id": "5436344388ee3842773199b2",
+        "source_last_update": "2014-10-09T09:13:14.859000+00:00",
+        "files": {
+            "general": "elections/sources/2014_sena/general-results.csv",
+            "candidats": "elections/sources/2014_sena/candidats-results.csv"
         }
     },
     "2015_dpmt": {
@@ -216,8 +312,8 @@
             "2015_dpmt_t1",
             "2015_dpmt_t2"
         ],
-        "miom_dataset_id": "5605091fc751df3f0a8dabf1",
-        "miom_last_update": "2015-09-25T10:44:31.945000+00:00",
+        "source_dataset_id": "5605091fc751df3f0a8dabf1",
+        "source_last_update": "2015-09-25T10:44:31.945000+00:00",
         "files": {
             "general": "elections/sources/2015_dpmt/general-results.csv",
             "candidats": "elections/sources/2015_dpmt/candidats-results.csv"
@@ -227,8 +323,8 @@
         "id_elections": [
             "2015_regi_t1"
         ],
-        "miom_dataset_id": "566928a288ee3807ccaf0bf4",
-        "miom_last_update": "2015-12-10T08:25:42.855000+00:00",
+        "source_dataset_id": "566928a288ee3807ccaf0bf4",
+        "source_last_update": "2015-12-10T08:25:42.855000+00:00",
         "files": {
             "general": "elections/sources/2015_regi_t1/general-results.csv",
             "candidats": "elections/sources/2015_regi_t1/candidats-results.csv"
@@ -238,8 +334,8 @@
         "id_elections": [
             "2015_regi_t2"
         ],
-        "miom_dataset_id": "56728d35c751df240dc664bd",
-        "miom_last_update": "2015-12-17T11:24:42.027000+00:00",
+        "source_dataset_id": "56728d35c751df240dc664bd",
+        "source_last_update": "2015-12-17T11:24:42.027000+00:00",
         "files": {
             "general": "elections/sources/2015_regi_t2/general-results.csv",
             "candidats": "elections/sources/2015_regi_t2/candidats-results.csv"
@@ -249,8 +345,8 @@
         "id_elections": [
             "2017_legi_t1"
         ],
-        "miom_dataset_id": "593f9c7488ee386d6e48e8ab",
-        "miom_last_update": "2017-06-13T10:04:51.672000+00:00",
+        "source_dataset_id": "593f9c7488ee386d6e48e8ab",
+        "source_last_update": "2017-06-13T10:04:51.672000+00:00",
         "files": {
             "general": "elections/sources/2017_legi_t1/general-results.csv",
             "candidats": "elections/sources/2017_legi_t1/candidats-results.csv"
@@ -260,8 +356,8 @@
         "id_elections": [
             "2017_legi_t2"
         ],
-        "miom_dataset_id": "5948d371c751df471327bc4a",
-        "miom_last_update": "2017-06-20T09:49:59.267000+00:00",
+        "source_dataset_id": "5948d371c751df471327bc4a",
+        "source_last_update": "2017-06-20T09:49:59.267000+00:00",
         "files": {
             "general": "elections/sources/2017_legi_t2/general-results.csv",
             "candidats": "elections/sources/2017_legi_t2/candidats-results.csv"
@@ -271,8 +367,8 @@
         "id_elections": [
             "2017_pres_t1"
         ],
-        "miom_dataset_id": "5901a718c751df3f49b29ff8",
-        "miom_last_update": "2017-04-27T10:10:03.696000+00:00",
+        "source_dataset_id": "5901a718c751df3f49b29ff8",
+        "source_last_update": "2017-04-27T10:10:03.696000+00:00",
         "files": {
             "general": "elections/sources/2017_pres_t1/general-results.csv",
             "candidats": "elections/sources/2017_pres_t1/candidats-results.csv"
@@ -282,19 +378,31 @@
         "id_elections": [
             "2017_pres_t2"
         ],
-        "miom_dataset_id": "5914141088ee386741d8d6f1",
-        "miom_last_update": "2017-05-11T09:35:45.694000+00:00",
+        "source_dataset_id": "5914141088ee386741d8d6f1",
+        "source_last_update": "2017-05-11T09:35:45.694000+00:00",
         "files": {
             "general": "elections/sources/2017_pres_t2/general-results.csv",
             "candidats": "elections/sources/2017_pres_t2/candidats-results.csv"
+        }
+    },
+    "2017_sena": {
+        "id_elections": [
+            "2017_sena_t1",
+            "2017_sena_t2"
+        ],
+        "source_dataset_id": "59c8af30c751df49b73b9a3b",
+        "source_last_update": "2017-09-25T09:25:49.376000+00:00",
+        "files": {
+            "general": "elections/sources/2017_sena/general-results.csv",
+            "candidats": "elections/sources/2017_sena/candidats-results.csv"
         }
     },
     "2019_euro_t1": {
         "id_elections": [
             "2019_euro_t1"
         ],
-        "miom_dataset_id": "5ceba293634f411427c7d613",
-        "miom_last_update": "2019-06-12T12:29:44.143000+00:00",
+        "source_dataset_id": "5ceba293634f411427c7d613",
+        "source_last_update": "2019-06-12T12:29:44.143000+00:00",
         "files": {
             "general": "elections/sources/2019_euro_t1/general-results.csv",
             "candidats": "elections/sources/2019_euro_t1/candidats-results.csv"
@@ -304,8 +412,8 @@
         "id_elections": [
             "2020_muni_t1"
         ],
-        "miom_dataset_id": "5e7102d5ebe5d838b7581662",
-        "miom_last_update": "2020-05-25T13:38:09.996000+00:00",
+        "source_dataset_id": "5e7102d5ebe5d838b7581662",
+        "source_last_update": "2020-05-25T13:38:09.996000+00:00",
         "files": {
             "general": "elections/sources/2020_muni_t1/general-results.csv",
             "candidats": "elections/sources/2020_muni_t1/candidats-results.csv"
@@ -315,19 +423,31 @@
         "id_elections": [
             "2020_muni_t2"
         ],
-        "miom_dataset_id": "5efa23afd85990251fc9a197",
-        "miom_last_update": "2020-06-30T19:17:56.247000+00:00",
+        "source_dataset_id": "5efa23afd85990251fc9a197",
+        "source_last_update": "2020-06-30T19:17:56.247000+00:00",
         "files": {
             "general": "elections/sources/2020_muni_t2/general-results.csv",
             "candidats": "elections/sources/2020_muni_t2/candidats-results.csv"
+        }
+    },
+    "2020_sena": {
+        "id_elections": [
+            "2020_sena_t1",
+            "2020_sena_t2"
+        ],
+        "source_dataset_id": "5f72f4db8c0ebf04393a7971",
+        "source_last_update": "2020-09-29T10:49:24.285000+00:00",
+        "files": {
+            "general": "elections/sources/2020_sena/general-results.csv",
+            "candidats": "elections/sources/2020_sena/candidats-results.csv"
         }
     },
     "2021_dpmt_t1": {
         "id_elections": [
             "2021_dpmt_t1"
         ],
-        "miom_dataset_id": "60d1fa73986a6e7da8017808",
-        "miom_last_update": "2021-06-22T16:59:56.347000+00:00",
+        "source_dataset_id": "60d1fa73986a6e7da8017808",
+        "source_last_update": "2021-06-22T16:59:56.347000+00:00",
         "files": {
             "general": "elections/sources/2021_dpmt_t1/general-results.csv",
             "candidats": "elections/sources/2021_dpmt_t1/candidats-results.csv"
@@ -337,8 +457,8 @@
         "id_elections": [
             "2021_dpmt_t2"
         ],
-        "miom_dataset_id": "60dd92762de4b06f2771fd24",
-        "miom_last_update": "2021-07-13T10:12:27.986000+00:00",
+        "source_dataset_id": "60dd92762de4b06f2771fd24",
+        "source_last_update": "2021-07-13T10:12:27.986000+00:00",
         "files": {
             "general": "elections/sources/2021_dpmt_t2/general-results.csv",
             "candidats": "elections/sources/2021_dpmt_t2/candidats-results.csv"
@@ -348,8 +468,8 @@
         "id_elections": [
             "2021_regi_t1"
         ],
-        "miom_dataset_id": "60d1c3d14fc2e0fda6816678",
-        "miom_last_update": "2021-07-13T10:07:33.570000+00:00",
+        "source_dataset_id": "60d1c3d14fc2e0fda6816678",
+        "source_last_update": "2021-07-13T10:07:33.570000+00:00",
         "files": {
             "general": "elections/sources/2021_regi_t1/general-results.csv",
             "candidats": "elections/sources/2021_regi_t1/candidats-results.csv"
@@ -359,8 +479,8 @@
         "id_elections": [
             "2021_regi_t2"
         ],
-        "miom_dataset_id": "60dd933d9bcd72926212eeec",
-        "miom_last_update": "2021-07-13T10:00:26.605000+00:00",
+        "source_dataset_id": "60dd933d9bcd72926212eeec",
+        "source_last_update": "2021-07-13T10:00:26.605000+00:00",
         "files": {
             "general": "elections/sources/2021_regi_t2/general-results.csv",
             "candidats": "elections/sources/2021_regi_t2/candidats-results.csv"
@@ -370,8 +490,8 @@
         "id_elections": [
             "2022_legi_t1"
         ],
-        "miom_dataset_id": "62a8c3f92b3b572a67d307f4",
-        "miom_last_update": "2022-06-14T19:27:53.131000+00:00",
+        "source_dataset_id": "62a8c3f92b3b572a67d307f4",
+        "source_last_update": "2022-06-14T19:27:53.131000+00:00",
         "files": {
             "general": "elections/sources/2022_legi_t1/general-results.csv",
             "candidats": "elections/sources/2022_legi_t1/candidats-results.csv"
@@ -381,8 +501,8 @@
         "id_elections": [
             "2022_legi_t2"
         ],
-        "miom_dataset_id": "62b1e903ee80a47a20129bf2",
-        "miom_last_update": "2022-06-21T18:00:00.100000+00:00",
+        "source_dataset_id": "62b1e903ee80a47a20129bf2",
+        "source_last_update": "2022-06-21T18:00:00.100000+00:00",
         "files": {
             "general": "elections/sources/2022_legi_t2/general-results.csv",
             "candidats": "elections/sources/2022_legi_t2/candidats-results.csv"
@@ -392,8 +512,8 @@
         "id_elections": [
             "2022_pres_t1"
         ],
-        "miom_dataset_id": "62581fdf02e05e365ea227a1",
-        "miom_last_update": "2022-04-14T15:26:17.908000+00:00",
+        "source_dataset_id": "62581fdf02e05e365ea227a1",
+        "source_last_update": "2022-04-14T15:26:17.908000+00:00",
         "files": {
             "general": "elections/sources/2022_pres_t1/general-results.csv",
             "candidats": "elections/sources/2022_pres_t1/candidats-results.csv"
@@ -403,19 +523,31 @@
         "id_elections": [
             "2022_pres_t2"
         ],
-        "miom_dataset_id": "626a86215fb310e32b48b137",
-        "miom_last_update": "2022-04-28T14:24:31.861000+00:00",
+        "source_dataset_id": "626a86215fb310e32b48b137",
+        "source_last_update": "2022-04-28T14:24:31.861000+00:00",
         "files": {
             "general": "elections/sources/2022_pres_t2/general-results.csv",
             "candidats": "elections/sources/2022_pres_t2/candidats-results.csv"
+        }
+    },
+    "2023_sena": {
+        "id_elections": [
+            "2023_sena_t1",
+            "2023_sena_t2"
+        ],
+        "source_dataset_id": "651559bbf0ed2c8d9e50db43",
+        "source_last_update": "2023-09-28T10:49:38.751000+00:00",
+        "files": {
+            "general": "elections/sources/2023_sena/general-results.csv",
+            "candidats": "elections/sources/2023_sena/candidats-results.csv"
         }
     },
     "2024_euro_t1": {
         "id_elections": [
             "2024_euro_t1"
         ],
-        "miom_dataset_id": "666b1337471f4fe2f19f2573",
-        "miom_last_update": "2024-06-13T16:09:52.019000+00:00",
+        "source_dataset_id": "666b1337471f4fe2f19f2573",
+        "source_last_update": "2024-06-13T16:09:52.019000+00:00",
         "files": {
             "general": "elections/sources/2024_euro_t1/general-results.csv",
             "candidats": "elections/sources/2024_euro_t1/candidats-results.csv"
@@ -425,8 +557,8 @@
         "id_elections": [
             "2024_legi_t1"
         ],
-        "miom_dataset_id": "6682d0c255dcda5df20b1d90",
-        "miom_last_update": "2024-07-15T10:36:39.868000+00:00",
+        "source_dataset_id": "6682d0c255dcda5df20b1d90",
+        "source_last_update": "2024-07-15T10:36:39.868000+00:00",
         "files": {
             "general": "elections/sources/2024_legi_t1/general-results.csv",
             "candidats": "elections/sources/2024_legi_t1/candidats-results.csv"
@@ -436,8 +568,8 @@
         "id_elections": [
             "2024_legi_t2"
         ],
-        "miom_dataset_id": "668b4092826ddcf70e9e62cd",
-        "miom_last_update": "2024-07-10T17:15:31.594000+00:00",
+        "source_dataset_id": "668b4092826ddcf70e9e62cd",
+        "source_last_update": "2024-07-10T17:15:31.594000+00:00",
         "files": {
             "general": "elections/sources/2024_legi_t2/general-results.csv",
             "candidats": "elections/sources/2024_legi_t2/candidats-results.csv"
@@ -447,8 +579,8 @@
         "id_elections": [
             "2026_muni_t1"
         ],
-        "miom_dataset_id": "69b82a7de5d58cc06ad35ce0",
-        "miom_last_update": "2026-03-17T13:57:55.153000+00:00",
+        "source_dataset_id": "69b82a7de5d58cc06ad35ce0",
+        "source_last_update": "2026-03-17T13:57:55.153000+00:00",
         "files": {
             "general": "elections/sources/2026_muni_t1/general-results.csv",
             "candidats": "elections/sources/2026_muni_t1/candidats-results.csv"
@@ -458,11 +590,23 @@
         "id_elections": [
             "2026_muni_t2"
         ],
-        "miom_dataset_id": "69c17fed9f18c7781fd11a14",
-        "miom_last_update": "2026-03-23T18:01:35.362000+00:00",
+        "source_dataset_id": "69c17fed9f18c7781fd11a14",
+        "source_last_update": "2026-03-23T18:01:35.362000+00:00",
         "files": {
             "general": "elections/sources/2026_muni_t2/general-results.csv",
             "candidats": "elections/sources/2026_muni_t2/candidats-results.csv"
+        }
+    },
+    "2026_sena": {
+        "id_elections": [
+            "2026_sena_t1",
+            "2026_sena_t2"
+        ],
+        "source_dataset_id": "6ab9abea8ebfc5bc472f3924",
+        "source_last_update": "2026-09-27T23:51:09.995000+00:00",
+        "files": {
+            "general": "elections/sources/2026_sena/general-results.csv",
+            "candidats": "elections/sources/2026_sena/candidats-results.csv"
         }
     }
 }
