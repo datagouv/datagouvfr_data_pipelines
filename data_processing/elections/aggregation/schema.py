@@ -42,7 +42,6 @@ dtypes: dict[str, dict[str, str]] = {
         "sexe": "VARCHAR",
         "nom": "VARCHAR",
         "prenom": "VARCHAR",
-        "liste": "VARCHAR",
         "libelle_abrege_liste": "VARCHAR",
         "libelle_etendu_liste": "VARCHAR",
         "nom_tete_liste": "VARCHAR",

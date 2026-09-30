@@ -1,7 +1,8 @@
 """Shared helpers for the standalone scripts preparing the elections sources.
 
 These scripts run outside Airflow. Expected environment variables:
-S3_ENDPOINT, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.
+S3_ENDPOINT, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and optionally
+S3_REGION (defaults to sbg).
 """
 
 import json
@@ -11,6 +12,7 @@ from pathlib import Path
 
 import boto3
 import requests
+from botocore.config import Config
 
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
     SCOPES,
@@ -29,6 +31,9 @@ def get_s3_bucket():
         endpoint_url=os.environ["S3_ENDPOINT"],
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+        # without a region, OVH answers 400 to signed reads (HeadObject / GetObject)
+        region_name=os.environ.get("S3_REGION", "sbg"),
+        config=Config(s3={"addressing_style": "virtual"}),
     ).Bucket(os.environ["S3_BUCKET"])
 
 

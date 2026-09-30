@@ -28,7 +28,8 @@ repository.
 ## Running a script
 
 Environment variables: `S3_ENDPOINT`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`,
-`AWS_SECRET_ACCESS_KEY`. From `dags/`:
+`AWS_SECRET_ACCESS_KEY`, and optionally `S3_REGION` (defaults to `sbg`; without a
+region, OVH rejects signed reads). From `dags/`:
 
     uv run --no-project --with pandas --with openpyxl --with xlrd --with requests --with boto3 \
       python -m datagouvfr_data_pipelines.data_processing.elections.aggregation.scripts.build_senatoriales [--year 2026] [--dry-run --output-dir /tmp/sena]
