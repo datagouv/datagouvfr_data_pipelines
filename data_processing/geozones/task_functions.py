@@ -61,8 +61,8 @@ def add_geozones_bboxes(export: list[dict]) -> None:
     # Metropolitan France has no geometry: its bbox is the union of the bboxes of the
     # active métropolitan départements (2-char code, 2A/2B included), rounded to 4
     # decimals. Active only, the export holds deleted historical versions of the same
-    # ids. Every other geometry-less zone (countries, DROM, EU, arrondissements...)
-    # deliberately stays None.
+    # ids. The world is the whole globe. Every other geometry-less zone (countries,
+    # DROM, EU, arrondissements...) deliberately stays None.
     boxes = [
         z["bbox"]
         for z in export
@@ -72,11 +72,15 @@ def add_geozones_bboxes(export: list[dict]) -> None:
         and z["bbox"]
     ]
     for zone in export:
-        if zone["_id"] == "country-subset:fr:metro" and not zone["is_deleted"]:
+        if zone["is_deleted"]:
+            continue
+        if zone["_id"] == "country-subset:fr:metro":
             zone["bbox"] = [
                 round(f(b[i] for b in boxes), 4)
                 for i, f in enumerate((min, min, max, max))
             ]
+        elif zone["_id"] == "country-group:world":
+            zone["bbox"] = [-180, -90, 180, 90]
 
 
 def query_insee_sparql(query: str) -> bytes:
@@ -119,10 +123,11 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         not compute descendants here.
 
     Both lists are restricted to zones actually present in the export
-    (``exported_ids``) so we never reference a filtered-out zone, and "country:fr"
-    is added as a top-level ancestor of every French zone. Métropolitan
-    régions and EPCI are also linked to "country-subset:fr:metro" (not in the INSEE
-    relations), which their descendants inherit. Statistical zonings
+    (``exported_ids``) so we never reference a filtered-out zone. The top of the tree
+    is not in the INSEE relations and is added by hand: "country-group:world" >
+    "country:fr" > "country-subset:fr:metro" > métropolitan régions and EPCI, which
+    their descendants inherit. "country:fr" and the world are ancestors of every
+    French zone. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
     excluded directly in the SPARQL query.
     """
@@ -174,11 +179,21 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         if child and parent and child != parent:
             direct_parents[child].add(parent)
 
-    # Metropolitan France is not in the INSEE relations: link the métropolitan
-    # régions to it, i.e. the parents (régions) of the départements with a 2-char code
-    # (2A/2B included). Départements, communes and other descendants inherit it
-    # through the ancestors closure.
-    metro = "country-subset:fr:metro"
+    # The top of the tree is not in the INSEE relations, which exclude countries:
+    # chain world > France > metropolitan France, when present in the export.
+    world, france, metro = (
+        "country-group:world",
+        "country:fr",
+        "country-subset:fr:metro",
+    )
+    if {world, france} <= exported_ids:
+        direct_parents[france].add(world)
+    if {france, metro} <= exported_ids:
+        direct_parents[metro].add(france)
+
+    # Link the métropolitan régions to metro, i.e. the parents (régions) of the
+    # départements with a 2-char code (2A/2B included). Départements, communes and
+    # other descendants inherit it through the ancestors closure.
     if metro in exported_ids:
         for geoid in exported_ids:
             if geoid.startswith("fr:departement:") and len(geoid.split(":")[-1]) == 2:
@@ -229,15 +244,20 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         parents_cache[geoid] = result
         return result
 
-    has_country = "country:fr" in exported_ids
+    # Every French zone has France and its own ancestors (the world) as ancestors,
+    # even when INSEE links it to nothing above. France and metro get their own
+    # chain from the edges above.
+    france_chain = (
+        {france} | ancestors_of(france, frozenset()) if france in exported_ids else set()
+    )
     parents = {}
     ancestors = {}
     for geoid in exported_ids:
-        if not geoid or not geoid.startswith("fr:"):
+        if not geoid or not (geoid.startswith("fr:") or geoid in (france, metro)):
             continue
         zone_ancestors = ancestors_of(geoid, frozenset()) & exported_ids
-        if has_country:
-            zone_ancestors.add("country:fr")
+        if geoid.startswith("fr:"):
+            zone_ancestors |= france_chain
         ancestors[geoid] = sorted(zone_ancestors)
         parents[geoid] = sorted(closest_exported_parents(geoid, frozenset()))
     return parents, ancestors
