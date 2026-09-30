@@ -59,32 +59,25 @@ def add_geozones_bboxes(export: list[dict]) -> None:
         zone["bbox"] = [min(lons), min(lats), max(lons), max(lats)]
 
     # Some zones have no geometry but children that do: their bbox is the union of the
-    # bboxes of those, rounded to 4 decimals. Active zones only, the export holds
+    # bboxes of their children in the hierarchy, rounded to 4 decimals, so a bbox
+    # always contains those of its descendants. Active zones only, the export holds
     # deleted historical versions of the same ids. Every other geometry-less zone
     # (other countries, DROM, EU, arrondissements...) deliberately stays None.
-    def union(zones: list[dict]) -> list[float]:
-        boxes = [z["bbox"] for z in zones if z["bbox"]]
-        return [
+    active = [z for z in export if not z["is_deleted"]]
+    by_id = {z["_id"]: z for z in active}
+
+    def set_union_of_children(zone_id: str) -> None:
+        boxes = [z["bbox"] for z in active if zone_id in z["parents"] and z["bbox"]]
+        by_id[zone_id]["bbox"] = [
             round(f(b[i] for b in boxes), 4)
             for i, f in enumerate((min, min, max, max))
         ]
 
-    active = [z for z in export if not z["is_deleted"]]
-    by_id = {z["_id"]: z for z in active}
-
-    # Metropolitan France: the métropolitan départements (2-char code, 2A/2B included).
-    by_id["country-subset:fr:metro"]["bbox"] = union(
-        [
-            z
-            for z in active
-            if z["level"] == "fr:departement" and len(z["codeINSEE"]) == 2
-        ]
-    )
-    # France: its direct children (metro, DROM régions, overseas EPCI, COM). Must come
-    # after metro, which is one of them.
-    by_id["country:fr"]["bbox"] = union(
-        [z for z in active if "country:fr" in z["parents"]]
-    )
+    # Metropolitan France: its métropolitan régions and EPCI. Must come before
+    # France, which has it as a child.
+    set_union_of_children("country-subset:fr:metro")
+    # France: metro, DROM régions, overseas EPCI and the COM.
+    set_union_of_children("country:fr")
     # The world is the whole globe.
     by_id["country-group:world"]["bbox"] = [-180, -90, 180, 90]
 
