@@ -94,7 +94,9 @@ def query_insee_sparql(query: str) -> bytes:
     return response.content
 
 
-def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, dict]:
+def build_geozones_hierarchy(
+    map_type: dict, exported_ids: set, active_ids: set
+) -> tuple[dict, dict]:
     """
     Reconstruct, for every French zone, its parents and its full set of ancestors,
     from the INSEE "subdivisionDirecteDe" relations.
@@ -126,8 +128,9 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
     (``exported_ids``) so we never reference a filtered-out zone. The top of the tree
     is not in the INSEE relations and is added by hand: "country-group:world" >
     "country:fr" > "country-subset:fr:metro" > métropolitan régions and EPCI, which
-    their descendants inherit. "country:fr" and the world are ancestors of every
-    French zone. Statistical zonings
+    their descendants inherit. "country:fr" is also the direct parent of the other
+    top-level active zones (DROM régions, overseas EPCI, COM), and "country:fr" and
+    the world are ancestors of every French zone. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
     excluded directly in the SPARQL query.
     """
@@ -227,6 +230,18 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
                         direct_parents[parent].add(metro)
         ancestors_cache.clear()
 
+    # France's direct children are the active zones INSEE puts nothing above and that
+    # are not under metro: the DROM régions, the overseas EPCI and the COM (départements
+    # without région). Deleted zones have no INSEE edges and get no parent.
+    if france in exported_ids:
+        for geoid in active_ids:
+            is_top_level = geoid.startswith(("fr:region:", "fr:epci:")) or (
+                geoid.startswith("fr:departement:")
+                and not any(p.startswith("fr:region:") for p in direct_parents[geoid])
+            )
+            if is_top_level and metro not in direct_parents[geoid]:
+                direct_parents[geoid].add(france)
+
     parents_cache: dict = {}
 
     def closest_exported_parents(geoid, visiting):
@@ -245,8 +260,8 @@ def build_geozones_hierarchy(map_type: dict, exported_ids: set) -> tuple[dict, d
         return result
 
     # Every French zone has France and its own ancestors (the world) as ancestors,
-    # even when INSEE links it to nothing above. France and metro get their own
-    # chain from the edges above.
+    # including those with no edge above, such as deleted zones. France and metro get
+    # their own chain from the edges above.
     france_chain = (
         {france} | ancestors_of(france, frozenset()) if france in exported_ids else set()
     )
@@ -536,7 +551,10 @@ def download_and_process_geozones():
     # rebuilt from INSEE subdivision relations. Only zones kept in the export are
     # referenced, so we never point to a filtered-out zone.
     exported_ids = {geoz["_id"] for geoz in export}
-    parents_by_id, ancestors_by_id = build_geozones_hierarchy(map_type, exported_ids)
+    active_ids = {geoz["_id"] for geoz in export if not geoz["is_deleted"]}
+    parents_by_id, ancestors_by_id = build_geozones_hierarchy(
+        map_type, exported_ids, active_ids
+    )
     for geoz in export:
         geoz["parents"] = parents_by_id.get(geoz["_id"], [])
         geoz["ancestors"] = ancestors_by_id.get(geoz["_id"], [])
