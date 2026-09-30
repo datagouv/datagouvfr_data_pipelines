@@ -127,8 +127,8 @@ def build_geozones_hierarchy(
     Both lists are restricted to zones actually present in the export
     (``exported_ids``) so we never reference a filtered-out zone. The top of the tree
     is not in the INSEE relations and is added by hand: "country-group:world" >
-    "country:fr" > "country-subset:fr:metro" > métropolitan régions and EPCI, which
-    their descendants inherit. "country:fr" is also the direct parent of the other
+    every country, and "country:fr" > "country-subset:fr:metro" > métropolitan
+    régions and EPCI, which their descendants inherit. "country:fr" is also the direct parent of the other
     top-level active zones (DROM régions, overseas EPCI, COM), and "country:fr" and
     the world are ancestors of every French zone. Statistical zonings
     (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
@@ -183,14 +183,16 @@ def build_geozones_hierarchy(
             direct_parents[child].add(parent)
 
     # The top of the tree is not in the INSEE relations, which exclude countries:
-    # chain world > France > metropolitan France, when present in the export.
+    # every country is under the world, and metropolitan France under France.
     world, france, metro = (
         "country-group:world",
         "country:fr",
         "country-subset:fr:metro",
     )
-    if {world, france} <= exported_ids:
-        direct_parents[france].add(world)
+    if world in exported_ids:
+        for geoid in exported_ids:
+            if geoid.startswith("country:"):
+                direct_parents[geoid].add(world)
     if {france, metro} <= exported_ids:
         direct_parents[metro].add(france)
 
@@ -268,7 +270,7 @@ def build_geozones_hierarchy(
     parents = {}
     ancestors = {}
     for geoid in exported_ids:
-        if not geoid or not (geoid.startswith("fr:") or geoid in (france, metro)):
+        if not geoid or not (geoid.startswith(("fr:", "country:")) or geoid == metro):
             continue
         zone_ancestors = ancestors_of(geoid, frozenset()) & exported_ids
         if geoid.startswith("fr:"):
