@@ -69,8 +69,7 @@ def add_geozones_bboxes(export: list[dict]) -> None:
     def set_union_of_children(zone_id: str) -> None:
         boxes = [z["bbox"] for z in active if zone_id in z["parents"] and z["bbox"]]
         by_id[zone_id]["bbox"] = [
-            round(f(b[i] for b in boxes), 4)
-            for i, f in enumerate((min, min, max, max))
+            round(f(b[i] for b in boxes), 4) for i, f in enumerate((min, min, max, max))
         ]
 
     # Metropolitan France: its métropolitan régions and EPCI. Must come before
@@ -264,7 +263,9 @@ def build_geozones_hierarchy(
     # including those with no edge above, such as deleted zones. France and metro get
     # their own chain from the edges above.
     france_chain = (
-        {france} | ancestors_of(france, frozenset()) if france in exported_ids else set()
+        {france} | ancestors_of(france, frozenset())
+        if france in exported_ids
+        else set()
     )
     parents = {}
     ancestors = {}
