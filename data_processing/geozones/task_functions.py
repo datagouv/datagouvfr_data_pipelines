@@ -39,9 +39,10 @@ levels_file = File(
 )
 
 
-# Zones that INSEE does not describe, defined once here and used in two steps:
+# Zones that INSEE does not describe, defined once here and used in three steps:
 # 1. definition: each one is a record of the export (download_and_process_geozones)
-# 2. position: it is put under its parents (build_geozones_hierarchy)
+# 2. position: it is put under its parent (build_geozones_hierarchy)
+# 3. bbox: it is derived from the bboxes of its children (add_geozones_bboxes)
 # The countries, France included, come from another source and are all under the world.
 WORLD = "country-group:world"
 FRANCE = "country:fr"
@@ -50,7 +51,8 @@ DROM = "country-subset:fr:drom"
 COM = "country-subset:fr:com"
 DROMCOM = "country-subset:fr:dromcom"
 METRODROM = "country-subset:fr:metrodrom"
-# (_id, nom, codeINSEE, uri, parents)
+# (_id, nom, codeINSEE, uri, parents). Children come before their parents, which is
+# the order in which the bboxes are derived.
 HAND_MADE_ZONES = [
     (WORLD, "Monde", "world", "http://id.insee.fr/geo/world", ()),
     (
@@ -66,6 +68,50 @@ HAND_MADE_ZONES = [
     (METRODROM, "France métropolitaine et DROM", "fr:metrodrom", None, (FRANCE,)),
     (DROMCOM, "DROM-COM", "fr:dromcom", None, (FRANCE,)),
 ]
+
+
+def _coordinates(node):
+    """Yield every (lon, lat) position of a GeoJSON coordinates array."""
+    if isinstance(node[0], (int, float)):
+        yield node
+    else:
+        for child in node:
+            yield from _coordinates(child)
+
+
+def add_geozones_bboxes(export: list[dict]) -> None:
+    # Zones with a geometry (any state, deleted included): bbox is the tight
+    # envelope of all their polygons, [minx, miny, maxx, maxy] in WGS84.
+    for zone in export:
+        zone["bbox"] = None
+        if not zone.get("geom"):
+            continue
+        lons, lats = zip(*(p[:2] for p in _coordinates(zone["geom"]["coordinates"])))
+        zone["bbox"] = [min(lons), min(lats), max(lons), max(lats)]
+
+    # The hand-made subsets and France have no geometry but children in the hierarchy
+    # (so this runs after it): their bbox is the union of the bboxes of their children,
+    # rounded to 4 decimals, so a bbox always contains those of its descendants. Active
+    # zones only, the export holds deleted historical versions of the same ids. Every
+    # other geometry-less zone (foreign countries, EU, arrondissements...) stays None.
+    active = [z for z in export if not z["is_deleted"]]
+    by_id = {z["_id"]: z for z in active}
+
+    def set_union_of_children(zone_id: str) -> None:
+        boxes = [z["bbox"] for z in active if zone_id in z["parents"] and z["bbox"]]
+        if boxes:  # e.g. none if an IGN geometry source failed to download
+            by_id[zone_id]["bbox"] = [
+                round(f(b[i] for b in boxes), 4)
+                for i, f in enumerate((min, min, max, max))
+            ]
+
+    # Children first, as each zone needs the bboxes of its children.
+    for zone_id, *_, zone_parents in HAND_MADE_ZONES:
+        if zone_parents:  # the world and the EU have no parent, no bbox to derive
+            set_union_of_children(zone_id)
+    set_union_of_children(FRANCE)
+    # The world is the whole globe.
+    by_id[WORLD]["bbox"] = [-180, -90, 180, 90]
 
 
 def query_insee_sparql(query: str) -> bytes:
@@ -490,6 +536,7 @@ def download_and_process_geozones():
     # Enrich each zone with its hierarchy (direct parents + full ancestors), rebuilt
     # from INSEE subdivision relations plus the hand-made top of the tree. Only zones
     # kept in the export are referenced, so we never point to a filtered-out zone.
+    # Must run before the bboxes, which are derived from the parents.
     exported_ids = {geoz["_id"] for geoz in export}
     active_ids = {geoz["_id"] for geoz in export if not geoz["is_deleted"]}
     parents_by_id, ancestors_by_id = build_geozones_hierarchy(
@@ -509,6 +556,8 @@ def download_and_process_geozones():
     logging.info(
         "Geometry attached to %s zones", sum(1 for z in export if z.get("geom"))
     )
+    add_geozones_bboxes(export)
+    logging.info("Bbox attached to %s zones", sum(1 for z in export if z.get("bbox")))
 
     # Enrich with the legal population (geo.api.gouv.fr), joined on the INSEE code.
     populations = fetch_geozones_populations()
