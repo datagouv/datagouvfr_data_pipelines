@@ -25,6 +25,9 @@ The first 41 entries come from a one-shot migration (September 2026) of the file
 previously published as community resources, whose building code is not in this
 repository.
 
+`2012_legi` and `2012_pres`: accented characters restored on 2026-10-01 from the
+original MIOM cp1252 files (they had been read as utf-8, turning accents into `?`).
+
 ## Running a script
 
 Environment variables: `S3_ENDPOINT`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`,

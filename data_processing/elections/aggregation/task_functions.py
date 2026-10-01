@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime
 
+import duckdb
 import pandas as pd
 import requests
 from airflow.sdk import task
@@ -11,6 +12,9 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
+)
+from datagouvfr_data_pipelines.data_processing.elections.aggregation import (
+    table_passage,
 )
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
     SCOPES,
@@ -27,6 +31,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
 # prod outputs are at the root of the bucket (published URLs), other envs are prefixed
 OUTPUT_FOLDER = "elections/" if AIRFLOW_ENV == "prod" else f"{AIRFLOW_ENV}/elections/"
 SOURCE_DATASETS_API_URL = "https://www.data.gouv.fr/api/1/datasets/"
+CORRESPONDENCE_FILE = "table_passage_communes.csv"
 
 
 def load_sources() -> dict:
@@ -120,6 +125,42 @@ def process_election_data():
 
 
 @task()
+def build_correspondence_table():
+    # the communes of each election, as published in the aggregated general results
+    communes = duckdb.sql(
+        f"""
+        select id_election, code_departement, code_commune,
+            any_value(libelle_commune) as libelle_commune
+        from read_csv('{TMP_FOLDER}general_results.csv', delim=';', all_varchar=true,
+            quote='"', escape='"')
+        where coalesce(code_commune, '') <> ''
+        group by all
+        """
+    ).df()
+    url, latest_year = table_passage.get_latest_annual_table()
+    logging.info(f"INSEE correspondence table: {url}")
+    insee, published = table_passage.load_annual_table(url)
+    # useful to keep the resource description (managed in the UI) up to date
+    logging.info(f"INSEE table {latest_year}, published on {published}")
+    result = table_passage.build_table_passage(communes, insee, latest_year)
+    result.to_csv(TMP_FOLDER + CORRESPONDENCE_FILE, sep=";", index=False)
+    logging.info(
+        f"{len(result)} rows, methods: "
+        f"{result['methode_rapprochement'].value_counts(dropna=False).to_dict()}"
+    )
+    alerts = table_passage.check_millesimes(
+        communes, insee, latest_year
+    ) + table_passage.check_unmapped(result)
+    if alerts:
+        logging.warning("\n".join(alerts))
+        # we only warn, the table is published anyway
+        send_message(
+            text="Élections : table de passage vers la géographie communale à vérifier\n\n"
+            + "\n".join(f"- {alert}" for alert in alerts)
+        )
+
+
+@task()
 def send_results_to_s3():
     S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG").send_files(
         list_files=[
@@ -134,6 +175,15 @@ def send_results_to_s3():
             )
             for scope in SCOPES
             for ext in ["csv", "parquet"]
+        ]
+        + [
+            File(
+                source_path=TMP_FOLDER,
+                source_name=CORRESPONDENCE_FILE,
+                dest_path=OUTPUT_FOLDER,
+                dest_name=CORRESPONDENCE_FILE,
+                content_type="text/csv",
+            )
         ],
         # the environment prefix is already handled by OUTPUT_FOLDER
         ignore_airflow_env=True,
@@ -187,6 +237,19 @@ def publish_results_elections():
             },
         )
         logging.info(f"Done with candidats results {ext}")
+    # title and description are managed in the UI (see the DAG README)
+    local_client.resource(
+        id=config["table_passage"]["csv"][AIRFLOW_ENV]["resource_id"],
+        dataset_id=config["dataset_id"][AIRFLOW_ENV],
+        fetch=False,
+    ).update(
+        payload={
+            "url": s3_client.get_file_url(f"{OUTPUT_FOLDER}{CORRESPONDENCE_FILE}"),
+            "filesize": os.path.getsize(TMP_FOLDER + CORRESPONDENCE_FILE),
+            "format": "csv",
+        },
+    )
+    logging.info("Done with the correspondence table")
 
 
 @task()
