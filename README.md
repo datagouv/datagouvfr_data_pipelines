@@ -138,8 +138,10 @@ Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendan
 uv pip install -r verticales/simplifions/tests/test-requirements.txt
 ```
 
-Lancer les tests de verticales/simplifions :
+Lancer les tests :
 
 ```shell
 pytest verticales/simplifions/tests/ -s -v
+pytest data_processing/dvf/explore/tests/ -s -v
+pytest dgv/monitoring/dashboard/tests/ -s -v
 ```
