@@ -13,9 +13,15 @@ repo_root = Path(__file__).parent.parent.parent.parent
 simplifions_dir = repo_root / "verticales" / "simplifions"
 sys.path.insert(0, str(simplifions_dir))
 
-# Mock airflow since it is not installed in the test environment
+# Mock airflow since it is not installed in the test environment.
+#
+# `task_functions.py` imports the modern Airflow 3.x API as
+# `from airflow.sdk import task` (line 5). The mocked `airflow` module built
+# below is a plain non-package namespace (no `__path__`), so importing a
+# submodule such as `airflow.sdk` would fail unless we register it in
+# `sys.modules` explicitly. That is what the airflow-sdk mock below provides.
 airflow_mock = types.ModuleType("airflow")
-airflow_decorators_mock = types.ModuleType("airflow.decorators")
+airflow_sdk_mock = types.ModuleType("airflow.sdk")
 
 
 def _task_passthrough(fn=None, **kwargs):
@@ -29,9 +35,9 @@ def _task_passthrough(fn=None, **kwargs):
     return decorator
 
 
-setattr(airflow_decorators_mock, "task", _task_passthrough)
+setattr(airflow_sdk_mock, "task", _task_passthrough)
 sys.modules["airflow"] = airflow_mock
-sys.modules["airflow.decorators"] = airflow_decorators_mock
+sys.modules["airflow.sdk"] = airflow_sdk_mock
 
 # Create all necessary packages to satisfy the datagouvfr_data_pipelines imports
 packages = [
