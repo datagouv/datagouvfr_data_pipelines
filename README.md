@@ -129,3 +129,17 @@ mypy.................................................(no files to check)Skipped
  1 file changed, 4 insertions(+)
 </code></pre>
 </details>
+
+## Tests
+
+Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances nécessaires (dans l'environnement virtuel) :
+
+```shell
+uv pip install -r verticales/simplifions/tests/test-requirements.txt
+```
+
+Lancer les tests de verticales/simplifions :
+
+```shell
+pytest verticales/simplifions/tests/ -s -v
+```
