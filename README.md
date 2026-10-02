@@ -35,7 +35,7 @@ pre-commit install
 
 ### Lorsque `uv venv` ne peut pas s'exécuter dans le répertoire courant
 
-Selon l'environnement (machine, VM, montage réseau type SSHFS, conteneur isolé…), la création d'un environnement virtuel **dans le répertoire du dépôt** peut échouer (ex. `Operation not permitted` au moment de résoudre l'interpréteur `.venv/bin/python3`). C'est en particulier le cas sous une VM utilisée via un montage distant.
+Selon l'environnement (machine, VM, montage réseau type SSHFS, conteneur isolé…), la création d'un environnement virtuel **dans le répertoire du dépôt** peut échouer (ex. `Operation not permitted` au moment de résoudre l'interpréteur `.venv/bin/python3`). Les opérations sur les fichiers (création, suppression) peuvent aussi être plus lentes selon le système de fichiers (SSHFS par exemple).
 
 Dans ce cas, on crée l'environnement dans un emplacement **local et persistant** (par exemple `$HOME`, hors du dépôt), puis on l'active afin que les commandes du README s'appliquent normalement à celui-ci :
 
@@ -73,7 +73,7 @@ pre-commit install
 
 ### Notes importantes
 
-- **`dev-requirements.txt` ne contient pas les dépendances d'exécution des DAGs** : il fournit uniquement les outils de développement (lint, format, tests, pre-commit). L'installation des imports utilisés par les DAGs n'est pas couverte ici.
+- **`dev-requirements.txt` ne contient pas les dépendances d'exécution des DAGs** : il fournit uniquement les outils de développement (lint, format, tests, pre-commit). L'installation des imports utilisés par les DAGs n'est pas couverte ici. Les dépendances sont dans le fichier [`requirements.txt`](https://github.com/datagouv/data-engineering-stack/blob/master/requirements.txt) du dépôt `data-engineering-stack`.
 - **Il est possible de travailler avec des versions différentes** (pas de VM, autre version de Python, `uv` absent) : le fichier `.python-version` est une indication, pas une contrainte. Le seul point de cohérence obligatoire entre contributeurs/trices est porté par pre-commit, qui installe des versions **exactes** de `ruff` et `mypy` (voir `.pre-commit-config.yaml`).
 - L'environnement créé (`.venv/`) est ignoré par git ; ne pas le committer.
 
