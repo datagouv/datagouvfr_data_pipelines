@@ -295,8 +295,8 @@ def watch_grist_data():
                     if diff:
                         for key, value in diff.items():
                             table_message += f"    - `{key}`:\n"
-                            table_message += f"      - ➕️ {DiffManager.format_diff_value(value['old'])}\n"
-                            table_message += f"      - ➖️ {DiffManager.format_diff_value(value['new'])}\n"
+                            table_message += f"      - ➕️ {DiffManager.format_diff_value(value['new'])}\n"
+                            table_message += f"      - ➖️ {DiffManager.format_diff_value(value['old'])}\n"
                     else:
                         table_message += "    - _(Aucune modification détectée)_\n"
 
