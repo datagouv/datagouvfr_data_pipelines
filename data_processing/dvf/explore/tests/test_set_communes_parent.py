@@ -1,5 +1,4 @@
 import pandas as pd
-
 from datagouvfr_data_pipelines.data_processing.dvf.explore.task_functions import (
     set_communes_parent,
 )

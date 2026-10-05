@@ -42,7 +42,7 @@ def _task_passthrough(fn=None, **kwargs):
     return decorator
 
 
-airflow_sdk.task = _task_passthrough
+airflow_sdk.task = _task_passthrough  # type: ignore[attr-defined]
 sys.modules["airflow"] = airflow
 sys.modules["airflow.sdk"] = airflow_sdk
 
@@ -68,12 +68,12 @@ sys.modules["datagouvfr_data_pipelines.config"] = config
 
 # --- utils.filesystem.File ---
 filesystem = sys.modules["datagouvfr_data_pipelines.utils.filesystem"]
-filesystem.File = MagicMock()
+filesystem.File = MagicMock()  # type: ignore[attr-defined]
 
 # --- utils.s3.S3Client ---
 s3 = sys.modules["datagouvfr_data_pipelines.utils.s3"]
-s3.S3Client = MagicMock()
-s3.S3ClientKwargs = MagicMock()
+s3.S3Client = MagicMock()  # type: ignore[attr-defined]
+s3.S3ClientKwargs = MagicMock()  # type: ignore[attr-defined]
 
 # --- task_functions (only DAG_NAME is imported by preview_stats) ---
 task_functions = _stub_package(
