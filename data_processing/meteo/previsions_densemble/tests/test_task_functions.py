@@ -17,7 +17,6 @@ Covers datagouv/datagouvfr_data_pipelines#754:
 """
 
 from datetime import datetime
-
 from unittest.mock import MagicMock, patch
 
 import task_functions
