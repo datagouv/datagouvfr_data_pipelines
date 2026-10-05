@@ -3,10 +3,11 @@ from datetime import datetime, timedelta
 from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.task_functions import (
     TMP_FOLDER,
-    build_correspondence_table,
     check_sources_updates,
     notification,
+    process_communes,
     process_election_data,
+    process_nuances,
     publish_results_elections,
     send_results_to_s3,
 )
@@ -24,7 +25,8 @@ with DAG(
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> check_sources_updates()
         >> process_election_data()
-        >> build_correspondence_table()
+        >> process_nuances()
+        >> process_communes()
         >> send_results_to_s3()
         >> publish_results_elections()
         >> clean_up_folder(TMP_FOLDER)

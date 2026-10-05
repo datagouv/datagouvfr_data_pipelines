@@ -32,6 +32,7 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}elections/"
 OUTPUT_FOLDER = "elections/" if AIRFLOW_ENV == "prod" else f"{AIRFLOW_ENV}/elections/"
 SOURCE_DATASETS_API_URL = "https://www.data.gouv.fr/api/1/datasets/"
 CORRESPONDENCE_FILE = "table_passage_communes.csv"
+NUANCES_FILE = "nuances_politiques.csv"
 
 
 def load_sources() -> dict:
@@ -45,24 +46,32 @@ def load_sources() -> dict:
 def check_sources_updates():
     # the source datasets are always on prod, whatever the environment
     alerts = []
-    for id_election, source in sorted(load_sources().items()):
-        dataset_id = source["source_dataset_id"]
-        link = f"https://www.data.gouv.fr/datasets/{dataset_id}"
-        response = requests.get(f"{SOURCE_DATASETS_API_URL}{dataset_id}/", timeout=60)
-        if not response.ok:
-            alerts.append(
-                f"- [{id_election}]({link}) : jeu inaccessible (HTTP {response.status_code})"
+    for key, source in sorted(load_sources().items()):
+        for part in ("resultats", "nuances"):
+            dataset_id = source.get(part, {}).get("source_dataset_id")
+            if not dataset_id:
+                # e.g. the nuance grids taken from the circulars, with no source dataset
+                continue
+            label = key if part == "resultats" else f"{key} (nuances)"
+            link = f"https://www.data.gouv.fr/datasets/{dataset_id}"
+            response = requests.get(
+                f"{SOURCE_DATASETS_API_URL}{dataset_id}/", timeout=60
             )
-            continue
-        dataset = response.json()
-        if dataset.get("archived"):
-            alerts.append(f"- [{id_election}]({link}) : jeu archivé")
-        last_update = datetime.fromisoformat(dataset["last_update"])
-        if last_update > datetime.fromisoformat(source["source_last_update"]):
-            alerts.append(
-                f"- [{id_election}]({link}) : modifié le {last_update:%Y-%m-%d}"
-                f" (config : {source['source_last_update'][:10]})"
-            )
+            if not response.ok:
+                alerts.append(
+                    f"- [{label}]({link}) : jeu inaccessible (HTTP {response.status_code})"
+                )
+                continue
+            dataset = response.json()
+            if dataset.get("archived"):
+                alerts.append(f"- [{label}]({link}) : jeu archivé")
+            last_update = datetime.fromisoformat(dataset["last_update"])
+            recorded = source[part]["source_last_update"]
+            if last_update > datetime.fromisoformat(recorded):
+                alerts.append(
+                    f"- [{label}]({link}) : modifié le {last_update:%Y-%m-%d}"
+                    f" (config : {recorded[:10]})"
+                )
     if not alerts:
         logging.info("All source datasets are up to date")
         return
@@ -87,7 +96,7 @@ def process_election_data():
     for scope in SCOPES:
         logging.info(f"Processing {scope} resources")
         for idx, id_election in enumerate(sorted(sources)):
-            key = sources[id_election]["files"][scope]
+            key = sources[id_election]["resultats"]["files"][scope]
             file = File(
                 source_path=os.path.dirname(key),
                 source_name=os.path.basename(key),
@@ -125,7 +134,34 @@ def process_election_data():
 
 
 @task()
-def build_correspondence_table():
+def process_nuances():
+    # the nuance grids of the elections that have one ("nuances" part of sources.json)
+    sources = load_sources()
+    s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG")
+    frames = []
+    for key in sorted(sources):
+        if "nuances" not in sources[key]:
+            continue
+        path = sources[key]["nuances"]["files"]["nuances"]
+        file = File(
+            source_path=os.path.dirname(path),
+            source_name=os.path.basename(path),
+            dest_path=TMP_FOLDER,
+            dest_name=f"{key}_nuances.csv",
+            remote_source=True,
+        )
+        s3_client.download_files([file], ignore_airflow_env=True)
+        df = pd.read_csv(file.full_dest_path, sep=";", dtype=str, keep_default_na=False)
+        os.remove(file.full_dest_path)
+        assert list(df.columns) == list(dtypes["nuances"]), f"{key}: {list(df.columns)}"
+        frames.append(df)
+    pd.concat(frames, ignore_index=True).to_csv(
+        TMP_FOLDER + NUANCES_FILE, sep=";", index=False
+    )
+
+
+@task()
+def process_communes():
     # the communes of each election, as published in the aggregated general results
     communes = duckdb.sql(
         f"""
@@ -179,11 +215,12 @@ def send_results_to_s3():
         + [
             File(
                 source_path=TMP_FOLDER,
-                source_name=CORRESPONDENCE_FILE,
+                source_name=name,
                 dest_path=OUTPUT_FOLDER,
-                dest_name=CORRESPONDENCE_FILE,
+                dest_name=name,
                 content_type="text/csv",
             )
+            for name in [CORRESPONDENCE_FILE, NUANCES_FILE]
         ],
         # the environment prefix is already handled by OUTPUT_FOLDER
         ignore_airflow_env=True,
@@ -239,7 +276,7 @@ def publish_results_elections():
         logging.info(f"Done with candidats results {ext}")
     # title and description are managed in the UI (see the DAG README)
     local_client.resource(
-        id=config["table_passage"]["csv"][AIRFLOW_ENV]["resource_id"],
+        id=config["communes"]["csv"][AIRFLOW_ENV]["resource_id"],
         dataset_id=config["dataset_id"][AIRFLOW_ENV],
         fetch=False,
     ).update(
@@ -250,6 +287,19 @@ def publish_results_elections():
         },
     )
     logging.info("Done with the correspondence table")
+    # title and description are managed in the UI (see the DAG README)
+    local_client.resource(
+        id=config["nuances"]["csv"][AIRFLOW_ENV]["resource_id"],
+        dataset_id=config["dataset_id"][AIRFLOW_ENV],
+        fetch=False,
+    ).update(
+        payload={
+            "url": s3_client.get_file_url(f"{OUTPUT_FOLDER}{NUANCES_FILE}"),
+            "filesize": os.path.getsize(TMP_FOLDER + NUANCES_FILE),
+            "format": "csv",
+        },
+    )
+    logging.info("Done with the nuances table")
 
 
 @task()

@@ -2,24 +2,38 @@
 
 The DAG does not build the standardized files itself: it concatenates the ones listed
 in [`../sources.json`](../sources.json), stored on our S3 under
-`elections/sources/<key>/{general,candidats}-results.csv`. These scripts, run by hand
+`elections/sources/<key>/` (`general-results.csv`, `candidats-results.csv`, and
+`nuances.csv` when the election has a nuance grid). These scripts, run by hand
 outside Airflow, build those files and keep `sources.json` up to date.
 
 This folder is excluded from Airflow parsing (`../.airflowignore`).
 
 ## `sources.json`
 
-One entry per source dataset of the Ministère de l'Intérieur:
+One entry per election source, with:
 
 - `id_elections`: the `id_election` values contained in the files (a file may hold
   both rounds, e.g. `2001_cant` → `2001_cant_t1`, `2001_cant_t2`);
+- `resultats`: the results files;
+- `nuances` (optional): the nuance grid of the election, one row per nuance and per
+  `id_election` (`type_nuance`, `bloc`, `libelle_nuance`, `signification`,
+  `commentaires`, `source`; see `dtypes["nuances"]` in `../schema.py`).
+
+Each part has:
+
 - `source_dataset_id`: the original dataset of the Ministère de l'Intérieur on
-  data.gouv.fr;
+  data.gouv.fr, empty when there is none (the nuance grids come from the ministry's
+  circulars, cited in their `source` column);
 - `source_last_update`: the `last_update` of that dataset when our files were built;
 - `files`: the S3 paths.
 
 On every run, the DAG task `check_sources_updates` alerts on Tchap if a source dataset
-is unreachable, archived, or modified after `source_last_update`.
+is unreachable, archived, or modified after `source_last_update` (parts without a
+`source_dataset_id` are skipped).
+
+The nuance grids of `2026_muni_t1` and `2026_muni_t2` come from a one-shot migration
+(October 2026) of the dataset resource "Dictionnaire des nuances politiques
+(circulaire INTP2602966C de février 2026)", copied as is.
 
 The first 41 entries come from a one-shot migration (September 2026) of the files
 previously published as community resources, whose building code is not in this

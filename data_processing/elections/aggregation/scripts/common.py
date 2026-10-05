@@ -78,8 +78,12 @@ def register_source(
     source_last_update: str,
 ) -> None:
     sources[key] = {
+        # keep the other parts of the entry (e.g. "nuances")
+        **sources.get(key, {}),
         "id_elections": sorted(id_elections),
-        "source_dataset_id": source_dataset_id,
-        "source_last_update": source_last_update,
-        "files": {scope: source_key(key, scope) for scope in SCOPES},
+        "resultats": {
+            "source_dataset_id": source_dataset_id,
+            "source_last_update": source_last_update,
+            "files": {scope: source_key(key, scope) for scope in SCOPES},
+        },
     }

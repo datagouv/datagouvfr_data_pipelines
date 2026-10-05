@@ -1,7 +1,7 @@
 """Correspondence table between the communes of each election and the current
 commune geography, built from the INSEE annual correspondence table.
 
-Pure functions (no Airflow), called by the build_correspondence_table task.
+Pure functions (no Airflow), called by the process_communes task.
 """
 
 import io
@@ -11,6 +11,10 @@ import zipfile
 
 import pandas as pd
 import requests
+
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
+    dtypes,
+)
 
 INSEE_PAGE_URL = "https://www.insee.fr/fr/information/7671867"
 INSEE_FILE_PATTERN = (
@@ -24,17 +28,6 @@ OUT_OF_SCOPE_PREFIXES = ("ZZ", "98", "975", "977", "978", "97123", "97127")
 # a neighbouring millesime matching better by this many points signals that the
 # ministry used another geography than the one of the election year
 MILLESIME_TOLERANCE = 0.5
-OUTPUT_COLUMNS = [
-    "id_election",
-    "code_departement",
-    "code_commune",
-    "libelle_commune",
-    "code_commune_actuel",
-    "libelle_commune_actuel",
-    "nb_communes_actuelles",
-    "methode_rapprochement",
-    "millesime_cog_election",
-]
 
 
 def get_latest_annual_table() -> tuple[str, int]:
@@ -183,7 +176,7 @@ def build_table_passage(
     ].transform("size")
     # nullable integer, so that the CSV reads 2014 and not 2014.0
     result["millesime_cog_election"] = result["millesime_cog_election"].astype("Int64")
-    return result[OUTPUT_COLUMNS].sort_values(
+    return result[list(dtypes["communes"])].sort_values(
         ["id_election", "code_commune", "code_commune_actuel"], ignore_index=True
     )
 

@@ -39,10 +39,20 @@
             }
         }
     },
-    "table_passage": {
+    "communes": {
         "csv": {
             "dev": {
                 "resource_id": "97383242-cd6f-4106-99e5-28b1ca1f8e71"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        }
+    },
+    "nuances": {
+        "csv": {
+            "dev": {
+                "resource_id": "abaa2adc-2cfd-45c9-9b0c-74b10971682a"
             },
             "prod": {
                 "resource_id": "TODO"
