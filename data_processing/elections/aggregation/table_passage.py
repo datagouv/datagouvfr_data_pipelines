@@ -33,7 +33,7 @@ OUTPUT_COLUMNS = [
     "libelle_commune_actuel",
     "nb_communes_actuelles",
     "methode_rapprochement",
-    "annee_cog_actuel",
+    "millesime_cog_election",
 ]
 
 
@@ -148,6 +148,8 @@ def build_table_passage(
         # inner join: a split commune gets one row per current commune
         found = group.merge(mapping, left_on="code_commune", right_on="code")
         found["methode_rapprochement"] = "code"
+        # the INSEE millesime whose codes were used to map the election commune
+        found["millesime_cog_election"] = millesime
         parts.append(found)
         # 2. and 3. the few codes unknown that year, handled one by one
         missing = group[~group["code_commune"].isin(mapping["code"])]
@@ -158,7 +160,11 @@ def build_table_passage(
             row_df = pd.DataFrame([row._asdict()])
             if fallback is None:
                 # kept with empty current commune columns
-                parts.append(row_df.assign(methode_rapprochement=None))
+                parts.append(
+                    row_df.assign(
+                        methode_rapprochement=None, millesime_cog_election=None
+                    )
+                )
                 continue
             # map the code found by the fallback, in the millesime it was found in
             code, other_millesime, method = fallback
@@ -166,14 +172,17 @@ def build_table_passage(
             parts.append(
                 row_df.assign(code=code)
                 .merge(other, on="code")
-                .assign(methode_rapprochement=method)
+                .assign(
+                    methode_rapprochement=method, millesime_cog_election=other_millesime
+                )
             )
     result = pd.concat(parts, ignore_index=True)
     # number of rows of each election commune: the coefficient to divide its counts by
     result["nb_communes_actuelles"] = result.groupby(["id_election", "code_commune"])[
         "code_commune"
     ].transform("size")
-    result["annee_cog_actuel"] = latest_year
+    # nullable integer, so that the CSV reads 2014 and not 2014.0
+    result["millesime_cog_election"] = result["millesime_cog_election"].astype("Int64")
     return result[OUTPUT_COLUMNS].sort_values(
         ["id_election", "code_commune", "code_commune_actuel"], ignore_index=True
     )
