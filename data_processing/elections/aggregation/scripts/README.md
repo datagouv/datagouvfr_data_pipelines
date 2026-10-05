@@ -35,6 +35,12 @@ The nuance grids of `2026_muni_t1` and `2026_muni_t2` come from a one-shot migra
 (October 2026) of the dataset resource "Dictionnaire des nuances politiques
 (circulaire INTP2602966C de février 2026)", copied as is.
 
+The other former resource, "Dictionnaire des nuances politiques (2025)" (86 codes,
+`Nuance` and `Libellé` only, compiled from the ministry's results archives for all
+elections at once, so not attributable to a given election), is not used. It is kept
+for the record, as is, at `elections/archives/dictionnaire-nuances-2025.csv` on our
+S3, outside `sources.json`.
+
 The first 41 entries come from a one-shot migration (September 2026) of the files
 previously published as community resources, whose building code is not in this
 repository.
