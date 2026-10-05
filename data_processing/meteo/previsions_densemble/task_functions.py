@@ -283,28 +283,47 @@ def publish_on_datagouv(pack: str, grid: str):
             )
 
 
+def _compute_retention_threshold(current_resources: dict) -> datetime:
+    """Retention threshold: newest run of this grid minus the retention window.
+
+    A *run* is the whole set of échéances (00:00..48:00) that Météo-France
+    computes together for a given (pack, grid, date). They share the same date,
+    are stored in a single S3 date folder and exposed on data.gouv as one
+    resource per échéance pointing to that date, so a run is kept or deleted as
+    a whole. Anchoring the threshold to the *newest* run (``max``) prunes runs
+    older than TIME_DEPTH_TO_KEEP; the previous code anchored to the *oldest*
+    run (``min``), which sat at the floor of the available dates and therefore
+    never pruned anything.
+    """
+    # The newest run of this pack+grid: resources are keyed by échéance and all
+    # point to their own run date, so we take the most recent of them.
+    newest_run_date = datetime.strptime(
+        max(r["date"] for r in current_resources.values()),
+        "%Y%m%d%H%M",
+    )
+    logging.info(f"Newest run in dataset: {newest_run_date}")
+    threshold = newest_run_date - TIME_DEPTH_TO_KEEP
+    logging.info(f"Will delete everything before {threshold}")
+    return threshold
+
+
 @task()
 def remove_old_occurrences(pack: str, grid: str):
     # removing too old files from S3 and cleaning SFTP if remainders
     current_resources: dict = get_current_resources(pack, grid)
-    oldest_available_date = datetime.strptime(
-        min([r["date"] for r in current_resources.values()]),
-        "%Y%m%d%H%M",
-    )
-    logging.info(f"Oldest date in dataset: {oldest_available_date}")
-    threshold = oldest_available_date - TIME_DEPTH_TO_KEEP
-    logging.info(f"Will delete everything before {threshold}")
+    threshold = _compute_retention_threshold(current_resources)
     s3_meteo = S3Client(**s3_client_kwargs)
-    dates_on_s3 = {
+    run_dates_on_s3 = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
         for path in s3_meteo.get_folders_from_prefix(
             prefix=f"{s3_folder}/{pack}/{grid}/",
             ignore_airflow_env=False,
         )
     }
-    logging.info(f"Current dates on S3: {dates_on_s3}")
-    for path, date in dates_on_s3.items():
-        if date < threshold:
+    logging.info(f"Current run dates on S3: {run_dates_on_s3}")
+    for path, run_date in run_dates_on_s3.items():
+        if run_date < threshold:
+            # the whole run (all échéances) is obsolete -> delete the folder
             files_to_delete = list(
                 s3_meteo.get_files_from_prefix(
                     prefix=path,
@@ -322,10 +341,10 @@ def remove_old_occurrences(pack: str, grid: str):
             # most likely files that are not done uploading
             logging.warning(f"> ignoring {file}")
             continue
-        # computing the datetime of the file from its name, to compare full
+        # computing the run datetime of the file from its name, to compare full
         # datetimes instead of the (date-only) threshold as a raw string
-        file_date = datetime.strptime(get_file_infos(file)["date"], "%Y%m%d%H%M")
-        if file_date < threshold:
+        run_date = datetime.strptime(get_file_infos(file)["date"], "%Y%m%d%H%M")
+        if run_date < threshold:
             try:
                 sftp.delete_file(upload_dir + file)
                 deleted_old += 1
