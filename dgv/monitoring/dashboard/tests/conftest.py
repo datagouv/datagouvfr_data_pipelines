@@ -55,8 +55,11 @@ packages = [
     # 'dashboard' points at the real directory so preview_stats is importable
     ("datagouvfr_data_pipelines.dgv.monitoring.dashboard", dashboard_dir),
     ("datagouvfr_data_pipelines.utils", None),
+    ("datagouvfr_data_pipelines.utils.crisp", None),
+    ("datagouvfr_data_pipelines.utils.datagouv", None),
     ("datagouvfr_data_pipelines.utils.filesystem", None),
     ("datagouvfr_data_pipelines.utils.s3", None),
+    ("datagouvfr_data_pipelines.utils.utils", None),
 ]
 for name, path in packages:
     _stub_package(name, path)
@@ -65,6 +68,18 @@ for name, path in packages:
 config = MagicMock()
 config.AIRFLOW_DAG_TMP = "/tmp/"
 sys.modules["datagouvfr_data_pipelines.config"] = config
+
+# --- utils deps imported by the real task_functions module ---
+crisp = sys.modules["datagouvfr_data_pipelines.utils.crisp"]
+crisp.get_all_conversations = MagicMock()  # type: ignore[attr-defined]
+crisp.get_all_spam_conversations = MagicMock()  # type: ignore[attr-defined]
+
+datagouv = sys.modules["datagouvfr_data_pipelines.utils.datagouv"]
+datagouv.DATAGOUV_MATOMO_ID = "id"  # type: ignore[attr-defined]
+datagouv.local_client = MagicMock()  # type: ignore[attr-defined]
+
+utils = sys.modules["datagouvfr_data_pipelines.utils.utils"]
+utils.list_months_between = MagicMock()  # type: ignore[attr-defined]
 
 # --- utils.filesystem.File ---
 filesystem = sys.modules["datagouvfr_data_pipelines.utils.filesystem"]
