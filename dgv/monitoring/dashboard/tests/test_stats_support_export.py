@@ -28,7 +28,9 @@ import pandas as pd
 # Pop the conftest stub so the *real* task_functions module is imported.
 _MFQ = "datagouvfr_data_pipelines.dgv.monitoring.dashboard.task_functions"
 sys.modules.pop(_MFQ, None)
-from datagouvfr_data_pipelines.dgv.monitoring.dashboard import task_functions
+from datagouvfr_data_pipelines.dgv.monitoring.dashboard import (  # noqa: E402
+    task_functions,
+)
 
 
 def _run_gather_and_upload(tmp_path, monkeypatch):
