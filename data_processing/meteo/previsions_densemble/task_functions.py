@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-TIME_DEPTH_TO_KEEP = timedelta(hours=24)
+TIME_DEPTH_TO_KEEP = timedelta(days=15)
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
