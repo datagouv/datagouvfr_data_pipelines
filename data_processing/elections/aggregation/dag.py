@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 
-from airflow.sdk import DAG
+from airflow.sdk import DAG, Param
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.task_functions import (
+    STEPS,
     TMP_FOLDER,
+    check_outputs,
     check_sources_updates,
     notification,
     process_communes,
@@ -20,6 +22,14 @@ with DAG(
     catchup=False,
     dagrun_timeout=timedelta(minutes=240),
     tags=["data_processing", "election", "presidentielle", "legislative"],
+    params={
+        "steps": Param(
+            STEPS,
+            type="array",
+            items={"type": "string", "enum": STEPS},
+            description="Étapes à exécuter (toutes par défaut), pour ne relancer qu'une partie du DAG",
+        )
+    },
 ):
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
@@ -27,8 +37,10 @@ with DAG(
         >> process_election_data()
         >> process_nuances()
         >> process_communes()
+        >> check_outputs()
         >> send_results_to_s3()
         >> publish_results_elections()
-        >> clean_up_folder(TMP_FOLDER)
+        # skipped steps must not skip the clean-up nor the following steps
+        >> clean_up_folder(TMP_FOLDER, trigger_rule="none_failed")
         >> notification()
     )

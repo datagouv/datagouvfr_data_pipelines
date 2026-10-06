@@ -16,7 +16,7 @@ One entry per election source, with:
   both rounds, e.g. `2001_cant` → `2001_cant_t1`, `2001_cant_t2`);
 - `resultats`: the results files;
 - `nuances` (optional): the nuance grid of the election, one row per nuance and per
-  `id_election` (`type_nuance`, `bloc`, `libelle_nuance`, `signification`,
+  `id_election` (`type_nuance`, `bloc`, `nuance`, `signification`,
   `commentaires`, `source`; see `dtypes["nuances"]` in `../schema.py`).
 
 Each part has:

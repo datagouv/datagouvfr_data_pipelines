@@ -19,6 +19,14 @@
             "prod": {
                 "resource_id": "ff16d511-10c0-405e-9b35-511723948fce"
             }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "9f3076c0-f225-48ea-acf2-2a71a575a5ea"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
         }
     },
     "candidats": {
@@ -37,6 +45,14 @@
             "prod": {
                 "resource_id": "4d3b35f6-0b22-4415-a24c-419a676312e2"
             }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "de2489d1-bedf-455d-bb5c-bf04ba6931b9"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
         }
     },
     "communes": {
@@ -47,12 +63,28 @@
             "prod": {
                 "resource_id": "TODO"
             }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "72a957c4-8b9a-4985-8e7e-a150473d22bb"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
         }
     },
     "nuances": {
         "csv": {
             "dev": {
                 "resource_id": "abaa2adc-2cfd-45c9-9b0c-74b10971682a"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "2dcc1742-82b4-4e7d-a990-01d1b1b9bb12"
             },
             "prod": {
                 "resource_id": "TODO"

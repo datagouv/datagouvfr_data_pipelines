@@ -6,6 +6,7 @@ from datetime import datetime
 import duckdb
 import pandas as pd
 import requests
+from airflow.sdk.exceptions import AirflowSkipException
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -14,11 +15,16 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.data_processing.elections.aggregation import (
+    checks,
     table_passage,
 )
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
+    SCHEMAS_FOLDER,
     SCOPES,
+    TABLES,
     dtypes,
+    load_schema,
+    schema_path,
 )
 from datagouvfr_data_pipelines.utils.conversions import csv_to_parquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
@@ -33,6 +39,24 @@ OUTPUT_FOLDER = "elections/" if AIRFLOW_ENV == "prod" else f"{AIRFLOW_ENV}/elect
 SOURCE_DATASETS_API_URL = "https://www.data.gouv.fr/api/1/datasets/"
 CORRESPONDENCE_FILE = "table_passage_communes.csv"
 NUANCES_FILE = "nuances_politiques.csv"
+# table -> csv file produced in TMP_FOLDER (the results also have a parquet)
+OUTPUT_FILES = {
+    "general": "general_results.csv",
+    "candidats": "candidats_results.csv",
+    "nuances": NUANCES_FILE,
+    "communes": CORRESPONDENCE_FILE,
+}
+# the steps that a manual run can select with the "steps" param, all by default
+STEPS = [
+    "check_sources_updates",
+    "process_election_data",
+    "process_nuances",
+    "process_communes",
+    "check_outputs",
+    "send_results_to_s3",
+    "publish_results_elections",
+    "notification",
+]
 
 
 def load_sources() -> dict:
@@ -42,8 +66,33 @@ def load_sources() -> dict:
         return json.load(fp)
 
 
-@task()
-def check_sources_updates():
+def load_config() -> dict:
+    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
+        return json.load(fp)
+
+
+def skip_unless_selected(context, step: str) -> None:
+    if step not in (context["params"].get("steps") or STEPS):
+        raise AirflowSkipException(f"{step} not selected in the steps param")
+
+
+def produced(name: str) -> bool:
+    # whether the file was produced in this run (steps may have been skipped)
+    return os.path.exists(TMP_FOLDER + name)
+
+
+def published_files() -> list[tuple[str, str, str]]:
+    """(table, format, file name) of each published data file."""
+    return [
+        (table, ext, name.replace(".csv", f".{ext}"))
+        for table, name in OUTPUT_FILES.items()
+        for ext in (["csv", "parquet"] if table in SCOPES else ["csv"])
+    ]
+
+
+@task(trigger_rule="none_failed")
+def check_sources_updates(**context):
+    skip_unless_selected(context, "check_sources_updates")
     # the source datasets are always on prod, whatever the environment
     alerts = []
     for key, source in sorted(load_sources().items()):
@@ -87,8 +136,9 @@ def check_sources_updates():
     )
 
 
-@task()
-def process_election_data():
+@task(trigger_rule="none_failed")
+def process_election_data(**context):
+    skip_unless_selected(context, "process_election_data")
     # the standardized files are built by the standalone scripts (see scripts/),
     # stored on our S3 and listed in sources.json, here we only concatenate them
     sources = load_sources()
@@ -133,8 +183,9 @@ def process_election_data():
         )
 
 
-@task()
-def process_nuances():
+@task(trigger_rule="none_failed")
+def process_nuances(**context):
+    skip_unless_selected(context, "process_nuances")
     # the nuance grids of the elections that have one ("nuances" part of sources.json)
     sources = load_sources()
     s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG")
@@ -160,14 +211,35 @@ def process_nuances():
     )
 
 
-@task()
-def process_communes():
+@task(trigger_rule="none_failed")
+def process_communes(**context):
+    skip_unless_selected(context, "process_communes")
+    if not produced(OUTPUT_FILES["general"]):
+        # process_election_data was skipped: use the last published general results
+        logging.info(f"Getting {OUTPUT_FILES['general']} from {OUTPUT_FOLDER}")
+        S3Client(
+            bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG"
+        ).download_files(
+            [
+                File(
+                    source_path=OUTPUT_FOLDER,
+                    source_name=OUTPUT_FILES["general"],
+                    dest_path=TMP_FOLDER,
+                    dest_name=f"published_{OUTPUT_FILES['general']}",
+                    remote_source=True,
+                )
+            ],
+            ignore_airflow_env=True,
+        )
+        general = f"{TMP_FOLDER}published_{OUTPUT_FILES['general']}"
+    else:
+        general = TMP_FOLDER + OUTPUT_FILES["general"]
     # the communes of each election, as published in the aggregated general results
     communes = duckdb.sql(
         f"""
         select id_election, code_departement, code_commune,
             any_value(libelle_commune) as libelle_commune
-        from read_csv('{TMP_FOLDER}general_results.csv', delim=';', all_varchar=true,
+        from read_csv('{general}', delim=';', all_varchar=true,
             quote='"', escape='"')
         where coalesce(code_commune, '') <> ''
         group by all
@@ -196,116 +268,119 @@ def process_communes():
         )
 
 
-@task()
-def send_results_to_s3():
-    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG").send_files(
-        list_files=[
-            File(
-                source_path=TMP_FOLDER,
-                source_name=f"{scope}_results.{ext}",
-                dest_path=OUTPUT_FOLDER,
-                dest_name=f"{scope}_results.{ext}",
-                content_type=(
-                    "application/vnd.apache.parquet" if ext == "parquet" else "text/csv"
-                ),
-            )
-            for scope in SCOPES
-            for ext in ["csv", "parquet"]
+@task(trigger_rule="none_failed")
+def check_outputs(**context):
+    skip_unless_selected(context, "check_outputs")
+    errors = []
+    for table, name in OUTPUT_FILES.items():
+        if not produced(name):
+            logging.info(f"{name} not produced in this run, not checked")
+            continue
+        errors += [
+            f"{name}: {error}"
+            for error in checks.check_file(TMP_FOLDER + name, load_schema(table))
         ]
-        + [
-            File(
-                source_path=TMP_FOLDER,
-                source_name=name,
-                dest_path=OUTPUT_FOLDER,
-                dest_name=name,
-                content_type="text/csv",
-            )
-            for name in [CORRESPONDENCE_FILE, NUANCES_FILE]
-        ],
+        logging.info(f"{name} checked against {schema_path(table).name}")
+    if errors:
+        # nothing is sent nor published with files that don't match their schema
+        raise ValueError("Files not matching their schema:\n" + "\n".join(errors))
+
+
+@task(trigger_rule="none_failed")
+def send_results_to_s3(**context):
+    skip_unless_selected(context, "send_results_to_s3")
+    files = [
+        File(
+            source_path=TMP_FOLDER,
+            source_name=name,
+            dest_path=OUTPUT_FOLDER,
+            dest_name=name,
+            content_type=(
+                "application/vnd.apache.parquet" if ext == "parquet" else "text/csv"
+            ),
+        )
+        for _, ext, name in published_files()
+        if produced(name)
+    ]
+    # the schema of each table produced in this run
+    files += [
+        File(
+            source_path=str(SCHEMAS_FOLDER),
+            source_name=schema_path(table).name,
+            dest_path=f"{OUTPUT_FOLDER}schemas/",
+            dest_name=schema_path(table).name,
+            content_type="application/json",
+        )
+        for table in TABLES
+        if produced(OUTPUT_FILES[table])
+    ]
+    S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG").send_files(
+        list_files=files,
         # the environment prefix is already handled by OUTPUT_FOLDER
         ignore_airflow_env=True,
         is_public=True,
     )
 
 
-@task()
-def publish_results_elections():
+@task(trigger_rule="none_failed")
+def publish_results_elections(**context):
+    skip_unless_selected(context, "publish_results_elections")
     s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG")
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
-        config = json.load(fp)
-    for ext in ["csv", "parquet"]:
-        local_client.resource(
-            id=config["general"][ext][AIRFLOW_ENV]["resource_id"],
-            dataset_id=config["dataset_id"][AIRFLOW_ENV],
-            fetch=False,
-        ).update(
-            payload={
-                "url": s3_client.get_file_url(f"{OUTPUT_FOLDER}general_results.{ext}"),
-                "filesize": os.path.getsize(TMP_FOLDER + f"general_results.{ext}"),
-                "title": "Résultats généraux",
-                "format": ext,
+    config = load_config()
+    titles = {"general": "Résultats généraux", "candidats": "Résultats par candidat"}
+    descriptions = {
+        "general": "Résultats généraux des élections agrégés au niveau des bureaux de votes",
+        "candidats": "Résultats des élections par candidat agrégés au niveau des bureaux de votes",
+    }
+    for table, ext, name in published_files():
+        if not produced(name):
+            continue
+        payload = {
+            "url": s3_client.get_file_url(f"{OUTPUT_FOLDER}{name}"),
+            "filesize": os.path.getsize(TMP_FOLDER + name),
+            "format": ext,
+        }
+        if table in SCOPES:
+            payload |= {
+                "title": titles[table],
                 "description": (
-                    f"Résultats généraux des élections agrégés au niveau des bureaux de votes,"
+                    f"{descriptions[table]},"
                     " créés à partir des données du Ministère de l'Intérieur"
                     f", au format {ext}"
                     f" (dernière modification : {datetime.today().strftime('%Y-%m-%d')})"
                 ),
-            },
-        )
-        logging.info(f"Done with general results {ext}")
+            }
+        # for the other tables, title and description are managed in the UI
         local_client.resource(
-            id=config["candidats"][ext][AIRFLOW_ENV]["resource_id"],
+            id=config[table][ext][AIRFLOW_ENV]["resource_id"],
+            dataset_id=config["dataset_id"][AIRFLOW_ENV],
+            fetch=False,
+        ).update(payload=payload)
+        logging.info(f"Done with {name}")
+    for table in TABLES:
+        if not produced(OUTPUT_FILES[table]):
+            continue
+        # title and description of the schema resources are managed in the UI
+        local_client.resource(
+            id=config[table]["schema"][AIRFLOW_ENV]["resource_id"],
             dataset_id=config["dataset_id"][AIRFLOW_ENV],
             fetch=False,
         ).update(
             payload={
                 "url": s3_client.get_file_url(
-                    f"{OUTPUT_FOLDER}candidats_results.{ext}"
+                    f"{OUTPUT_FOLDER}schemas/{schema_path(table).name}"
                 ),
-                "filesize": os.path.getsize(TMP_FOLDER + f"candidats_results.{ext}"),
-                "title": "Résultats par candidat",
-                "format": ext,
-                "description": (
-                    f"Résultats des élections par candidat agrégés au niveau des bureaux de votes,"
-                    " créés à partir des données du Ministère de l'Intérieur"
-                    f", au format {ext}"
-                    f" (dernière modification : {datetime.today().strftime('%Y-%m-%d')})"
-                ),
+                "filesize": os.path.getsize(schema_path(table)),
+                "format": "json",
             },
         )
-        logging.info(f"Done with candidats results {ext}")
-    # title and description are managed in the UI (see the DAG README)
-    local_client.resource(
-        id=config["communes"]["csv"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=config["dataset_id"][AIRFLOW_ENV],
-        fetch=False,
-    ).update(
-        payload={
-            "url": s3_client.get_file_url(f"{OUTPUT_FOLDER}{CORRESPONDENCE_FILE}"),
-            "filesize": os.path.getsize(TMP_FOLDER + CORRESPONDENCE_FILE),
-            "format": "csv",
-        },
-    )
-    logging.info("Done with the correspondence table")
-    # title and description are managed in the UI (see the DAG README)
-    local_client.resource(
-        id=config["nuances"]["csv"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=config["dataset_id"][AIRFLOW_ENV],
-        fetch=False,
-    ).update(
-        payload={
-            "url": s3_client.get_file_url(f"{OUTPUT_FOLDER}{NUANCES_FILE}"),
-            "filesize": os.path.getsize(TMP_FOLDER + NUANCES_FILE),
-            "format": "csv",
-        },
-    )
-    logging.info("Done with the nuances table")
+        logging.info(f"Done with {schema_path(table).name}")
 
 
-@task()
-def notification():
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
-        config = json.load(fp)
+@task(trigger_rule="none_failed")
+def notification(**context):
+    skip_unless_selected(context, "notification")
+    config = load_config()
     send_message(
         text=(
             "📣 Données élections mises à jour.\n\n"

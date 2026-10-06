@@ -1,0 +1,199 @@
+{
+    "$schema": "https://frictionlessdata.io/schemas/table-schema.json",
+    "name": "schema-elections-resultats-generaux",
+    "title": "Schéma des données agrégées des résultats généraux des élections.",
+    "description": "",
+    "countryCode": "FR",
+    "homepage": "https://www.data.gouv.fr/datasets/donnees-des-elections-agregees",
+    "resources": [],
+    "sources": [
+        {
+            "title": "Spécification Tableschema",
+            "path": "https://specs.frictionlessdata.io/table-schema"
+        }
+    ],
+    "created": "2023-06-27",
+    "lastModified": "2026-10-05",
+    "version": "0.0.4",
+    "contributors": [],
+    "fields": [
+        {
+            "name": "id_election",
+            "title": "Identifiant de l'élection",
+            "description": "Identifiant de l'élection, au format année_type_tour.",
+            "example": "2022_pres_t1",
+            "type": "string"
+        },
+        {
+            "name": "id_brut_miom",
+            "title": "Identifiant MIOM du bureau de vote",
+            "description": "Identifiant unique du bureau de vote issu du Ministère de l'Intérieur.",
+            "example": "63113_0010",
+            "type": "string"
+        },
+        {
+            "name": "code_departement",
+            "title": "Code du département",
+            "description": "Code du département (sur 2 ou 3 caractères).",
+            "example": "63",
+            "type": "string"
+        },
+        {
+            "name": "libelle_departement",
+            "title": "Libellé du département",
+            "description": "Le nom du département.",
+            "example": "Ain",
+            "type": "string"
+        },
+        {
+            "name": "code_canton",
+            "title": "Code du canton",
+            "description": "Code du canton (si disponible dans les données sources).",
+            "example": "08",
+            "type": "string"
+        },
+        {
+            "name": "libelle_canton",
+            "title": "Libellé du canton",
+            "description": "Libellé du canton (si disponible dans les données sources).",
+            "example": "Ambérieu-en-Bugey",
+            "type": "string"
+        },
+        {
+            "name": "code_commune",
+            "title": "Code de la commune",
+            "description": "Code INSEE de la commune (sur 5 caractères).",
+            "example": "63110",
+            "type": "string"
+        },
+        {
+            "name": "libelle_commune",
+            "title": "Libellé de la commune",
+            "description": "Nom de la commune.",
+            "example": "Clermont-Ferrand",
+            "type": "string"
+        },
+        {
+            "name": "code_circonscription",
+            "title": "Code de la circonscription",
+            "description": "Code de la circonscription (si disponible dans les données sources).",
+            "example": "02",
+            "type": "string"
+        },
+        {
+            "name": "libelle_circonscription",
+            "title": "Libellé de la circonscription",
+            "description": "Libellé de la circonscription (si disponible dans les données sources).",
+            "example": "4ème circonscription",
+            "type": "string"
+        },
+        {
+            "name": "code_bv",
+            "title": "Code du bureau de vote",
+            "description": "Code du bureau de vote (sur 4 caractères).",
+            "example": "0002",
+            "type": "string"
+        },
+        {
+            "name": "inscrits",
+            "title": "Inscrits",
+            "description": "Nombre d'inscrits dans le bureau de vote pour cette élection.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "abstentions",
+            "title": "Abstentions",
+            "description": "Nombre d'abstentions dans le bureau de vote pour cette élection.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "votants",
+            "title": "Votants",
+            "description": "Nombre de votants dans le bureau de vote pour cette élection.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "blancs",
+            "title": "Blancs",
+            "description": "Nombre de votes blancs dans le bureau de vote pour cette élection.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "nuls",
+            "title": "Nuls",
+            "description": "Nombre de votes nuls dans le bureau de vote pour cette élection.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "exprimes",
+            "title": "Exprimés",
+            "description": "Nombre de bulletins exprimés dans le bureau de vote pour cette élection.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "ratio_abstentions_inscrits",
+            "title": "Pourcentage abstentions/inscrits",
+            "description": "Pourcentage abstentions/inscrits dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_votants_inscrits",
+            "title": "Pourcentage votants/inscrits",
+            "description": "Pourcentage votants/inscrits dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_blancs_inscrits",
+            "title": "Pourcentage blancs/inscrits",
+            "description": "Pourcentage blancs/inscrits dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_blancs_votants",
+            "title": "Pourcentage blancs/votants",
+            "description": "Pourcentage blancs/votants dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_nuls_inscrits",
+            "title": "Pourcentage nuls/inscrits",
+            "description": "Pourcentage nuls/inscrits dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_nuls_votants",
+            "title": "Pourcentage nuls/votants",
+            "description": "Pourcentage nuls/votants dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_exprimes_inscrits",
+            "title": "Pourcentage exprimes/inscrits",
+            "description": "Pourcentage exprimes/inscrits dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_exprimes_votants",
+            "title": "Pourcentage exprimes/votants",
+            "description": "Pourcentage exprimes/votants dans le bureau de vote pour cette élection.",
+            "example": 40.42,
+            "type": "number"
+        }
+    ],
+    "missingValues": [
+        ""
+    ]
+}
