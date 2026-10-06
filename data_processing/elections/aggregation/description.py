@@ -2,31 +2,15 @@
 of the sources, generated from sources.json (no Airflow, called by the
 publish_description task)."""
 
-import re
-
 DATASET_URL = "https://www.data.gouv.fr/datasets/{}"
-# most recent first within a year (approximately the calendar of the elections)
-TYPES_ORDER = ["sena", "legi", "pres", "euro", "regi", "dpmt", "cant", "muni"]
 
 
-def sort_key(key: str) -> tuple:
-    # "2022_legi_t2", "2001_cant", "2016_03_legi_part"
-    year, rest = key.split("_", 1)
-    partial = rest.endswith("_part")
-    election_type = re.search(r"(sena|legi|pres|euro|regi|dpmt|cant|muni)", rest).group(
-        1
-    )
-    round_ = re.search(r"_t(\d)$", rest)
-    # the partial elections keys carry their month: "2016_03_legi_part"
-    month = re.match(r"(\d{2})_", rest)
-    # partial elections after the general ones, then most recent first
-    return (
-        partial,
-        -int(year),
-        -int(month.group(1)) if month else 0,
-        TYPES_ORDER.index(election_type),
-        -int(round_.group(1)) if round_ else 0,
-    )
+def sort_key(key: str, source: dict) -> tuple:
+    # by date of the (first) round; same day, e.g. régionales and départementales 2021:
+    # by key
+    if "date" not in source["description"]:
+        raise ValueError(f"{key}: no description.date in sources.json")
+    return (source["description"]["date"], key)
 
 
 def source_line(source: dict) -> str:
@@ -45,7 +29,9 @@ def source_line(source: dict) -> str:
 
 
 def build_description(texts: dict, sources: dict) -> str:
-    lines = [source_line(sources[key]) for key in sorted(sources, key=sort_key)]
+    # most recent first
+    keys = sorted(sources, key=lambda key: sort_key(key, sources[key]), reverse=True)
+    lines = [source_line(sources[key]) for key in keys]
     description = (
         texts["introduction"].rstrip()
         + "\n\n"

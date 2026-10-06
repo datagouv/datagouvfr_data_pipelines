@@ -16,7 +16,8 @@ One entry per election source, with:
   both rounds, e.g. `2001_cant` → `2001_cant_t1`, `2001_cant_t2`);
 - `resultats`: the results files;
 - `description`: how the election is listed in the "Sources des données agrégées"
-  section of the dataset description (`libelle`, optional `commentaire`), see below;
+  section of the dataset description (`libelle`, `date` of the (first) round, optional
+  `commentaire`), see below;
 - `nuances` (optional): the nuance grid of the election, one row per nuance and per
   `id_election` (`type_nuance`, `bloc`, `nuance`, `signification`,
   `commentaires`, `source`; see `dtypes["nuances"]` in `../schema.py`).
@@ -38,7 +39,10 @@ is unreachable, archived, or modified after `source_last_update` (parts without 
 The dataset description is built by the DAG task `publish_description`: the manual
 text of [`../description.yaml`](../description.yaml), then the list of the sources, one
 line per entry of `sources.json` (`description.libelle`, linked to its source dataset,
-followed by `description.commentaire` in brackets), most recent first. Edit the
+followed by `description.commentaire` in brackets), sorted by `description.date`, most
+recent first. The dates come from the source datasets' titles or descriptions, or the
+ministry's results archive pages, and from the French Wikipedia page of each election for
+the ones before 2014 (checked in October 2026). Edit the
 description there, not in the data.gouv UI: the DAG overwrites it when it changes.
 
 Entries **without `resultats`** are elections that are not integrated (no data per
@@ -114,29 +118,29 @@ past one is to be integrated):
    `sources.json` (`id_elections`, `resultats` with `source_dataset_id` and
    `source_last_update`).
 4. **Add the `description` part** of the new entry in `sources.json`: `libelle` as in
-   the other entries (e.g. "Législatives 2027 T1") and, if needed, a `commentaire`
-   (coverage limits, merged columns...). It appears in the dataset description at the
-   next run.
+   the other entries (e.g. "Législatives 2027 T1"), the `date` of the round
+   (`AAAA-MM-JJ`, the first round for an entry holding both) and, if needed, a
+   `commentaire` (coverage limits, merged columns...). It appears in the dataset
+   description at the next run. For a new election type (not one of `pres`, `legi`,
+   `euro`, `regi`, `dpmt`, `cant`, `muni`, `sena`), also add it to the list of types in
+   the introduction of `../description.yaml`.
 5. **Nuance grid**: transcribe the grid of the ministry's circular on the attribution of
    nuances for this election (Légifrance), with a double check against the document
    since the PDFs are scans; write `nuances.csv` following `schema-nuances-mapping.json`
    (`source` = "Circulaire <NOR> du <date>"), upload it next to the results and add a
    `nuances` part to the entry (`source_dataset_id` empty). Check that every `nuance`
    code of the new results is in the grid.
-6. **New election type** (not one of `pres`, `legi`, `euro`, `regi`, `dpmt`, `cant`,
-   `muni`, `sena`): add it to `TYPES_ORDER` in `../description.py` (order of the list of
-   sources) and to the list of types in the introduction of `../description.yaml`.
-7. **Run the DAG in dev** with all the steps: `check_outputs` must pass, and
+6. **Run the DAG in dev** with all the steps: `check_outputs` must pass, and
    `process_communes` reports on Tchap the communes it can't map (an election of a year
    not covered yet by the INSEE annual table is mapped on its latest millesime). Check
    the outputs on demo.
-8. **Add a line to the history** in `../description.yaml` (e.g. "JJ/MM/AAAA : ajout des
+7. **Add a line to the history** in `../description.yaml` (e.g. "JJ/MM/AAAA : ajout des
    élections législatives de 2027"), then deploy and run in prod.
 
 An election that is **not integrated** (no data per polling station, partial
 election...) can still be listed, struck through, in the dataset description: add an
-entry without `resultats`, whose `description` has `libelle`, `source_dataset_id` and a
-`commentaire` giving the reason (see `2001_muni` or `2016_03_legi_part`).
+entry without `resultats`, whose `description` has `libelle`, `date`,
+`source_dataset_id` and a `commentaire` giving the reason (see `2001_muni` or `2016_03_legi_part`).
 
 ## Senatorial elections (`build_senatoriales.py`)
 

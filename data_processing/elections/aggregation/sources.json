@@ -5,7 +5,8 @@
             "1992_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 1992"
+            "libelle": "Sénatoriales 1992",
+            "date": "1992-09-27"
         },
         "resultats": {
             "source_dataset_id": "536993a9a3a729239d204262",
@@ -22,7 +23,8 @@
             "1995_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 1995"
+            "libelle": "Sénatoriales 1995",
+            "date": "1995-09-24"
         },
         "resultats": {
             "source_dataset_id": "536993aaa3a729239d204263",
@@ -39,7 +41,8 @@
             "1998_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 1998"
+            "libelle": "Sénatoriales 1998",
+            "date": "1998-09-27"
         },
         "resultats": {
             "source_dataset_id": "536993aaa3a729239d204264",
@@ -55,7 +58,8 @@
             "1999_euro_t1"
         ],
         "description": {
-            "libelle": "Européennes 1999"
+            "libelle": "Européennes 1999",
+            "date": "1999-06-13"
         },
         "resultats": {
             "source_dataset_id": "56051296c751df578e8dabf1",
@@ -72,7 +76,8 @@
             "2001_cant_t2"
         ],
         "description": {
-            "libelle": "Cantonales 2001"
+            "libelle": "Cantonales 2001",
+            "date": "2001-03-11"
         },
         "resultats": {
             "source_dataset_id": "56050b87c751df639d8dabf0",
@@ -87,6 +92,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Municipales 2001",
+            "date": "2001-03-11",
             "source_dataset_id": "53699392a3a729239d20421e",
             "commentaire": "pas de données au niveau bureau de vote"
         }
@@ -97,7 +103,8 @@
             "2001_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2001"
+            "libelle": "Sénatoriales 2001",
+            "date": "2001-09-23"
         },
         "resultats": {
             "source_dataset_id": "536993aba3a729239d204265",
@@ -114,7 +121,8 @@
             "2002_legi_t2"
         ],
         "description": {
-            "libelle": "Législatives 2002"
+            "libelle": "Législatives 2002",
+            "date": "2002-06-09"
         },
         "resultats": {
             "source_dataset_id": "56050d47c751df39c98dabef",
@@ -131,7 +139,8 @@
             "2002_pres_t2"
         ],
         "description": {
-            "libelle": "Présidentielle 2002"
+            "libelle": "Présidentielle 2002",
+            "date": "2002-04-21"
         },
         "resultats": {
             "source_dataset_id": "56050e14c751df39c98dabf0",
@@ -148,7 +157,8 @@
             "2004_cant_t2"
         ],
         "description": {
-            "libelle": "Cantonales 2004"
+            "libelle": "Cantonales 2004",
+            "date": "2004-03-21"
         },
         "resultats": {
             "source_dataset_id": "56050ad3c751df3f0a8dabf2",
@@ -164,7 +174,8 @@
             "2004_euro_t1"
         ],
         "description": {
-            "libelle": "Européennes 2004"
+            "libelle": "Européennes 2004",
+            "date": "2004-06-13"
         },
         "resultats": {
             "source_dataset_id": "56050f65c751df578e8dabf0",
@@ -181,7 +192,8 @@
             "2004_regi_t2"
         ],
         "description": {
-            "libelle": "Régionales 2004"
+            "libelle": "Régionales 2004",
+            "date": "2004-03-21"
         },
         "resultats": {
             "source_dataset_id": "56051521c751df61e78dabf0",
@@ -198,7 +210,8 @@
             "2004_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2004"
+            "libelle": "Sénatoriales 2004",
+            "date": "2004-09-26"
         },
         "resultats": {
             "source_dataset_id": "536993aba3a729239d204266",
@@ -215,7 +228,8 @@
             "2007_legi_t2"
         ],
         "description": {
-            "libelle": "Législatives 2007"
+            "libelle": "Législatives 2007",
+            "date": "2007-06-10"
         },
         "resultats": {
             "source_dataset_id": "56050c1dc751df578e8dabee",
@@ -232,7 +246,8 @@
             "2007_pres_t2"
         ],
         "description": {
-            "libelle": "Présidentielle 2007"
+            "libelle": "Présidentielle 2007",
+            "date": "2007-04-22"
         },
         "resultats": {
             "source_dataset_id": "560d37b188ee38187e83905b",
@@ -249,7 +264,8 @@
             "2008_cant_t2"
         ],
         "description": {
-            "libelle": "Cantonales 2008"
+            "libelle": "Cantonales 2008",
+            "date": "2008-03-09"
         },
         "resultats": {
             "source_dataset_id": "560d392088ee38152183905b",
@@ -267,6 +283,7 @@
         ],
         "description": {
             "libelle": "Municipales 2008",
+            "date": "2008-03-09",
             "commentaire": "uniquement les communes de plus de 3500 habitants ; votes blancs et nuls réunis dans la colonne `Nuls`"
         },
         "resultats": {
@@ -284,7 +301,8 @@
             "2008_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2008"
+            "libelle": "Sénatoriales 2008",
+            "date": "2008-09-21"
         },
         "resultats": {
             "source_dataset_id": "536993aba3a729239d204267",
@@ -300,7 +318,8 @@
             "2009_euro_t1"
         ],
         "description": {
-            "libelle": "Européennes 2009"
+            "libelle": "Européennes 2009",
+            "date": "2009-06-07"
         },
         "resultats": {
             "source_dataset_id": "560510abc751df639d8dabf1",
@@ -317,7 +336,8 @@
             "2010_regi_t2"
         ],
         "description": {
-            "libelle": "Régionales 2010"
+            "libelle": "Régionales 2010",
+            "date": "2010-03-14"
         },
         "resultats": {
             "source_dataset_id": "56051467c751df578e8dabf3",
@@ -334,7 +354,8 @@
             "2011_cant_t2"
         ],
         "description": {
-            "libelle": "Cantonales 2011"
+            "libelle": "Cantonales 2011",
+            "date": "2011-03-20"
         },
         "resultats": {
             "source_dataset_id": "56050a25c751df39c98dabee",
@@ -351,7 +372,8 @@
             "2011_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2011"
+            "libelle": "Sénatoriales 2011",
+            "date": "2011-09-25"
         },
         "resultats": {
             "source_dataset_id": "536993aca3a729239d204268",
@@ -368,7 +390,8 @@
             "2012_legi_t2"
         ],
         "description": {
-            "libelle": "Législatives 2012"
+            "libelle": "Législatives 2012",
+            "date": "2012-06-10"
         },
         "resultats": {
             "source_dataset_id": "560506f1c751df3f0a8dabf0",
@@ -385,7 +408,8 @@
             "2012_pres_t2"
         ],
         "description": {
-            "libelle": "Présidentielle 2012"
+            "libelle": "Présidentielle 2012",
+            "date": "2012-04-22"
         },
         "resultats": {
             "source_dataset_id": "5605053fc751df3f0a8dabef",
@@ -401,7 +425,8 @@
             "2014_euro_t1"
         ],
         "description": {
-            "libelle": "Européennes 2014"
+            "libelle": "Européennes 2014",
+            "date": "2014-05-25"
         },
         "resultats": {
             "source_dataset_id": "560511e7c751df61e78dabee",
@@ -418,7 +443,8 @@
             "2014_muni_t2"
         ],
         "description": {
-            "libelle": "Municipales 2014"
+            "libelle": "Municipales 2014",
+            "date": "2014-03-23"
         },
         "resultats": {
             "source_dataset_id": "56051ff788ee3865ae5b59ef",
@@ -435,7 +461,8 @@
             "2014_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2014"
+            "libelle": "Sénatoriales 2014",
+            "date": "2014-09-28"
         },
         "resultats": {
             "source_dataset_id": "5436344388ee3842773199b2",
@@ -450,6 +477,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Résultats des élections municipales partielles dans les communes de plus de 30 000 habitants : 14 et 21 juin 2015",
+            "date": "2015-06-14",
             "source_dataset_id": "5588119dc751df484ba453ba",
             "commentaire": "élection partielle, non intégrée : résultats par commune, sans blancs ni nuls"
         }
@@ -458,6 +486,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Résultats des élections sénatoriales partielles du 6 septembre 2015 (Cantal, Gers)",
+            "date": "2015-09-06",
             "source_dataset_id": "55eeae9188ee387fdda46ec2",
             "commentaire": "élection partielle, non intégrée : résultats par département, sans blancs ni nuls"
         }
@@ -468,7 +497,8 @@
             "2015_dpmt_t2"
         ],
         "description": {
-            "libelle": "Départementales 2015"
+            "libelle": "Départementales 2015",
+            "date": "2015-03-22"
         },
         "resultats": {
             "source_dataset_id": "5605091fc751df3f0a8dabf1",
@@ -484,7 +514,8 @@
             "2015_regi_t1"
         ],
         "description": {
-            "libelle": "Régionales 2015 T1"
+            "libelle": "Régionales 2015 T1",
+            "date": "2015-12-06"
         },
         "resultats": {
             "source_dataset_id": "566928a288ee3807ccaf0bf4",
@@ -500,7 +531,8 @@
             "2015_regi_t2"
         ],
         "description": {
-            "libelle": "Régionales 2015 T2"
+            "libelle": "Régionales 2015 T2",
+            "date": "2015-12-13"
         },
         "resultats": {
             "source_dataset_id": "56728d35c751df240dc664bd",
@@ -515,6 +547,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Résultats des élections législatives partielles des 13 et 20 mars 2016 (Aisne, Nord, Yvelines)",
+            "date": "2016-03-13",
             "source_dataset_id": "57037563c751df64d8c485cb",
             "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
         }
@@ -523,6 +556,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Résultats de l’élection législative partielle des 17 et 24 avril 2016 (3ème circonscription de Loire-Atlantique)",
+            "date": "2016-04-17",
             "source_dataset_id": "5727336788ee383b9fa19f12",
             "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
         }
@@ -531,6 +565,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Résultats des élections législatives partielles des 22 et 29 mai 2016 (Alpes-Maritimes, Bas-Rhin)",
+            "date": "2016-05-22",
             "source_dataset_id": "574c467c88ee383dcbd1b934",
             "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
         }
@@ -539,6 +574,7 @@
         "id_elections": [],
         "description": {
             "libelle": "Résultats de l’élection législative partielle des 5 et 12 juin 2016 (3ème circonscription de l’Ain)",
+            "date": "2016-06-05",
             "source_dataset_id": "575eaabc88ee380e51640391",
             "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
         }
@@ -548,7 +584,8 @@
             "2017_legi_t1"
         ],
         "description": {
-            "libelle": "Législatives 2017 T1"
+            "libelle": "Législatives 2017 T1",
+            "date": "2017-06-11"
         },
         "resultats": {
             "source_dataset_id": "593f9c7488ee386d6e48e8ab",
@@ -564,7 +601,8 @@
             "2017_legi_t2"
         ],
         "description": {
-            "libelle": "Législatives 2017 T2"
+            "libelle": "Législatives 2017 T2",
+            "date": "2017-06-18"
         },
         "resultats": {
             "source_dataset_id": "5948d371c751df471327bc4a",
@@ -580,7 +618,8 @@
             "2017_pres_t1"
         ],
         "description": {
-            "libelle": "Présidentielle 2017 T1"
+            "libelle": "Présidentielle 2017 T1",
+            "date": "2017-04-23"
         },
         "resultats": {
             "source_dataset_id": "5901a718c751df3f49b29ff8",
@@ -596,7 +635,8 @@
             "2017_pres_t2"
         ],
         "description": {
-            "libelle": "Présidentielle 2017 T2"
+            "libelle": "Présidentielle 2017 T2",
+            "date": "2017-05-07"
         },
         "resultats": {
             "source_dataset_id": "5914141088ee386741d8d6f1",
@@ -613,7 +653,8 @@
             "2017_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2017"
+            "libelle": "Sénatoriales 2017",
+            "date": "2017-09-24"
         },
         "resultats": {
             "source_dataset_id": "59c8af30c751df49b73b9a3b",
@@ -629,7 +670,8 @@
             "2019_euro_t1"
         ],
         "description": {
-            "libelle": "Européennes 2019"
+            "libelle": "Européennes 2019",
+            "date": "2019-05-26"
         },
         "resultats": {
             "source_dataset_id": "5ceba293634f411427c7d613",
@@ -645,7 +687,8 @@
             "2020_muni_t1"
         ],
         "description": {
-            "libelle": "Municipales 2020 T1"
+            "libelle": "Municipales 2020 T1",
+            "date": "2020-03-15"
         },
         "resultats": {
             "source_dataset_id": "5e7102d5ebe5d838b7581662",
@@ -661,7 +704,8 @@
             "2020_muni_t2"
         ],
         "description": {
-            "libelle": "Municipales 2020 T2"
+            "libelle": "Municipales 2020 T2",
+            "date": "2020-06-28"
         },
         "resultats": {
             "source_dataset_id": "5efa23afd85990251fc9a197",
@@ -678,7 +722,8 @@
             "2020_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2020"
+            "libelle": "Sénatoriales 2020",
+            "date": "2020-09-27"
         },
         "resultats": {
             "source_dataset_id": "5f72f4db8c0ebf04393a7971",
@@ -694,7 +739,8 @@
             "2021_dpmt_t1"
         ],
         "description": {
-            "libelle": "Départementales 2021 T1"
+            "libelle": "Départementales 2021 T1",
+            "date": "2021-06-20"
         },
         "resultats": {
             "source_dataset_id": "60d1fa73986a6e7da8017808",
@@ -710,7 +756,8 @@
             "2021_dpmt_t2"
         ],
         "description": {
-            "libelle": "Départementales 2021 T2"
+            "libelle": "Départementales 2021 T2",
+            "date": "2021-06-27"
         },
         "resultats": {
             "source_dataset_id": "60dd92762de4b06f2771fd24",
@@ -726,7 +773,8 @@
             "2021_regi_t1"
         ],
         "description": {
-            "libelle": "Régionales 2021 T1"
+            "libelle": "Régionales 2021 T1",
+            "date": "2021-06-20"
         },
         "resultats": {
             "source_dataset_id": "60d1c3d14fc2e0fda6816678",
@@ -742,7 +790,8 @@
             "2021_regi_t2"
         ],
         "description": {
-            "libelle": "Régionales 2021 T2"
+            "libelle": "Régionales 2021 T2",
+            "date": "2021-06-27"
         },
         "resultats": {
             "source_dataset_id": "60dd933d9bcd72926212eeec",
@@ -758,7 +807,8 @@
             "2022_legi_t1"
         ],
         "description": {
-            "libelle": "Législatives 2022 T1"
+            "libelle": "Législatives 2022 T1",
+            "date": "2022-06-12"
         },
         "resultats": {
             "source_dataset_id": "62a8c3f92b3b572a67d307f4",
@@ -774,7 +824,8 @@
             "2022_legi_t2"
         ],
         "description": {
-            "libelle": "Législatives 2022 T2"
+            "libelle": "Législatives 2022 T2",
+            "date": "2022-06-19"
         },
         "resultats": {
             "source_dataset_id": "62b1e903ee80a47a20129bf2",
@@ -790,7 +841,8 @@
             "2022_pres_t1"
         ],
         "description": {
-            "libelle": "Présidentielle 2022 T1"
+            "libelle": "Présidentielle 2022 T1",
+            "date": "2022-04-10"
         },
         "resultats": {
             "source_dataset_id": "62581fdf02e05e365ea227a1",
@@ -806,7 +858,8 @@
             "2022_pres_t2"
         ],
         "description": {
-            "libelle": "Présidentielle 2022 T2"
+            "libelle": "Présidentielle 2022 T2",
+            "date": "2022-04-24"
         },
         "resultats": {
             "source_dataset_id": "626a86215fb310e32b48b137",
@@ -823,7 +876,8 @@
             "2023_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2023"
+            "libelle": "Sénatoriales 2023",
+            "date": "2023-09-24"
         },
         "resultats": {
             "source_dataset_id": "651559bbf0ed2c8d9e50db43",
@@ -839,7 +893,8 @@
             "2024_euro_t1"
         ],
         "description": {
-            "libelle": "Européennes 2024"
+            "libelle": "Européennes 2024",
+            "date": "2024-06-09"
         },
         "resultats": {
             "source_dataset_id": "666b1337471f4fe2f19f2573",
@@ -855,7 +910,8 @@
             "2024_legi_t1"
         ],
         "description": {
-            "libelle": "Législatives 2024 T1"
+            "libelle": "Législatives 2024 T1",
+            "date": "2024-06-30"
         },
         "resultats": {
             "source_dataset_id": "6682d0c255dcda5df20b1d90",
@@ -871,7 +927,8 @@
             "2024_legi_t2"
         ],
         "description": {
-            "libelle": "Législatives 2024 T2"
+            "libelle": "Législatives 2024 T2",
+            "date": "2024-07-07"
         },
         "resultats": {
             "source_dataset_id": "668b4092826ddcf70e9e62cd",
@@ -887,7 +944,8 @@
             "2026_muni_t1"
         ],
         "description": {
-            "libelle": "Municipales 2026 T1"
+            "libelle": "Municipales 2026 T1",
+            "date": "2026-03-15"
         },
         "resultats": {
             "source_dataset_id": "69b82a7de5d58cc06ad35ce0",
@@ -910,7 +968,8 @@
             "2026_muni_t2"
         ],
         "description": {
-            "libelle": "Municipales 2026 T2"
+            "libelle": "Municipales 2026 T2",
+            "date": "2026-03-22"
         },
         "resultats": {
             "source_dataset_id": "69c17fed9f18c7781fd11a14",
@@ -934,7 +993,8 @@
             "2026_sena_t2"
         ],
         "description": {
-            "libelle": "Sénatoriales 2026"
+            "libelle": "Sénatoriales 2026",
+            "date": "2026-09-27"
         },
         "resultats": {
             "source_dataset_id": "6ab9abea8ebfc5bc472f3924",
