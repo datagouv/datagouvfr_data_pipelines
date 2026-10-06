@@ -258,7 +258,7 @@ def gather_and_upload(**context) -> None:
     ).T
     # removing current month from stats
     stats = stats[stats.columns[:-1]].fillna(0)
-    stats.to_csv(TMP_FOLDER + "stats_support.csv")
+    stats.to_csv(TMP_FOLDER + "stats_support.csv", index_label="Métrique")
 
     # sending to s3
     S3Client(**s3_client_kwargs).send_file(
