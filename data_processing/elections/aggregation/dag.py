@@ -10,6 +10,7 @@ from datagouvfr_data_pipelines.data_processing.elections.aggregation.task_functi
     process_communes,
     process_election_data,
     process_nuances,
+    publish_description,
     publish_results_elections,
     send_results_to_s3,
 )
@@ -40,6 +41,7 @@ with DAG(
         >> check_outputs()
         >> send_results_to_s3()
         >> publish_results_elections()
+        >> publish_description()
         # skipped steps must not skip the clean-up nor the following steps
         >> clean_up_folder(TMP_FOLDER, trigger_rule="none_failed")
         >> notification()

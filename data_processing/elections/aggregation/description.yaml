@@ -1,0 +1,43 @@
+# Manual texts of the dataset description: the introduction, then the list of the
+# sources generated from sources.json (see description.py), then the history. The DAG
+# task publish_description pushes the result to the dataset, so the description must
+# be edited here, not in the UI.
+introduction: |
+  > /!\ La structure des données a évolué en janvier 2026, puis de nouveau à l'automne 2026 : voir l'historique en fin de description.
+
+  Ce jeu de données rassemble, dans des fichiers uniques et homogènes, les résultats des élections publiés par le Ministère de l'Intérieur : depuis 1999 au niveau des bureaux de vote, et depuis 1992 au niveau du département pour les élections sénatoriales. La liste des élections intégrées, avec un lien vers chaque jeu d'origine, figure plus bas.
+
+  ### Fichiers
+
+  - **Résultats généraux** (`general_results`, en CSV et en Parquet) : inscrits, votants, abstentions, votes blancs et nuls, exprimés, et leurs ratios, par bureau de vote et par élection.
+  - **Résultats par candidat** (`candidats_results`, en CSV et en Parquet) : voix et ratios de chaque candidat, liste ou binôme, par bureau de vote et par élection.
+  - **Table de correspondance avec les communes actuelles** (`table_passage_communes`) : rattache chaque commune d'une élection à la ou aux communes actuelles, pour comparer des élections malgré les fusions et les scissions de communes.
+  - **Table de correspondance des nuances par élection** (`nuances_politiques`) : signification des nuances politiques attribuées par le Ministère de l'Intérieur, élection par élection, à partir de ses circulaires.
+
+  Chaque fichier est décrit par un schéma de données, publié avec les ressources du jeu.
+
+  ### Utilisation
+
+  La colonne `id_election` identifie l'élection et son tour, au format `année_type_tour` : par exemple `2022_pres_t1` pour le premier tour de l'élection présidentielle de 2022. Les types sont `pres` (présidentielle), `legi` (législatives), `euro` (européennes), `regi` (régionales), `dpmt` (départementales), `cant` (cantonales), `muni` (municipales) et `sena` (sénatoriales).
+
+  - Les résultats généraux et par candidat se joignent sur `id_election` et `id_brut_miom`, l'identifiant du bureau de vote (le code du département pour les sénatoriales).
+  - La table des communes se joint aux résultats sur `id_election` et `code_commune`.
+  - La table des nuances se joint aux résultats par candidat sur `id_election` et `nuance`.
+  - Les résultats sont également rapprochables du [Répertoire électoral unique](https://www.data.gouv.fr/fr/datasets/bureaux-de-vote-et-adresses-de-leurs-electeurs/) publié par l'Insee, par l'intermédiaire de la [table de conversion des identifiants des bureaux de vote (table-bv-reu.csv)](https://www.data.gouv.fr/fr/datasets/bureaux-de-vote-et-adresses-de-leurs-electeurs/).
+
+  Les **élections sénatoriales** sont publiées au niveau du département, et non du bureau de vote : les inscrits sont les grands électeurs, `id_brut_miom` vaut le code du département, et les colonnes de commune et de bureau de vote sont vides.
+
+  Le code permettant de mettre à jour ce jeu de données est ouvert et disponible [ici](https://github.com/datagouv/datagouvfr_data_pipelines/tree/main/data_processing/elections).
+titre_sources: "### Sources des données agrégées"
+historique: |
+  ### Historique
+
+  08/06/2023 : création du jeu de données
+  01/2026 : évolution de la structure des données
+  06/10/2026 : 
+  - ajout des élections sénatoriales de 1992 à 2026, au niveau départemental (inscrits = grands électeurs ; pas de résultats par commune ni par bureau de vote)
+  - nouvelle table de correspondance entre les communes de chaque élection et les communes actuelles (table de passage annuelle de l'Insee)
+  - nouvelle table de correspondance des nuances politiques par élection, pour l'instant pour les municipales 2026 (circulaire INTP2602966C) ; elle remplace les dictionnaires de nuances
+  - suppression de la colonne `liste` des résultats par candidat ; son contenu (municipales 2020, second tour) est désormais dans `libelle_etendu_liste`
+  - correction des caractères accentués des élections de 2012 (libellés de communes, noms et prénoms des candidats aux législatives)
+  - schémas de données en version 0.0.4 (résultats généraux et par candidat) et nouveaux schémas pour les deux tables de correspondance

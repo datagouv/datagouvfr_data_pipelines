@@ -6,6 +6,7 @@ from datetime import datetime
 import duckdb
 import pandas as pd
 import requests
+import yaml
 from airflow.sdk.exceptions import AirflowSkipException
 from airflow.sdk import task
 from datagouvfr_data_pipelines.config import (
@@ -16,6 +17,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.data_processing.elections.aggregation import (
     checks,
+    description,
     table_passage,
 )
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
@@ -55,6 +57,7 @@ STEPS = [
     "check_outputs",
     "send_results_to_s3",
     "publish_results_elections",
+    "publish_description",
     "notification",
 ]
 
@@ -145,7 +148,9 @@ def process_election_data(**context):
     s3_client = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN, conn_name="S3_OVH_SBG")
     for scope in SCOPES:
         logging.info(f"Processing {scope} resources")
-        for idx, id_election in enumerate(sorted(sources)):
+        # the entries without "resultats" are elections listed in the description only
+        integrated = sorted(key for key in sources if "resultats" in sources[key])
+        for idx, id_election in enumerate(integrated):
             key = sources[id_election]["resultats"]["files"][scope]
             file = File(
                 source_path=os.path.dirname(key),
@@ -375,6 +380,23 @@ def publish_results_elections(**context):
             },
         )
         logging.info(f"Done with {schema_path(table).name}")
+
+
+@task(trigger_rule="none_failed")
+def publish_description(**context):
+    skip_unless_selected(context, "publish_description")
+    # the manual text of description.yaml, then the sources listed in sources.json
+    with open(
+        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/description.yaml"
+    ) as fp:
+        texts = yaml.safe_load(fp)
+    new = description.build_description(texts, load_sources())
+    dataset = local_client.dataset(load_config()["dataset_id"][AIRFLOW_ENV])
+    if dataset.description == new:
+        logging.info("Dataset description already up to date")
+        return
+    logging.info(f"New dataset description:\n{new}")
+    dataset.update(payload={"description": new})
 
 
 @task(trigger_rule="none_failed")

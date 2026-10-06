@@ -15,6 +15,8 @@ One entry per election source, with:
 - `id_elections`: the `id_election` values contained in the files (a file may hold
   both rounds, e.g. `2001_cant` → `2001_cant_t1`, `2001_cant_t2`);
 - `resultats`: the results files;
+- `description`: how the election is listed in the "Sources des données agrégées"
+  section of the dataset description (`libelle`, optional `commentaire`), see below;
 - `nuances` (optional): the nuance grid of the election, one row per nuance and per
   `id_election` (`type_nuance`, `bloc`, `nuance`, `signification`,
   `commentaires`, `source`; see `dtypes["nuances"]` in `../schema.py`).
@@ -30,6 +32,19 @@ Each part has:
 On every run, the DAG task `check_sources_updates` alerts on Tchap if a source dataset
 is unreachable, archived, or modified after `source_last_update` (parts without a
 `source_dataset_id` are skipped).
+
+## Dataset description
+
+The dataset description is built by the DAG task `publish_description`: the manual
+text of [`../description.yaml`](../description.yaml), then the list of the sources, one
+line per entry of `sources.json` (`description.libelle`, linked to its source dataset,
+followed by `description.commentaire` in brackets), most recent first. Edit the
+description there, not in the data.gouv UI: the DAG overwrites it when it changes.
+
+Entries **without `resultats`** are elections that are not integrated (no data per
+polling station, partial elections...): they are struck through in the list, and their
+`description` holds their own `source_dataset_id`. The DAG steps that read the results
+skip them.
 
 The nuance grids of `2026_muni_t1` and `2026_muni_t2` come from a one-shot migration
 (October 2026) of the dataset resource "Dictionnaire des nuances politiques
