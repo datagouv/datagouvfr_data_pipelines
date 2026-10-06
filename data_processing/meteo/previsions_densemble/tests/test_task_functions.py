@@ -22,22 +22,45 @@ from unittest.mock import MagicMock, patch
 import task_functions
 from task_functions import TIME_DEPTH_TO_KEEP
 
-# Datetime used as the newest currently-published run (anchor of the threshold).
-_NEWEST_PUBLISHED = "202409231200"
-# Computing the retention threshold exactly as the DAG does:
-_THRESHOLD = datetime.strptime(_NEWEST_PUBLISHED, "%Y%m%d%H%M") - TIME_DEPTH_TO_KEEP
+# --- Shared run dates (format "%Y%m%d%H%M"), used to build both SFTP and S3 data ---
+
+# Newest currently-published run: anchor of the retention threshold.
+_NEWEST_RUN = "202409231200"
+# Retention threshold exactly as the DAG computes it:
+# newest run minus TIME_DEPTH_TO_KEEP (15 days) -> 2024-09-08 12:00.
+_THRESHOLD = datetime.strptime(_NEWEST_RUN, "%Y%m%d%H%M") - TIME_DEPTH_TO_KEEP
+
+# Well before the threshold -> must be deleted (used for both SFTP and S3).
+_OLD_RUN = "202409020600"
+# Same date as the threshold but earlier time -> deleted (regression for #754).
+_AT_THRESHOLD_DATE_EARLIER = "202409080300"
+# Exactly at the threshold -> kept.
+_AT_THRESHOLD = "202409081200"
+
+
+def _sftp_file(run_date: str, echeance: str = "00:00") -> str:
+    return f"arome_pecaledonie_{run_date}_mb0_ncaled0025_{echeance}.grib"
+
+
+def _s3_folder(run_date: str) -> str:
+    return f"data/arome/ncaled0025/{run_date}/"
+
+
+def _s3_file(run_date: str) -> str:
+    return _s3_folder(run_date) + f"arome_ncaled0025_{run_date}_00:00.grib"
+
 
 SFTP_FILENAMES = [
-    "arome_pecaledonie_202409210600_mb0_ncaled0025_00:00.grib",
-    "arome_pecaledonie_202409220300_mb0_ncaled0025_00:00.grib",
-    "arome_pecaledonie_202409221200_mb0_ncaled0025_00:00.grib",
-    "arome_pecaledonie_202409231200_mb0_ncaled0025_00:00.grib",
+    _sftp_file(_OLD_RUN),
+    _sftp_file(_AT_THRESHOLD_DATE_EARLIER),
+    _sftp_file(_AT_THRESHOLD),
+    _sftp_file(_NEWEST_RUN),
     "still_uploading_partial",  # non-grib file, must always be ignored
 ]
 
 EXPECTED_DELETED = {
-    "arome_pecaledonie_202409210600_mb0_ncaled0025_00:00.grib",  # 09-21, well before threshold
-    "arome_pecaledonie_202409220300_mb0_ncaled0025_00:00.grib",  # 09-22 03:00 < threshold 12:00
+    _sftp_file(_OLD_RUN),
+    _sftp_file(_AT_THRESHOLD_DATE_EARLIER),
 }
 
 
@@ -52,7 +75,7 @@ def _run_remove_old_occurrences():
             task_functions,
             "get_current_resources",
             return_value={
-                "id1": {"date": _NEWEST_PUBLISHED, "resource_id": "r1"},
+                "id1": {"date": _NEWEST_RUN, "resource_id": "r1"},
             },
         ),
         patch.object(task_functions, "S3Client") as s3_client_cls,
@@ -77,19 +100,19 @@ def test_sftp_files_older_than_threshold_are_deleted():
 def test_sftp_files_same_date_but_earlier_than_threshold_are_deleted():
     """Regression test for #754.
 
-    `_202409220300` shares the date (20240922) with the threshold but is
-    earlier than the threshold datetime (20240922 12:00). The buggy date-only
-    string comparison kept it; it must now be deleted.
+    ``_AT_THRESHOLD_DATE_EARLIER`` shares the date with the threshold but is
+    earlier than the threshold datetime. The buggy date-only string comparison
+    kept it; it must now be deleted.
     """
     deleted = _run_remove_old_occurrences()
-    assert "arome_pecaledonie_202409220300_mb0_ncaled0025_00:00.grib" in deleted
+    assert _sftp_file(_AT_THRESHOLD_DATE_EARLIER) in deleted
 
 
 def test_sftp_files_at_or_after_threshold_are_kept():
     deleted = _run_remove_old_occurrences()
     for file_name in (
-        "arome_pecaledonie_202409221200_mb0_ncaled0025_00:00.grib",
-        "arome_pecaledonie_202409231200_mb0_ncaled0025_00:00.grib",
+        _sftp_file(_AT_THRESHOLD),
+        _sftp_file(_NEWEST_RUN),
     ):
         assert file_name not in deleted
 
@@ -102,33 +125,25 @@ def test_sftp_non_grib_files_are_ignored():
 # --- S3 retention (per run) ---
 
 S3_RUN_FOLDERS = [
-    "data/arome/ncaled0025/202409231200/",  # newest run (2024-09-23 12:00) -> kept
-    "data/arome/ncaled0025/202409221800/",  # recent but not latest, after threshold -> kept
-    "data/arome/ncaled0025/202409220000/",  # stale run, before threshold -> deleted
-    "data/arome/ncaled0025/202409210000/",  # very stale run -> deleted
+    _s3_folder(_NEWEST_RUN),  # newest run -> kept
+    _s3_folder(_AT_THRESHOLD),  # at threshold -> kept
+    _s3_folder(_AT_THRESHOLD_DATE_EARLIER),  # same date as threshold, earlier time -> deleted
+    _s3_folder(_OLD_RUN),  # run well before the threshold -> deleted
 ]
 
 # Two published resources with different run dates: the 00:00 échéance points
 # to the newest run, the 48:00 échéance still points to an older run. This is
 # exactly when min != max and the (buggy) min-anchored threshold pruned nothing.
 S3_RESOURCES = {
-    "arome_ncaled0025_00:00": {"date": "202409231200", "resource_id": "r1"},
-    "arome_ncaled0025_48:00": {"date": "202409220000", "resource_id": "r2"},
+    "arome_ncaled0025_00:00": {"date": _NEWEST_RUN, "resource_id": "r1"},
+    "arome_ncaled0025_48:00": {"date": _OLD_RUN, "resource_id": "r2"},
 }
 
 S3_FILES_BY_FOLDER = {
-    "data/arome/ncaled0025/202409231200/": [
-        "data/arome/ncaled0025/202409231200/arome_ncaled0025_202409231200_00:00.grib",
-    ],
-    "data/arome/ncaled0025/202409221800/": [
-        "data/arome/ncaled0025/202409221800/arome_ncaled0025_202409221800_00:00.grib",
-    ],
-    "data/arome/ncaled0025/202409220000/": [
-        "data/arome/ncaled0025/202409220000/arome_ncaled0025_202409220000_48:00.grib",
-    ],
-    "data/arome/ncaled0025/202409210000/": [
-        "data/arome/ncaled0025/202409210000/arome_ncaled0025_202409210000_48:00.grib",
-    ],
+    _s3_folder(_NEWEST_RUN): [_s3_file(_NEWEST_RUN)],
+    _s3_folder(_AT_THRESHOLD): [_s3_file(_AT_THRESHOLD)],
+    _s3_folder(_AT_THRESHOLD_DATE_EARLIER): [_s3_file(_AT_THRESHOLD_DATE_EARLIER)],
+    _s3_folder(_OLD_RUN): [_s3_file(_OLD_RUN)],
 }
 
 
@@ -163,22 +178,16 @@ def test_s3_prunes_runs_older_than_retention():
     never pruned; anchored to the *newest* run (``max``), the whole runs older
     than the retention window must each be deleted as a unit."""
     deleted = _run_s3_prune()
-    assert (
-        "data/arome/ncaled0025/202409220000/arome_ncaled0025_202409220000_48:00.grib"
-        in deleted
-    )
-    assert (
-        "data/arome/ncaled0025/202409210000/arome_ncaled0025_202409210000_48:00.grib"
-        in deleted
-    )
+    assert _s3_file(_AT_THRESHOLD_DATE_EARLIER) in deleted
+    assert _s3_file(_OLD_RUN) in deleted
 
 
 def test_s3_keeps_recent_runs():
     deleted = _run_s3_prune()
-    # The newest run, and a recent-but-not-latest run that is still after the
-    # retention threshold (20240922 12:00), must both be kept.
+    # The newest run, and a run sitting exactly at the retention threshold, must
+    # both be kept.
     for folder in (
-        "data/arome/ncaled0025/202409231200/",  # newest run
-        "data/arome/ncaled0025/202409221800/",  # recent, after threshold -> kept
+        _s3_folder(_NEWEST_RUN),  # newest run
+        _s3_folder(_AT_THRESHOLD),  # at threshold -> kept
     ):
         assert all(f not in deleted for f in S3_FILES_BY_FOLDER[folder])
