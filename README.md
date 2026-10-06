@@ -145,3 +145,9 @@ pytest verticales/simplifions/tests/ -s -v
 pytest data_processing/dvf/explore/tests/ -s -v
 pytest dgv/monitoring/dashboard/tests/ -s -v
 ```
+
+## CI
+
+La CI utilise [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), voir [.circleci/config.yml](./.circleci/config.yml). Pas de GitHub Actions.
+
+Sur le dépôt GitHub, GitGuardian tourne aussi pour éviter que des tokens fuitent.
