@@ -134,13 +134,74 @@ past one is to be integrated):
    `process_communes` reports on Tchap the communes it can't map (an election of a year
    not covered yet by the INSEE annual table is mapped on its latest millesime). Check
    the outputs on demo.
-7. **Add a line to the history** in `../description.yaml` (e.g. "JJ/MM/AAAA : ajout des
+7. **Add value tests** for the new election in `../tests/expected_values.yaml` (see
+   [Value tests](#value-tests)): a few rows read by hand in the ministry's files,
+   e.g. one polling station with its counts and the votes of one candidate.
+8. **Add a line to the history** in `../description.yaml` (e.g. "JJ/MM/AAAA : ajout des
    élections législatives de 2027"), then deploy and run in prod.
 
 An election that is **not integrated** (no data per polling station, partial
 election...) can still be listed, struck through, in the dataset description: add an
 entry without `resultats`, whose `description` has `libelle`, `date`,
 `source_dataset_id` and a `commentaire` giving the reason (see `2001_muni` or `2016_03_legi_part`).
+
+## Value tests
+
+`../tests/expected_values.yaml` lists values read by hand in the original publications
+of the ministry (the sources need parsing, so they can't be checked automatically). Each
+case selects rows of `general_results.csv` or `candidats_results.csv` with `filtres`
+(`id_election` required) and gives the `source` where the values were read, with
+either:
+
+- `valeurs`: the values of the **single row** selected, e.g. a polling station;
+- `agregats`: per column, aggregates over **all the rows** selected, e.g. a
+  department: `somme`, `moyenne`, `min`, `max`, `nombre` (of non-empty values).
+
+A single row:
+
+```yaml
+- table: candidats
+  filtres:
+    id_election: "2022_pres_t1"
+    id_brut_miom: "75101_0001"
+    nom: "MACRON"
+  valeurs:
+    voix: 321
+    ratio_voix_exprimes: 33.44
+  source: "Présidentielle 2022 T1, résultats par bureau de vote, ligne …"
+```
+
+A department:
+
+```yaml
+- table: general
+  filtres:
+    id_election: "2022_pres_t1"
+    code_departement: "37"
+  agregats:
+    inscrits:
+      somme: 450123
+    code_bv:
+      nombre: 812
+    ratio_votants_inscrits:
+      moyenne: 78.12
+  source: "Présidentielle 2022 T1, résultats par département, Indre-et-Loire"
+```
+
+- the codes must be quoted (`"01"`, `"01001_0001"`), otherwise YAML reads them as
+  numbers and the case finds no row;
+- numbers are compared at the precision written in the YAML (`33.44` → 2 decimals);
+- a `valeurs` case matching no row or several rows, or an `agregats` case matching no
+  row, is an error.
+
+They run at each run of the DAG, in `check_outputs`, so that adding or rebuilding an
+election can't silently change the values of the others: a mismatch fails the run
+before anything is sent or published. They can also be run on a produced file, from
+`dags/`:
+
+```bash
+python -m datagouvfr_data_pipelines.data_processing.elections.aggregation.tests.check_values candidats /path/to/candidats_results.csv
+```
 
 ## Senatorial elections (`build_senatoriales.py`)
 

@@ -20,6 +20,9 @@ from datagouvfr_data_pipelines.data_processing.elections.aggregation import (
     description,
     table_passage,
 )
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.tests import (
+    check_values,
+)
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
     SCHEMAS_FOLDER,
     SCOPES,
@@ -286,9 +289,19 @@ def check_outputs(**context):
             for error in checks.check_file(TMP_FOLDER + name, load_schema(table))
         ]
         logging.info(f"{name} checked against {schema_path(table).name}")
+        cases = check_values.load_cases(table) if table in check_values.TABLES else []
+        errors += [
+            f"{name}: {error}"
+            for error in check_values.check_values(TMP_FOLDER + name, cases)
+        ]
+        logging.info(f"{name}: {len(cases)} expected values checked")
     if errors:
         # nothing is sent nor published with files that don't match their schema
-        raise ValueError("Files not matching their schema:\n" + "\n".join(errors))
+        # or the values read by hand in the sources
+        raise ValueError(
+            "Files not matching their schema or the expected values:\n"
+            + "\n".join(errors)
+        )
 
 
 @task(trigger_rule="none_failed")
