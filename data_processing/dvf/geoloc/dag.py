@@ -10,6 +10,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import 
     enrich_years,
     download_cadastre_source_data,
     process_cadastre_cols,
+    build_full_file,
     publish_datagouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
@@ -54,6 +55,7 @@ with DAG(
         )
         >> download_cadastre_source_data()
         >> process_cadastre_cols()
+        >> build_full_file()
         >> publish_datagouv()
         # >> notification()
         # >> TriggerDagRunOperator(

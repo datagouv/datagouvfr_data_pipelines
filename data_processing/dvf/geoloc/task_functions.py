@@ -1,7 +1,9 @@
+import gzip
 import json
 import logging
 import os
 import re
+import shutil
 
 from zipfile import ZipFile
 from datetime import date
@@ -31,6 +33,8 @@ CADASTRE_FILE = f"{TMP_FOLDER}cadastre.parquet"
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
 GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
 bucket = "dataeng-open"
+# same file name as the single-file resource already published, which is how we find it back
+FULL_FILE = "dvf.csv.gz"
 
 
 @simple_connection_retry
@@ -237,6 +241,29 @@ def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
 
 
 @task()
+def build_full_file(params: dict):
+    """Concatenate the yearly files into a single file covering the whole window.
+    Streamed, as the window is several GB uncompressed."""
+    if params.get("year_to_run"):
+        logging.info("year_to_run is set: skipping the full file, the window is incomplete")
+        return
+    files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
+    expected_header = None
+    with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
+        for file in files:
+            logging.info(f"Appending {file}...")
+            with gzip.open(TMP_FOLDER + file, "rb") as f:
+                header = f.readline()
+                if expected_header is None:
+                    expected_header = header
+                    out.write(header)
+                elif header != expected_header:
+                    raise ValueError(f"{file} does not have the same columns as {files[0]}")
+                shutil.copyfileobj(f, out)
+    logging.info(f"{FULL_FILE} built from {len(files)} files")
+
+
+@task()
 def publish_datagouv(params: dict):
     year_to_run = params.get("year_to_run")
     # april delivery: five full years, october delivery: one more file
@@ -281,6 +308,35 @@ def publish_datagouv(params: dict):
             if year not in to_publish:
                 logging.info(f"Deleting resource for {year}, out of the window")
                 res.delete()
+        publish_full_file(dataset, sorted(to_publish))
+
+
+def publish_full_file(dataset, years: list[str]) -> None:
+    # april delivery: five full years, october delivery: from the last semester of the
+    # oldest year to the first semester of the latest one
+    first, last = ("janvier", "décembre") if len(years) == 5 else ("juillet", "juin")
+    label = f"{first} {years[0]} - {last} {years[-1]}"
+    existing = [
+        res
+        for res in dataset.resources
+        if res.type == "main" and res.url.endswith(f"/{FULL_FILE}")
+    ]
+    if len(existing) > 1:
+        raise ValueError(f"Several resources hold {FULL_FILE}: {[r.id for r in existing]}")
+    if not existing:
+        logging.info(f"Creating the single-file resource ({label})")
+        dataset.create_static(
+            payload={"title": f"DVF {label} - fichier unique"},
+            file_to_upload=TMP_FOLDER + FULL_FILE,
+        )
+        return
+    res = existing[0]
+    # the title is managed in the UI: only its period is ours to update
+    title, replaced = re.subn(r"\w+ \d{4} - \w+ \d{4}", label, res.title)
+    if not replaced:
+        logging.warning(f"No period found in {res.title!r}, keeping the title as is")
+    logging.info(f"Updating the single-file resource: {title!r}")
+    res.update(payload={"title": title}, file_to_upload=TMP_FOLDER + FULL_FILE)
 
 
 @task()
