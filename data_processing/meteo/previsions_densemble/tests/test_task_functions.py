@@ -127,7 +127,9 @@ def test_sftp_non_grib_files_are_ignored():
 S3_RUN_FOLDERS = [
     _s3_folder(_NEWEST_RUN),  # newest run -> kept
     _s3_folder(_AT_THRESHOLD),  # at threshold -> kept
-    _s3_folder(_AT_THRESHOLD_DATE_EARLIER),  # same date as threshold, earlier time -> deleted
+    _s3_folder(
+        _AT_THRESHOLD_DATE_EARLIER
+    ),  # same date as threshold, earlier time -> deleted
     _s3_folder(_OLD_RUN),  # run well before the threshold -> deleted
 ]
 
