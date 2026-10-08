@@ -324,8 +324,9 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
         df[column] = pd.Series(pd.NA, index=df.index, dtype="string[pyarrow]")
 
     logging.info("Start matching parcelles long/lat to cadastre...")
-    started = monotonic()  # todo : finish setting monotonic clock and check
+    started = monotonic()
     for departement, rows in df.groupby("code_departement", sort=False):
+        dep_started = monotonic()
         logging.info(f"> Create index for department n°{departement}")
         index = ParcellesIndex.for_departement(str(departement), cadastre_file)
         logging.info(f"> Matching {len(rows)} parcelles")
@@ -340,15 +341,23 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
         # domaine public, or a geometry the cadastre published broken): those rows keep the
         # codes DVF built from the source text rather than being blanked
         found = parcelle_ids != ""
-        logging.info(f"> Matching {len(rows)} parcelles")
         df.loc[rows.index[found], "cadastre_parcelle_id"] = parcelle_ids[found]
         df.loc[rows.index[found], "cadastre_commune"] = communes[found]
+        logging.info(
+            f"> dep {departement}: done in {monotonic() - dep_started:.1f}s"
+            " (index + matching)"
+        )
     # A row the cadastre had no answer for is neither a parcelle nor a commune change.
     # Not merely defensive: without it those rows are excluded only because a missing
     # cadastre_commune propagates NA through the comparisons, which holds on the arrow
     # backend read above and NOT on object dtypes, where "01004" != None is True and every
     # unmatched row would be recorded as having changed commune.
     matched = df["cadastre_parcelle_id"].notna()
+    logging.info(
+        f"Matching over for {year}: {int(matched.sum()):,}/{len(df):,} rows matched across"
+        f" {df['code_departement'].nunique()} departements"
+        f" in {(monotonic() - started) / 60:.1f} min"
+    )
 
     # Only parcelle_id has changed in new cadastre
     mask_only_parcelles_change = (
