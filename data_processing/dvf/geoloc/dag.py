@@ -27,7 +27,17 @@ with DAG(
                 None,
                 type=["null", "integer"],
                 description="Only rebuild the selected year if set, for faster debug.",
-            )
+            ),
+            "delivery": Param(
+                None,
+                type=["null", "string"],
+                enum=[None, "april", "october"],
+                description=(
+                    "Force the cadastre millesime of the latest April (YYYY-03-01) "
+                    "or October (YYYY-06-01) delivery, for debug. "
+                    "Defaults to the delivery matching the current date."
+                ),
+            ),
         },
     ),
 ):

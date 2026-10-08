@@ -161,8 +161,23 @@ def enrich_years(files, **context):
     for file in files:
         os.remove(TMP_FOLDER + file)
 
+# cadastre millesime used by each DVF delivery: month of the delivery, month of the millesime
+DELIVERIES = {"april": (4, "03"), "october": (10, "06")}
+
+
+def get_cadastre_millesime(delivery: str | None, today: date) -> str:
+    """Return the cadastre millesime of the latest given delivery,
+    e.g. "2026-06-01" for an October 2026 delivery."""
+    if delivery is None:
+        delivery = "april" if 4 <= today.month < 10 else "october"
+    delivery_month, millesime_month = DELIVERIES[delivery]
+    # before the delivery month, the latest delivery of this kind is last year's
+    year = today.year if today.month >= delivery_month else today.year - 1
+    return f"{year}-{millesime_month}-01"
+
+
 @task()
-def download_cadastre_source_data(**context):
+def download_cadastre_source_data(params: dict, **context):
     """
     Load the right cadastre file and store locally its indexed parcelle geometries
     for faster match against centroid geopoint of the parcelles from DVF.
@@ -170,9 +185,7 @@ def download_cadastre_source_data(**context):
     # Technical choice notes: Measurement on samples shows it is faster to load the full file
     # then filter it locally with duckdb rather than directly filter and load with duckdb.
     # This current task takes about 15min on a PC with wifi +350Mbps for download
-    # todo : later add a parametrize way to run specifically for october or april run for debug
-    year = str(date.today().year)
-    millesime = f"{year}-03-01" if 4 <= date.today().month < 10 else f"{year}-06-01"
+    millesime = get_cadastre_millesime(params.get("delivery"), date.today())
     url = (
         "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
         f"{millesime}/geoparquet/france/cadastre.parquet"
