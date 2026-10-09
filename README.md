@@ -29,6 +29,7 @@ Le fichier `.python-version` à la racine fixe la version de Python (3.12) ; `uv
 
 ```
 uv venv
+uv pip install -r requirements.txt
 uv pip install -r dev-requirements.txt
 pre-commit install
 ```
@@ -44,9 +45,10 @@ uv venv --python 3.12 "$HOME/.venvs/datagouvfr_data_pipelines"
 source "$HOME/.venvs/datagouvfr_data_pipelines/bin/activate"
 ```
 
-Après `source …/activate`, les commandes `uv pip install -r dev-requirements.txt`, `pre-commit`, `pytest` et `ruff` utilisent l'environnement ainsi activé, sans re-téléchargement:
+Après `source …/activate`, les commandes `uv pip install -r requirements.txt`, `uv pip install -r dev-requirements.txt`, `pre-commit`, `pytest` et `ruff` utilisent l'environnement ainsi activé, sans re-téléchargement:
 
 ```
+uv pip install -r requirements.txt
 uv pip install -r dev-requirements.txt
 pre-commit install
 ```
@@ -65,6 +67,7 @@ export PATH="$VIRTUAL_ENV/bin:$PATH"
 ```
 python3.12 -m venv .venv
 source .venv/bin/activate
+python -m pip install -r requirements.txt
 python -m pip install -r dev-requirements.txt
 pre-commit install
 ```
@@ -73,7 +76,7 @@ pre-commit install
 
 ### Notes importantes
 
-- **`dev-requirements.txt` ne contient pas les dépendances d'exécution des DAGs** : il fournit uniquement les outils de développement (lint, format, tests, pre-commit). L'installation des imports utilisés par les DAGs n'est pas couverte ici. Les dépendances sont dans le fichier [`requirements.txt`](https://github.com/datagouv/data-engineering-stack/blob/master/requirements.txt) du dépôt `data-engineering-stack`.
+- **`requirements.txt` contient les dépendances d'exécution des DAGs**, et `dev-requirements.txt` les outils de développement (lint, format, tests, pre-commit).
 - **Il est possible de travailler avec des versions différentes** (pas de VM, autre version de Python, `uv` absent) : le fichier `.python-version` est une indication, pas une contrainte. Le seul point de cohérence obligatoire entre contributeurs/trices est porté par pre-commit, qui installe des versions **exactes** de `ruff` et `mypy` (voir `.pre-commit-config.yaml`).
 - L'environnement créé (`.venv/`) est ignoré par git ; ne pas le committer.
 
@@ -135,13 +138,12 @@ mypy.................................................(no files to check)Skipped
 Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances nécessaires (dans l'environnement virtuel) :
 
 ```shell
-uv pip install -r verticales/simplifions/tests/test-requirements.txt
+uv pip install -r dev-requirements.txt
 ```
 
 Lancer les tests :
 
 ```shell
-pytest verticales/simplifions/tests/ -s -v
 pytest data_processing/dvf/explore/tests/ -s -v
 pytest dgv/monitoring/dashboard/tests/ -s -v
 ```
