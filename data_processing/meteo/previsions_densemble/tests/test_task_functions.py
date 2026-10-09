@@ -16,6 +16,7 @@ Covers datagouv/datagouvfr_data_pipelines#754:
   be anchored to the *newest* run (``max``).
 """
 
+import logging
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -64,13 +65,15 @@ EXPECTED_DELETED = {
 }
 
 
-def _run_remove_old_occurrences():
+def _run_remove_old_occurrences(dry_run: bool = False):
     """Run remove_old_occurrences with controlled S3/SFTP/API and return the
     set of SFTP files that were deleted."""
     sftp_client = MagicMock()
     sftp_client.list_files_in_directory.return_value = list(SFTP_FILENAMES)
+    sftp_client.get_file_stats.return_value.st_size = 100
 
     with (
+        patch.object(task_functions, "DRY_RUN", dry_run),
         patch.object(
             task_functions,
             "get_current_resources",
@@ -149,19 +152,25 @@ S3_FILES_BY_FOLDER = {
 }
 
 
-def _run_s3_prune():
+def _run_s3_prune(dry_run: bool = False):
     """Run remove_old_occurrences with no SFTP files and return the set of S3
     files that were deleted."""
     s3_client = MagicMock()
     s3_client.get_folders_from_prefix.return_value = list(S3_RUN_FOLDERS)
-    s3_client.get_files_from_prefix.side_effect = (
-        lambda prefix, ignore_airflow_env=True: S3_FILES_BY_FOLDER.get(prefix, [])
-    )
+
+    def _files_for(prefix, ignore_airflow_env=True, as_objects=False):
+        keys = S3_FILES_BY_FOLDER.get(prefix, [])
+        if as_objects:
+            return [_s3_obj(key) for key in keys]
+        return list(keys)
+
+    s3_client.get_files_from_prefix.side_effect = _files_for
 
     sftp_client = MagicMock()
     sftp_client.list_files_in_directory.return_value = []
 
     with (
+        patch.object(task_functions, "DRY_RUN", dry_run),
         patch.object(
             task_functions,
             "get_current_resources",
@@ -173,6 +182,13 @@ def _run_s3_prune():
         task_functions.remove_old_occurrences(pack="arome", grid="ncaled0025")
 
     return {call.args[0] for call in s3_client.delete_file.call_args_list}
+
+
+def _s3_obj(key: str) -> MagicMock:
+    obj = MagicMock()
+    obj.key = key
+    obj.size = 100
+    return obj
 
 
 def test_s3_prunes_runs_older_than_retention():
@@ -193,3 +209,115 @@ def test_s3_keeps_recent_runs():
         _s3_folder(_AT_THRESHOLD),  # at threshold -> kept
     ):
         assert all(f not in deleted for f in S3_FILES_BY_FOLDER[folder])
+
+
+# --- real-deletion stats ---
+
+
+def test_real_deletion_sftp_logs_correct_stats(caplog):
+    """In real-deletion mode, the SFTP summary must state 'deleted' with the
+    right count, total and freed size (2 files of 100 B -> 200 B)."""
+    with caplog.at_level(logging.INFO):
+        _run_remove_old_occurrences(dry_run=False)
+    assert "deleted 2/4 SFTP file(s) (200.0 B)" in caplog.text
+    first = _sftp_file(_OLD_RUN)
+    last = _sftp_file(_AT_THRESHOLD_DATE_EARLIER)
+    assert (
+        f"(first: {first.split('/')[-1]}, last: {last.split('/')[-1]})" in caplog.text
+    )
+
+
+def test_real_deletion_s3_logs_correct_stats(caplog):
+    """In real-deletion mode, the S3 summary must state 'deleted' with the right
+    count, total and freed size (2 run folders of 100 B -> 200 B)."""
+    with caplog.at_level(logging.INFO):
+        _run_s3_prune(dry_run=False)
+    assert "deleted 2/4 S3 run folder(s) (200.0 B)" in caplog.text
+    first = _s3_folder(_AT_THRESHOLD_DATE_EARLIER)
+    last = _s3_folder(_OLD_RUN)
+    assert f"first: {first}" in caplog.text
+    assert f"last: {last}" in caplog.text
+
+
+# --- DRY_RUN mode ---
+
+
+def test_dry_run_sftp_does_not_delete(caplog):
+    """With DRY_RUN enabled, the SFTP cleanup must not call delete_file, and a
+    concise DRY RUN summary must be logged (with 'would delete')."""
+    with caplog.at_level(logging.INFO):
+        deleted = _run_remove_old_occurrences(dry_run=True)
+    assert deleted == set()
+    assert "DRY RUN: would delete" in caplog.text
+    assert "SFTP file(s)" in caplog.text
+
+
+def test_dry_run_s3_does_not_delete(caplog):
+    """With DRY_RUN enabled, the S3 cleanup must not call delete_file, and a
+    concise DRY RUN summary must be logged (with 'would delete')."""
+    with caplog.at_level(logging.INFO):
+        deleted = _run_s3_prune(dry_run=True)
+    assert deleted == set()
+    assert "DRY RUN: would delete" in caplog.text
+    assert "S3 run folder(s)" in caplog.text
+
+
+def test_real_deletion_still_verified_when_dry_run_forced_off():
+    """DRY_RUN defaults to True; the real-deletion tests force it to False so
+    actual delete_file calls are still exercised."""
+    deleted = _run_remove_old_occurrences(dry_run=False)
+    assert EXPECTED_DELETED <= deleted
+
+
+def test_sftp_size_failure_warns(caplog):
+    """If a file size cannot be fetched from the SFTP, a warning must tell us
+    the freed size is incomplete."""
+    sftp_client = MagicMock()
+    sftp_client.list_files_in_directory.return_value = list(SFTP_FILENAMES)
+    sftp_client.get_file_stats.side_effect = IOError("stat failed")
+
+    with (
+        patch.object(task_functions, "DRY_RUN", True),
+        patch.object(
+            task_functions,
+            "get_current_resources",
+            return_value={
+                "id1": {"date": _NEWEST_RUN, "resource_id": "r1"},
+            },
+        ),
+        patch.object(task_functions, "S3Client") as s3_client_cls,
+        patch.object(task_functions, "create_client", return_value=sftp_client),
+    ):
+        s3_instance = s3_client_cls.return_value
+        s3_instance.get_folders_from_prefix.return_value = []
+        with caplog.at_level(logging.INFO):
+            task_functions.remove_old_occurrences(pack="arome", grid="ncaled0025")
+
+    assert "Could not compute the size" in caplog.text
+    assert "DRY RUN: would delete" in caplog.text
+
+
+# --- _human_size ---
+
+
+def test_human_size_bytes():
+    assert task_functions._human_size(0) == "0.0 B"
+    assert task_functions._human_size(512) == "512.0 B"
+    assert task_functions._human_size(1023) == "1023.0 B"
+
+
+def test_human_size_scales_units():
+    assert task_functions._human_size(1024) == "1.0 KiB"
+    assert task_functions._human_size(1024 * 1024) == "1.0 MiB"
+    assert task_functions._human_size(1024**3) == "1.0 GiB"
+    assert task_functions._human_size(1024**4) == "1.0 TiB"
+
+
+def test_human_size_rounds_to_one_decimal():
+    assert task_functions._human_size(1536) == "1.5 KiB"
+    assert task_functions._human_size(1024 * 1024 + 524288) == "1.5 MiB"
+
+
+def test_human_size_does_not_overflow_past_tib():
+    # Beyond TiB the result stays in TiB rather than crashing.
+    assert task_functions._human_size(1024**5) == "1024.0 TiB"

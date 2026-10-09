@@ -24,6 +24,8 @@ from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(days=15)
+# When True, deletion (S3 and SFTP) is only logged, never actually performed.
+DRY_RUN = True
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
@@ -321,6 +323,12 @@ def remove_old_occurrences(pack: str, grid: str):
         )
     }
     logging.info(f"Current run dates on S3: {run_dates_on_s3}")
+    total_s3_folders = len(run_dates_on_s3)
+    deleted_s3_folders = 0
+    delete_errors_s3 = 0
+    freed_s3 = 0
+    first_removed_s3 = None
+    last_removed_s3 = None
     for path, run_date in run_dates_on_s3.items():
         if run_date < threshold:
             # the whole run (all échéances) is obsolete -> delete the folder
@@ -328,30 +336,91 @@ def remove_old_occurrences(pack: str, grid: str):
                 s3_meteo.get_files_from_prefix(
                     prefix=path,
                     ignore_airflow_env=True,
+                    as_objects=True,
                 )
             )
-            logging.info(f"Will delete {len(files_to_delete)} files from {path}")
-            for file in files_to_delete:
-                s3_meteo.delete_file(file)
+            freed_s3 += sum(obj.size for obj in files_to_delete)
+            if not DRY_RUN:
+                for obj in files_to_delete:
+                    try:
+                        s3_meteo.delete_file(obj.key)
+                    except Exception as e:
+                        delete_errors_s3 += 1
+                        logging.error("Error while deleting", obj.key, ":", e)
+            deleted_s3_folders += 1
+            first_removed_s3 = first_removed_s3 or path
+            last_removed_s3 = path
+    if deleted_s3_folders:
+        start = "DRY RUN: would delete" if DRY_RUN else "deleted"
+        logging.info(
+            f"{start} {deleted_s3_folders}/{total_s3_folders} "
+            f"S3 run folder(s) ({_human_size(freed_s3)}) "
+            f"(first: {first_removed_s3}, last: {last_removed_s3})"
+        )
+    if delete_errors_s3:
+        logging.warning(
+            f"Failed to delete {delete_errors_s3} S3 file(s); "
+            f"the deleted folder count above may be optimistic"
+        )
     # removing old files on SFTP (to prevent accumulation)
+    total_sftp = 0
     deleted_old = 0
+    delete_errors_sftp = 0
+    freed_sftp = 0
+    first_removed_sftp = None
+    last_removed_sftp = None
+    size_errors_sftp = 0
     sftp = create_client()
     for file in sftp.list_files_in_directory(upload_dir):
         if not file.endswith(".grib"):
             # most likely files that are not done uploading
             logging.warning(f"> ignoring {file}")
             continue
+        total_sftp += 1
         # computing the run datetime of the file from its name, to compare full
         # datetimes instead of the (date-only) threshold as a raw string
         run_date = datetime.strptime(get_file_infos(file)["date"], "%Y%m%d%H%M")
         if run_date < threshold:
+            deleted_old += 1
             try:
-                sftp.delete_file(upload_dir + file)
-                deleted_old += 1
-            except Exception as e:
-                logging.error("Error while deleting", file, ":", e)
+                freed_sftp += sftp.get_file_stats(upload_dir + file).st_size
+            except Exception:
+                size_errors_sftp += 1
+            if not DRY_RUN:
+                try:
+                    sftp.delete_file(upload_dir + file)
+                except Exception as e:
+                    delete_errors_sftp += 1
+                    logging.error("Error while deleting", file, ":", e)
+            first_removed_sftp = first_removed_sftp or file
+            last_removed_sftp = file
     if deleted_old:
-        logging.info(f"Deleted {deleted_old} files older than {threshold} on the SFTP")
+        start = "DRY RUN: would delete" if DRY_RUN else "deleted"
+        logging.info(
+            f"{start} {deleted_old}/{total_sftp} "
+            f"SFTP file(s) ({_human_size(freed_sftp)}) "
+            f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
+        )
+    if delete_errors_sftp:
+        logging.warning(
+            f"Failed to delete {delete_errors_sftp} SFTP file(s); "
+            f"the deleted count above may be optimistic"
+        )
+    if size_errors_sftp:
+        logging.warning(
+            f"Could not compute the size of {size_errors_sftp} SFTP file(s); "
+            f"the freed size above may be understated"
+        )
+
+
+def _human_size(num_bytes: int) -> str:
+    """Format a byte count in a concise, human-readable way."""
+    size = float(num_bytes)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if size < 1024 or unit == "TiB":
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size} B"
 
 
 @task()
