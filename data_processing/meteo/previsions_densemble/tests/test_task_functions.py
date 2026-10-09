@@ -65,11 +65,11 @@ EXPECTED_DELETED = {
 }
 
 
-def _run_remove_old_occurrences(dry_run: bool = False):
+def _run_remove_old_occurrences(dry_run: bool = False, sftp_filenames=SFTP_FILENAMES):
     """Run remove_old_occurrences with controlled S3/SFTP/API and return the
     set of SFTP files that were deleted."""
     sftp_client = MagicMock()
-    sftp_client.list_files_in_directory.return_value = list(SFTP_FILENAMES)
+    sftp_client.list_files_in_directory.return_value = list(sftp_filenames)
     sftp_client.get_file_stats.return_value.st_size = 100
 
     with (
@@ -123,6 +123,17 @@ def test_sftp_files_at_or_after_threshold_are_kept():
 def test_sftp_non_grib_files_are_ignored():
     deleted = _run_remove_old_occurrences()
     assert "still_uploading_partial" not in deleted
+
+
+def test_sftp_only_cleans_own_pack_and_grid():
+    """The SFTP directory is shared by every grid; old files belonging to
+    another pack/grid must not be deleted by this grid's cleanup."""
+    foreign_old = f"arpege_eurat01_{_OLD_RUN}_mb0_eurat01_00:00.grib"
+    sfp_files = list(SFTP_FILENAMES) + [foreign_old]
+    deleted = _run_remove_old_occurrences(sftp_filenames=sfp_files)
+    assert foreign_old not in deleted
+    # Our own expected deletions are still performed.
+    assert EXPECTED_DELETED <= deleted
 
 
 # --- S3 retention (per run) ---

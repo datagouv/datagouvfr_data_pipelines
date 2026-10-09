@@ -378,10 +378,14 @@ def remove_old_occurrences(pack: str, grid: str):
             # most likely files that are not done uploading
             logging.warning(f"> ignoring {file}")
             continue
+        infos = get_file_infos(file)
+        if infos["pack"] != pack or infos["grid"] != grid:
+            # the SFTP directory is shared by every grid; only clean our own
+            continue
         total_sftp += 1
         # computing the run datetime of the file from its name, to compare full
         # datetimes instead of the (date-only) threshold as a raw string
-        run_date = datetime.strptime(get_file_infos(file)["date"], "%Y%m%d%H%M")
+        run_date = datetime.strptime(infos["date"], "%Y%m%d%H%M")
         if run_date < threshold:
             deleted_old += 1
             try:
