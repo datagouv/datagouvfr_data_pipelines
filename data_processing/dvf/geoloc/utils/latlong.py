@@ -1,13 +1,12 @@
+import gc
 import io
 import logging
-import gc
-
 from time import monotonic
+
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 

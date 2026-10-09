@@ -7,9 +7,15 @@
 #
 # Note: this file does NOT include the runtime dependencies that the DAGs
 # import. It only provides the development / quality tooling. See the README.
+aiohttp>=3.13.0
 mypy==2.1.0
 pre-commit==4.2.0
+pytest-mock>=3.10.0
 pytest==8.3.4
+python-dateutil>=2.8.0
+requests-mock>=1.10.0
+requests>=2.25.0
+respx>=0.22.0
 ruff==0.15.20
 tokenize-rt==3.2.0
 types-psutil==7.2.2.20260906
