@@ -18,12 +18,16 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.format import human_size
 from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-TIME_DEPTH_TO_KEEP = timedelta(hours=24)
+TIME_DEPTH_TO_KEEP = timedelta(days=15)
+# When True, retention deletion (S3 and SFTP) in remove_old_occurrences is only
+# logged, never actually performed.
+DRY_RUN_RETENTION = True
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
@@ -283,52 +287,157 @@ def publish_on_datagouv(pack: str, grid: str):
             )
 
 
+def _compute_retention_threshold(current_resources: dict) -> datetime:
+    """Retention threshold: newest run of this grid minus the retention window.
+
+    A *run* is the whole set of échéances (00:00..48:00) that Météo-France
+    computes together for a given (pack, grid, date). They share the same date,
+    are stored in a single S3 date folder and exposed on data.gouv as one
+    resource per échéance pointing to that date, so a run is kept or deleted as
+    a whole. Anchoring the threshold to the *newest* run (``max``) prunes runs
+    older than TIME_DEPTH_TO_KEEP; the previous code anchored to the *oldest*
+    run (``min``), which sat at the floor of the available dates and therefore
+    never pruned anything.
+    """
+    # The newest run of this pack+grid: resources are keyed by échéance and all
+    # point to their own run date, so we take the most recent of them.
+    newest_run_date = datetime.strptime(
+        max(r["date"] for r in current_resources.values()),
+        "%Y%m%d%H%M",
+    )
+    logging.info(f"Newest run in dataset: {newest_run_date}")
+    threshold = newest_run_date - TIME_DEPTH_TO_KEEP
+    logging.info(f"Will delete everything before {threshold}")
+    return threshold
+
+
 @task()
 def remove_old_occurrences(pack: str, grid: str):
     # removing too old files from S3 and cleaning SFTP if remainders
     current_resources: dict = get_current_resources(pack, grid)
-    oldest_available_date = datetime.strptime(
-        min([r["date"] for r in current_resources.values()]),
-        "%Y%m%d%H%M",
-    )
-    logging.info(f"Oldest date in dataset: {oldest_available_date}")
-    threshold = oldest_available_date - TIME_DEPTH_TO_KEEP
-    logging.info(f"Will delete everything before {threshold}")
+    threshold = _compute_retention_threshold(current_resources)
     s3_meteo = S3Client(**s3_client_kwargs)
-    dates_on_s3 = {
+    run_dates_on_s3 = {
         path: datetime.strptime(path.split("/")[-2], "%Y%m%d%H%M")
         for path in s3_meteo.get_folders_from_prefix(
             prefix=f"{s3_folder}/{pack}/{grid}/",
             ignore_airflow_env=False,
         )
     }
-    logging.info(f"Current dates on S3: {dates_on_s3}")
-    for path, date in dates_on_s3.items():
-        if date < threshold:
+    logging.info(f"Current run dates on S3: {run_dates_on_s3}")
+    total_s3_folders = len(run_dates_on_s3)
+    matched_s3_folders = 0
+    deleted_s3_folders = 0
+    delete_errors_s3 = 0
+    freed_s3 = 0
+    first_removed_s3 = None
+    last_removed_s3 = None
+    for path, run_date in run_dates_on_s3.items():
+        if run_date < threshold:
+            # the whole run (all échéances) is obsolete -> delete the folder
             files_to_delete = list(
                 s3_meteo.get_files_from_prefix(
                     prefix=path,
                     ignore_airflow_env=True,
+                    as_objects=True,
                 )
             )
-            logging.info(f"Will delete {len(files_to_delete)} files from {path}")
-            for file in files_to_delete:
-                s3_meteo.delete_file(file)
+            freed_s3 += sum(obj.size for obj in files_to_delete)
+            matched_s3_folders += 1
+            first_removed_s3 = first_removed_s3 or path
+            last_removed_s3 = path
+            if DRY_RUN_RETENTION:
+                continue
+            folder_deleted = True
+            for obj in files_to_delete:
+                try:
+                    s3_meteo.delete_file(obj.key)
+                except Exception as e:
+                    folder_deleted = False
+                    delete_errors_s3 += 1
+                    logging.error(f"Error while deleting {obj.key}: {e}")
+            if folder_deleted:
+                deleted_s3_folders += 1
+    if matched_s3_folders == 0:
+        logging.info(
+            f"No obsolete S3 run folder(s) to delete (scanned {total_s3_folders})"
+        )
+    elif DRY_RUN_RETENTION:
+        logging.info(
+            f"DRY RUN (retention): would delete {matched_s3_folders}/{total_s3_folders} "
+            f"S3 run folder(s) ({human_size(freed_s3)}) "
+            f"(first: {first_removed_s3}, last: {last_removed_s3})"
+        )
+    else:
+        logging.info(
+            f"deleted {deleted_s3_folders}/{total_s3_folders} "
+            f"S3 run folder(s) ({human_size(freed_s3)}) "
+            f"(first: {first_removed_s3}, last: {last_removed_s3})"
+        )
+    if delete_errors_s3:
+        logging.warning(
+            f"Failed to delete {delete_errors_s3} S3 file(s); "
+            f"the run folders they belonged to were not fully removed"
+        )
     # removing old files on SFTP (to prevent accumulation)
+    total_sftp = 0
+    matched_sftp = 0
     deleted_old = 0
-    sftp_threshold = threshold.strftime("%Y%m%d")
+    delete_errors_sftp = 0
+    freed_sftp = 0
+    first_removed_sftp = None
+    last_removed_sftp = None
+    size_errors_sftp = 0
     sftp = create_client()
     for file in sftp.list_files_in_directory(upload_dir):
-        # see file name structure above
-        if file.split("_")[2] < sftp_threshold:
+        if not file.endswith(".grib"):
+            # most likely files that are not done uploading
+            logging.warning(f"> ignoring {file}")
+            continue
+        infos = get_file_infos(file)
+        if infos["pack"] != pack or infos["grid"] != grid:
+            # the SFTP directory is shared by every grid; only clean our own
+            continue
+        total_sftp += 1
+        # computing the run datetime of the file from its name, to compare full
+        # datetimes instead of the (date-only) threshold as a raw string
+        run_date = datetime.strptime(infos["date"], "%Y%m%d%H%M")
+        if run_date < threshold:
+            matched_sftp += 1
+            first_removed_sftp = first_removed_sftp or file
+            last_removed_sftp = file
+            try:
+                freed_sftp += sftp.get_file_stats(upload_dir + file).st_size
+            except Exception:
+                size_errors_sftp += 1
+            if DRY_RUN_RETENTION:
+                continue
             try:
                 sftp.delete_file(upload_dir + file)
                 deleted_old += 1
             except Exception as e:
-                logging.error("Error while deleting", file, ":", e)
-    if deleted_old:
+                delete_errors_sftp += 1
+                logging.error(f"Error while deleting {file}: {e}")
+    if matched_sftp == 0:
+        logging.info(f"No obsolete SFTP file(s) to delete (scanned {total_sftp})")
+    elif DRY_RUN_RETENTION:
         logging.info(
-            f"Deleted {deleted_old} files older than {sftp_threshold} on the SFTP"
+            f"DRY RUN (retention): would delete {matched_sftp}/{total_sftp} "
+            f"SFTP file(s) ({human_size(freed_sftp)}) "
+            f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
+        )
+    else:
+        logging.info(
+            f"deleted {deleted_old}/{total_sftp} "
+            f"SFTP file(s) ({human_size(freed_sftp)}) "
+            f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
+        )
+    if delete_errors_sftp:
+        logging.warning(f"Failed to delete {delete_errors_sftp} SFTP file(s)")
+    if size_errors_sftp:
+        logging.warning(
+            f"Could not compute the size of {size_errors_sftp} SFTP file(s); "
+            f"the freed size above may be understated"
         )
 
 
