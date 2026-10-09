@@ -1,17 +1,16 @@
-import logging
 import gc
+import logging
 import os
 import re
-
 from collections.abc import Hashable
 from time import sleep
+
 import numpy as np
 import pandas as pd
-
-from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.latlong import (
     enrich_parcelles_with_coord,
 )
+from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 LOTS = ["1er", "2eme", "3eme", "4eme", "5eme"]
 

@@ -5,12 +5,12 @@ from airflow.sdk import DAG, Param
 from airflow.sdk.definitions.param import ParamsDict
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import (
     TMP_FOLDER,
+    build_full_file,
     check_if_modif,
+    download_cadastre_source_data,
     download_dvf_source_data,
     enrich_years,
-    download_cadastre_source_data,
     process_cadastre_cols,
-    build_full_file,
     publish_datagouv,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder

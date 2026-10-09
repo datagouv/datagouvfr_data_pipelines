@@ -4,9 +4,9 @@ import logging
 import os
 import re
 import shutil
-
-from zipfile import ZipFile
 from datetime import date
+from zipfile import ZipFile
+
 import duckdb
 import requests
 from airflow.sdk import task
@@ -16,16 +16,16 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
 )
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
+    enrich_with_cadastre,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
+    enrich_year,
+)
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
-    enrich_year,
-)
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
-    enrich_with_cadastre,
-)
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
@@ -57,6 +57,7 @@ def check_if_modif():
 
     # bypassing for now, the DAG has not completed yet
     return True
+
 
 @task()
 def download_dvf_source_data(params: dict, **context):
@@ -165,6 +166,7 @@ def enrich_years(files, **context):
     for file in files:
         os.remove(TMP_FOLDER + file)
 
+
 # cadastre millesime used by each DVF delivery: month of the delivery, month of the millesime
 DELIVERIES = {"april": (4, "03"), "october": (10, "06")}
 
@@ -245,7 +247,9 @@ def build_full_file(params: dict):
     """Concatenate the yearly files into a single file covering the whole window.
     Streamed, as the window is several GB uncompressed."""
     if params.get("year_to_run"):
-        logging.info("year_to_run is set: skipping the full file, the window is incomplete")
+        logging.info(
+            "year_to_run is set: skipping the full file, the window is incomplete"
+        )
         return
     files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
     expected_header = None
@@ -258,7 +262,9 @@ def build_full_file(params: dict):
                     expected_header = header
                     out.write(header)
                 elif header != expected_header:
-                    raise ValueError(f"{file} does not have the same columns as {files[0]}")
+                    raise ValueError(
+                        f"{file} does not have the same columns as {files[0]}"
+                    )
                 shutil.copyfileobj(f, out)
     logging.info(f"{FULL_FILE} built from {len(files)} files")
 
@@ -322,7 +328,9 @@ def publish_full_file(dataset, years: list[str]) -> None:
         if res.type == "main" and res.url.endswith(f"/{FULL_FILE}")
     ]
     if len(existing) > 1:
-        raise ValueError(f"Several resources hold {FULL_FILE}: {[r.id for r in existing]}")
+        raise ValueError(
+            f"Several resources hold {FULL_FILE}: {[r.id for r in existing]}"
+        )
     if not existing:
         logging.info(f"Creating the single-file resource ({label})")
         dataset.create_static(
