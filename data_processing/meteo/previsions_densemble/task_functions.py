@@ -24,8 +24,9 @@ from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(days=15)
-# When True, deletion (S3 and SFTP) is only logged, never actually performed.
-DRY_RUN = True
+# When True, retention deletion (S3 and SFTP) in remove_old_occurrences is only
+# logged, never actually performed.
+DRY_RUN_RETENTION = True
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
@@ -340,7 +341,7 @@ def remove_old_occurrences(pack: str, grid: str):
                 )
             )
             freed_s3 += sum(obj.size for obj in files_to_delete)
-            if not DRY_RUN:
+            if not DRY_RUN_RETENTION:
                 for obj in files_to_delete:
                     try:
                         s3_meteo.delete_file(obj.key)
@@ -351,7 +352,7 @@ def remove_old_occurrences(pack: str, grid: str):
             first_removed_s3 = first_removed_s3 or path
             last_removed_s3 = path
     if deleted_s3_folders:
-        start = "DRY RUN: would delete" if DRY_RUN else "deleted"
+        start = "DRY RUN (retention): would delete" if DRY_RUN_RETENTION else "deleted"
         logging.info(
             f"{start} {deleted_s3_folders}/{total_s3_folders} "
             f"S3 run folder(s) ({_human_size(freed_s3)}) "
@@ -386,7 +387,7 @@ def remove_old_occurrences(pack: str, grid: str):
                 freed_sftp += sftp.get_file_stats(upload_dir + file).st_size
             except Exception:
                 size_errors_sftp += 1
-            if not DRY_RUN:
+            if not DRY_RUN_RETENTION:
                 try:
                     sftp.delete_file(upload_dir + file)
                 except Exception as e:
@@ -395,7 +396,7 @@ def remove_old_occurrences(pack: str, grid: str):
             first_removed_sftp = first_removed_sftp or file
             last_removed_sftp = file
     if deleted_old:
-        start = "DRY RUN: would delete" if DRY_RUN else "deleted"
+        start = "DRY RUN (retention): would delete" if DRY_RUN_RETENTION else "deleted"
         logging.info(
             f"{start} {deleted_old}/{total_sftp} "
             f"SFTP file(s) ({_human_size(freed_sftp)}) "

@@ -73,7 +73,7 @@ def _run_remove_old_occurrences(dry_run: bool = False):
     sftp_client.get_file_stats.return_value.st_size = 100
 
     with (
-        patch.object(task_functions, "DRY_RUN", dry_run),
+        patch.object(task_functions, "DRY_RUN_RETENTION", dry_run),
         patch.object(
             task_functions,
             "get_current_resources",
@@ -170,7 +170,7 @@ def _run_s3_prune(dry_run: bool = False):
     sftp_client.list_files_in_directory.return_value = []
 
     with (
-        patch.object(task_functions, "DRY_RUN", dry_run),
+        patch.object(task_functions, "DRY_RUN_RETENTION", dry_run),
         patch.object(
             task_functions,
             "get_current_resources",
@@ -239,31 +239,31 @@ def test_real_deletion_s3_logs_correct_stats(caplog):
     assert f"last: {last}" in caplog.text
 
 
-# --- DRY_RUN mode ---
+# --- DRY_RUN_RETENTION mode ---
 
 
 def test_dry_run_sftp_does_not_delete(caplog):
-    """With DRY_RUN enabled, the SFTP cleanup must not call delete_file, and a
+    """With DRY_RUN_RETENTION enabled, the SFTP cleanup must not call delete_file, and a
     concise DRY RUN summary must be logged (with 'would delete')."""
     with caplog.at_level(logging.INFO):
         deleted = _run_remove_old_occurrences(dry_run=True)
     assert deleted == set()
-    assert "DRY RUN: would delete" in caplog.text
+    assert "DRY RUN (retention): would delete" in caplog.text
     assert "SFTP file(s)" in caplog.text
 
 
 def test_dry_run_s3_does_not_delete(caplog):
-    """With DRY_RUN enabled, the S3 cleanup must not call delete_file, and a
+    """With DRY_RUN_RETENTION enabled, the S3 cleanup must not call delete_file, and a
     concise DRY RUN summary must be logged (with 'would delete')."""
     with caplog.at_level(logging.INFO):
         deleted = _run_s3_prune(dry_run=True)
     assert deleted == set()
-    assert "DRY RUN: would delete" in caplog.text
+    assert "DRY RUN (retention): would delete" in caplog.text
     assert "S3 run folder(s)" in caplog.text
 
 
 def test_real_deletion_still_verified_when_dry_run_forced_off():
-    """DRY_RUN defaults to True; the real-deletion tests force it to False so
+    """DRY_RUN_RETENTION defaults to True; the real-deletion tests force it to False so
     actual delete_file calls are still exercised."""
     deleted = _run_remove_old_occurrences(dry_run=False)
     assert EXPECTED_DELETED <= deleted
@@ -277,7 +277,7 @@ def test_sftp_size_failure_warns(caplog):
     sftp_client.get_file_stats.side_effect = IOError("stat failed")
 
     with (
-        patch.object(task_functions, "DRY_RUN", True),
+        patch.object(task_functions, "DRY_RUN_RETENTION", True),
         patch.object(
             task_functions,
             "get_current_resources",
@@ -294,7 +294,7 @@ def test_sftp_size_failure_warns(caplog):
             task_functions.remove_old_occurrences(pack="arome", grid="ncaled0025")
 
     assert "Could not compute the size" in caplog.text
-    assert "DRY RUN: would delete" in caplog.text
+    assert "DRY RUN (retention): would delete" in caplog.text
 
 
 # --- _human_size ---
