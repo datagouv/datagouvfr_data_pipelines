@@ -358,19 +358,22 @@ def remove_old_occurrences(pack: str, grid: str):
                     logging.error(f"Error while deleting {obj.key}: {e}")
             if folder_deleted:
                 deleted_s3_folders += 1
-    if matched_s3_folders:
-        if DRY_RUN_RETENTION:
-            logging.info(
-                f"DRY RUN (retention): would delete {matched_s3_folders}/{total_s3_folders} "
-                f"S3 run folder(s) ({human_size(freed_s3)}) "
-                f"(first: {first_removed_s3}, last: {last_removed_s3})"
-            )
-        else:
-            logging.info(
-                f"deleted {deleted_s3_folders}/{total_s3_folders} "
-                f"S3 run folder(s) ({human_size(freed_s3)}) "
-                f"(first: {first_removed_s3}, last: {last_removed_s3})"
-            )
+    if matched_s3_folders == 0:
+        logging.info(
+            f"No obsolete S3 run folder(s) to delete (scanned {total_s3_folders})"
+        )
+    elif DRY_RUN_RETENTION:
+        logging.info(
+            f"DRY RUN (retention): would delete {matched_s3_folders}/{total_s3_folders} "
+            f"S3 run folder(s) ({human_size(freed_s3)}) "
+            f"(first: {first_removed_s3}, last: {last_removed_s3})"
+        )
+    else:
+        logging.info(
+            f"deleted {deleted_s3_folders}/{total_s3_folders} "
+            f"S3 run folder(s) ({human_size(freed_s3)}) "
+            f"(first: {first_removed_s3}, last: {last_removed_s3})"
+        )
     if delete_errors_s3:
         logging.warning(
             f"Failed to delete {delete_errors_s3} S3 file(s); "
@@ -415,19 +418,20 @@ def remove_old_occurrences(pack: str, grid: str):
             except Exception as e:
                 delete_errors_sftp += 1
                 logging.error(f"Error while deleting {file}: {e}")
-    if matched_sftp:
-        if DRY_RUN_RETENTION:
-            logging.info(
-                f"DRY RUN (retention): would delete {matched_sftp}/{total_sftp} "
-                f"SFTP file(s) ({human_size(freed_sftp)}) "
-                f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
-            )
-        else:
-            logging.info(
-                f"deleted {deleted_old}/{total_sftp} "
-                f"SFTP file(s) ({human_size(freed_sftp)}) "
-                f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
-            )
+    if matched_sftp == 0:
+        logging.info(f"No obsolete SFTP file(s) to delete (scanned {total_sftp})")
+    elif DRY_RUN_RETENTION:
+        logging.info(
+            f"DRY RUN (retention): would delete {matched_sftp}/{total_sftp} "
+            f"SFTP file(s) ({human_size(freed_sftp)}) "
+            f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
+        )
+    else:
+        logging.info(
+            f"deleted {deleted_old}/{total_sftp} "
+            f"SFTP file(s) ({human_size(freed_sftp)}) "
+            f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
+        )
     if delete_errors_sftp:
         logging.warning(f"Failed to delete {delete_errors_sftp} SFTP file(s)")
     if size_errors_sftp:

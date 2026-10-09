@@ -163,11 +163,15 @@ S3_FILES_BY_FOLDER = {
 }
 
 
-def _run_s3_prune(dry_run: bool = False):
+def _run_s3_prune(
+    dry_run: bool = False,
+    s3_run_folders=S3_RUN_FOLDERS,
+    resources=S3_RESOURCES,
+):
     """Run remove_old_occurrences with no SFTP files and return the set of S3
     files that were deleted."""
     s3_client = MagicMock()
-    s3_client.get_folders_from_prefix.return_value = list(S3_RUN_FOLDERS)
+    s3_client.get_folders_from_prefix.return_value = list(s3_run_folders)
 
     def _files_for(prefix, ignore_airflow_env=True, as_objects=False):
         keys = S3_FILES_BY_FOLDER.get(prefix, [])
@@ -185,7 +189,7 @@ def _run_s3_prune(dry_run: bool = False):
         patch.object(
             task_functions,
             "get_current_resources",
-            return_value=dict(S3_RESOURCES),
+            return_value=dict(resources),
         ),
         patch.object(task_functions, "S3Client", return_value=s3_client),
         patch.object(task_functions, "create_client", return_value=sftp_client),
@@ -248,6 +252,26 @@ def test_real_deletion_s3_logs_correct_stats(caplog):
     last = _s3_folder(_OLD_RUN)
     assert f"first: {first}" in caplog.text
     assert f"last: {last}" in caplog.text
+
+
+def test_no_obsolete_sftp_files_logged(caplog):
+    """When no obsolete SFTP file is found, the log must say so explicitly
+    instead of a confusing 'deleted 0/N' summary."""
+    recent_files = [_sftp_file(_NEWEST_RUN), _sftp_file(_AT_THRESHOLD)]
+    with caplog.at_level(logging.INFO):
+        _run_remove_old_occurrences(sftp_filenames=recent_files)
+    assert "No obsolete SFTP file(s) to delete" in caplog.text
+    assert "deleted " not in caplog.text
+
+
+def test_no_obsolete_s3_folders_logged(caplog):
+    """When no obsolete S3 run folder is found, the log must say so explicitly
+    instead of a confusing 'deleted 0/N' summary."""
+    recent_folders = [_s3_folder(_NEWEST_RUN), _s3_folder(_AT_THRESHOLD)]
+    with caplog.at_level(logging.INFO):
+        _run_s3_prune(s3_run_folders=recent_folders)
+    assert "No obsolete S3 run folder(s) to delete" in caplog.text
+    assert "deleted " not in caplog.text
 
 
 # --- DRY_RUN_RETENTION mode ---
