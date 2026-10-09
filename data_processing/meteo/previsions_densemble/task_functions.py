@@ -18,6 +18,7 @@ from datagouvfr_data_pipelines.config import (
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.format import human_size
 from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
@@ -355,7 +356,7 @@ def remove_old_occurrences(pack: str, grid: str):
         start = "DRY RUN (retention): would delete" if DRY_RUN_RETENTION else "deleted"
         logging.info(
             f"{start} {deleted_s3_folders}/{total_s3_folders} "
-            f"S3 run folder(s) ({_human_size(freed_s3)}) "
+            f"S3 run folder(s) ({human_size(freed_s3)}) "
             f"(first: {first_removed_s3}, last: {last_removed_s3})"
         )
     if delete_errors_s3:
@@ -399,7 +400,7 @@ def remove_old_occurrences(pack: str, grid: str):
         start = "DRY RUN (retention): would delete" if DRY_RUN_RETENTION else "deleted"
         logging.info(
             f"{start} {deleted_old}/{total_sftp} "
-            f"SFTP file(s) ({_human_size(freed_sftp)}) "
+            f"SFTP file(s) ({human_size(freed_sftp)}) "
             f"(first: {first_removed_sftp}, last: {last_removed_sftp})"
         )
     if delete_errors_sftp:
@@ -412,16 +413,6 @@ def remove_old_occurrences(pack: str, grid: str):
             f"Could not compute the size of {size_errors_sftp} SFTP file(s); "
             f"the freed size above may be understated"
         )
-
-
-def _human_size(num_bytes: int) -> str:
-    """Format a byte count in a concise, human-readable way."""
-    size = float(num_bytes)
-    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
-        if size < 1024 or unit == "TiB":
-            return f"{size:.1f} {unit}"
-        size /= 1024
-    return f"{size} B"
 
 
 @task()

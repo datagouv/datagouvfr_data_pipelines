@@ -295,29 +295,3 @@ def test_sftp_size_failure_warns(caplog):
 
     assert "Could not compute the size" in caplog.text
     assert "DRY RUN (retention): would delete" in caplog.text
-
-
-# --- _human_size ---
-
-
-def test_human_size_bytes():
-    assert task_functions._human_size(0) == "0.0 B"
-    assert task_functions._human_size(512) == "512.0 B"
-    assert task_functions._human_size(1023) == "1023.0 B"
-
-
-def test_human_size_scales_units():
-    assert task_functions._human_size(1024) == "1.0 KiB"
-    assert task_functions._human_size(1024 * 1024) == "1.0 MiB"
-    assert task_functions._human_size(1024**3) == "1.0 GiB"
-    assert task_functions._human_size(1024**4) == "1.0 TiB"
-
-
-def test_human_size_rounds_to_one_decimal():
-    assert task_functions._human_size(1536) == "1.5 KiB"
-    assert task_functions._human_size(1024 * 1024 + 524288) == "1.5 MiB"
-
-
-def test_human_size_does_not_overflow_past_tib():
-    # Beyond TiB the result stays in TiB rather than crashing.
-    assert task_functions._human_size(1024**5) == "1024.0 TiB"

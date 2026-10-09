@@ -55,7 +55,7 @@ packages = [
         "datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble",
         previsions_densemble_dir,
     ),
-    ("datagouvfr_data_pipelines.utils", None),
+    ("datagouvfr_data_pipelines.utils", repo_root / "utils"),
 ]
 for name, path in packages:
     _stub_package(name, path)
