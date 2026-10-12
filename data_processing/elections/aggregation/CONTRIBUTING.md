@@ -1,12 +1,13 @@
 # Preparing the sources of the `data_processing_elections` DAG
 
 The DAG does not build the standardized files itself: it concatenates the ones listed
-in [`../sources.json`](../sources.json), stored on our S3 under
+in [`data/sources.json`](data/sources.json), stored on our S3 under
 `elections/sources/<key>/` (`general-results.csv`, `candidats-results.csv`, and
-`nuances.csv` when the election has a nuance grid). These scripts, run by hand
-outside Airflow, build those files and keep `sources.json` up to date.
+`nuances.csv` when the election has a nuance grid). The scripts of
+[`scripts/`](scripts/), run by hand outside Airflow, build those files and keep
+`sources.json` up to date.
 
-This folder is excluded from Airflow parsing (`../.airflowignore`).
+`scripts/` and `tests/` are excluded from Airflow parsing (`.airflowignore`).
 
 ## `sources.json`
 
@@ -20,7 +21,7 @@ One entry per election source, with:
   `commentaire`), see below;
 - `nuances` (optional): the nuance grid of the election, one row per nuance and per
   `id_election` (`type_nuance`, `bloc`, `nuance`, `signification`,
-  `commentaires`, `source`; see `dtypes["nuances"]` in `../schema.py`).
+  `commentaires`, `source`; see `dtypes["nuances"]` in `utils/schema.py`).
 
 Each part has:
 
@@ -37,7 +38,7 @@ is unreachable, archived, or modified after `source_last_update` (parts without 
 ## Dataset description
 
 The dataset description is built by the DAG task `publish_description`: the manual
-text of [`../description.yaml`](../description.yaml), then the list of the sources, one
+text of [`data/description.yaml`](data/description.yaml), then the list of the sources, one
 line per entry of `sources.json` (`description.libelle`, linked to its source dataset,
 followed by `description.commentaire` in brackets), sorted by `description.date`, most
 recent first. The dates come from the source datasets' titles or descriptions, or the
@@ -97,11 +98,11 @@ past one is to be integrated):
 1. **Find the source dataset(s)** of the ministry on data.gouv.fr: the final results
    per polling station ("résultats définitifs par bureau de vote"), usually one dataset
    per round. Note their ids.
-2. **Write a build script in this folder** (e.g. `build_legislatives.py`), committed, on
+2. **Write a build script in `scripts/`** (e.g. `build_legislatives.py`), committed, on
    the model of `build_senatoriales.py`: it downloads the original files, parses them
    and writes the standardized files, with a `--dry-run` option. Use the helpers of
    `common.py` (`download_file`, `upload_file`, `get_dataset`, `register_source`).
-   The standardized files must follow the schemas of `../schemas/`:
+   The standardized files must follow the schemas of `data/schemas/`:
    - `general-results.csv` and `candidats-results.csv`, `;`-separated, UTF-8; only
      columns of `schema-general-results.json` / `schema-candidats-results.json` (the
      DAG adds the missing ones as empty), and the DAG check `check_outputs` rejects any
@@ -123,7 +124,7 @@ past one is to be integrated):
    `commentaire` (coverage limits, merged columns...). It appears in the dataset
    description at the next run. For a new election type (not one of `pres`, `legi`,
    `euro`, `regi`, `dpmt`, `cant`, `muni`, `sena`), also add it to the list of types in
-   the introduction of `../description.yaml`.
+   the introduction of `data/description.yaml`.
 5. **Nuance grid**: transcribe the grid of the ministry's circular on the attribution of
    nuances for this election (Légifrance), with a double check against the document
    since the PDFs are scans; write `nuances.csv` following `schema-nuances-mapping.json`
@@ -134,10 +135,10 @@ past one is to be integrated):
    `process_communes` reports on Tchap the communes it can't map (an election of a year
    not covered yet by the INSEE annual table is mapped on its latest millesime). Check
    the outputs on demo.
-7. **Add value tests** for the new election in `../tests/expected_values.yaml` (see
+7. **Add value tests** for the new election in `tests/expected_values.yaml` (see
    [Value tests](#value-tests)): a few rows read by hand in the ministry's files,
    e.g. one polling station with its counts and the votes of one candidate.
-8. **Add a line to the history** in `../description.yaml` (e.g. "JJ/MM/AAAA : ajout des
+8. **Add a line to the history** in `data/description.yaml` (e.g. "JJ/MM/AAAA : ajout des
    élections législatives de 2027"), then deploy and run in prod.
 
 An election that is **not integrated** (no data per polling station, partial
@@ -147,7 +148,7 @@ entry without `resultats`, whose `description` has `libelle`, `date`,
 
 ## Value tests
 
-`../tests/expected_values.yaml` lists values read by hand in the original publications
+`tests/expected_values.yaml` lists values read by hand in the original publications
 of the ministry (the sources need parsing, so they can't be checked automatically). Each
 case selects rows of `general_results.csv` or `candidats_results.csv` with `filtres`
 (`id_election` required) and gives the `source` where the values were read, with
@@ -258,7 +259,7 @@ validated on demo first. Dataset: `6481e741d4cf002ec0efec9d` on www.data.gouv.fr
   through the API), and copy their titles and descriptions from demo (they are managed in
   the UI, the DAG only sends `url`, `filesize` and `format`):
 
-  | Resource | Type | Format | `config.json` key to fill |
+  | Resource | Type | Format | `data/destinations.json` key to fill |
   |---|---|---|---|
   | Table de correspondance avec les communes actuelles | main | csv | `communes.csv.prod` |
   | Table de correspondance des nuances par élection | main | csv | `nuances.csv.prod` |
@@ -267,9 +268,9 @@ validated on demo first. Dataset: `6481e741d4cf002ec0efec9d` on www.data.gouv.fr
   | Schéma de données - Table de correspondance avec les communes actuelles | documentation | json | `communes.schema.prod` |
   | Schéma de données - Table de correspondance des nuances par élection | documentation | json | `nuances.schema.prod` |
 
-- [ ] **Replace the six `"TODO"`** of `config.json` with these resource ids (otherwise
+- [ ] **Replace the six `"TODO"`** of `data/destinations.json` with these resource ids (otherwise
   `publish_results_elections` fails in prod).
-- [ ] **Fill in the history** in `description.yaml`: the exact date and content of the
+- [ ] **Fill in the history** in `data/description.yaml`: the exact date and content of the
   "01/2026" line, and the release date instead of `JJ/MM/2026`. The first prod run
   overwrites the dataset description with this file.
 - [ ] **Merge the branch.** No S3 action is needed: the sources under `elections/sources/`

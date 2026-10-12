@@ -15,7 +15,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.data_processing.elections.aggregation import (
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.utils import (
     checks,
     description,
     table_passage,
@@ -23,7 +23,7 @@ from datagouvfr_data_pipelines.data_processing.elections.aggregation import (
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.tests import (
     check_values,
 )
-from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.utils.schema import (
     SCHEMAS_FOLDER,
     SCOPES,
     TABLES,
@@ -67,13 +67,15 @@ STEPS = [
 
 def load_sources() -> dict:
     with open(
-        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/sources.json"
+        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/data/sources.json"
     ) as fp:
         return json.load(fp)
 
 
 def load_config() -> dict:
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/config.json") as fp:
+    with open(
+        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/data/destinations.json"
+    ) as fp:
         return json.load(fp)
 
 
@@ -400,7 +402,7 @@ def publish_description(**context):
     skip_unless_selected(context, "publish_description")
     # the manual text of description.yaml, then the sources listed in sources.json
     with open(
-        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/description.yaml"
+        f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}elections/aggregation/data/description.yaml"
     ) as fp:
         texts = yaml.safe_load(fp)
     new = description.build_description(texts, load_sources())

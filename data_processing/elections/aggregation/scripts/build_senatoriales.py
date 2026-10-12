@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.utils.schema import (
     dtypes,
 )
 from datagouvfr_data_pipelines.data_processing.elections.aggregation.scripts.common import (

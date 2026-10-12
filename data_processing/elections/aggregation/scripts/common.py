@@ -14,11 +14,11 @@ import boto3
 import requests
 from botocore.config import Config
 
-from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.utils.schema import (
     SCOPES,
 )
 
-SOURCES_FILE = Path(__file__).resolve().parents[1] / "sources.json"
+SOURCES_FILE = Path(__file__).resolve().parents[1] / "data" / "sources.json"
 S3_PREFIX = "elections/sources/"
 DATAGOUV_API = "https://www.data.gouv.fr/api/1/"
 TIMEOUT = 60

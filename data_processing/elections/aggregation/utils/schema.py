@@ -1,10 +1,10 @@
 """Columns and types of the published files, read from their Table Schema
-descriptors in schemas/ (also published as documentation resources)."""
+descriptors in data/schemas/ (also published as documentation resources)."""
 
 import json
 from pathlib import Path
 
-SCHEMAS_FOLDER = Path(__file__).resolve().parent / "schemas"
+SCHEMAS_FOLDER = Path(__file__).resolve().parents[1] / "data" / "schemas"
 # the results files, aggregated from the sources
 SCOPES = ["general", "candidats"]
 # all the published tables, each with a schema

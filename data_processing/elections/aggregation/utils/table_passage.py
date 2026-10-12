@@ -12,7 +12,7 @@ import zipfile
 import pandas as pd
 import requests
 
-from datagouvfr_data_pipelines.data_processing.elections.aggregation.schema import (
+from datagouvfr_data_pipelines.data_processing.elections.aggregation.utils.schema import (
     dtypes,
 )
 
