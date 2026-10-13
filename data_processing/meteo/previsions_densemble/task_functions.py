@@ -24,7 +24,7 @@ from datagouvfr_data_pipelines.utils.sftp import SFTPClient
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}meteo_pe/"
 ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
-TIME_DEPTH_TO_KEEP = timedelta(days=15)
+TIME_DEPTH_TO_KEEP = timedelta(days=2)
 # When True, retention deletion (S3 and SFTP) in remove_old_occurrences is only
 # logged, never actually performed.
 DRY_RUN_RETENTION = True

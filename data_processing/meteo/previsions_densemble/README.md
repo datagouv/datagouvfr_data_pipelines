@@ -89,7 +89,7 @@ elle est disponible.
 
 ## Politique de rétention
 
-La rétention est pilotée par la constante `TIME_DEPTH_TO_KEEP` (15 jours) dans
+La rétention est pilotée par la constante `TIME_DEPTH_TO_KEEP` (2 jours) dans
 `task_functions.py`. Pour chaque `{pack}_{grid}`, une date de seuil est
 calculée : **le run le plus récent** publié sur data.gouv.fr **moins la durée
 de rétention**. Tout élément strictement antérieur à ce seuil est supprimé :
