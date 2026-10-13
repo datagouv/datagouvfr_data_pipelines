@@ -232,6 +232,26 @@ system and those voting under the proportional system share the same `id_electio
 - **Known discrepancy in the source**: Paris 2023, the list votes add up to 2,837 for
   2,836 `exprimes`.
 
+## Cantonal and departmental elections (`cant`, `dpmt`)
+
+Both elect the members of the departmental council (called "conseil général" until 2015),
+but with different voting systems:
+
+- **Cantonales** (`cant`, 2001, 2004, 2008, 2011 integrated; 1992, 1994, 1998 listed
+  only): single-member majoritarian ballot in two rounds, **one** councillor elected per
+  canton, in `nom` / `prenom`. From 2008 (law of 31 January 2007), each candidate runs
+  with a substitute of the other sex, who only sits if the seat becomes vacant: still one
+  person elected.
+- **Renewal by half**: the councils were renewed by half every three years, in two series
+  of cantons (1992, 1998, 2004, 2011 for one; 1994, 2001, 2008 for the other). Each
+  cantonal election therefore covers about half of the territory: around 18,500 communes
+  per election in our data, and only 277 to 358 communes in both series of consecutive
+  elections (communes split between cantons of both series, e.g. large cities).
+- **Départementales** (`dpmt`, 2015 and 2021, next in 2028): since 2015, each canton
+  (redrawn, about half as many) elects a **pair** of a woman and a man, both elected and
+  sitting; the pair is in `binome`, `nom` / `prenom` are empty. Full renewal every six
+  years, so each election covers the whole territory (around 35,000 communes).
+
 ## Elections not included: partial elections
 
 The partial elections published by the ministry on data.gouv.fr are deliberately
@@ -355,10 +375,37 @@ list elections. Checked in October 2026 against the published candidats file (de
   needs a way to list them (e.g. a `listes` part with its own `source_dataset_id` and
   `source_last_update`, so that `check_sources_updates` and the dataset description cover
   it).
-- Make the use of the three columns consistent: today they are filled differently per
+- Make the use of the label columns consistent: today they are filled differently per
   election (2019 euro: abrégé + tête; 2024 euro and 2026 muni: abrégé + étendu; 2020 muni
-  T2: étendu only; senatorial: depends on the year). `nom_tete_liste` could also be filled
-  from `nom` / `prenom` for the elections whose sources only give the head of list.
+  T2: étendu only; senatorial: depends on the year).
+
+### Head of list and type of ballot in the candidats file
+
+Where the head of list is stored depends on the election (checked in October 2026 on the
+dev candidats file):
+
+| Head of list in | Elections |
+|---|---|
+| `nom_tete_liste` only, `nom` / `prenom` empty | `2019_euro_t1`; senatorial T1 1992–2020 (proportional departments) |
+| `nom` / `prenom`, `nom_tete_liste` empty | euro 1999–2014; regi 2004–2021 (e.g. `2015_regi_t1`); muni 2008, 2014, 2020; `2026_muni_t2` |
+| nowhere (`nom`, `prenom` and `nom_tete_liste` empty) | `2024_euro_t1`, `2026_muni_t1`, senatorial 2023 and 2026 lists: to check whether their sources give it |
+
+The départementales have no list but a pair of candidates: `nom` / `prenom` are empty and
+the pair is in `binome`.
+
+Proposed target, to be discussed before changing the schema:
+
+- `nom` / `prenom` hold the head of list when the row is a list and the information is
+  available, as for a single candidate; `nom_tete_liste` is no longer needed (move its
+  values to `nom` / `prenom`, splitting "NOM Prénom" on the case: upper-case words are the
+  name, capitalized ones the first name).
+- A dedicated column says what the row is: the type of ballot (list proportional, list
+  majoritarian, uninominal, binomial...) and whether it is a list or not. One column or
+  two depends on the values: if the type of ballot always implies list or not, one column
+  is enough; it doesn't for the municipales before 2026 (lists in the communes of 1,000
+  inhabitants and more, individual candidates below) nor the senatorial elections
+  (majoritarian or proportional per department), where the value is per row anyway.
+- Schema change (new version), release note, and the value tests to update.
 - `2020_muni_t2`: same list spelled with different cases (`ENSEMBLE POUR PARIS AVEC AGNÈS
   BUZYN` / `Ensemble pour Paris avec Agnès Buzyn`).
 - The building code of these elections is not in this repository (see `sources.json`):
