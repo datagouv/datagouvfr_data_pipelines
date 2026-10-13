@@ -299,8 +299,6 @@ validated on demo first. Dataset: `6481e741d4cf002ec0efec9d` on www.data.gouv.fr
   | Dictionnaire des nuances politiques (circulaire INTP2602966C de février 2026) | `15b3e0e5-396b-4423-9556-faed8a52bfa2` | the nuances table |
   | Dictionnaire des nuances politiques (2025) | `6fd17a6c-519b-465c-a7fd-ad2955fafc76` | nothing (archived on S3) |
 
-- [ ] Archive the parquet resources of the results (`ff16d511…`, `4d3b35f6…`) when
-  decided: data.gouv.fr now builds a parquet export from the CSV.
 - [ ] Publish the release note to users. Changes visible in the published data:
   - senatorial elections 1992–2026 added, at department level (`inscrits` = grands
     électeurs, `id_brut_miom` = department code, no commune nor polling station);
@@ -316,7 +314,79 @@ validated on demo first. Dataset: `6481e741d4cf002ec0efec9d` on www.data.gouv.fr
     fixed) and new schemas for the two tables, all published as links; the nuance
     dictionaries are removed.
 
-### Optional clean-up (dev)
+## Next steps
 
-- [ ] Delete the dev S3 orphans left by renamings: `dev/elections/schemas/schema-communes-results.json`
+Improvements and corrections identified but not done yet. Remove an item once done, and
+mention it in the release note if it changes the published data.
+
+### List labels in the candidats file
+
+`libelle_abrege_liste`, `libelle_etendu_liste` and `nom_tete_liste` are empty for most
+list elections. Checked in October 2026 against the published candidats file (dev,
+2026-10-06) and the ministry's datasets on data.gouv.fr:
+
+| Election | Labels available in | Join key tested | Match |
+|---|---|---|---|
+| `2008_muni_t1`, `t2` | our own source `560521ca88ee3865ae5b59f0` (`Liste` column, lost when our files were built) | – | – |
+| `2020_muni_t1` | our own source `5e7102d5ebe5d838b7581662` (`Liste` column, lost) | – | – |
+| `2021_regi_t1`, `t2` | our own sources `60d1c3d14fc2e0fda6816678`, `60dd933d9bcd72926212eeec` (abrégé, étendu, tête de liste, lost) | – | – |
+| `1999_euro_t1` | `53699387a3a729239d2041ff` (results by region, 20 lists) | head of list "NOM Prénom" | 100 % |
+| `2014_euro_t1` | `5369938aa3a729239d204208` ("Fichier des listes et des candidats", abrégé + étendu) | head of list (accents removed) | 99.1 % |
+| `2004_regi_t1`, `t2` | `536993a5a3a729239d204258` (results by region, with head of list) | nuance + head of list (name + first initial) | 100 % |
+| `2010_regi_t1`, `t2` | `536993a8a3a729239d204260` (results by region, abrégé + étendu) | same | 98.8 % / 98.0 % |
+| `2015_regi_t1`, `t2` | `56a0a31d88ee380692822419`, `56a0a797c751df41b1ade713` (results by commune) | department + head of list | 99.5 % / 100 % |
+| `2014_muni_t1`, `t2` (lists only) | `5369939aa3a729239d20423c`, `5369939da3a729239d204241` (results of communes ≥ 1,000 inhabitants, `Liste`) | department + commune + head of list | 99.99 % / 99.93 % |
+| `2004_euro_t1`, `2009_euro_t1` | none: `Libellé Abrégé Liste` of their result files only holds the nuance label (12–14 values for 160+ lists) | – | – |
+
+- The remaining mismatches are spelling variants, to be handled when building: double
+  spaces (`LE PEN  Marine`), `LEPAPE` / `LE PAPE`, truncated or extended names (`DE GOUYON
+  MATIGNON DE PONTOURAUDE`); use the filing number (`Code Dépôt`) for 2014 euro, and the
+  first name for the two homonymous heads of list of La Réunion 2015 (`ROBERT`, `PAYET`).
+- The 2014 euro "Résultats" datasets (`53893403a3a7291ffe8c5032`…) also only hold nuance
+  labels; their real labels are limited to the lists with elected members ("Elus" sheet).
+  Same for 2015 regi: the candidatures datasets (`5642354e88ee387dc2e72046`,
+  `56684270c751df2f56c664bc`) hold the labels too.
+- Paris, Lyon and Marseille are coded by sector in the 2014 municipal files
+  (`056SR12`), and Mayotte communes as `5xx` instead of `6xx`.
+- Several source datasets will then have to be cited for one election: `sources.json`
+  needs a way to list them (e.g. a `listes` part with its own `source_dataset_id` and
+  `source_last_update`, so that `check_sources_updates` and the dataset description cover
+  it).
+- Make the use of the three columns consistent: today they are filled differently per
+  election (2019 euro: abrégé + tête; 2024 euro and 2026 muni: abrégé + étendu; 2020 muni
+  T2: étendu only; senatorial: depends on the year). `nom_tete_liste` could also be filled
+  from `nom` / `prenom` for the elections whose sources only give the head of list.
+- `2020_muni_t2`: same list spelled with different cases (`ENSEMBLE POUR PARIS AVEC AGNÈS
+  BUZYN` / `Ensemble pour Paris avec Agnès Buzyn`).
+- The building code of these elections is not in this repository (see `sources.json`):
+  fixing them means writing their build scripts first.
+
+### Other data checks and corrections
+
+- **`2026_muni_t1`** source dataset updated on 2026-03-20, after our files: to review
+  (see the production checklist).
+- **2026 municipal, French Polynesia (987)**: 933 rows without list nor nuance, with a
+  candidate name; to check against the ministry's file (specific voting system?).
+- **`2026_muni_t1`, `86063_0001`**: one row with votes (65) but no candidate, nuance nor
+  list.
+- **`2009_euro`**: 3 odd rows (nuances LDD / LDV / LPC, `01001_0001`) to check against
+  the source.
+- **Senatorial elections**: check that the first-round departments without list are
+  exactly those voting under the majoritarian system each year.
+- **2026 nuances table**: the `commentaires` lost their punctuation in the original
+  resource.
+
+### Further improvements
+
+- Nuance grids for the other elections, transcribed from the ministry's circulars
+  (Légifrance); only the municipales 2026 one is in `sources.json` for now.
+- Partial elections (see [above](#elections-not-included-partial-elections)), if a
+  comparable format becomes available.
+- Enrichments of the aggregated data, e.g. boundaries ("contours").
+
+### Clean-up
+
+- Archive the parquet resources of the results (`ff16d511…`, `4d3b35f6…`) when decided:
+  data.gouv.fr now builds a parquet export from the CSV.
+- Delete the dev S3 orphans left by renamings: `dev/elections/schemas/schema-communes-results.json`
   and `dev/elections/schemas/schema-nuances-results.json` (now `…-mapping.json`).
