@@ -28,15 +28,15 @@ from task_functions import TIME_DEPTH_TO_KEEP
 # Newest currently-published run: anchor of the retention threshold.
 _NEWEST_RUN = "202409231200"
 # Retention threshold exactly as the DAG computes it:
-# newest run minus TIME_DEPTH_TO_KEEP (15 days) -> 2024-09-08 12:00.
+# newest run minus TIME_DEPTH_TO_KEEP (2 days) -> 2024-09-21 12:00.
 _THRESHOLD = datetime.strptime(_NEWEST_RUN, "%Y%m%d%H%M") - TIME_DEPTH_TO_KEEP
 
 # Well before the threshold -> must be deleted (used for both SFTP and S3).
-_OLD_RUN = "202409020600"
+_OLD_RUN = "202409180600"
 # Same date as the threshold but earlier time -> deleted (regression for #754).
-_AT_THRESHOLD_DATE_EARLIER = "202409080300"
+_AT_THRESHOLD_DATE_EARLIER = "202409210300"
 # Exactly at the threshold -> kept.
-_AT_THRESHOLD = "202409081200"
+_AT_THRESHOLD = "202409211200"
 
 
 def _sftp_file(run_date: str, echeance: str = "00:00") -> str:
