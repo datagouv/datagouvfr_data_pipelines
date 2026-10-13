@@ -342,7 +342,7 @@ def remove_old_occurrences(pack: str, grid: str):
                     as_objects=True,
                 )
             )
-            freed_s3 += sum(obj.size for obj in files_to_delete)
+            freed_s3 += sum(obj.content_length for obj in files_to_delete)
             matched_s3_folders += 1
             first_removed_s3 = first_removed_s3 or path
             last_removed_s3 = path

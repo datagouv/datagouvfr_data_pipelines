@@ -202,7 +202,7 @@ def _run_s3_prune(
 def _s3_obj(key: str) -> MagicMock:
     obj = MagicMock()
     obj.key = key
-    obj.size = 100
+    obj.content_length = 100
     return obj
 
 
