@@ -1,4 +1,21 @@
 {
+    "1992_cant": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Cantonales 1992",
+            "date": "1992-03-22",
+            "source_dataset_id": "5369937fa3a729239d2041ec",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
+    "1992_regi": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Régionales 1992",
+            "date": "1992-03-22",
+            "commentaire": "non publiée sur data.gouv.fr"
+        }
+    },
     "1992_sena": {
         "id_elections": [
             "1992_sena_t1",
@@ -17,6 +34,50 @@
             }
         }
     },
+    "1993_legi": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Législatives 1993",
+            "date": "1993-03-21",
+            "source_dataset_id": "5369938ba3a729239d20420b",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
+    "1994_cant": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Cantonales 1994",
+            "date": "1994-03-20",
+            "source_dataset_id": "53699380a3a729239d2041ee",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
+    "1994_euro": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Européennes 1994",
+            "date": "1994-06-12",
+            "source_dataset_id": "53699386a3a729239d2041fe",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
+    "1995_muni": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Municipales 1995",
+            "date": "1995-06-11",
+            "commentaire": "non publiée sur data.gouv.fr"
+        }
+    },
+    "1995_pres": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Présidentielle 1995",
+            "date": "1995-04-23",
+            "source_dataset_id": "5369937aa3a729239d2041db",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
     "1995_sena": {
         "id_elections": [
             "1995_sena_t1",
@@ -33,6 +94,33 @@
                 "general": "elections/sources/1995_sena/general-results.csv",
                 "candidats": "elections/sources/1995_sena/candidats-results.csv"
             }
+        }
+    },
+    "1997_legi": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Législatives 1997",
+            "date": "1997-05-25",
+            "source_dataset_id": "5369938ba3a729239d20420d",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
+    "1998_cant": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Cantonales 1998",
+            "date": "1998-03-15",
+            "source_dataset_id": "53699380a3a729239d2041f0",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune"
+        }
+    },
+    "1998_regi": {
+        "id_elections": [],
+        "description": {
+            "libelle": "Régionales 1998",
+            "date": "1998-03-15",
+            "source_dataset_id": "536993a3a3a729239d204253",
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la région et au département"
         }
     },
     "1998_sena": {
@@ -94,7 +182,7 @@
             "libelle": "Municipales 2001",
             "date": "2001-03-11",
             "source_dataset_id": "53699392a3a729239d20421e",
-            "commentaire": "pas de données au niveau bureau de vote"
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune, pour les communes de plus de 3 500 habitants"
         }
     },
     "2001_sena": {
@@ -476,19 +564,19 @@
     "2015_06_muni_part": {
         "id_elections": [],
         "description": {
-            "libelle": "Résultats des élections municipales partielles dans les communes de plus de 30 000 habitants : 14 et 21 juin 2015",
+            "libelle": "Municipales partielles juin 2015 (5 communes)",
             "date": "2015-06-14",
             "source_dataset_id": "5588119dc751df484ba453ba",
-            "commentaire": "élection partielle, non intégrée : résultats par commune, sans blancs ni nuls"
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la commune, sans votes blancs ni nuls"
         }
     },
     "2015_09_sena_part": {
         "id_elections": [],
         "description": {
-            "libelle": "Résultats des élections sénatoriales partielles du 6 septembre 2015 (Cantal, Gers)",
+            "libelle": "Sénatoriales partielles septembre 2015 (Cantal, Gers)",
             "date": "2015-09-06",
             "source_dataset_id": "55eeae9188ee387fdda46ec2",
-            "commentaire": "élection partielle, non intégrée : résultats par département, sans blancs ni nuls"
+            "commentaire": "non intégrée pour l'instant : fiche récapitulative par département, sans votes blancs ni nuls"
         }
     },
     "2015_dpmt": {
@@ -546,37 +634,37 @@
     "2016_03_legi_part": {
         "id_elections": [],
         "description": {
-            "libelle": "Résultats des élections législatives partielles des 13 et 20 mars 2016 (Aisne, Nord, Yvelines)",
+            "libelle": "Législatives partielles mars 2016 (Aisne, Nord, Yvelines)",
             "date": "2016-03-13",
             "source_dataset_id": "57037563c751df64d8c485cb",
-            "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la circonscription, sans votes blancs ni nuls"
         }
     },
     "2016_04_legi_part": {
         "id_elections": [],
         "description": {
-            "libelle": "Résultats de l’élection législative partielle des 17 et 24 avril 2016 (3ème circonscription de Loire-Atlantique)",
+            "libelle": "Législative partielle avril 2016 (Loire-Atlantique, 3e circ.)",
             "date": "2016-04-17",
             "source_dataset_id": "5727336788ee383b9fa19f12",
-            "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la circonscription, sans votes blancs ni nuls"
         }
     },
     "2016_05_legi_part": {
         "id_elections": [],
         "description": {
-            "libelle": "Résultats des élections législatives partielles des 22 et 29 mai 2016 (Alpes-Maritimes, Bas-Rhin)",
+            "libelle": "Législatives partielles mai 2016 (Alpes-Maritimes, Bas-Rhin)",
             "date": "2016-05-22",
             "source_dataset_id": "574c467c88ee383dcbd1b934",
-            "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la circonscription, sans votes blancs ni nuls"
         }
     },
     "2016_06_legi_part": {
         "id_elections": [],
         "description": {
-            "libelle": "Résultats de l’élection législative partielle des 5 et 12 juin 2016 (3ème circonscription de l’Ain)",
+            "libelle": "Législative partielle juin 2016 (Ain, 3e circ.)",
             "date": "2016-06-05",
             "source_dataset_id": "575eaabc88ee380e51640391",
-            "commentaire": "élection partielle, non intégrée : résultats par circonscription, sans blancs ni nuls"
+            "commentaire": "non intégrée pour l'instant : pas de données au niveau du bureau de vote, mais uniquement à la circonscription, sans votes blancs ni nuls"
         }
     },
     "2017_legi_t1": {

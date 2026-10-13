@@ -48,8 +48,11 @@ description there, not in the data.gouv UI: the DAG overwrites it when it change
 
 Entries **without `resultats`** are elections that are not integrated (no data per
 polling station, partial elections...): they are struck through in the list, and their
-`description` holds their own `source_dataset_id`. The DAG steps that read the results
-skip them.
+`description` holds their own `source_dataset_id`, or none when the election is not
+published on data.gouv.fr (listed without a link). The DAG steps that read the results
+skip them. The general elections from 1992 to 1998 are listed this way, so that the
+list covers the same period as the senatorial elections (1992 onwards): results per
+commune at best, and the régionales 1992 and municipales 1995 not published at all.
 
 The nuance grids of `2026_muni_t1` and `2026_muni_t2` come from a one-shot migration
 (October 2026) of the dataset resource "Dictionnaire des nuances politiques

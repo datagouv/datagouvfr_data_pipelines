@@ -18,9 +18,14 @@ def source_line(source: dict) -> str:
     dataset_id = (
         source["resultats"]["source_dataset_id"]
         if "resultats" in source
-        else description["source_dataset_id"]
+        else description.get("source_dataset_id")
     )
-    link = f"[{description['libelle']}]({DATASET_URL.format(dataset_id)})"
+    # elections not published on data.gouv.fr are listed without a link
+    link = (
+        f"[{description['libelle']}]({DATASET_URL.format(dataset_id)})"
+        if dataset_id
+        else description["libelle"]
+    )
     # the elections that are not integrated are struck through
     line = f"- {link}" if "resultats" in source else f"- ~~{link}~~"
     if description.get("commentaire"):
