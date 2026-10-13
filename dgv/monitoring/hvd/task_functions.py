@@ -272,7 +272,8 @@ def notification(**context):
     ].reset_index(drop=True)
     if len(missing_hvd_tag):
         message += (
-            f"\n\n{len(missing_hvd_tag)} jeux de données n'ont plus le tag HVD :\n"
+            f"\n\n{len(missing_hvd_tag)} jeux de données ne sont plus identifiés "
+            "parmi les JDDs taggés HVD (perte de tag, archivage ou suppression) :\n"
         )
     threshold = 50
     for _, row in missing_hvd_tag.iloc[:threshold].iterrows():
@@ -529,6 +530,26 @@ def update_grist(**context):
                 new_values=new_values,
             )
     logging.info(f"Updated {updates} rows")
+    # resetting missing_hvd_tag only for live datasets (non-archived) that have
+    # the HVD badge/tag again (archived datasets stay flagged)
+    flagged = old_hvd_metadata[old_hvd_metadata["missing_hvd_tag"] == "True"].set_index(
+        "id2"
+    )
+    # "archived" is "False" for live datasets, a timestamp for archived ones
+    live = fresh_hvd_metadata[
+        fresh_hvd_metadata["archived"].astype(str) == "False"
+    ].set_index("id2")
+    to_reset = flagged.index.intersection(live.index)
+
+    for dataset_id in sorted(to_reset):
+        logging.info(
+            f"dataset {dataset_id} has the HVD tag again, resetting missing_hvd_tag"
+        )
+        # reset to null to match the Grist convention (True or blank, never False)
+        table.update_records(
+            conditions={"id2": dataset_id},
+            new_values={"missing_hvd_tag": None},
+        )
     # adding new rows
     new_rows = []
     for dataset_id in set(fresh_hvd_metadata["id2"]) - set(old_hvd_metadata["id2"]):
@@ -571,7 +592,8 @@ def update_grist(**context):
                 )
         if to_send:
             message = (
-                "⚠️ @clarisse Les jeux de données suivants ont perdu leur tag HVD :\n\n"
+                "⚠️ @clarisse Les jeux de données suivants ne sont plus identifiés "
+                "parmi les JDDs taggés HVD (perte de tag, archivage ou suppression) :\n\n"
             )
             for _id, title, orga in to_send:
                 message += (
