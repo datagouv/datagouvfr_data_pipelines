@@ -3,7 +3,7 @@
 from datetime import date
 
 import pytest
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resources import (
     get_dvf_resources,
 )
 
