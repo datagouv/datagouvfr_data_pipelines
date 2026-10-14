@@ -113,9 +113,9 @@ def build_output_columns(
     cols["date_mutation"] = (
         date.str[6:] + "-" + date.str[3:5] + "-" + date.str[:2]
     )  # make str date ISO : DD/MM/YYYY => YYYY-MM-DD
-    cols["adresse_nom_voie"] = source["Type de voie"].str.cat(
-        source["Voie"], sep=" "
-    )  # NaN if either part is missing
+    cols["adresse_nom_voie"] = (
+        source["Type de voie"].str.cat(source["Voie"], sep=" ").fillna(source["Voie"])
+    )  # the type is optional: null only if Voie is null
     cols["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0")  # "143" => "0143"
     cols["code_postal"] = source["Code postal"].str.rjust(5, "0")
     code_commune = build_code_commune(source)
