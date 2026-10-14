@@ -400,6 +400,10 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
 
     # working columns, not part of the published schema
     df.drop(columns=["cadastre_parcelle_id", "cadastre_commune"], inplace=True)
+    # always 2 decimals, the precision of the source: 185000.00, 1234.50, 87.00
+    for col in ["valeur_fonciere"] + [f"lot{i}_surface_carrez" for i in range(1, 6)]:
+        values = df[col].astype("float64")
+        df[col] = values.map("{:.2f}".format).where(values.notna())
     logging.info("Saving file...")
     df.to_csv(
         tmp_folder + f"full-{year}.csv.gz",

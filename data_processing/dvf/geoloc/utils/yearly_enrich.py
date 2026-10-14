@@ -54,9 +54,15 @@ COMPUTED_SOURCE_COLUMNS = [
 EMPTY_COLUMNS = ("ancien_code_commune", "ancien_nom_commune", "ancien_id_parcelle")
 
 # what read_csv reads: everything as a string, except the numeric columns parsed as floats.
+# valeur_fonciere in float64: float32 only keeps ~7 significant digits, which loses
+# the cents on prices above a few hundred thousand euros
 SOURCE_DTYPES: dict[Hashable, str] = {
     **{c: "str" for c in list(PASSTHROUGH_COLUMNS) + COMPUTED_SOURCE_COLUMNS},
     **{c: "float32" for c in FLOAT_COLUMNS},
+    "Valeur fonciere": "float64",
+    # read as floats (decimal comma), cast to integers in build_output_columns
+    "Surface reelle bati": "float64",
+    "Surface terrain": "float64",
 }
 
 
@@ -96,6 +102,10 @@ def build_output_columns(
     # Cols copied from the source, renamed only (floats already parsed by read_csv)
     cols |= {new: source[old] for old, new in PASSTHROUGH_COLUMNS.items()}
     cols |= {new: source[old] for old, new in FLOAT_COLUMNS.items()}
+    # whole numbers in the source, published as integers like the reference ("120", not
+    # "120.0"); astype raises if a value ever has a fractional part
+    for name in ("surface_reelle_bati", "surface_terrain"):
+        cols[name] = cols[name].astype("Int64")
     cols |= {name: "" for name in EMPTY_COLUMNS}
 
     # Computed cols
@@ -212,7 +222,7 @@ def enrich_year(
 
     # parquet, not csv.gz: this file only exists for enrich_with_cadastre to read back, and
     # a gzip round-trip costs ~45s per million rows against ~7s, while losing every dtype
-    # the assert above just checked (the float32 columns come back float64). The published
+    # the assert above just checked (float32 comes back float64, Int64 as float64 with NaN). The published
     # full-<year>.csv.gz is written at the end of that step instead.
     logging.info("Saving file...")
     final.to_parquet(
