@@ -1,8 +1,13 @@
-from dataclasses import dataclass
-from datagouv import Resource
-from datetime import date
 import logging
 import re
+from dataclasses import dataclass
+from datetime import date
+
+from datagouv import Resource
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.deliveries import (
+    get_delivery_info,
+)
+
 
 @dataclass
 class DvfResource:
@@ -10,10 +15,6 @@ class DvfResource:
     resource: Resource
     year: str
     semester: str | None = None  # "s1"/"s2" for half-year files, None for full years
-
-
-# number of yearly files in the rolling window, per kind of delivery
-DELIVERY_FILE_COUNT = {"april": 5, "october": 6}
 
 
 def get_dvf_resources(
@@ -56,17 +57,13 @@ def get_dvf_resources(
     """
     if today is None:
         today = date.today()
-    if delivery is None:
-        delivery = "april" if 4 <= today.month < 10 else "october"
-    expected_count = DELIVERY_FILE_COUNT.get(delivery)
-    if expected_count is None:
-        raise ValueError(f"Unknown delivery: {delivery!r}")
+    delivery_info = get_delivery_info(delivery, today)
 
     main_resources = [res for res in resources if res.type == "main"]
-    if len(main_resources) != expected_count:
+    if len(main_resources) != delivery_info.file_count:
         raise ValueError(
-            f"Unexpected number of resources for a {delivery} delivery: "
-            f"{len(main_resources)} (expected {expected_count})"
+            f"Unexpected number of resources for a {delivery_info.delivery} delivery: "
+            f"{len(main_resources)} (expected {delivery_info.file_count})"
         )
     titles = [f'"{res.title}"' for res in main_resources]
     logging.info(f"Available ressources : {','.join(titles)}...")
@@ -91,7 +88,7 @@ def get_dvf_resources(
         )
     dvf_resources.sort(key=lambda d: (d.year, d.semester or ""))
 
-    if delivery == "april":
+    if delivery_info.delivery == "april":
         # five full years, no half-year files
         if any(d.semester for d in dvf_resources):
             raise ValueError(

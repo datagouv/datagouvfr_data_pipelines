@@ -19,6 +19,9 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
     enrich_with_cadastre,
 )
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.deliveries import (
+    get_delivery_info,
+)
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resources import (
     get_dvf_resources,
 )
@@ -168,19 +171,13 @@ def enrich_years(files: list[str], **context):
         os.remove(TMP_FOLDER + file)
 
 
-# cadastre millesime used by each DVF delivery: month of the delivery, month of the millesime
-DELIVERIES = {"april": (4, "03"), "october": (10, "06")}
-
-
 def get_cadastre_millesime(delivery: str | None, today: date) -> str:
     """Return the cadastre millesime of the latest given delivery,
     e.g. "2026-06-01" for an October 2026 delivery."""
-    if delivery is None:
-        delivery = "april" if 4 <= today.month < 10 else "october"
-    delivery_month, millesime_month = DELIVERIES[delivery]
+    delivery_info = get_delivery_info(delivery, today)
     # before the delivery month, the latest delivery of this kind is last year's
-    year = today.year if today.month >= delivery_month else today.year - 1
-    return f"{year}-{millesime_month}-01"
+    year = today.year if today.month >= delivery_info.month else today.year - 1
+    return f"{year}-{delivery_info.cadastre_millesime}-01"
 
 
 @task()
