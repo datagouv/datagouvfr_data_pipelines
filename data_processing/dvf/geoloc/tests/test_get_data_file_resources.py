@@ -68,6 +68,6 @@ def test_rejects_unexpected_file_names():
 def test_accepts_semester():
     good = _Resource("https://example.com/valeursfoncieres-2021-s2.csv", type="main")
     resources = _year_resources([2021, 2022, 2023, 2024, 2025])
-    resources[0] = bad
+    resources[0] = good
     with pytest.raises(ValueError, match="Unexpected file name"):
         get_data_file_resources(resources)
