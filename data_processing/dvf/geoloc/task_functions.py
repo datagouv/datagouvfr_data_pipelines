@@ -10,7 +10,7 @@ from zipfile import ZipFile
 import duckdb
 import requests
 from airflow.sdk import task
-from datagouv import Dataset
+from datagouv import Dataset, Resource
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
@@ -75,12 +75,33 @@ def check_if_modif():
     return True
 
 
-@task()
-def download_dvf_source_data(params: dict, **context) -> list[str]:
-    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
-    dvf_dataset = get_source_dataset(params.get("delivery"))
-    # dvf_dataset = Dataset(SOURCE_DATASET_ID) # TODO: post test delete line above and uncomment this one
-    data = [res for res in dvf_dataset.resources if res.type == "main"]
+# TODO(SL): pass param "delivery" to check the number of files
+# TODO(SL): use regexes, not splits
+def get_data_file_resources(resources: list[Resource]) -> dict[str, Resource]:
+    """Return the yearly DVF source resources, as {file name: resource}.
+
+    Only the "main" resources (ie. data files) are kept.
+    Their file names are checked to match the expected
+    ``valeursfoncieres-<year>.txt.zip`` pattern.
+
+    Parameters
+    ----------
+    resources : list[Resource]
+        The resources of the DVF source dataset.
+
+    Returns
+    -------
+    dict[str, Resource]
+        A mapping of each yearly source file name (e.g.
+        "valeursfoncieres-2021.txt.zip") to its Resource.
+
+    Raises
+    ------
+    ValueError
+        If the number of "main" resources is not 5 or 6, or if a file name does not
+        match the expected ``valeursfoncieres-<year>.txt.zip`` pattern.
+    """
+    data = [res for res in resources if res.type == "main"]
     if len(data) not in {5, 6}:
         # 5 full years, or half first and last years and 4 full years
         raise ValueError(f"Unexpected number of resources: {len(data)}")
@@ -92,6 +113,15 @@ def download_dvf_source_data(params: dict, **context) -> list[str]:
     for file_name in file_names:
         if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
             raise ValueError(f"Unexpected file name: {file_name}")
+    return file_names
+
+
+@task()
+def download_dvf_source_data(params: dict, **context):
+    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
+    dvf_dataset = Dataset(SOURCE_DATASET_ID)
+
+    file_names = get_data_file_resources(dvf_dataset.resources)
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
