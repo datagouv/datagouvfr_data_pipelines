@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+from dataclasses import dataclass
 from datetime import date
 from zipfile import ZipFile
 
@@ -75,10 +76,16 @@ def check_if_modif():
     return True
 
 
+@dataclass
+class DvfResource:
+    file_name: str
+    resource: Resource
+    year: str
+
+
 # TODO(SL): pass param "delivery" to check the number of files
-# TODO(SL): use regexes, not splits
-def get_data_file_resources(resources: list[Resource]) -> dict[str, Resource]:
-    """Return the yearly DVF source resources, as {file name: resource}.
+def get_dvf_resources(resources: list[Resource]) -> list[DvfResource]:
+    """Return the yearly DVF source resources, as {file name: dvfResource}.
 
     Only the "main" resources (ie. data files) are kept.
     Their file names are checked to match the expected
@@ -91,9 +98,9 @@ def get_data_file_resources(resources: list[Resource]) -> dict[str, Resource]:
 
     Returns
     -------
-    dict[str, Resource]
-        A mapping of each yearly source file name (e.g.
-        "valeursfoncieres-2021.txt.zip") to its Resource.
+    list[DvfResource]
+        A list of each yearly data file with its Resource, file name (e.g.
+        "valeursfoncieres-2021.txt.zip") and year.
 
     Raises
     ------
@@ -101,19 +108,28 @@ def get_data_file_resources(resources: list[Resource]) -> dict[str, Resource]:
         If the number of "main" resources is not 5 or 6, or if a file name does not
         match the expected ``valeursfoncieres-<year>.txt.zip`` pattern.
     """
-    data = [res for res in resources if res.type == "main"]
-    if len(data) not in {5, 6}:
+    main_resources = [res for res in resources if res.type == "main"]
+    if len(main_resources) not in {5, 6}:
         # 5 full years, or half first and last years and 4 full years
-        raise ValueError(f"Unexpected number of resources: {len(data)}")
-    titles = [f'"{res.title}"' for res in data]
+        raise ValueError(f"Unexpected number of resources: {len(main_resources)}")
+    titles = [f'"{res.title}"' for res in main_resources]
     logging.info(f"Available ressources : {','.join(titles)}...")
 
-    file_names = {res.url.split("/")[-1]: res for res in data}
-    # checking that the year is where we expect it in the resource's url
-    for file_name in file_names:
-        if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
+    dvf_resources: list[DvfResource] = []
+    for resource in main_resources:
+        file_name = resource.url.split("/")[-1]
+
+        # checking that the year is where we expect it in the resource's url
+        m = re.search(r"^valeursfoncieres-(?P<year>\d{4})\.txt\.zip$", file_name)
+        if not m:
             raise ValueError(f"Unexpected file name: {file_name}")
-    return file_names
+        year = m.group("year")
+
+        dvf_resources.append(
+            DvfResource(file_name=file_name, resource=resource, year=year)
+        )
+
+    return dvf_resources
 
 
 @task()
@@ -121,25 +137,25 @@ def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
 
-    file_names = get_data_file_resources(dvf_dataset.resources)
+    dvf_resources = get_dvf_resources(dvf_dataset.resources)
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
         year_to_run = params["year_to_run"]
-        file_names = {
-            f: res
-            for f, res in file_names.items()
-            if f == f"valeursfoncieres-{year_to_run}.txt.zip"
-        }
-        if not file_names:
+        dvf_resources = [
+            dvf_resource
+            for dvf_resource in dvf_resources
+            if dvf_resource.year == year_to_run
+        ]
+        if not dvf_resources:
             raise ValueError(f"No source resource for year {year_to_run}")
         logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
 
     files: list[str] = []
-    for file_name, res in file_names.items():
-        logging.info(f'Downloading ressource "{res.title}"...')
-        dest_path = TMP_FOLDER + file_name
-        download_resource(res, dest_path)
+    for dvf_resource in dvf_resources:
+        logging.info(f'Downloading ressource "{dvf_resource.resource.title}"...')
+        dest_path = TMP_FOLDER + dvf_resource.file_name
+        download_resource(dvf_resource.resource, dest_path)
         with ZipFile(dest_path, mode="r") as z:
             zipped = z.namelist()
             if len(zipped) != 1:
