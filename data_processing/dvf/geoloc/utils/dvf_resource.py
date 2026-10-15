@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from datagouv import Resource
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.deliveries import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
     get_delivery_info,
 )
 

@@ -19,10 +19,10 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
     enrich_with_cadastre,
 )
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.deliveries import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
     get_delivery_info,
 )
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resources import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
     get_dvf_resources,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (

@@ -1,9 +1,9 @@
-"""Unit tests for the DVF delivery definitions (utils/deliveries)."""
+"""Unit tests for the DVF delivery definitions (utils/delivery)."""
 
 from datetime import date
 
 import pytest
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.deliveries import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
     DELIVERIES,
     DeliveryInfo,
     get_delivery_from_today,
