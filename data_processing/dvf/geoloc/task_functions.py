@@ -105,7 +105,7 @@ def download_dvf_source_data(params: dict, **context):
     files: list[str] = []
     for dvf_resource in dvf_resources:
         logging.info(f'Downloading ressource "{dvf_resource.resource.title}"...')
-        dest_path = TMP_FOLDER + dvf_resource.file_name
+        dest_path = TMP_FOLDER + dvf_resource.dvf_version.get_zip_file_name()
         download_resource(dvf_resource.resource, dest_path)
         with ZipFile(dest_path, mode="r") as z:
             zipped = z.namelist()

@@ -40,7 +40,7 @@ def _october_resources():
 def test_april_delivery_returns_full_years_without_semester():
     resources = [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]]
     out = get_dvf_resources(resources, delivery="april")
-    assert [dvf.file_name for dvf in out] == [
+    assert [dvf.dvf_version.get_zip_file_name() for dvf in out] == [
         f"valeursfoncieres-{y}.txt.zip" for y in [2021, 2022, 2023, 2024, 2025]
     ]
     assert [dvf.dvf_version.year for dvf in out] == [
@@ -58,9 +58,9 @@ def test_october_delivery_accepts_end_semesters():
     resources = _october_resources()
     out = get_dvf_resources(resources, delivery="october")
     assert len(out) == 6
-    assert out[0].file_name == "valeursfoncieres-2021-s2.txt.zip"
+    assert out[0].dvf_version.get_zip_file_name() == "valeursfoncieres-2021-s2.txt.zip"
     assert out[0].dvf_version.semester == "s2"
-    assert out[-1].file_name == "valeursfoncieres-2026-s1.txt.zip"
+    assert out[-1].dvf_version.get_zip_file_name() == "valeursfoncieres-2026-s1.txt.zip"
     assert out[-1].dvf_version.semester == "s1"
     assert [dvf.dvf_version.semester for dvf in out[1:-1]] == [None, None, None, None]
 
@@ -69,7 +69,7 @@ def test_ignores_non_main_resources():
     resources = [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]]
     resources.append(_Resource("https://example.com/other.csv", type="documentation"))
     out = get_dvf_resources(resources, delivery="april")
-    assert all(dvf.file_name != "other.csv" for dvf in out)
+    assert all(dvf.dvf_version.get_zip_file_name() != "other.csv" for dvf in out)
     assert len(out) == 5
 
 
