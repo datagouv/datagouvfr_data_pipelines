@@ -27,7 +27,7 @@ ROOT_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TIME_DEPTH_TO_KEEP = timedelta(days=2)
 # When True, retention deletion (S3 and SFTP) in remove_old_occurrences is only
 # logged, never actually performed.
-DRY_RUN_RETENTION = True
+DRY_RUN_RETENTION = False
 bucket_pe = "meteofrance-pe"
 s3_folder = "data"
 upload_dir = "/uploads/"  # this is where MF pushes the files
