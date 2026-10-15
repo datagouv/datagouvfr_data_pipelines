@@ -22,7 +22,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index i
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
     enrich_year,
 )
-from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.utils.datagouv import demo_client, local_client
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
@@ -30,6 +30,22 @@ from datagouvfr_data_pipelines.utils.tchap import send_message
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 CADASTRE_FILE = f"{TMP_FOLDER}cadastre.parquet"
+
+# TODO: delete after the test phase, and replace publish_client / get_source_dataset by
+# local_client / Dataset(SOURCE_DATASET_ID)
+DRY_RUN = True  # publish on demo even when running on prod, to review the output first
+APRIL_SOURCE_DATASET_ID = "6ace2da98d1331e15433ff9f"  # April delivery copied on demo
+publish_client = demo_client if DRY_RUN else local_client
+
+
+def get_source_dataset(delivery: str | None) -> Dataset:
+    if delivery == "april" and AIRFLOW_ENV == "dev":
+        return Dataset(APRIL_SOURCE_DATASET_ID, _client=demo_client)
+    return Dataset(SOURCE_DATASET_ID)
+
+
+# TODO: stop delete here
+
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
 GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
 bucket = "dataeng-open"
@@ -62,7 +78,8 @@ def check_if_modif():
 @task()
 def download_dvf_source_data(params: dict, **context) -> list[str]:
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
-    dvf_dataset = Dataset(SOURCE_DATASET_ID)
+    dvf_dataset = get_source_dataset(params.get("delivery"))
+    # dvf_dataset = Dataset(SOURCE_DATASET_ID) # TODO: post test delete line above and uncomment this one
     data = [res for res in dvf_dataset.resources if res.type == "main"]
     if len(data) not in {5, 6}:
         # 5 full years, or half first and last years and 4 full years
@@ -286,7 +303,8 @@ def publish_datagouv(params: dict):
     # keeps the same resource: we want to replace resources when we can, so that we keep
     # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
     # tree) are not managed here.
-    dataset = local_client.dataset(GEOLOC_DATASET_ID)
+    dataset = publish_client.dataset(GEOLOC_DATASET_ID)
+    # dataset = local_client.dataset(GEOLOC_DATASET_ID) # TODO: delete line above and uncomment this one
     existing = {
         match.group(1): res
         for res in dataset.resources
@@ -355,6 +373,6 @@ def publish_full_file(dataset, years: list[str]) -> None:
 def notification() -> None:
     send_message(
         f"DVF géolocalisé mis à jour :\n"
-        f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({local_client.base_url}/datasets/{GEOLOC_DATASET_ID})"
+        f"\n- publié [sur {'demo.' if publish_client is demo_client else ''}data.gouv.fr]"
+        f"({publish_client.base_url}/datasets/{GEOLOC_DATASET_ID})"
     )
