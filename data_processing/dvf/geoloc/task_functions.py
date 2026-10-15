@@ -61,8 +61,7 @@ def check_if_modif():
 
 @task()
 def download_dvf_source_data(params: dict, **context) -> list[str]:
-    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files
-    """
+    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
     data = [res for res in dvf_dataset.resources if res.type == "main"]
     if len(data) not in {5, 6}:
