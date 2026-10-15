@@ -60,7 +60,8 @@ def check_if_modif():
 
 
 @task()
-def download_dvf_source_data(params: dict, **context):
+def download_dvf_source_data(params: dict, **context) -> list[str]:
+    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
     data = [res for res in dvf_dataset.resources if res.type == "main"]
     if len(data) not in {5, 6}:
@@ -74,9 +75,6 @@ def download_dvf_source_data(params: dict, **context):
     for file_name in file_names:
         if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
             raise ValueError(f"Unexpected file name: {file_name}")
-    # computed on the whole window, before any filtering, so that the reference data
-    # downloaded below is the same as in a complete run
-    max_year = max(int(f.split(".")[0].split("-")[1]) for f in file_names)
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
@@ -90,7 +88,7 @@ def download_dvf_source_data(params: dict, **context):
             raise ValueError(f"No source resource for year {year_to_run}")
         logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
 
-    files = []
+    files: list[str] = []
     for file_name, res in file_names.items():
         logging.info(f'Downloading ressource "{res.title}"...')
         dest_path = TMP_FOLDER + file_name
@@ -103,29 +101,21 @@ def download_dvf_source_data(params: dict, **context):
             files.append(zipped[0])
         os.remove(dest_path)
 
-    logging.info("Retrieving reference data...")
-    # downloading cadastre data for downstream merges
-    # one major version per year since 2020, which was version 0.x.y (then incremented each year, ask Thomas for more infos)
-    version = max_year - 2020
-    r = requests.get(
-        f"https://unpkg.com/@etalab/decoupage-administratif@{version}/data/communes.json"
-    ).json()
-    arrondissements_muni = [
-        {"nom": k["nom"], "code": k["code"], "type": "COM"}
-        for k in r
-        if k["type"] == "arrondissement-municipal"
-    ]
-    context["ti"].xcom_push(key="arrondissements_muni", value=arrondissements_muni)
     return files
 
 
 @task()
-def enrich_years(files, **context):
+def enrich_years(files: list[str], **context):
+    """Enrich the data (change column names, improve date, codes and texts, add latitude/longitude and id_mutation).
+
+    See enrich_year() docstring.
+
+    The results are put in one Parquet file per year (per source file). The source files (unzipped txt files) are
+    deleted.
+    """
+
     # we can't parallelize for RAM containment
 
-    # arrondissements_muni = context["ti"].xcom_pull(
-    #     key="arrondissements_muni", task_ids="download_source_data"
-    # )
     logging.info("Loading config data...")
     map_cultures = {}
     for scope in ["cultures", "cultures-speciales"]:
@@ -184,9 +174,14 @@ def get_cadastre_millesime(delivery: str | None, today: date) -> str:
 
 @task()
 def download_cadastre_source_data(params: dict, **context):
-    """
-    Load the right cadastre file and store locally its indexed parcelle geometries
-    for faster match against centroid geopoint of the parcelles from DVF.
+    """Prepare a local Parquet file with the "current" cadastre parcelles geometries.
+
+    "current": the cadastre that corresponds the delivery (april or october) and year.
+
+    Download the cadastre file (Parquet)
+    Filter it to keep only the "parcelles" rows and the following columns: departement,
+    geom_srid, commune, parcelle_id, geometry.
+    Save it to a local Parquet file.
     """
     # Technical choice notes: Measurement on samples shows it is faster to load the full file
     # then filter it locally with duckdb rather than directly filter and load with duckdb.
@@ -232,6 +227,15 @@ def download_cadastre_source_data(params: dict, **context):
 
 @task()
 def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
+    """Match the latitude and longitude with the current cadastre to fix the parcelle_id
+
+    If parcelle_id and (latitude, longitude) don't match the current cadastre
+    (comparing with the centroid geopoint of the parcelles), find the current
+    parcelle_id, fill ancien_code_commune, ancien_nom_commune, ancien_id_parcelle,
+    and replace code_commune, nom_commune and id_parcelle
+
+    Write the result as .csv.gz files, and delete the temporary Parquet ones.
+    """
     files = sorted(
         f for f in os.listdir(TMP_FOLDER) if f.startswith("temp-")
     )  # If year_to_run set up, len(files) == 1
