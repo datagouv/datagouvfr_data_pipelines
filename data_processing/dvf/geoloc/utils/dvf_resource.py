@@ -7,14 +7,16 @@ from datagouv import Resource
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
     get_delivery_info,
 )
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
 
 
 @dataclass
 class DvfResource:
     file_name: str
     resource: Resource
-    year: str
-    semester: str | None = None  # "s1"/"s2" for half-year files, None for full years
+    dvf_version: DvfVersion
 
 
 def get_dvf_resources(
@@ -82,35 +84,36 @@ def get_dvf_resources(
             DvfResource(
                 file_name=file_name,
                 resource=resource,
-                year=m.group("year"),
-                semester=m.group("semester"),
+                dvf_version=DvfVersion(
+                    year=m.group("year"), semester=m.group("semester")
+                ),
             )
         )
-    dvf_resources.sort(key=lambda d: (d.year, d.semester or ""))
+    dvf_resources.sort(key=lambda d: (d.dvf_version.year, d.dvf_version.semester or ""))
 
     if delivery_info.delivery == "april":
         # five full years, no half-year files
-        if any(d.semester for d in dvf_resources):
+        if any(d.dvf_version.semester for d in dvf_resources):
             raise ValueError(
                 f"Unexpected semester file in an april delivery: "
-                f"{[d.file_name for d in dvf_resources if d.semester]}"
+                f"{[d.file_name for d in dvf_resources if d.dvf_version.semester]}"
             )
     else:
         # october: oldest year holds its last semester (s2), newest year its first (s1)
-        if dvf_resources[0].semester != "s2":
+        if dvf_resources[0].dvf_version.semester != "s2":
             raise ValueError(
                 f"Oldest year must hold its last semester (s2): "
                 f"{dvf_resources[0].file_name}"
             )
-        if dvf_resources[-1].semester != "s1":
+        if dvf_resources[-1].dvf_version.semester != "s1":
             raise ValueError(
                 f"Newest year must hold its first semester (s1): "
                 f"{dvf_resources[-1].file_name}"
             )
-        if any(d.semester for d in dvf_resources[1:-1]):
+        if any(d.dvf_version.semester for d in dvf_resources[1:-1]):
             raise ValueError(
                 f"Unexpected semester file in a full year: "
-                f"{[d.file_name for d in dvf_resources[1:-1] if d.semester]}"
+                f"{[d.file_name for d in dvf_resources[1:-1] if d.dvf_version.semester]}"
             )
 
     return dvf_resources
