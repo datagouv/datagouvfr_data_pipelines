@@ -130,7 +130,7 @@ def enrich_parcelles_with_snapshot_coord(
                 f" - {nb_found:,}/{nb_wanted:,} parcelles found ({nb_found / nb_wanted:.0%})"
                 f" - ~{eta / 60:.0f} min left"
             )
-
+    del coord_pf
     del parcelle_ids
     if not coord_to_keep_chunks:
         raise ValueError(
