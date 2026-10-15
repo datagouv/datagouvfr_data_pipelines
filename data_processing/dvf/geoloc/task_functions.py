@@ -119,13 +119,13 @@ def download_dvf_source_data(params: dict, **context):
             if len(zipped) != 1:
                 raise ValueError("Unexpected number of files in zip")
             z.extractall(TMP_FOLDER)
-            unzipped_filename = zipped[0]
-            expected_filename = dvf_resource.dvf_version.get_unzipped_filename()
-            if unzipped_filename != expected_filename:
+            unzipped_file_name = zipped[0]
+            expected_file_name = dvf_resource.dvf_version.get_unzipped_file_name()
+            if unzipped_file_name != expected_file_name:
                 raise ValueError(
-                    f"Unexpected unzipped file name {unzipped_filename}, expected {expected_filename}."
+                    f"Unexpected unzipped file name {unzipped_file_name}, expected {expected_file_name}."
                 )
-            files.append(unzipped_filename)
+            files.append(unzipped_file_name)
         os.remove(dest_path)
 
     return files
