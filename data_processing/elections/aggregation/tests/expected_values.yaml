@@ -1,0 +1,179 @@
+# Values read by hand in the original publications of the Ministère de l'Intérieur,
+# checked against the produced files at each run of the DAG (task check_outputs):
+# a mismatch fails the run before anything is sent or published.
+#
+# - table: general or candidats
+# - filtres: the columns selecting the rows (id_election is required)
+# - either valeurs: the columns to check on the single row selected (a case matching
+#   no row or several rows is an error)
+# - or agregats: per column, aggregates over all the rows selected (e.g. a department):
+#   somme, moyenne, min, max, nombre (of non-empty values)
+# - source: where the value was read (file, URL, sheet, line)
+#
+# Numbers are compared at the precision written here (98.72 → 2 decimals).
+#
+# Quote the codes, otherwise YAML reads them as numbers: "01", "01001_0001".
+#
+# - table: candidats
+#   filtres:
+#     id_election: "1992_sena_t1"
+#     id_brut_miom: "37"
+#     nom: "LECLERC"
+#   valeurs:
+#     voix: 441
+#   source: "Sénatoriales 1992, fichier xls du MinInt, onglet …, ligne …"
+#
+# - table: general
+#   filtres:
+#     id_election: "2022_pres_t1"
+#     code_departement: "37"
+#   agregats:
+#     inscrits:
+#       somme: 450123
+#     ratio_votants_inscrits:
+#       moyenne: 78.12
+#   source: "Présidentielle 2022 T1, résultats par département, Indre-et-Loire"
+
+#### Européennes 2024 T1
+
+- table: general
+  filtres:
+    id_election: "2024_euro_t1"
+    id_brut_miom: "01001_0001"
+  valeurs:
+    inscrits: 662
+    votants: 373
+  source: "1996b2bc-e95a-4481-904f-28d16987fe61"
+
+- table: general
+  filtres:
+    id_election: "2024_euro_t1"
+    code_departement: "01"
+  agregats:
+    inscrits:
+      somme: 449217
+    votants:
+      somme: 244260
+  source: "2690a1ed-13fb-4164-a006-2878000bf4c1"
+
+- table: candidats
+  filtres:
+    id_election: "2024_euro_t1"
+    id_brut_miom: "01001_0001"
+    no_panneau: 3
+  valeurs:
+    voix: 30
+    ratio_voix_exprimes: 8.13
+    nuance: "LREC"
+    libelle_abrege_liste: "LA FRANCE FIERE, MENEE PAR MARION MARECHAL ET SOUTENUE PAR ÉRIC ZEMMOUR"
+  source: "1996b2bc-e95a-4481-904f-28d16987fe61"
+
+###### Sénatoriales 2026 T1
+
+- table: general
+  filtres:
+    id_election: "2026_sena_t1"
+    code_departement: "01"
+  valeurs:
+    inscrits: 1956
+    votants: 1931
+  source: "1996b2bc-e95a-4481-904f-28d16987fe61"
+
+- table: candidats
+  filtres:
+    id_election: "2026_sena_t1"
+    code_departement: "01"
+    nuance: "LREC"
+  valeurs:
+    voix: 84
+    ratio_voix_exprimes: 4.38
+    libelle_abrege_liste: "A la reconquête de l'Ain"
+  source: "1996b2bc-e95a-4481-904f-28d16987fe61"
+
+###### Sénatoriales 2004 T1
+
+- table: general
+  filtres:
+    id_election: "2004_sena_t1"
+    code_departement: "61"
+  valeurs:
+    inscrits: 1027
+    votants: 1025
+  source: "4bb7c945-e238-491b-898a-9377d7515f5c"
+
+- table: general
+  filtres:
+    id_election: "2004_sena_t1"
+    code_departement: "ZA"
+  valeurs:
+    inscrits: 882
+    votants: 874
+  source: "4bb7c945-e238-491b-898a-9377d7515f5c"
+
+- table: candidats
+  filtres:
+    id_election: "2004_sena_t1"
+    code_departement: "61"
+    nuance: "UMP"
+  valeurs:
+    voix: 666
+    ratio_voix_exprimes: 65.49
+    nom: "LAMBERT"
+    prenom: "Alain"
+  source: "4bb7c945-e238-491b-898a-9377d7515f5c"
+
+#### Municipales 2020 T1
+
+- table: general
+  filtres:
+    id_election: "2020_muni_t1"
+    code_commune: "01004"
+  agregats:
+    inscrits:
+      somme: 8109
+    abstentions: 
+      somme: 5253
+    votants: 
+      somme: 2856
+  source: "1996b2bc-e95a-4481-904f-28d16987fe61"
+
+- table: candidats
+  filtres:
+    id_election: "2020_muni_t1"
+    code_commune: "01004"
+    nom: "FABRE"
+    prenom: "Daniel"
+    nuance: "LDVC"
+#    libelle_etendu_liste: "UNIS POUR AMBERIEU"
+  agregats:
+    voix:
+      somme: 1410
+  source: "1996b2bc-e95a-4481-904f-28d16987fe61"
+
+#### Municipales 2014 T2
+
+- table: general
+  filtres:
+    id_election: "2014_muni_t2"
+    code_commune: "01007"
+  agregats:
+    inscrits:
+      somme: 1770
+    abstentions: 
+      somme: 434
+    votants: 
+      somme: 1336
+  source: "28ed59fd-d285-42f1-9eb6-d82ff2eaa4b3"
+
+- table: candidats
+  filtres:
+    id_election: "2014_muni_t2"
+    code_commune: "01007"
+    nuance: "LDVG"
+    nom: "LEVRAT"
+    prenom: "Gisèle"
+#    libelle_etendu_liste: "AMBRONAY POUR TOUS"
+  agregats:
+    voix: 
+      somme: 610
+  source: "28ed59fd-d285-42f1-9eb6-d82ff2eaa4b3"

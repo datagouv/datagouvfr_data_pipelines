@@ -1,0 +1,94 @@
+{
+    "dataset_id": {
+        "dev": "6481e741d4cf002ec0efec9d",
+        "prod": "6481e741d4cf002ec0efec9d"
+    },
+    "general": {
+        "csv": {
+            "dev": {
+                "resource_id": "b8703c69-a18f-46ab-9e7f-3a8368dcb891"
+            },
+            "prod": {
+                "resource_id": "b8703c69-a18f-46ab-9e7f-3a8368dcb891"
+            }
+        },
+        "parquet": {
+            "dev": {
+                "resource_id": "ff16d511-10c0-405e-9b35-511723948fce"
+            },
+            "prod": {
+                "resource_id": "ff16d511-10c0-405e-9b35-511723948fce"
+            }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "9f3076c0-f225-48ea-acf2-2a71a575a5ea"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        }
+    },
+    "candidats": {
+        "csv": {
+            "dev": {
+                "resource_id": "52a11762-45b4-414f-b6a2-eaa290217dc6"
+            },
+            "prod": {
+                "resource_id": "52a11762-45b4-414f-b6a2-eaa290217dc6"
+            }
+        },
+        "parquet": {
+            "dev": {
+                "resource_id": "4d3b35f6-0b22-4415-a24c-419a676312e2"
+            },
+            "prod": {
+                "resource_id": "4d3b35f6-0b22-4415-a24c-419a676312e2"
+            }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "de2489d1-bedf-455d-bb5c-bf04ba6931b9"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        }
+    },
+    "communes": {
+        "csv": {
+            "dev": {
+                "resource_id": "97383242-cd6f-4106-99e5-28b1ca1f8e71"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "72a957c4-8b9a-4985-8e7e-a150473d22bb"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        }
+    },
+    "nuances": {
+        "csv": {
+            "dev": {
+                "resource_id": "abaa2adc-2cfd-45c9-9b0c-74b10971682a"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        },
+        "schema": {
+            "dev": {
+                "resource_id": "2dcc1742-82b4-4e7d-a990-01d1b1b9bb12"
+            },
+            "prod": {
+                "resource_id": "TODO"
+            }
+        }
+    }
+}
