@@ -62,8 +62,6 @@ def check_if_modif():
 @task()
 def download_dvf_source_data(params: dict, **context) -> list[str]:
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files
-
-    Also put the list of arrondissements municipaux (nom, code) in an XCom (key=arrondissements_muni)
     """
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
     data = [res for res in dvf_dataset.resources if res.type == "main"]
@@ -78,9 +76,6 @@ def download_dvf_source_data(params: dict, **context) -> list[str]:
     for file_name in file_names:
         if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
             raise ValueError(f"Unexpected file name: {file_name}")
-    # computed on the whole window, before any filtering, so that the reference data
-    # downloaded below is the same as in a complete run
-    max_year = max(int(f.split(".")[0].split("-")[1]) for f in file_names)
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
@@ -107,34 +102,21 @@ def download_dvf_source_data(params: dict, **context) -> list[str]:
             files.append(zipped[0])
         os.remove(dest_path)
 
-    logging.info("Retrieving reference data...")
-    # downloading cadastre data for downstream merges
-    # one major version per year since 2020, which was version 0.x.y (then incremented each year, ask Thomas for more infos)
-    # example:
-    # [
-    #   {"code":"01001","nom":"L'Abergement-Clémenciat","typeLiaison":5,"zone":"metro","arrondissement":"012","departement":"01","region":"84","type":"commune-actuelle","rangChefLieu":0,"siren":"210100012","codesPostaux":["01400"],"population":860},
-    #   {"code":"01002","nom":"L'Abergement-de-Varey","typeLiaison":5,"zone":"metro","arrondissement":"011","departement":"01","region":"84","type":"commune-actuelle","rangChefLieu":0,"siren":"210100020","codesPostaux":["01640"],"population":270},
-    # ]
-    version = max_year - 2020
-    r = requests.get(
-        f"https://unpkg.com/@etalab/decoupage-administratif@{version}/data/communes.json"
-    ).json()
-    arrondissements_muni = [
-        {"nom": k["nom"], "code": k["code"], "type": "COM"}
-        for k in r
-        if k["type"] == "arrondissement-municipal"
-    ]
-    context["ti"].xcom_push(key="arrondissements_muni", value=arrondissements_muni)
     return files
 
 
 @task()
 def enrich_years(files: list[str], **context):
+    """Enrich the data (change column names, improve date, codes and texts, add latitude/longitude and id_mutation).
+
+    See enrich_year() docstring.
+
+    The results are put in one Parquet file per year (per source file). The source files (unzipped txt files) are
+    deleted.
+    """
+
     # we can't parallelize for RAM containment
 
-    # arrondissements_muni = context["ti"].xcom_pull(
-    #     key="arrondissements_muni", task_ids="download_source_data"
-    # )
     logging.info("Loading config data...")
     map_cultures = {}
     for scope in ["cultures", "cultures-speciales"]:
