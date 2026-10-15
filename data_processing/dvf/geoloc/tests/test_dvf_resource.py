@@ -43,8 +43,14 @@ def test_april_delivery_returns_full_years_without_semester():
     assert [dvf.file_name for dvf in out] == [
         f"valeursfoncieres-{y}.txt.zip" for y in [2021, 2022, 2023, 2024, 2025]
     ]
-    assert [dvf.year for dvf in out] == ["2021", "2022", "2023", "2024", "2025"]
-    assert all(dvf.semester is None for dvf in out)
+    assert [dvf.dvf_version.year for dvf in out] == [
+        "2021",
+        "2022",
+        "2023",
+        "2024",
+        "2025",
+    ]
+    assert all(dvf.dvf_version.semester is None for dvf in out)
     assert [dvf.resource for dvf in out] == resources
 
 
@@ -53,10 +59,10 @@ def test_october_delivery_accepts_end_semesters():
     out = get_dvf_resources(resources, delivery="october")
     assert len(out) == 6
     assert out[0].file_name == "valeursfoncieres-2021-s2.txt.zip"
-    assert out[0].semester == "s2"
+    assert out[0].dvf_version.semester == "s2"
     assert out[-1].file_name == "valeursfoncieres-2026-s1.txt.zip"
-    assert out[-1].semester == "s1"
-    assert [dvf.semester for dvf in out[1:-1]] == [None, None, None, None]
+    assert out[-1].dvf_version.semester == "s1"
+    assert [dvf.dvf_version.semester for dvf in out[1:-1]] == [None, None, None, None]
 
 
 def test_ignores_non_main_resources():

@@ -103,7 +103,7 @@ def download_dvf_source_data(params: dict, **context):
         dvf_resources = [
             dvf_resource
             for dvf_resource in dvf_resources
-            if dvf_resource.year == year_to_run
+            if dvf_resource.dvf_version.year == year_to_run
         ]
         if not dvf_resources:
             raise ValueError(f"No source resource for year {year_to_run}")
@@ -119,7 +119,13 @@ def download_dvf_source_data(params: dict, **context):
             if len(zipped) != 1:
                 raise ValueError("Unexpected number of files in zip")
             z.extractall(TMP_FOLDER)
-            files.append(zipped[0])
+            unzipped_filename = zipped[0]
+            expected_filename = dvf_resource.dvf_version.get_unzipped_filename()
+            if unzipped_filename != expected_filename:
+                raise ValueError(
+                    f"Unexpected unzipped file name {unzipped_filename}, expected {expected_filename}."
+                )
+            files.append(unzipped_filename)
         os.remove(dest_path)
 
     return files
