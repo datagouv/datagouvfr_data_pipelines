@@ -178,7 +178,7 @@ def enrich_year(
 
     Write the result in a Parquet file, respecting the order of the source rows.
 
-    The source file is not deleted here.
+    The downloaded source file is not deleted here.
 
     Parameters
     ----------
