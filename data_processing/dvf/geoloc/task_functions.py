@@ -227,6 +227,15 @@ def download_cadastre_source_data(params: dict, **context):
 
 @task()
 def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
+    """Match the latitude and longitude with the current cadastre to fix the parcelle_id
+
+    If parcelle_id and (latitude, longitude) don't match the current cadastre
+    (comparing with the centroid geopoint of the parcelles), find the current
+    parcelle_id, fill ancien_code_commune, ancien_nom_commune, ancien_id_parcelle,
+    and replace code_commune, nom_commune and id_parcelle
+
+    Write the result as .csv.gz files, and delete the temporary Parquet ones.
+    """
     files = sorted(
         f for f in os.listdir(TMP_FOLDER) if f.startswith("temp-")
     )  # If year_to_run set up, len(files) == 1
