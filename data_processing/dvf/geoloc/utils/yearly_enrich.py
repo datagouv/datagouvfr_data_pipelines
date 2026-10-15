@@ -148,6 +148,58 @@ def enrich_year(
     s3_client: S3Client,
     bucket: str,
 ):
+    """Enrich a DVF file and write the result as a Parquet file.
+
+    Load the DVF .txt file as CSV, reading only the needed columns.
+    Change the column names.
+    Copy the column contents for these columns:
+    - columns in PASSTHROUGH_COLUMNS
+    - columns in FLOAT_COLUMNS. surface_reelle_bati and surface_terrain are int32.
+
+    Modify the column contents for these columns:
+    - date_mutation: str. make str date ISO : DD/MM/YYYY => YYYY-MM-DD
+    - adresse_nom_voie: str. concatenate Type de voie and Voie
+    - adresse_code_voie: str. pad to 4 characters, ex. "143" => "0143"
+    - code_postal: str. 0-padded to 5 characters, ex. 08300
+    - code_commune: str. 5 characters commune code (department + commune), 2+3 caracters in mainland France, 3+2 overseas (97x)
+    - nom_commune: str. title cased commune name, with lowercase stop words inside: "LE PUY EN VELAY" => "Le Puy en Velay"
+    - code_departement: str. 0-padded to 2 or 3 characters (mainland: 08 or overseas: 974)
+    - nature_culture: str. code replaced with text: "terrains a bâtir", instead of "AB"
+    - nature_culture_speciale: str. code replaced with text: "Abreuvoirs" instead of "ABREU"
+    - id_parcelle: str. 14 characters parcelle ID shared both by DVF df and parcelles coordinates parquet file
+
+    Create these new columns:
+    - id_mutation: str. Identifies a mutation (can span over multiple lines). ex. 2026-1.
+    - latitude: float64. Latitude of the parcelle centroid in WGS84.
+    - longitude: float64. Latitude of the parcelle centroid in WGS84.
+    - ancien_code_commune: str. Empty for now.
+    - ancien_nom_commune: str. Empty for now.
+    - ancien_id_parcelle: str. Empty for now.
+
+    Write the result in a Parquet file, respecting the order of the source rows.
+
+    The source file is not deleted here.
+
+    Parameters
+    ----------
+    file : str
+        Path to the DVF .txt (unzipped) source file for a specific year.
+    tmp_folder : str
+        Temp folder for the DVF DAG.
+    map_cultures : dict
+        Object to get the label for a given "culture" code
+        ex: {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
+    output_scheme : dict
+        Type of each column, in the published column order
+        ex: {"id_mutation": "object", ...}
+    available_dates : dict
+        Map of the cadastre Parquet files per date
+        ex: {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
+    s3_client : S3Client
+        S3 client to read cadastre (parcelles) files
+    bucket : str
+        Name of the bucket that contains cadastre parcelles
+    """
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
     year = file.split(".")[0].split("-")[1]  #  # "valeursfoncieres-2023.txt" => "2023"
     if f"temp-{year}.parquet" in os.listdir(tmp_folder):

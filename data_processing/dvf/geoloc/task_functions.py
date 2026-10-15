@@ -60,7 +60,11 @@ def check_if_modif():
 
 
 @task()
-def download_dvf_source_data(params: dict, **context):
+def download_dvf_source_data(params: dict, **context) -> list[str]:
+    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files
+
+    Also put the list of arrondissements municipaux (nom, code) in an XCom (key=arrondissements_muni)
+    """
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
     data = [res for res in dvf_dataset.resources if res.type == "main"]
     if len(data) not in {5, 6}:
@@ -90,7 +94,7 @@ def download_dvf_source_data(params: dict, **context):
             raise ValueError(f"No source resource for year {year_to_run}")
         logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
 
-    files = []
+    files: list[str] = []
     for file_name, res in file_names.items():
         logging.info(f'Downloading ressource "{res.title}"...')
         dest_path = TMP_FOLDER + file_name
@@ -106,6 +110,11 @@ def download_dvf_source_data(params: dict, **context):
     logging.info("Retrieving reference data...")
     # downloading cadastre data for downstream merges
     # one major version per year since 2020, which was version 0.x.y (then incremented each year, ask Thomas for more infos)
+    # example:
+    # [
+    #   {"code":"01001","nom":"L'Abergement-Clémenciat","typeLiaison":5,"zone":"metro","arrondissement":"012","departement":"01","region":"84","type":"commune-actuelle","rangChefLieu":0,"siren":"210100012","codesPostaux":["01400"],"population":860},
+    #   {"code":"01002","nom":"L'Abergement-de-Varey","typeLiaison":5,"zone":"metro","arrondissement":"011","departement":"01","region":"84","type":"commune-actuelle","rangChefLieu":0,"siren":"210100020","codesPostaux":["01640"],"population":270},
+    # ]
     version = max_year - 2020
     r = requests.get(
         f"https://unpkg.com/@etalab/decoupage-administratif@{version}/data/communes.json"
@@ -120,7 +129,7 @@ def download_dvf_source_data(params: dict, **context):
 
 
 @task()
-def enrich_years(files, **context):
+def enrich_years(files: list[str], **context):
     # we can't parallelize for RAM containment
 
     # arrondissements_muni = context["ti"].xcom_pull(
