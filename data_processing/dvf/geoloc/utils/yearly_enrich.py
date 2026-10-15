@@ -170,8 +170,8 @@ def enrich_year(
 
     Create these new columns:
     - id_mutation: str. Identifies a mutation (can span over multiple lines). ex. 2026-1.
-    - latitude: float64. Latitude of the parcelle centroid in WGS84.
-    - longitude: float64. Latitude of the parcelle centroid in WGS84.
+    - latitude: float64. Latitude of the parcelle centroid in WGS84, obtained from cadastre snapshot at mutation date.
+    - longitude: float64. Latitude of the parcelle centroid in WGS84, obtained from cadastre snapshot at mutation date.
     - ancien_code_commune: str. Empty for now.
     - ancien_nom_commune: str. Empty for now.
     - ancien_id_parcelle: str. Empty for now.

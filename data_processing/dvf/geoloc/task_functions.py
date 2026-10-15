@@ -174,9 +174,14 @@ def get_cadastre_millesime(delivery: str | None, today: date) -> str:
 
 @task()
 def download_cadastre_source_data(params: dict, **context):
-    """
-    Load the right cadastre file and store locally its indexed parcelle geometries
-    for faster match against centroid geopoint of the parcelles from DVF.
+    """Prepare a local Parquet file with the "current" cadastre parcelles geometries.
+
+    "current": the cadastre that corresponds the delivery (april or october) and year.
+
+    Download the cadastre file (Parquet)
+    Filter it to keep only the "parcelles" rows and the following columns: departement,
+    geom_srid, commune, parcelle_id, geometry.
+    Save it to a local Parquet file.
     """
     # Technical choice notes: Measurement on samples shows it is faster to load the full file
     # then filter it locally with duckdb rather than directly filter and load with duckdb.
