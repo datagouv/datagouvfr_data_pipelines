@@ -1,9 +1,9 @@
-"""Unit tests for get_dvf_resources in the DVF geoloc task_functions."""
+"""Unit tests for get_dvf_resource (utils/dvf_resource)."""
 
 from datetime import date
 
 import pytest
-from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resources import (
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
     get_dvf_resources,
 )
 
