@@ -9,7 +9,6 @@ resources that fell out of the rolling window.
 from datetime import date
 
 import pytest
-
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc import task_functions
 
 OCTOBER_WINDOW = [
