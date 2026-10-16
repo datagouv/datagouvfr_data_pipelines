@@ -109,7 +109,7 @@ def download_dvf_source_data(params: dict, **context):
             raise ValueError(f"No source resource for year {year_to_run}")
         logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
 
-    files: list[str] = []
+    unzipped_file_names: list[str] = []
     for dvf_resource in dvf_resources:
         logging.info(f'Downloading ressource "{dvf_resource.resource.title}"...')
         dest_path = TMP_FOLDER + dvf_resource.dvf_version.get_zip_file_name()
@@ -125,10 +125,10 @@ def download_dvf_source_data(params: dict, **context):
                 raise ValueError(
                     f"Unexpected unzipped file name {unzipped_file_name}, expected {expected_file_name}."
                 )
-            files.append(unzipped_file_name)
+            unzipped_file_names.append(unzipped_file_name)
         os.remove(dest_path)
 
-    return files
+    return unzipped_file_names
 
 
 @task()
