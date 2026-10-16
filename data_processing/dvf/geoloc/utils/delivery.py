@@ -5,8 +5,6 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version impo
     DvfVersion,
 )
 
-# TODO: include year (implicitly it's given by date.today())
-
 
 class Delivery(ABC):
     _registry: dict[str, type["Delivery"]] = {}

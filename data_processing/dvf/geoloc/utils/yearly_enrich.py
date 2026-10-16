@@ -53,7 +53,6 @@ COMPUTED_SOURCE_COLUMNS = [
     "Section",
     "No plan",
 ]
-# TODO: fill in the "ancien..." columns
 EMPTY_COLUMNS = ("ancien_code_commune", "ancien_nom_commune", "ancien_id_parcelle")
 
 # what read_csv reads: everything as a string, except the numeric columns parsed as floats.
