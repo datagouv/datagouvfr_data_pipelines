@@ -1,8 +1,16 @@
-"""Unit tests for get_dvf_resource (utils/dvf_resource)."""
+"""Unit tests for get_dvf_resources (utils/dvf_resource).
 
-from datetime import date
+The window shape validation (count, semester placement, consecutive years) is
+already covered in test_delivery.py through the deliveries' ``check_dvf_versions``.
+This file focuses on what ``get_dvf_resources`` adds on top: filtering the main
+resources, parsing file names into versions, and sorting.
+"""
 
 import pytest
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
+    AprilDelivery,
+    OctoberDelivery,
+)
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
     get_dvf_resources,
 )
@@ -37,9 +45,10 @@ def _october_resources():
     ]
 
 
-def test_april_delivery_returns_full_years_without_semester():
+def test_april_maps_main_resources_to_full_years():
     resources = [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]]
-    out = get_dvf_resources(resources, delivery="april")
+    out = get_dvf_resources(resources, AprilDelivery())
+    assert [dvf.resource for dvf in out] == resources
     assert [dvf.dvf_version.get_zip_file_name() for dvf in out] == [
         f"valeursfoncieres-{y}.txt.zip" for y in [2021, 2022, 2023, 2024, 2025]
     ]
@@ -51,92 +60,51 @@ def test_april_delivery_returns_full_years_without_semester():
         "2025",
     ]
     assert all(dvf.dvf_version.semester is None for dvf in out)
-    assert [dvf.resource for dvf in out] == resources
 
 
-def test_october_delivery_accepts_end_semesters():
+def test_october_maps_end_semesters():
     resources = _october_resources()
-    out = get_dvf_resources(resources, delivery="october")
+    out = get_dvf_resources(resources, OctoberDelivery())
     assert len(out) == 6
     assert out[0].dvf_version.get_zip_file_name() == "valeursfoncieres-2021-s2.txt.zip"
-    assert out[0].dvf_version.semester == "s2"
     assert out[-1].dvf_version.get_zip_file_name() == "valeursfoncieres-2026-s1.txt.zip"
-    assert out[-1].dvf_version.semester == "s1"
-    assert [dvf.dvf_version.semester for dvf in out[1:-1]] == [None, None, None, None]
+    assert [dvf.dvf_version.year for dvf in out] == [
+        "2021",
+        "2022",
+        "2023",
+        "2024",
+        "2025",
+        "2026",
+    ]
+
+
+def test_sorts_resources_by_year_then_semester():
+    # Shuffled input, still a valid october window after sorting
+    resources = [
+        _semester(2026, "s1"),
+        _full_year(2023),
+        _full_year(2022),
+        _semester(2021, "s2"),
+        _full_year(2024),
+        _full_year(2025),
+    ]
+    out = get_dvf_resources(resources, OctoberDelivery())
+    assert [dvf.dvf_version.get_zip_file_name() for dvf in out] == [
+        "valeursfoncieres-2021-s2.txt.zip",
+        "valeursfoncieres-2022.txt.zip",
+        "valeursfoncieres-2023.txt.zip",
+        "valeursfoncieres-2024.txt.zip",
+        "valeursfoncieres-2025.txt.zip",
+        "valeursfoncieres-2026-s1.txt.zip",
+    ]
 
 
 def test_ignores_non_main_resources():
     resources = [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]]
     resources.append(_Resource("https://example.com/other.csv", type="documentation"))
-    out = get_dvf_resources(resources, delivery="april")
-    assert all(dvf.dvf_version.get_zip_file_name() != "other.csv" for dvf in out)
+    out = get_dvf_resources(resources, AprilDelivery())
     assert len(out) == 5
-
-
-@pytest.mark.parametrize(
-    "delivery, build",
-    [
-        # april wants exactly five full years
-        (
-            "april",
-            lambda: [_full_year(y) for y in [2020, 2021, 2022, 2023, 2024, 2025]],
-        ),
-        # october wants six files
-        (
-            "october",
-            lambda: [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]],
-        ),
-        # april must not contain semester files
-        (
-            "april",
-            lambda: [
-                _full_year(2021),
-                _semester(2022, "s2"),
-                _full_year(2023),
-                _full_year(2024),
-                _full_year(2025),
-            ],
-        ),
-        # october needs the oldest year to hold s2 and the newest s1
-        (
-            "october",
-            lambda: [
-                _semester(2021, "s1"),
-                _full_year(2022),
-                _full_year(2023),
-                _full_year(2024),
-                _full_year(2025),
-                _semester(2026, "s2"),
-            ],
-        ),
-        # october must not have a semester in the middle (full years only)
-        (
-            "october",
-            lambda: [
-                _semester(2021, "s2"),
-                _full_year(2022),
-                _semester(2023, "s1"),
-                _full_year(2024),
-                _full_year(2025),
-                _semester(2026, "s1"),
-            ],
-        ),
-    ],
-)
-def test_rejects_window_mismatch(delivery, build):
-    resources = build()
-    with pytest.raises(
-        ValueError,
-        match="Unexpected number of resources|Unexpected semester"
-        "|Oldest year|Newest year",
-    ):
-        get_dvf_resources(resources, delivery=delivery)
-
-
-def test_rejects_unexpected_number_of_resources():
-    resources = [_full_year(y) for y in [2021, 2022, 2023, 2024]]
-    with pytest.raises(ValueError, match="Unexpected number of resources"):
-        get_dvf_resources(resources, delivery="april")
+    assert all(dvf.dvf_version.get_zip_file_name() != "other.csv" for dvf in out)
 
 
 def test_rejects_unexpected_file_names():
@@ -144,16 +112,18 @@ def test_rejects_unexpected_file_names():
     resources = [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]]
     resources[0] = bad
     with pytest.raises(ValueError, match="Unexpected file name"):
-        get_dvf_resources(resources, delivery="april")
+        get_dvf_resources(resources, AprilDelivery())
 
 
-def test_rejects_unknown_delivery():
-    resources = _october_resources()
-    with pytest.raises(ValueError, match="Unknown delivery"):
-        get_dvf_resources(resources, delivery="sometime")
-
-
-def test_delivery_inferred_from_today():
-    resources = [_full_year(y) for y in [2021, 2022, 2023, 2024, 2025]]
-    out = get_dvf_resources(resources, today=date(2026, 4, 15))
-    assert len(out) == 5
+def test_propagates_window_mismatch():
+    # A window that fails the delivery check is rejected here too
+    resources = [
+        _semester(2021, "s2"),
+        _full_year(2022),
+        _semester(2023, "s1"),  # a semester in a middle year
+        _full_year(2024),
+        _full_year(2025),
+        _semester(2026, "s1"),
+    ]
+    with pytest.raises(ValueError):
+        get_dvf_resources(resources, OctoberDelivery())
