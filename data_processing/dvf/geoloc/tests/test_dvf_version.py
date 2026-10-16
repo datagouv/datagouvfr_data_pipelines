@@ -48,7 +48,7 @@ class TestGetZipFileName:
         assert DvfVersion("2021", semester).get_zip_file_name() == (
             f"valeursfoncieres-2021-{semester}.txt.zip"
         )
-''
+
     @pytest.mark.parametrize(
         "version",
         [
