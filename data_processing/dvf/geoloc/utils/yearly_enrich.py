@@ -99,7 +99,7 @@ def build_output_columns(
 ) -> dict[str, pd.Series]:
     """Build all DVF cols that are based off the source only.
     Output one dict entry per col."""
-    cols = {}
+    cols: dict[str, pd.Series] = {}
 
     # Cols copied from the source, renamed only (floats already parsed by read_csv)
     cols |= {new: source[old] for old, new in PASSTHROUGH_COLUMNS.items()}
