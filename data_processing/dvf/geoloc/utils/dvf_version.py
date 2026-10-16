@@ -56,19 +56,51 @@ class DvfVersion:
             semester=cast(Literal["s1", "s2"] | None, m.group("semester")),
         )
 
-    def get_suffix(self) -> str:
-        suffix = self.year
+    @classmethod
+    def is_temp_parquet_file_name(cls, file_name: str) -> bool:
+        try:
+            cls.from_temp_parquet_file_name(file_name)
+            return True
+        except ValueError:
+            return False
+
+    @classmethod
+    def from_output_file_name(cls, file_name: str) -> "DvfVersion":
+        m = re.search(
+            r"^full-(?P<year>\d{4})(?:-(?P<semester>s[12]))?\.csv.gz$",
+            file_name,
+        )
+        if not m:
+            raise ValueError(f"Unexpected file name: {file_name}")
+        return cls(
+            year=m.group("year"),
+            semester=cast(Literal["s1", "s2"] | None, m.group("semester")),
+        )
+
+    @classmethod
+    def is_output_file_name(cls, file_name: str) -> bool:
+        try:
+            cls.from_output_file_name(file_name)
+            return True
+        except ValueError:
+            return False
+
+    def get_id(self) -> str:
+        id = self.year
         if self.semester:
-            suffix += f"-{self.semester}"
-        return suffix
+            id += f"-{self.semester}"
+        return id
 
     def get_unzipped_file_name(self) -> str:
-        suffix = self.get_suffix().upper()
+        suffix = self.get_id().upper()
         # ^ unzipped file has uppercase semester suffix: -S1 or -S2
         return f"ValeurFoncieres-{suffix}.txt"
 
     def get_zip_file_name(self) -> str:
-        return f"valeursfoncieres-{self.get_suffix()}.txt.zip"
+        return f"valeursfoncieres-{self.get_id()}.txt.zip"
 
     def get_temp_parquet_file_name(self) -> str:
-        return f"temp-{self.get_suffix()}.parquet"
+        return f"temp-{self.get_id()}.parquet"
+
+    def get_output_file_name(self) -> str:
+        return f"full-{self.get_id()}.csv.gz"

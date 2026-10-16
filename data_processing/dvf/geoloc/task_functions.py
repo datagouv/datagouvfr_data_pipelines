@@ -25,6 +25,9 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import 
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
     get_dvf_resources,
 )
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
     enrich_year,
 )
@@ -137,8 +140,7 @@ def enrich_years(unzipped_file_names: list[str], **context):
 
     See enrich_year() docstring.
 
-    The results are put in one Parquet file per year (per source file). The source files (unzipped txt files) are
-    deleted.
+    The results are put in one Parquet file per source file. The source files (unzipped txt files) are deleted.
     """
 
     # we can't parallelize for RAM containment
@@ -257,14 +259,16 @@ def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
 
     Write the result as .csv.gz files, and delete the temporary Parquet ones.
     """
-    files = sorted(
-        f for f in os.listdir(TMP_FOLDER) if f.startswith("temp-")
+    temp_parquet_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_temp_parquet_file_name(f)
     )  # If year_to_run set up, len(files) == 1
-    for file in files:
-        enrich_with_cadastre(file, cadastre_file, tmp_folder=TMP_FOLDER)
+    for temp_parquet_file_name in temp_parquet_file_names:
+        enrich_with_cadastre(
+            temp_parquet_file_name, cadastre_file, tmp_folder=TMP_FOLDER
+        )
     # deleting in the end so that if the loop above fails, we can rerun safely
-    for file in files:
-        os.remove(TMP_FOLDER + file)
+    for temp_parquet_file_name in temp_parquet_file_names:
+        os.remove(TMP_FOLDER + temp_parquet_file_name)
 
 
 @task()
@@ -276,22 +280,24 @@ def build_full_file(params: dict):
             "year_to_run is set: skipping the full file, the window is incomplete"
         )
         return
-    files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
     expected_header = None
     with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
-        for file in files:
-            logging.info(f"Appending {file}...")
-            with gzip.open(TMP_FOLDER + file, "rb") as f:
+        for output_file_name in output_file_names:
+            logging.info(f"Appending {output_file_name}...")
+            with gzip.open(TMP_FOLDER + output_file_name, "rb") as f:
                 header = f.readline()
                 if expected_header is None:
                     expected_header = header
                     out.write(header)
                 elif header != expected_header:
                     raise ValueError(
-                        f"{file} does not have the same columns as {files[0]}"
+                        f"{output_file_name} does not have the same columns as {output_file_names[0]}"
                     )
                 shutil.copyfileobj(f, out)
-    logging.info(f"{FULL_FILE} built from {len(files)} files")
+    logging.info(f"{FULL_FILE} built from {len(output_file_names)} files")
 
 
 @task()
@@ -299,9 +305,13 @@ def publish_datagouv(params: dict):
     year_to_run = params.get("year_to_run")
     # april delivery: five full years, october delivery: one more file
     # (oldest year last semester and latest year first semester)
-    files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
-    if not year_to_run and len(files) not in {5, 6}:
-        raise ValueError(f"Unexpected number of files to publish: {len(files)}")
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+    if not year_to_run and len(output_file_names) not in {5, 6}:
+        raise ValueError(
+            f"Unexpected number of files to publish: {len(output_file_names)}"
+        )
 
     # matching resources to files by year (and not by index), so that a given year always
     # keeps the same resource: we want to replace resources when we can, so that we keep
@@ -319,12 +329,14 @@ def publish_datagouv(params: dict):
     }  # {"2021": Resource(title="DVF 2021"...), ..., "2025": Resource(...)}
 
     to_publish = set()
-    for file in files:
-        year = file.split(".")[0].split("-")[1]  # "full-2022.csv.gz" => "2022"
+    for output_file_name in output_file_names:
+        dvf_version = DvfVersion.from_output_file_name()
+        year = dvf_version.year
+        # TODO: how to include semester in the logic?
         to_publish.add(year)
         kwargs = {
             "payload": {"title": f"DVF {year}"},
-            "file_to_upload": TMP_FOLDER + file,
+            "file_to_upload": TMP_FOLDER + output_file_name,
         }
         if year in existing:
             logging.info(f"Updating resource for {year}")
