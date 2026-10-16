@@ -28,7 +28,22 @@ jobs:
             ruff check .
             ruff format --check .
 
+  test:
+    docker:
+      - image: cimg/python:<< pipeline.parameters.python-version >>
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies and run tests
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt pytest
+            pytest -v data_processing/dvf/geoloc/tests/
+
 workflows:
-  check-linting:
+  check:
     jobs:
       - lint
+      - test
