@@ -37,6 +37,37 @@ class TestFromZipFileName:
             DvfVersion.from_zip_file_name(file_name)
 
 
+class TestFromUnzippedFileName:
+    def test_full_year(self):
+        v = DvfVersion.from_unzipped_file_name("ValeurFoncieres-2021.txt")
+        assert v.year == "2021"
+        assert v.semester is None
+
+    @pytest.mark.parametrize("semester", ["s1", "s2"])
+    def test_semester_uppercase_normalized_to_lowercase(self, semester):
+        v = DvfVersion.from_unzipped_file_name(
+            f"ValeurFoncieres-2021-{semester.upper()}.txt"
+        )
+        assert v.year == "2021"
+        assert v.semester == semester
+
+    @pytest.mark.parametrize(
+        "file_name",
+        [
+            "ValeurFoncieres-2021",  # missing .txt extension
+            "ValeurFoncieres-2021.txt.zip",  # wrong extension
+            "ValeurFoncieres-21-S1.txt",  # not 4-digit year
+            "ValeurFoncieres-2021-S3.txt",  # invalid semester
+            "valeursfoncieres-2021-S1.txt",  # wrong prefix case
+            "ValeurFoncieres-2021-S1.txt/stuff",  # trailing content
+            "other.csv",
+        ],
+    )
+    def test_invalid_name_raises(self, file_name):
+        with pytest.raises(ValueError, match="Unexpected file name"):
+            DvfVersion.from_unzipped_file_name(file_name)
+
+
 class TestGetZipFileName:
     def test_full_year_lowercase(self):
         assert DvfVersion("2021", None).get_zip_file_name() == (
@@ -75,6 +106,20 @@ class TestGetUnzippedFileName:
         assert DvfVersion("2021", semester).get_unzipped_file_name() == (
             f"ValeurFoncieres-2021-{semester.upper()}.txt"
         )
+
+    @pytest.mark.parametrize(
+        "version",
+        [
+            DvfVersion("2021", None),
+            DvfVersion("2021", "s1"),
+            DvfVersion("2021", "s2"),
+            DvfVersion("1999", "s2"),
+            DvfVersion("2030", None),
+        ],
+    )
+    def test_idempotent(self, version):
+        unzipped_name = version.get_unzipped_file_name()
+        assert DvfVersion.from_unzipped_file_name(unzipped_name) == version
 
 
 class TestDataclass:
