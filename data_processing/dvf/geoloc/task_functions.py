@@ -346,7 +346,7 @@ def publish_datagouv(params: dict):
 
     to_publish = set()
     for output_file_name in output_file_names:
-        dvf_version = DvfVersion.from_output_file_name()
+        dvf_version = DvfVersion.from_output_file_name(output_file_name)
         id = dvf_version.get_id()
         year = dvf_version.year
         to_publish.add(year)
