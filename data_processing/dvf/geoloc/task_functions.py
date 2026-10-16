@@ -132,7 +132,7 @@ def download_dvf_source_data(params: dict, **context):
 
 
 @task()
-def enrich_years(files: list[str], **context):
+def enrich_years(unzipped_file_names: list[str], **context):
     """Enrich the data (change column names, improve date, codes and texts, add latitude/longitude and id_mutation).
 
     See enrich_year() docstring.
@@ -167,10 +167,10 @@ def enrich_years(files: list[str], **context):
         )
     }  # {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
     logging.info(f"Available cadastre snapshots : {available_dates}")
-    logging.info(f"Starting year enrichment over {len(files)} files...")
-    for file in files:
+    logging.info(f"Starting year enrichment over {len(unzipped_file_names)} files...")
+    for unzipped_file_name in unzipped_file_names:
         enrich_year(
-            file,
+            unzipped_file_name,
             TMP_FOLDER,
             map_cultures=map_cultures,
             output_schema=output_schema,
@@ -180,8 +180,8 @@ def enrich_years(files: list[str], **context):
         )
     logging.info("Year enrichment over. Deleting temporary files...")
     # deleting in the end so that if the loop above fails, we can rerun safely
-    for file in files:
-        os.remove(TMP_FOLDER + file)
+    for unzipped_file_name in unzipped_file_names:
+        os.remove(TMP_FOLDER + unzipped_file_name)
 
 
 def get_cadastre_millesime(delivery: str | None, today: date) -> str:
