@@ -95,7 +95,6 @@ def _get_delivery(params: dict, run_date: date) -> Delivery:
 def _check_output_file_names(params: dict, output_file_names: list[str]) -> None:
     """Check that all the files are present and correct with respect to the delivery"""
     run_date = date.today()
-    # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
     delivery = _get_delivery(params, run_date)
     dvf_versions = [
         DvfVersion.from_output_file_name(output_file_name)
@@ -109,9 +108,9 @@ def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
 
+    # Each task calls date.today() independently; the risk of a mismatch between
+    # tasks is limited since only the month and year are used.
     run_date = date.today()
-    # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
-    # the risk is limited, since only month and year are used.
     dvf_resources = get_dvf_resources(
         dvf_dataset.resources, _get_delivery(params, run_date)
     )
@@ -226,7 +225,6 @@ def download_cadastre_source_data(params: dict, **context):
     # This current task takes about 15min on a PC with wifi +350Mbps for download
 
     run_date = date.today()
-    # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
     millesime = get_cadastre_millesime(_get_delivery(params, run_date), run_date)
     url = (
         "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
