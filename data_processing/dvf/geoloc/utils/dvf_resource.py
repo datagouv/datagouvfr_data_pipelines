@@ -1,10 +1,9 @@
 import logging
 from dataclasses import dataclass
-from datetime import date
 
 from datagouv import Resource
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
-    get_delivery_info,
+    Delivery,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
     DvfVersion,
@@ -18,11 +17,9 @@ class DvfResource:
 
 
 def get_dvf_resources(
-    resources: list[Resource],
-    delivery: str | None = None,
-    today: date | None = None,
+    resources: list[Resource], delivery: Delivery
 ) -> list[DvfResource]:
-    """Return the DVF source resources of the rolling window for a given delivery.
+    """Return the DVF source resources of the rolling window for a given delivery (chronologically sorted).
 
     Only the "main" resources (ie. data files) are kept, and their file names are
     checked against the ``valeursfoncieres-<year>[-s<semester>].txt.zip`` pattern.
@@ -34,12 +31,9 @@ def get_dvf_resources(
     ----------
     resources : list[Resource]
         The resources of the DVF source dataset.
-    delivery : str | None
-        Which delivery the window is built for, ``"april"`` or ``"october"``.
+    delivery : Delivery
+        The source data delivery (april or october).
         Defaults to the delivery matching ``today``.
-    today : date | None
-        The reference date used to infer the delivery when it is not given.
-        Defaults to ``date.today()``.
 
     Returns
     -------
@@ -51,19 +45,14 @@ def get_dvf_resources(
     Raises
     ------
     ValueError
-        If the delivery is unknown, if the number or the shape of the files does not
-        match the delivery's rolling window, or if a file name does not match the
-        expected pattern.
+        If the number or the shape of the files does not match the delivery's
+        rolling window, or if a file name does not match the expected pattern.
     """
-    if today is None:
-        today = date.today()
-    delivery_info = get_delivery_info(delivery, today)
-
     main_resources = [res for res in resources if res.type == "main"]
-    if len(main_resources) != delivery_info.file_count:
+    if len(main_resources) != delivery.count:
         raise ValueError(
-            f"Unexpected number of resources for a {delivery_info.delivery} delivery: "
-            f"{len(main_resources)} (expected {delivery_info.file_count})"
+            f"Unexpected number of resources for a {delivery.key} delivery: "
+            f"{len(main_resources)} (expected {delivery.count})"
         )
     titles = [f'"{res.title}"' for res in main_resources]
     logging.info(f"Available ressources : {','.join(titles)}...")
@@ -82,29 +71,7 @@ def get_dvf_resources(
         )
     dvf_resources.sort(key=lambda d: (d.dvf_version.year, d.dvf_version.semester or ""))
 
-    if delivery_info.delivery == "april":
-        # five full years, no half-year files
-        if any(d.dvf_version.semester for d in dvf_resources):
-            raise ValueError(
-                f"Unexpected semester file in an april delivery: "
-                f"{[d.dvf_version.get_zip_file_name() for d in dvf_resources if d.dvf_version.semester]}"
-            )
-    else:
-        # october: oldest year holds its last semester (s2), newest year its first (s1)
-        if dvf_resources[0].dvf_version.semester != "s2":
-            raise ValueError(
-                f"Oldest year must hold its last semester (s2): "
-                f"{dvf_resources[0].dvf_version.get_zip_file_name()}"
-            )
-        if dvf_resources[-1].dvf_version.semester != "s1":
-            raise ValueError(
-                f"Newest year must hold its first semester (s1): "
-                f"{dvf_resources[-1].dvf_version.get_zip_file_name()}"
-            )
-        if any(d.dvf_version.semester for d in dvf_resources[1:-1]):
-            raise ValueError(
-                f"Unexpected semester file in a full year: "
-                f"{[d.dvf_version.get_zip_file_name() for d in dvf_resources[1:-1] if d.dvf_version.semester]}"
-            )
+    # Ensure the source files respect the expected pattern (years, semesters)
+    delivery.check_dvf_versions([d.dvf_version for d in dvf_resources])
 
     return dvf_resources

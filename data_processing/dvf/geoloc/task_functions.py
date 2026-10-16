@@ -20,7 +20,7 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index i
     enrich_with_cadastre,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
-    get_delivery_info,
+    Delivery,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
     get_dvf_resources,
@@ -89,9 +89,14 @@ def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
 
-    dvf_resources = get_dvf_resources(
-        dvf_dataset.resources, delivery=params.get("delivery")
+    run_date = date.today()
+    delivery_key = params.get("delivery")
+    delivery = (
+        Delivery.from_key(delivery_key)
+        if delivery_key is not None
+        else Delivery.from_date(run_date)
     )
+    dvf_resources = get_dvf_resources(dvf_dataset.resources, delivery)
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
@@ -179,13 +184,12 @@ def enrich_years(unzipped_file_names: list[str], **context):
         os.remove(TMP_FOLDER + unzipped_file_name)
 
 
-def get_cadastre_millesime(delivery: str | None, today: date) -> str:
+def get_cadastre_millesime(delivery: Delivery, today: date) -> str:
     """Return the cadastre millesime of the latest given delivery,
     e.g. "2026-06-01" for an October 2026 delivery."""
-    delivery_info = get_delivery_info(delivery, today)
     # before the delivery month, the latest delivery of this kind is last year's
-    year = today.year if today.month >= delivery_info.month else today.year - 1
-    return f"{year}-{delivery_info.cadastre_millesime}-01"
+    year = today.year if today.month >= delivery.month else today.year - 1
+    return f"{year}-{delivery.cadastre_millesime}-01"
 
 
 @task()
@@ -202,7 +206,17 @@ def download_cadastre_source_data(params: dict, **context):
     # Technical choice notes: Measurement on samples shows it is faster to load the full file
     # then filter it locally with duckdb rather than directly filter and load with duckdb.
     # This current task takes about 15min on a PC with wifi +350Mbps for download
-    millesime = get_cadastre_millesime(params.get("delivery"), date.today())
+
+    run_date = date.today()
+    delivery_key = params.get("delivery")
+    # ^ share those between tasks to avoid potential issue with changes in date.today()?
+
+    delivery = (
+        Delivery.from_key(delivery_key)
+        if delivery_key is not None
+        else Delivery.from_date(run_date)
+    )
+    millesime = get_cadastre_millesime(delivery, run_date)
     url = (
         "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
         f"{millesime}/geoparquet/france/cadastre.parquet"
