@@ -328,7 +328,7 @@ def publish_datagouv(params: dict):
         # TODO: how to include semester in the logic?
         to_publish.add(year)
         kwargs = {
-            "payload": {"title": f"DVF {year}"},
+            "payload": {"title": dvf_version.title},
             "file_to_upload": TMP_FOLDER + output_file_name,
         }
         if year in existing:

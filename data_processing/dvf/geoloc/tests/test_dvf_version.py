@@ -318,6 +318,17 @@ class TestGetOutputFileName:
         assert DvfVersion.from_output_file_name(output_name) == version
 
 
+class TestGetOutputTitle:
+    def test_full_year(self):
+        assert DvfVersion("2021", None).get_output_title() == "DVF 2021"
+
+    def test_first_semester(self):
+        assert DvfVersion("2021", "s1").get_output_title() == "DVF 2021 (1er semestre)"
+
+    def test_second_semester(self):
+        assert DvfVersion("2021", "s2").get_output_title() == "DVF 2021 (2nd semestre)"
+
+
 class TestGetId:
     def test_full_year(self):
         assert DvfVersion("2021", None).get_id() == "2021"
