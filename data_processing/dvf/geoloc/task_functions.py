@@ -351,7 +351,7 @@ def publish_datagouv(params: dict):
         year = dvf_version.year
         to_publish.add(year)
         kwargs = {
-            "payload": {"title": dvf_version.title},
+            "payload": {"title": dvf_version.get_output_title()},
             "file_to_upload": TMP_FOLDER + output_file_name,
         }
         if year in existing:
