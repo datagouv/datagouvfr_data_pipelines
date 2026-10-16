@@ -55,7 +55,10 @@ for name, path in packages:
     _stub_package(name, path)
 
 # --- config mock ---
-sys.modules["datagouvfr_data_pipelines.config"] = MagicMock()
+config_module = types.ModuleType("datagouvfr_data_pipelines.config")
+for key in ("AIRFLOW_DAG_HOME", "AIRFLOW_DAG_TMP", "AIRFLOW_ENV"):
+    setattr(config_module, key, "")
+sys.modules["datagouvfr_data_pipelines.config"] = config_module
 
 # --- datagouv library mock ---
 datagouv_module = types.ModuleType("datagouv")
@@ -76,7 +79,11 @@ _stub_package(
     "datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich",
     enrich_year=MagicMock(),
 )
-_stub_package("datagouvfr_data_pipelines.utils.datagouv", local_client=MagicMock())
+_stub_package(
+    "datagouvfr_data_pipelines.utils.datagouv",
+    local_client=MagicMock(),
+    demo_client=MagicMock(),
+)
 _stub_package(
     "datagouvfr_data_pipelines.utils.retry", simple_connection_retry=lambda f: f
 )
