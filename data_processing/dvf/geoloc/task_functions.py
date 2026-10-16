@@ -91,6 +91,26 @@ def check_if_modif():
     return True
 
 
+def _get_delivery(params: dict, run_date: date) -> Delivery:
+    delivery_key = params.get("delivery")
+    if delivery_key is None:
+        return Delivery.from_date(run_date)
+    else:
+        return Delivery.from_key(delivery_key)
+
+
+def _check_output_file_names(params: dict, output_file_names: list[str]) -> None:
+    """Check that all the files are present and correct with respect to the delivery"""
+    run_date = date.today()
+    # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
+    delivery = _get_delivery(params, run_date)
+    dvf_versions = [
+        DvfVersion.from_output_file_name(output_file_name)
+        for output_file_name in output_file_names
+    ]
+    delivery.check_dvf_versions(dvf_versions)
+
+
 @task()
 def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
@@ -98,13 +118,10 @@ def download_dvf_source_data(params: dict, **context):
 
     run_date = date.today()
     # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
-    delivery_key = params.get("delivery")
-    delivery = (
-        Delivery.from_date(run_date)
-        if delivery_key is None
-        else Delivery.from_key(delivery_key)
+    # the risk is limited, since only month and year are used.
+    dvf_resources = get_dvf_resources(
+        dvf_dataset.resources, _get_delivery(params, run_date)
     )
-    dvf_resources = get_dvf_resources(dvf_dataset.resources, delivery)
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
@@ -217,13 +234,7 @@ def download_cadastre_source_data(params: dict, **context):
 
     run_date = date.today()
     # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
-    delivery_key = params.get("delivery")
-    delivery = (
-        Delivery.from_date(run_date)
-        if delivery_key is None
-        else Delivery.from_key(delivery_key)
-    )
-    millesime = get_cadastre_millesime(delivery, run_date)
+    millesime = get_cadastre_millesime(_get_delivery(params, run_date), run_date)
     url = (
         "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
         f"{millesime}/geoparquet/france/cadastre.parquet"
@@ -297,6 +308,9 @@ def build_full_file(params: dict):
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
     )
+
+    _check_output_file_names(params, output_file_names)
+
     expected_header = None
     with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
         for output_file_name in output_file_names:
@@ -317,15 +331,11 @@ def build_full_file(params: dict):
 @task()
 def publish_datagouv(params: dict):
     year_to_run = params.get("year_to_run")
-    # april delivery: five full years, october delivery: one more file
-    # (oldest year last semester and latest year first semester)
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
     )
-    if not year_to_run and len(output_file_names) not in {5, 6}:
-        raise ValueError(
-            f"Unexpected number of files to publish: {len(output_file_names)}"
-        )
+    if not year_to_run:
+        _check_output_file_names(params, output_file_names)
 
     # matching resources to files by year (and not by index), so that a given year always
     # keeps the same resource: we want to replace resources when we can, so that we keep
