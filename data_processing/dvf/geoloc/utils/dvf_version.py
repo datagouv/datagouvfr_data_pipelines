@@ -24,6 +24,24 @@ class DvfVersion:
             semester=cast(Literal["s1", "s2"] | None, m.group("semester")),
         )
 
+    @classmethod
+    def from_unzipped_file_name(cls, file_name: str) -> "DvfVersion":
+        # The unzipped file has an uppercase semester suffix (-S1 or -S2),
+        # which is normalized back to the lowercase internal form.
+        m = re.search(
+            r"^ValeurFoncieres-(?P<year>\d{4})(?:-(?P<semester>[Ss][12]))?\.txt$",
+            file_name,
+        )
+        if not m:
+            raise ValueError(f"Unexpected file name: {file_name}")
+        semester = m.group("semester")
+        return cls(
+            year=m.group("year"),
+            semester=cast(
+                Literal["s1", "s2"] | None, semester.lower() if semester else None
+            ),
+        )
+
     def get_unzipped_file_name(self) -> str:
         year_and_semester = self.year
         if self.semester:
