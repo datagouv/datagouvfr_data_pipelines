@@ -140,7 +140,7 @@ def build_output_columns(
 
 
 def enrich_year(
-    file: str,
+    unzipped_file_name: str,
     tmp_folder: str,
     map_cultures: dict[str, dict],
     output_schema: dict[str, str],
@@ -182,8 +182,8 @@ def enrich_year(
 
     Parameters
     ----------
-    file : str
-        Path to the DVF .txt (unzipped) source file for a specific year.
+    unzipped_file_name : str
+        File name of the unzipped DVF .txt source file for a specific year, located inside tmp_folder.
     tmp_folder : str
         Temp folder for the DVF DAG.
     map_cultures : dict
@@ -201,17 +201,21 @@ def enrich_year(
         Name of the bucket that contains cadastre parcelles
     """
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
-    year = file.split(".")[0].split("-")[1]  #  # "valeursfoncieres-2023.txt" => "2023"
+    year = unzipped_file_name.split(".")[0].split("-")[
+        1
+    ]  #  # "valeursfoncieres-2023.txt" => "2023"
     if f"temp-{year}.parquet" in os.listdir(tmp_folder):
-        logging.info(f"Skipping {file} - already processed")  # In case of retry
+        logging.info(
+            f"Skipping {unzipped_file_name} - already processed"
+        )  # In case of retry
         return
 
     # READ SOURCE
-    logging.info(f"Processing {file}")
+    logging.info(f"Processing {unzipped_file_name}")
     # only the columns we actually use, and the numeric ones parsed straight to float
     # by the C parser (decimal="," handles the french decimal comma)
     source = pd.read_csv(
-        tmp_folder + file,
+        tmp_folder + unzipped_file_name,
         sep="|",
         usecols=list(SOURCE_DTYPES),
         dtype=SOURCE_DTYPES,
