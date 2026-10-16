@@ -97,11 +97,12 @@ def download_dvf_source_data(params: dict, **context):
     dvf_dataset = Dataset(SOURCE_DATASET_ID)
 
     run_date = date.today()
+    # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
     delivery_key = params.get("delivery")
     delivery = (
-        Delivery.from_key(delivery_key)
-        if delivery_key is not None
-        else Delivery.from_date(run_date)
+        Delivery.from_date(run_date)
+        if delivery_key is None
+        else Delivery.from_key(delivery_key)
     )
     dvf_resources = get_dvf_resources(dvf_dataset.resources, delivery)
 
@@ -215,13 +216,12 @@ def download_cadastre_source_data(params: dict, **context):
     # This current task takes about 15min on a PC with wifi +350Mbps for download
 
     run_date = date.today()
+    # ^ TODO: share between tasks to avoid potential issue with changes in date.today()?
     delivery_key = params.get("delivery")
-    # ^ share those between tasks to avoid potential issue with changes in date.today()?
-
     delivery = (
-        Delivery.from_key(delivery_key)
-        if delivery_key is not None
-        else Delivery.from_date(run_date)
+        Delivery.from_date(run_date)
+        if delivery_key is None
+        else Delivery.from_key(delivery_key)
     )
     millesime = get_cadastre_millesime(delivery, run_date)
     url = (
