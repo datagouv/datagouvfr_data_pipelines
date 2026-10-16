@@ -1,7 +1,6 @@
 import gc
 import logging
 import os
-import re
 from functools import lru_cache
 from time import monotonic, sleep
 
@@ -9,6 +8,9 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 import shapely
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
 from pyproj import Transformer
 
 WGS84 = "EPSG:4326"
@@ -311,14 +313,17 @@ def check_parcelles_indexes(departements: list[str], cadastre_file: str, **conte
     logging.info(f"{len(departements)} departements indexed, {total:,} parcelles total")
 
 
-def enrich_with_cadastre(file, cadastre_file, tmp_folder):
-    if not (match := re.fullmatch(r"temp-(\d{4})\.parquet", file)):
-        raise ValueError(f"Unexpected file name: {file}")
-    year = match.group(1)
-    if f"full-{year}.csv.gz" in os.listdir(tmp_folder):
-        logging.info(f"Skipping {file} - already processed")  # In case of retry
+def enrich_with_cadastre(temp_parquet_file_name, cadastre_file, tmp_folder):
+    dvf_version = DvfVersion.from_temp_parquet_file_name(temp_parquet_file_name)
+    dvf_version_id = dvf_version.get_id()
+    output_file_name = dvf_version.get_output_file_name()
+
+    if output_file_name in os.listdir(tmp_folder):
+        logging.info(
+            f"Skipping {temp_parquet_file_name} - already processed"
+        )  # In case of retry
         return
-    df = pd.read_parquet(tmp_folder + file, dtype_backend="pyarrow")
+    df = pd.read_parquet(tmp_folder + temp_parquet_file_name, dtype_backend="pyarrow")
     for column in ("cadastre_parcelle_id", "cadastre_commune"):
         df[column] = pd.Series(pd.NA, index=df.index, dtype="string[pyarrow]")
 
@@ -353,7 +358,7 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
     # unmatched row would be recorded as having changed commune.
     matched = df["cadastre_parcelle_id"].notna()
     logging.info(
-        f"Matching over for {year}: {int(matched.sum()):,}/{len(df):,} rows matched across"
+        f"Matching over for {dvf_version_id}: {int(matched.sum()):,}/{len(df):,} rows matched across"
         f" {df['code_departement'].nunique()} departements"
         f" in {(monotonic() - started) / 60:.1f} min"
     )
@@ -406,7 +411,7 @@ def enrich_with_cadastre(file, cadastre_file, tmp_folder):
         df[col] = values.map("{:.2f}".format).where(values.notna())
     logging.info("Saving file...")
     df.to_csv(
-        tmp_folder + f"full-{year}.csv.gz",
+        tmp_folder + output_file_name,
         index=False,
         compression="gzip",
     )

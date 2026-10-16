@@ -7,6 +7,9 @@ from time import sleep
 
 import numpy as np
 import pandas as pd
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.latlong import (
     enrich_parcelles_with_coord,
 )
@@ -200,11 +203,14 @@ def enrich_year(
     bucket : str
         Name of the bucket that contains cadastre parcelles
     """
+
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
-    year = unzipped_file_name.split(".")[0].split("-")[
-        1
-    ]  #  # "valeursfoncieres-2023.txt" => "2023"
-    if f"temp-{year}.parquet" in os.listdir(tmp_folder):
+
+    dvf_version = DvfVersion.from_unzipped_file_name(unzipped_file_name)
+    year = dvf_version.year
+    temp_parquet_file_name = dvf_version.get_temp_parquet_file_name()
+
+    if temp_parquet_file_name in os.listdir(tmp_folder):
         logging.info(
             f"Skipping {unzipped_file_name} - already processed"
         )  # In case of retry
@@ -246,7 +252,12 @@ def enrich_year(
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
-    output.insert(0, "id_mutation", f"{year}-" + mask.cumsum().astype(str))  # First col
+    prefix = year
+    # ^ The semester is not used here. It will be fine (no duplicates) if
+    # we have only one file per year (full year, or half year)
+    output.insert(
+        0, "id_mutation", f"{prefix}-" + mask.cumsum().astype(str)
+    )  # First col
     del mask
     # the geoloc step reorders rows (one batch per cadastre snapshot, each sorted by
     # id_parcelle), so the source position rides along to restore the file order at the end
@@ -257,6 +268,7 @@ def enrich_year(
     final = enrich_parcelles_with_coord(
         output, year, available_dates, s3_client, bucket
     )  # Add lat, long coordinates tied to parcelle ID
+    # ^ Note that we don't need to pass the semester here, the logic only requires the year.
     del output
     assert len(final) == expected_len
 
@@ -279,10 +291,10 @@ def enrich_year(
     # parquet, not csv.gz: this file only exists for enrich_with_cadastre to read back, and
     # a gzip round-trip costs ~45s per million rows against ~7s, while losing every dtype
     # the assert above just checked (float32 comes back float64, Int64 as float64 with NaN). The published
-    # full-<year>.csv.gz is written at the end of that step instead.
+    # full-<year>(-<semester>).csv.gz is written at the end of that step instead.
     logging.info("Saving file...")
     final.to_parquet(
-        tmp_folder + f"temp-{year}.parquet",
+        tmp_folder + temp_parquet_file_name,
         compression="zstd",
         index=False,
     )
