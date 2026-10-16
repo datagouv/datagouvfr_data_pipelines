@@ -85,6 +85,14 @@ class DvfVersion:
         except ValueError:
             return False
 
+    @classmethod
+    def search_year_in_resource_url(cls, resource_url: str) -> str | None:
+        m = re.search(
+            r"\/full-(?P<year>\d{4})(?:-(?P<semester>s[12]))?\.csv.gz$",
+            resource_url,
+        )
+        return m.group("year") if m else None
+
     def get_id(self) -> str:
         id = self.year
         if self.semester:

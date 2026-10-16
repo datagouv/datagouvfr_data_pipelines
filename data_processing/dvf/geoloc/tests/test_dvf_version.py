@@ -212,6 +212,59 @@ class TestIsOutputFileName:
         assert DvfVersion.is_output_file_name(version.get_output_file_name()) is True
 
 
+class TestSearchYearInResourceUrl:
+    def test_full_year(self):
+        assert (
+            DvfVersion.search_year_in_resource_url(
+                "https://example.org/data/full-2021.csv.gz"
+            )
+            == "2021"
+        )
+
+    @pytest.mark.parametrize("semester", ["s1", "s2"])
+    def test_semester_ignored_for_year(self, semester):
+        assert (
+            DvfVersion.search_year_in_resource_url(
+                f"https://example.org/data/full-2021-{semester}.csv.gz"
+            )
+            == "2021"
+        )
+
+    def test_deep_path(self):
+        assert (
+            DvfVersion.search_year_in_resource_url(
+                "https://example.org/a/b/c/full-1999-s2.csv.gz"
+            )
+            == "1999"
+        )
+
+    def test_year_at_end_of_url(self):
+        assert (
+            DvfVersion.search_year_in_resource_url(
+                "https://example.org/full-2030.csv.gz"
+            )
+            == "2030"
+        )
+
+    @pytest.mark.parametrize(
+        "resource_url",
+        [
+            "https://example.org/data/full-2021.csv.gz?v=2",  # query string
+            "https://example.org/data/full-2021.csv.gz#frag",  # fragment
+            "https://example.org/data/full-2021.gz",  # missing .csv
+            "https://example.org/data/full-21.csv.gz",  # not 4-digit year
+            "https://example.org/data/temp-2021.csv.gz",  # wrong prefix
+            "https://example.org/data/full-2021.parquet",  # wrong extension
+            "https://example.org/data/other.csv.gz",  # unrelated
+            "",  # empty
+            "full-2021.csv.gz",  # missing leading slash
+            "https://example.org/data/full-2021-S1.csv.gz",  # uppercase semester
+        ],
+    )
+    def test_no_match_returns_none(self, resource_url):
+        assert DvfVersion.search_year_in_resource_url(resource_url) is None
+
+
 class TestGetZipFileName:
     def test_full_year_lowercase(self):
         assert DvfVersion("2021", None).get_zip_file_name() == (
