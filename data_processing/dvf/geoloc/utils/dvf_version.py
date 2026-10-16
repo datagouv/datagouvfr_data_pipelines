@@ -104,3 +104,11 @@ class DvfVersion:
 
     def get_output_file_name(self) -> str:
         return f"full-{self.get_id()}.csv.gz"
+
+    def get_output_title(self) -> str:
+        title = f"DVF {self.year}"
+        if self.semester == "s1":
+            title += " (1er semestre)"
+        elif self.semester == "s2":
+            title += " (2nd semestre)"
+        return title
