@@ -33,7 +33,6 @@ def get_dvf_resources(
         The resources of the DVF source dataset.
     delivery : Delivery
         The source data delivery (april or october).
-        Defaults to the delivery matching ``today``.
 
     Returns
     -------
