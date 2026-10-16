@@ -331,6 +331,7 @@ def publish_datagouv(params: dict):
     to_publish = set()
     for output_file_name in output_file_names:
         dvf_version = DvfVersion.from_output_file_name()
+        id = dvf_version.get_id()
         year = dvf_version.year
         # TODO: how to include semester in the logic?
         to_publish.add(year)
@@ -339,10 +340,10 @@ def publish_datagouv(params: dict):
             "file_to_upload": TMP_FOLDER + output_file_name,
         }
         if year in existing:
-            logging.info(f"Updating resource for {year}")
+            logging.info(f"Updating resource for {id}")
             existing[year].update(**kwargs)
         else:
-            logging.info(f"Creating resource for {year}")
+            logging.info(f"Creating resource for {id}")
             dataset.create_static(**kwargs)
 
     # oldest year last semester that fell out of the rolling window
