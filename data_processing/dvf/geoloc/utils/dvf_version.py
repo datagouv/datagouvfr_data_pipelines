@@ -42,15 +42,16 @@ class DvfVersion:
             ),
         )
 
-    def get_unzipped_file_name(self) -> str:
-        year_and_semester = self.year
+    def get_suffix(self) -> str:
+        suffix = self.year
         if self.semester:
-            year_and_semester += f"-{self.semester.upper()}"
-            # ^ unzipped file has uppercase semester suffix: -S1 or -S2
-        return f"ValeurFoncieres-{year_and_semester}.txt"
+            suffix += f"-{self.semester}"
+        return suffix
+
+    def get_unzipped_file_name(self) -> str:
+        suffix = self.get_suffix().upper()
+        # ^ unzipped file has uppercase semester suffix: -S1 or -S2
+        return f"ValeurFoncieres-{suffix}.txt"
 
     def get_zip_file_name(self) -> str:
-        year_and_semester = self.year
-        if self.semester:
-            year_and_semester += f"-{self.semester}"
-        return f"valeursfoncieres-{year_and_semester}.txt.zip"
+        return f"valeursfoncieres-{self.get_suffix()}.txt.zip"
