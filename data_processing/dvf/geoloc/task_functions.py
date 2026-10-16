@@ -310,23 +310,23 @@ def publish_datagouv(params: dict):
     # keeps the same resource: we want to replace resources when we can, so that we keep
     # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
     # tree) are not managed here.
+    # note that a year may be full year of half year (s1 or s2).
     dataset = publish_client.dataset(GEOLOC_DATASET_ID)
     # dataset = local_client.dataset(GEOLOC_DATASET_ID) # TODO: delete line above and uncomment this one
     existing = {
-        match.group(1): res
+        year: res
         for res in dataset.resources
         if res.type == "main"
         and (
-            match := re.search(r"full-(\d{4})\.", res.url)
+            year := DvfVersion.search_year_in_resource_url(res.url)
         )  # url match avoids any wrong match with a resource renamed on UI
-    }  # {"2021": Resource(title="DVF 2021"...), ..., "2025": Resource(...)}
+    }  # {"2021": Resource(title="DVF 2021 (2nd semestre)"...), ..., "2025": Resource(...)}
 
     to_publish = set()
     for output_file_name in output_file_names:
         dvf_version = DvfVersion.from_output_file_name()
         id = dvf_version.get_id()
         year = dvf_version.year
-        # TODO: how to include semester in the logic?
         to_publish.add(year)
         kwargs = {
             "payload": {"title": dvf_version.title},
