@@ -68,6 +68,36 @@ class TestFromUnzippedFileName:
             DvfVersion.from_unzipped_file_name(file_name)
 
 
+class TestFromTempParquetFileName:
+    def test_full_year(self):
+        v = DvfVersion.from_temp_parquet_file_name("temp-2021.parquet")
+        assert v.year == "2021"
+        assert v.semester is None
+
+    @pytest.mark.parametrize("semester", ["s1", "s2"])
+    def test_semester(self, semester):
+        v = DvfVersion.from_temp_parquet_file_name(f"temp-2021-{semester}.parquet")
+        assert v.year == "2021"
+        assert v.semester == semester
+
+    @pytest.mark.parametrize(
+        "file_name",
+        [
+            "temp-2021",  # missing .parquet
+            "temp-2021.parquet.gz",  # wrong extension
+            "temp-21-s1.parquet",  # not 4-digit year
+            "temp-2021-S1.parquet",  # uppercase semester
+            "temp-2021-s3.parquet",  # invalid semester
+            "valeursfoncieres-2021.parquet",  # wrong prefix
+            "temp-2021-s1.parquet/stuff",  # trailing content
+            "other.parquet",
+        ],
+    )
+    def test_invalid_name_raises(self, file_name):
+        with pytest.raises(ValueError, match="Unexpected file name"):
+            DvfVersion.from_temp_parquet_file_name(file_name)
+
+
 class TestGetZipFileName:
     def test_full_year_lowercase(self):
         assert DvfVersion("2021", None).get_zip_file_name() == (
@@ -120,6 +150,42 @@ class TestGetUnzippedFileName:
     def test_idempotent(self, version):
         unzipped_name = version.get_unzipped_file_name()
         assert DvfVersion.from_unzipped_file_name(unzipped_name) == version
+
+
+class TestGetTempParquetFileName:
+    def test_full_year(self):
+        assert DvfVersion("2021", None).get_temp_parquet_file_name() == (
+            "temp-2021.parquet"
+        )
+
+    @pytest.mark.parametrize("semester", ["s1", "s2"])
+    def test_semester_lowercase(self, semester):
+        assert DvfVersion("2021", semester).get_temp_parquet_file_name() == (
+            f"temp-2021-{semester}.parquet"
+        )
+
+    @pytest.mark.parametrize(
+        "version",
+        [
+            DvfVersion("2021", None),
+            DvfVersion("2021", "s1"),
+            DvfVersion("2021", "s2"),
+            DvfVersion("1999", "s2"),
+            DvfVersion("2030", None),
+        ],
+    )
+    def test_idempotent(self, version):
+        parquet_name = version.get_temp_parquet_file_name()
+        assert DvfVersion.from_temp_parquet_file_name(parquet_name) == version
+
+
+class TestGetSuffix:
+    def test_full_year(self):
+        assert DvfVersion("2021", None).get_suffix() == "2021"
+
+    @pytest.mark.parametrize("semester", ["s1", "s2"])
+    def test_semester_lowercase(self, semester):
+        assert DvfVersion("2021", semester).get_suffix() == f"2021-{semester}"
 
 
 class TestDataclass:

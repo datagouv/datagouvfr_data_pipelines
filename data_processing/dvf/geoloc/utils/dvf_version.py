@@ -42,6 +42,20 @@ class DvfVersion:
             ),
         )
 
+    @classmethod
+    def from_temp_parquet_file_name(cls, file_name: str) -> "DvfVersion":
+        # The temp parquet file uses the same lowercase suffix as the zip file.
+        m = re.search(
+            r"^temp-(?P<year>\d{4})(?:-(?P<semester>s[12]))?\.parquet$",
+            file_name,
+        )
+        if not m:
+            raise ValueError(f"Unexpected file name: {file_name}")
+        return cls(
+            year=m.group("year"),
+            semester=cast(Literal["s1", "s2"] | None, m.group("semester")),
+        )
+
     def get_suffix(self) -> str:
         suffix = self.year
         if self.semester:
@@ -55,3 +69,6 @@ class DvfVersion:
 
     def get_zip_file_name(self) -> str:
         return f"valeursfoncieres-{self.get_suffix()}.txt.zip"
+
+    def get_temp_parquet_file_name(self) -> str:
+        return f"temp-{self.get_suffix()}.parquet"
