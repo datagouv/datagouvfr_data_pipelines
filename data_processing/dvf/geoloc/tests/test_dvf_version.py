@@ -39,14 +39,14 @@ class TestFromZipFileName:
 
 class TestFromUnzippedFileName:
     def test_full_year(self):
-        v = DvfVersion.from_unzipped_file_name("ValeurFoncieres-2021.txt")
+        v = DvfVersion.from_unzipped_file_name("ValeursFoncieres-2021.txt")
         assert v.year == "2021"
         assert v.semester is None
 
     @pytest.mark.parametrize("semester", ["s1", "s2"])
     def test_semester_uppercase_normalized_to_lowercase(self, semester):
         v = DvfVersion.from_unzipped_file_name(
-            f"ValeurFoncieres-2021-{semester.upper()}.txt"
+            f"ValeursFoncieres-2021-{semester.upper()}.txt"
         )
         assert v.year == "2021"
         assert v.semester == semester
@@ -54,12 +54,12 @@ class TestFromUnzippedFileName:
     @pytest.mark.parametrize(
         "file_name",
         [
-            "ValeurFoncieres-2021",  # missing .txt extension
-            "ValeurFoncieres-2021.txt.zip",  # wrong extension
-            "ValeurFoncieres-21-S1.txt",  # not 4-digit year
-            "ValeurFoncieres-2021-S3.txt",  # invalid semester
+            "ValeursFoncieres-2021",  # missing .txt extension
+            "ValeursFoncieres-2021.txt.zip",  # wrong extension
+            "ValeursFoncieres-21-S1.txt",  # not 4-digit year
+            "ValeursFoncieres-2021-S3.txt",  # invalid semester
             "valeursfoncieres-2021-S1.txt",  # wrong prefix case
-            "ValeurFoncieres-2021-S1.txt/stuff",  # trailing content
+            "ValeursFoncieres-2021-S1.txt/stuff",  # trailing content
             "other.csv",
         ],
     )
@@ -295,13 +295,13 @@ class TestGetZipFileName:
 class TestGetUnzippedFileName:
     def test_full_year(self):
         assert DvfVersion("2021", None).get_unzipped_file_name() == (
-            "ValeurFoncieres-2021.txt"
+            "ValeursFoncieres-2021.txt"
         )
 
     @pytest.mark.parametrize("semester", ["s1", "s2"])
     def test_semester_uppercase(self, semester):
         assert DvfVersion("2021", semester).get_unzipped_file_name() == (
-            f"ValeurFoncieres-2021-{semester.upper()}.txt"
+            f"ValeursFoncieres-2021-{semester.upper()}.txt"
         )
 
     @pytest.mark.parametrize(

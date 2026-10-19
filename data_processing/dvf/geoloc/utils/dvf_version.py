@@ -29,7 +29,7 @@ class DvfVersion:
         # The unzipped file has an uppercase semester suffix (-S1 or -S2),
         # which is normalized back to the lowercase internal form.
         m = re.search(
-            r"^ValeurFoncieres-(?P<year>\d{4})(?:-(?P<semester>[Ss][12]))?\.txt$",
+            r"^ValeursFoncieres-(?P<year>\d{4})(?:-(?P<semester>[Ss][12]))?\.txt$",
             file_name,
         )
         if not m:
@@ -102,7 +102,7 @@ class DvfVersion:
     def get_unzipped_file_name(self) -> str:
         suffix = self.get_id().upper()
         # ^ unzipped file has uppercase semester suffix: -S1 or -S2
-        return f"ValeurFoncieres-{suffix}.txt"
+        return f"ValeursFoncieres-{suffix}.txt"
 
     def get_zip_file_name(self) -> str:
         return f"valeursfoncieres-{self.get_id()}.txt.zip"
