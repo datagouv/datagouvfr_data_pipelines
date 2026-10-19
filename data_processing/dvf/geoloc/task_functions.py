@@ -14,7 +14,6 @@ from datagouv import Dataset
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
 )
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
     enrich_with_cadastre,
@@ -40,30 +39,17 @@ DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 CADASTRE_FILE = f"{TMP_FOLDER}cadastre.parquet"
 
-# TODO: delete after the test phase, and replace publish_client / get_source_dataset by
-# local_client / Dataset(SOURCE_DATASET_ID)
-DRY_RUN = True  # publish on demo even when running on prod, to review the output first
-APRIL_SOURCE_DATASET_ID = "6ace2da98d1331e15433ff9f"  # April delivery copied on demo
-publish_client = demo_client if DRY_RUN else local_client
-
-
-def get_source_dataset(delivery: str | None) -> Dataset:
-    if delivery == "april" and AIRFLOW_ENV == "dev":
-        return Dataset(APRIL_SOURCE_DATASET_ID, _client=demo_client)
-    return Dataset(SOURCE_DATASET_ID)
-
-
-def get_geoloc_dataset_id(delivery: str | None) -> str:
-    if not (delivery == "april" and AIRFLOW_ENV == "dev"):
-        return GEOLOC_OCTOBER_DATASET_ID
-    return GEOLOC_DATASET_ID
-
-
-# TODO: stop delete here
-
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
-GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
-GEOLOC_OCTOBER_DATASET_ID = "6ad249b7c56822dfb61a3585"  # demo: copy of "Demandes de valeurs foncières géolocalisées" by sylvain.lesage
+source_dataset = Dataset(SOURCE_DATASET_ID)
+
+DEMO_GEOLOC_DATASET_ID = "6ad249b7c56822dfb61a3585"  # copy of "Demandes de valeurs foncières géolocalisées" by sylvain.lesage on demo
+PROD_GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr - Not used, see README.md
+PUBLISH_ON_DEMO = True  # publish on demo even when running on prod, to review the output first. See README.md
+publish_client = demo_client if PUBLISH_ON_DEMO else local_client
+destination_dataset_id = (
+    DEMO_GEOLOC_DATASET_ID if PUBLISH_ON_DEMO else PROD_GEOLOC_DATASET_ID
+)
+
 bucket = "dataeng-open"
 # same file name as the single-file resource already published, which is how we find it back
 FULL_FILE = "dvf.csv.gz"
@@ -113,14 +99,12 @@ def _check_output_file_names(params: dict, output_file_names: list[str]) -> None
 @task()
 def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
-    dvf_dataset = get_source_dataset(params.get("delivery"))
-    # dvf_dataset = Dataset(SOURCE_DATASET_ID) # TODO: post test delete line above and uncomment this one
 
     # Each task calls date.today() independently; the risk of a mismatch between
     # tasks is limited since only the month and year are used.
     run_date = date.today()
     dvf_resources = get_dvf_resources(
-        dvf_dataset.resources, _get_delivery(params, run_date)
+        source_dataset.resources, _get_delivery(params, run_date)
     )
 
     if params.get("year_to_run"):
@@ -341,8 +325,7 @@ def publish_datagouv(params: dict):
     # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
     # tree) are not managed here.
     # note that a year may be full year of half year (s1 or s2).
-    dataset = publish_client.dataset(get_geoloc_dataset_id(params.get("delivery")))
-    # dataset = local_client.dataset(get_geoloc_dataset_id(params.get("delivery"))) # TODO: delete line above and uncomment this one
+    dataset = publish_client.dataset(destination_dataset_id)
     existing = {
         year: res
         for res in dataset.resources
@@ -413,6 +396,6 @@ def publish_full_file(dataset, years: list[str]) -> None:
 def notification(params: dict) -> None:
     send_message(
         f"DVF géolocalisé mis à jour :\n"
-        f"\n- publié [sur {'demo.' if publish_client is demo_client else ''}data.gouv.fr]"
-        f"({publish_client.base_url}/datasets/{get_geoloc_dataset_id(params.get('delivery'))})"
+        f"\n- publié [sur {'demo.' if PUBLISH_ON_DEMO else ''}data.gouv.fr]"
+        f"({publish_client.base_url}/datasets/{destination_dataset_id})"
     )
