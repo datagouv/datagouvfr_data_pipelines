@@ -44,9 +44,7 @@ source_dataset = Dataset(SOURCE_DATASET_ID)
 
 DEMO_GEOLOC_DATASET_ID = "6ad249b7c56822dfb61a3585"  # copy of "Demandes de valeurs foncières géolocalisées" by sylvain.lesage on demo
 PROD_GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr - Not used, see README.md
-PUBLISH_ON_DEMO = (
-    True  # publish on demo even when running on prod, to review the output first. See README.md
-)
+PUBLISH_ON_DEMO = True  # publish on demo even when running on prod, to review the output first. See README.md
 publish_client = demo_client if PUBLISH_ON_DEMO else local_client
 destination_dataset_id = (
     DEMO_GEOLOC_DATASET_ID if PUBLISH_ON_DEMO else PROD_GEOLOC_DATASET_ID
