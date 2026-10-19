@@ -129,7 +129,7 @@ def download_dvf_source_data(params: dict, **context):
         dvf_resources = [
             dvf_resource
             for dvf_resource in dvf_resources
-            if dvf_resource.dvf_version.year == year_to_run
+            if int(dvf_resource.dvf_version.year) == year_to_run
         ]
         if not dvf_resources:
             raise ValueError(f"No source resource for year {year_to_run}")
