@@ -44,7 +44,7 @@ with DAG(
 ):
     (
         enrich_years(
-            files=(
+            unzipped_file_names=(
                 ShortCircuitOperator(
                     task_id="check_if_modif",
                     python_callable=check_if_modif,

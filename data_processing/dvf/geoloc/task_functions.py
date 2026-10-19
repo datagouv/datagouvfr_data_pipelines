@@ -19,6 +19,15 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
     enrich_with_cadastre,
 )
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
+    Delivery,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
+    get_dvf_resources,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
     enrich_year,
 )
@@ -82,60 +91,79 @@ def check_if_modif():
     return True
 
 
+def _get_delivery(params: dict, run_date: date) -> Delivery:
+    delivery_key = params.get("delivery")
+    if delivery_key is None:
+        return Delivery.from_date(run_date)
+    else:
+        return Delivery.from_key(delivery_key)
+
+
+def _check_output_file_names(params: dict, output_file_names: list[str]) -> None:
+    """Check that all the files are present and correct with respect to the delivery"""
+    run_date = date.today()
+    delivery = _get_delivery(params, run_date)
+    dvf_versions = [
+        DvfVersion.from_output_file_name(output_file_name)
+        for output_file_name in output_file_names
+    ]
+    delivery.check_dvf_versions(dvf_versions)
+
+
 @task()
-def download_dvf_source_data(params: dict, **context) -> list[str]:
+def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
     dvf_dataset = get_source_dataset(params.get("delivery"))
     # dvf_dataset = Dataset(SOURCE_DATASET_ID) # TODO: post test delete line above and uncomment this one
-    data = [res for res in dvf_dataset.resources if res.type == "main"]
-    if len(data) not in {5, 6}:
-        # 5 full years, or half first and last years and 4 full years
-        raise ValueError(f"Unexpected number of resources: {len(data)}")
-    titles = [f'"{res.title}"' for res in data]
-    logging.info(f"Available ressources : {','.join(titles)}...")
 
-    file_names = {res.url.split("/")[-1]: res for res in data}
-    # checking that the year is where we expect it in the resource's url
-    for file_name in file_names:
-        if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
-            raise ValueError(f"Unexpected file name: {file_name}")
+    # Each task calls date.today() independently; the risk of a mismatch between
+    # tasks is limited since only the month and year are used.
+    run_date = date.today()
+    dvf_resources = get_dvf_resources(
+        dvf_dataset.resources, _get_delivery(params, run_date)
+    )
 
     if params.get("year_to_run"):
         # debug mode: rebuilding a single year
         year_to_run = params["year_to_run"]
-        file_names = {
-            f: res
-            for f, res in file_names.items()
-            if f == f"valeursfoncieres-{year_to_run}.txt.zip"
-        }
-        if not file_names:
+        dvf_resources = [
+            dvf_resource
+            for dvf_resource in dvf_resources
+            if int(dvf_resource.dvf_version.year) == year_to_run
+        ]
+        if not dvf_resources:
             raise ValueError(f"No source resource for year {year_to_run}")
         logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
 
-    files: list[str] = []
-    for file_name, res in file_names.items():
-        logging.info(f'Downloading ressource "{res.title}"...')
-        dest_path = TMP_FOLDER + file_name
-        download_resource(res, dest_path)
+    unzipped_file_names: list[str] = []
+    for dvf_resource in dvf_resources:
+        logging.info(f'Downloading ressource "{dvf_resource.resource.title}"...')
+        dest_path = TMP_FOLDER + dvf_resource.dvf_version.get_zip_file_name()
+        download_resource(dvf_resource.resource, dest_path)
         with ZipFile(dest_path, mode="r") as z:
             zipped = z.namelist()
             if len(zipped) != 1:
                 raise ValueError("Unexpected number of files in zip")
             z.extractall(TMP_FOLDER)
-            files.append(zipped[0])
+            unzipped_file_name = zipped[0]
+            expected_file_name = dvf_resource.dvf_version.get_unzipped_file_name()
+            if unzipped_file_name != expected_file_name:
+                raise ValueError(
+                    f"Unexpected unzipped file name {unzipped_file_name}, expected {expected_file_name}."
+                )
+            unzipped_file_names.append(unzipped_file_name)
         os.remove(dest_path)
 
-    return files
+    return unzipped_file_names
 
 
 @task()
-def enrich_years(files: list[str], **context):
+def enrich_years(unzipped_file_names: list[str], **context):
     """Enrich the data (change column names, improve date, codes and texts, add latitude/longitude and id_mutation).
 
     See enrich_year() docstring.
 
-    The results are put in one Parquet file per year (per source file). The source files (unzipped txt files) are
-    deleted.
+    The results are put in one Parquet file per source file. The source files (unzipped txt files) are deleted.
     """
 
     # we can't parallelize for RAM containment
@@ -164,10 +192,10 @@ def enrich_years(files: list[str], **context):
         )
     }  # {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
     logging.info(f"Available cadastre snapshots : {available_dates}")
-    logging.info(f"Starting year enrichment over {len(files)} files...")
-    for file in files:
+    logging.info(f"Starting year enrichment over {len(unzipped_file_names)} files...")
+    for unzipped_file_name in unzipped_file_names:
         enrich_year(
-            file,
+            unzipped_file_name,
             TMP_FOLDER,
             map_cultures=map_cultures,
             output_schema=output_schema,
@@ -177,23 +205,16 @@ def enrich_years(files: list[str], **context):
         )
     logging.info("Year enrichment over. Deleting temporary files...")
     # deleting in the end so that if the loop above fails, we can rerun safely
-    for file in files:
-        os.remove(TMP_FOLDER + file)
+    for unzipped_file_name in unzipped_file_names:
+        os.remove(TMP_FOLDER + unzipped_file_name)
 
 
-# cadastre millesime used by each DVF delivery: month of the delivery, month of the millesime
-DELIVERIES = {"april": (4, "03"), "october": (10, "06")}
-
-
-def get_cadastre_millesime(delivery: str | None, today: date) -> str:
+def get_cadastre_millesime(delivery: Delivery, today: date) -> str:
     """Return the cadastre millesime of the latest given delivery,
     e.g. "2026-06-01" for an October 2026 delivery."""
-    if delivery is None:
-        delivery = "april" if 4 <= today.month < 10 else "october"
-    delivery_month, millesime_month = DELIVERIES[delivery]
     # before the delivery month, the latest delivery of this kind is last year's
-    year = today.year if today.month >= delivery_month else today.year - 1
-    return f"{year}-{millesime_month}-01"
+    year = today.year if today.month >= delivery.month else today.year - 1
+    return f"{year}-{delivery.cadastre_millesime}-01"
 
 
 @task()
@@ -210,7 +231,9 @@ def download_cadastre_source_data(params: dict, **context):
     # Technical choice notes: Measurement on samples shows it is faster to load the full file
     # then filter it locally with duckdb rather than directly filter and load with duckdb.
     # This current task takes about 15min on a PC with wifi +350Mbps for download
-    millesime = get_cadastre_millesime(params.get("delivery"), date.today())
+
+    run_date = date.today()
+    millesime = get_cadastre_millesime(_get_delivery(params, run_date), run_date)
     url = (
         "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
         f"{millesime}/geoparquet/france/cadastre.parquet"
@@ -260,14 +283,16 @@ def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
 
     Write the result as .csv.gz files, and delete the temporary Parquet ones.
     """
-    files = sorted(
-        f for f in os.listdir(TMP_FOLDER) if f.startswith("temp-")
+    temp_parquet_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_temp_parquet_file_name(f)
     )  # If year_to_run set up, len(files) == 1
-    for file in files:
-        enrich_with_cadastre(file, cadastre_file, tmp_folder=TMP_FOLDER)
+    for temp_parquet_file_name in temp_parquet_file_names:
+        enrich_with_cadastre(
+            temp_parquet_file_name, cadastre_file, tmp_folder=TMP_FOLDER
+        )
     # deleting in the end so that if the loop above fails, we can rerun safely
-    for file in files:
-        os.remove(TMP_FOLDER + file)
+    for temp_parquet_file_name in temp_parquet_file_names:
+        os.remove(TMP_FOLDER + temp_parquet_file_name)
 
 
 @task()
@@ -279,61 +304,69 @@ def build_full_file(params: dict):
             "year_to_run is set: skipping the full file, the window is incomplete"
         )
         return
-    files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+
+    _check_output_file_names(params, output_file_names)
+
     expected_header = None
     with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
-        for file in files:
-            logging.info(f"Appending {file}...")
-            with gzip.open(TMP_FOLDER + file, "rb") as f:
+        for output_file_name in output_file_names:
+            logging.info(f"Appending {output_file_name}...")
+            with gzip.open(TMP_FOLDER + output_file_name, "rb") as f:
                 header = f.readline()
                 if expected_header is None:
                     expected_header = header
                     out.write(header)
                 elif header != expected_header:
                     raise ValueError(
-                        f"{file} does not have the same columns as {files[0]}"
+                        f"{output_file_name} does not have the same columns as {output_file_names[0]}"
                     )
                 shutil.copyfileobj(f, out)
-    logging.info(f"{FULL_FILE} built from {len(files)} files")
+    logging.info(f"{FULL_FILE} built from {len(output_file_names)} files")
 
 
 @task()
 def publish_datagouv(params: dict):
     year_to_run = params.get("year_to_run")
-    # april delivery: five full years, october delivery: one more file
-    # (oldest year last semester and latest year first semester)
-    files = sorted(f for f in os.listdir(TMP_FOLDER) if f.startswith("full-"))
-    if not year_to_run and len(files) not in {5, 6}:
-        raise ValueError(f"Unexpected number of files to publish: {len(files)}")
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+    if not year_to_run:
+        _check_output_file_names(params, output_file_names)
 
     # matching resources to files by year (and not by index), so that a given year always
     # keeps the same resource: we want to replace resources when we can, so that we keep
     # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
     # tree) are not managed here.
+    # note that a year may be full year of half year (s1 or s2).
     dataset = publish_client.dataset(get_geoloc_dataset_id(params.get("delivery")))
-    # dataset = local_client.dataset(GEOLOC_DATASET_ID) # TODO: delete line above and uncomment this one
+    # dataset = local_client.dataset(get_geoloc_dataset_id(params.get("delivery"))) # TODO: delete line above and uncomment this one
     existing = {
-        match.group(1): res
+        year: res
         for res in dataset.resources
         if res.type == "main"
         and (
-            match := re.search(r"full-(\d{4})\.", res.url)
+            year := DvfVersion.search_year_in_resource_url(res.url)
         )  # url match avoids any wrong match with a resource renamed on UI
-    }  # {"2021": Resource(title="DVF 2021"...), ..., "2025": Resource(...)}
+    }  # {"2021": Resource(title="DVF 2021 (2nd semestre)"...), ..., "2025": Resource(...)}
 
     to_publish = set()
-    for file in files:
-        year = file.split(".")[0].split("-")[1]  # "full-2022.csv.gz" => "2022"
+    for output_file_name in output_file_names:
+        dvf_version = DvfVersion.from_output_file_name(output_file_name)
+        dvf_version_id = dvf_version.get_id()
+        year = dvf_version.year
         to_publish.add(year)
         kwargs = {
-            "payload": {"title": f"DVF {year}"},
-            "file_to_upload": TMP_FOLDER + file,
+            "payload": {"title": dvf_version.get_output_title()},
+            "file_to_upload": TMP_FOLDER + output_file_name,
         }
         if year in existing:
-            logging.info(f"Updating resource for {year}")
+            logging.info(f"Updating resource for {dvf_version_id}")
             existing[year].update(**kwargs)
         else:
-            logging.info(f"Creating resource for {year}")
+            logging.info(f"Creating resource for {dvf_version_id}")
             dataset.create_static(**kwargs)
 
     # oldest year last semester that fell out of the rolling window

@@ -119,6 +119,7 @@ Lancer les tests :
 
 ```shell
 pytest -s -v data_processing/dvf/explore/tests/
+pytest -s -v data_processing/dvf/geoloc/tests/
 pytest -s -v data_processing/meteo/previsions_densemble/tests
 pytest -s -v dgv/monitoring/dashboard/tests/
 pytest -s -v utils/tests/

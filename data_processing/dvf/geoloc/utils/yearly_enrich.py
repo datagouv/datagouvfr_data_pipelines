@@ -7,6 +7,9 @@ from time import sleep
 
 import numpy as np
 import pandas as pd
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.latlong import (
     enrich_parcelles_with_coord,
 )
@@ -50,7 +53,6 @@ COMPUTED_SOURCE_COLUMNS = [
     "Section",
     "No plan",
 ]
-# TODO: fill in the "ancien..." columns
 EMPTY_COLUMNS = ("ancien_code_commune", "ancien_nom_commune", "ancien_id_parcelle")
 
 # what read_csv reads: everything as a string, except the numeric columns parsed as floats.
@@ -97,7 +99,7 @@ def build_output_columns(
 ) -> dict[str, pd.Series]:
     """Build all DVF cols that are based off the source only.
     Output one dict entry per col."""
-    cols = {}
+    cols: dict[str, pd.Series] = {}
 
     # Cols copied from the source, renamed only (floats already parsed by read_csv)
     cols |= {new: source[old] for old, new in PASSTHROUGH_COLUMNS.items()}
@@ -140,7 +142,7 @@ def build_output_columns(
 
 
 def enrich_year(
-    file: str,
+    unzipped_file_name: str,
     tmp_folder: str,
     map_cultures: dict[str, dict],
     output_schema: dict[str, str],
@@ -182,8 +184,8 @@ def enrich_year(
 
     Parameters
     ----------
-    file : str
-        Path to the DVF .txt (unzipped) source file for a specific year.
+    unzipped_file_name : str
+        File name of the unzipped DVF .txt source file for a specific year, located inside tmp_folder.
     tmp_folder : str
         Temp folder for the DVF DAG.
     map_cultures : dict
@@ -200,18 +202,25 @@ def enrich_year(
     bucket : str
         Name of the bucket that contains cadastre parcelles
     """
+
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
-    year = file.split(".")[0].split("-")[1]  #  # "valeursfoncieres-2023.txt" => "2023"
-    if f"temp-{year}.parquet" in os.listdir(tmp_folder):
-        logging.info(f"Skipping {file} - already processed")  # In case of retry
+
+    dvf_version = DvfVersion.from_unzipped_file_name(unzipped_file_name)
+    year = dvf_version.year
+    temp_parquet_file_name = dvf_version.get_temp_parquet_file_name()
+
+    if temp_parquet_file_name in os.listdir(tmp_folder):
+        logging.info(
+            f"Skipping {unzipped_file_name} - already processed"
+        )  # In case of retry
         return
 
     # READ SOURCE
-    logging.info(f"Processing {file}")
+    logging.info(f"Processing {unzipped_file_name}")
     # only the columns we actually use, and the numeric ones parsed straight to float
     # by the C parser (decimal="," handles the french decimal comma)
     source = pd.read_csv(
-        tmp_folder + file,
+        tmp_folder + unzipped_file_name,
         sep="|",
         usecols=list(SOURCE_DTYPES),
         dtype=SOURCE_DTYPES,
@@ -242,7 +251,12 @@ def enrich_year(
     mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
         output["valeur_fonciere"] != output["valeur_fonciere"].shift()
     )
-    output.insert(0, "id_mutation", f"{year}-" + mask.cumsum().astype(str))  # First col
+    prefix = year
+    # ^ The semester is not used here. It will be fine (no duplicates) if
+    # we have only one file per year (full year, or half year)
+    output.insert(
+        0, "id_mutation", f"{prefix}-" + mask.cumsum().astype(str)
+    )  # First col
     del mask
     # the geoloc step reorders rows (one batch per cadastre snapshot, each sorted by
     # id_parcelle), so the source position rides along to restore the file order at the end
@@ -253,6 +267,7 @@ def enrich_year(
     final = enrich_parcelles_with_coord(
         output, year, available_dates, s3_client, bucket
     )  # Add lat, long coordinates tied to parcelle ID
+    # ^ Note that we don't need to pass the semester here, the logic only requires the year.
     del output
     assert len(final) == expected_len
 
@@ -275,10 +290,10 @@ def enrich_year(
     # parquet, not csv.gz: this file only exists for enrich_with_cadastre to read back, and
     # a gzip round-trip costs ~45s per million rows against ~7s, while losing every dtype
     # the assert above just checked (float32 comes back float64, Int64 as float64 with NaN). The published
-    # full-<year>.csv.gz is written at the end of that step instead.
+    # full-<year>(-<semester>).csv.gz is written at the end of that step instead.
     logging.info("Saving file...")
     final.to_parquet(
-        tmp_folder + f"temp-{year}.parquet",
+        tmp_folder + temp_parquet_file_name,
         compression="zstd",
         index=False,
     )
