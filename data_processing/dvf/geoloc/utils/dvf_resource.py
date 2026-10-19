@@ -54,7 +54,7 @@ def get_dvf_resources(
             f"{len(main_resources)} (expected {delivery.count})"
         )
     titles = [f'"{res.title}"' for res in main_resources]
-    logging.info(f"Available ressources : {','.join(titles)}...")
+    logging.info(f"Available ressources : {', '.join(titles)}.")
 
     dvf_resources: list[DvfResource] = []
     for resource in main_resources:
