@@ -113,7 +113,8 @@ def _check_output_file_names(params: dict, output_file_names: list[str]) -> None
 @task()
 def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
-    dvf_dataset = Dataset(SOURCE_DATASET_ID)
+    dvf_dataset = get_source_dataset(params.get("delivery"))
+    # dvf_dataset = Dataset(SOURCE_DATASET_ID) # TODO: post test delete line above and uncomment this one
 
     # Each task calls date.today() independently; the risk of a mismatch between
     # tasks is limited since only the month and year are used.
