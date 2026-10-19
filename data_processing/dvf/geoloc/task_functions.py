@@ -44,10 +44,17 @@ def get_source_dataset(delivery: str | None) -> Dataset:
     return Dataset(SOURCE_DATASET_ID)
 
 
+def get_geoloc_dataset_id(delivery: str | None) -> str:
+    if not (delivery == "april" and AIRFLOW_ENV == "dev"):
+        return GEOLOC_OCTOBER_DATASET_ID
+    return GEOLOC_DATASET_ID
+
+
 # TODO: stop delete here
 
 SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
 GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr
+GEOLOC_OCTOBER_DATASET_ID = "6ad249b7c56822dfb61a3585"  # demo: copy of "Demandes de valeurs foncières géolocalisées" by sylvain.lesage
 bucket = "dataeng-open"
 # same file name as the single-file resource already published, which is how we find it back
 FULL_FILE = "dvf.csv.gz"
@@ -303,7 +310,7 @@ def publish_datagouv(params: dict):
     # keeps the same resource: we want to replace resources when we can, so that we keep
     # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
     # tree) are not managed here.
-    dataset = publish_client.dataset(GEOLOC_DATASET_ID)
+    dataset = publish_client.dataset(get_geoloc_dataset_id(params.get("delivery")))
     # dataset = local_client.dataset(GEOLOC_DATASET_ID) # TODO: delete line above and uncomment this one
     existing = {
         match.group(1): res
@@ -370,9 +377,9 @@ def publish_full_file(dataset, years: list[str]) -> None:
 
 
 @task()
-def notification() -> None:
+def notification(params: dict) -> None:
     send_message(
         f"DVF géolocalisé mis à jour :\n"
         f"\n- publié [sur {'demo.' if publish_client is demo_client else ''}data.gouv.fr]"
-        f"({publish_client.base_url}/datasets/{GEOLOC_DATASET_ID})"
+        f"({publish_client.base_url}/datasets/{get_geoloc_dataset_id(params.get('delivery'))})"
     )
