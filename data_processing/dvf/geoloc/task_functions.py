@@ -142,27 +142,6 @@ def download_dvf_source_data(params: dict, **context):
 
 
 @task()
-def download_published_yearly_files(**context):
-    """Download the yearly ``full-*.csv.gz`` files already published on the destination
-    dataset, so the concat file (``dvf.csv.gz``) can be built without redoing the heavy
-    enrichment.
-
-    This is the source task of the dedicated concat DAG
-    (``data_processing_dvf_geoloc_concat``): the yearly files are produced and published
-    by ``data_processing_dvf_geoloc`` (yearly DAG), and this task reuses them as the
-    input of the concatenation.
-    """
-    dataset = publish_client.dataset(destination_dataset_id)
-    for res in dataset.resources:
-        if res.type != "main":
-            continue
-        file_name = res.url.split("/")[-1]
-        if DvfVersion.is_output_file_name(file_name):
-            logging.info(f'Downloading published file "{file_name}"...')
-            download_resource(res, TMP_FOLDER + file_name)
-
-
-@task()
 def enrich_years(unzipped_file_names: list[str], **context):
     """Enrich the data (change column names, improve date, codes and texts, add latitude/longitude and id_mutation).
 
@@ -301,33 +280,6 @@ def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
 
 
 @task()
-def build_full_file(params: dict):
-    """Concatenate the yearly files into a single file covering the whole window.
-    Streamed, as the window is several GB uncompressed."""
-    output_file_names = sorted(
-        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
-    )
-
-    _check_output_file_names(params, output_file_names)
-
-    expected_header = None
-    with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
-        for output_file_name in output_file_names:
-            logging.info(f"Appending {output_file_name}...")
-            with gzip.open(TMP_FOLDER + output_file_name, "rb") as f:
-                header = f.readline()
-                if expected_header is None:
-                    expected_header = header
-                    out.write(header)
-                elif header != expected_header:
-                    raise ValueError(
-                        f"{output_file_name} does not have the same columns as {output_file_names[0]}"
-                    )
-                shutil.copyfileobj(f, out)
-    logging.info(f"{FULL_FILE} built from {len(output_file_names)} files")
-
-
-@task()
 def publish_yearly(params: dict):
     year_to_run = params.get("year_to_run")
     output_file_names = sorted(
@@ -378,6 +330,63 @@ def publish_yearly(params: dict):
 
 
 @task()
+def notification(params: dict) -> None:
+    send_message(
+        f"DVF géolocalisé mis à jour :\n"
+        f"\n- publié [sur {'demo.' if PUBLISH_ON_DEMO else ''}data.gouv.fr]"
+        f"({publish_client.base_url}/datasets/{destination_dataset_id})"
+    )
+
+
+@task()
+def download_published_yearly_files(**context):
+    """Download the yearly ``full-*.csv.gz`` files already published on the destination
+    dataset, so the concat file (``dvf.csv.gz``) can be built without redoing the heavy
+    enrichment.
+
+    This is the source task of the dedicated concat DAG
+    (``data_processing_dvf_geoloc_concat``): the yearly files are produced and published
+    by ``data_processing_dvf_geoloc`` (yearly DAG), and this task reuses them as the
+    input of the concatenation.
+    """
+    dataset = publish_client.dataset(destination_dataset_id)
+    for res in dataset.resources:
+        if res.type != "main":
+            continue
+        file_name = res.url.split("/")[-1]
+        if DvfVersion.is_output_file_name(file_name):
+            logging.info(f'Downloading published file "{file_name}"...')
+            download_resource(res, TMP_FOLDER + file_name)
+
+
+@task()
+def build_full_file(params: dict):
+    """Concatenate the yearly files into a single file covering the whole window.
+    Streamed, as the window is several GB uncompressed."""
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+
+    _check_output_file_names(params, output_file_names)
+
+    expected_header = None
+    with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
+        for output_file_name in output_file_names:
+            logging.info(f"Appending {output_file_name}...")
+            with gzip.open(TMP_FOLDER + output_file_name, "rb") as f:
+                header = f.readline()
+                if expected_header is None:
+                    expected_header = header
+                    out.write(header)
+                elif header != expected_header:
+                    raise ValueError(
+                        f"{output_file_name} does not have the same columns as {output_file_names[0]}"
+                    )
+                shutil.copyfileobj(f, out)
+    logging.info(f"{FULL_FILE} built from {len(output_file_names)} files")
+
+
+@task()
 def publish_concat(params: dict):
     """Publish the concat file (``dvf.csv.gz``), the concatenation of all the yearly files.
 
@@ -422,12 +431,3 @@ def publish_full_file(dataset, years: list[str]) -> None:
         logging.warning(f"No period found in {res.title!r}, keeping the title as is")
     logging.info(f"Updating the single-file resource: {title!r}")
     res.update(payload={"title": title}, file_to_upload=TMP_FOLDER + FULL_FILE)
-
-
-@task()
-def notification(params: dict) -> None:
-    send_message(
-        f"DVF géolocalisé mis à jour :\n"
-        f"\n- publié [sur {'demo.' if PUBLISH_ON_DEMO else ''}data.gouv.fr]"
-        f"({publish_client.base_url}/datasets/{destination_dataset_id})"
-    )

@@ -8,7 +8,7 @@
 | Description | Ce traitement met à jour les réexpositions géolocalisées des données DVF (fichiers annuels).  |
 | Fréquence de mise à jour | Semestrielle |
 | Données sources | [Jeu de données DVF](https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres/) |
-| Données de sorties | [Jeu de données](https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres-geolocalisees/) |
+| Données de sorties | [Jeu de données DVF geolocalisé sur demo](https://demo.data.gouv.fr/datasets/demandes-de-valeurs-foncieres-geolocalisees-3/) |
 | Channel Tchap d'information | bot-datagouv-dataeng |
 
 > Note : ce code est une reprise de https://github.com/datagouv/dvf
@@ -20,8 +20,8 @@
 | Fichier source     | `dag.py`     |
 | Description | Construit et publie le fichier concaténé `dvf.csv.gz` à partir des fichiers annuels déjà publiés par `data_processing_dvf_geoloc`. |
 | Fréquence de mise à jour | Semestrielle |
-| Données sources | Les fichiers annuels `full-*.csv.gz` publiés sur le jeu de données de destination. |
-| Données de sorties | Le fichier unique `dvf.csv.gz`. |
+| Données sources | Les fichiers annuels `full-*.csv.gz` publiés sur le [jeu de données DVF geolocalisé sur demo](https://demo.data.gouv.fr/datasets/demandes-de-valeurs-foncieres-geolocalisees-3/). |
+| Données de sorties | Le fichier unique `dvf.csv.gz` sur le [jeu de données DVF geolocalisé sur demo](https://demo.data.gouv.fr/datasets/demandes-de-valeurs-foncieres-geolocalisees-3/). |
 
 ## Processus manuel
 
