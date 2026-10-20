@@ -9,9 +9,11 @@ from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import 
     check_if_modif,
     download_cadastre_source_data,
     download_dvf_source_data,
+    download_published_yearly_files,
     enrich_years,
     process_cadastre_cols,
-    publish_datagouv,
+    publish_concat,
+    publish_yearly,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
@@ -39,27 +41,49 @@ with DAG(
                     "Defaults to the delivery matching the current date."
                 ),
             ),
+            "only": Param(
+                "none",
+                type="string",
+                enum=["none", "only-concatenated", "only-yearly"],
+                description=(
+                    "Restrict the run to a subset of outputs: 'none' (default) publishes "
+                    "both the yearly full-*.csv.gz files and the concat file dvf.csv.gz; "
+                    "'only-concatenated' runs only the concat (skipping the heavy "
+                    "enrichment, reusing the yearly files already published on the "
+                    "destination dataset); 'only-yearly' runs only the yearly files "
+                    "(skipping the concat file)."
+                ),
+            ),
         },
     ),
 ):
-    (
-        enrich_years(
-            unzipped_file_names=(
-                ShortCircuitOperator(
-                    task_id="check_if_modif",
-                    python_callable=check_if_modif,
-                )
-                >> clean_up_folder(TMP_FOLDER, recreate=True)
-                >> download_dvf_source_data()
-            )
-        )
-        >> download_cadastre_source_data()
-        >> process_cadastre_cols()
-        >> build_full_file()
-        >> publish_datagouv()
-        # >> notification()
-        # >> TriggerDagRunOperator(
-        #     task_id="trigger_dvf_explore",
-        #     trigger_dag_id="data_processing_dvf_explore",
-        # )
+    source_download = download_dvf_source_data()
+    yearly_files = enrich_years(unzipped_file_names=source_download)
+    cadastre = download_cadastre_source_data()
+    cols = process_cadastre_cols()
+    # the concat file is produced either by the heavy enrichment (default / only-yearly)
+    # or by reusing the published yearly files (only-concatenated); build_full_file has
+    # trigger_rule="none_failed" so it runs whichever branch produced them.
+    concat_file = build_full_file()
+
+    ShortCircuitOperator(
+        task_id="check_if_modif",
+        python_callable=check_if_modif,
+    ) >> (
+        clean_up_folder(TMP_FOLDER, recreate=True)
+        >> source_download
+        >> yearly_files
+        >> cadastre
+        >> cols
     )
+    # yearly files for the concat come from the heavy run, or from the already-published
+    # files in only-concatenated mode (heavy tasks are skipped then)
+    download_published_yearly_files() >> concat_file
+    cols >> concat_file
+    concat_file >> publish_concat()
+    cols >> publish_yearly()
+    # # >> notification()
+    # # >> TriggerDagRunOperator(
+    # #     task_id="trigger_dvf_explore",
+    # #     trigger_dag_id="data_processing_dvf_explore",
+    # # )

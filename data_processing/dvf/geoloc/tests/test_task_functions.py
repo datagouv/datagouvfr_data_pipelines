@@ -1,9 +1,11 @@
-"""Unit tests for publish_datagouv (task_functions).
+"""Unit tests for publish_yearly / publish_concat / download_published_yearly_files
+and the ``only`` gating helpers (task_functions).
 
-The publish step is the one that turns the built ``full-*.csv.gz`` files into
-resources: it must parse each file name into a DvfVersion, pick the right title
-(including the semester), create or update the matching resource, and delete the
-resources that fell out of the rolling window.
+The publish steps turn the built ``full-*.csv.gz`` files into resources: they parse
+each file name into a DvfVersion, pick the right title (including the semester),
+create or update the matching resource, and delete the resources that fell out of the
+rolling window. The ``only`` helpers decide, from the run ``params``, whether a task is
+gated (skipped/run) for ``only-concatenated`` / ``only-yearly`` runs.
 """
 
 from datetime import date
@@ -26,6 +28,7 @@ class _Resource:
         self.url = url
         self.type = "main"
         self.updates = []
+        self.id = f"resource-{url}"
 
     def update(self, **kwargs):
         self.updates.append(kwargs)
@@ -74,8 +77,11 @@ def setup(monkeypatch):
     return dataset
 
 
+# --- publish_yearly (the yearly part) ---
+
+
 def test_parses_each_file_and_uses_semester_titles(setup):
-    task_functions.publish_datagouv(params={})
+    task_functions.publish_yearly(params={})
 
     # the per-year resources created for each file (excluding the single FULL_FILE)
     created = {
@@ -94,7 +100,7 @@ def test_parses_each_file_and_uses_semester_titles(setup):
 
 
 def test_updates_existing_year_and_deletes_out_of_window(setup):
-    task_functions.publish_datagouv(params={})
+    task_functions.publish_yearly(params={})
 
     in_2023 = setup.resources[0]
     assert in_2023.updates == [
@@ -108,5 +114,79 @@ def test_updates_existing_year_and_deletes_out_of_window(setup):
 
 def test_validates_window_with_the_matched_delivery(setup):
     # the october window must be accepted by the built-in delivery check
-    task_functions.publish_datagouv(params={})
+    task_functions.publish_yearly(params={})
     assert setup.created
+
+
+# --- publish_concat (the concat part) ---
+
+
+def test_publish_concat_derives_years_and_publishes_full_file(setup, monkeypatch):
+    published = {}
+    monkeypatch.setattr(
+        task_functions,
+        "publish_full_file",
+        lambda dataset, years: published.update(years=years),
+    )
+    task_functions.publish_concat(params={})
+    # october window: 5 distinct years (2021 involved through its s2 semester)
+    assert published["years"] == ["2021", "2022", "2023", "2024", "2025", "2026"]
+
+
+def test_publish_concat_skips_when_year_to_run_is_set(setup, monkeypatch):
+    called = []
+    monkeypatch.setattr(
+        task_functions, "publish_full_file", lambda dataset, years: called.append(years)
+    )
+    task_functions.publish_concat(params={"year_to_run": 2023})
+    assert called == []
+
+
+# --- download_published_yearly_files (concat-only source) ---
+
+
+def test_download_published_yearly_files_only_main_matching_files(monkeypatch):
+    resources = [
+        _Resource(
+            "https://example.org/full-2023.csv.gz"
+        ),  # main + yearly -> downloaded
+        _Resource(
+            "https://example.org/full-2022.csv.gz"
+        ),  # main + yearly -> downloaded
+        _Resource("https://example.org/dvf.csv.gz"),  # main but not a yearly file
+    ]
+    # a non-main resource must be ignored even if its name matches
+    resources[0].type = "attached"
+    monkeypatch.setattr(
+        task_functions, "publish_client", _FakeClient(_Dataset(resources))
+    )
+    downloaded = []
+    monkeypatch.setattr(
+        task_functions,
+        "download_resource",
+        lambda res, dest_path: downloaded.append(dest_path.rsplit("/", 1)[-1]),
+    )
+    task_functions.download_published_yearly_files()
+    assert downloaded == ["full-2022.csv.gz"]
+
+
+# --- `only` gating helpers ---
+
+
+@pytest.mark.parametrize(
+    "only,concat_expected,yearly_expected",
+    [
+        ("none", False, False),
+        ("only-concatenated", True, False),
+        ("only-yearly", False, True),
+        (None, False, False),
+    ],
+)
+def test_only_gating_helpers(only, concat_expected, yearly_expected):
+    context = {"params": {"only": only}}
+    assert task_functions._only_concatenated(context) is concat_expected, (
+        f"only={only!r} _only_concatenated"
+    )
+    assert task_functions._only_yearly(context) is yearly_expected, (
+        f"only={only!r} _only_yearly"
+    )

@@ -5,11 +5,13 @@ import os
 import re
 import shutil
 from datetime import date
+from typing import Any
 from zipfile import ZipFile
 
 import duckdb
 import requests
 from airflow.sdk import task
+from airflow.sdk.definitions.decorators.condition import run_if, skip_if
 from datagouv import Dataset
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
@@ -64,6 +66,16 @@ def download_resource(res, dest_path: str) -> None:
     res.download(dest_path)
 
 
+def _only_concatenated(context: Any) -> bool:
+    """True when the run is restricted to the concatenated file only."""
+    return context.get("params", {}).get("only") == "only-concatenated"
+
+
+def _only_yearly(context: Any) -> bool:
+    """True when the run is restricted to the yearly files only."""
+    return context.get("params", {}).get("only") == "only-yearly"
+
+
 def check_if_modif():
     # triggering the pipeline if any of the source dataset's resource has been
     # updated more recently than the agregated file
@@ -96,6 +108,7 @@ def _check_output_file_names(params: dict, output_file_names: list[str]) -> None
     delivery.check_dvf_versions(dvf_versions)
 
 
+@skip_if(_only_concatenated)
 @task()
 def download_dvf_source_data(params: dict, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
@@ -139,6 +152,26 @@ def download_dvf_source_data(params: dict, **context):
         os.remove(dest_path)
 
     return unzipped_file_names
+
+
+@run_if(_only_concatenated)
+@task()
+def download_published_yearly_files(**context):
+    """Download the yearly ``full-*.csv.gz`` files already published on the destination
+    dataset, so the concat file can be rebuilt without redoing the heavy enrichment.
+
+    Only used in ``only="only-concatenated"`` mode (a manual recovery/re-run of the
+    concatenated file): the heavy tasks are skipped, and this task reuses the last
+    published yearly files as the source of the concat.
+    """
+    dataset = publish_client.dataset(destination_dataset_id)
+    for res in dataset.resources:
+        if res.type != "main":
+            continue
+        file_name = res.url.split("/")[-1]
+        if DvfVersion.is_output_file_name(file_name):
+            logging.info(f'Downloading published file "{file_name}"...')
+            download_resource(res, TMP_FOLDER + file_name)
 
 
 @task()
@@ -279,7 +312,8 @@ def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
         os.remove(TMP_FOLDER + temp_parquet_file_name)
 
 
-@task()
+@skip_if(_only_yearly)
+@task(trigger_rule="none_failed")
 def build_full_file(params: dict):
     """Concatenate the yearly files into a single file covering the whole window.
     Streamed, as the window is several GB uncompressed."""
@@ -312,7 +346,7 @@ def build_full_file(params: dict):
 
 
 @task()
-def publish_datagouv(params: dict):
+def publish_yearly(params: dict):
     year_to_run = params.get("year_to_run")
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
@@ -359,7 +393,29 @@ def publish_datagouv(params: dict):
             if year not in to_publish:
                 logging.info(f"Deleting resource for {year}, out of the window")
                 res.delete()
-        publish_full_file(dataset, sorted(to_publish))
+
+
+@task()
+def publish_concat(params: dict):
+    """Publish the concat file (``dvf.csv.gz``), the concatenation of all the yearly files.
+
+    The years covered are derived from the yearly ``full-*.csv.gz`` files present in the
+    tmp folder: produced either by the heavy enrichment (default / only-yearly runs) or by
+    ``download_published_yearly_files`` (only-concatenated run).
+    """
+    if params.get("year_to_run"):
+        logging.info(
+            "year_to_run is set: skipping the concat file, the window is incomplete"
+        )
+        return
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+    years = sorted(
+        {DvfVersion.from_output_file_name(n).year for n in output_file_names}
+    )
+    dataset = publish_client.dataset(destination_dataset_id)
+    publish_full_file(dataset, years)
 
 
 def publish_full_file(dataset, years: list[str]) -> None:
