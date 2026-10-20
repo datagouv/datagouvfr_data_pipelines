@@ -42,6 +42,7 @@ def _task_passthrough(fn=None, **kwargs):
 
 _stub_package("airflow")
 _stub_package("airflow.sdk", task=_task_passthrough)
+sys.modules["airflow.sdk.definitions"] = types.ModuleType("airflow.sdk.definitions")
 
 # --- datagouvfr_data_pipelines package tree ---
 packages = [
