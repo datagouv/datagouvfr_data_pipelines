@@ -19,7 +19,7 @@ jq -r '.[].contents[] | select(.name | endswith("edigeo")) | .contents[] | selec
 for YEAR in `seq $start_year $end_year`
 do
   URL=$(jq -r --arg year "$YEAR" '.[$year]' "$(dirname "$0")/../sources.json")
-  echo Downloading $YEAR... && [ ! -f $DATADIR/full_$YEAR.csv.gz ] && curl -L "$URL" > $DATADIR/full-$YEAR.csv.gz
+  echo Downloading $YEAR from $URL... && [ ! -f $DATADIR/full_$YEAR.csv.gz ] && curl -L "$URL" > $DATADIR/full-$YEAR.csv.gz
 done
 
 cd $DATADIR && ls -lh
