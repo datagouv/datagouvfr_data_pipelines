@@ -40,39 +40,9 @@ def _task_passthrough(fn=None, **kwargs):
     return decorator
 
 
-def _condition_passthrough(condition=None, skip_message=None):
-    """Passthrough for @run_if / @skip_if: the task is returned unchanged.
-
-    (The decorators wrap a _TaskDecorator's pre_execute hook; in tests we don't
-    emulate the Airflow run machinery, so conditions are no-ops.)
-    """
-
-    def decorator(task):
-        return task
-
-    return decorator
-
-
 _stub_package("airflow")
 _stub_package("airflow.sdk", task=_task_passthrough)
-# airflow.sdk defines ``airflow.sdk.definitions.decorators`` as a sub-package;
-# it must be stubbed too since ``task`` and ``run_if``/``skip_if`` live there
-# (the latter are imported from the ``condition`` submodule).
-_decorators = types.ModuleType("airflow.sdk.definitions.decorators")
-_airflow_def = types.ModuleType("airflow.sdk.definitions")
-_airflow_def.__path__ = []
-_condition = types.ModuleType("airflow.sdk.definitions.decorators.condition")
-# Use setattr so that mypy (which special-cases ModuleType) stays quiet.
-setattr(_decorators, "task", _task_passthrough)
-setattr(_decorators, "run_if", _condition_passthrough)
-setattr(_decorators, "skip_if", _condition_passthrough)
-setattr(_decorators, "condition", _condition)
-setattr(_airflow_def, "decorators", _decorators)
-setattr(_condition, "run_if", _condition_passthrough)
-setattr(_condition, "skip_if", _condition_passthrough)
-sys.modules["airflow.sdk.definitions"] = _airflow_def
-sys.modules["airflow.sdk.definitions.decorators"] = _decorators
-sys.modules["airflow.sdk.definitions.decorators.condition"] = _condition
+sys.modules["airflow.sdk.definitions"] = types.ModuleType("airflow.sdk.definitions")
 
 # --- datagouvfr_data_pipelines package tree ---
 packages = [
