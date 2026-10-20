@@ -40,9 +40,9 @@ COMMUNES_PLM = {"751": "75056", "693": "69123", "132": "13055"}
 def get_year_interval() -> tuple[int, int]:
     today = datetime.today()
     # data updates happen in April and October
-    if 4 <= today.month < 10:
+    if 4 <= today.month < 10:  # april delivery - 5 files
         return today.year - 5, today.year - 1
-    return today.year - 5, today.year
+    return today.year - 5, today.year  # october delivery - 6 files
 
 
 def build_table_name(table: str) -> str:
