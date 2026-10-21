@@ -7,7 +7,7 @@ from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.dvf.explore.task_functions import (
     TMP_FOLDER,
     alter_dvf_table,
-    concat_and_publish_whole,
+    #concat_and_publish_whole,
     create_copro_table,
     create_distribution_and_stats_whole_period,
     create_distribution_table,
@@ -97,7 +97,7 @@ with DAG(
             dpe,
             copro,
             raw_dvf,
-            concat_and_publish_whole(),
+            #concat_and_publish_whole(),
         ]
         >> final_clean_up
         >> notification()
