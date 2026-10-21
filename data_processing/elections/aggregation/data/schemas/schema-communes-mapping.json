@@ -1,0 +1,94 @@
+{
+    "$schema": "https://frictionlessdata.io/schemas/table-schema.json",
+    "name": "schema-elections-table-passage-communes",
+    "title": "Schéma de la table de correspondance entre les communes des élections et les communes actuelles.",
+    "description": "",
+    "countryCode": "FR",
+    "homepage": "https://www.data.gouv.fr/datasets/donnees-des-elections-agregees",
+    "resources": [],
+    "sources": [
+        {
+            "title": "Spécification Tableschema",
+            "path": "https://specs.frictionlessdata.io/table-schema"
+        }
+    ],
+    "created": "2026-10-05",
+    "lastModified": "2026-10-05",
+    "version": "0.0.1",
+    "contributors": [],
+    "missingValues": [
+        ""
+    ],
+    "fields": [
+        {
+            "name": "id_election",
+            "title": "Identifiant de l'élection",
+            "description": "Identifiant de l'élection, au format année_type_tour.",
+            "example": "2022_pres_t1",
+            "type": "string"
+        },
+        {
+            "name": "code_departement",
+            "title": "Code du département",
+            "description": "Code du département de la commune, tel que dans les résultats de l'élection.",
+            "example": "15",
+            "type": "string"
+        },
+        {
+            "name": "code_commune",
+            "title": "Code de la commune lors de l'élection",
+            "description": "Code de la commune dans les résultats de l'élection, en vigueur à la date de l'élection.",
+            "example": "15141",
+            "type": "string"
+        },
+        {
+            "name": "libelle_commune",
+            "title": "Libellé de la commune lors de l'élection",
+            "description": "Libellé de la commune dans les résultats de l'élection.",
+            "example": "Neussargues En Pinatelle",
+            "type": "string"
+        },
+        {
+            "name": "code_commune_actuel",
+            "title": "Code de la commune actuelle",
+            "description": "Code Insee de la commune correspondante dans la géographie communale actuelle. Vide lorsque la commune n'a pas de correspondance (Français de l'étranger, collectivités d'outre-mer, communes disparues avant 2003).",
+            "example": "15031",
+            "type": "string"
+        },
+        {
+            "name": "libelle_commune_actuel",
+            "title": "Libellé de la commune actuelle",
+            "description": "Libellé Insee de la commune correspondante dans la géographie communale actuelle.",
+            "example": "Celles",
+            "type": "string"
+        },
+        {
+            "name": "nb_communes_actuelles",
+            "title": "Nombre de communes actuelles correspondantes",
+            "description": "Nombre de communes actuelles correspondant à la commune de l'élection, supérieur à 1 lorsque la commune a été scindée depuis. Diviser les effectifs (inscrits, votants, voix...) par cette valeur avant d'agréger, puis recalculer les ratios.",
+            "example": 5,
+            "type": "integer"
+        },
+        {
+            "name": "methode_rapprochement",
+            "title": "Méthode de rapprochement",
+            "description": "Manière dont la commune de l'élection a été rattachée : code (code de la commune l'année de l'élection), libelle (même libellé la même année), millesime_voisin (code trouvé dans un autre millésime). Vide en l'absence de correspondance.",
+            "example": "code",
+            "type": "string",
+            "constraints": {
+                "enum": [
+                    "code",
+                    "libelle",
+                    "millesime_voisin"
+                ]
+            }
+        },
+        {
+            "name": "millesime_cog_election",
+            "title": "Millésime de la géographie utilisée",
+            "description": "Millésime de la géographie Insee utilisé pour rattacher la commune de l'élection : en général l'année de l'élection, 2003 pour les élections antérieures, ou un autre millésime lorsque methode_rapprochement vaut millesime_voisin.",
+            "example": 2022,
+            "type": "integer"
+        }
+    ]
+}
