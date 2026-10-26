@@ -17,7 +17,6 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
@@ -1256,6 +1255,7 @@ def publish_stats_dvf(**context) -> None:
     context["ti"].xcom_push(
         key="dataset_id", value=data["mensuelles"][AIRFLOW_ENV]["dataset_id"]
     )
+
 
 # TODO: infra not ready yet for geoparquet. Need to be a work in a future sprint
 # @task()
