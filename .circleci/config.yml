@@ -17,8 +17,8 @@ jobs:
           # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
           # ruff format --check . : check code formatting without fixing (to fix, remove --check)
           command: |
-            python -m venv venv
-            . venv/bin/activate
+            python -m venv .venv
+            . .venv/bin/activate
             pip install --upgrade pip
             # version alignée sur .pre-commit-config.yaml : sans borne haute, une
             # nouvelle version de ruff élargit les règles par défaut et met la CI
@@ -36,8 +36,8 @@ jobs:
       - run:
           name: Install dependencies and run tests
           command: |
-            python -m venv venv
-            . venv/bin/activate
+            python -m venv .venv
+            . .venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt pytest
             pytest -v data_processing/dvf/geoloc/tests/
