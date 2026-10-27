@@ -20,8 +20,12 @@ import logging
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import task_functions
-from task_functions import TIME_DEPTH_TO_KEEP
+from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble import (
+    task_functions,
+)
+from datagouvfr_data_pipelines.data_processing.meteo.previsions_densemble.task_functions import (
+    TIME_DEPTH_TO_KEEP,
+)
 
 # --- Shared run dates (format "%Y%m%d%H%M"), used to build both SFTP and S3 data ---
 
