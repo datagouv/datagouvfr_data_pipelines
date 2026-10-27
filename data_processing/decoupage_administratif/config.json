@@ -1,0 +1,10 @@
+{
+    "decoupage-administratif": {
+        "dev": {
+            "dataset_id": "683424208089f77caf78f448"
+        },
+        "prod": {
+            "dataset_id": "683424208089f77caf78f448"
+        }
+    }
+}
