@@ -112,21 +112,21 @@ mypy.................................................(no files to check)Skipped
 Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances nécessaires (dans l'environnement virtuel) :
 
 ```shell
-uv pip install -r dev-requirements.txt
+uv pip install -r requirements.txt -r dev-requirements.txt
 ```
 
-Lancer les tests :
+Lancer toute la suite avec une seule commande, depuis la racine du dépôt :
 
 ```shell
-pytest -s -v data_processing/dvf/explore/tests/
-pytest -s -v data_processing/dvf/geoloc/tests/
-pytest -s -v data_processing/meteo/previsions_densemble/tests
-pytest -s -v dgv/monitoring/dashboard/tests/
-pytest -s -v utils/tests/
+pytest -v
 ```
+
+`pytest.ini` déclare les dossiers de tests (`data_processing`, `dgv`, `utils`)
+et le `pythonpath` nécessaire aux imports absolus. Le `conftest.py` racine
+fournit les stubs communs (Airflow, clients externes) à toutes les suites.
 
 ## CI
 
-La CI utilise [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), voir [.circleci/config.yml](./.circleci/config.yml). Pas de GitHub Actions.
+La CI utilise [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), voir [.circleci/config.yml](./.circleci/config.yml). Pas de GitHub Actions. Le job `test` lance toute la suite avec `pytest`, et le job `dag-imports` vérifie que les DAGs s'importent correctement.
 
 Sur le dépôt GitHub, GitGuardian tourne aussi pour éviter que des tokens fuitent.

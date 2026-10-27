@@ -31,16 +31,20 @@ jobs:
   test:
     docker:
       - image: cimg/python:<< pipeline.parameters.python-version >>
+    # pytest.ini adds the parent directory ("..") to sys.path so tests can use
+    # absolute imports (datagouvfr_data_pipelines...). The checkout must keep
+    # the package directory name and live under that parent.
+    working_directory: ~/dags/datagouvfr_data_pipelines
     steps:
       - checkout
       - run:
-          name: Install dependencies and run tests
+          name: Install dependencies and run all tests
           command: |
             python -m venv .venv
             . .venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt pytest
-            pytest -v data_processing/dvf/geoloc/tests/
+            pytest -v
 
   dag-imports:
     docker:

@@ -1,5 +1,6 @@
-# Test suites are not DAGs. Airflow would import them during DAG discovery,
-# without running pytest's conftest.py (which sets up their imports and stubs).
+# Test suites and shared pytest configuration are not DAGs. Airflow would
+# import them during DAG discovery, without running pytest's root conftest.py
+# (which sets up their imports and stubs).
 tests/
 test/
 test_*.py
