@@ -6,4 +6,5 @@ schema/tmp/
 .DS_Store
 local-tmp/
 venv/
+.venv/
 AGENTS.md
