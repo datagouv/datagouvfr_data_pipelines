@@ -85,7 +85,7 @@ _stub_module("datagouvfr_data_pipelines.utils.download", download_files=MagicMoc
 # Keep the real filesystem helpers (tested by the metrics suite) but avoid
 # instantiating File, which probes the filesystem and calls libmagic.
 _filesystem = importlib.import_module("datagouvfr_data_pipelines.utils.filesystem")
-_filesystem.File = MagicMock()
+setattr(_filesystem, "File", MagicMock())
 _stub_module(
     "datagouvfr_data_pipelines.utils.s3",
     S3Client=MagicMock(),
