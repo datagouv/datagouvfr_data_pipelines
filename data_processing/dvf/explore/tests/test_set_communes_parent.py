@@ -13,7 +13,10 @@ CA_ARLES = "241300417"
 def _parents(codes: list[str], epci: dict[str, str]) -> dict[str, str]:
     communes = pd.DataFrame({"code_geo": codes})
     epci_communes = pd.DataFrame(
-        {"code_geo": list(epci), "code_parent": list(epci.values())}
+        {
+            "code_geo": pd.Series(list(epci), dtype="string"),
+            "code_parent": pd.Series(list(epci.values()), dtype="string"),
+        }
     )
     out = set_communes_parent(communes, epci_communes)
     return dict(zip(out["code_geo"], out["code_parent"]))
