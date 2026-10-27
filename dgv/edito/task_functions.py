@@ -165,80 +165,85 @@ def create_edito_post(**context):
         )
     print(mapping)
 
-    # Generate blocs
+    # Generate blocs: a post is made of sections, each holding its title and its blocs. A
+    # dataset or a reuse is a bloc of its own, laid out side by side through its width. The
+    # datasets and the reuses of a selection share its section: their cards tell them apart.
+    month = LAST_MONTH_DATE_STR.lower()
+
+    def section(*blocs: dict) -> dict:
+        return {"class": "SectionBloc", "blocs": list(blocs)}
+
+    def title(title: str, subtitle: str | None = None) -> dict:
+        return {"class": "TitleBloc", "title": title, "subtitle": subtitle}
+
+    def datasets(ids: list[str]) -> list[dict]:
+        blocs = [{"class": "DatasetBloc", "width": "1/2", "dataset": id} for id in ids]
+        # The odd one out takes the whole row: otherwise the first reuse would fill the
+        # half row left beside it.
+        if len(blocs) % 2:
+            del blocs[-1]["width"]
+        return blocs
+
+    def reuses(ids: list[str]) -> list[dict]:
+        return [{"class": "ReuseBloc", "width": "1/3", "reuse": id} for id in ids]
+
     blocs = [
-        {
-            "class": "MarkdownBloc",
-            "content": (
-                f"En {LAST_MONTH_DATE_STR}, **{mapping['datasets']['count']} jeux de données** "
-                f"et **{mapping['reuses']['count']} réutilisations** ont été publiés sur "
-                "data.gouv.fr.\n\n"
-                "Retrouvez ici nos jeux de données et réutilisations coups de cœur du mois, "
-                f"ainsi que les publications récentes les plus populaires en {LAST_MONTH_DATE_STR}."
+        section(
+            title(
+                "Nos coups de cœur du mois",
+                f"Les jeux de données et réutilisations publiés en {month} "
+                "qui ont retenu notre attention.",
             ),
-        },
-        {
-            "class": "DatasetsListBloc",
-            "title": "Les jeux de données du mois",
-            "subtitle": "Les jeux de données qui ont retenu notre attention ce mois-ci :",
-            "datasets": mapping["datasets"]["featured_ids"],
-        },
-        {
-            "class": "ReusesListBloc",
-            "title": "Les réutilisations du mois",
-            "subtitle": "Les réutilisations qui ont retenu notre attention ce mois-ci :",
-            "reuses": mapping["reuses"]["featured_ids"],
-        },
-        {
-            "class": "MarkdownBloc",
-            "title": "Les tendances du mois sur data.gouv.fr",
-            "content": (
-                "*Il s'agit des jeux de données et des réutilisations créés récemment "
-                f"les plus consultés au mois {LAST_MONTH_ELISION}{LAST_MONTH_DATE_STR}.*"
+            *datasets(mapping["datasets"]["featured_ids"]),
+            *reuses(mapping["reuses"]["featured_ids"]),
+        ),
+        section(
+            title(
+                "Les tendances du mois",
+                "Les jeux de données et réutilisations créés récemment les plus consultés "
+                f"au mois {LAST_MONTH_ELISION}{month}.",
             ),
-        },
-        {
-            "class": "DatasetsListBloc",
-            "title": "Les jeux de données les plus consultés",
-            "subtitle": "Les jeux de données publiés ce mois-ci les plus populaires :",
-            "datasets": mapping["datasets"]["trending_ids"],
-        },
-        {
-            "class": "ReusesListBloc",
-            "title": "Les réutilisations les plus consultées",
-            "subtitle": "Les réutilisations publiées ce mois-ci les plus populaires :",
-            "reuses": mapping["reuses"]["trending_ids"],
-        },
-        {
-            "class": "LinksListBloc",
-            "title": "Suivez l'actualité de la plateforme",
-            "paragraph": (
-                "Le suivi des sorties ne constitue que le sommet de l'iceberg de l'activité "
-                "de data.gouv.fr. Pour ne rien manquer de l'actualité de data.gouv.fr et de "
-                "l'open data, abonnez-vous à notre infolettre. Et si vous souhaitez nous aider "
-                "à améliorer la plateforme en testant les nouveautés en avant-première, "
-                "devenez beta testeur."
-            ),
-            "links": [
-                {
-                    "title": "S'abonner à l'infolettre",
-                    "url": "https://f.info.data.gouv.fr/f/lp/infolettre-data-gouv-fr-landing-page/lk3q01y6",
-                },
-                {
-                    "title": "Devenir beta testeur",
-                    "url": "https://tally.so/r/mOalMA",
-                },
-            ],
-        },
+            *datasets(mapping["datasets"]["trending_ids"]),
+            *reuses(mapping["reuses"]["trending_ids"]),
+        ),
+        section(
+            title("Suivez l'actualité de la plateforme"),
+            {
+                "class": "MarkdownBloc",
+                "width": "1/2",
+                "content": (
+                    "Le suivi des sorties ne constitue que le sommet de l'iceberg de l'activité "
+                    "de data.gouv.fr. Pour ne rien manquer de l'actualité de data.gouv.fr et de "
+                    "l'open data, abonnez-vous à notre infolettre. Et si vous souhaitez nous aider "
+                    "à améliorer la plateforme en testant les nouveautés en avant-première, "
+                    "devenez beta testeur."
+                ),
+            },
+            {
+                "class": "LinksListBloc",
+                "width": "1/2",
+                "links": [
+                    {
+                        "title": "S'abonner à l'infolettre",
+                        "url": "https://f.info.data.gouv.fr/f/lp/infolettre-data-gouv-fr-landing-page/lk3q01y6",
+                    },
+                    {
+                        "title": "Devenir beta testeur",
+                        "url": "https://tally.so/r/mOalMA",
+                    },
+                ],
+            },
+        ),
     ]
 
     print(blocs)
 
     # Create a POST
     headline = (
-        f"Vous lisez l'édition {LAST_MONTH_ELISION}{LAST_MONTH_DATE_STR} du suivi des sorties, "
-        "un article dans lequel nous partageons les publications de jeux de données et de "
-        "réutilisations qui ont retenu notre attention."
+        f"Vous lisez l'édition {LAST_MONTH_ELISION}{month} du suivi des sorties : "
+        f"{mapping['datasets']['count']} jeux de données et {mapping['reuses']['count']} "
+        "réutilisations ont été publiés ce mois-ci sur data.gouv.fr, voici ceux qui ont "
+        "retenu notre attention et les plus consultés."
     )
     name = f"Suivi des sorties - {LAST_MONTH_DATE_STR}"
 
