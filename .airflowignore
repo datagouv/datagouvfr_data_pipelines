@@ -1,0 +1,12 @@
+# Test suites are not DAGs. Airflow would import them during DAG discovery,
+# without running pytest's conftest.py (which sets up their imports and stubs).
+tests/
+test_*.py
+conftest.py
+
+# Local caches and virtualenvs must never be scanned for DAGs.
+__pycache__/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
