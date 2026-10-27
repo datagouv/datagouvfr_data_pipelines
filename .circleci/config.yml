@@ -13,20 +13,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install ruff and check linting
-          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
-          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
+          name: Install pre-commit and run all hooks
           command: |
             python -m venv .venv
             . .venv/bin/activate
             pip install --upgrade pip
-            # version alignée sur .pre-commit-config.yaml : sans borne haute, une
-            # nouvelle version de ruff élargit les règles par défaut et met la CI
-            # au rouge sur du code qui n'a pas bougé
-            pip install ruff==0.15.20
-            ruff --version
-            ruff check .
-            ruff format --check .
+            # version alignée sur dev-requirements.txt
+            pip install pre-commit==4.2.0
+            pre-commit run --all-files --show-diff-on-failure
 
   test:
     docker:

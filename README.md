@@ -127,6 +127,6 @@ fournit les stubs communs (Airflow, clients externes) à toutes les suites.
 
 ## CI
 
-La CI utilise [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), voir [.circleci/config.yml](./.circleci/config.yml). Pas de GitHub Actions. Le job `test` lance toute la suite avec `pytest`, et le job `dag-imports` vérifie que les DAGs s'importent correctement.
+La CI utilise [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), voir [.circleci/config.yml](./.circleci/config.yml). Pas de GitHub Actions. Le job `lint` rejoue les hooks pre-commit locaux, le job `test` lance toute la suite avec `pytest`, et le job `dag-imports` vérifie que les DAGs s'importent correctement.
 
 Sur le dépôt GitHub, GitGuardian tourne aussi pour éviter que des tokens fuitent.
