@@ -16,9 +16,6 @@ previsions_densemble_dir = (
     repo_root / "data_processing" / "meteo" / "previsions_densemble"
 )
 
-# Make the module importable directly as 'task_functions'
-sys.path.insert(0, str(previsions_densemble_dir))
-
 
 def _stub_package(name, path=None, **attrs):
     """Register a fake package in sys.modules."""
