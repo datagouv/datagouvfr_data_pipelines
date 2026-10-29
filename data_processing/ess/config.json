@@ -1,0 +1,13 @@
+{
+    "source_page": "https://www.ess-france.org/fr/la-liste-des-entreprises-de-less",
+    "csv": {
+        "dev": {
+            "dataset_id": "6ae3319f565a802a35a581c2",
+            "resource_id": "9cd796af-8d90-4bc0-ae25-c69a8efa32c0"
+        },
+        "prod": {
+            "dataset_id": "",
+            "resource_id": ""
+        }
+    }
+}
