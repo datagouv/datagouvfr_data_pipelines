@@ -1410,6 +1410,7 @@ def upload_consolidated(
                 ),
                 "format": "csv",
             },
+            "timeout": 60
         }
         try:
             r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
