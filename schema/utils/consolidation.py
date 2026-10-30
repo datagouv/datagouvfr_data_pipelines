@@ -27,6 +27,7 @@ from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
+from datagouvfr_data_pipelines.utils.format import human_size
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
@@ -1384,15 +1385,20 @@ def upload_consolidated(
         time.sleep(2)
 
         # Uploading file (creating a new resource if version was not there before)
+        file_to_upload = File(
+            source_path=schema_consolidated_data_path.as_posix(),
+            source_name=build_consolidation_name(
+                schema_name,
+                latest_mapping.get(version_name, version_name),
+                consolidation_date_str,
+            ),
+        ).full_source_path
+        logging.info(
+            f"--- Uploading consolidation file for {schema_name} v{version_name}"
+            f" ({human_size(os.path.getsize(file_to_upload))})"
+        )
         kwargs = {
-            "file_to_upload": File(
-                source_path=schema_consolidated_data_path.as_posix(),
-                source_name=build_consolidation_name(
-                    schema_name,
-                    latest_mapping.get(version_name, version_name),
-                    consolidation_date_str,
-                ),
-            ).full_source_path,
+            "file_to_upload": file_to_upload,
             "payload": {
                 "schema": {
                     "name": schema_name,
@@ -1410,7 +1416,7 @@ def upload_consolidated(
                 ),
                 "format": "csv",
             },
-            "timeout": 60
+            "timeout": 60,
         }
         try:
             r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
