@@ -1441,9 +1441,7 @@ def upload_consolidated(
         }
         try:
             r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
-            update_consolidation_resource(
-                r_id, consolidated_dataset_id, kwargs
-            )
+            update_consolidation_resource(r_id, consolidated_dataset_id, kwargs)
             logging.info(
                 f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})"
             )
