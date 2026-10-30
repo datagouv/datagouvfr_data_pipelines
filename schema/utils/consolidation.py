@@ -1309,6 +1309,27 @@ def upload_geojson(
     return True
 
 
+@simple_connection_retry
+def update_consolidation_resource(
+    r_id: str,
+    consolidated_dataset_id: str,
+    kwargs: dict,
+) -> None:
+    local_client.resource(
+        id=r_id,
+        dataset_id=consolidated_dataset_id,
+        fetch=False,
+        _from_response={
+            "filetype": "file",  # to be able to update the file without fetching
+        },
+    ).update(**kwargs)
+
+
+@simple_connection_retry
+def create_consolidation_resource(kwargs: dict):
+    return local_client.resource().create_static(**kwargs)
+
+
 def upload_consolidated(
     schema_name: str,
     consolidated_data_path: Path,
@@ -1420,20 +1441,15 @@ def upload_consolidated(
         }
         try:
             r_id = config_dict[schema_name]["latest_resource_ids"][version_name]
-            local_client.resource(
-                id=r_id,
-                dataset_id=consolidated_dataset_id,
-                fetch=False,
-                _from_response={
-                    "filetype": "file",  # to be able to update the file without fetching
-                },
-            ).update(**kwargs)
+            update_consolidation_resource(
+                r_id, consolidated_dataset_id, kwargs
+            )
             logging.info(
                 f"--- ✅ Updated consolidation for {schema_name} v{version_name} (id: {r_id})"
             )
         except KeyError:
             kwargs["dataset_id"] = consolidated_dataset_id
-            resource = local_client.resource().create_static(**kwargs)
+            resource = create_consolidation_resource(kwargs)
             update_config_version_resource_id(
                 schema_name, version_name, resource.id, config_path
             )
