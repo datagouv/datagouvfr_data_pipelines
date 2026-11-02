@@ -400,6 +400,9 @@ def set_communes_parent(
     communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
     # les arrondissements municipaux ne sont membres d'aucun EPCI : ils prennent
     # celui de leur ville
+    # les codes sont des chaînes : on cast la colonne après le merge, car elle
+    # peut être de dtype float64 (toutes NaN) si aucune commune n'est rattachée
+    communes["code_parent"] = communes["code_parent"].astype("string")
     communes.loc[communes["code_geo"].str.startswith("751"), "code_parent"] = (
         "200054781"
     )
