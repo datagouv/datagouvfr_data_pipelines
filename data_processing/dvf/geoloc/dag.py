@@ -1,13 +1,19 @@
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.python import ShortCircuitOperator
-from airflow.sdk import DAG
+from airflow.sdk import DAG, Param
+from airflow.sdk.definitions.param import ParamsDict
 from datagouvfr_data_pipelines.data_processing.dvf.geoloc.task_functions import (
     TMP_FOLDER,
+    build_full_file,
     check_if_modif,
-    download_source_data,
+    download_cadastre_source_data,
+    download_dvf_source_data,
+    download_published_yearly_files,
     enrich_years,
-    publish_datagouv,
+    process_cadastre_cols,
+    publish_concat,
+    publish_yearly,
 )
 from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 
@@ -16,24 +22,70 @@ with DAG(
     schedule=None,
     start_date=datetime(2026, 4, 15),
     catchup=False,
-    dagrun_timeout=timedelta(minutes=1200),
+    dagrun_timeout=timedelta(minutes=3600),
     tags=["data_processing", "dvf"],
+    params=ParamsDict(
+        {
+            "year_to_run": Param(
+                None,
+                type=["null", "integer"],
+                description="Only rebuild the selected year if set, for faster debug.",
+            ),
+            "delivery": Param(
+                None,
+                type=["null", "string"],
+                enum=[None, "april", "october"],
+                description=(
+                    "Force the cadastre millesime of the latest April (YYYY-03-01) "
+                    "or October (YYYY-06-01) delivery, for debug. "
+                    "Defaults to the delivery matching the current date."
+                ),
+            ),
+        },
+    ),
 ):
     (
         enrich_years(
-            files=(
+            unzipped_file_names=(
                 ShortCircuitOperator(
                     task_id="check_if_modif",
                     python_callable=check_if_modif,
                 )
                 >> clean_up_folder(TMP_FOLDER, recreate=True)
-                >> download_source_data()
+                >> download_dvf_source_data()
             )
         )
-        >> publish_datagouv()
+        >> download_cadastre_source_data()
+        >> process_cadastre_cols()
+        >> publish_yearly()
         # >> notification()
         # >> TriggerDagRunOperator(
         #     task_id="trigger_dvf_explore",
         #     trigger_dag_id="data_processing_dvf_explore",
         # )
     )
+
+
+with DAG(
+    dag_id="data_processing_dvf_geoloc_concat",
+    schedule=None,
+    start_date=datetime(2026, 4, 15),
+    catchup=False,
+    dagrun_timeout=timedelta(minutes=600),
+    tags=["data_processing", "dvf"],
+    params=ParamsDict(
+        {
+            "delivery": Param(
+                None,
+                type=["null", "string"],
+                enum=[None, "april", "october"],
+                description=(
+                    "Force the cadastre millesime of the latest April (YYYY-03-01) "
+                    "or October (YYYY-06-01) delivery, for debug. "
+                    "Defaults to the delivery matching the current date."
+                ),
+            ),
+        },
+    ),
+):
+    download_published_yearly_files() >> build_full_file() >> publish_concat()

@@ -11,6 +11,7 @@ from datagouvfr_data_pipelines.schema.website.task_functions import (
     final_clean_up,
     get_issues_and_labels,
     initialization,
+    notification,
     publish_schema_dataset,
     sort_folders,
     update_news_feed,
@@ -30,8 +31,8 @@ with DAG(
     schedule="0 2 * * *",
     start_date=datetime(2024, 8, 10),
     dagrun_timeout=timedelta(
-        minutes=210
-    ),  # 2H timeout + 1H waiting between preprod and prod for update_news_feed task + 30min sleep fetching pages
+        minutes=420
+    ),  # TODO : temp. multiply by 2 to see if this works x 2H timeout + 1H waiting between preprod and prod for update_news_feed task + 30min sleep fetching pages
     tags=["schemas", "backend", "schema.data.gouv.fr"],
     catchup=False,
     default_args=default_args,
@@ -113,5 +114,12 @@ with DAG(
             >> BashOperator(
                 task_id="clean_up" + suffix,
                 bash_command=f"rm -rf {tmp_folder}",
+            )
+            >> notification.override(
+                task_id="notification_synthese" + suffix,
+                trigger_rule="all_done",
+            )(
+                branch=branch,
+                suffix=suffix,
             )
         )

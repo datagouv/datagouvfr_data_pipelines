@@ -1,32 +1,67 @@
-import gc
+import gzip
 import json
 import logging
 import os
 import re
-from time import sleep
+import shutil
+from datetime import date
 from zipfile import ZipFile
 
-import pandas as pd
+import duckdb
 import requests
 from airflow.sdk import task
 from datagouv import Dataset
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
-    AIRFLOW_ENV,
-    S3_URL_RBX,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
 )
-from datagouvfr_data_pipelines.utils.datagouv import local_client
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.cadastre_index import (
+    enrich_with_cadastre,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.delivery import (
+    Delivery,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_resource import (
+    get_dvf_resources,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.dvf_version import (
+    DvfVersion,
+)
+from datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils.yearly_enrich import (
+    enrich_year,
+)
+from datagouvfr_data_pipelines.utils.datagouv import demo_client, local_client
+from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = AIRFLOW_DAG_HOME + "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
-SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"
-GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"
+CADASTRE_FILE = f"{TMP_FOLDER}cadastre.parquet"
+
+SOURCE_DATASET_ID = "5c4ae55a634f4117716d5656"  # "Demandes de valeurs foncières" by Ministères économiques et financiers
+source_dataset = Dataset(SOURCE_DATASET_ID)
+
+DEMO_GEOLOC_DATASET_ID = "6ad249b7c56822dfb61a3585"  # copy of "Demandes de valeurs foncières géolocalisées" by sylvain.lesage on demo
+PROD_GEOLOC_DATASET_ID = "5cc1b94a634f4165e96436c1"  # "Demandes de valeurs foncières géolocalisées" by data.gouv.fr - Not used, see README.md
+PUBLISH_ON_DEMO = True  # publish on demo even when running on prod, to review the output first. See README.md
+publish_client = demo_client if PUBLISH_ON_DEMO else local_client
+destination_dataset_id = (
+    DEMO_GEOLOC_DATASET_ID if PUBLISH_ON_DEMO else PROD_GEOLOC_DATASET_ID
+)
+
 bucket = "dataeng-open"
+# same file name as the single-file resource already published, which is how we find it back
+FULL_FILE = "dvf.csv.gz"
+
+
+@simple_connection_retry
+def download_resource(res, dest_path: str) -> None:
+    """Download one source file, retrying on network hiccups.
+    data.gouv's static host can stall mid-stream and httpx's default read timeout is 5s,
+    which is short for these ~70 MB files. Resource.download() drops its **kwargs, so the
+    timeout cannot be raised from here: we retry the whole file instead."""
+    res.download(dest_path)
 
 
 def check_if_modif():
@@ -42,379 +77,357 @@ def check_if_modif():
     return True
 
 
+def _get_delivery(params: dict, run_date: date) -> Delivery:
+    delivery_key = params.get("delivery")
+    if delivery_key is None:
+        return Delivery.from_date(run_date)
+    else:
+        return Delivery.from_key(delivery_key)
+
+
+def _check_output_file_names(params: dict, output_file_names: list[str]) -> None:
+    """Check that all the files are present and correct with respect to the delivery"""
+    run_date = date.today()
+    delivery = _get_delivery(params, run_date)
+    dvf_versions = [
+        DvfVersion.from_output_file_name(output_file_name)
+        for output_file_name in output_file_names
+    ]
+    delivery.check_dvf_versions(dvf_versions)
+
+
 @task()
-def download_source_data(**context):
-    dvf_dataset = Dataset(SOURCE_DATASET_ID)
-    data = [res for res in dvf_dataset.resources if res.type == "main"]
-    if len(data) not in {5, 6}:
-        # 5 full years, or half first and last years and 4 full years
-        raise ValueError(f"Unexpected number of resources: {len(data)}")
-    files = []
-    max_year = 2000
-    for res in data:
-        logging.info(res.title)
-        file_name = res.url.split("/")[-1]
-        # checking that the year is where we expect it in the resource's title
-        if not re.match(r"^valeursfoncieres-\d{4}\.txt\.zip$", file_name):
-            raise ValueError(f"Unexpected file name: {file_name}")
-        max_year = max(max_year, int(file_name.split(".")[0].split("-")[1]))
-        dest_path = TMP_FOLDER + file_name
-        res.download(dest_path)
+def download_dvf_source_data(params: dict, **context):
+    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
+
+    # Each task calls date.today() independently; the risk of a mismatch between
+    # tasks is limited since only the month and year are used.
+    run_date = date.today()
+    dvf_resources = get_dvf_resources(
+        source_dataset.resources, _get_delivery(params, run_date)
+    )
+
+    if params.get("year_to_run"):
+        # debug mode: rebuilding a single year
+        year_to_run = params["year_to_run"]
+        dvf_resources = [
+            dvf_resource
+            for dvf_resource in dvf_resources
+            if int(dvf_resource.dvf_version.year) == year_to_run
+        ]
+        if not dvf_resources:
+            raise ValueError(f"No source resource for year {year_to_run}")
+        logging.info(f"year_to_run={year_to_run}, restricting the run to this year.")
+
+    unzipped_file_names: list[str] = []
+    for dvf_resource in dvf_resources:
+        logging.info(f'Downloading ressource "{dvf_resource.resource.title}"...')
+        dest_path = TMP_FOLDER + dvf_resource.dvf_version.get_zip_file_name()
+        download_resource(dvf_resource.resource, dest_path)
         with ZipFile(dest_path, mode="r") as z:
             zipped = z.namelist()
             if len(zipped) != 1:
                 raise ValueError("Unexpected number of files in zip")
             z.extractall(TMP_FOLDER)
-            files.append(zipped[0])
+            unzipped_file_name = zipped[0]
+            expected_file_name = dvf_resource.dvf_version.get_unzipped_file_name()
+            if unzipped_file_name != expected_file_name:
+                raise ValueError(
+                    f"Unexpected unzipped file name {unzipped_file_name}, expected {expected_file_name}."
+                )
+            unzipped_file_names.append(unzipped_file_name)
         os.remove(dest_path)
 
-    logging.info("Retrieving reference data...")
-    # downloading cadastre data for downstream merges
-    # one major version per year since 2020, which was version 0.x.y (then incremented each year, ask Thomas for more infos)
-    version = max_year - 2020
-    r = requests.get(
-        f"https://unpkg.com/@etalab/decoupage-administratif@{version}/data/communes.json"
-    ).json()
-    arrondissements_muni = [
-        {"nom": k["nom"], "code": k["code"], "type": "COM"}
-        for k in r
-        if k["type"] == "arrondissement-municipal"
-    ]
-    context["ti"].xcom_push(key="arrondissements_muni", value=arrondissements_muni)
-    return files
-
-
-def build_code_commune(row: pd.Series) -> str:
-    code_dep = row["Code departement"]
-    code_com = row["Code commune"]
-    if code_dep.startswith("97"):
-        code_com = code_com.rjust(2, "0")
-    else:
-        code_com = code_com.rjust(3, "0")
-        code_dep = code_dep.rjust(2, "0")
-    return code_dep + code_com
-
-
-def build_parcelle_id(row: pd.Series) -> str:
-    return (
-        build_code_commune(row)
-        + (
-            prefix.rjust(3, "0")
-            if pd.notna(prefix := row["Prefixe de section"])
-            else "000"
-        )
-        + (section.rjust(2, "0") if pd.notna(section := row["Section"]) else "00")
-        + (num_plan.rjust(4, "0") if pd.notna(num_plan := row["No plan"]) else "0000")
-    )
-
-
-def merge_parcelles(restr_output: pd.DataFrame, parcelle_file: str) -> pd.DataFrame:
-    # getting and merging parcelle's geographical columns from parquet files made by Thomas
-    logging.info("Merging in batches with " + parcelle_file)
-    parcelles_prefixes = sorted(restr_output["id_parcelle"].str[:3].unique())
-    merged = []
-    storage_options = {
-        "client_kwargs": {"endpoint_url": "https://" + S3_URL_RBX},
-        "key": SECRET_S3_USER,
-        "secret": SECRET_S3_PASSWORD,
-    }
-    # it would be too RAM heavy to merge everything at once, so batch-merging using the parcelle's prefixes
-    for idx, prefix in enumerate(parcelles_prefixes):
-        if idx == len(parcelles_prefixes) - 1:
-            high = "99999"
-        else:
-            high = parcelles_prefixes[idx + 1]
-        logging.info(f"> parcelles between {prefix} and {high}")
-        sample_dvf = restr_output.loc[
-            restr_output["id_parcelle"].str.startswith(prefix)
-        ]
-        # for RAM optimization
-        restr_output.drop(sample_dvf.index, inplace=True)
-        sample_geo_parcelles = pd.read_parquet(
-            f"s3://{bucket}/{parcelle_file}",
-            storage_options=storage_options,
-            columns=["id", "latitude", "longitude"],
-            filters=[("id", ">=", prefix), ("id", "<", high)],
-        ).rename({"id": "id_parcelle"}, axis=1)
-        merged.append(
-            pd.merge(
-                sample_dvf,
-                sample_geo_parcelles,
-                on="id_parcelle",
-                how="left",
-            )
-        )
-        del sample_dvf
-        del sample_geo_parcelles
-        # expecting around 1-2% missing coords per batch
-        logging.info(
-            f"> {round(len(merged[-1].loc[merged[-1]['latitude'].isna()]) / len(merged[-1]) * 100, 2)}% missing"
-        )
-    del restr_output
-    return pd.concat(merged, ignore_index=True)
-
-
-def enrich_year(
-    file: str,
-    # arrond: dict,
-    map_cultures: dict[str, dict],
-    available_dates: dict[str, str],
-):
-    # the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
-    logging.info(f"Processing {file}")
-    year = file.split(".")[0].split("-")[1]
-    if f"full-{year}.csv.gz" in os.listdir(TMP_FOLDER):
-        logging.info("> Already processed, skipping")
-        return
-    source = pd.read_csv(TMP_FOLDER + file, dtype=str, sep="|")
-    logging.info("Building output...")
-    output = pd.DataFrame()
-    output["id_mutation"] = ""
-    output["date_mutation"] = (
-        source["Date mutation"].str.slice(
-            6,
-        )
-        + "-"
-        + source["Date mutation"].str.slice(3, 5)
-        + "-"
-        + source["Date mutation"].str.slice(0, 2)
-    )
-    output["numero_disposition"] = source["No disposition"]
-    output["nature_mutation"] = source["Nature mutation"]
-    output["valeur_fonciere"] = (
-        source["Valeur fonciere"].str.replace(",", ".").astype("float32")
-    )
-    output["adresse_numero"] = source["No voie"]
-    output["adresse_suffixe"] = source["B/T/Q"]
-    output["adresse_nom_voie"] = source.apply(
-        lambda row: (
-            row["Type de voie"] + " " + row["Voie"]
-            if pd.notna(row["Type de voie"]) and pd.notna(row["Voie"])
-            else pd.NA
-        ),
-        axis=1,
-    )
-    output["adresse_code_voie"] = source["Code voie"].str.rjust(4, "0")
-    output["code_postal"] = source["Code postal"].str.rjust(5, "0")
-    # not as sophisticated as the original code
-    output["code_commune"] = source.apply(build_code_commune, axis=1)
-    patterns = {
-        f"{sep}{sw}{sep}": f"{sep}{sw.lower()}{sep}"
-        for sw in {
-            "Le",
-            "La",
-            "Les",
-            "En",
-            "Sur",
-            "Sous",
-            "De",
-            "Des",
-            "Du",
-            "Au",
-            "Aux",
-        }
-        for sep in {"-", " "}
-    }
-    output["nom_commune"] = source["Commune"].str.title()
-    # this can be changed when upgrading to pandas 3 (pat can be a dict)
-    for pat, repl in patterns.items():
-        output["nom_commune"] = output["nom_commune"].str.replace(pat, repl)
-    output["code_departement"] = output["code_commune"].str.extract(
-        r"^(97.|..)", expand=False
-    )
-    # TODO: fill in the "ancien..." columns
-    output["ancien_code_commune"] = ""
-    output["ancien_nom_commune"] = ""
-    output["id_parcelle"] = source.apply(build_parcelle_id, axis=1)
-    output["ancien_id_parcelle"] = ""
-    output["numero_volume"] = source["No Volume"]
-    for no in ["1er", "2eme", "3eme", "4eme", "5eme"]:
-        output[f"lot{no[0]}_numero"] = source[f"{no} lot"]
-        output[f"lot{no[0]}_surface_carrez"] = (
-            source[f"Surface Carrez du {no} lot"]
-            .str.replace(",", ".")
-            .astype("float32")
-        )
-    output["nombre_lots"] = source["Nombre de lots"]
-    output["code_type_local"] = source["Code type local"]
-    output["type_local"] = source["Type local"]
-    output["surface_reelle_bati"] = (
-        source["Surface reelle bati"].str.replace(",", ".").astype("float32")
-    )
-    output["nombre_pieces_principales"] = source["Nombre pieces principales"]
-    output["code_nature_culture"] = source["Nature culture"]
-    output["nature_culture"] = source["Nature culture"].map(map_cultures["cultures"])
-    output["code_nature_culture_speciale"] = source["Nature culture speciale"]
-    output["nature_culture_speciale"] = source["Nature culture speciale"].map(
-        map_cultures["cultures-speciales"]
-    )
-    output["surface_terrain"] = (
-        source["Surface terrain"].str.replace(",", ".").astype("float32")
-    )
-    del source
-    gc.collect()
-
-    logging.info("Creating mutation ids...")
-    # sorting to group mutations in the dataframe
-    output["date_mutation"] = pd.to_datetime(output["date_mutation"])
-    output.sort_values(by=["date_mutation", "valeur_fonciere"], inplace=True)
-    output["date_mutation"] = output["date_mutation"].dt.strftime("%Y-%m-%d")
-    # new mutation id when either date or price changes
-    mask = (output["date_mutation"] != output["date_mutation"].shift()) | (
-        output["valeur_fonciere"] != output["valeur_fonciere"].shift()
-    )
-    output["id_mutation"] = f"{year}-" + mask.cumsum().astype(str)
-    del mask
-    output.reset_index(drop=True, inplace=True)
-    expected_len = len(output)
-
-    # adding geo columns
-    restr_available_dates = [
-        max(k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}"))
-    ] + sorted([k for k in available_dates.keys() if k.startswith(year)])
-    if restr_available_dates[-1] < f"{year}-12-31":
-        restr_available_dates.append(f"{year}-12-31")
-    logging.info(restr_available_dates)
-    geoloced = []
-    remainders = None
-    for k in range(len(restr_available_dates) - 1):
-        dmin, dmax = restr_available_dates[k], restr_available_dates[k + 1]
-        restr_ouput = output.loc[
-            output["date_mutation"].between(
-                dmin, dmax, inclusive="both" if dmax == f"{year}-12-31" else "left"
-            )
-        ]
-        # dropping from original df to keep RAM low
-        output.drop(restr_ouput.index, inplace=True)
-        logging.info(f"{len(restr_ouput)} rows between {dmin} and {dmax}")
-        if remainders is not None and not remainders.empty:
-            # for parcelles that didn't get geolocalized in the expected batch, we'll try again at each upcoming batch
-            logging.info(f"- adding {len(remainders)} remainders")
-            restr_ouput = pd.concat([restr_ouput, remainders], ignore_index=True)
-        if len(restr_ouput) == 0:
-            logging.info("> skipping")
-            continue
-        enriched = merge_parcelles(restr_ouput, available_dates[dmin])
-        remainders = enriched.loc[enriched["longitude"].isna()][
-            [c for c in enriched.columns if c not in ["latitude", "longitude"]]
-        ]
-        geoloced.append(enriched.dropna(subset="longitude"))
-        del enriched
-        gc.collect()
-    logging.info("Done with geoloc, concatenating results...")
-    geoloced.append(remainders)
-    del remainders
-    # using pd.concat on geoloced directly is too RAM heavy, so workaround
-    final = pd.DataFrame()
-    while geoloced:
-        logging.info(f"> {len(geoloced)} dfs still to concatenate")
-        final = pd.concat([final, geoloced[0]], ignore_index=True)
-        del geoloced[0]
-        gc.collect()
-    del geoloced
-    logging.info("Sorting by mutation id...")
-    final["_sort_key"] = final["id_mutation"].str[len(year) + 1 :].astype("int32")
-    final.sort_values("_sort_key", inplace=True)
-    final.drop(columns="_sort_key", inplace=True)
-    assert len(final) == expected_len
-    del output
-    logging.warning(
-        f"No coords: {round(sum(final['longitude'].isna()) / len(final) * 100, 2)}%"
-    )
-
-    logging.info("Saving file...")
-    final.to_csv(
-        TMP_FOLDER + f"full-{year}.csv.gz",
-        index=False,
-        compression="gzip",
-    )
-    del final
-    # end-of-loop garbage management, giving time to reclaim memory
-    gc.collect()
-    sleep(5)
+    return unzipped_file_names
 
 
 @task()
-def enrich_years(files, **context):
+def enrich_years(unzipped_file_names: list[str], **context):
+    """Enrich the data (change column names, improve date, codes and texts, add latitude/longitude and id_mutation).
+
+    See enrich_year() docstring.
+
+    The results are put in one Parquet file per source file. The source files (unzipped txt files) are deleted.
+    """
+
     # we can't parallelize for RAM containment
 
-    # arrondissements_muni = context["ti"].xcom_pull(
-    #     key="arrondissements_muni", task_ids="download_source_data"
-    # )
+    logging.info("Loading config data...")
     map_cultures = {}
     for scope in ["cultures", "cultures-speciales"]:
         with open(DAG_FOLDER + f"dvf/geoloc/data/{scope}.json", "r") as f:
-            map_cultures[scope] = json.load(f)
+            map_cultures[scope] = json.load(
+                f
+            )  # {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
+    with open(DAG_FOLDER + "dvf/geoloc/data/output_schema.json", "r") as f:
+        output_schema = json.load(
+            f
+        )  # {"id_mutation": "object", ...}, in the published column order
     s3_client = S3Client(
         bucket=bucket,
-        user=SECRET_S3_USER,
-        pwd=SECRET_S3_PASSWORD,
-        s3_url=S3_URL_RBX,
+        conn_name="S3_OVH_RBX",
     )
+    # Maps each cadastre snapshot date to its S3 file path
     available_dates = {
         o.split(".")[0].split("-", maxsplit=3)[-1]: o
         for o in s3_client.get_files_from_prefix(
             "parcelles/",
             ignore_airflow_env=True,
         )
-    }
-    logging.info(available_dates)
-    for file in files:
+    }  # {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
+    logging.info(f"Available cadastre snapshots : {available_dates}")
+    logging.info(f"Starting year enrichment over {len(unzipped_file_names)} files...")
+    for unzipped_file_name in unzipped_file_names:
         enrich_year(
-            file,
-            # arrond=arrondissements_muni,  # not used (yet?)
+            unzipped_file_name,
+            TMP_FOLDER,
             map_cultures=map_cultures,
+            output_schema=output_schema,
             available_dates=available_dates,
+            s3_client=s3_client,
+            bucket=bucket,
+        )
+    logging.info("Year enrichment over. Deleting temporary files...")
+    # deleting in the end so that if the loop above fails, we can rerun safely
+    for unzipped_file_name in unzipped_file_names:
+        os.remove(TMP_FOLDER + unzipped_file_name)
+
+
+def get_cadastre_millesime(delivery: Delivery, today: date) -> str:
+    """Return the cadastre millesime of the latest given delivery,
+    e.g. "2026-06-01" for an October 2026 delivery."""
+    # before the delivery month, the latest delivery of this kind is last year's
+    year = today.year if today.month >= delivery.month else today.year - 1
+    return f"{year}-{delivery.cadastre_millesime}-01"
+
+
+@task()
+def download_cadastre_source_data(params: dict, **context):
+    """Prepare a local Parquet file with the "current" cadastre parcelles geometries.
+
+    "current": the cadastre that corresponds the delivery (april or october) and year.
+
+    Download the cadastre file (Parquet)
+    Filter it to keep only the "parcelles" rows and the following columns: departement,
+    geom_srid, commune, parcelle_id, geometry.
+    Save it to a local Parquet file.
+    """
+    # Technical choice notes: Measurement on samples shows it is faster to load the full file
+    # then filter it locally with duckdb rather than directly filter and load with duckdb.
+    # This current task takes about 15min on a PC with wifi +350Mbps for download
+
+    run_date = date.today()
+    millesime = get_cadastre_millesime(_get_delivery(params, run_date), run_date)
+    url = (
+        "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
+        f"{millesime}/geoparquet/france/cadastre.parquet"
+    )
+    if not requests.head(url, allow_redirects=True, timeout=15).ok:
+        raise Exception(
+            f"The required millesime {millesime} is not available. Checkout on https://cadastre.data.gouv.fr/data/etalab-cadastre/"
+        )
+    logging.info(f"Start loading the required millesime {millesime}...")
+    raw = f"{TMP_FOLDER}cadastre-raw.parquet"  # about 21go, all layers
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(raw, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8 << 20):
+                f.write(chunk)
+
+    logging.info("Cadastre downloaded, filtering on parcelles...")
+    con = duckdb.connect()
+    con.execute(
+        f"SET memory_limit='4GB'; SET temp_directory='{TMP_FOLDER}duckdb_spill';"
+    )
+    con.execute(f"""
+        COPY (
+            SELECT
+                departement,
+                -- 2154 for all departments but DOM : 5490 (971/972), 2972 (973), 2975 (974), 4471 (976).
+                geom_srid,
+                commune,
+                id AS parcelle_id,
+                geometry
+            FROM read_parquet('{raw}')
+            WHERE type_objet = 'parcelles'
+        ) TO '{CADASTRE_FILE}' (FORMAT parquet, COMPRESSION zstd)
+    """)
+    os.remove(raw)
+    logging.info(f"Parcelles written to {CADASTRE_FILE}")
+
+
+@task()
+def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
+    """Match the latitude and longitude with the current cadastre to fix the parcelle_id
+
+    If parcelle_id and (latitude, longitude) don't match the current cadastre
+    (comparing with the centroid geopoint of the parcelles), find the current
+    parcelle_id, fill ancien_code_commune, ancien_nom_commune, ancien_id_parcelle,
+    and replace code_commune, nom_commune and id_parcelle
+
+    Write the result as .csv.gz files, and delete the temporary Parquet ones.
+    """
+    temp_parquet_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_temp_parquet_file_name(f)
+    )  # If year_to_run set up, len(files) == 1
+    for temp_parquet_file_name in temp_parquet_file_names:
+        enrich_with_cadastre(
+            temp_parquet_file_name, cadastre_file, tmp_folder=TMP_FOLDER
         )
     # deleting in the end so that if the loop above fails, we can rerun safely
-    for file in files:
-        os.remove(TMP_FOLDER + file)
+    for temp_parquet_file_name in temp_parquet_file_names:
+        os.remove(TMP_FOLDER + temp_parquet_file_name)
 
 
 @task()
-def publish_datagouv():
-    dataset = local_client.dataset(GEOLOC_DATASET_ID)
-    yearly_resources = sorted(
-        [res for res in dataset.resources if res.type == "main" and "full-" in res.url],
-        key=lambda r: r.title,
+def publish_yearly(params: dict):
+    year_to_run = params.get("year_to_run")
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
     )
-    files = sorted(os.listdir(TMP_FOLDER))
+    if not year_to_run:
+        _check_output_file_names(params, output_file_names)
 
-    # we want to replace resources when we can, so that we keep the history
-    if len(yearly_resources) == 5:
-        # october delivery: one more file (oldest year last semester and latest year first semester)
-        assert len(files) == 6
-        for idx, file in enumerate(files):
-            kwargs = {
-                "payload": {
-                    "title": f"DVF {file.split('.')[0].split(('-'))[1]}",
-                },
-                "file_to_upload": TMP_FOLDER + file,
-            }
-            if idx < 5:
-                yearly_resources[idx].update(**kwargs)
-            else:
-                dataset.create_static(**kwargs)
-    elif len(yearly_resources) == 6:
-        # april delivery: one file fewer (five full years)
-        assert len(files) == 5
-        for idx, res in enumerate(yearly_resources):
-            if idx < 5:
-                file = files[idx]
-                res.update(
-                    payload={"title": f"DVF {file.split('.')[0].split(('-'))[1]}"},
-                    file_to_upload=TMP_FOLDER + file,
-                )
-            else:
+    # matching resources to files by year (and not by index), so that a given year always
+    # keeps the same resource: we want to replace resources when we can, so that we keep
+    # the history. Legacy resources that don't hold a yearly file (the single file and the CSV
+    # tree) are not managed here.
+    # note that a year may be full year of half year (s1 or s2).
+    dataset = publish_client.dataset(destination_dataset_id)
+    existing = {
+        year: res
+        for res in dataset.resources
+        if res.type == "main"
+        and (
+            year := DvfVersion.search_year_in_resource_url(res.url)
+        )  # url match avoids any wrong match with a resource renamed on UI
+    }  # {"2021": Resource(title="DVF 2021 (2nd semestre)"...), ..., "2025": Resource(...)}
+
+    to_publish = set()
+    for output_file_name in output_file_names:
+        dvf_version = DvfVersion.from_output_file_name(output_file_name)
+        dvf_version_id = dvf_version.get_id()
+        year = dvf_version.year
+        to_publish.add(year)
+        kwargs = {
+            "payload": {"title": dvf_version.get_output_title()},
+            "file_to_upload": TMP_FOLDER + output_file_name,
+        }
+        if year in existing:
+            logging.info(f"Updating resource for {dvf_version_id}")
+            existing[year].update(**kwargs)
+        else:
+            logging.info(f"Creating resource for {dvf_version_id}")
+            dataset.create_static(**kwargs)
+
+    # oldest year last semester that fell out of the rolling window
+    # (skipped in debug mode: only one year is built, the others are not obsolete)
+    if not year_to_run:
+        for year, res in existing.items():
+            if year not in to_publish:
+                logging.info(f"Deleting resource for {year}, out of the window")
                 res.delete()
-    else:
-        raise ValueError("Unexpected number of resources in geoloc dataset")
 
 
 @task()
-def notification() -> None:
+def notification(params: dict) -> None:
     send_message(
         f"DVF géolocalisé mis à jour :\n"
-        f"\n- publié [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
-        f"({local_client.base_url}/datasets/{GEOLOC_DATASET_ID})"
+        f"\n- publié [sur {'demo.' if PUBLISH_ON_DEMO else ''}data.gouv.fr]"
+        f"({publish_client.base_url}/datasets/{destination_dataset_id})"
     )
+
+
+@task()
+def download_published_yearly_files(**context):
+    """Download the yearly ``full-*.csv.gz`` files already published on the destination
+    dataset, so the concat file (``dvf.csv.gz``) can be built without redoing the heavy
+    enrichment.
+
+    This is the source task of the dedicated concat DAG
+    (``data_processing_dvf_geoloc_concat``): the yearly files are produced and published
+    by ``data_processing_dvf_geoloc`` (yearly DAG), and this task reuses them as the
+    input of the concatenation.
+    """
+    dataset = publish_client.dataset(destination_dataset_id)
+    for res in dataset.resources:
+        if res.type != "main":
+            continue
+        file_name = res.url.split("/")[-1]
+        if DvfVersion.is_output_file_name(file_name):
+            logging.info(f'Downloading published file "{file_name}"...')
+            download_resource(res, TMP_FOLDER + file_name)
+
+
+@task()
+def build_full_file(params: dict):
+    """Concatenate the yearly files into a single file covering the whole window.
+    Streamed, as the window is several GB uncompressed."""
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+
+    _check_output_file_names(params, output_file_names)
+
+    expected_header = None
+    with gzip.open(TMP_FOLDER + FULL_FILE, "wb") as out:
+        for output_file_name in output_file_names:
+            logging.info(f"Appending {output_file_name}...")
+            with gzip.open(TMP_FOLDER + output_file_name, "rb") as f:
+                header = f.readline()
+                if expected_header is None:
+                    expected_header = header
+                    out.write(header)
+                elif header != expected_header:
+                    raise ValueError(
+                        f"{output_file_name} does not have the same columns as {output_file_names[0]}"
+                    )
+                shutil.copyfileobj(f, out)
+    logging.info(f"{FULL_FILE} built from {len(output_file_names)} files")
+
+
+@task()
+def publish_concat(params: dict):
+    """Publish the concat file (``dvf.csv.gz``), the concatenation of all the yearly files.
+
+    The years covered are derived from the yearly ``full-*.csv.gz`` files present in the
+    tmp folder, downloaded by ``download_published_yearly_files``.
+    """
+    output_file_names = sorted(
+        f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
+    )
+    years = sorted(
+        {DvfVersion.from_output_file_name(n).year for n in output_file_names}
+    )
+    dataset = publish_client.dataset(destination_dataset_id)
+    publish_full_file(dataset, years)
+
+
+def publish_full_file(dataset, years: list[str]) -> None:
+    # april delivery: five full years, october delivery: from the last semester of the
+    # oldest year to the first semester of the latest one
+    first, last = ("janvier", "décembre") if len(years) == 5 else ("juillet", "juin")
+    label = f"{first} {years[0]} - {last} {years[-1]}"
+    existing = [
+        res
+        for res in dataset.resources
+        if res.type == "main" and res.url.endswith(f"/{FULL_FILE}")
+    ]
+    if len(existing) > 1:
+        raise ValueError(
+            f"Several resources hold {FULL_FILE}: {[r.id for r in existing]}"
+        )
+    if not existing:
+        logging.info(f"Creating the single-file resource ({label})")
+        dataset.create_static(
+            payload={"title": f"DVF {label} - fichier unique"},
+            file_to_upload=TMP_FOLDER + FULL_FILE,
+        )
+        return
+    res = existing[0]
+    # the title is managed in the UI: only its period is ours to update
+    title, replaced = re.subn(r"\w+ \d{4} - \w+ \d{4}", label, res.title)
+    if not replaced:
+        logging.warning(f"No period found in {res.title!r}, keeping the title as is")
+    logging.info(f"Updating the single-file resource: {title!r}")
+    res.update(payload={"title": title}, file_to_upload=TMP_FOLDER + FULL_FILE)

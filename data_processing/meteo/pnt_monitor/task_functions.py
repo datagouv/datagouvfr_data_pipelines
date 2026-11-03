@@ -4,6 +4,7 @@
 
 
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Iterable
@@ -14,33 +15,35 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     S3_BUCKET_DATA_PIPELINE_OPEN,
     S3_BUCKET_PNT,
-    S3_URL_RBX,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.datagouv import local_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 too_old_filename = "too_old.json"
-s3_client_kwargs = {
+s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_PNT,
-    "user": SECRET_S3_USER,
-    "pwd": SECRET_S3_PASSWORD,
-    "s3_url": S3_URL_RBX,
+    "conn_name": "S3_OVH_RBX",
 }
+PNT_URL_PREFIX = "https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/"
+# matches "/pnt/<run, e.g. 2024-03-13T00:00:00Z>/<paquet, e.g. arome-om>/"
+PNT_URL_PATTERN = re.compile(
+    r"/pnt/(?P<run>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/(?P<paquet>[^/]+)/"
+)
 
 
 def get_timeslot_and_paquet(url):
     """
     URLs look like this:
-    https://object.data.gouv.fr/meteofrance-pnt/pnt/2024-03-13T00:00:00Z/
+    https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/2024-03-13T00:00:00Z/
     arome-om/ANTIL/0025/HP1/arome-om-ANTIL__0025__HP1__001H__2024-03-13T00:00:00Z.grib2
     So we get ('2024-03-13T00:00:00Z', 'arome-om')
     """
-    _ = url.split("/")
-    return _[5], _[6]
+    match = PNT_URL_PATTERN.search(url)
+    if not match:
+        raise ValueError(f"Unexpected PNT URL: {url}")
+    return match["run"], match["paquet"]
 
 
 def threshold_in_the_past(nb_batches_behind=3):
@@ -82,7 +85,7 @@ def scan_pnt_files(**context):
             if "MFWAM/05" in r["url"]:
                 # MFWAM 0.5 is deprecated since April 2025
                 continue
-            if "object.data.gouv.fr" in r["url"]:
+            if r["url"].startswith(PNT_URL_PREFIX):
                 ts, pq = get_timeslot_and_paquet(r["url"])
                 if ts < threshold:
                     too_old[resp["title"]].append([r["title"], did, r["id"]])

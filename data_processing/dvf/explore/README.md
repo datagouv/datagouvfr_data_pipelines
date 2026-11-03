@@ -12,7 +12,8 @@
 | Channel Tchap d'information | bot-datagouv-dataeng |
 
 ## Description du traitement
-Le [code](https://github.com/etalab/datagouvfr_data_pipelines/tree/main/data_processing/dvf) permet de générer des statistiques à partir des [données des demandes de valeurs foncières](https://files.data.gouv.fr/geo-dvf/latest/csv/), agrégées à différentes échelles, et leur évolution dans le temps (au mois). Le choix a été fait de calculer les indicateurs suivants, mensuellement et sur la totalité de la période disponible (10 semestres) :
+
+Le [code](https://github.com/datagouv/datagouvfr_data_pipelines/tree/main/data_processing/dvf/explore) permet de générer des statistiques à partir des [données des demandes de valeurs foncières](https://www.data.gouv.fr/datasets/demandes-de-valeurs-foncieres-geolocalisees), agrégées à différentes échelles, et leur évolution dans le temps (au mois). Le choix a été fait de calculer les indicateurs suivants, mensuellement et sur la totalité de la période disponible (10 semestres) :
 * nombre de mutations
 * moyenne des prix au m²
 * médiane des prix au m²

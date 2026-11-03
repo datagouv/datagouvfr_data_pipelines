@@ -17,7 +17,6 @@ from datagouvfr_data_pipelines.config import (
     S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
-from datagouvfr_data_pipelines.utils.conversions import csv_to_csvgz, csv_to_geoparquet
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
@@ -30,13 +29,19 @@ TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dvf/"
 DPEDIR = f"{TMP_FOLDER}dpe/"
 schema = "dvf"
 
+# Dans DVF, les mutations de Paris, Lyon et Marseille portent le code de leur
+# arrondissement municipal (751xx, 693xx, 132xx) ; le code de la commune n'apparaît
+# jamais. Sans rattachement, ces trois villes sont les seules communes de France
+# sans aucune statistique. On indexe par préfixe d'arrondissement.
+COMMUNES_PLM = {"751": "75056", "693": "69123", "132": "13055"}
+
 
 def get_year_interval() -> tuple[int, int]:
     today = datetime.today()
     # data updates happen in April and October
-    if 4 <= today.month < 10:
+    if 4 <= today.month < 10:  # april delivery - 5 files
         return today.year - 5, today.year - 1
-    return today.year - 5, today.year
+    return today.year - 5, today.year  # october delivery - 6 files
 
 
 def build_table_name(table: str) -> str:
@@ -388,6 +393,28 @@ def index_dpe_table() -> None:
     )
 
 
+def set_communes_parent(
+    communes: pd.DataFrame, epci_communes: pd.DataFrame
+) -> pd.DataFrame:
+    """Rattache chaque commune à son EPCI, ou à défaut à son département."""
+    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
+    # les arrondissements municipaux ne sont membres d'aucun EPCI : ils prennent
+    # celui de leur ville
+    communes.loc[communes["code_geo"].str.startswith("751"), "code_parent"] = (
+        "200054781"
+    )
+    communes.loc[communes["code_geo"].str.startswith("132"), "code_parent"] = (
+        "200054807"
+    )
+    communes.loc[communes["code_geo"].str.startswith("693"), "code_parent"] = (
+        "200046977"
+    )
+    communes["code_parent"] = communes["code_parent"].fillna(
+        communes["code_geo"].str.slice(0, 2)
+    )
+    return communes
+
+
 def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
     # keeping the best candidate for all commune codes
     code_counts = communes["COM"].value_counts()
@@ -410,6 +437,26 @@ def filter_communes(communes: pd.DataFrame) -> pd.DataFrame:
     )
 
     return pd.concat([unique_rows, duplicate_rows]).sort_index()
+
+
+def add_communes_plm(mutations: pd.DataFrame) -> pd.DataFrame:
+    """Rattache les mutations des arrondissements municipaux à leur commune.
+
+    Chaque mutation d'un arrondissement de Paris, Lyon ou Marseille est dupliquée
+    sous le code de sa commune, de sorte que les statistiques de ces villes soient
+    calculées sur leurs mutations et non agrégées depuis celles des arrondissements.
+    Le résultat ne vaut que pour l'échelle commune : les doublons y sont comptés une
+    fois de plus, sous un code que les autres échelles ne connaissent pas.
+    """
+    plm = pd.concat(
+        [
+            mutations.loc[
+                mutations["code_commune"].str.startswith(prefixe, na=False)
+            ].assign(code_commune=code_commune)
+            for prefixe, code_commune in COMMUNES_PLM.items()
+        ]
+    )
+    return pd.concat([mutations, plm], ignore_index=True)
 
 
 @task()
@@ -528,6 +575,13 @@ def process_dvf_stats() -> None:
         logging.info(
             f"Après retrait des ventes sans prix au m² et valeurs aberrantes : {len(ventes_nodup)}"
         )
+        # seule l'échelle commune rattache les arrondissements à leur ville ; les
+        # autres échelles et les stats nationales portent sur les mutations réelles
+        ventes_avec_plm = add_communes_plm(
+            ventes_nodup[
+                ["code_commune", "month", "type_local", "code_type_local", "prix_m2"]
+            ]
+        )
         export_intermediary = []
 
         # avoid unnecessary steps due to half years
@@ -541,7 +595,10 @@ def process_dvf_stats() -> None:
         for m in month_range:
             dfs_dict = {}
             for echelle in echelles_of_interest:
-                grouped = ventes_nodup.groupby(
+                ventes_echelle = (
+                    ventes_avec_plm if echelle == "commune" else ventes_nodup
+                )
+                grouped = ventes_echelle.groupby(
                     [f"code_{echelle}", "month", "type_local"]
                 )["prix_m2"]
 
@@ -591,8 +648,8 @@ def process_dvf_stats() -> None:
                 merged = pd.merge(merged, median_, on=[f"code_{echelle}"])
 
                 # appartement + maison
-                combined = ventes_nodup.loc[
-                    ventes_nodup["code_type_local"].isin([1, 2])
+                combined = ventes_echelle.loc[
+                    ventes_echelle["code_type_local"].isin([1, 2])
                 ].groupby([f"code_{echelle}", "month"])["prix_m2"]
 
                 nb = combined.count()
@@ -683,6 +740,7 @@ def process_dvf_stats() -> None:
         del export_intermediary
         del ventes
         del ventes_nodup
+        del ventes_avec_plm
         gc.collect()
         logging.info(f"Done with {year}")
 
@@ -742,11 +800,7 @@ def process_dvf_stats() -> None:
     epci_communes = epci_communes.rename(
         {"code_commune": "code_geo", "code_epci": "code_parent"}, axis=1
     )
-    communes = pd.merge(communes, epci_communes, on="code_geo", how="outer")
-    communes.loc[communes["code_geo"].str.startswith("75"), "code_parent"] = "200054781"
-    communes.loc[communes["code_geo"].str.startswith("13"), "code_parent"] = "200054807"
-    communes.loc[communes["code_geo"].str.startswith("69"), "code_parent"] = "200046977"
-    communes["code_parent"].fillna(communes["code_geo"].str.slice(0, 2), inplace=True)
+    communes = set_communes_parent(communes, epci_communes)
     communes["libelle_geo"].fillna("NA", inplace=True)
     communes["echelle_geo"] = "commune"
     logging.info("Done with géo")
@@ -1038,8 +1092,13 @@ def create_distribution_and_stats_whole_period() -> None:
         ]
         for e in echelles_of_interest:
             logging.info(f"Starting {e} {t}")
+            prix_par_code = restr_type_dvf[[f"code_{e}", "prix_m2"]]
+            # cf. process_dvf_stats : seule l'échelle commune rattache les
+            # arrondissements à leur ville
+            if e == "commune":
+                prix_par_code = add_communes_plm(prix_par_code)
             # stats
-            grouped = restr_type_dvf[[f"code_{e}", "prix_m2"]].groupby(f"code_{e}")
+            grouped = prix_par_code.groupby(f"code_{e}")
             nb = grouped.count().reset_index()
             nb.columns = ["code_geo", f"nb_ventes_whole_{t}"]
             mean = grouped.mean().reset_index()
@@ -1054,9 +1113,7 @@ def create_distribution_and_stats_whole_period() -> None:
             # distribution
             if echelles_of_interest[e]:
                 codes_geo = set(echelles.loc[echelles["echelle_geo"] == e, "code_geo"])
-                restr_dvf = restr_type_dvf[[f"code_{e}", "prix_m2"]].set_index(
-                    f"code_{e}"
-                )["prix_m2"]
+                restr_dvf = prix_par_code.set_index(f"code_{e}")["prix_m2"]
                 idx = set(restr_dvf.index)
                 operations = len(codes_geo)
                 for i, code in enumerate(codes_geo):
@@ -1098,6 +1155,9 @@ def create_distribution_and_stats_whole_period() -> None:
             else:
                 logging.info("- No distribution")
         stats_period.append(pd.concat(type_stats))
+        del restr_type_dvf
+        del type_stats
+        gc.collect()
     output_tranches = pd.DataFrame(tranches)
     output_tranches.to_csv(
         TMP_FOLDER + "distribution_prix.csv",
@@ -1197,113 +1257,114 @@ def publish_stats_dvf(**context) -> None:
     )
 
 
-@task()
-def concat_and_publish_whole():
-    # TODO: move this to data_processing_dvf_geoloc, it belongs better there
-    years = sorted(
-        [
-            int(f.replace("full-", "").replace(".csv.gz", ""))
-            for f in os.listdir(TMP_FOLDER)
-            if "full-" in f
-        ]
-    )
-    with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/config.json") as fp:
-        data = json.load(fp)
-    period = (
-        f"janvier {min(years)} - décembre {max(years)}"
-        if len(years) == 5
-        else f"juillet {min(years)} - juin {max(years)}"
-    )
-    write_headers = True
-    for year in years:
-        chunks = pd.read_csv(
-            TMP_FOLDER + f"full-{year}.csv.gz",
-            dtype=str,
-            chunksize=int(1e5),
-            compression="gzip",
-        )
-        logging.info(f"Exporting {year}...")
-        for chunk in chunks:
-            chunk.to_csv(
-                TMP_FOLDER + "dvf.csv",
-                index=False,
-                header=write_headers,
-                mode="w" if write_headers else "a",
-            )
-            write_headers = False
-        del chunk
-    csv_to_csvgz(TMP_FOLDER + "dvf.csv")
-    local_client.resource(
-        id=data["concat"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
-        fetch=False,
-        _from_response={"filetype": "file"},
-    ).update(
-        payload={
-            "title": f"DVF {period} - fichier unique",
-        },
-        file_to_upload=TMP_FOLDER + "dvf.csv.gz",
-        timeout=120,
-    )
-    # TODO: make this complete, maybe the new infra can take it
-    csv_to_geoparquet(
-        csv_file_path=TMP_FOLDER + "dvf.csv",
-        dtype={
-            "id_mutation": "VARCHAR",
-            "date_mutation": "DATE",
-            "numero_disposition": "INTEGER",
-            "nature_mutation": "VARCHAR",
-            "valeur_fonciere": "DECIMAL(18,2)",
-            "adresse_numero": "INTEGER",
-            "adresse_suffixe": "VARCHAR",
-            "adresse_nom_voie": "VARCHAR",
-            "adresse_code_voie": "VARCHAR",
-            "code_postal": "VARCHAR",
-            "code_commune": "VARCHAR",
-            "nom_commune": "VARCHAR",
-            "code_departement": "VARCHAR",
-            "ancien_code_commune": "VARCHAR",
-            "ancien_nom_commune": "VARCHAR",
-            "id_parcelle": "VARCHAR",
-            "ancien_id_parcelle": "VARCHAR",
-            "numero_volume": "VARCHAR",
-            "lot1_numero": "VARCHAR",
-            "lot1_surface_carrez": "DECIMAL(9,2)",
-            "lot2_numero": "VARCHAR",
-            "lot2_surface_carrez": "DECIMAL(9,2)",
-            "lot3_numero": "VARCHAR",
-            "lot3_surface_carrez": "DECIMAL(9,2)",
-            "lot4_numero": "VARCHAR",
-            "lot4_surface_carrez": "DECIMAL(9,2)",
-            "lot5_numero": "VARCHAR",
-            "lot5_surface_carrez": "DECIMAL(9,2)",
-            "nombre_lots": "INTEGER",
-            "code_type_local": "VARCHAR",
-            "type_local": "VARCHAR",
-            "surface_reelle_bati": "DECIMAL(9,2)",
-            "nombre_pieces_principales": "INTEGER",
-            "code_nature_culture": "VARCHAR",
-            "nature_culture": "VARCHAR",
-            "code_nature_culture_speciale": "VARCHAR",
-            "nature_culture_speciale": "VARCHAR",
-            "surface_terrain": "DECIMAL(12,2)",
-            "longitude": "DECIMAL(9,7)",
-            "latitude": "DECIMAL(9,7)",
-        },
-        sep=",",
-        row_group_size=int(1e5),
-    )
-    local_client.resource(
-        id=data["geoparquet"][AIRFLOW_ENV]["resource_id"],
-        dataset_id=data["geoparquet"][AIRFLOW_ENV]["dataset_id"],
-        fetch=False,
-        _from_response={"filetype": "file"},
-    ).update(
-        payload={
-            "title": f"DVF {period} - fichier unique geoparquet",
-        },
-        file_to_upload=TMP_FOLDER + "dvf.parquet",
-    )
+# TODO: infra not ready yet for geoparquet. Need to be a work in a future sprint
+# @task()
+# def concat_and_publish_whole():
+#     # TODO: move this to data_processing_dvf_geoloc, it belongs better there
+#     years = sorted(
+#         [
+#             int(f.replace("full-", "").replace(".csv.gz", ""))
+#             for f in os.listdir(TMP_FOLDER)
+#             if "full-" in f
+#         ]
+#     )
+#     with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dvf/explore/config.json") as fp:
+#         data = json.load(fp)
+#     period = (
+#         f"janvier {min(years)} - décembre {max(years)}"
+#         if len(years) == 5
+#         else f"juillet {min(years)} - juin {max(years)}"
+#     )
+#     write_headers = True
+#     for year in years:
+#         chunks = pd.read_csv(
+#             TMP_FOLDER + f"full-{year}.csv.gz",
+#             dtype=str,
+#             chunksize=int(1e5),
+#             compression="gzip",
+#         )
+#         logging.info(f"Exporting {year}...")
+#         for chunk in chunks:
+#             chunk.to_csv(
+#                 TMP_FOLDER + "dvf.csv",
+#                 index=False,
+#                 header=write_headers,
+#                 mode="w" if write_headers else "a",
+#             )
+#             write_headers = False
+#         del chunk
+#     csv_to_csvgz(TMP_FOLDER + "dvf.csv")
+#     local_client.resource(
+#         id=data["concat"][AIRFLOW_ENV]["resource_id"],
+#         dataset_id=data["concat"][AIRFLOW_ENV]["dataset_id"],
+#         fetch=False,
+#         _from_response={"filetype": "file"},
+#     ).update(
+#         payload={
+#             "title": f"DVF {period} - fichier unique",
+#         },
+#         file_to_upload=TMP_FOLDER + "dvf.csv.gz",
+#         timeout=120,
+#     )
+#     # TODO: make this complete, maybe the new infra can take it
+#     csv_to_geoparquet(
+#         csv_file_path=TMP_FOLDER + "dvf.csv",
+#         dtype={
+#             "id_mutation": "VARCHAR",
+#             "date_mutation": "DATE",
+#             "numero_disposition": "INTEGER",
+#             "nature_mutation": "VARCHAR",
+#             "valeur_fonciere": "DECIMAL(18,2)",
+#             "adresse_numero": "INTEGER",
+#             "adresse_suffixe": "VARCHAR",
+#             "adresse_nom_voie": "VARCHAR",
+#             "adresse_code_voie": "VARCHAR",
+#             "code_postal": "VARCHAR",
+#             "code_commune": "VARCHAR",
+#             "nom_commune": "VARCHAR",
+#             "code_departement": "VARCHAR",
+#             "ancien_code_commune": "VARCHAR",
+#             "ancien_nom_commune": "VARCHAR",
+#             "id_parcelle": "VARCHAR",
+#             "ancien_id_parcelle": "VARCHAR",
+#             "numero_volume": "VARCHAR",
+#             "lot1_numero": "VARCHAR",
+#             "lot1_surface_carrez": "DECIMAL(9,2)",
+#             "lot2_numero": "VARCHAR",
+#             "lot2_surface_carrez": "DECIMAL(9,2)",
+#             "lot3_numero": "VARCHAR",
+#             "lot3_surface_carrez": "DECIMAL(9,2)",
+#             "lot4_numero": "VARCHAR",
+#             "lot4_surface_carrez": "DECIMAL(9,2)",
+#             "lot5_numero": "VARCHAR",
+#             "lot5_surface_carrez": "DECIMAL(9,2)",
+#             "nombre_lots": "INTEGER",
+#             "code_type_local": "VARCHAR",
+#             "type_local": "VARCHAR",
+#             "surface_reelle_bati": "DECIMAL(9,2)",
+#             "nombre_pieces_principales": "INTEGER",
+#             "code_nature_culture": "VARCHAR",
+#             "nature_culture": "VARCHAR",
+#             "code_nature_culture_speciale": "VARCHAR",
+#             "nature_culture_speciale": "VARCHAR",
+#             "surface_terrain": "DECIMAL(12,2)",
+#             "longitude": "DECIMAL(9,7)",
+#             "latitude": "DECIMAL(9,7)",
+#         },
+#         sep=",",
+#         row_group_size=int(1e5),
+#     )
+#     local_client.resource(
+#         id=data["geoparquet"][AIRFLOW_ENV]["resource_id"],
+#         dataset_id=data["geoparquet"][AIRFLOW_ENV]["dataset_id"],
+#         fetch=False,
+#         _from_response={"filetype": "file"},
+#     ).update(
+#         payload={
+#             "title": f"DVF {period} - fichier unique geoparquet",
+#         },
+#         file_to_upload=TMP_FOLDER + "dvf.parquet",
+#     )
 
 
 @task()

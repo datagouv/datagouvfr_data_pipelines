@@ -4,7 +4,6 @@ from typing import Any
 
 import pandas as pd
 import requests
-from datagouvfr_data_pipelines.config import MATOMO_TOKEN
 from datagouvfr_data_pipelines.dgv.metrics.config import DataGouvLog, MetricsConfig
 from datagouvfr_data_pipelines.utils.filesystem import save_list_of_dict_to_csv
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -168,7 +167,6 @@ def get_matomo_outlinks(
         "actionType": "url",
         "segment": f"actionUrl==https://www.data.gouv.fr/{model}/{slug}/",
         "format": "JSON",
-        "token_auth": MATOMO_TOKEN,
         "idSite": 109,
         "period": "day",
         "date": metric_date,

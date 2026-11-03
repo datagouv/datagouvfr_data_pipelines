@@ -2,7 +2,6 @@
 This script is being refactored and is heavy in comments.
 """
 
-from email.utils import parsedate_to_datetime
 import ftplib
 import json
 import logging
@@ -10,6 +9,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import requests
 from airflow.sdk import task
@@ -767,7 +767,7 @@ def update_temporal_coverages(**context) -> None:
                 },
             ).json()["temporal_coverage"]
             if temporal_coverage:
-                start = min(start, temporal_coverage["start"][:4])
+                start = min(start, int(temporal_coverage["start"][:4]))
             local_client.dataset(
                 config[path]["dataset_id"][AIRFLOW_ENV], fetch=False
             ).update(
