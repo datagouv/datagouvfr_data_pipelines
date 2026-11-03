@@ -3,7 +3,7 @@ BEGIN
     IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'copro' AND TABLE_SCHEMA = 'dvf') THEN
         TRUNCATE TABLE dvf.copro;
     ELSE
-        CREATE UNLOGGED TABLE dvf.copro (
+        CREATE TABLE dvf.copro (
             epci VARCHAR(9),
             commune VARCHAR(5),
             numero_immatriculation VARCHAR(9),

@@ -3,7 +3,7 @@ BEGIN
     IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'stats_dvf' AND TABLE_SCHEMA = 'dvf') THEN
         TRUNCATE TABLE dvf.stats_dvf;
     ELSE
-        CREATE UNLOGGED TABLE dvf.stats_dvf (
+        CREATE TABLE dvf.stats_dvf (
             code_geo VARCHAR(20),
             nb_ventes_maison INT,
             moy_prix_m2_maison INT,
