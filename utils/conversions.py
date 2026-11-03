@@ -127,6 +127,7 @@ def csv_to_geoparquet(
         "SET threads TO 2;",
         "SET memory_limit = '6GB';",
         "SET max_temp_directory_size = '125GB';",
+        f"SET temp_directory = '{output_path}.tmp/';",
         query,
     ]
 
