@@ -72,68 +72,111 @@ queries = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Archive format history (why both 7z and zip are handled here)
+#
+# The DGFIP publishes, each quarter, two "volume" files splitting the French
+# departments (e.g. `dept 2A0 à dept 49` and `dept 50 à dept 976`). Downstream,
+# each volume contains one `.txt` file per department with the DFI rows.
+#
+# PAST (up to ~ mid 2025): the downloadable volume was a 7z container, although
+# it was misleadingly named with a `.zip` extension. It unpacked to individual
+# per-department ZIP files, each containing a `.txt`. The pipeline therefore
+# historically did: py7zr (volume) -> ZipFile (per-department) -> .txt rows.
+# The DGFIP themselves confirmed this (see discussions on data.gouv.fr:
+# "Le premier dossier est compressé en .7z puis les sous dossiers en .zip").
+#
+# CURRENT (since ~ October 2026): the volume is now a plain ZIP whose members
+# are the `.txt` files directly, without the inner per-department ZIP layer.
+# This is what triggered issue #833: opening a plain ZIP with py7zr raised
+# `Bad7zFile: not a 7z file`.
+#
+# To stay robust against either format, we don't trust the file extension (the
+# producer has historically mislabeled archives). We inspect the magic bytes
+# and branch accordingly: 7z -> unwrap 7z then its inner ZIPs; zip -> read the
+# `.txt` members directly.
+# ---------------------------------------------------------------------------
+SEVEN_ZIP_MAGIC = b"7z\xbc\xaf'\x1c"
+
+
+def is_seven_zip(filepath):
+    """True when the file is a real 7z archive (checks magic bytes, not the
+    `.zip` file extension which the producer has historically mislabeled)."""
+    with open(filepath, "rb") as fp:
+        return fp.read(6) == SEVEN_ZIP_MAGIC
+
+
+def _reformat_txt_lines(infile, lines, text):
+    cleaned_line = re.sub(r";\n|\n", "", text.replace("\r", ""))
+    common = cleaned_line[:30].split(";")
+    (
+        code_dept,
+        code_com,
+        prefixe_section,
+        id_dfi,
+        nature_dfi,
+        date_valid_dfi,
+    ) = common
+    code_dept = code_dept[0:3] if code_dept.startswith("97") else code_dept[0:2]
+    code_insee = code_dept[0:2] + code_com
+    lines.append(cleaned_line)
+    if len(lines) == 2:
+        origins = [
+            i.strip().zfill(6) for i in lines[0][76:].split(";") if len(i.strip()) > 0
+        ]
+        destinations = [
+            i.strip().zfill(6) for i in lines[1][76:].split(";") if len(i.strip()) > 0
+        ]
+        if len(origins) == 0:
+            origins.append("EDNC")
+        if len(destinations) == 0:
+            destinations.append("PDP")
+        for origin in origins:
+            for destination in destinations:
+                out = [
+                    code_insee,
+                    code_dept,
+                    code_com,
+                    prefixe_section,
+                    id_dfi,
+                    nature_dfi,
+                    date_valid_dfi,
+                ] + [origin, destination]
+                infile.write(",".join(out) + "\n")
+        lines.clear()
+    return lines
+
+
+def _process_txt_files(infile, lines, archive):
+    for member in archive.filelist:
+        if not member.filename.endswith(".txt"):
+            continue
+        with archive.open(member) as file:
+            for line in file:
+                lines = _reformat_txt_lines(infile, lines, line.decode())
+
+
 def reformat_dfi(filenames, output_name):
     lines = []
     with open(output_name, "w") as infile:
         for filename in filenames:
             logging.info(filename)
-            with py7zr.SevenZipFile(filename, mode="r") as archive:
-                for file in archive.getnames():
-                    logging.info(file)
-                    archive.reset()
-                    archive.extract(targets=[file])
-                    with ZipFile(file) as zip_archive:
-                        for zip in zip_archive.filelist:
-                            for line in zip_archive.open(zip):
-                                # logging.info(line.decode())
-                                cleaned_line = re.sub(
-                                    r";\n|\n", "", line.decode().replace("\r", "")
-                                )
-                                common = cleaned_line[:30].split(";")
-                                (
-                                    code_dept,
-                                    code_com,
-                                    prefixe_section,
-                                    id_dfi,
-                                    nature_dfi,
-                                    date_valid_dfi,
-                                ) = common
-                                code_dept = (
-                                    code_dept[0:3]
-                                    if code_dept.startswith("97")
-                                    else code_dept[0:2]
-                                )
-                                code_insee = code_dept[0:2] + code_com
-                                lines.append(cleaned_line)
-                                if len(lines) == 2:
-                                    origins = [
-                                        i.strip().zfill(6)
-                                        for i in lines[0][76:].split(";")
-                                        if len(i.strip()) > 0
-                                    ]
-                                    destinations = [
-                                        i.strip().zfill(6)
-                                        for i in lines[1][76:].split(";")
-                                        if len(i.strip()) > 0
-                                    ]
-                                    if len(origins) == 0:
-                                        origins.append("EDNC")
-                                    if len(destinations) == 0:
-                                        destinations.append("PDP")
-                                    for origin in origins:
-                                        for destination in destinations:
-                                            out = [
-                                                code_insee,
-                                                code_dept,
-                                                code_com,
-                                                prefixe_section,
-                                                id_dfi,
-                                                nature_dfi,
-                                                date_valid_dfi,
-                                            ] + [origin, destination]
-                                            infile.write(",".join(out) + "\n")
-                                    lines = []
-                    Path(file).unlink()
+            if is_seven_zip(filename):
+                # Legacy format: 7z volume whose inner members are per-department
+                # ZIP files. Unwrap the 7z, then read each inner ZIP's `.txt`.
+                with py7zr.SevenZipFile(filename, mode="r") as archive:
+                    for inner_name in archive.getnames():
+                        logging.info(inner_name)
+                        archive.reset()
+                        archive.extract(targets=[inner_name])
+                        with ZipFile(inner_name) as zip_archive:
+                            _process_txt_files(infile, lines, zip_archive)
+                        Path(inner_name).unlink()
+            else:
+                # Current format (since ~ October 2026): plain ZIP whose members
+                # are the `.txt` files directly.
+                with ZipFile(filename) as zip_archive:
+                    _process_txt_files(infile, lines, zip_archive)
 
 
 def get_real_name_from_content_disposition(url):
