@@ -79,14 +79,14 @@ queries = [
 # departments (e.g. `dept 2A0 à dept 49` and `dept 50 à dept 976`). Downstream,
 # each volume contains one `.txt` file per department with the DFI rows.
 #
-# PAST (up to ~ mid 2025): the downloadable volume was a 7z container, although
+# PAST (up to 2025): the downloadable volume was a 7z container, although
 # it was misleadingly named with a `.zip` extension. It unpacked to individual
 # per-department ZIP files, each containing a `.txt`. The pipeline therefore
 # historically did: py7zr (volume) -> ZipFile (per-department) -> .txt rows.
 # The DGFIP themselves confirmed this (see discussions on data.gouv.fr:
 # "Le premier dossier est compressé en .7z puis les sous dossiers en .zip").
 #
-# CURRENT (since ~ October 2026): the volume is now a plain ZIP whose members
+# CURRENT (since 2026): the volume is now a plain ZIP whose members
 # are the `.txt` files directly, without the inner per-department ZIP layer.
 # This is what triggered issue #833: opening a plain ZIP with py7zr raised
 # `Bad7zFile: not a 7z file`.
@@ -101,8 +101,8 @@ queries = [
 #   Apr 2025 (dept 590-976 .zip)  -> 7z   (mislabeled .zip)
 #   Jul 2025 (dept 2A0-580 .zip)  -> 7z   (mislabeled .zip)
 #   Jul 2025 (dept 590-976 .7z)   -> 7z   (correctly named)
-#   Jul 2026 (both volumes)        -> ZIP
-#   Oct 2026 (both volumes)        -> ZIP
+#   Jul 2026 (both volumes)       -> ZIP
+#   Oct 2026 (both volumes)       -> ZIP
 # -> Today's deliveries are plain ZIPs, but the producer is inconsistent:
 #    still-reachable older volumes are genuine 7z.
 # DECISION: we therefore KEEP the 7z branch even though today's deliveries are
