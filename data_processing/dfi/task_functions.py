@@ -196,6 +196,53 @@ def reformat_dfi(filenames, output_name):
                     _process_txt_files(infile, lines, zip_archive)
 
 
+# All French department codes the DFI dataset is expected to cover: the 96
+# metropolitan departments (01-95, with 20 split into 2A/2B) plus the 5 DOM
+# (971 Guadeloupe, 972 Martinique, 973 Guyane, 974 La Réunion, 976 Mayotte).
+EXPECTED_DEPARTMENTS = ({f"{n:02d}" for n in range(1, 96)} - {"20"}) | {
+    "2A",
+    "2B",
+    "971",
+    "972",
+    "973",
+    "974",
+    "976",
+}
+
+
+def check_department_coverage(duckdb_con):
+    """Assert the combined two shards cover every expected department.
+
+    The producer has a track record of partial/broken deliveries (e.g. July
+    2025 missing departments 92/93/94/95/976, and dead attachment links). This
+    guards against silently publishing a dataset that is missing whole
+    departments. Raises listing the missing departments rather than letting the
+    partial data be sent to S3.
+    """
+    found = {
+        row[0]
+        for row in duckdb_con.sql(
+            "SELECT DISTINCT code_departement FROM dfi"
+        ).fetchall()
+    }
+    missing = sorted(EXPECTED_DEPARTMENTS - found)
+    if missing:
+        raise RuntimeError(
+            f"DFI delivery is incomplete: {len(missing)} department(s) missing "
+            f"from the combined shards ({', '.join(missing)}). "
+            f"Refusing to publish a partial dataset. "
+            f"Actions: (1) contact the DGFIP producer to report the missing "
+            f"departments and obtain a corrected delivery; (2) if the omission "
+            f"is deliberate on our side, adjust the EXPECTED_DEPARTMENTS constant "
+            f"in data_processing/dfi/task_functions.py to match the actual "
+            f"expected coverage before re-running."
+        )
+    logging.info(
+        f"Department coverage OK: all {len(EXPECTED_DEPARTMENTS)} expected "
+        f"departments present."
+    )
+
+
 def get_real_name_from_content_disposition(url):
     r_head = requests.head(url)
     content_disposition_header = r_head.headers["content-disposition"]
@@ -291,6 +338,9 @@ def gather_data(**context):
         for query in queries:
             logging.info(query)
             con.sql(query)
+        # Refuse to publish a partial delivery: check the combined two shards
+        # cover every expected department before anything is sent to S3.
+        check_department_coverage(con)
         min_date, max_date = con.sql(QUERY_MIN_MAX_DATE).fetchone()
 
     Path(output_duckdb_database_name).unlink()
