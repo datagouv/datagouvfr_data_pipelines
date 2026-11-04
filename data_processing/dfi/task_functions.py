@@ -95,6 +95,21 @@ queries = [
 # producer has historically mislabeled archives). We inspect the magic bytes
 # and branch accordingly: 7z -> unwrap 7z then its inner ZIPs; zip -> read the
 # `.txt` members directly.
+#
+# CURRENT STATE (checked Nov 2026, actual magic bytes):
+#   Jan 2025 (dept 590-976 .zip)  -> ZIP
+#   Apr 2025 (dept 590-976 .zip)  -> 7z   (mislabeled .zip)
+#   Jul 2025 (dept 2A0-580 .zip)  -> 7z   (mislabeled .zip)
+#   Jul 2025 (dept 590-976 .7z)   -> 7z   (correctly named)
+#   Jul 2026 (both volumes)        -> ZIP
+#   Oct 2026 (both volumes)        -> ZIP
+# -> Today's deliveries are plain ZIPs, but the producer is inconsistent:
+#    still-reachable older volumes are genuine 7z.
+# DECISION: we therefore KEEP the 7z branch even though today's deliveries are
+# ZIP, only in case the producer once again publishes 7z in the future (or the
+# pipeline reprocesses a historical 7z volume). This is cheap to keep (we just
+# read 6 magic bytes). Reassess whether we still need this branch in the future
+# if several consecutive quarters are published as plain ZIPs.
 # ---------------------------------------------------------------------------
 SEVEN_ZIP_MAGIC = b"7z\xbc\xaf'\x1c"
 
@@ -162,6 +177,8 @@ def reformat_dfi(filenames, output_name):
         for filename in filenames:
             logging.info(filename)
             if is_seven_zip(filename):
+                # Kept only in case the producer once again publishes 7z (or we
+                # reprocess a historical 7z volume); see module comment above.
                 # Legacy format: 7z volume whose inner members are per-department
                 # ZIP files. Unwrap the 7z, then read each inner ZIP's `.txt`.
                 with py7zr.SevenZipFile(filename, mode="r") as archive:
