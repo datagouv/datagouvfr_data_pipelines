@@ -251,6 +251,33 @@ def get_real_name_from_content_disposition(url):
     return msg.get_filename()
 
 
+def filter_available_resources(resources):
+    """Partition resources into those that resolve (HTTP 200) and obsolete ones.
+
+    The DFI dataset is harvested from data.economie.gouv.fr and obsolete
+    resources are never deleted on the data.gouv.fr side, so the harvested
+    resource list keeps stale/broken entries that no longer exist on the
+    producer side (e.g. the October 2026 `dept2a0` attachment that 404s).
+    We therefore skip non-resolving resources instead of failing the whole run;
+    the department-coverage check still guards against a genuinely missing
+    current shard.
+
+    Args:
+        resources (list[dict]): each with at least a "url" key.
+
+    Returns:
+        (working, obsolete): two lists, both subsets of `resources`.
+    """
+    working, obsolete = [], []
+    for res in resources:
+        try:
+            status = requests.head(res.get("url")).status_code
+        except requests.RequestException:
+            status = None
+        (working if status == 200 else obsolete).append(res)
+    return working, obsolete
+
+
 def get_download_ressources_infos(urls, destination_dir):
     filenames = []
     for remote_url in reversed(urls):
@@ -312,17 +339,30 @@ def check_if_modif():
 
 
 @task()
-def gather_data(**context):
+def gather_data():
     logging.info("Getting resources list")
     metadata_content = json.loads(
         S3Client(bucket=S3_BUCKET_DATA_PIPELINE).get_file_content(
             "dev/dfi/metadata.json"
         )
     )
-    urls_resources = [i.get("url") for i in metadata_content]
+    resources = [
+        {"title": i.get("title"), "url": i.get("url"), "id": i.get("id")}
+        for i in metadata_content
+    ]
     information_date_about_dataset = re.findall(
         r"\((.*?)\)", metadata_content[0].get("title")
     )
+    # The harvested dataset keeps obsolete resources (never deleted upstream).
+    # Skip any that no longer resolve instead of failing the whole run; the
+    # department-coverage check still guards against a genuinely missing shard.
+    working_resources, obsolete_resources = filter_available_resources(resources)
+    if obsolete_resources:
+        logging.warning(
+            f"Skipping {len(obsolete_resources)} obsolete/unreachable "
+            f"resource(s): {[r.get('id') for r in obsolete_resources]}"
+        )
+    urls_resources = [r.get("url") for r in working_resources]
     logging.info("Start downloading DFI files")
     filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)
     download_files(filenames_infos)
@@ -353,15 +393,12 @@ def gather_data(**context):
     df = pd.read_parquet(parquet_dfi)
     df.to_csv(parquet_dfi.replace(".parquet", ".csv"), index=False)
     logging.info(f"Convert parquet file {parquet_dfi} to CSV")
-    context["ti"].xcom_push(
-        key="min_date", value=f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z"
-    )
-    context["ti"].xcom_push(
-        key="max_date", value=f"{max_date.strftime('%Y-%m-%d')}T00:00:00.000000Z"
-    )
-    context["ti"].xcom_push(
-        key="information_date_about_dataset", value=information_date_about_dataset
-    )
+    return {
+        "min_date": f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z",
+        "max_date": f"{max_date.strftime('%Y-%m-%d')}T00:00:00.000000Z",
+        "information_date_about_dataset": information_date_about_dataset,
+        "obsolete_resources": obsolete_resources,
+    }
 
 
 @task()
@@ -384,12 +421,10 @@ def send_to_s3():
 
 
 @task()
-def publish_on_datagouv(**context):
-    min_date = context["ti"].xcom_pull(key="min_date", task_ids="gather_data")
-    max_date = context["ti"].xcom_pull(key="max_date", task_ids="gather_data")
-    information_date_about_dataset = context["ti"].xcom_pull(
-        key="information_date_about_dataset", task_ids="gather_data"
-    )
+def publish_on_datagouv(info):
+    min_date = info["min_date"]
+    max_date = info["max_date"]
+    information_date_about_dataset = info["information_date_about_dataset"]
     information_date_about_dataset = (
         f", {information_date_about_dataset[0]}"
         if len(information_date_about_dataset) == 1
@@ -440,7 +475,7 @@ def publish_on_datagouv(**context):
 
 
 @task()
-def notification():
+def notification(info):
     dataset_id = config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         f"Données DFI agrégées :\n"
@@ -448,3 +483,18 @@ def notification():
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"
     )
+    obsolete_resources = info["obsolete_resources"]
+    if obsolete_resources:
+        source_dataset_id = config["dfi_info"][AIRFLOW_ENV]["dataset_id"]
+        resource_lines = "\n".join(
+            f"- **{r.get('title')}**\n  - id: `{r.get('id')}`\n  - url: {r.get('url')}"
+            for r in obsolete_resources
+        )
+        send_message(
+            "⚠️ **Action admin requise — ressources obsolètes DFI à supprimer**\n\n"
+            "Le pipeline a ignoré la/les ressource(s) suivante(s) (HTTP ≠ 200) car "
+            "le moissonnage de data.economie.gouv.fr ne supprime pas les ressources "
+            "obsolètes. Merci de les supprimer sur le [jeu de données source]"
+            f"(https://www.data.gouv.fr/datasets/{source_dataset_id}/) :\n\n"
+            f"{resource_lines}"
+        )

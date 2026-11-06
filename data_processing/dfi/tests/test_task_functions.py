@@ -72,3 +72,45 @@ def test_coverage_raises_when_empty(dfi_module):
     _insert(con, [])
     with pytest.raises(RuntimeError):
         dfi_module.check_department_coverage(con)
+
+
+class _FakeHeadResponse:
+    def __init__(self, status_code):
+        self.status_code = status_code
+
+
+def _patch_head(monkeypatch, dfi_module, status_by_url):
+    def fake_head(url, *args, **kwargs):
+        status = status_by_url.get(url)
+        if status is None:
+            raise dfi_module.requests.RequestException("unreachable")
+        return _FakeHeadResponse(status)
+
+    monkeypatch.setattr(dfi_module.requests, "head", fake_head)
+
+
+def test_filter_keeps_only_http_200(dfi_module, monkeypatch):
+    ok = {"title": "dept2A", "url": "https://x/ok", "id": "ok-1"}
+    broken = {"title": "dept2A0", "url": "https://x/broken", "id": "broken-1"}
+    _patch_head(monkeypatch, dfi_module, {ok["url"]: 200, broken["url"]: 404})
+    working, obsolete = dfi_module.filter_available_resources([ok, broken])
+    assert working == [ok]
+    assert obsolete == [broken]
+
+
+def test_filter_marks_http_404_as_obsolete(dfi_module, monkeypatch):
+    a = {"title": "dept50", "url": "https://x/a", "id": "a"}
+    b = {"title": "old", "url": "https://x/b", "id": "b"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200, b["url"]: 404})
+    working, obsolete = dfi_module.filter_available_resources([a, b])
+    assert working == [a]
+    assert obsolete == [b]
+
+
+def test_filter_treats_request_errors_as_obsolete(dfi_module, monkeypatch):
+    a = {"title": "dept50", "url": "https://x/a", "id": "a"}
+    b = {"title": "unreachable", "url": "https://x/b", "id": "b"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200})
+    working, obsolete = dfi_module.filter_available_resources([a, b])
+    assert working == [a]
+    assert obsolete == [b]
