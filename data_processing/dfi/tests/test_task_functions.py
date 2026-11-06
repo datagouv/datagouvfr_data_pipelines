@@ -1,10 +1,13 @@
 import importlib
+import io
 import os
 import shutil
 import sys
 import tempfile
+from zipfile import ZipFile
 
 import duckdb
+import py7zr
 import pytest
 
 DFI_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
@@ -222,3 +225,88 @@ def test_check_if_modif_delegates_to_check_if_more_recent_update(
     monkeypatch.setattr(dfi_module.local_client, "resource", resource)
     assert dfi_module.check_if_modif() is True
     assert fake["called"] is True
+
+
+def _raw_line(code_dept, trailing):
+    """Build a DFI .txt line respecting the fixed offsets the parser relies on:
+    the first 30 chars hold exactly the 6 common fields, the region after index
+    76 holds the origin/destination codes."""
+    common = f"{code_dept};123;A;1;2;2026-10-31"
+    return common + (" " * (76 - len(common))) + trailing
+
+
+def test_is_seven_zip_detects_magic_bytes(tmp_path, dfi_module):
+    seven = tmp_path / "mislabeled.zip"
+    seven.write_bytes(dfi_module.SEVEN_ZIP_MAGIC + b"\x00" * 10)
+    assert dfi_module.is_seven_zip(str(seven)) is True
+
+    plain = tmp_path / "plain.zip"
+    with ZipFile(plain, "w") as z:
+        z.writestr("a.txt", "x")
+    assert dfi_module.is_seven_zip(str(plain)) is False
+
+
+def _rows_normalized(csv_text):
+    return [
+        [f.strip() for f in row.split(",")] for row in csv_text.strip().splitlines()
+    ]
+
+
+def test_reformat_txt_lines_combines_origin_destination_pairs(dfi_module):
+    out = io.StringIO()
+    lines = []
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("01", "000001;000002"))
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("01", "000003;000004"))
+    assert _rows_normalized(out.getvalue()) == [
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000004"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000004"],
+    ]
+
+
+def test_reformat_txt_lines_normalizes_dom_code_to_three_digits(dfi_module):
+    out = io.StringIO()
+    lines = []
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("971", "000111"))
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("971", "000222"))
+    assert _rows_normalized(out.getvalue()) == [
+        ["97123", "971", "123", "A", "1", "2", "2026-10-31", "000111", "000222"],
+    ]
+
+
+def test_reformat_dfi_reads_plain_zip_of_txt_files(tmp_path, dfi_module):
+    zip_path = tmp_path / "situation.zip"
+    with ZipFile(zip_path, "w") as z:
+        z.writestr("dept01.txt", _raw_line("01", "000001;000002") + "\n")
+        z.writestr("ignored.bak", "should be ignored\n")
+        z.writestr("dept01_bis.txt", _raw_line("01", "000003;000004") + "\n")
+
+    output = tmp_path / "out.csv"
+    dfi_module.reformat_dfi([str(zip_path)], str(output))
+
+    assert _rows_normalized(output.read_text()) == [
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000004"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000004"],
+    ]
+
+
+def test_reformat_dfi_reads_legacy_7z_containing_inner_zip(tmp_path, dfi_module):
+    inner_zip = tmp_path / "dept59.zip"
+    with ZipFile(inner_zip, "w") as z:
+        z.writestr("dept59.txt", _raw_line("59", "000501") + "\n")
+        z.writestr("dept59_bis.txt", _raw_line("59", "000502") + "\n")
+
+    volume = tmp_path / "volume.zip"  # mislabeled: real 7z
+    with py7zr.SevenZipFile(str(volume), "w") as seven:
+        seven.write(str(inner_zip), arcname="dept59.zip")
+    assert dfi_module.is_seven_zip(str(volume)) is True
+
+    output = tmp_path / "out.csv"
+    dfi_module.reformat_dfi([str(volume)], str(output))
+
+    assert _rows_normalized(output.read_text()) == [
+        ["59123", "59", "123", "A", "1", "2", "2026-10-31", "000501", "000502"],
+    ]
