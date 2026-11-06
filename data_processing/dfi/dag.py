@@ -27,16 +27,15 @@ with DAG(
     catchup=False,
     default_args=default_args,
 ):
-    gathered = gather_data()
     (
         clean_up_folder(TMP_FOLDER, recreate=True)
         >> ShortCircuitOperator(
             task_id="check_if_modif",
             python_callable=check_if_modif,
         )
-        >> gathered
+        >> gather_data()
         >> send_to_s3()
-        >> publish_on_datagouv(gathered)
+        >> publish_on_datagouv()
         >> clean_up_folder(TMP_FOLDER)
         >> notification()
     )

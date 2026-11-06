@@ -352,7 +352,7 @@ def check_if_modif(dag_run=None):
 
 
 @task()
-def gather_data():
+def gather_data(**context):
     logging.info("Getting resources list")
     resources = select_latest_resources(
         config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
@@ -393,11 +393,15 @@ def gather_data():
     df = pd.read_parquet(parquet_dfi)
     df.to_csv(parquet_dfi.replace(".parquet", ".csv"), index=False)
     logging.info(f"Convert parquet file {parquet_dfi} to CSV")
-    return {
-        "min_date": f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z",
-        "max_date": f"{max_date.strftime('%Y-%m-%d')}T00:00:00.000000Z",
-        "information_date_about_dataset": information_date_about_dataset,
-    }
+    context["ti"].xcom_push(
+        key="min_date", value=f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z"
+    )
+    context["ti"].xcom_push(
+        key="max_date", value=f"{max_date.strftime('%Y-%m-%d')}T00:00:00.000000Z"
+    )
+    context["ti"].xcom_push(
+        key="information_date_about_dataset", value=information_date_about_dataset
+    )
 
 
 @task()
@@ -420,10 +424,12 @@ def send_to_s3():
 
 
 @task()
-def publish_on_datagouv(info):
-    min_date = info["min_date"]
-    max_date = info["max_date"]
-    information_date_about_dataset = info["information_date_about_dataset"]
+def publish_on_datagouv(**context):
+    min_date = context["ti"].xcom_pull(key="min_date", task_ids="gather_data")
+    max_date = context["ti"].xcom_pull(key="max_date", task_ids="gather_data")
+    information_date_about_dataset = context["ti"].xcom_pull(
+        key="information_date_about_dataset", task_ids="gather_data"
+    )
     information_date_about_dataset = (
         f", {information_date_about_dataset[0]}"
         if len(information_date_about_dataset) == 1
