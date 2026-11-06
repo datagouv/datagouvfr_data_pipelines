@@ -93,6 +93,13 @@ _stub_module(
 )
 _stub_module("datagouvfr_data_pipelines.utils.sftp", SFTPClient=MagicMock())
 _stub_module("datagouvfr_data_pipelines.utils.tchap", send_message=MagicMock())
+_stub_module(
+    "datagouvfr_data_pipelines.utils.tasks",
+    # importing utils.tasks drags in airflow, which is not available in the
+    # unit-test runtime; short-circuit helpers are faked here instead.
+    force_rebuild_requested=lambda dag_run=None, context="": False,
+    clean_up_folder=MagicMock(),
+)
 
 # --- Heavy geoloc helpers, mocked to keep task_functions importable ---
 _geoloc_utils = "datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils"

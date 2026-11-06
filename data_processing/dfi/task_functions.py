@@ -15,7 +15,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -24,11 +23,11 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
-METADATA_FILE = "metadata.json"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config.json") as fp:
     config = json.load(fp)
 
@@ -327,77 +326,42 @@ def get_download_ressources_infos(urls, destination_dir):
     return filenames
 
 
-def send_metadata_to_s3():
-    S3Client(bucket=S3_BUCKET_DATA_PIPELINE).send_file(
-        File(
-            source_path=TMP_FOLDER,
-            source_name=f"{METADATA_FILE}",
-            dest_path="dev/dfi/",
-            dest_name=f"{METADATA_FILE}",
-        ),
-        ignore_airflow_env=True,
-    )
+def select_latest_resources(dataset_id, n=2):
+    """Return the `n` most recently modified resources of a dataset.
 
-
-def check_if_modif():
-    s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
-    dataset_content = local_client.dataset(
-        id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
-    )
-    # Take the two most recently modified resources. Refuse to aggregate if
-    # they are not from the same release period, to avoid mixing two releases
-    # (e.g. the first half of July with the second half of October).
-    last_2_files = sorted(
+    Returns a list of dicts with "title", "url" and "id" keys.
+    """
+    dataset_content = local_client.dataset(id=dataset_id)
+    latest = sorted(
         dataset_content.resources, key=lambda d: d.last_modified or "", reverse=True
-    )[:2]
-    metadata = [
-        {
-            "title": resource.title,
-            "url": resource.url,
-            "id": resource.id,
-            "last_modified": resource.last_modified,
-        }
-        for resource in last_2_files
+    )[:n]
+    return [
+        {"title": resource.title, "url": resource.url, "id": resource.id}
+        for resource in latest
     ]
-    assert_same_period(metadata)
-    with open(f"{TMP_FOLDER}{METADATA_FILE}", "w") as infile:
-        json.dump(metadata, infile)
-    metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
-    if not metadata_does_exist:
-        send_metadata_to_s3()
+
+
+def check_if_modif(dag_run=None):
+    if force_rebuild_requested(dag_run):
         return True
-    else:
-        metadata_content = json.loads(
-            s3_process.get_file_content("dev/dfi/metadata.json")
-        )
-        previous = sorted([i["last_modified"] for i in metadata_content])
-        current = sorted([i["last_modified"] for i in metadata])
-        if len(set(previous).intersection(current)) != 2:
-            send_metadata_to_s3()
-            return True
-        else:
-            return False
+    return local_client.resource(
+        id=config["dfi_publi_csv"][AIRFLOW_ENV]["resource_id"],
+    ).check_if_more_recent_update(
+        dataset_id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
+    )
 
 
 @task()
 def gather_data():
     logging.info("Getting resources list")
-    metadata_content = json.loads(
-        S3Client(bucket=S3_BUCKET_DATA_PIPELINE).get_file_content(
-            "dev/dfi/metadata.json"
-        )
+    resources = select_latest_resources(
+        config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
-    resources = [
-        {"title": i.get("title"), "url": i.get("url"), "id": i.get("id")}
-        for i in metadata_content
-    ]
     # Refuse to publish a partial or mixed release: the selected resources must
     # all resolve (HTTP 200) and come from the same release period.
     assert_resources_available(resources)
     assert_same_period(resources)
-    information_date_about_dataset = re.findall(
-        r"\((.*?)\)", metadata_content[0].get("title")
-    )
+    information_date_about_dataset = re.findall(r"\((.*?)\)", resources[0].get("title"))
     urls_resources = [r.get("url") for r in resources]
     logging.info("Start downloading DFI files")
     filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)

@@ -176,3 +176,49 @@ def test_assert_resources_available_raises_on_request_error(dfi_module, monkeypa
     with pytest.raises(RuntimeError) as exc:
         dfi_module.assert_resources_available([a, down])
     assert "down" in str(exc.value)
+
+
+def test_select_latest_resources_returns_two_newest(monkeypatch, dfi_module):
+    class Res:
+        def __init__(self, title, url, rid, last_modified):
+            self.title = title
+            self.url = url
+            self.id = rid
+            self.last_modified = last_modified
+
+    class Dataset:
+        resources = [
+            Res("july", "https://x/a", "a", "2026-07-01T00:00:00"),
+            Res("oct", "https://x/b", "b", "2026-10-01T00:00:00"),
+            Res("apr", "https://x/c", "c", "2026-04-01T00:00:00"),
+        ]
+
+    monkeypatch.setattr(
+        dfi_module.local_client,
+        "dataset",
+        lambda id: Dataset(),
+    )
+    selected = dfi_module.select_latest_resources("dataset-1")
+    assert [r["id"] for r in selected] == ["b", "a"]
+    assert selected == [
+        {"title": "oct", "url": "https://x/b", "id": "b"},
+        {"title": "july", "url": "https://x/a", "id": "a"},
+    ]
+
+
+def test_check_if_modif_delegates_to_check_if_more_recent_update(
+    monkeypatch, dfi_module
+):
+    fake = {"called": False}
+
+    class FakeResource:
+        def check_if_more_recent_update(self, dataset_id):
+            fake["called"] = True
+            return True
+
+    def resource(**kwargs):
+        return FakeResource()
+
+    monkeypatch.setattr(dfi_module.local_client, "resource", resource)
+    assert dfi_module.check_if_modif() is True
+    assert fake["called"] is True
