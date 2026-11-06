@@ -251,31 +251,66 @@ def get_real_name_from_content_disposition(url):
     return msg.get_filename()
 
 
-def filter_available_resources(resources):
-    """Partition resources into those that resolve (HTTP 200) and obsolete ones.
+_PERIOD_RE = re.compile(r"situation_(?P<month>[a-z]+)_(?P<year>\d{4})")
 
-    The DFI dataset is harvested from data.economie.gouv.fr and obsolete
-    resources are never deleted on the data.gouv.fr side, so the harvested
-    resource list keeps stale/broken entries that no longer exist on the
-    producer side (e.g. the October 2026 `dept2a0` attachment that 404s).
-    We therefore skip non-resolving resources instead of failing the whole run;
-    the department-coverage check still guards against a genuinely missing
-    current shard.
 
-    Args:
-        resources (list[dict]): each with at least a "url" key.
+def extract_period(resource):
+    """Extract the release period `(year, month)` from the resource URL.
 
-    Returns:
-        (working, obsolete): two lists, both subsets of `resources`.
+    URLs embed the period as `situation_<mois>_<année>` (e.g. `..._situation_
+    octobre_2026_dept2a_a_dept49zip`). Returns `(int, str)` — `(year, month)`.
     """
-    working, obsolete = [], []
+    match = _PERIOD_RE.search(str(resource.get("url") or ""))
+    if not match:
+        raise RuntimeError(
+            f"Could not determine the release period of resource "
+            f"{resource.get('id')} ({resource.get('url')}); expected URL to "
+            "contain `situation_<mois>_<année>`."
+        )
+    return (int(match.group("year")), match.group("month").lower())
+
+
+def assert_same_period(resources):
+    """Raise if the resources are not all from the same release period.
+
+    Prevents aggregating data from two different releases (e.g. the first half
+    of July mixed with the second half of October): each half individually has
+    disjoint departments, so the department-coverage check alone would not
+    catch such a mix.
+    """
+    periods = {extract_period(r) for r in resources}
+    if len(periods) != 1:
+        raise RuntimeError(
+            f"Resources span different release periods ({sorted(periods)}); "
+            "refusing to aggregate data from multiple releases. Check the source "
+            "dataset and remove stale resources."
+        )
+
+
+def assert_resources_available(resources):
+    """Raise if any selected resource does not resolve (HTTP != 200).
+
+    A selected shard that 404s means a release is incomplete: downloading the
+    remaining shard(s) alone would produce a partial delivery. Fail loudly so
+    the broken resource is investigated instead of silently publishing partial
+    data.
+    """
+    failing = []
     for res in resources:
         try:
             status = requests.head(res.get("url")).status_code
         except requests.RequestException:
             status = None
-        (working if status == 200 else obsolete).append(res)
-    return working, obsolete
+        if status != 200:
+            failing.append((res.get("id"), res.get("url"), status))
+    if failing:
+        details = "\n".join(
+            f"- {rid} ({url}) -> HTTP {status}" for rid, url, status in failing
+        )
+        raise RuntimeError(
+            "Selected DFI resource(s) are not reachable; refusing to publish a "
+            "partial or mixed release:\n" + details
+        )
 
 
 def get_download_ressources_infos(urls, destination_dir):
@@ -309,7 +344,12 @@ def check_if_modif():
     dataset_content = local_client.dataset(
         id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
-    last_2_files = sorted(dataset_content.resources, key=lambda d: d.last_modified)[-2:]
+    # Take the two most recently modified resources. Refuse to aggregate if
+    # they are not from the same release period, to avoid mixing two releases
+    # (e.g. the first half of July with the second half of October).
+    last_2_files = sorted(
+        dataset_content.resources, key=lambda d: d.last_modified or "", reverse=True
+    )[:2]
     metadata = [
         {
             "title": resource.title,
@@ -319,6 +359,7 @@ def check_if_modif():
         }
         for resource in last_2_files
     ]
+    assert_same_period(metadata)
     with open(f"{TMP_FOLDER}{METADATA_FILE}", "w") as infile:
         json.dump(metadata, infile)
     metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
@@ -350,19 +391,14 @@ def gather_data():
         {"title": i.get("title"), "url": i.get("url"), "id": i.get("id")}
         for i in metadata_content
     ]
+    # Refuse to publish a partial or mixed release: the selected resources must
+    # all resolve (HTTP 200) and come from the same release period.
+    assert_resources_available(resources)
+    assert_same_period(resources)
     information_date_about_dataset = re.findall(
         r"\((.*?)\)", metadata_content[0].get("title")
     )
-    # The harvested dataset keeps obsolete resources (never deleted upstream).
-    # Skip any that no longer resolve instead of failing the whole run; the
-    # department-coverage check still guards against a genuinely missing shard.
-    working_resources, obsolete_resources = filter_available_resources(resources)
-    if obsolete_resources:
-        logging.warning(
-            f"Skipping {len(obsolete_resources)} obsolete/unreachable "
-            f"resource(s): {[r.get('id') for r in obsolete_resources]}"
-        )
-    urls_resources = [r.get("url") for r in working_resources]
+    urls_resources = [r.get("url") for r in resources]
     logging.info("Start downloading DFI files")
     filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)
     download_files(filenames_infos)
@@ -397,7 +433,6 @@ def gather_data():
         "min_date": f"{min_date.strftime('%Y-%m-%d')}T00:00:00.000000Z",
         "max_date": f"{max_date.strftime('%Y-%m-%d')}T00:00:00.000000Z",
         "information_date_about_dataset": information_date_about_dataset,
-        "obsolete_resources": obsolete_resources,
     }
 
 
@@ -475,7 +510,7 @@ def publish_on_datagouv(info):
 
 
 @task()
-def notification(info):
+def notification():
     dataset_id = config["dfi_publi_csv"][AIRFLOW_ENV]["dataset_id"]
     send_message(
         f"Données DFI agrégées :\n"
@@ -483,18 +518,3 @@ def notification(info):
         f"\n- publiées [sur {'demo.' if AIRFLOW_ENV == 'dev' else ''}data.gouv.fr]"
         f"({local_client.base_url}/datasets/{dataset_id}/)"
     )
-    obsolete_resources = info["obsolete_resources"]
-    if obsolete_resources:
-        source_dataset_id = config["dfi_info"][AIRFLOW_ENV]["dataset_id"]
-        resource_lines = "\n".join(
-            f"- **{r.get('title')}**\n  - id: `{r.get('id')}`\n  - url: {r.get('url')}"
-            for r in obsolete_resources
-        )
-        send_message(
-            "⚠️ **Action admin requise — ressources obsolètes DFI à supprimer**\n\n"
-            "Le pipeline a ignoré la/les ressource(s) suivante(s) (HTTP ≠ 200) car "
-            "le moissonnage de data.economie.gouv.fr ne supprime pas les ressources "
-            "obsolètes. Merci de les supprimer sur le [jeu de données source]"
-            f"(https://www.data.gouv.fr/datasets/{source_dataset_id}/) :\n\n"
-            f"{resource_lines}"
-        )

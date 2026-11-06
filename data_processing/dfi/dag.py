@@ -38,5 +38,5 @@ with DAG(
         >> send_to_s3()
         >> publish_on_datagouv(gathered)
         >> clean_up_folder(TMP_FOLDER)
-        >> notification(gathered)
+        >> notification()
     )

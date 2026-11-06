@@ -89,28 +89,90 @@ def _patch_head(monkeypatch, dfi_module, status_by_url):
     monkeypatch.setattr(dfi_module.requests, "head", fake_head)
 
 
-def test_filter_keeps_only_http_200(dfi_module, monkeypatch):
-    ok = {"title": "dept2A", "url": "https://x/ok", "id": "ok-1"}
-    broken = {"title": "dept2A0", "url": "https://x/broken", "id": "broken-1"}
-    _patch_head(monkeypatch, dfi_module, {ok["url"]: 200, broken["url"]: 404})
-    working, obsolete = dfi_module.filter_available_resources([ok, broken])
-    assert working == [ok]
-    assert obsolete == [broken]
+def test_extract_period_from_url(dfi_module):
+    res = {
+        "title": "some title",
+        "url": "https://x/attachments/situation_janvier_2025_zip",
+    }
+    assert dfi_module.extract_period(res) == (2025, "janvier")
 
 
-def test_filter_marks_http_404_as_obsolete(dfi_module, monkeypatch):
-    a = {"title": "dept50", "url": "https://x/a", "id": "a"}
-    b = {"title": "old", "url": "https://x/b", "id": "b"}
-    _patch_head(monkeypatch, dfi_module, {a["url"]: 200, b["url"]: 404})
-    working, obsolete = dfi_module.filter_available_resources([a, b])
-    assert working == [a]
-    assert obsolete == [b]
+def test_extract_period_matches_real_prod_url(dfi_module):
+    res = {
+        "url": "https://data.economie.gouv.fr/api/v2/catalog/datasets/"
+        "documents-de-filiation-informatises-dfi-des-parcelles/attachments/"
+        "documents_de_filiation_informatises_situation_octobre_2026_dept2a_a_dept49zip"
+    }
+    assert dfi_module.extract_period(res) == (2026, "octobre")
 
 
-def test_filter_treats_request_errors_as_obsolete(dfi_module, monkeypatch):
-    a = {"title": "dept50", "url": "https://x/a", "id": "a"}
-    b = {"title": "unreachable", "url": "https://x/b", "id": "b"}
+def test_extract_period_handles_ignores_typo_year(dfi_module):
+    # "juillet 20266" typo: keep the first four digits of the year.
+    res = {"url": "https://x/..._situation_juillet_20266_dept_50_a_dept_976zip"}
+    assert dfi_module.extract_period(res) == (2026, "juillet")
+
+
+def test_extract_period_raises_when_unknown(dfi_module):
+    res = {
+        "id": "r1",
+        "url": "https://x/attachments/documents_de_filiation_informatises_zip",
+    }
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.extract_period(res)
+    assert "r1" in str(exc.value)
+
+
+def test_assert_same_period_passes_for_same_release(dfi_module):
+    shard1 = {
+        "title": "DFI (situation octobre 2026)",
+        "url": "https://x/a_situation_octobre_2026_zip",
+        "id": "a",
+    }
+    shard2 = {
+        "title": "DFI (situation octobre 2026)",
+        "url": "https://x/b_situation_octobre_2026_zip",
+        "id": "b",
+    }
+    dfi_module.assert_same_period([shard1, shard2])  # should not raise
+
+
+def test_assert_same_period_raises_on_different_releases(dfi_module):
+    july = {
+        "title": "DFI (situation juillet 2026)",
+        "url": "https://x/a_situation_juillet_2026_zip",
+        "id": "a",
+    }
+    october = {
+        "title": "DFI (situation octobre 2026)",
+        "url": "https://x/b_situation_octobre_2026_zip",
+        "id": "b",
+    }
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.assert_same_period([july, october])
+    assert "(2026, 'juillet')" in str(exc.value)
+    assert "(2026, 'octobre')" in str(exc.value)
+
+
+def test_assert_resources_available_passes_when_all_200(dfi_module, monkeypatch):
+    a = {"title": "x", "url": "https://x/a", "id": "a"}
+    b = {"title": "y", "url": "https://x/b", "id": "b"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200, b["url"]: 200})
+    dfi_module.assert_resources_available([a, b])  # should not raise
+
+
+def test_assert_resources_available_raises_on_404(dfi_module, monkeypatch):
+    a = {"title": "x", "url": "https://x/a", "id": "a"}
+    broken = {"title": "y", "url": "https://x/broken", "id": "broken"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200, broken["url"]: 404})
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.assert_resources_available([a, broken])
+    assert "broken" in str(exc.value)
+
+
+def test_assert_resources_available_raises_on_request_error(dfi_module, monkeypatch):
+    a = {"title": "x", "url": "https://x/a", "id": "a"}
+    down = {"title": "z", "url": "https://x/down", "id": "down"}
     _patch_head(monkeypatch, dfi_module, {a["url"]: 200})
-    working, obsolete = dfi_module.filter_available_resources([a, b])
-    assert working == [a]
-    assert obsolete == [b]
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.assert_resources_available([a, down])
+    assert "down" in str(exc.value)
