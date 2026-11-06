@@ -26,6 +26,8 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
 
+_HEAD_TIMEOUT = 30  # seconds, for the resources reachability checks
+
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config.json") as fp:
@@ -243,7 +245,7 @@ def check_department_coverage(duckdb_con):
 
 
 def get_real_name_from_content_disposition(url):
-    r_head = requests.head(url)
+    r_head = requests.head(url, timeout=_HEAD_TIMEOUT)
     content_disposition_header = r_head.headers["content-disposition"]
     msg = Message()
     msg["content-disposition"] = content_disposition_header
@@ -297,7 +299,7 @@ def assert_resources_available(resources):
     failing = []
     for res in resources:
         try:
-            status = requests.head(res.get("url")).status_code
+            status = requests.head(res.get("url"), timeout=_HEAD_TIMEOUT).status_code
         except requests.RequestException:
             status = None
         if status != 200:
