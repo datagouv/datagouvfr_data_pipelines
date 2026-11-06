@@ -48,11 +48,34 @@ def dfi_module(monkeypatch):
     return _import_task_functions(monkeypatch)
 
 
-def test_expected_departments_are_the_french_df_codes(dfi_module):
-    expected = METRO_1_19 | METRO_21_95 | CORSICA | DOM
-    assert len(expected) == 96 + 5
-    assert "20" not in expected  # Corse (20) is split into 2A/2B
-    assert expected == dfi_module.EXPECTED_DEPARTMENTS
+def test_expected_departments_shape(dfi_module):
+    """The expected set is exactly the 101 French department codes: 96
+    metropolitan (with Corse 20 split into 2A/2B) plus the 5 DOM."""
+    depts = dfi_module.EXPECTED_DEPARTMENTS
+    assert len(depts) == 96 + 5
+    assert all(len(d) in (2, 3) for d in depts)
+    assert "20" not in depts  # Corse (20) is split into 2A/2B
+    assert METRO_1_19 | METRO_21_95 | CORSICA | DOM == depts
+
+
+@pytest.mark.parametrize(
+    "code_dept,trailing",
+    [
+        ("01", "000001"),  # metropolitan
+        ("2A", "000001"),  # Corsica (2A -> 2 chars, not padded)
+        ("971", "000001"),  # DOM (971 -> kept as 3 digits)
+    ],
+)
+def test_reformat_txt_lines_departments_are_covered(code_dept, trailing, dfi_module):
+    """The dept code emitted by the parser must match the coverage expectation,
+    otherwise check_department_coverage would falsely fail a valid release."""
+    out = io.StringIO()
+    lines = []
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line(code_dept, trailing))
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line(code_dept, "000999"))
+    (code_insee, emitted_dept, *_rest) = _rows_normalized(out.getvalue())[0]
+    assert emitted_dept in dfi_module.EXPECTED_DEPARTMENTS
+    assert code_insee.startswith(emitted_dept)
 
 
 def test_coverage_ok_when_all_departments_present(dfi_module):
