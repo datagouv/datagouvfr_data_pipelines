@@ -10,7 +10,6 @@ from airflow.decorators import task
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_ENV,
-    S3_URL_RBX,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
@@ -36,9 +35,9 @@ dataset = local_client.dataset(DATASET_ID)
 
 
 def get_files_info_from_s3():
-    content = S3Client(s3_url=S3_URL_RBX, bucket=DAG_BUCKET_NAME).get_files_from_prefix(
-        prefix="", ignore_airflow_env=True
-    )
+    content = S3Client(
+        conn_name="S3_OVH_RBX", bucket=DAG_BUCKET_NAME
+    ).get_files_from_prefix(prefix="", ignore_airflow_env=True)
     s3_paths_to_reference = [
         s3_path
         for s3_path in content
