@@ -95,8 +95,8 @@ def generate_files_infos_decoupage_administratif():
             priority = priority_by_type["epci"] + 1 / float(2020)
             mytitle = "Données EPCI 2020"
             url = f"{base_unpkg_decoupage_administratif}@{version}/data/epci.json"
-            r = requests.get(url, stream=True, headers={"Accept-Encoding": None})
-            mysize = r.headers["Content-Length"]
+            response = requests.get(url, stream=True, headers={"Accept-Encoding": None})
+            mysize = response.headers.get("Content-Length", None)
             output.append(
                 {
                     "title": mytitle,
@@ -114,8 +114,10 @@ def generate_files_infos_decoupage_administratif():
                 priority = priority_by_type[name] + 1 / float(year)
                 url = f"{base_unpkg_decoupage_administratif}@{version}/data/{name}.json"
                 mytitle = f"Données {commons_dict[name]} {year}"
-                r = requests.get(url, stream=True, headers={"Accept-Encoding": None})
-                mysize = r.headers["Content-Length"]
+                response = requests.get(
+                    url, stream=True, headers={"Accept-Encoding": None}
+                )
+                mysize = response.headers.get("Content-Length", None)
                 output.append(
                     {
                         "title": mytitle,
@@ -133,8 +135,10 @@ def generate_files_infos_decoupage_administratif():
                 priority = priority_by_type[name] + 1 / float(year)
                 url = f"{base_unpkg_decoupage_administratif}@{version}/data/{name}.json"
                 mytitle = f"Données {commons_dict[name]} {year}"
-                r = requests.get(url, stream=True, headers={"Accept-Encoding": None})
-                mysize = r.headers["Content-Length"]
+                response = requests.get(
+                    url, stream=True, headers={"Accept-Encoding": None}
+                )
+                mysize = response.headers.get("Content-Length", None)
                 output.append(
                     {
                         "title": mytitle,
