@@ -19,8 +19,8 @@ import requests
 mimetypes.init()
 
 # Variables directly below need an update each year
-LATEST_YEAR = "2026"
 END_DATE = "2026-04-01"
+LATEST_YEAR = END_DATE.split("-")[0]
 
 commons = ["communes", "epci", "departements", "regions", "arrondissements"]
 commons_name = [
@@ -30,9 +30,9 @@ commons_name = [
     "régions",
     "arrondissements",
 ]
-commons_dict = dict(zip(commons, commons_name))
-commons_dict["ept"] = "EPT"
-
+# We concatenate commons + ["ept"] and commons_name + ["EPT"] as we need to use `commons` variable
+# when we loop depending of year on reversed(commons + ["ept"]) or reversed(commons)
+commons_dict = dict(zip(commons + ["ept"], commons_name + ["EPT"]))
 
 versions_prefix = {
     "2019": "0.7",
@@ -53,7 +53,7 @@ DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}decoupage_administratif/config.json") as fp:
     config = json.load(fp)
 
-DATASET_ID = config[DAG_NAME][AIRFLOW_ENV]["dataset_id"]
+DATASET_ID = config[DAG_NAME]["dataset_id"]
 
 dataset = local_client.dataset(DATASET_ID)
 
@@ -151,12 +151,12 @@ def generate_files_infos_decoupage_administratif():
                 )
     return output
 
+RESSOURCES_UNPKG = generate_files_infos_decoupage_administratif()
 
 @task
 def update_create_resources():
-    ressources_unpkg = generate_files_infos_decoupage_administratif()
     urls_res_dataset = {res.title: res for res in dataset.resources}
-    for res in ressources_unpkg:
+    for res in RESSOURCES_UNPKG:
         if res.get("title") in urls_res_dataset:
             logging.info("Existing ressource. Only update")
             payload = {
@@ -186,13 +186,11 @@ def update_create_resources():
 @task
 def specific_sort_ressources():
     dataset_reloaded = local_client.dataset(DATASET_ID)
-    ressources_unpkg = generate_files_infos_decoupage_administratif()
     urls_res_dataset_reloaded = {res.url: res for res in dataset_reloaded.resources}
-    # sorted_ids_res_datagouv = [urls_res_dataset_reloaded[j[0]].id for j in sorted([[i.get('url'), i.get('priority')] for i in ressources_unpkg], key=lambda x: x[1]) if j[0] in urls_res_dataset_reloaded]
     sorted_ids_res_datagouv = [
         urls_res_dataset_reloaded[j[0]].id
         for j in sorted(
-            [[i.get("url"), i.get("priority")] for i in ressources_unpkg],
+            [[i.get("url"), i.get("priority")] for i in RESSOURCES_UNPKG],
             key=lambda x: x[1],
         )
         if j[0]

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from airflow.models import DAG
+from airflow.sdk import DAG
 
 from datagouvfr_data_pipelines.data_processing.decoupage_administratif.task_functions import (
     update_create_resources,
@@ -13,7 +13,6 @@ DAG_NAME = "data_processing_update_decoupage_administratif_ressources_list_datag
 default_args = {
     "retries": 5,
     "retry_delay": timedelta(minutes=5),
-    "provide_context": True,
 }
 
 
