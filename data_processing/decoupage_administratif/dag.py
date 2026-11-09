@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
-from airflow.sdk import DAG
 
+from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.decoupage_administratif.task_functions import (
-    update_create_resources,
-    specific_sort_ressources,
-    update_temporal_coverage,
     notification,
+    specific_sort_ressources,
+    update_create_resources,
+    update_temporal_coverage,
 )
 
 DAG_NAME = "data_processing_update_decoupage_administratif_ressources_list_datagouv"

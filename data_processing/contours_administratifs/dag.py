@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
-from airflow.models import DAG
 
+from airflow.models import DAG
 from datagouvfr_data_pipelines.data_processing.contours_administratifs.task_functions import (
-    update_temporal_coverage,
-    update_create_resources,
-    specific_sort_ressources,
     notification,
+    specific_sort_ressources,
+    update_create_resources,
+    update_temporal_coverage,
 )
 
 DAG_NAME = "data_processing_update_contours_administratifs_ressources_list_datagouv"

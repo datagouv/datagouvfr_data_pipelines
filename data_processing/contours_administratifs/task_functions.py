@@ -3,13 +3,13 @@ import logging
 import mimetypes
 import re
 
-
+import requests
 from airflow.decorators import task
 
 # from datagouv import Client
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
+    AIRFLOW_ENV,
     S3_URL_RBX,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -17,7 +17,6 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 )
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
-import requests
 
 mimetypes.init()
 

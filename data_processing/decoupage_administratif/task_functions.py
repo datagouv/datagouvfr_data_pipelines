@@ -2,19 +2,17 @@ import json
 import logging
 import mimetypes
 
-
+import requests
 from airflow.decorators import task
 
 # from datagouv import Client
 from datagouvfr_data_pipelines.config import (
-    AIRFLOW_ENV,
     AIRFLOW_DAG_HOME,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
     local_client,
 )
 from datagouvfr_data_pipelines.utils.tchap import send_message
-import requests
 
 mimetypes.init()
 
@@ -151,7 +149,9 @@ def generate_files_infos_decoupage_administratif():
                 )
     return output
 
+
 RESSOURCES_UNPKG = generate_files_infos_decoupage_administratif()
+
 
 @task
 def update_create_resources():
