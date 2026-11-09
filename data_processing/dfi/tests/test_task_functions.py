@@ -1,0 +1,335 @@
+import importlib
+import io
+import os
+import shutil
+import sys
+import tempfile
+from zipfile import ZipFile
+
+import duckdb
+import py7zr
+import pytest
+
+DFI_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+CONFIG_JSON = os.path.join(DFI_DIR, "config.json")
+
+METRO_1_19 = {f"{n:02d}" for n in range(1, 20)}
+METRO_21_95 = {f"{n:02d}" for n in range(21, 96)}
+CORSICA = {"2A", "2B"}
+DOM = {"971", "972", "973", "974", "976"}
+
+
+def _import_task_functions(monkeypatch):
+    """Import the real task_functions module. It reads config.json at import
+    time from AIRFLOW_DAG_HOME, so point it at a temp dir holding a copy."""
+    tmp = tempfile.mkdtemp()
+    dest = os.path.join(tmp, "datagouvfr_data_pipelines", "data_processing", "dfi")
+    os.makedirs(dest, exist_ok=True)
+    shutil.copy(CONFIG_JSON, os.path.join(dest, "config.json"))
+
+    import datagouvfr_data_pipelines.config as cfg
+
+    monkeypatch.setattr(cfg, "AIRFLOW_DAG_HOME", tmp + "/")
+
+    module_name = "datagouvfr_data_pipelines.data_processing.dfi.task_functions"
+    if module_name in sys.modules:
+        del sys.modules[module_name]
+    return importlib.import_module(module_name)
+
+
+def _insert(con, departments):
+    con.execute("CREATE TABLE dfi (code_departement VARCHAR)")
+    for dep in departments:
+        con.execute("INSERT INTO dfi VALUES (?)", [dep])
+
+
+@pytest.fixture()
+def dfi_module(monkeypatch):
+    return _import_task_functions(monkeypatch)
+
+
+def test_expected_departments_shape(dfi_module):
+    """The expected set is exactly the 101 French department codes: 96
+    metropolitan (with Corse 20 split into 2A/2B) plus the 5 DOM."""
+    depts = dfi_module.EXPECTED_DEPARTMENTS
+    assert len(depts) == 96 + 5
+    assert all(len(d) in (2, 3) for d in depts)
+    assert "20" not in depts  # Corse (20) is split into 2A/2B
+    assert METRO_1_19 | METRO_21_95 | CORSICA | DOM == depts
+
+
+@pytest.mark.parametrize(
+    "code_dept,trailing",
+    [
+        ("01", "000001"),  # metropolitan
+        ("2A", "000001"),  # Corsica (2A -> 2 chars, not padded)
+        ("971", "000001"),  # DOM (971 -> kept as 3 digits)
+    ],
+)
+def test_reformat_txt_lines_departments_are_covered(code_dept, trailing, dfi_module):
+    """The dept code emitted by the parser must match the coverage expectation,
+    otherwise check_department_coverage would falsely fail a valid release."""
+    out = io.StringIO()
+    lines = []
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line(code_dept, trailing))
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line(code_dept, "000999"))
+    (code_insee, emitted_dept, *_rest) = _rows_normalized(out.getvalue())[0]
+    assert emitted_dept in dfi_module.EXPECTED_DEPARTMENTS
+    assert code_insee.startswith(emitted_dept)
+
+
+def test_coverage_ok_when_all_departments_present(dfi_module):
+    con = duckdb.connect()
+    _insert(con, dfi_module.EXPECTED_DEPARTMENTS)
+    dfi_module.check_department_coverage(con)  # should not raise
+
+
+def test_coverage_raises_when_departments_missing(dfi_module):
+    con = duckdb.connect()
+    _insert(con, dfi_module.EXPECTED_DEPARTMENTS - {"92", "93", "94", "95", "976"})
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.check_department_coverage(con)
+    assert "92" in str(exc.value)
+    assert "976" in str(exc.value)
+
+
+def test_coverage_raises_when_empty(dfi_module):
+    con = duckdb.connect()
+    _insert(con, [])
+    with pytest.raises(RuntimeError):
+        dfi_module.check_department_coverage(con)
+
+
+class _FakeHeadResponse:
+    def __init__(self, status_code):
+        self.status_code = status_code
+
+
+def _patch_head(monkeypatch, dfi_module, status_by_url):
+    def fake_head(url, *args, **kwargs):
+        status = status_by_url.get(url)
+        if status is None:
+            raise dfi_module.requests.RequestException("unreachable")
+        return _FakeHeadResponse(status)
+
+    monkeypatch.setattr(dfi_module.requests, "head", fake_head)
+
+
+def test_extract_period_from_url(dfi_module):
+    res = {
+        "title": "some title",
+        "url": "https://x/attachments/situation_janvier_2025_zip",
+    }
+    assert dfi_module.extract_period(res) == (2025, "janvier")
+
+
+def test_extract_period_matches_real_prod_url(dfi_module):
+    res = {
+        "url": "https://data.economie.gouv.fr/api/v2/catalog/datasets/"
+        "documents-de-filiation-informatises-dfi-des-parcelles/attachments/"
+        "documents_de_filiation_informatises_situation_octobre_2026_dept2a_a_dept49zip"
+    }
+    assert dfi_module.extract_period(res) == (2026, "octobre")
+
+
+def test_extract_period_handles_ignores_typo_year(dfi_module):
+    # "juillet 20266" typo: keep the first four digits of the year.
+    res = {"url": "https://x/..._situation_juillet_20266_dept_50_a_dept_976zip"}
+    assert dfi_module.extract_period(res) == (2026, "juillet")
+
+
+def test_extract_period_raises_when_unknown(dfi_module):
+    res = {
+        "id": "r1",
+        "url": "https://x/attachments/documents_de_filiation_informatises_zip",
+    }
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.extract_period(res)
+    assert "r1" in str(exc.value)
+
+
+def test_assert_same_period_passes_for_same_release(dfi_module):
+    shard1 = {
+        "title": "DFI (situation octobre 2026)",
+        "url": "https://x/a_situation_octobre_2026_zip",
+        "id": "a",
+    }
+    shard2 = {
+        "title": "DFI (situation octobre 2026)",
+        "url": "https://x/b_situation_octobre_2026_zip",
+        "id": "b",
+    }
+    dfi_module.assert_same_period([shard1, shard2])  # should not raise
+
+
+def test_assert_same_period_raises_on_different_releases(dfi_module):
+    july = {
+        "title": "DFI (situation juillet 2026)",
+        "url": "https://x/a_situation_juillet_2026_zip",
+        "id": "a",
+    }
+    october = {
+        "title": "DFI (situation octobre 2026)",
+        "url": "https://x/b_situation_octobre_2026_zip",
+        "id": "b",
+    }
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.assert_same_period([july, october])
+    assert "(2026, 'juillet')" in str(exc.value)
+    assert "(2026, 'octobre')" in str(exc.value)
+
+
+def test_assert_resources_available_passes_when_all_200(dfi_module, monkeypatch):
+    a = {"title": "x", "url": "https://x/a", "id": "a"}
+    b = {"title": "y", "url": "https://x/b", "id": "b"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200, b["url"]: 200})
+    dfi_module.assert_resources_available([a, b])  # should not raise
+
+
+def test_assert_resources_available_raises_on_404(dfi_module, monkeypatch):
+    a = {"title": "x", "url": "https://x/a", "id": "a"}
+    broken = {"title": "y", "url": "https://x/broken", "id": "broken"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200, broken["url"]: 404})
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.assert_resources_available([a, broken])
+    assert "broken" in str(exc.value)
+
+
+def test_assert_resources_available_raises_on_request_error(dfi_module, monkeypatch):
+    a = {"title": "x", "url": "https://x/a", "id": "a"}
+    down = {"title": "z", "url": "https://x/down", "id": "down"}
+    _patch_head(monkeypatch, dfi_module, {a["url"]: 200})
+    with pytest.raises(RuntimeError) as exc:
+        dfi_module.assert_resources_available([a, down])
+    assert "down" in str(exc.value)
+
+
+def test_select_latest_resources_returns_two_newest(monkeypatch, dfi_module):
+    class Res:
+        def __init__(self, title, url, rid, last_modified):
+            self.title = title
+            self.url = url
+            self.id = rid
+            self.last_modified = last_modified
+
+    class Dataset:
+        resources = [
+            Res("july", "https://x/a", "a", "2026-07-01T00:00:00"),
+            Res("oct", "https://x/b", "b", "2026-10-01T00:00:00"),
+            Res("apr", "https://x/c", "c", "2026-04-01T00:00:00"),
+        ]
+
+    monkeypatch.setattr(
+        dfi_module.local_client,
+        "dataset",
+        lambda id: Dataset(),
+    )
+    selected = dfi_module.select_latest_resources("dataset-1")
+    assert [r["id"] for r in selected] == ["b", "a"]
+    assert selected == [
+        {"title": "oct", "url": "https://x/b", "id": "b"},
+        {"title": "july", "url": "https://x/a", "id": "a"},
+    ]
+
+
+def test_check_if_modif_delegates_to_check_if_more_recent_update(
+    monkeypatch, dfi_module
+):
+    fake = {"called": False}
+
+    class FakeResource:
+        def check_if_more_recent_update(self, dataset_id):
+            fake["called"] = True
+            return True
+
+    def resource(**kwargs):
+        return FakeResource()
+
+    monkeypatch.setattr(dfi_module.local_client, "resource", resource)
+    assert dfi_module.check_if_modif() is True
+    assert fake["called"] is True
+
+
+def _raw_line(code_dept, trailing):
+    """Build a DFI .txt line respecting the fixed offsets the parser relies on:
+    the first 30 chars hold exactly the 6 common fields, the region after index
+    76 holds the origin/destination codes."""
+    common = f"{code_dept};123;A;1;2;2026-10-31"
+    return common + (" " * (76 - len(common))) + trailing
+
+
+def test_is_seven_zip_detects_magic_bytes(tmp_path, dfi_module):
+    seven = tmp_path / "mislabeled.zip"
+    seven.write_bytes(dfi_module.SEVEN_ZIP_MAGIC + b"\x00" * 10)
+    assert dfi_module.is_seven_zip(str(seven)) is True
+
+    plain = tmp_path / "plain.zip"
+    with ZipFile(plain, "w") as z:
+        z.writestr("a.txt", "x")
+    assert dfi_module.is_seven_zip(str(plain)) is False
+
+
+def _rows_normalized(csv_text):
+    return [
+        [f.strip() for f in row.split(",")] for row in csv_text.strip().splitlines()
+    ]
+
+
+def test_reformat_txt_lines_combines_origin_destination_pairs(dfi_module):
+    out = io.StringIO()
+    lines = []
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("01", "000001;000002"))
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("01", "000003;000004"))
+    assert _rows_normalized(out.getvalue()) == [
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000004"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000004"],
+    ]
+
+
+def test_reformat_txt_lines_normalizes_dom_code_to_three_digits(dfi_module):
+    out = io.StringIO()
+    lines = []
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("971", "000111"))
+    lines = dfi_module._reformat_txt_lines(out, lines, _raw_line("971", "000222"))
+    assert _rows_normalized(out.getvalue()) == [
+        ["97123", "971", "123", "A", "1", "2", "2026-10-31", "000111", "000222"],
+    ]
+
+
+def test_reformat_dfi_reads_plain_zip_of_txt_files(tmp_path, dfi_module):
+    zip_path = tmp_path / "situation.zip"
+    with ZipFile(zip_path, "w") as z:
+        z.writestr("dept01.txt", _raw_line("01", "000001;000002") + "\n")
+        z.writestr("ignored.bak", "should be ignored\n")
+        z.writestr("dept01_bis.txt", _raw_line("01", "000003;000004") + "\n")
+
+    output = tmp_path / "out.csv"
+    dfi_module.reformat_dfi([str(zip_path)], str(output))
+
+    assert _rows_normalized(output.read_text()) == [
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000001", "000004"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000003"],
+        ["01123", "01", "123", "A", "1", "2", "2026-10-31", "000002", "000004"],
+    ]
+
+
+def test_reformat_dfi_reads_legacy_7z_containing_inner_zip(tmp_path, dfi_module):
+    inner_zip = tmp_path / "dept59.zip"
+    with ZipFile(inner_zip, "w") as z:
+        z.writestr("dept59.txt", _raw_line("59", "000501") + "\n")
+        z.writestr("dept59_bis.txt", _raw_line("59", "000502") + "\n")
+
+    volume = tmp_path / "volume.zip"  # mislabeled: real 7z
+    with py7zr.SevenZipFile(str(volume), "w") as seven:
+        seven.write(str(inner_zip), arcname="dept59.zip")
+    assert dfi_module.is_seven_zip(str(volume)) is True
+
+    output = tmp_path / "out.csv"
+    dfi_module.reformat_dfi([str(volume)], str(output))
+
+    assert _rows_normalized(output.read_text()) == [
+        ["59123", "59", "123", "A", "1", "2", "2026-10-31", "000501", "000502"],
+    ]
