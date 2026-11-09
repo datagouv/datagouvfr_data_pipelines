@@ -98,7 +98,8 @@ def create_post(
         body_type: body type of post (html, markdown or blocs)
         content: textual content of post (required for html/markdown body types)
         blocs: list of blocs for the "blocs" body type, each a dict with a "class"
-            key giving the bloc type (e.g. "DatasetsListBloc", "MarkdownBloc")
+            key giving the bloc type: "SectionBloc" at the top level, holding the
+            other blocs (e.g. "TitleBloc", "MarkdownBloc", "DatasetBloc")
         tags: optional list of tags for post
 
     Returns:

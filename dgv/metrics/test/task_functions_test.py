@@ -185,12 +185,23 @@ def test_get_catalog_id_mapping():
 
 
 def test_get_matomo_outlinks():
+    from unittest.mock import patch
+
     from datagouvfr_data_pipelines.dgv.metrics.task_functions import get_matomo_outlinks
 
-    # This is the most consulted reuse of our catalog
-    result = get_matomo_outlinks(
-        "reuses", "deces-en-france", "https://www.deces-en-france.fr", "previous month"
-    )
+    with patch(
+        "datagouvfr_data_pipelines.dgv.metrics.task_functions.requests.post"
+    ) as post:
+        post.return_value.json.return_value = [
+            {"label": "https://www.deces-en-france.fr", "nb_hits": 42},
+            {"label": "https://example.com", "nb_hits": 7},
+        ]
+        result = get_matomo_outlinks(
+            "reuses",
+            "deces-en-france",
+            "https://www.deces-en-france.fr",
+            "previous month",
+        )
 
-    assert isinstance(result, int)
-    assert result > 0
+    assert result == 42
+    post.assert_called_once()

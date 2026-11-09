@@ -13,19 +13,69 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install ruff and check linting
-          # ruff check . : check linting and imports sorting without fixing (to fix, use --fix)
-          # ruff format --check . : check code formatting without fixing (to fix, remove --check)
+          name: Install pre-commit and run all hooks
           command: |
-            python -m venv venv
-            . venv/bin/activate
+            python -m venv .venv
+            . .venv/bin/activate
             pip install --upgrade pip
-            pip install ruff>=0.11.2
-            ruff --version
-            ruff check .
-            ruff format --check .
+            # version alignée sur dev-requirements.txt
+            pip install pre-commit==4.2.0
+            pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    docker:
+      - image: cimg/python:<< pipeline.parameters.python-version >>
+    # pytest.ini adds the parent directory ("..") to sys.path so tests can use
+    # absolute imports (datagouvfr_data_pipelines...). The checkout must keep
+    # the package directory name and live under that parent.
+    working_directory: ~/dags/datagouvfr_data_pipelines
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies and run all tests
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt pytest
+            pytest -v
+
+  dag-imports:
+    docker:
+      - image: cimg/python:<< pipeline.parameters.python-version >>
+    # DAGs use absolute imports (datagouvfr_data_pipelines...), so the checkout
+    # must keep the package directory name and its parent must be on PYTHONPATH,
+    # like in production where the repo is mounted under the DAGs folder.
+    working_directory: ~/dags/datagouvfr_data_pipelines
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+      - run:
+          name: Check DAG import errors
+          command: |
+            . .venv/bin/activate
+            # `airflow dags list-import-errors` parses local DAGs and exits
+            # non-zero as soon as at least one file fails to import.
+            export AIRFLOW_HOME="$HOME/airflow"
+            export AIRFLOW__CORE__DAGS_FOLDER="$HOME/dags"
+            export AIRFLOW__CORE__LOAD_EXAMPLES=False
+            export PYTHONPATH="$HOME/dags${PYTHONPATH:+:$PYTHONPATH}"
+            # Values normally provided by Airflow Variables in production.
+            # Synthetic placeholders only: never put real secrets in CI.
+            export AIRFLOW_VAR_AIRFLOW_DAG_HOME="$HOME/dags/"
+            export AIRFLOW_VAR_DATAGOUV_SECRET_API_KEY="test-key"
+            airflow db migrate
+            airflow dags list-import-errors -l
 
 workflows:
-  check-linting:
+  check:
     jobs:
       - lint
+      - test
+      - dag-imports

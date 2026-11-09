@@ -15,7 +15,6 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
-    S3_BUCKET_DATA_PIPELINE,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
 from datagouvfr_data_pipelines.utils.datagouv import (
@@ -24,11 +23,13 @@ from datagouvfr_data_pipelines.utils.datagouv import (
 from datagouvfr_data_pipelines.utils.download import download_files
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.tasks import force_rebuild_requested
 from datagouvfr_data_pipelines.utils.tchap import send_message
+
+_HEAD_TIMEOUT = 30  # seconds, for the resources reachability checks
 
 DAG_FOLDER = "datagouvfr_data_pipelines/data_processing/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}dfi/"
-METADATA_FILE = "metadata.json"
 with open(f"{AIRFLOW_DAG_HOME}{DAG_FOLDER}dfi/config.json") as fp:
     config = json.load(fp)
 
@@ -72,76 +73,245 @@ queries = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Archive format history (why both 7z and zip are handled here)
+#
+# The DGFIP publishes, each quarter, two "volume" files splitting the French
+# departments (e.g. `dept 2A0 à dept 49` and `dept 50 à dept 976`). Downstream,
+# each volume contains one `.txt` file per department with the DFI rows.
+#
+# PAST (up to 2025): the downloadable volume was a 7z container, although
+# it was misleadingly named with a `.zip` extension. It unpacked to individual
+# per-department ZIP files, each containing a `.txt`. The pipeline therefore
+# historically did: py7zr (volume) -> ZipFile (per-department) -> .txt rows.
+# The DGFIP themselves confirmed this (see discussions on data.gouv.fr:
+# "Le premier dossier est compressé en .7z puis les sous dossiers en .zip").
+#
+# CURRENT (since 2026): the volume is now a plain ZIP whose members
+# are the `.txt` files directly, without the inner per-department ZIP layer.
+# This is what triggered issue #833: opening a plain ZIP with py7zr raised
+# `Bad7zFile: not a 7z file`.
+#
+# To stay robust against either format, we don't trust the file extension (the
+# producer has historically mislabeled archives). We inspect the magic bytes
+# and branch accordingly: 7z -> unwrap 7z then its inner ZIPs; zip -> read the
+# `.txt` members directly.
+#
+# CURRENT STATE (checked Nov 2026, actual magic bytes):
+#   Jan 2025 (dept 590-976 .zip)  -> ZIP
+#   Apr 2025 (dept 590-976 .zip)  -> 7z   (mislabeled .zip)
+#   Jul 2025 (dept 2A0-580 .zip)  -> 7z   (mislabeled .zip)
+#   Jul 2025 (dept 590-976 .7z)   -> 7z   (correctly named)
+#   Jul 2026 (both volumes)       -> ZIP
+#   Oct 2026 (both volumes)       -> ZIP
+# -> Today's deliveries are plain ZIPs, but the producer is inconsistent:
+#    still-reachable older volumes are genuine 7z.
+# DECISION: we therefore KEEP the 7z branch even though today's deliveries are
+# ZIP, only in case the producer once again publishes 7z in the future (or the
+# pipeline reprocesses a historical 7z volume). This is cheap to keep (we just
+# read 6 magic bytes). Reassess whether we still need this branch in the future
+# if several consecutive quarters are published as plain ZIPs.
+# ---------------------------------------------------------------------------
+SEVEN_ZIP_MAGIC = b"7z\xbc\xaf'\x1c"
+
+
+def is_seven_zip(filepath):
+    """True when the file is a real 7z archive (checks magic bytes, not the
+    `.zip` file extension which the producer has historically mislabeled)."""
+    with open(filepath, "rb") as fp:
+        return fp.read(6) == SEVEN_ZIP_MAGIC
+
+
+def _reformat_txt_lines(infile, lines, text):
+    cleaned_line = re.sub(r";\n|\n", "", text.replace("\r", ""))
+    common = cleaned_line[:30].split(";")
+    (
+        code_dept,
+        code_com,
+        prefixe_section,
+        id_dfi,
+        nature_dfi,
+        date_valid_dfi,
+    ) = common
+    code_dept = code_dept[0:3] if code_dept.startswith("97") else code_dept[0:2]
+    code_insee = code_dept[0:2] + code_com
+    lines.append(cleaned_line)
+    if len(lines) == 2:
+        origins = [
+            i.strip().zfill(6) for i in lines[0][76:].split(";") if len(i.strip()) > 0
+        ]
+        destinations = [
+            i.strip().zfill(6) for i in lines[1][76:].split(";") if len(i.strip()) > 0
+        ]
+        if len(origins) == 0:
+            origins.append("EDNC")
+        if len(destinations) == 0:
+            destinations.append("PDP")
+        for origin in origins:
+            for destination in destinations:
+                out = [
+                    code_insee,
+                    code_dept,
+                    code_com,
+                    prefixe_section,
+                    id_dfi,
+                    nature_dfi,
+                    date_valid_dfi,
+                ] + [origin, destination]
+                infile.write(",".join(out) + "\n")
+        lines.clear()
+    return lines
+
+
+def _process_txt_files(infile, lines, archive):
+    for member in archive.filelist:
+        if not member.filename.endswith(".txt"):
+            continue
+        with archive.open(member) as file:
+            for line in file:
+                lines = _reformat_txt_lines(infile, lines, line.decode())
+
+
 def reformat_dfi(filenames, output_name):
     lines = []
     with open(output_name, "w") as infile:
         for filename in filenames:
             logging.info(filename)
-            with py7zr.SevenZipFile(filename, mode="r") as archive:
-                for file in archive.getnames():
-                    logging.info(file)
-                    archive.reset()
-                    archive.extract(targets=[file])
-                    with ZipFile(file) as zip_archive:
-                        for zip in zip_archive.filelist:
-                            for line in zip_archive.open(zip):
-                                # logging.info(line.decode())
-                                cleaned_line = re.sub(
-                                    r";\n|\n", "", line.decode().replace("\r", "")
-                                )
-                                common = cleaned_line[:30].split(";")
-                                (
-                                    code_dept,
-                                    code_com,
-                                    prefixe_section,
-                                    id_dfi,
-                                    nature_dfi,
-                                    date_valid_dfi,
-                                ) = common
-                                code_dept = (
-                                    code_dept[0:3]
-                                    if code_dept.startswith("97")
-                                    else code_dept[0:2]
-                                )
-                                code_insee = code_dept[0:2] + code_com
-                                lines.append(cleaned_line)
-                                if len(lines) == 2:
-                                    origins = [
-                                        i.strip().zfill(6)
-                                        for i in lines[0][76:].split(";")
-                                        if len(i.strip()) > 0
-                                    ]
-                                    destinations = [
-                                        i.strip().zfill(6)
-                                        for i in lines[1][76:].split(";")
-                                        if len(i.strip()) > 0
-                                    ]
-                                    if len(origins) == 0:
-                                        origins.append("EDNC")
-                                    if len(destinations) == 0:
-                                        destinations.append("PDP")
-                                    for origin in origins:
-                                        for destination in destinations:
-                                            out = [
-                                                code_insee,
-                                                code_dept,
-                                                code_com,
-                                                prefixe_section,
-                                                id_dfi,
-                                                nature_dfi,
-                                                date_valid_dfi,
-                                            ] + [origin, destination]
-                                            infile.write(",".join(out) + "\n")
-                                    lines = []
-                    Path(file).unlink()
+            if is_seven_zip(filename):
+                # Kept only in case the producer once again publishes 7z (or we
+                # reprocess a historical 7z volume); see module comment above.
+                # Legacy format: 7z volume whose inner members are per-department
+                # ZIP files. Unwrap the 7z, then read each inner ZIP's `.txt`.
+                with py7zr.SevenZipFile(filename, mode="r") as archive:
+                    for inner_name in archive.getnames():
+                        logging.info(inner_name)
+                        archive.reset()
+                        archive.extract(targets=[inner_name])
+                        with ZipFile(inner_name) as zip_archive:
+                            _process_txt_files(infile, lines, zip_archive)
+                        Path(inner_name).unlink()
+            else:
+                # Current format (since ~ October 2026): plain ZIP whose members
+                # are the `.txt` files directly.
+                with ZipFile(filename) as zip_archive:
+                    _process_txt_files(infile, lines, zip_archive)
+
+
+# All French department codes the DFI dataset is expected to cover: the 96
+# metropolitan departments (01-95, with 20 split into 2A/2B) plus the 5 DOM
+# (971 Guadeloupe, 972 Martinique, 973 Guyane, 974 La Réunion, 976 Mayotte).
+EXPECTED_DEPARTMENTS = ({f"{n:02d}" for n in range(1, 96)} - {"20"}) | {
+    "2A",
+    "2B",
+    "971",
+    "972",
+    "973",
+    "974",
+    "976",
+}
+
+
+def check_department_coverage(duckdb_con):
+    """Assert the combined two shards cover every expected department.
+
+    The producer has a track record of partial/broken deliveries (e.g. July
+    2025 missing departments 92/93/94/95/976, and dead attachment links). This
+    guards against silently publishing a dataset that is missing whole
+    departments. Raises listing the missing departments rather than letting the
+    partial data be sent to S3.
+    """
+    found = {
+        row[0]
+        for row in duckdb_con.sql(
+            "SELECT DISTINCT code_departement FROM dfi"
+        ).fetchall()
+    }
+    missing = sorted(EXPECTED_DEPARTMENTS - found)
+    if missing:
+        raise RuntimeError(
+            f"DFI delivery is incomplete: {len(missing)} department(s) missing "
+            f"from the combined shards ({', '.join(missing)}). "
+            f"Refusing to publish a partial dataset. "
+            f"Actions: (1) contact the DGFIP producer to report the missing "
+            f"departments and obtain a corrected delivery; (2) if the omission "
+            f"is deliberate on our side, adjust the EXPECTED_DEPARTMENTS constant "
+            f"in data_processing/dfi/task_functions.py to match the actual "
+            f"expected coverage before re-running."
+        )
+    logging.info(
+        f"Department coverage OK: all {len(EXPECTED_DEPARTMENTS)} expected "
+        f"departments present."
+    )
 
 
 def get_real_name_from_content_disposition(url):
-    r_head = requests.head(url)
+    r_head = requests.head(url, timeout=_HEAD_TIMEOUT)
     content_disposition_header = r_head.headers["content-disposition"]
     msg = Message()
     msg["content-disposition"] = content_disposition_header
     return msg.get_filename()
+
+
+_PERIOD_RE = re.compile(r"situation_(?P<month>[a-z]+)_(?P<year>\d{4})")
+
+
+def extract_period(resource):
+    """Extract the release period `(year, month)` from the resource URL.
+
+    URLs embed the period as `situation_<mois>_<année>` (e.g. `..._situation_
+    octobre_2026_dept2a_a_dept49zip`). Returns `(int, str)` — `(year, month)`.
+    """
+    match = _PERIOD_RE.search(str(resource.get("url") or ""))
+    if not match:
+        raise RuntimeError(
+            f"Could not determine the release period of resource "
+            f"{resource.get('id')} ({resource.get('url')}); expected URL to "
+            "contain `situation_<mois>_<année>`."
+        )
+    return (int(match.group("year")), match.group("month").lower())
+
+
+def assert_same_period(resources):
+    """Raise if the resources are not all from the same release period.
+
+    Prevents aggregating data from two different releases (e.g. the first half
+    of July mixed with the second half of October): each half individually has
+    disjoint departments, so the department-coverage check alone would not
+    catch such a mix.
+    """
+    periods = {extract_period(r) for r in resources}
+    if len(periods) != 1:
+        raise RuntimeError(
+            f"Resources span different release periods ({sorted(periods)}); "
+            "refusing to aggregate data from multiple releases. Check the source "
+            "dataset and remove stale resources."
+        )
+
+
+def assert_resources_available(resources):
+    """Raise if any selected resource does not resolve (HTTP != 200).
+
+    A selected shard that 404s means a release is incomplete: downloading the
+    remaining shard(s) alone would produce a partial delivery. Fail loudly so
+    the broken resource is investigated instead of silently publishing partial
+    data.
+    """
+    failing = []
+    for res in resources:
+        try:
+            status = requests.head(res.get("url"), timeout=_HEAD_TIMEOUT).status_code
+        except requests.RequestException:
+            status = None
+        if status != 200:
+            failing.append((res.get("id"), res.get("url"), status))
+    if failing:
+        details = "\n".join(
+            f"- {rid} ({url}) -> HTTP {status}" for rid, url, status in failing
+        )
+        raise RuntimeError(
+            "Selected DFI resource(s) are not reachable; refusing to publish a "
+            "partial or mixed release:\n" + details
+        )
 
 
 def get_download_ressources_infos(urls, destination_dir):
@@ -158,64 +328,43 @@ def get_download_ressources_infos(urls, destination_dir):
     return filenames
 
 
-def send_metadata_to_s3():
-    S3Client(bucket=S3_BUCKET_DATA_PIPELINE).send_file(
-        File(
-            source_path=TMP_FOLDER,
-            source_name=f"{METADATA_FILE}",
-            dest_path="dev/dfi/",
-            dest_name=f"{METADATA_FILE}",
-        ),
-        ignore_airflow_env=True,
-    )
+def select_latest_resources(dataset_id, n=2):
+    """Return the `n` most recently modified resources of a dataset.
 
-
-def check_if_modif():
-    s3_process = S3Client(bucket=S3_BUCKET_DATA_PIPELINE)
-    dataset_content = local_client.dataset(
-        id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
-    )
-    last_2_files = sorted(dataset_content.resources, key=lambda d: d.last_modified)[-2:]
-    metadata = [
-        {
-            "title": resource.title,
-            "url": resource.url,
-            "id": resource.id,
-            "last_modified": resource.last_modified,
-        }
-        for resource in last_2_files
+    Returns a list of dicts with "title", "url" and "id" keys.
+    """
+    dataset_content = local_client.dataset(id=dataset_id)
+    latest = sorted(
+        dataset_content.resources, key=lambda d: d.last_modified or "", reverse=True
+    )[:n]
+    return [
+        {"title": resource.title, "url": resource.url, "id": resource.id}
+        for resource in latest
     ]
-    with open(f"{TMP_FOLDER}{METADATA_FILE}", "w") as infile:
-        json.dump(metadata, infile)
-    metadata_does_exist = s3_process.does_file_exist_in_bucket("dev/dfi/metadata.json")
-    if not metadata_does_exist:
-        send_metadata_to_s3()
+
+
+def check_if_modif(dag_run=None):
+    if force_rebuild_requested(dag_run):
         return True
-    else:
-        metadata_content = json.loads(
-            s3_process.get_file_content("dev/dfi/metadata.json")
-        )
-        previous = sorted([i["last_modified"] for i in metadata_content])
-        current = sorted([i["last_modified"] for i in metadata])
-        if len(set(previous).intersection(current)) != 2:
-            send_metadata_to_s3()
-            return True
-        else:
-            return False
+    return local_client.resource(
+        id=config["dfi_publi_csv"][AIRFLOW_ENV]["resource_id"],
+    ).check_if_more_recent_update(
+        dataset_id=config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
+    )
 
 
 @task()
 def gather_data(**context):
     logging.info("Getting resources list")
-    metadata_content = json.loads(
-        S3Client(bucket=S3_BUCKET_DATA_PIPELINE).get_file_content(
-            "dev/dfi/metadata.json"
-        )
+    resources = select_latest_resources(
+        config["dfi_info"][AIRFLOW_ENV]["dataset_id"],
     )
-    urls_resources = [i.get("url") for i in metadata_content]
-    information_date_about_dataset = re.findall(
-        r"\((.*?)\)", metadata_content[0].get("title")
-    )
+    # Refuse to publish a partial or mixed release: the selected resources must
+    # all resolve (HTTP 200) and come from the same release period.
+    assert_resources_available(resources)
+    assert_same_period(resources)
+    information_date_about_dataset = re.findall(r"\((.*?)\)", resources[0].get("title"))
+    urls_resources = [r.get("url") for r in resources]
     logging.info("Start downloading DFI files")
     filenames_infos = get_download_ressources_infos(urls_resources, TMP_FOLDER)
     download_files(filenames_infos)
@@ -231,6 +380,9 @@ def gather_data(**context):
         for query in queries:
             logging.info(query)
             con.sql(query)
+        # Refuse to publish a partial delivery: check the combined two shards
+        # cover every expected department before anything is sent to S3.
+        check_department_coverage(con)
         min_date, max_date = con.sql(QUERY_MIN_MAX_DATE).fetchone()
 
     Path(output_duckdb_database_name).unlink()

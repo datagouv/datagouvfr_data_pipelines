@@ -22,6 +22,7 @@ from datagouvfr_data_pipelines.schema.utils.jsonschema import jsonschema_to_mark
 from datagouvfr_data_pipelines.utils.datagouv import demo_client, prod_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
+from datagouvfr_data_pipelines.utils.tchap import send_message
 from feedgen.feed import FeedGenerator
 from git import Git, Repo
 from table_schema_to_markdown import convert_source, sources_to_markdown
@@ -30,6 +31,12 @@ from unidecode import unidecode
 ERRORS_REPORT: list[Any] = []
 SCHEMA_INFOS: dict[str, Any] = {}
 SCHEMA_CATALOG: dict[str, Any] = {}
+KNOWN_TYPES = {"tableschema", "jsonschema", "other", "datapackage"}
+
+# TODO: the whole code could be refactored to separate concerns :
+# backend : schemas data should be processed and stored in a readable data model for better debugging
+# frontend : anything related to the code that should be produced based of this data model should be in separate function - and even steps
+# that would allow cleaner retries where we dont mix up data model and code writing
 
 
 @task()
@@ -90,8 +97,15 @@ def get_consolidated_version(tag) -> tuple[str, bool]:
     return ".".join(version_items), valid_version
 
 
-def manage_errors(repertoire_slug: str, version: str, reason: str):
-    """Create dictionnary that will populate ERRORS_REPORT object"""
+def get_schema_name(conf: dict) -> str:
+    """schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
+    Ex : etalab / schema-irve-statique"""
+    return "/".join(conf["url"].split(".git")[0].split("/")[-2:])
+
+
+def manage_errors(repertoire_slug: str, version: str | None, reason: str):
+    """Create dictionnary that will populate ERRORS_REPORT object
+    version is None when the whole schema is at fault, not one of its releases"""
     ERRORS_REPORT.append(
         {
             "schema": repertoire_slug,
@@ -106,9 +120,7 @@ def check_schema(
 ) -> dict:
     global SCHEMA_INFOS
     """Check validity of schema and all of its releases"""
-    # schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
-    # Ex : etalab / schema-irve-statique
-    schema_name = "/".join(conf["url"].split(".git")[0].split("/")[-2:])
+    schema_name = get_schema_name(conf)
     # define source folder and create it
     # source folder will help us to checkout to every release and analyze source code for each one
     src_folder = folders["CACHE_FOLDER"] + "/" + schema_name + "/"
@@ -182,6 +194,10 @@ def check_schema(
                 )
     if not list_schemas:
         logging.warning("No valid version for this schema")
+        # the entry was created before any validation: remove it, otherwise it reaches
+        # update_news_feed without a "latest" key and gets published with version None
+        SCHEMA_INFOS.pop(schema_name, None)
+        manage_errors(repertoire_slug, None, "aucune version valide")
         return {}
     # Find latest valid version and create a specific folder "latest" copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(schema_name, folders)
@@ -205,12 +221,12 @@ def check_schema(
     return schema_to_add_to_catalog
 
 
-def check_datapackage(conf, folders):
+def check_datapackage(repertoire_slug, conf, folders):
     global SCHEMA_INFOS
     """Check validity of schemas from a datapackage repo for all of its releases"""
     # define source folder and create it
     # source folder will help us to checkout to every release and analyze source code for each one
-    dpkg_name = "/".join(conf["url"].split(".git")[0].split("/")[-2:])
+    dpkg_name = get_schema_name(conf)
     src_folder = f"{folders['CACHE_FOLDER']}/{'/'.join(conf['url'].split('.git')[0].split('/')[-2:])}/"
     os.makedirs(src_folder, exist_ok=True)
     # clone repo in source folder
@@ -221,6 +237,9 @@ def check_datapackage(conf, folders):
 
     list_schemas = {}
     schemas_to_add_to_catalog = []
+    # a datapackage registers itself plus one entry per nested schema, keep track of
+    # all of them so they can all be removed if no release turns out to be valid
+    registered_names = {dpkg_name}
 
     # Defining SCHEMA_INFOS object for website use
     SCHEMA_INFOS[dpkg_name] = {
@@ -310,6 +329,7 @@ def check_datapackage(conf, folders):
                                 "labels": conf.get("labels"),
                                 "consolidation_dataset_id": conf.get("consolidation"),
                             }
+                        registered_names.add(schema_name)
 
                         SCHEMA_INFOS[schema_name]["versions"][version] = {"pages": []}
 
@@ -388,6 +408,10 @@ def check_datapackage(conf, folders):
     if not one_valid:
         logging.warning("No valid version for this datapackage, see report:")
         logging.info(frictionless_report)
+        # same as in check_schema: drop the entries created before validation
+        for name in registered_names:
+            SCHEMA_INFOS.pop(name, None)
+        manage_errors(repertoire_slug, None, "aucune version valide")
         return
     # Find latest valid version and create a specific folder "latest" copying files in it (for website use)
     latest_folder, sf = manage_latest_folder(dpkg_name, folders)
@@ -418,6 +442,13 @@ def check_datapackage(conf, folders):
         )
 
     SCHEMA_INFOS[dpkg_name]["latest"] = sf
+
+    # a nested schema present only in older releases was registered above but never
+    # got a "latest": drop it rather than publishing a versionless entry
+    orphans = registered_names - set(SCHEMA_INFOS[dpkg_name]["schemas"]) - {dpkg_name}
+    for name in orphans:
+        logging.warning(f"{name} is not in the latest datapackage, dropping it")
+        SCHEMA_INFOS.pop(name, None)
 
     statc = generate_catalog_datapackage(
         latest_folder,
@@ -899,6 +930,11 @@ def check_and_save_schemas(suffix, **context):
     clean_and_create_folder(folders["CACHE_FOLDER"])
     clean_and_create_folder(folders["DATA_FOLDER1"])
 
+    # these are module-level accumulators, unlike SCHEMA_CATALOG they are never
+    # reassigned: clear them in case two task instances share a worker process
+    SCHEMA_INFOS.clear()
+    ERRORS_REPORT.clear()
+
     # Initiate Catalog
     SCHEMA_CATALOG["$schema"] = (
         "https://opendataschema.frama.io/catalog/schema-catalog.json"
@@ -911,19 +947,36 @@ def check_and_save_schemas(suffix, **context):
         logging.info("_______________________________")
         logging.info(f"Starting with {repertoire_slug}")
         logging.info(conf)
-        if conf["type"] != "datapackage":
-            logging.info(f"Recognized as {conf['type']}")
-            schema_to_add_to_catalog: dict = check_schema(
-                repertoire_slug, conf, conf["type"], folders
-            )
-            if schema_to_add_to_catalog:
-                SCHEMA_CATALOG["schemas"].append(schema_to_add_to_catalog)
-        else:
-            logging.info("Recognized as datapackage")
-            schemas_to_add_to_catalog = check_datapackage(conf, folders)
-            if schemas_to_add_to_catalog:
-                for schema in schemas_to_add_to_catalog:
-                    SCHEMA_CATALOG["schemas"].append(schema)
+        try:
+            if conf["type"] not in KNOWN_TYPES:
+                raise ValueError(f"type de schéma inconnu : '{conf['type']}'")
+            if conf["type"] != "datapackage":
+                logging.info(f"Recognized as {conf['type']}")
+                schema_to_add_to_catalog: dict = check_schema(
+                    repertoire_slug, conf, conf["type"], folders
+                )
+                if schema_to_add_to_catalog:
+                    SCHEMA_CATALOG["schemas"].append(schema_to_add_to_catalog)
+            else:
+                logging.info("Recognized as datapackage")
+                schemas_to_add_to_catalog = check_datapackage(
+                    repertoire_slug, conf, folders
+                )
+                if schemas_to_add_to_catalog:
+                    for schema in schemas_to_add_to_catalog:
+                        SCHEMA_CATALOG["schemas"].append(schema)
+        except Exception as e:
+            # one broken schema must not prevent the whole website from being published:
+            # log it, keep it for the final notification, and move on to the next one
+            logging.error(f"/!\\ {repertoire_slug} n'a pas pu être traité : {e}")
+            if conf.get("url"):
+                SCHEMA_INFOS.pop(get_schema_name(conf), None)
+            # git errors are multi-line and very verbose, keep the report readable:
+            # the complete error stays in the task logs above
+            reason = " ".join(str(e).split())
+            reason = reason[:300] + "..." if len(reason) > 300 else reason
+            manage_errors(repertoire_slug, None, f"{type(e).__name__}: {reason}")
+            continue
         logging.info(f"--- {repertoire_slug} processed")
     schemas_scdl = SCHEMA_CATALOG.copy()
     schemas_transport = SCHEMA_CATALOG.copy()
@@ -1066,6 +1119,65 @@ def get_template_github_issues(suffix):
     return dates
 
 
+def deduplicate_updates(updates: dict) -> bool:
+    """Remove repeated entries per date and change type, keeping the first occurrence.
+    Before new_version entries were made unique per schema, a schema gaining several
+    versions at once produced as many identical entries. Returns True if it removed any."""
+    removed = 0
+    for change_types in updates.values():
+        for change_type, entries in change_types.items():
+            unique = []
+            for entry in entries:
+                if entry not in unique:
+                    unique.append(entry)
+            removed += len(entries) - len(unique)
+            change_types[change_type] = unique
+    if removed:
+        logging.warning(f"Removed {removed} duplicate entries from the news feed")
+    return bool(removed)
+
+
+# TODO: this is called at the start of the task, so it cleans what previous runs left.
+# A retry appends its items again after this point, and they stay until the next run:
+# to make the feeds retry-safe this should also run after the items are appended, which
+# means reworking the "if changes[today] or duplicates_removed" block and the early return.
+def deduplicate_rss(rss_folder: str) -> int:
+    """Remove repeated <item> elements from the RSS feeds, keeping the first occurrence.
+    Same cause as deduplicate_updates, except the feeds are only ever appended to, so
+    they are not fixed by rewriting schema-updates.json. Returns how many were removed."""
+    removed = 0
+    for file_name in sorted(os.listdir(rss_folder)):
+        if not file_name.endswith(".xml"):
+            continue
+        tree = ET.parse(rss_folder + file_name)
+        channel = tree.getroot().find("./channel")
+        if channel is None:
+            continue
+        seen: set = set()
+        removed_here = 0
+        for item in channel.findall("item"):
+            # two items with the same title, link, description and date are
+            # indistinguishable for a feed reader
+            key = tuple((child.tag, child.text) for child in item)
+            if key in seen:
+                channel.remove(item)
+                removed_here += 1
+            else:
+                seen.add(key)
+        if removed_here:
+            logging.warning(f"Removed {removed_here} duplicate items from {file_name}")
+            # TODO: this xml elements addition could be factorized (done a second time later)
+            # - depends if we keep this dedupe logic after initial cleaning
+            # ElementTree drops the namespaces it considers unused when writing,
+            # they have to be set back by hand as the rest of this file does
+            root = tree.getroot()
+            root.set("xmlns:atom", "http://www.w3.org/2005/Atom")
+            root.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
+            tree.write(rss_folder + file_name)
+            removed += removed_here
+    return removed
+
+
 @task()
 def update_news_feed(tmp_folder, suffix, **context):
     new = context["ti"].xcom_pull(
@@ -1092,21 +1204,35 @@ def update_news_feed(tmp_folder, suffix, **context):
                 }
             )
         else:
-            for v in new[schema]["versions"]:
-                if v not in old[schema]["versions"]:
-                    if "new_version" not in changes[today]:
-                        changes[today]["new_version"] = []
-                    changes[today]["new_version"].append(
-                        {
-                            "schema_name": schema,
-                            "version": (
-                                f"{old[schema].get('latest')} => "
-                                f"{new[schema].get('latest')}"
-                            ),
-                        }
-                    )
+            # a schema can gain several versions in one run (new releases, or older
+            # tags becoming visible): the feed announces the move of "latest", so it
+            # is one entry per schema, and only when latest actually moves up
+            # (latest can also go down if a release is deleted or stops validating,
+            # which is not a "montée de version")
+            # old comes from the published file, it may predate the guarantee that
+            # every schema has a latest, hence the check before comparing
+            old_latest = old[schema].get("latest")
+            new_latest = new[schema].get("latest")
+            if old_latest and comparer_versions(new_latest) > comparer_versions(
+                old_latest
+            ):
+                if "new_version" not in changes[today]:
+                    changes[today]["new_version"] = []
+                changes[today]["new_version"].append(
+                    {
+                        "schema_name": schema,
+                        "version": f"{old_latest} => {new_latest}",
+                    }
+                )
     for schema in old:
         if schema not in new:
+            # a schema that never had a valid version was never really published:
+            # nothing to announce, and it must not enter the feed without a version
+            if not old[schema].get("latest"):
+                logging.info(
+                    f"{schema} had no valid version, not adding it to the feed"
+                )
+                continue
             if "deleted_schema" not in changes[today]:
                 changes[today]["deleted_schema"] = []
             changes[today]["deleted_schema"].append(
@@ -1124,6 +1250,12 @@ def update_news_feed(tmp_folder, suffix, **context):
     with open(schema_updates_file, "r", encoding="utf-8") as f:
         updates = json.load(f)
         f.close()
+    # TODO: this call can go once the committed file is clean and its reference later
+    duplicates_removed = deduplicate_updates(updates)
+    # the RSS feeds carry the same duplicates but are not rebuilt from schema-updates.json,
+    # they are only ever appended to: they have to be cleaned separately. This runs on
+    # every execution, it must not depend on there being changes or updates to write.
+    deduplicate_rss(tmp_folder + "schema.data.gouv.fr/site/.vuepress/public/rss/")
     issues = get_template_github_issues(suffix)
     # to have updates when issues change status we check which ones have already been seen
     # in one state or another
@@ -1162,17 +1294,20 @@ def update_news_feed(tmp_folder, suffix, **context):
     #         },
     #     ],
     # }
-    if changes[today]:
-        logging.info(f"Updating news feed with: {changes[today]}")
-        # updating schema-updates.json
-        if today not in updates:
-            updates.update(changes)
-        else:
-            for change_type in changes[today]:
-                if change_type not in updates[today]:
-                    updates[today][change_type] = changes[today][change_type]
-                else:
-                    updates[today][change_type] += changes[today][change_type]
+    if changes[today] or duplicates_removed:
+        if changes[today]:
+            logging.info(f"Updating news feed with: {changes[today]}")
+            # updating schema-updates.json
+            if today not in updates:
+                updates.update(changes)
+            else:
+                for change_type in changes[today]:
+                    if change_type not in updates[today]:
+                        updates[today][change_type] = changes[today][change_type]
+                    else:
+                        updates[today][change_type] += changes[today][change_type]
+            # a retry re-appends what the previous attempt already wrote to the file
+            deduplicate_updates(updates)
         updates = {k: updates[k] for k in sorted(updates.keys())}
         logging.info(updates)
         with open(schema_updates_file, "w", encoding="utf-8") as f:
@@ -1218,6 +1353,11 @@ def update_news_feed(tmp_folder, suffix, **context):
             tmp_folder + "schema.data.gouv.fr/site/actualites.md", "w", encoding="utf-8"
         ) as f:
             f.write(md)
+
+        if not changes[today]:
+            # cleanup-only pass: nothing new to append to the RSS feeds
+            logging.info("No update today, only removed duplicates from the news feed")
+            return
 
         # updating RSS feed
         tz = pytz.timezone("CET")
@@ -1513,3 +1653,47 @@ def final_clean_up(suffix, **context):
     remove_all_files_extension(folders["DATA_FOLDER1"], ".json")
     remove_all_files_extension(folders["DATA_FOLDER1"], ".yml")
     remove_all_files_extension(folders["DATA_FOLDER1"], ".yaml")
+
+
+@task()
+def notification(branch, suffix, **context):
+    errors = context["ti"].xcom_pull(
+        key="ERRORS_REPORT", task_ids="check_and_save_schemas" + suffix
+    )
+    if not errors:
+        logging.info("Aucune erreur à signaler")
+        return
+
+    # errors are recorded per version, group them by schema to keep the message readable
+    # version is None => the schema itself was skipped, not just one of its releases
+    blocking: dict[str, list[str]] = {}
+    rejected: dict[str, dict[str, list[str]]] = {}
+    for error in errors:
+        if error["version"] is None:
+            blocking.setdefault(error["schema"], []).append(error["type"])
+        else:
+            rejected.setdefault(error["schema"], {}).setdefault(
+                error["type"], []
+            ).append(error["version"])
+
+    def detail(schema: str) -> str:
+        return " ; ".join(
+            f"{reason} ({', '.join(versions)})"
+            for reason, versions in rejected.get(schema, {}).items()
+        )
+
+    message = f"⚠️ *schema.data.gouv.fr - publication du site (`{branch}`)*\n"
+    if blocking:
+        message += f"\n**{len(blocking)} schéma(s) non publié(s) :**\n\n"
+        for schema in sorted(blocking):
+            reasons = " ; ".join(blocking[schema])
+            versions_detail = detail(schema)
+            message += f"- **{schema}** : {reasons}"
+            message += f" - {versions_detail}\n\n" if versions_detail else "\n\n"
+    others = sorted(set(rejected) - set(blocking))
+    if others:
+        message += f"\n**{len(others)} schéma(s) avec des versions rejetées :**\n\n"
+        for schema in others:
+            message += f"- **{schema}** : {detail(schema)}\n\n"
+    logging.info(message)
+    send_message(message)

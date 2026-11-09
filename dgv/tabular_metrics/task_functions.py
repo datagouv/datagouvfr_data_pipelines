@@ -11,21 +11,16 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_HOME,
     AIRFLOW_DAG_TMP,
     S3_BUCKET_INFRA,
-    S3_URL_EU_WEST,
-    SECRET_S3_PASSWORD,
-    SECRET_S3_USER,
 )
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.postgres import PostgresClient
-from datagouvfr_data_pipelines.utils.s3 import S3Client
+from datagouvfr_data_pipelines.utils.s3 import S3Client, S3ClientKwargs
 
 DAG_FOLDER = "datagouvfr_data_pipelines/dgv/tabular_metrics/"
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}tabular_metrics/"
-s3_client_kwargs = {
+s3_client_kwargs: S3ClientKwargs = {
     "bucket": S3_BUCKET_INFRA,
-    "user": SECRET_S3_USER,
-    "pwd": SECRET_S3_PASSWORD,
-    "s3_url": S3_URL_EU_WEST,
+    "conn_name": "S3_OVH_EU_WEST_PAR",
 }
 already_processed_table = "tabular_processed"
 logs_folder = "prod/metrics-logs/processed/"

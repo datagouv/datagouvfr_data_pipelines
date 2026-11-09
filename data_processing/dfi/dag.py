@@ -15,7 +15,6 @@ from datagouvfr_data_pipelines.utils.tasks import clean_up_folder
 default_args = {
     "retries": 5,
     "retry_delay": timedelta(minutes=5),
-    "provide_context": True,
 }
 
 
