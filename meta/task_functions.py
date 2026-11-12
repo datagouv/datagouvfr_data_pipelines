@@ -2,6 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Literal, TypedDict
 
 import numpy as np
 import pytz
@@ -65,7 +66,24 @@ def generate_task_log_url(task: TaskInstanceResponse):
     )
 
 
-def failed_runs_ratio(attempts: dict) -> float:
+class SuccessfulRun(TypedDict):
+    success: Literal[True]
+    duration: float
+
+
+class FailedRun(TypedDict):
+    success: Literal[False]
+    status: str
+    failed_tasks: dict[str, str]
+
+
+RunState = SuccessfulRun | FailedRun
+
+# dag id -> (run id -> RunState): the `todays_runs` structure
+TodaysRuns = dict[str, dict[str, RunState]]
+
+
+def failed_runs_ratio(attempts: dict[str, RunState]) -> float:
     """Ratio of failed runs over all runs for a DAG, in [0, 1].
     Returns 0 when the DAG has no run at all.
     """
@@ -76,7 +94,9 @@ def failed_runs_ratio(attempts: dict) -> float:
     return failures / total
 
 
-def sort_dags_by_failure_ratio(todays_runs: dict) -> list:
+def sort_dags_by_failure_ratio(
+    todays_runs: TodaysRuns,
+) -> list[tuple[str, dict[str, RunState]]]:
     """Order DAGs for the daily summary.
 
     Alphabetical order, but DAGs with at least one failed run are listed last,
@@ -102,7 +122,7 @@ def monitor_dags(
         dag_ids_to_monitor = get_ids(config, dag_api_client)
         logging.info("DAG list:", dag_ids_to_monitor)
         logging.info(f"Start date considered: {date.strftime('%Y-%m-%d %H:%M:%S')}")
-        todays_runs = defaultdict(dict)
+        todays_runs: TodaysRuns = defaultdict(dict)
         for dag_id in dag_ids_to_monitor:
             dag_run_api_client = dag_run_api.DagRunApi(client)
             try:
@@ -154,7 +174,9 @@ def monitor_dags(
 
 @task()
 def notification(**context):
-    todays_runs = context["ti"].xcom_pull(key="todays_runs", task_ids="monitor_dags")
+    todays_runs: TodaysRuns = context["ti"].xcom_pull(
+        key="todays_runs", task_ids="monitor_dags"
+    )
     dag_ids = context["ti"].xcom_pull(key="dag_ids", task_ids="monitor_dags")
     message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):\n"
     ping = set()
@@ -162,7 +184,7 @@ def notification(**context):
     ordered_dags = sort_dags_by_failure_ratio(todays_runs)
     for dag, attempts in ordered_dags:
         message += f"\n- **{dag}** :\n"
-        successes = {
+        successes: dict[str, SuccessfulRun] = {
             atp_id: attempts[atp_id]
             for atp_id in attempts
             if attempts[atp_id]["success"]
@@ -183,7 +205,7 @@ def notification(**context):
             message += f"{' en moyenne' if len(successes) > 1 else ''})."
             message += f" Dernier passage terminé à {start_time.strftime('%H:%M')}.\n"
 
-        failures = {
+        failures: dict[str, FailedRun] = {
             atp_id: attempts[atp_id]
             for atp_id in attempts
             if not attempts[atp_id]["success"]
