@@ -65,6 +65,32 @@ def generate_task_log_url(task: TaskInstanceResponse):
     )
 
 
+def failed_runs_ratio(attempts: dict) -> float:
+    """Ratio of failed runs over all runs for a DAG, in [0, 1].
+    Returns 0 when the DAG has no run at all.
+    """
+    total = len(attempts)
+    if total == 0:
+        return 0.0
+    failures = sum(1 for atp in attempts.values() if not atp["success"])
+    return failures / total
+
+
+def sort_dags_by_failure_ratio(todays_runs: dict) -> list:
+    """Order DAGs for the daily summary.
+
+    Alphabetical order, but DAGs with at least one failed run are listed last,
+    sorted by their failure ratio (best on top, worst at the bottom, so that
+    478 successes / 1 error appears above 0 success / 1 error).
+    DAGs without any failed run have a ratio of 0.0 (< any failing DAG), so
+    they come first and are ordered alphabetically among themselves.
+    """
+    return sorted(
+        todays_runs.items(),
+        key=lambda item: (failed_runs_ratio(item[1]), item[0]),
+    )
+
+
 @task()
 def monitor_dags(
     date=(datetime.now() - timedelta(days=1)).replace(microsecond=0),
@@ -133,14 +159,7 @@ def notification(**context):
     message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):\n"
     ping = set()
     logging.info(todays_runs)
-    # alphabetical order, but DAGs with at least one failed run are listed last
-    ordered_dags = sorted(
-        todays_runs.items(),
-        key=lambda item: (
-            any(not atp["success"] for atp in item[1].values()),
-            item[0],
-        ),
-    )
+    ordered_dags = sort_dags_by_failure_ratio(todays_runs)
     for dag, attempts in ordered_dags:
         message += f"\n- **{dag}** :\n"
         successes = {
@@ -191,10 +210,7 @@ def notification(**context):
                         url_log = url_log.replace("http://localhost:8080", AIRFLOW_URL)
                     message += f"\n        - {ft} ([voir log]({url_log}))"
             # ping only if more than 10 failures or more than 2% failures
-            if (
-                len(failures) > 10
-                or len(failures) / (len(failures) + len(successes)) > 0.02
-            ):
+            if len(failures) > 10 or failed_runs_ratio(attempts) > 0.02:
                 owners = get_owners(config[dag_ids[dag]])
                 ping |= set(owners)
                 message += " \n " + " ".join("@" + owner for owner in owners) + " \n "
