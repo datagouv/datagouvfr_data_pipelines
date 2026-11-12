@@ -42,6 +42,9 @@ def _task_passthrough(fn=None, **kwargs):
 _stub_module("airflow")
 _stub_module("airflow.sdk", task=_task_passthrough)
 _stub_module("airflow.sdk.definitions")
+_fake_state = type("State", (), {"SUCCESS": "success", "FAILED": "failed"})
+_stub_module("airflow.utils", state=None)
+_stub_module("airflow.utils.state", State=_fake_state)
 
 # --- datagouvfr_data_pipelines.config ---
 _stub_module(
@@ -49,6 +52,7 @@ _stub_module(
     AIRFLOW_DAG_HOME=f"{repo_root.parent}/",
     AIRFLOW_DAG_TMP="/tmp/",
     AIRFLOW_ENV="dev",
+    AIRFLOW_URL="http://test-airflow",
     DATAGOUV_SECRET_API_KEY="test-key",
     DEMO_DATAGOUV_SECRET_API_KEY="test-demo-key",
     S3_BUCKET_DATA_PIPELINE="test-bucket",
@@ -59,6 +63,10 @@ _stub_module(
 _stub_module("datagouv", Dataset=MagicMock(), Resource=MagicMock)
 
 # --- utils modules with side effects or external dependencies ---
+_stub_module(
+    "datagouvfr_data_pipelines.utils.airflow",
+    AirflowAPI=MagicMock(paginate=staticmethod(lambda *args, **kwargs: [])),
+)
 _stub_module(
     "datagouvfr_data_pipelines.utils.conversions",
     csv_to_csvgz=MagicMock(),
