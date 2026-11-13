@@ -66,6 +66,13 @@ def generate_task_log_url(task: TaskInstanceResponse):
     )
 
 
+# List nesting depth (4 spaces per level), matching the Markdown convention of
+# one list level = one 4-space indentation step.
+def indent(level: int) -> str:
+    """Spaces used to indent a markdown list item `level` levels deep."""
+    return " " * (4 * level)
+
+
 class SuccessfulRun(TypedDict):
     success: Literal[True]
     duration: float
@@ -172,22 +179,29 @@ def monitor_dags(
         return todays_runs
 
 
-@task()
-def notification(**context):
-    todays_runs: TodaysRuns = context["ti"].xcom_pull(
-        key="todays_runs", task_ids="monitor_dags"
-    )
-    dag_ids = context["ti"].xcom_pull(key="dag_ids", task_ids="monitor_dags")
-    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):\n"
+def build_daily_summary(
+    todays_runs: TodaysRuns,
+    dag_ids: dict[str, str],
+) -> tuple[str, set[str]]:
+    """Build the daily recap markdown and the set of owners to ping.
+
+    Each markdown line starts with a single "\n" followed by its own
+    indentation (see `indent`) and is never terminated by "\n". This keeps the
+    whole list "tight" (no blank lines), so Python-Markdown does not absorb a
+    DAG item one level too deep when the previous one ends with a nested
+    "tâches en échec" list. See Python-Markdown issue #845.
+
+    Returns `(message, ping)`.
+    """
+    message = f"# Récap quotidien [DAGs]({AIRFLOW_URL}):"
     ping = set()
-    logging.info(todays_runs)
     ordered_dags = sort_dags_by_failure_ratio(todays_runs)
     for dag, attempts in ordered_dags:
-        message += f"\n- **{dag}** :\n"
+        message += f"\n- **{dag}** :"
         successes: dict[str, SuccessfulRun] = {
-            atp_id: attempts[atp_id]
-            for atp_id in attempts
-            if attempts[atp_id]["success"]
+            atp_id: run_state
+            for atp_id, run_state in attempts.items()
+            if run_state["success"]
         }
         if successes:
             average_duration = np.mean([i["duration"] for i in successes.values()])
@@ -198,17 +212,20 @@ def notification(**context):
             )
             # setting time to UTC+2
             start_time = start_time.astimezone(local_timezone)
-            message += (
-                f"\n    - ✅ {len(successes)} run{'s' if len(successes) > 1 else ''} OK"
+            success_line = f"{len(successes)} run{'s' if len(successes) > 1 else ''} OK"
+            success_line += (
                 f" (en {f'{hours}h{minutes}min' if hours > 0 else f'{minutes}min'}"
             )
-            message += f"{' en moyenne' if len(successes) > 1 else ''})."
-            message += f" Dernier passage terminé à {start_time.strftime('%H:%M')}.\n"
+            success_line += f"{' en moyenne' if len(successes) > 1 else ''})."
+            success_line += (
+                f" Dernier passage terminé à {start_time.strftime('%H:%M')}."
+            )
+            message += f"\n{indent(1)}- ✅ {success_line}"
 
         failures: dict[str, FailedRun] = {
-            atp_id: attempts[atp_id]
-            for atp_id in attempts
-            if not attempts[atp_id]["success"]
+            atp_id: run_state
+            for atp_id, run_state in attempts.items()
+            if not run_state["success"]
         }
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
@@ -217,25 +234,37 @@ def notification(**context):
             )
             # setting time to UTC+2
             start_time = start_time.astimezone(local_timezone)
-            message += (
-                f"\n    - ❌ {len(failures)} run{'s' if len(failures) > 1 else ''} KO."
+            failure_line = f"{len(failures)} run{'s' if len(failures) > 1 else ''} KO."
+            failure_line += (
                 f" La dernière tentative a échoué à {start_time.strftime('%H:%M')} "
             )
-            message += f"(status : {last_failure['status']}), "
-            if not last_failure["failed_tasks"]:
-                message += "timeout ⌛️"
-            else:
-                message += "tâches en échec :"
-                for ft in last_failure["failed_tasks"]:
-                    url_log = last_failure["failed_tasks"][ft]
-                    if AIRFLOW_ENV == "prod":
-                        url_log = url_log.replace("http://localhost:8080", AIRFLOW_URL)
-                    message += f"\n        - {ft} ([voir log]({url_log}))"
+            failure_line += f"(status : {last_failure['status']}), "
             # ping only if more than 10 failures or more than 2% failures
             if len(failures) > 10 or failed_runs_ratio(attempts) > 0.02:
                 owners = get_owners(config[dag_ids[dag]])
                 ping |= set(owners)
-                message += " \n " + " ".join("@" + owner for owner in owners) + " \n "
+                failure_line += " ".join("@" + owner for owner in owners) + " ; "
+            if not last_failure["failed_tasks"]:
+                failure_line += "timeout ⌛️"
+            else:
+                failure_line += "tâches en échec :"
+                for ft in last_failure["failed_tasks"]:
+                    url_log = last_failure["failed_tasks"][ft]
+                    if AIRFLOW_ENV == "prod":
+                        url_log = url_log.replace("http://localhost:8080", AIRFLOW_URL)
+                    failure_line += f"\n{indent(2)}- {ft} ([voir log]({url_log}))"
+            message += f"\n{indent(1)}- ❌ {failure_line}"
+    return message, ping
+
+
+@task()
+def notification(**context):
+    todays_runs: TodaysRuns = context["ti"].xcom_pull(
+        key="todays_runs", task_ids="monitor_dags"
+    )
+    dag_ids = context["ti"].xcom_pull(key="dag_ids", task_ids="monitor_dags")
+    logging.info(todays_runs)
+    message, ping = build_daily_summary(todays_runs, dag_ids)
     send_message(message, ping=list(ping))
     # Notify in case of DAGs on the config
     dags_not_found = context["ti"].xcom_pull(
