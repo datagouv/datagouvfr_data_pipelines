@@ -11,7 +11,6 @@ quirk, see Python-Markdown issue #845).
 import re
 
 import markdown
-
 from datagouvfr_data_pipelines.meta import task_functions as tf
 
 
