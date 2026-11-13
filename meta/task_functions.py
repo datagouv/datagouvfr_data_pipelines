@@ -199,9 +199,9 @@ def build_daily_summary(
     for dag, attempts in ordered_dags:
         message += f"\n- **{dag}** :"
         successes: dict[str, SuccessfulRun] = {
-            atp_id: attempts[atp_id]
-            for atp_id in attempts
-            if attempts[atp_id]["success"]
+            atp_id: run_state
+            for atp_id, run_state in attempts.items()
+            if run_state["success"]
         }
         if successes:
             average_duration = np.mean([i["duration"] for i in successes.values()])
@@ -223,9 +223,9 @@ def build_daily_summary(
             message += f"\n{indent(1)}- ✅ {success_line}"
 
         failures: dict[str, FailedRun] = {
-            atp_id: attempts[atp_id]
-            for atp_id in attempts
-            if not attempts[atp_id]["success"]
+            atp_id: run_state
+            for atp_id, run_state in attempts.items()
+            if not run_state["success"]
         }
         if failures:
             last_failure = failures[sorted(failures.keys())[-1]]
