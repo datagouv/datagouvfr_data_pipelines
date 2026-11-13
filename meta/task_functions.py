@@ -21,9 +21,10 @@ CONN_NAME = "HTTP_WORKFLOWS_INFRA_DATA_GOUV_FR"
 local_timezone = pytz.timezone("Europe/Paris")
 
 DEFAULT_DAG_OWNERS = [
-    "geoffrey",
     "estelle",
+    "geoffrey",
     "hadrien",
+    "sylvain",
 ]
 with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") as f:
     config = json.load(f)
