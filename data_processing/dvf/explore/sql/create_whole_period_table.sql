@@ -3,7 +3,7 @@ BEGIN
     IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'stats_whole_period' AND TABLE_SCHEMA = 'dvf') THEN
         TRUNCATE TABLE dvf.stats_whole_period;
     ELSE
-        CREATE UNLOGGED TABLE dvf.stats_whole_period (
+        CREATE TABLE dvf.stats_whole_period (
             code_geo VARCHAR(20),
             libelle_geo VARCHAR(100),
             code_parent VARCHAR(10),
