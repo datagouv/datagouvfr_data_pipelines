@@ -67,9 +67,7 @@ def test_replace_mentions_in_markdown_uses_display_name(monkeypatch):
     result = tchap._replace_mentions_in_markdown(
         "Erreur - ping @geoffrey et @estelle", ["geoffrey"]
     )
-    assert (
-        r"[Geoffrey Aldebert \[Data\]]({url})".format(url=GEOFFREY_URL) in result
-    )
+    assert r"[Geoffrey Aldebert \[Data\]]({url})".format(url=GEOFFREY_URL) in result
     # the unmentioned user is left untouched
     assert "@estelle" in result
     # the mentioned user no longer appears as a bare @geoffrey
