@@ -19,7 +19,7 @@ map_ping = {
     "geoffrey": "geoffrey.aldebert-data.gouv.fr",
     "hadrien": "hadrien.bossard.ext-mail.numerique.gouv.fr",
     "ludine": "ludine.pierquin.ext-mail.numerique.gouv.fr",
-    "sylvain": "@sylvain.lesage-numerique.gouv.fr",
+    "sylvain": "sylvain.lesage-numerique.gouv.fr",
 }
 
 
