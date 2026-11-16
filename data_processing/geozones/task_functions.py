@@ -5,6 +5,7 @@ import os
 from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
+from typing import NamedTuple
 from urllib.parse import quote_plus, urlencode
 
 import pandas as pd
@@ -50,21 +51,32 @@ DROM = "country-subset:fr:drom"
 COM = "country-subset:fr:com"
 DROMCOM = "country-subset:fr:dromcom"
 METRODROM = "country-subset:fr:metrodrom"
-# (_id, nom, codeINSEE, uri, parents)
+
+
+class HandMadeZone(NamedTuple):
+    id: str
+    nom: str
+    code_insee: str
+    uri: str | None
+    parents: tuple[str, ...]
+
+
 HAND_MADE_ZONES = [
-    (WORLD, "Monde", "world", "http://id.insee.fr/geo/world", ()),
-    (
+    HandMadeZone(WORLD, "Monde", "world", "http://id.insee.fr/geo/world", ()),
+    HandMadeZone(
         "country-group:ue",
         "Union Européenne",
         "ue",
         "http://id.insee.fr/geo/europe",
         (),
     ),
-    (DROM, "DROM", "fr:drom", None, (DROMCOM, METRODROM)),
-    (COM, "COM", "fr:com", None, (DROMCOM,)),
-    (METRO, "France métropolitaine", "fr:metro", None, (FRANCE, METRODROM)),
-    (METRODROM, "France métropolitaine et DROM", "fr:metrodrom", None, (FRANCE,)),
-    (DROMCOM, "DROM-COM", "fr:dromcom", None, (FRANCE,)),
+    HandMadeZone(DROM, "DROM", "fr:drom", None, (DROMCOM, METRODROM)),
+    HandMadeZone(COM, "COM", "fr:com", None, (DROMCOM,)),
+    HandMadeZone(METRO, "France métropolitaine", "fr:metro", None, (FRANCE, METRODROM)),
+    HandMadeZone(
+        METRODROM, "France métropolitaine et DROM", "fr:metrodrom", None, (FRANCE,)
+    ),
+    HandMadeZone(DROMCOM, "DROM-COM", "fr:dromcom", None, (FRANCE,)),
 ]
 
 
@@ -80,7 +92,7 @@ def query_insee_sparql(query: str) -> bytes:
 
 
 def build_geozones_hierarchy(
-    map_type: dict, exported_ids: set, active_ids: set
+    map_type: dict, exported_ids: set, com_ids: set
 ) -> tuple[dict, dict]:
     """
     Reconstruct, for every French zone, its parents and its full set of ancestors,
@@ -176,28 +188,25 @@ def build_geozones_hierarchy(
     for geoid in exported_ids:
         if geoid.startswith("country:"):
             direct_parents[geoid].add(WORLD)
-    for zone_id, *_, zone_parents in HAND_MADE_ZONES:
-        direct_parents[zone_id].update(zone_parents)
+    for zone in HAND_MADE_ZONES:
+        direct_parents[zone.id].update(zone.parents)
 
-    # Link zones to their subset by INSEE département code (active ones only, deleted
-    # zones have no INSEE relations at all):
-    # - 2 chars (2A/2B included): métropolitan, so metro takes the département's région
-    # - 3 chars with a région: DROM, so drom takes the région
-    # - 3 chars without région: COM, so com takes the département itself
+    # Put each French zone under its subset:
+    # - the COM (com_ids, typed as such by INSEE) go under com
+    # - the régions go under metro or drom depending on the code of their
+    #   départements: 2 chars (2A/2B included) is métropolitan, 3 chars is a DROM.
+    #   Only active départements have a région in the INSEE relations, and the COM
+    #   have none, so they are left out naturally.
     # Communes and other descendants inherit it through the ancestors closure.
-    for geoid in active_ids:
+    for geoid in com_ids:
+        direct_parents[geoid].add(COM)
+    for geoid, regions in list(direct_parents.items()):
         if not geoid.startswith("fr:departement:"):
             continue
-        code = geoid.split(":")[-1]
-        regions = set(direct_parents[geoid])
-        if len(code) == 2:
-            for region in regions:
-                direct_parents[region].add(METRO)
-        elif len(code) == 3 and regions:
-            for region in regions:
-                direct_parents[region].add(DROM)
-        elif len(code) == 3:
-            direct_parents[geoid].add(COM)
+        subset = METRO if len(geoid.split(":")[-1]) == 2 else DROM
+        for region in regions:
+            if region.startswith("fr:region:"):
+                direct_parents[region].add(subset)
 
     ancestors_cache: dict = {}
 
@@ -245,7 +254,7 @@ def build_geozones_hierarchy(
         parents_cache[geoid] = result
         return result
 
-    # Every French zone has France and its own ancestors (the world) as ancestors,
+    # Every French zone has France and its ancestors (the world) as ancestors,
     # including those with no edge above, such as deleted zones. The countries and
     # the subsets get their own chain from the edges above.
     france_chain = {FRANCE} | ancestors_of(FRANCE, frozenset())
@@ -466,20 +475,20 @@ def download_and_process_geozones():
     countries_json = json.loads(countries.to_json(orient="records"))
 
     export = json.loads(df.to_json(orient="records"))
-    # The hand-made zones (world, EU, metro, DROM, COM, DROM-COM), see HAND_MADE_ZONES.
+    # The hand-made zones, see HAND_MADE_ZONES.
     export.extend(
         {
-            "uri": uri,
-            "nom": nom,
-            "codeINSEE": code,
-            "nomSansArticle": nom,
+            "uri": zone.uri,
+            "nom": zone.nom,
+            "codeINSEE": zone.code_insee,
+            "nomSansArticle": zone.nom,
             "codeArticle": None,
-            "type": zone_id.split(":")[0],
+            "type": zone.id.split(":")[0],
             "is_deleted": False,
-            "level": zone_id.split(":")[0],
-            "_id": zone_id,
+            "level": zone.id.split(":")[0],
+            "_id": zone.id,
         }
-        for zone_id, nom, code, uri, _ in HAND_MADE_ZONES
+        for zone in HAND_MADE_ZONES
     )
     export.extend(countries_json)
     for geoz in export:
@@ -491,9 +500,15 @@ def download_and_process_geozones():
     # from INSEE subdivision relations plus the hand-made top of the tree. Only zones
     # kept in the export are referenced, so we never point to a filtered-out zone.
     exported_ids = {geoz["_id"] for geoz in export}
-    active_ids = {geoz["_id"] for geoz in export if not geoz["is_deleted"]}
+    # INSEE also types the historical colonies as COM, and some deleted COM share
+    # their id with an active zone (976, Mayotte): only the active ones are the COM.
+    com_ids = {
+        geoz["_id"]
+        for geoz in export
+        if geoz["type"] == "CollectiviteDOutreMer" and not geoz["is_deleted"]
+    }
     parents_by_id, ancestors_by_id = build_geozones_hierarchy(
-        map_type, exported_ids, active_ids
+        map_type, exported_ids, com_ids
     )
     for geoz in export:
         geoz["parents"] = parents_by_id.get(geoz["_id"], [])
