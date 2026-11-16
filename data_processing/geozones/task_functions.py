@@ -63,8 +63,6 @@ class HandMadeZone(NamedTuple):
     parents: tuple[str, ...]
 
 
-# Children come before their parents, which is the order in which the bboxes are
-# derived.
 HAND_MADE_ZONES = [
     HandMadeZone(WORLD, "Monde", "world", "http://id.insee.fr/geo/world", ()),
     HandMadeZone(
@@ -106,11 +104,10 @@ def add_geozones_bboxes(export: list[dict]) -> None:
             f(b[i] for b in boxes) for i, f in enumerate((min, min, max, max))
         ]
 
-    # Children first, as each zone needs the bboxes of its children.
-    for zone in HAND_MADE_ZONES:
-        if zone.parents:  # the world and the EU have no parent, no bbox to derive
-            set_union_of_children(zone.id)
-    set_union_of_children(FRANCE)
+    # Children first, as each zone needs the bboxes of its children. The world has a
+    # constant bbox and the EU none.
+    for zone_id in (METRO, DROM, COM, METRODROM, DROMCOM, FRANCE):
+        set_union_of_children(zone_id)
     # The world is the whole globe.
     by_id[WORLD]["bbox"] = [-180, -90, 180, 90]
 
