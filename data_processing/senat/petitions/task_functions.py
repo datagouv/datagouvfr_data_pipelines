@@ -102,27 +102,18 @@ def get_row(_id: int, session) -> dict | None:
 
 @task()
 def gather_petitions():
-    s3_open = S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN)
-    # getting current file to ignore unused ids
-    ids = (
-        pd.read_csv(
-            s3_open.get_file_url(S3_FOLDER + FILE_NAME),
-            sep=";",
-            usecols=["identifiant"],
-            dtype={"identifiant": float},
-        )["identifiant"]
-        .dropna()
-        .astype(int)
-    )
     max_id = get_latest_petition_id("senat")
     logging.info(f"Found max id: {max_id}")
-    unused_ids = {k for k in range(1, max(ids.values)) if k not in ids.values}
-    # we go through all ids except the ones we know are unused, until the latest id
+    # The petition ids are incremental integers, assigned at petition creation.
+    # But not all the petitions are published and thus visible on the website.
+    # So, on each crawl, we need to loop over all the possible ids from 0 to
+    # the latest one found on the website. get_row returns
+    # None for ids that are not (yet) published, which are simply skipped.
+    # The requests are done serially, the server is not hammered
+    # (about one request per second).
     data = []
     session = requests.Session()
-    for _id in range(min(ids), max_id + 1):
-        if _id in unused_ids:
-            continue
+    for _id in range(0, max_id + 1):
         row = get_row(_id, session)
         if row:
             data.append(row)
