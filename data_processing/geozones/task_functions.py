@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.tchap import send_message
+from shapely.geometry import shape
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}geozones/"
 # same dataset id on demo (demo.data.gouv.fr) and prod (www.data.gouv.fr): only the
@@ -83,24 +84,11 @@ HAND_MADE_ZONES = [
 ]
 
 
-def _coordinates(node):
-    """Yield every (lon, lat) position of a GeoJSON coordinates array."""
-    if isinstance(node[0], (int, float)):
-        yield node
-    else:
-        for child in node:
-            yield from _coordinates(child)
-
-
 def add_geozones_bboxes(export: list[dict]) -> None:
     # Zones with a geometry (any state, deleted included): bbox is the tight
     # envelope of all their polygons, [minx, miny, maxx, maxy] in WGS84.
     for zone in export:
-        zone["bbox"] = None
-        if not zone.get("geom"):
-            continue
-        lons, lats = zip(*(p[:2] for p in _coordinates(zone["geom"]["coordinates"])))
-        zone["bbox"] = [min(lons), min(lats), max(lons), max(lats)]
+        zone["bbox"] = list(shape(zone["geom"]).bounds) if zone.get("geom") else None
 
     # The hand-made subsets and France have no geometry but children in the hierarchy
     # (so this runs after it): their bbox is the union of the bboxes of their children,
