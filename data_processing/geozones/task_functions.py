@@ -92,9 +92,9 @@ def add_geozones_bboxes(export: list[dict]) -> None:
 
     # The hand-made subsets and France have no geometry but children in the hierarchy
     # (so this runs after it): their bbox is the union of the bboxes of their children,
-    # rounded to 4 decimals, so a bbox always contains those of its descendants. Active
-    # zones only, the export holds deleted historical versions of the same ids. Every
-    # other geometry-less zone (foreign countries, EU, arrondissements...) stays None.
+    # so a bbox always contains those of its descendants. Active zones only, the export
+    # holds deleted historical versions of the same ids. Every other geometry-less zone
+    # (foreign countries, EU, arrondissements...) stays None.
     active = [z for z in export if not z["is_deleted"]]
     by_id = {z["_id"]: z for z in active}
 
@@ -103,7 +103,7 @@ def add_geozones_bboxes(export: list[dict]) -> None:
         if not boxes:
             raise ValueError(f"No child with a bbox to derive the bbox of {zone_id}")
         by_id[zone_id]["bbox"] = [
-            round(f(b[i] for b in boxes), 4) for i, f in enumerate((min, min, max, max))
+            f(b[i] for b in boxes) for i, f in enumerate((min, min, max, max))
         ]
 
     # Children first, as each zone needs the bboxes of its children.
