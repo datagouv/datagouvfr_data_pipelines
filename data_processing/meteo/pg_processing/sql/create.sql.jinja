@@ -2,7 +2,7 @@ DO $$
 BEGIN
     {% for depid in depids %}
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_mens_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_mens_{{ depid }} (
+        CREATE TABLE meteo.base_mens_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -171,7 +171,7 @@ BEGIN
 
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_quot_vent_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_quot_vent_{{ depid }} (
+        CREATE TABLE meteo.base_quot_vent_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -237,7 +237,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_quot_autres_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_quot_autres_{{ depid }} (
+        CREATE TABLE meteo.base_quot_autres_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -331,7 +331,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_decad_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_decad_{{ depid }} (
+        CREATE TABLE meteo.base_decad_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -495,7 +495,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_hor_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_hor_{{ depid }} (
+        CREATE TABLE meteo.base_hor_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -707,7 +707,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_min_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_min_{{ depid }} (
+        CREATE TABLE meteo.base_min_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -721,7 +721,7 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'base_decadagro_{{ depid }}' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.base_decadagro_{{ depid }} (
+        CREATE TABLE meteo.base_decadagro_{{ depid }} (
             NUM_POSTE VARCHAR,
             NOM_USUEL VARCHAR,
             LAT FLOAT,
@@ -751,7 +751,7 @@ BEGIN
     {% endfor %}
 
     IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'dag_processed' AND TABLE_SCHEMA = 'meteo') THEN
-        CREATE UNLOGGED TABLE meteo.dag_processed (
+        CREATE TABLE meteo.dag_processed (
             processed VARCHAR(255)
         );
     END IF;

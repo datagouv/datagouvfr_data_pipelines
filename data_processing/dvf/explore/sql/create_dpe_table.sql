@@ -4,7 +4,7 @@ BEGIN
         TRUNCATE TABLE dvf.dpe;
         DROP INDEX IF EXISTS parcelle_id_idx;
     ELSE
-        CREATE UNLOGGED TABLE dvf.dpe (
+        CREATE TABLE dvf.dpe (
             batiment_groupe_id VARCHAR(30),
             -- identifiant_dpe VARCHAR(13),
             -- type_batiment_dpe VARCHAR(11),
