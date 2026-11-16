@@ -100,11 +100,11 @@ def add_geozones_bboxes(export: list[dict]) -> None:
 
     def set_union_of_children(zone_id: str) -> None:
         boxes = [z["bbox"] for z in active if zone_id in z["parents"] and z["bbox"]]
-        if boxes:  # e.g. none if an IGN geometry source failed to download
-            by_id[zone_id]["bbox"] = [
-                round(f(b[i] for b in boxes), 4)
-                for i, f in enumerate((min, min, max, max))
-            ]
+        if not boxes:
+            raise ValueError(f"No child with a bbox to derive the bbox of {zone_id}")
+        by_id[zone_id]["bbox"] = [
+            round(f(b[i] for b in boxes), 4) for i, f in enumerate((min, min, max, max))
+        ]
 
     # Children first, as each zone needs the bboxes of its children.
     for zone in HAND_MADE_ZONES:
@@ -325,7 +325,7 @@ def resolve_geometry_year() -> int:
     current = datetime.now().year
     for year in range(current, current - 3, -1):
         probe = f"{GEOMETRY_ENDPOINT}/{year}/geojson/regions-1000m.geojson.gz"
-        if requests.head(probe).status_code == 200:
+        if requests.head(probe, timeout=120).status_code == 200:
             return year
     raise ValueError("No contours-administratifs millésime found in the last 3 years")
 
@@ -335,8 +335,9 @@ def fetch_geozones_geometries() -> dict:
     Download IGN administrative contours and return, per level, a mapping from
     INSEE code to its GeoJSON geometry, e.g. {"fr:commune": {"21231": {...}}}.
 
-    Geometry is an enrichment, not critical data: a source that fails to download
-    is logged and skipped rather than aborting the whole geozones export.
+    Any source that fails to download aborts the export: the geometries and the
+    bboxes derived from them are needed to match datasets to zones, and publishing a
+    whole level without them would wipe the ones of the previous export.
     """
     year = resolve_geometry_year()
     logging.info("Fetching IGN geometries (millésime %s)", year)
@@ -344,13 +345,9 @@ def fetch_geozones_geometries() -> dict:
     for level, names in GEOMETRY_SOURCES.items():
         for name in names:
             url = f"{GEOMETRY_ENDPOINT}/{year}/geojson/{name}.geojson.gz"
-            try:
-                response = requests.get(url)
-                response.raise_for_status()
-                features = json.loads(gzip.decompress(response.content))["features"]
-            except (requests.RequestException, ValueError, KeyError) as e:
-                logging.warning("Skipping geometry source %s: %s", url, e)
-                continue
+            response = requests.get(url, timeout=120)
+            response.raise_for_status()
+            features = json.loads(gzip.decompress(response.content))["features"]
             for feature in features:
                 code = feature["properties"].get("code")
                 if code:
