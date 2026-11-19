@@ -1064,7 +1064,7 @@ def create_distribution_and_stats_whole_period() -> None:
         ["code_" + e for e in echelles_of_interest] + ["code_type_local", "prix_m2"]
     ]
     threshold = 100
-    tranches = []
+    tranches: list[dict[str, str | list | None]] = []
     stats_period = []
     for t in types_of_interest:
         restr_type_dvf = dvf.loc[
