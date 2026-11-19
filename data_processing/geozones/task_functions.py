@@ -44,7 +44,7 @@ levels_file = File(
 # Zones that INSEE does not describe, defined once here and used in three steps:
 # 1. definition: each one is a record of the export (download_and_process_geozones)
 # 2. position: it is put under its parents (build_geozones_hierarchy)
-# 3. bbox: it is derived from the bboxes of its children (add_geozones_bboxes)
+# 3. bbox: it is derived from the bboxes of its descendants (add_geozones_bboxes)
 # The countries, France included, come from another source and are all under the world.
 WORLD = "country-group:world"
 FRANCE = "country:fr"
@@ -88,25 +88,29 @@ def add_geozones_bboxes(export: list[dict]) -> None:
     for zone in export:
         zone["bbox"] = list(shape(zone["geom"]).bounds) if zone.get("geom") else None
 
-    # The hand-made subsets and France have no geometry but children in the hierarchy
-    # (so this runs after it): their bbox is the union of the bboxes of their children,
-    # so a bbox always contains those of its descendants. Deleted zones have no bbox, so
-    # they never count, and the derived ids are never shared with a deleted zone. Every
-    # other geometry-less zone (foreign countries, EU, arrondissements...) stays None.
+    # The hand-made subsets and France have no geometry but descendants in the
+    # hierarchy (so this runs after it): their bbox is the union of the bboxes of every
+    # zone with a geometry that has them as ancestor. It contains the bbox of each of
+    # their descendants, and as no derived bbox feeds another the order doesn't matter.
+    # Deleted zones have no geometry, so they never count, and the derived ids are
+    # never shared with a deleted zone. Every other geometry-less zone (foreign
+    # countries, EU, arrondissements...) stays None.
+    derived = (METRO, DROM, COM, METRODROM, DROMCOM, FRANCE)
+    boxes = defaultdict(list)
+    for zone in export:
+        if zone["bbox"]:
+            for ancestor in zone["ancestors"]:
+                if ancestor in derived:
+                    boxes[ancestor].append(zone["bbox"])
     by_id = {z["_id"]: z for z in export}
-
-    def set_union_of_children(zone_id: str) -> None:
-        boxes = [z["bbox"] for z in export if zone_id in z["parents"] and z["bbox"]]
-        if not boxes:
-            raise ValueError(f"No child with a bbox to derive the bbox of {zone_id}")
+    for zone_id in derived:
+        if not boxes[zone_id]:
+            raise ValueError(
+                f"No descendant with a bbox to derive the bbox of {zone_id}"
+            )
         by_id[zone_id]["bbox"] = [
-            f(b[i] for b in boxes) for i, f in enumerate((min, min, max, max))
+            f(b[i] for b in boxes[zone_id]) for i, f in enumerate((min, min, max, max))
         ]
-
-    # Children first, as each zone needs the bboxes of its children. The world has a
-    # constant bbox and the EU none.
-    for zone_id in (METRO, DROM, COM, METRODROM, DROMCOM, FRANCE):
-        set_union_of_children(zone_id)
     # The world is the whole globe.
     by_id[WORLD]["bbox"] = [-180, -90, 180, 90]
 
@@ -527,7 +531,7 @@ def download_and_process_geozones():
     # Enrich each zone with its hierarchy (direct parents + full ancestors), rebuilt
     # from INSEE subdivision relations plus the hand-made top of the tree. Only zones
     # kept in the export are referenced, so we never point to a filtered-out zone.
-    # Must run before the bboxes, which are derived from the parents.
+    # Must run before the bboxes, which are derived from the ancestors.
     exported_ids = {geoz["_id"] for geoz in export}
     # INSEE also types the historical colonies as COM, and some deleted COM share
     # their id with an active zone (976, Mayotte): only the active ones are the COM.
