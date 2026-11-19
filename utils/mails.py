@@ -9,7 +9,7 @@ def send_mail_datagouv(
     email_recipients: list,
     subject: str,
     message: str,
-    attachment_path: str = None,
+    attachment_path: str | None = None,
 ):
     # supports_lineage = True
 
