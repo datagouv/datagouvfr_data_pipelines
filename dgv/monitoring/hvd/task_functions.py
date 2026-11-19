@@ -538,6 +538,47 @@ def update_all_qualities(
     return updated, unreachable
 
 
+def fetch_removed_dataset_info(
+    dataset_id: str,
+    get: Callable = RequestRetry.get,
+) -> tuple[str, str] | None:
+    """Fetch ``(title, organization name)`` of a dataset no longer listed as HVD.
+
+    Returns None when data.gouv answers with an HTTP error on this dataset
+    (it may have been archived or deleted). Raises ``DatagouvApiUnreachable``
+    when the API stays unreachable even after the connection retries of ``get``
+    and ``RuntimeError`` on an unexpected payload, so that neither a network
+    outage nor an API contract change silently produces partial results.
+    """
+    url = f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
+    try:
+        response = get(url, headers={"X-fields": "title,organization{name}"})
+    except requests.exceptions.RequestException as exc:
+        raise DatagouvApiUnreachable(
+            f"data.gouv API unreachable to inspect removed HVD dataset "
+            f"{dataset_id} even after connection retries ({type(exc).__name__}: "
+            f"{exc}) — the update is aborted to avoid a mix of obsolete and "
+            "fresh metrics"
+        ) from exc
+    if not response.ok:
+        logging.warning(
+            "HVD dataset %s not reachable on data.gouv: HTTP %s (%s)",
+            dataset_id,
+            response.status_code,
+            url,
+        )
+        return None
+    try:
+        payload = response.json()
+        return payload["title"], payload["organization"]["name"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"HVD dataset {dataset_id}: unexpected payload from {url} (expected "
+            "JSON with 'title' and 'organization.name') — this looks like an "
+            "API contract change rather than a transient failure"
+        ) from exc
+
+
 def update_grist(**context):
     old_hvd_metadata = table.to_dataframe(columns_labels=False)
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
@@ -641,21 +682,15 @@ def update_grist(**context):
     if removed_hvd:
         to_send = []
         for hvd_id in removed_hvd:
-            r = requests.get(
-                f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
-                headers={"X-fields": "title,organization{name}"},
-            )
-            if r.ok:
-                r = r.json()
-                to_send.append((hvd_id, r["title"], r["organization"]["name"]))
-            else:
-                logging.warning(
-                    f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}/"
-                )
+            info = fetch_removed_dataset_info(hvd_id)
+            if info is None:
                 table.update_records(
                     conditions={"id2": hvd_id},
                     new_values={"unreachable": True},
                 )
+                continue
+            title, orga_name = info
+            to_send.append((hvd_id, title, orga_name))
         if to_send:
             message = (
                 "⚠️ @clarisse Les jeux de données suivants ne sont plus identifiés "

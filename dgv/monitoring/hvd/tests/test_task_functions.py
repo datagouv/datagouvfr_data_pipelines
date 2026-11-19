@@ -13,6 +13,7 @@ import pytest
 import requests
 from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DatagouvApiUnreachable,
+    fetch_removed_dataset_info,
     update_all_qualities,
     update_dataset_quality,
 )
@@ -38,12 +39,13 @@ class FakeTable:
         self.calls.append((conditions, new_values))
 
 
-def fake_get(response=None, exc=None):
+def fake_get(response=None, exc=None, calls=None):
 
     def get(url, headers=None, **kwargs):
         if exc is not None:
             raise exc
-        assert headers == {"X-fields": "quality"}
+        if calls is not None:
+            calls.append((url, headers))
         return response
 
     return get
@@ -51,12 +53,18 @@ def fake_get(response=None, exc=None):
 
 def test_updates_quality_and_sets_unreachable_false():
     table = FakeTable()
+    calls = []
     payload = {"quality": {"score": 0.7, "this_field": 1, "that_field": 2}}
     assert update_dataset_quality(
-        "abc123", table, get=fake_get(response=FakeResponse(payload=payload))
+        "abc123",
+        table,
+        get=fake_get(response=FakeResponse(payload=payload), calls=calls),
     )
     assert table.calls == [
         ({"id2": "abc123"}, {"this_field": 1, "that_field": 2, "unreachable": False})
+    ]
+    assert calls == [
+        ("https://www.data.gouv.fr/api/1/datasets/abc123/", {"X-fields": "quality"})
     ]
 
 
@@ -140,4 +148,43 @@ def test_update_all_qualities_aborts_on_api_down():
             pd.Series(["a", "b"]),
             table,
             get=fake_get(exc=exc),
+        )
+
+
+def test_fetch_removed_dataset_info_success():
+    calls = []
+    payload = {"title": "Toutes les données", "organization": {"name": "DINUM"}}
+    assert fetch_removed_dataset_info(
+        "abc123", get=fake_get(response=FakeResponse(payload=payload), calls=calls)
+    ) == ("Toutes les données", "DINUM")
+    assert calls == [
+        (
+            "https://www.data.gouv.fr/api/1/datasets/abc123/",
+            {"X-fields": "title,organization{name}"},
+        )
+    ]
+
+
+def test_fetch_removed_dataset_info_http_error_returns_none(caplog):
+    assert (
+        fetch_removed_dataset_info(
+            "abc123", get=fake_get(response=FakeResponse(ok=False, status_code=404))
+        )
+        is None
+    )
+    assert "HTTP 404" in caplog.text
+
+
+def test_fetch_removed_dataset_info_api_down_raises():
+    exc = requests.exceptions.ConnectionError("boom")
+    with pytest.raises(DatagouvApiUnreachable) as excinfo:
+        fetch_removed_dataset_info("abc123", get=fake_get(exc=exc))
+    assert "abc123" in str(excinfo.value)
+
+
+def test_fetch_removed_dataset_info_unexpected_payload_raises():
+    with pytest.raises(RuntimeError, match="abc123"):
+        fetch_removed_dataset_info(
+            "abc123",
+            get=fake_get(response=FakeResponse(payload={"title": "no org"})),
         )
