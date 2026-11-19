@@ -1,0 +1,24 @@
+# Ruff configuration — the single source of truth for linting rules.
+# It is read both by the pre-commit hook (`ruff-check`) and by the CLI
+# (`ruff check .`), so results are identical everywhere.
+
+[lint]
+# Selected rule sets:
+# - I: import sorting.
+# - D: docstring style. The rules requiring a docstring (D100-D107) are
+#   intentionally ignored: not every function must have one, but when one
+#   exists it must follow the convention configured below.
+select = ["I", "D"]
+ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
+
+[lint.pydocstyle]
+# Docstrings follow the Google convention (sections Args:, Returns:, Raises:).
+# With this convention:
+# - D417 ensures that a documented function documents *all* its parameters.
+# - ruff has known blind spots, to check during review:
+#   * a numpydoc-style `Parameters` section alone is not reported (only
+#     malformed `Returns:` / `Raises:` sections are);
+#   * `ruff --fix` does not fully convert a numpydoc docstring to Google
+#     style: it adds the colons but keeps the underlines (`-------`) and the
+#     `Parameters` section. Conversion is done by hand.
+convention = "google"

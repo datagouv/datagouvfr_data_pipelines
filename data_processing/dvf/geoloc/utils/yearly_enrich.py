@@ -188,25 +188,19 @@ def enrich_year(
 
     The downloaded source file is not deleted here.
 
-    Parameters
-    ----------
-    unzipped_file_name : str
-        File name of the unzipped DVF .txt source file for a specific year, located inside tmp_folder.
-    tmp_folder : str
-        Temp folder for the DVF DAG.
-    map_cultures : dict
-        Object to get the label for a given "culture" code
-        ex: {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
-    output_schema : dict
-        Type of each column, in the published column order
-        ex: {"id_mutation": "object", ...}
-    available_dates : dict
-        Map of the cadastre Parquet files per date
-        ex: {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
-    s3_client : S3Client
-        S3 client to read cadastre (parcelles) files
-    bucket : str
-        Name of the bucket that contains cadastre parcelles
+    Args:
+        unzipped_file_name (str): File name of the unzipped DVF .txt source
+            file for a specific year, located inside tmp_folder.
+        tmp_folder (str): Temp folder for the DVF DAG.
+        map_cultures (dict): Object to get the label for a given "culture" code
+            ex: {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
+        output_schema (dict): Type of each column, in the published column
+            order
+            ex: {"id_mutation": "object", ...}
+        available_dates (dict): Map of the cadastre Parquet files per date
+            ex: {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
+        s3_client (S3Client): S3 client to read cadastre (parcelles) files
+        bucket (str): Name of the bucket that contains cadastre parcelles
 
     """
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
