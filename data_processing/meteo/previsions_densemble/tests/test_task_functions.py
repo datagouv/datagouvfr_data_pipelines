@@ -70,8 +70,7 @@ EXPECTED_DELETED = {
 
 
 def _run_remove_old_occurrences(dry_run: bool = False, sftp_filenames=SFTP_FILENAMES):
-    """Run remove_old_occurrences with controlled S3/SFTP/API and return the
-    set of SFTP files that were deleted."""
+    """Run remove_old_occurrences with controlled S3/SFTP/API and return the set of SFTP files that were deleted."""
     sftp_client = MagicMock()
     sftp_client.list_files_in_directory.return_value = list(sftp_filenames)
     sftp_client.get_file_stats.return_value.st_size = 100
@@ -130,8 +129,7 @@ def test_sftp_non_grib_files_are_ignored():
 
 
 def test_sftp_only_cleans_own_pack_and_grid():
-    """The SFTP directory is shared by every grid; old files belonging to
-    another pack/grid must not be deleted by this grid's cleanup."""
+    """The SFTP directory is shared by every grid; old files belonging to another pack/grid must not be deleted by this grid's cleanup."""
     foreign_old = f"arpege_eurat01_{_OLD_RUN}_mb0_eurat01_00:00.grib"
     sfp_files = list(SFTP_FILENAMES) + [foreign_old]
     deleted = _run_remove_old_occurrences(sftp_filenames=sfp_files)
@@ -172,8 +170,7 @@ def _run_s3_prune(
     s3_run_folders=S3_RUN_FOLDERS,
     resources=S3_RESOURCES,
 ):
-    """Run remove_old_occurrences with no SFTP files and return the set of S3
-    files that were deleted."""
+    """Run remove_old_occurrences with no SFTP files and return the set of S3 files that were deleted."""
     s3_client = MagicMock()
     s3_client.get_folders_from_prefix.return_value = list(s3_run_folders)
 
@@ -211,9 +208,7 @@ def _s3_obj(key: str) -> MagicMock:
 
 
 def test_s3_prunes_runs_older_than_retention():
-    """Regression test: anchored to the *oldest* run (``min``), stale runs were
-    never pruned; anchored to the *newest* run (``max``), the whole runs older
-    than the retention window must each be deleted as a unit."""
+    """Regression test: anchored to the *oldest* run (``min``), stale runs were never pruned; anchored to the *newest* run (``max``), the whole runs older than the retention window must each be deleted as a unit."""
     deleted = _run_s3_prune()
     assert _s3_file(_AT_THRESHOLD_DATE_EARLIER) in deleted
     assert _s3_file(_OLD_RUN) in deleted
@@ -234,8 +229,7 @@ def test_s3_keeps_recent_runs():
 
 
 def test_real_deletion_sftp_logs_correct_stats(caplog):
-    """In real-deletion mode, the SFTP summary must state 'deleted' with the
-    right count, total and freed size (2 files of 100 B -> 200 B)."""
+    """In real-deletion mode, the SFTP summary must state 'deleted' with the right count, total and freed size (2 files of 100 B -> 200 B)."""
     with caplog.at_level(logging.INFO):
         _run_remove_old_occurrences(dry_run=False)
     assert "deleted 2/4 SFTP file(s) (200.0 B)" in caplog.text
@@ -247,8 +241,7 @@ def test_real_deletion_sftp_logs_correct_stats(caplog):
 
 
 def test_real_deletion_s3_logs_correct_stats(caplog):
-    """In real-deletion mode, the S3 summary must state 'deleted' with the right
-    count, total and freed size (2 run folders of 100 B -> 200 B)."""
+    """In real-deletion mode, the S3 summary must state 'deleted' with the right count, total and freed size (2 run folders of 100 B -> 200 B)."""
     with caplog.at_level(logging.INFO):
         _run_s3_prune(dry_run=False)
     assert "deleted 2/4 S3 run folder(s) (200.0 B)" in caplog.text
@@ -259,8 +252,7 @@ def test_real_deletion_s3_logs_correct_stats(caplog):
 
 
 def test_no_obsolete_sftp_files_logged(caplog):
-    """When no obsolete SFTP file is found, the log must say so explicitly
-    instead of a confusing 'deleted 0/N' summary."""
+    """When no obsolete SFTP file is found, the log must say so explicitly instead of a confusing 'deleted 0/N' summary."""
     recent_files = [_sftp_file(_NEWEST_RUN), _sftp_file(_AT_THRESHOLD)]
     with caplog.at_level(logging.INFO):
         _run_remove_old_occurrences(sftp_filenames=recent_files)
@@ -269,8 +261,7 @@ def test_no_obsolete_sftp_files_logged(caplog):
 
 
 def test_no_obsolete_s3_folders_logged(caplog):
-    """When no obsolete S3 run folder is found, the log must say so explicitly
-    instead of a confusing 'deleted 0/N' summary."""
+    """When no obsolete S3 run folder is found, the log must say so explicitly instead of a confusing 'deleted 0/N' summary."""
     recent_folders = [_s3_folder(_NEWEST_RUN), _s3_folder(_AT_THRESHOLD)]
     with caplog.at_level(logging.INFO):
         _run_s3_prune(s3_run_folders=recent_folders)
@@ -282,8 +273,7 @@ def test_no_obsolete_s3_folders_logged(caplog):
 
 
 def test_dry_run_sftp_does_not_delete(caplog):
-    """With DRY_RUN_RETENTION enabled, the SFTP cleanup must not call delete_file, and a
-    concise DRY RUN summary must be logged (with 'would delete')."""
+    """With DRY_RUN_RETENTION enabled, the SFTP cleanup must not call delete_file, and a concise DRY RUN summary must be logged (with 'would delete')."""
     with caplog.at_level(logging.INFO):
         deleted = _run_remove_old_occurrences(dry_run=True)
     assert deleted == set()
@@ -292,8 +282,7 @@ def test_dry_run_sftp_does_not_delete(caplog):
 
 
 def test_dry_run_s3_does_not_delete(caplog):
-    """With DRY_RUN_RETENTION enabled, the S3 cleanup must not call delete_file, and a
-    concise DRY RUN summary must be logged (with 'would delete')."""
+    """With DRY_RUN_RETENTION enabled, the S3 cleanup must not call delete_file, and a concise DRY RUN summary must be logged (with 'would delete')."""
     with caplog.at_level(logging.INFO):
         deleted = _run_s3_prune(dry_run=True)
     assert deleted == set()
@@ -302,15 +291,13 @@ def test_dry_run_s3_does_not_delete(caplog):
 
 
 def test_real_deletion_still_verified_when_dry_run_forced_off():
-    """DRY_RUN_RETENTION defaults to True; the real-deletion tests force it to False so
-    actual delete_file calls are still exercised."""
+    """DRY_RUN_RETENTION defaults to True; the real-deletion tests force it to False so actual delete_file calls are still exercised."""
     deleted = _run_remove_old_occurrences(dry_run=False)
     assert EXPECTED_DELETED <= deleted
 
 
 def test_sftp_size_failure_warns(caplog):
-    """If a file size cannot be fetched from the SFTP, a warning must tell us
-    the freed size is incomplete."""
+    """If a file size cannot be fetched from the SFTP, a warning must tell us the freed size is incomplete."""
     sftp_client = MagicMock()
     sftp_client.list_files_in_directory.return_value = list(SFTP_FILENAMES)
     sftp_client.get_file_stats.side_effect = IOError("stat failed")

@@ -200,8 +200,7 @@ def _as_int(value):
 
 
 def get_resource_previews(row: dict) -> tuple[list[str], list[str]]:
-    """
-    Returns (previews, errors).
+    """Return (previews, errors).
 
     Only includes errors for preview types that are actually relevant
     to this resource (based on format, extras, etc.).

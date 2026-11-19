@@ -15,8 +15,8 @@ def csv_to_parquet(
     compression: str = "zstd",
     **kwargs,
 ) -> str:
-    """
-    if dtype is not specified, columns are required to load everything as string (for safety)
+    """If dtype is not specified, columns are required to load everything as string (for safety).
+
     for allowed types see https://duckdb.org/docs/sql/data_types/overview.html
     """
     assert dtype is not None or columns is not None

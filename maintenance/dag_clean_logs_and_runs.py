@@ -63,10 +63,7 @@ def delete_old_logs_and_directories(**context):
 
 @task()
 def delete_old_runs():
-    """
-    Query and delete runs older than the threshold date (2 months ago).
-    """
-
+    """Query and delete runs older than the threshold date (2 months ago)."""
     oldest_run_date = datetime.now(tz=timezone.utc) - timedelta(days=nb_days_to_keep)
     logging.info(f"Deleting runs with end_date <= {oldest_run_date}")
 

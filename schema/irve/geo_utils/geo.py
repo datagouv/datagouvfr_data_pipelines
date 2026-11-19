@@ -33,9 +33,9 @@ def fix_coordinates_order(
     df: pd.DataFrame,
     coordinates_column: str = "coordonneesXY",
 ) -> pd.DataFrame:
-    """
-    Cette fonction modifie une dataframe pour placer la longitude avant la latitude
-    dans la colonne qui contient les deux au format "[lon, lat]".
+    """Cette fonction modifie une dataframe pour placer la longitude avant la latitude.
+
+    Dans la colonne qui contient les deux au format "[lon, lat]".
     """
 
     def fix_coordinates(row: pd.Series) -> pd.Series:
@@ -59,7 +59,7 @@ def create_lon_lat_cols(
     df: pd.DataFrame,
     coordinates_column: str = "coordonneesXY",
 ) -> pd.DataFrame:
-    """Add longitude and latitude columns to dataframe using coordinates_column"""
+    """Add longitude and latitude columns to dataframe using coordinates_column."""
     coordinates = df[coordinates_column].apply(json.loads)
     df["consolidated_longitude"] = coordinates.str[0]
     df["consolidated_latitude"] = coordinates.str[1]
@@ -71,7 +71,7 @@ def export_to_geojson(
     target_filepath: str,
     coordinates_column: str = "coordonneesXY",
 ) -> None:
-    """Export dataframe into Geojson format"""
+    """Export dataframe into Geojson format."""
     json_result_string = df.to_json(
         orient="records", double_precision=12, date_format="iso"
     )
@@ -105,8 +105,9 @@ def fix_code_insee(
     lat_col: str = "consolidated_latitude",
     coordinates_column: str = "coordonneesXY",
 ) -> pd.DataFrame:
-    """Check code INSEE in CSV file and enrich with postcode and city
-    Requires address and coordinates columns
+    """Check code INSEE in CSV file and enrich with postcode and city.
+
+    Requires address and coordinates columns.
     """
 
     @simple_connection_retry

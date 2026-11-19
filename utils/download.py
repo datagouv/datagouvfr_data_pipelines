@@ -30,15 +30,18 @@ async def async_download_files(
     auth_password: str | None = None,
     timeout: int = 300,
 ):
-    """Retrieve list of files from urls
+    """Retrieve list of files from urls.
 
     Args:
         list_urls (List[File]): List of Dictionaries containing for each
         `url` `dest_path` and `dest_name` : url and the file properties chosen for destination ;
-        `auth_user` and `auth_password` : Optional authentication ;
+        auth_user (str | None): Optional username for HTTP basic authentication.
+        auth_password (str | None): Optional password for HTTP basic authentication.
+        timeout (int): Timeout in seconds for the download session. Defaults to 300.
 
     Raises:
         Exception: _description_
+
     """
     auth = None
     if auth_user and auth_password:

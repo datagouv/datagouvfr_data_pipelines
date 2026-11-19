@@ -31,7 +31,8 @@ with open(f"{AIRFLOW_DAG_HOME}datagouvfr_data_pipelines/meta/config.json", "r") 
 
 
 def get_owners(config_value: bool | dict) -> list[str]:
-    """Owners to ping for a DAG, depending on its value in config.json:
+    """Owners to ping for a DAG, depending on its value in config.json.
+
     - true: default owners
     - dict with any of these keys:
         - "override": these owners instead of the default ones
@@ -93,6 +94,7 @@ TodaysRuns = dict[str, dict[str, RunState]]
 
 def failed_runs_ratio(attempts: dict[str, RunState]) -> float:
     """Ratio of failed runs over all runs for a DAG, in [0, 1].
+
     Returns 0 when the DAG has no run at all.
     """
     total = len(attempts)
@@ -184,7 +186,7 @@ def build_daily_summary(
     todays_runs: TodaysRuns,
     dag_ids: dict[str, str],
 ) -> tuple[str, set[str]]:
-    """Build the daily recap markdown and the set of owners to ping.
+    r"""Build the daily recap markdown and the set of owners to ping.
 
     Each markdown line starts with a single "\n" followed by its own
     indentation (see `indent`) and is never terminated by "\n". This keeps the

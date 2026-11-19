@@ -108,8 +108,7 @@ def download_log(**context):
 
 @task()
 def process_log(**context) -> None:
-    """Aggregates log files by group of available dates and log types."""
-
+    """Aggregate log files by group of available dates and log types."""
     dates_to_process = context["ti"].xcom_pull(
         key="dates_to_process", task_ids="download_log"
     )
@@ -193,10 +192,7 @@ def aggregate_log(**context) -> None:
 
 @task()
 def visit_postgres_duplication_safety(**context) -> None:
-    """
-    In case we have to process some logs again, this task is making
-    sure we don't end up duplicating the metrics on postgres.
-    """
+    """In case we have to process some logs again, this task is making sure we don't end up duplicating the metrics on postgres."""
     processed_dates = context["ti"].xcom_pull(
         key="dates_processed", task_ids="aggregate_log"
     )
@@ -279,9 +275,7 @@ def refresh_materialized_views() -> None:
 
 @task()
 def process_matomo(**context) -> None:
-    """
-    Fetch matomo metrics for external links for reuses and sum these by orga
-    """
+    """Fetch Matomo metrics for external links for reuses and sum these by orga."""
     if not os.path.exists(f"{TMP_FOLDER}matomo-outputs/"):
         os.makedirs(f"{TMP_FOLDER}matomo-outputs/")
 
@@ -334,10 +328,7 @@ def process_matomo(**context) -> None:
 
 @task()
 def matomo_postgres_duplication_safety(**context) -> None:
-    """
-    In case we have to process some logs again, this task is making
-    sure we don't end up duplicating the matomo metrics on postgres.
-    """
+    """In case we have to process some logs again, this task is making sure we don't end up duplicating the matomo metrics on postgres."""
     processed_dates = context["ti"].xcom_pull(
         key="dates_processed", task_ids="process_matomo"
     )

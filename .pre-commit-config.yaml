@@ -14,7 +14,10 @@ repos:
     rev: 'v0.15.20'  # Ruff version
     hooks:
       - id: ruff-check
-        args: [--fix, --extend-select, I]
+        # I: import sorting; D: docstring format, except the rules that
+        # require a docstring to exist (D100-D107), which the codebase does
+        # not enforce.
+        args: [--fix, --extend-select, "I,D", --ignore, "D100,D101,D102,D103,D104,D105,D106,D107"]
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: 'v2.1.0'

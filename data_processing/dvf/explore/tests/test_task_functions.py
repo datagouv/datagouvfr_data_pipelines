@@ -33,9 +33,11 @@ def test_arrondissements_and_other_communes_are_kept_once():
 
 
 def test_duplicated_rows_keep_their_other_columns():
-    """Seul le code commune change : la duplication doit être transparente pour le
-    reste de la ligne, sans quoi les stats de la ville porteraient sur des mutations
-    amputées."""
+    """Seul le code commune change.
+
+    La duplication doit être transparente pour le reste de la ligne, sans quoi
+    les stats de la ville porteraient sur des mutations amputées.
+    """
     out = add_communes_plm(_mutations())
     paris_1er = out.loc[out["code_commune"] == "75101"].iloc[0]
     duplicate = out.loc[

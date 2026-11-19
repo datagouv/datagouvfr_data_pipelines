@@ -58,9 +58,11 @@ FULL_FILE = "dvf.csv.gz"
 @simple_connection_retry
 def download_resource(res, dest_path: str) -> None:
     """Download one source file, retrying on network hiccups.
+
     data.gouv's static host can stall mid-stream and httpx's default read timeout is 5s,
     which is short for these ~70 MB files. Resource.download() drops its **kwargs, so the
-    timeout cannot be raised from here: we retry the whole file instead."""
+    timeout cannot be raised from here: we retry the whole file instead.
+    """
     res.download(dest_path)
 
 
@@ -86,7 +88,7 @@ def _get_delivery(params: dict, run_date: date) -> Delivery:
 
 
 def _check_output_file_names(params: dict, output_file_names: list[str]) -> None:
-    """Check that all the files are present and correct with respect to the delivery"""
+    """Check that all the files are present and correct with respect to the delivery."""
     run_date = date.today()
     delivery = _get_delivery(params, run_date)
     dvf_versions = [
@@ -98,8 +100,7 @@ def _check_output_file_names(params: dict, output_file_names: list[str]) -> None
 
 @task()
 def download_dvf_source_data(params: dict, **context):
-    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files"""
-
+    """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files."""
     # Each task calls date.today() independently; the risk of a mismatch between
     # tasks is limited since only the month and year are used.
     run_date = date.today()
@@ -149,7 +150,6 @@ def enrich_years(unzipped_file_names: list[str], **context):
 
     The results are put in one Parquet file per source file. The source files (unzipped txt files) are deleted.
     """
-
     # we can't parallelize for RAM containment
 
     logging.info("Loading config data...")
@@ -194,8 +194,10 @@ def enrich_years(unzipped_file_names: list[str], **context):
 
 
 def get_cadastre_millesime(delivery: Delivery, today: date) -> str:
-    """Return the cadastre millesime of the latest given delivery,
-    e.g. "2026-06-01" for an October 2026 delivery."""
+    """Return the cadastre millesime of the latest given delivery.
+
+    e.g. "2026-06-01" for an October 2026 delivery.
+    """
     # before the delivery month, the latest delivery of this kind is last year's
     year = today.year if today.month >= delivery.month else today.year - 1
     return f"{year}-{delivery.cadastre_millesime}-01"
@@ -258,7 +260,7 @@ def download_cadastre_source_data(params: dict, **context):
 
 @task()
 def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
-    """Match the latitude and longitude with the current cadastre to fix the parcelle_id
+    """Match the latitude and longitude with the current cadastre to fix the parcelle_id.
 
     If parcelle_id and (latitude, longitude) don't match the current cadastre
     (comparing with the centroid geopoint of the parcelles), find the current
@@ -340,8 +342,9 @@ def notification(params: dict) -> None:
 
 @task()
 def download_published_yearly_files(**context):
-    """Download the yearly ``full-*.csv.gz`` files already published on the destination
-    dataset, so the concat file (``dvf.csv.gz``) can be built without redoing the heavy
+    """Download the yearly ``full-*.csv.gz`` files already published on the destination dataset.
+
+    The concat file (``dvf.csv.gz``) can then be built without redoing the heavy
     enrichment.
 
     This is the source task of the dedicated concat DAG
@@ -362,7 +365,9 @@ def download_published_yearly_files(**context):
 @task()
 def build_full_file(params: dict):
     """Concatenate the yearly files into a single file covering the whole window.
-    Streamed, as the window is several GB uncompressed."""
+
+    Streamed, as the window is several GB uncompressed.
+    """
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
     )

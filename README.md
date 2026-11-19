@@ -63,7 +63,13 @@ ruff check --fix .
 ruff format .
 ```
 
-`ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans `dev-requirements.txt`). Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; il installe lui-même les bonnes versions dans un environnement isolé :
+`ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans `dev-requirements.txt`).
+
+En plus de la configuration par défaut, le hook `ruff-check` active deux sélections via ses `args` (voir `.pre-commit-config.yaml`) :
+- `I` : tri des imports ;
+- `D` : format des docstrings, à l'exception des règles qui **exigent** une docstring (D100-D107), que le dépôt ne contraint pas.
+
+Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; il installe lui-même les bonnes versions dans un environnement isolé :
 
 ```
 pre-commit run --all-files

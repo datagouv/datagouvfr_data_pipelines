@@ -77,9 +77,11 @@ def _get_user_display_name(user_id: str) -> str | None:
 
 
 def _escape_link_label(text: str) -> str:
-    """Escape ``[``/``]`` in a markdown link label so we stay in control of the
-    rendering regardless of what the display name contains (the display name
-    comes from the Tchap profile API and is out of our control)."""
+    """Escape ``[``/``]`` in a markdown link label so we stay in control of the rendering.
+
+    Regardless of what the display name contains (the display name comes from the
+    Tchap profile API and is out of our control).
+    """
     return text.replace("[", r"\[").replace("]", r"\]")
 
 
