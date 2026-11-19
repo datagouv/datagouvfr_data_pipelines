@@ -123,7 +123,7 @@ def test_daily_summary_no_dag_absorbed_by_nested_list():
     """
     dags = [
         ("data_processing_geozones", "data_processing_geozones"),
-        ("data_processing_finess", "data_processing_finess"),
+        ("data_processing_an_petitions", "data_processing_an_petitions"),
     ]
     md, _ = build_daily_summary_md(dags)
 
@@ -158,7 +158,7 @@ def test_daily_summary_pings_owners_of_failing_dags():
     """
     dags = [
         ("data_processing_geozones", "data_processing_geozones"),
-        ("data_processing_finess", "data_processing_finess"),
+        ("data_processing_an_petitions", "data_processing_an_petitions"),
     ]
     md, ping = build_daily_summary_md(dags)
 
