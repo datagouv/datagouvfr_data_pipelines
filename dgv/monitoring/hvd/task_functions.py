@@ -314,6 +314,44 @@ def get_hvd_category_from_tags(tags):
     )
 
 
+def fetch_contact_point(
+    url: str,
+    get: Callable = RequestRetry.get,
+) -> dict:
+    """Fetch the ``contact_point`` of a data.gouv record.
+
+    Returns an empty dict when the record has no contact point or answers with
+    an HTTP error. Raises ``DatagouvApiUnreachable`` when the API stays
+    unreachable after the connection retries of ``get`` and ``RuntimeError`` on
+    an unexpected payload, so a metadata build never silently mixes old and new
+    enrichment values.
+    """
+    try:
+        response = get(url)
+    except requests.exceptions.RequestException as exc:
+        raise DatagouvApiUnreachable(
+            f"data.gouv API unreachable to fetch contact point at {url} even "
+            f"after connection retries ({type(exc).__name__}: {exc}) — the "
+            "metadata build is aborted to avoid a mix of obsolete and fresh data"
+        ) from exc
+    if not response.ok:
+        logging.warning(
+            "No contact point for %s: data.gouv API returned HTTP %s",
+            url,
+            response.status_code,
+        )
+        return {}
+    try:
+        contact_point = response.json().get("contact_point")
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Unexpected payload from {url} (expected JSON with a "
+            "'contact_point' key) — this looks like an API contract change "
+            "rather than a transient failure"
+        ) from exc
+    return contact_point if isinstance(contact_point, dict) else {}
+
+
 def dataservice_information(dataset_id, df_dataservices, df_resources):
     """Get the dataservice information from a dataset_id.
 
@@ -329,12 +367,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     ]
     # Skip tabular for now
     if len(dataservices.loc[dataservices["id"] != API_TABULAIRE_ID]):
-        contact_point = (
-            requests.get(
-                f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
-            )
-            .json()
-            .get("contact_point", {})
+        contact_point = fetch_contact_point(
+            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
         )
         return (
             dataservices.iloc[0]["title"],
@@ -352,10 +386,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         url = row["url"]
         if "request=getcapabilities" in url.lower() or url.endswith(("wms", "wfs")):
             # "fake" resources that are actually dataservices
-            contact_point = (
-                requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
-                .json()
-                .get("contact_point", {})
+            contact_point = fetch_contact_point(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
             )
             return (
                 row["title"],
@@ -367,10 +399,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     for _, row in dataset_resources.iterrows():
         url = row["url"]
         if row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
-            contact_point = (
-                requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
-                .json()
-                .get("contact_point", {})
+            contact_point = fetch_contact_point(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
             )
             return (
                 row["title"],
@@ -381,12 +411,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
             )
     # Fallback on tabular if available
     if len(dataservices):
-        contact_point = (
-            requests.get(
-                f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
-            )
-            .json()
-            .get("contact_point", {})
+        contact_point = fetch_contact_point(
+            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
         )
         return (
             dataservices.iloc[0]["title"],

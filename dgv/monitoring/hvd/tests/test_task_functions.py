@@ -13,6 +13,7 @@ import pytest
 import requests
 from datagouvfr_data_pipelines.dgv.monitoring.hvd.task_functions import (
     DatagouvApiUnreachable,
+    fetch_contact_point,
     fetch_removed_dataset_info,
     update_all_qualities,
     update_dataset_quality,
@@ -187,4 +188,52 @@ def test_fetch_removed_dataset_info_unexpected_payload_raises():
         fetch_removed_dataset_info(
             "abc123",
             get=fake_get(response=FakeResponse(payload={"title": "no org"})),
+        )
+
+
+def test_fetch_contact_point_success():
+    payload = {"contact_point": {"name": "Service SIG", "email": "sig@example.fr"}}
+    assert fetch_contact_point(
+        "https://www.data.gouv.fr/api/1/datasets/abc123/",
+        get=fake_get(response=FakeResponse(payload=payload)),
+    ) == {"name": "Service SIG", "email": "sig@example.fr"}
+
+
+def test_fetch_contact_point_missing_or_null_returns_empty():
+    for payload in ({}, {"contact_point": None}):
+        assert (
+            fetch_contact_point(
+                "https://www.data.gouv.fr/api/1/datasets/abc123/",
+                get=fake_get(response=FakeResponse(payload=payload)),
+            )
+            == {}
+        )
+
+
+def test_fetch_contact_point_http_error_returns_empty(caplog):
+    assert (
+        fetch_contact_point(
+            "https://www.data.gouv.fr/api/1/datasets/abc123/",
+            get=fake_get(response=FakeResponse(ok=False, status_code=404)),
+        )
+        == {}
+    )
+    assert "HTTP 404" in caplog.text
+
+
+def test_fetch_contact_point_api_down_raises():
+    exc = requests.exceptions.ConnectionError("boom")
+    with pytest.raises(DatagouvApiUnreachable) as excinfo:
+        fetch_contact_point(
+            "https://www.data.gouv.fr/api/1/datasets/abc123/",
+            get=fake_get(exc=exc),
+        )
+    assert "abc123" in str(excinfo.value)
+
+
+def test_fetch_contact_point_unexpected_payload_raises():
+    with pytest.raises(RuntimeError, match="abc123"):
+        fetch_contact_point(
+            "https://www.data.gouv.fr/api/1/datasets/abc123/",
+            get=fake_get(response=FakeResponse(payload=["not", "a", "dict"])),
         )
