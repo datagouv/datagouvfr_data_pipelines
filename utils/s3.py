@@ -247,8 +247,8 @@ class S3Client:
             s3_bucket_source (str | None): The source S3 bucket name. Defaults to the bucket specified at init.
             s3_bucket_target (str | None): The target S3 bucket name. Defaults to the bucket specified at init.
             remove_source_file (bool): If True, removes the source files after copying. Defaults to False.
-            client_side (bool): whether to do a client or server side copy
             is_public (bool): Whether to make the copied objects publicly accessible. Defaults to False.
+            client_side (bool): whether to do a client or server side copy.
 
         Returns:
             list[str]: List of the new objects paths.
