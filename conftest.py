@@ -57,6 +57,9 @@ _stub_module(
     DEMO_DATAGOUV_SECRET_API_KEY="test-demo-key",
     S3_BUCKET_DATA_PIPELINE="test-bucket",
     S3_BUCKET_DATA_PIPELINE_OPEN="test-open-bucket",
+    TCHAP_ROOM_MODERATION_NOUVEAUTES="test-room",
+    GRIST_API_URL="http://test-grist/api/",
+    SECRET_GRIST_API_KEY="test-grist-key",
 )
 
 # --- datagouv client library ---
@@ -87,7 +90,9 @@ _stub_module(
 )
 _stub_module("datagouvfr_data_pipelines.utils.postgres", PostgresClient=MagicMock())
 _stub_module(
-    "datagouvfr_data_pipelines.utils.retry", simple_connection_retry=lambda f: f
+    "datagouvfr_data_pipelines.utils.retry",
+    simple_connection_retry=lambda f: f,
+    RequestRetry=MagicMock(),
 )
 _stub_module("datagouvfr_data_pipelines.utils.download", download_files=MagicMock())
 # Keep the real filesystem helpers (tested by the metrics suite) but avoid
