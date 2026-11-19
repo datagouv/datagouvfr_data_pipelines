@@ -64,8 +64,9 @@ def parse_logs(
         try:
             parsed_log = b_log.decode("utf-8")
 
-            slug_line, type_detect, segment = extract_log_info(parsed_log, logs_config)
-            if slug_line:
+            result = extract_log_info(parsed_log, logs_config)
+            if result:
+                slug_line, type_detect, segment = result
                 n_logs += 1
                 lists_per_type[type_detect].append(
                     {
@@ -90,7 +91,7 @@ def parse_logs(
 
 def extract_log_info(
     log: str, logs_config: list[DataGouvLog]
-) -> tuple[str | None, str | None, str | None]:
+) -> tuple[str, str, str] | None:
     """Retrieve information related to the datasets, organisation or resources from the anonymised HAProxy logs.
 
     Args:
@@ -119,7 +120,7 @@ def extract_log_info(
                 if object_slug:
                     return object_slug, obj_config.type, segment
 
-    return (None, None, None)
+    return None
 
 
 def sum_outlinks_by_orga(

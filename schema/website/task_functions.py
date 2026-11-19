@@ -762,7 +762,7 @@ def generate_catalog_object(
     schema_type: str,
     schema_name: str,
     folders: dict,
-    obj_info: dict | None = None,
+    obj_info: dict,
     datapackage: dict | None = None,
 ) -> dict:
     """Generate dictionnary containing all relevant information for catalog."""
