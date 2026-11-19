@@ -44,9 +44,9 @@ default_args = {
 
 with DAG(
     dag_id="irve_consolidation",
-    schedule="20 4 * * *",
+    schedule="20 0 * * *",
     start_date=datetime(2024, 8, 10),
-    dagrun_timeout=timedelta(minutes=360),
+    dagrun_timeout=timedelta(minutes=600),
     catchup=False,
     max_active_runs=1,
     tags=["schemas", "irve", "consolidation", "datagouv"],
