@@ -83,21 +83,20 @@ HAND_MADE_ZONES = [
 
 
 def add_geozones_bboxes(export: list[dict]) -> None:
-    # Zones with a geometry (any state, deleted included): bbox is the tight
-    # envelope of all their polygons, [minx, miny, maxx, maxy] in WGS84.
+    # Zones with a geometry (active ones only): bbox is the tight envelope of all their
+    # polygons, [minx, miny, maxx, maxy] in WGS84.
     for zone in export:
         zone["bbox"] = list(shape(zone["geom"]).bounds) if zone.get("geom") else None
 
     # The hand-made subsets and France have no geometry but children in the hierarchy
     # (so this runs after it): their bbox is the union of the bboxes of their children,
-    # so a bbox always contains those of its descendants. Active zones only, the export
-    # holds deleted historical versions of the same ids. Every other geometry-less zone
-    # (foreign countries, EU, arrondissements...) stays None.
-    active = [z for z in export if not z["is_deleted"]]
-    by_id = {z["_id"]: z for z in active}
+    # so a bbox always contains those of its descendants. Deleted zones have no bbox, so
+    # they never count, and the derived ids are never shared with a deleted zone. Every
+    # other geometry-less zone (foreign countries, EU, arrondissements...) stays None.
+    by_id = {z["_id"]: z for z in export}
 
     def set_union_of_children(zone_id: str) -> None:
-        boxes = [z["bbox"] for z in active if zone_id in z["parents"] and z["bbox"]]
+        boxes = [z["bbox"] for z in export if zone_id in z["parents"] and z["bbox"]]
         if not boxes:
             raise ValueError(f"No child with a bbox to derive the bbox of {zone_id}")
         by_id[zone_id]["bbox"] = [
@@ -547,10 +546,16 @@ def download_and_process_geozones():
 
     # Enrich each zone with its IGN administrative contour, joined on the INSEE
     # code. Zones with no published geometry (countries, municipal arrondissements)
-    # keep a null geom so every record exposes the key.
+    # keep a null geom so every record exposes the key. Deleted zones too: IGN only
+    # publishes today's contours, and a deleted zone sharing its code with an active
+    # one (976, a commune merged into a commune nouvelle) would get the current shape.
     geometries = fetch_geozones_geometries()
     for geoz in export:
-        geoz["geom"] = geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+        geoz["geom"] = (
+            None
+            if geoz["is_deleted"]
+            else geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+        )
     logging.info(
         "Geometry attached to %s zones", sum(1 for z in export if z.get("geom"))
     )
