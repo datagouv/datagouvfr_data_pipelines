@@ -130,7 +130,8 @@ def build_resource(
     url = s3_client.get_file_url(s3_folder + file_path)
     # differenciation ressource principale VS documentation
     is_doc = False
-    description = ""
+    description: str | None = ""
+    resource_name: str | None
     # two known errors:
     # 1. files that don't match either pattern
     # 2. files that are contained in subfolders => creating new paths in config
@@ -145,16 +146,15 @@ def build_resource(
     else:
         # peut-être mettre un 'if params else' ici pour publier les ressources
         # qui posent problème en doc quoiqu'il ?
-        try:
-            params = re.match(
-                config[global_path]["source_pattern"], file_with_ext
-            ).groupdict()
+        match = re.match(config[global_path]["source_pattern"], file_with_ext)
+        if match is not None:
+            params = match.groupdict()
             for k in params:
                 # removing hook names for data.gouv display
                 params[k] = clean_hooks(params[k])
             resource_name = config[global_path]["name_template"].format(**params)
             description = config[global_path]["description_template"].format(**params)
-        except AttributeError:
+        else:
             logging.warning("File is not matching pattern")
             resource_name, description = None, None
     return file_with_ext, global_path, resource_name, description, url, is_doc
