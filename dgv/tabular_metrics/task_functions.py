@@ -50,15 +50,19 @@ def process_line(line: str) -> dict:
     # logs look like this (in the best case):
     # 2025-08-01T00:01:19.614400+02:00 slb-04 haproxy[345597]: 127.0.0.1:2040 [01/Aug/2025:00:01:19.373] WILDCARD~ WWW-TABULAR-API-DATAGOUVFR/www-tabular-api2 0/0/5/235/+240 200 +4896 - - ---- 707/57/4/2/0 0/0 "GET /api/resources/b363e051-9649-4879-ae78-71ef227d0cc5/data/?page=5&page_size=20 HTTP/1.1"
     try:
-        status = int(re.search("\+\d+ \d+ \+\d+", line).group().split(" ")[1])
-        if not (200 <= status < 600):
-            status = None
+        found = re.search("\+\d+ \d+ \+\d+", line)
+        if found:
+            status = int(found.group().split(" ")[1])
+            if not (200 <= status < 600):
+                status = None
     except Exception:
         pass
 
     try:
-        method, url, _ = re.search('".+"', line).group()[1:-1].split(" ")
-        url = url.replace("https://tabular-api.data.gouv.fr", "")
+        found = re.search('".+"', line)
+        if found:
+            method, url, _ = found.group()[1:-1].split(" ")
+            url = url.replace("https://tabular-api.data.gouv.fr", "")
     except Exception:
         pass
 
