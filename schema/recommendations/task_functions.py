@@ -16,7 +16,7 @@ JSONSCHEMA_URL = "https://raw.githubusercontent.com/opendatateam/udata-recommend
 
 
 def consolidated_schemas() -> dict[str, str]:
-    """Find TableSchema schemas that are consolidated"""
+    """Find TableSchema schemas that are consolidated."""
     config: dict = yaml.safe_load(requests.get(CONFIG_CONSOLIDATION).content)
     return {
         name: params["consolidated_dataset_id"]
@@ -26,7 +26,7 @@ def consolidated_schemas() -> dict[str, str]:
 
 
 def datasets_for_schema(schema: str) -> list[str]:
-    """Fetch datasets on datagouv with the schema attribute set to a specific value"""
+    """Fetch datasets on datagouv with the schema attribute set to a specific value."""
     r = local_client.get_all_from_api_query(
         base_query=f"api/1/datasets/?schema={schema}", mask="data{slug}"
     )
@@ -45,7 +45,7 @@ def build_recommendation(
 
 
 def validate_recommendations(recommendations: list) -> None:
-    """ " Validate recommendations according to the JSON schema"""
+    """Validate recommendations according to the JSON schema."""
     r = requests.get(JSONSCHEMA_URL, timeout=10)
     r.raise_for_status()
     schema = r.json()

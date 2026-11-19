@@ -20,8 +20,11 @@ DOM = {"971", "972", "973", "974", "976"}
 
 
 def _import_task_functions(monkeypatch):
-    """Import the real task_functions module. It reads config.json at import
-    time from AIRFLOW_DAG_HOME, so point it at a temp dir holding a copy."""
+    """Import the real task_functions module.
+
+    It reads config.json at import time from AIRFLOW_DAG_HOME, so point it at
+    a temp dir holding a copy.
+    """
     tmp = tempfile.mkdtemp()
     dest = os.path.join(tmp, "datagouvfr_data_pipelines", "data_processing", "dfi")
     os.makedirs(dest, exist_ok=True)
@@ -49,8 +52,11 @@ def dfi_module(monkeypatch):
 
 
 def test_expected_departments_shape(dfi_module):
-    """The expected set is exactly the 101 French department codes: 96
-    metropolitan (with Corse 20 split into 2A/2B) plus the 5 DOM."""
+    """The expected set is exactly the 101 French department codes.
+
+    That is 96 metropolitan codes (with Corse 20 split into 2A/2B) plus the
+    5 DOM.
+    """
     depts = dfi_module.EXPECTED_DEPARTMENTS
     assert len(depts) == 96 + 5
     assert all(len(d) in (2, 3) for d in depts)
@@ -67,8 +73,10 @@ def test_expected_departments_shape(dfi_module):
     ],
 )
 def test_reformat_txt_lines_departments_are_covered(code_dept, trailing, dfi_module):
-    """The dept code emitted by the parser must match the coverage expectation,
-    otherwise check_department_coverage would falsely fail a valid release."""
+    """The dept code emitted by the parser must match the coverage expectation.
+
+    Otherwise check_department_coverage would falsely fail a valid release.
+    """
     out = io.StringIO()
     lines = []
     lines = dfi_module._reformat_txt_lines(out, lines, _raw_line(code_dept, trailing))
@@ -251,9 +259,11 @@ def test_check_if_modif_delegates_to_check_if_more_recent_update(
 
 
 def _raw_line(code_dept, trailing):
-    """Build a DFI .txt line respecting the fixed offsets the parser relies on:
-    the first 30 chars hold exactly the 6 common fields, the region after index
-    76 holds the origin/destination codes."""
+    """Build a DFI .txt line respecting the fixed offsets the parser relies on.
+
+    The first 30 chars hold exactly the 6 common fields; the region after index
+    76 holds the origin/destination codes.
+    """
     common = f"{code_dept};123;A;1;2;2026-10-31"
     return common + (" " * (76 - len(common))) + trailing
 

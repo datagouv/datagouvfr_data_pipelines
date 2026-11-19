@@ -46,6 +46,7 @@ def get_dvf_resources(
     ValueError
         If the number or the shape of the files does not match the delivery's
         rolling window, or if a file name does not match the expected pattern.
+
     """
     main_resources = [res for res in resources if res.type == "main"]
     if len(main_resources) != delivery.count:

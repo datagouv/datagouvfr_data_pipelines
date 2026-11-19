@@ -68,7 +68,7 @@ class S3Client:
         list_files: list[File],
         ignore_airflow_env: bool = False,
     ) -> None:
-        """Retrieve list of files from a S3 bucket"""
+        """Retrieve list of files from a S3 bucket."""
         for file in list_files:
             source_path = file.full_source_path
             if not ignore_airflow_env:
@@ -109,7 +109,7 @@ class S3Client:
         ignore_airflow_env: bool = False,
         as_objects: bool = False,
     ) -> Iterator:
-        """Retrieve the list of the files which keys start with the prefix in a S3 bucket"""
+        """Retrieve the list of the files which keys start with the prefix in a S3 bucket."""
         if not ignore_airflow_env:
             prefix = f"{AIRFLOW_ENV}/{prefix}"
         # we use a paginator to be able to retrieve more than 1000 results from list_objects_v2
@@ -135,7 +135,7 @@ class S3Client:
         prefix: str,
         ignore_airflow_env: bool = False,
     ) -> list[str]:
-        """Retrieve the list of the folders which keys start with the prefix in a S3 bucket"""
+        """Retrieve the list of the folders which keys start with the prefix in a S3 bucket."""
         if not ignore_airflow_env:
             prefix = f"{AIRFLOW_ENV}/{prefix}"
         # we use a paginator to be able to retrieve more than 1000 results from list_objects_v2
@@ -157,7 +157,7 @@ class S3Client:
         file_1: File,
         file_2: File,
     ) -> bool:
-        """Compare two files on a S3 bucket, returns whether they are identical"""
+        """Compare two files on a S3 bucket, returns whether they are identical."""
 
         def get_content_length(response: dict) -> int:
             return (
@@ -237,20 +237,22 @@ class S3Client:
         is_public: bool = False,
         client_side: bool = False,
     ) -> list[str]:
-        """
-        Copy multiple objects from a source folder to a target folder in S3.
+        """Copy multiple objects from a source folder to a target folder in S3.
+
         Ensure credentials allow to access both buckets.
 
         Args:
             obj_source_paths (list[str]): List of the objects full paths to be copied.
-            target_path (str): The target directory where the objects will be copied.
+            target_directory (str): The target directory where the objects will be copied.
             s3_bucket_source (str | None): The source S3 bucket name. Defaults to the bucket specified at init.
             s3_bucket_target (str | None): The target S3 bucket name. Defaults to the bucket specified at init.
             remove_source_file (bool): If True, removes the source files after copying. Defaults to False.
             client_side (bool): whether to do a client or server side copy
+            is_public (bool): Whether to make the copied objects publicly accessible. Defaults to False.
 
         Returns:
             list[str]: List of the new objects paths.
+
         """
         _method = "client_side_copy_object" if client_side else "copy_object"
         files_destination_path = []
@@ -279,8 +281,10 @@ class S3Client:
         remove_source_file: bool = False,
         is_public: bool = False,
     ):
-        """This is a patch to mitigate the absence of server-side copy in OVH S3.
-        Prefer copy_object as much as possible"""
+        """Mitigate the absence of server-side copy in OVH S3.
+
+        Prefer copy_object as much as possible
+        """
         if not s3_bucket_source:
             s3_bucket_source = self.bucket.name
         if not s3_bucket_target:
@@ -319,7 +323,7 @@ class S3Client:
         self,
         file_path: str,
     ) -> None:
-        """⚠️ USE WITH CAUTION"""
+        """⚠️ USE WITH CAUTION."""
         if not self.does_file_exist_in_bucket(file_path):
             raise ValueError(
                 f"File '{file_path}' does not exist in bucket '{self.bucket.name}'"
@@ -349,9 +353,7 @@ class S3Client:
         self,
         folder: str,
     ) -> dict[str, int]:
-        """
-        returns a dict of {"file_name": file_size, ...} for all files in the folder
-        """
+        """Return a dict of {"file_name": file_size, ...} for all files in the folder."""
         return {
             obj.key: obj.content_length
             for obj in self.get_files_from_prefix(
@@ -368,7 +370,7 @@ class S3Client:
         burn_after_sending: bool = False,
         is_public: bool = False,
     ) -> None:
-        """Send a file to a S3 bucket"""
+        """Send a file to a S3 bucket."""
         dest_path = file.full_dest_path
         if not ignore_airflow_env:
             dest_path = f"{AIRFLOW_ENV}/{dest_path}"
@@ -388,7 +390,7 @@ class S3Client:
         list_files: list[File],
         **kwargs,
     ) -> None:
-        """Send list of files to a S3 bucket"""
+        """Send list of files to a S3 bucket."""
         for file in list_files:
             self.send_file(file, **kwargs)
 
@@ -398,7 +400,7 @@ class S3Client:
         buffer: StringIO,
         key: str,
     ) -> None:
-        """Send a file buffer StringIO to a S3 bucket"""
+        """Send a file buffer StringIO to a S3 bucket."""
         self.bucket.put_object(
             Key=key,
             Body=buffer.getvalue(),

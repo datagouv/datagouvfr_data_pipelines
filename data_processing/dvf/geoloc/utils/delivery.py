@@ -30,14 +30,13 @@ class Delivery(ABC):
 
     @abstractmethod
     def check_dvf_versions(self, dvf_versions: list[DvfVersion]):
-        """Check that the list of DVF versions match the delivery
+        """Check that the list of DVF versions match the delivery.
 
         The number of versions must match, years must be consecutive,
         and the half/full years must match the expected pattern.
 
         Raises if the check fails.
         """
-
         pass
 
 
@@ -48,7 +47,7 @@ class AprilDelivery(Delivery):
     cadastre_millesime = "03"
 
     def check_dvf_versions(self, dvf_versions: list[DvfVersion]):
-        """Check that the list of DVF versions are 5 consecutive full years
+        """Check that the list of DVF versions are 5 consecutive full years.
 
         Raises if the check fails.
         """

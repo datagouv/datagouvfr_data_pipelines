@@ -43,14 +43,14 @@ def time_is_between(time1, time2):
 
 
 def get_unique_list(*lists: list[str]) -> list[str]:
-    """
-    Returns a list of unique string elements from multiple input lists.
+    """Return a list of unique string elements from multiple input lists.
 
     Args:
         *lists (List[str]): An arbitrary number of string lists of elements.
 
     Returns:
         list[str]: The list with unique elements in no particular order.
+
     """
     unique_elements = set()
     for lst in lists:
@@ -59,15 +59,16 @@ def get_unique_list(*lists: list[str]) -> list[str]:
 
 
 def list_months_between(start_date: datetime, end_date: datetime) -> list[str]:
-    """
-    Generate a list of month strings between two dates.
+    """Generate a list of month strings between two dates.
+
     Args:
         start_date (datetime): The start date.
         end_date (datetime): The end date.
+
     Returns:
         list[str]: A list of strings representing each month between the start and end dates included in the format 'YYYY-MM'.
-    """
 
+    """
     start = start_date.replace(day=1).date()
     end = end_date.replace(day=1).date()
 

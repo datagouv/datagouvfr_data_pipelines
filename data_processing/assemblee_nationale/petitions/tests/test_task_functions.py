@@ -6,8 +6,10 @@ from bs4 import BeautifulSoup
 
 
 def _import_task_functions(monkeypatch):
-    """Import the real task_functions module so the tests exercise the parsing
-    code exactly as it runs in the DAG."""
+    """Import the real task_functions module.
+
+    The tests exercise the parsing code exactly as it runs in the DAG.
+    """
     module_name = (
         "datagouvfr_data_pipelines.data_processing.assemblee_nationale.petitions"
         ".task_functions"

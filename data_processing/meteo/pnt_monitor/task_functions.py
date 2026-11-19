@@ -34,11 +34,11 @@ PNT_URL_PATTERN = re.compile(
 
 
 def get_timeslot_and_paquet(url):
-    """
-    URLs look like this:
+    """URLs look like this.
+
     https://meteofrance-pnt.s3.rbx.io.cloud.ovh.net/pnt/2024-03-13T00:00:00Z/
     arome-om/ANTIL/0025/HP1/arome-om-ANTIL__0025__HP1__001H__2024-03-13T00:00:00Z.grib2
-    So we get ('2024-03-13T00:00:00Z', 'arome-om')
+    So we get ('2024-03-13T00:00:00Z', 'arome-om').
     """
     match = PNT_URL_PATTERN.search(url)
     if not match:

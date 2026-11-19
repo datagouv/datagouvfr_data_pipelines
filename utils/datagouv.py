@@ -90,7 +90,7 @@ def create_post(
     blocs: list[dict] | None = None,
     tags: list | None = None,
 ) -> dict:
-    """Create a post in data.gouv.fr
+    """Create a post in data.gouv.fr.
 
     Args:
         name: name of post.
@@ -104,6 +104,7 @@ def create_post(
 
     Returns:
        json: return API result in a dictionnary containing metadatas
+
     """
     payload = {
         "name": name,
@@ -154,8 +155,8 @@ def get_last_items(
 
 @simple_connection_retry
 def get_latest_comments(start_date: datetime, end_date: datetime | None = None) -> list:
-    """
-    Get latest comments posted on discussions, stored as a list of tuples:
+    """Get latest comments posted on discussions, stored as a list of tuples.
+
     ("discussion_id:comment_timestamp", subject, comment)
     """
     results = []

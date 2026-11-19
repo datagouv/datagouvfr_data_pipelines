@@ -32,7 +32,8 @@ def _transformer(srid: int) -> Transformer:
 
     always_xy=True is mandatory: EPSG:4326 declares latitude first, so without it pyproj
     reads our (longitude, latitude) as (latitude, longitude) and silently misplaces every
-    single point. Cached because building a Transformer costs more than using it."""
+    single point. Cached because building a Transformer costs more than using it.
+    """
     return Transformer.from_crs(WGS84, f"EPSG:{srid}", always_xy=True)
 
 
@@ -49,7 +50,8 @@ def load_commune_names() -> dict[str, str]:
     TYPECOM is restricted to COM and ARM to leave out the communes associées and déléguées,
     and the Paris/Lyon/Marseille parents are dropped so those cities resolve to their
     arrondissement, which is what DVF carries. Cached: the file is ~3.4 MB and the years
-    are enriched in a loop."""
+    are enriched in a loop.
+    """
     referential = pd.read_csv(
         INSEE_COMMUNES_URL,
         dtype=str,
@@ -83,7 +85,8 @@ def project_to_departement(
 
     We move the points rather than the parcelles: a mutation is one point where a parcelle
     is ~100 vertices, and only the DOM use a projection other than 2154, so the polygons can
-    stay exactly as the cadastre published them."""
+    stay exactly as the cadastre published them.
+    """
     return _transformer(srid).transform(longitude, latitude)
 
 
@@ -96,7 +99,8 @@ class ParcellesIndex:
     Measured on dep 01 (1.4M parcelles, shapely 2.0.7): ~1.9 s to build, ~1.3 GB of RAM per
     million parcelles. Across the ~116M parcelles of the whole file that is ~4 min in total,
     so building one index per departement is cheap; holding several at once is what is not
-    (the biggest departements - 29, 59, 33 - are ~1.9M parcelles, ~2.5 GB each)."""
+    (the biggest departements - 29, 59, 33 - are ~1.9M parcelles, ~2.5 GB each).
+    """
 
     def __init__(
         self,
@@ -120,7 +124,8 @@ class ParcellesIndex:
         """Build the index for one departement, reading only its rows from the file.
 
         The parcelles file keeps the source's ordering, so it is sorted by departement and
-        this filter prunes to that departement's row groups instead of scanning ~14 GB."""
+        this filter prunes to that departement's row groups instead of scanning ~14 GB.
+        """
         started = monotonic()
         table = pq.read_table(
             parcelles_file,
@@ -185,7 +190,8 @@ class ParcellesIndex:
         stable one for a given cadastre file, so a rerun gives the same answer.
 
         Also logs each case: where it is, which parcelles claim it, whether they agree on
-        the commune, and which one was kept."""
+        the commune, and which one was kept.
+        """
         # STRtree.query returns its pairs ordered by point index, which is what lets us
         # slice each point's candidates out of geom_pos with searchsorted
         counts = np.bincount(point_pos, minlength=len(usable_rows))
@@ -243,7 +249,8 @@ class ParcellesIndex:
             - Current parcelle_id stays DVF's own parcelle when that parcelle is one of the candidates
             - Otherwise it falls back to the first candidate the R-tree returns. That order
               is arbitrary (it follows the tree traversal, not the parcelle ids), but it is
-              stable for a given cadastre file, so a rerun gives the same answer."""
+              stable for a given cadastre file, so a rerun gives the same answer.
+        """
         longitude = np.asarray(longitude, dtype="float64")
         latitude = np.asarray(latitude, dtype="float64")
         parcelle_ids = np.full(len(longitude), "", dtype=object)
@@ -283,8 +290,10 @@ class ParcellesIndex:
 
 
 def list_departements(parcelles_file: str) -> list[str]:
-    """The departements present in the parcelles file, read from the row group statistics
-    rather than by scanning the column."""
+    """Return the departements present in the parcelles file.
+
+    Read from the row group statistics rather than by scanning the column.
+    """
     metadata = pq.ParquetFile(parcelles_file).metadata
     column = [
         metadata.schema.column(i).name for i in range(metadata.num_columns)
@@ -297,13 +306,15 @@ def list_departements(parcelles_file: str) -> list[str]:
 
 
 def check_parcelles_indexes(departements: list[str], cadastre_file: str, **context):
-    """Build every departement's index once, to prove the parcelles file is usable before
-    the matching stage spends hours on it: every departement loads, holds a single
-    projection, and yields WKB shapely can parse.
+    """Build every departement's index once, to prove the parcelles file is usable.
+
+    The matching stage would otherwise spend hours on it: every departement loads, holds
+    a single projection, and yields WKB shapely can parse.
 
     One departement at a time: an index is ~1.3 GB of RAM per million parcelles, so the
     whole country at once would not fit, while building one costs only ~2s.
-    The matching itself is done downstream, from the same ParcellesIndex."""
+    The matching itself is done downstream, from the same ParcellesIndex.
+    """
     total = 0
     for departement in departements:
         index = ParcellesIndex.for_departement(departement, cadastre_file)

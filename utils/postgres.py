@@ -96,13 +96,14 @@ class PostgresClient:
 
     @staticmethod
     def _return_sql_results(cur) -> list[dict]:
-        """Return data from a sql query
+        """Return data from a sql query.
 
         Args:
             cur (Cursor): cursor from postgres connection
 
         Returns:
                   list: result of sql query, or an empty list if no result
+
         """
         try:
             data = cur.fetchall()

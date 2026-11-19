@@ -76,7 +76,7 @@ def test_failing_dags_same_ratio_alphabetical():
 
 
 def run(ts: str, failed_tasks: dict | None) -> dict:
-    """A run state shaped like the values produced by `monitor_dags`."""
+    """Return a run state shaped like the values produced by `monitor_dags`."""
     if failed_tasks is None:
         return {
             "success": False,
@@ -93,8 +93,7 @@ def run(ts: str, failed_tasks: dict | None) -> dict:
 
 
 def build_daily_summary_md(dags: list[tuple[str, str]]) -> tuple[str, set[str]]:
-    """Build the markdown message and ping set for the given DAGs as
-    (config key, actual id).
+    """Build the markdown message and ping set for the given DAGs as (config key, actual id).
 
     Two DAGs are always provided: the first fails with a nested "tâches en
     échec" list and the second (a plain failure), so a regression (issue #847)
@@ -117,9 +116,11 @@ def build_daily_summary_md(dags: list[tuple[str, str]]) -> tuple[str, set[str]]:
 
 
 def test_daily_summary_no_dag_absorbed_by_nested_list():
-    """Regression test for issue #847: a DAG whose entry ends with a nested
-    "tâches en échec" list must not absorb the following DAG one level too
-    deep once the message is rendered."""
+    """Regression test for issue #847.
+
+    A DAG whose entry ends with a nested "tâches en échec" list must not absorb
+    the following DAG one level too deep once the message is rendered.
+    """
     dags = [
         ("data_processing_geozones", "data_processing_geozones"),
         ("data_processing_finess", "data_processing_finess"),

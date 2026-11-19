@@ -1,6 +1,4 @@
-"""
-This script is being refactored and is heavy in comments.
-"""
+"""Script being refactored; heavy in comments."""
 
 import ftplib
 import json

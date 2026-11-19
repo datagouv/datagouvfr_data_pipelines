@@ -116,8 +116,11 @@ SEVEN_ZIP_MAGIC = b"7z\xbc\xaf'\x1c"
 
 
 def is_seven_zip(filepath):
-    """True when the file is a real 7z archive (checks magic bytes, not the
-    `.zip` file extension which the producer has historically mislabeled)."""
+    """Return True when the file is a real 7z archive.
+
+    It checks the magic bytes, not the ``.zip`` file extension which the
+    producer has historically mislabeled.
+    """
     with open(filepath, "rb") as fp:
         return fp.read(6) == SEVEN_ZIP_MAGIC
 

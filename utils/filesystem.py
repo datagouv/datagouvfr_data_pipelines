@@ -77,8 +77,7 @@ class File:
 def save_list_of_dict_to_csv(
     records_list: list[dict[str, Any]], destination_file: str
 ) -> None:
-    """
-    Appends a list of dictionaries to a CSV file.
+    """Append a list of dictionaries to a CSV file.
 
     Creates the CSV if it does not exist yet.
     All dictionaries from the list must share the same keys or a ValueError exception is raised.
@@ -87,6 +86,7 @@ def save_list_of_dict_to_csv(
         records_list (list[dict[str, Any]]): A list of dictionaries where each one
             will represent a row of values in the CSV file. Keys are headers.
         destination_file (str): The path to the destination CSV file.
+
     """
     file_exists = os.path.isfile(destination_file)
     with open(destination_file, "a", newline="") as csv_file:
@@ -104,7 +104,7 @@ def remove_files_from_directory(directory: str) -> None:
 
 
 def compute_checksum_from_file(filename: str, _type: str = "sha256") -> str:
-    """Compute sha in blocks"""
+    """Compute sha in blocks."""
     shasum = getattr(hashlib, _type)()
     with open(filename, "rb") as f:
         block = f.read(2**16)
