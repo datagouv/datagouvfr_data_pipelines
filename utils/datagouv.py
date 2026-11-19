@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from typing import Any
 
 import dateutil
 import requests
@@ -106,7 +107,7 @@ def create_post(
        json: return API result in a dictionnary containing metadatas
 
     """
-    payload = {
+    payload: dict[str, object] = {
         "name": name,
         "headline": headline,
         "body_type": body_type,
@@ -127,9 +128,12 @@ def create_post(
 
 def get_created_date(data: dict, date_key: str) -> datetime:
     # Helper to get created date based on a date_key that could be nested, using . as a separator
+    current: Any = data
     for key in date_key.split("."):
-        data = data.get(key)
-    created = dateutil.parser.parse(data)
+        current = current.get(key)
+    # A key missing from the path leaves current at None, which makes
+    # dateutil.parser.parse(None) raise.
+    created = dateutil.parser.parse(current)
     return created
 
 
