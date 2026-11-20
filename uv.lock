@@ -1388,7 +1388,6 @@ dependencies = [
     { name = "ipykernel" },
     { name = "jsonschema" },
     { name = "langdetect" },
-    { name = "lxml-html-clean" },
     { name = "markdown" },
     { name = "mypy-boto3-s3" },
     { name = "nbconvert" },
@@ -1398,7 +1397,6 @@ dependencies = [
     { name = "paramiko" },
     { name = "psycopg2-binary" },
     { name = "py7zr" },
-    { name = "pymupdf" },
     { name = "python-frontmatter" },
     { name = "python-magic" },
     { name = "pyyaml" },
@@ -1408,7 +1406,6 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "table-schema-to-markdown" },
     { name = "tenacity" },
-    { name = "tweepy" },
     { name = "unidecode" },
     { name = "xlsxwriter" },
 ]
@@ -1452,7 +1449,6 @@ requires-dist = [
     { name = "ipykernel", specifier = "==6.29.5" },
     { name = "jsonschema", specifier = "==4.23.0" },
     { name = "langdetect", specifier = "==1.0.9" },
-    { name = "lxml-html-clean", specifier = "==0.4.1" },
     { name = "markdown", specifier = "==3.10.2" },
     { name = "mypy-boto3-s3", specifier = "==1.42.67" },
     { name = "nbconvert", specifier = "==7.16.6" },
@@ -1462,7 +1458,6 @@ requires-dist = [
     { name = "paramiko", specifier = "==3.5.1" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
     { name = "py7zr", specifier = "==0.22.0" },
-    { name = "pymupdf", specifier = "==1.25.3" },
     { name = "python-frontmatter", specifier = "==1.1.0" },
     { name = "python-magic", specifier = "==0.4.27" },
     { name = "pyyaml", specifier = "==6.0.3" },
@@ -1472,7 +1467,6 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "==2.0.48" },
     { name = "table-schema-to-markdown", specifier = "==0.4.13" },
     { name = "tenacity", specifier = "==9.0.0" },
-    { name = "tweepy", specifier = "==4.15.0" },
     { name = "unidecode", specifier = "==1.3.8" },
     { name = "xlsxwriter", specifier = "==3.2.2" },
 ]
@@ -3054,18 +3048,6 @@ wheels = [
 ]
 
 [[package]]
-name = "lxml-html-clean"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "lxml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/81/f2/fe319e3c5cb505a361b95d1e0d0d793fe28d4dcc2fc39d3cae9324dc4233/lxml_html_clean-0.4.1.tar.gz", hash = "sha256:40c838bbcf1fc72ba4ce811fbb3135913017b27820d7c16e8bc412ae1d8bc00b", size = 21378, upload-time = "2024-11-15T06:19:30.117Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/ba/2af7a60b45bf21375e111c1e2d5d721108d06c80e3d9a3cc1d767afe1731/lxml_html_clean-0.4.1-py3-none-any.whl", hash = "sha256:b704f2757e61d793b1c08bf5ad69e4c0b68d6696f4c3c1429982caf90050bcaf", size = 14114, upload-time = "2024-11-15T06:19:27.678Z" },
-]
-
-[[package]]
 name = "mako"
 version = "1.4.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3828,15 +3810,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/99/3a/ab02c902cb380d0b950eccda4f0b67ac4f66ba490c98756d38adc4b3ccb5/numpy-2.5.5-cp315-cp315t-win32.whl", hash = "sha256:b5d08742de581c9eb61102768ccca125a2982913de399611b56981a07278de74", size = 6344124, upload-time = "2026-11-15T21:32:22.058Z" },
     { url = "https://files.pythonhosted.org/packages/fd/49/b04b1f12231e6fbcf26fd5e7949f629530e11c46a6fcd91923f61b017243/numpy-2.5.5-cp315-cp315t-win_amd64.whl", hash = "sha256:410eab02c6718cb42d06ccbb8604659f3522d2ce06ae70cacd5042092659f5af", size = 12898288, upload-time = "2026-11-15T21:32:23.871Z" },
     { url = "https://files.pythonhosted.org/packages/36/7b/935a5896b0bd441c6dd6da81f39bc5ebf8d5da891b7dcff768e1e1c088b5/numpy-2.5.5-cp315-cp315t-win_arm64.whl", hash = "sha256:b6ecbc1ff292c6799067d8064a4dd35cd25ba9d1a24aa41dd635d701691a49b5", size = 10891314, upload-time = "2026-11-15T21:32:26.357Z" },
-]
-
-[[package]]
-name = "oauthlib"
-version = "3.3.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
 ]
 
 [[package]]
@@ -4898,21 +4871,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pymupdf"
-version = "1.25.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/06/47/b61c1c44b87cbdaeecdec3f43ce524ed6b3c72172bc6184eb82c94fbc43d/pymupdf-1.25.3.tar.gz", hash = "sha256:b640187c64c5ac5d97505a92e836da299da79c2f689f3f94a67a37a493492193", size = 67259841, upload-time = "2025-02-06T13:06:03.067Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/9b/98ef4b98309e9db3baa9fe572f0e61b6130bb9852d13189970f35b703499/pymupdf-1.25.3-cp39-abi3-macosx_10_9_x86_64.whl", hash = "sha256:96878e1b748f9c2011aecb2028c5f96b5a347a9a91169130ad0133053d97915e", size = 19343576, upload-time = "2025-02-06T13:03:51.663Z" },
-    { url = "https://files.pythonhosted.org/packages/14/62/4e12126db174c8cfbf692281cda971cc4046c5f5226032c2cfaa6f83e08d/pymupdf-1.25.3-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:6ef753005b72ebfd23470f72f7e30f61e21b0b5e748045ec5b8f89e6e3068d62", size = 18580114, upload-time = "2025-02-06T13:03:25.619Z" },
-    { url = "https://files.pythonhosted.org/packages/ec/c5/cf7ecf005e4f8ba3664d6aaa0613adeba4c2ab524832c452c69857e7184f/pymupdf-1.25.3-cp39-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:cbff443d899f37b17f1e67563cc03673d50b4bf33ccc237e73d34f18f3a07ccf", size = 19442580, upload-time = "2025-03-12T11:47:22.196Z" },
-    { url = "https://files.pythonhosted.org/packages/52/de/bd1418e31f73d37b8381cd5deacfd681e6be702b8890e123e83724569ee1/pymupdf-1.25.3-cp39-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:46d90c4f9e62d1856e8db4b9f04a202ff4a7f086a816af73abdc86adb7f5e25a", size = 19999825, upload-time = "2025-02-06T13:04:39.487Z" },
-    { url = "https://files.pythonhosted.org/packages/42/ee/3c449b0de061440ba1ac984aa845315e9e2dca0ff2003c5adfc6febff203/pymupdf-1.25.3-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:a5de51efdbe4d486b6c1111c84e8a231cbfb426f3d6ff31ab530ad70e6f39756", size = 21123157, upload-time = "2025-02-06T13:03:06.966Z" },
-    { url = "https://files.pythonhosted.org/packages/83/53/71faaaf91c56f2883b13f3dd849bf2697f012eb35eb7b952d62734cff41f/pymupdf-1.25.3-cp39-abi3-win32.whl", hash = "sha256:bca72e6089f985d800596e22973f79cc08af6cbff1d93e5bda9248326a03857c", size = 15094211, upload-time = "2025-02-06T13:04:52.08Z" },
-    { url = "https://files.pythonhosted.org/packages/09/e0/d72e88a1d5e23aa381fd463057dc3d0fb29090e1e7308a870c334716579c/pymupdf-1.25.3-cp39-abi3-win_amd64.whl", hash = "sha256:4fb357438c9129fbf939b5af85323434df64e36759c399c376b62ad6da95498c", size = 16542949, upload-time = "2025-02-06T13:04:22.444Z" },
-]
-
-[[package]]
 name = "pynacl"
 version = "1.6.2"
 source = { registry = "https://pypi.org/simple" }
@@ -5454,19 +5412,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/92/32/587625f91f9a0a3d84688bf9cfc4b2480a7e8ec327cefd0ff2ac891fd2cf/requests-mock-1.12.1.tar.gz", hash = "sha256:e9e12e333b525156e82a3c852f22016b9158220d2f47454de9cae8a77d371401", size = 60901, upload-time = "2024-03-29T03:54:29.446Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/97/ec/889fbc557727da0c34a33850950310240f2040f3b1955175fdb2b36a8910/requests_mock-1.12.1-py2.py3-none-any.whl", hash = "sha256:b1e37054004cdd5e56c84454cc7df12b25f90f382159087f4b6915aaeef39563", size = 27695, upload-time = "2024-03-29T03:54:27.64Z" },
-]
-
-[[package]]
-name = "requests-oauthlib"
-version = "2.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "oauthlib" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/42/f2/05f29bc3913aea15eb670be136045bf5c5bbf4b99ecb839da9b422bb2c85/requests-oauthlib-2.0.0.tar.gz", hash = "sha256:b3dffaebd884d8cd778494369603a9e7b58d29111bf6b41bdc2dcd87203af4e9", size = 55650, upload-time = "2024-03-22T20:32:29.939Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/5d/63d4ae3b9daea098d5d6f5da83984853c1bbacd5dc826764b249fe119d24/requests_oauthlib-2.0.0-py2.py3-none-any.whl", hash = "sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36", size = 24179, upload-time = "2024-03-22T20:32:28.055Z" },
 ]
 
 [[package]]
@@ -6133,20 +6078,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ee/9f/c5201d42a484c061e528825fc8e2d565f5abd50a4ced6fb7d29c4ec99b2b/truststore-0.10.5.tar.gz", hash = "sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd", size = 28091, upload-time = "2026-10-12T22:27:31.808Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/51/e9/3a7820be2bb0fe53b6bc9c3be26d3d1158004e4c3ab953aa6840b955b1e9/truststore-0.10.5-py3-none-any.whl", hash = "sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c", size = 19017, upload-time = "2026-10-12T22:27:30.377Z" },
-]
-
-[[package]]
-name = "tweepy"
-version = "4.15.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "oauthlib" },
-    { name = "requests" },
-    { name = "requests-oauthlib" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/99/05/7c2c01bd62900eff24534779f1e1531491dfd872edb6a9d432ae91e18b4b/tweepy-4.15.0.tar.gz", hash = "sha256:1345cbcdf0a75e2d89f424c559fd49fda4d8cd7be25cd5131e3b57bad8a21d76", size = 100268, upload-time = "2025-01-15T21:25:05.307Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/53/ca632ec02085b5c432e98ae1f872a21f2b6bb6c3d022dcf586809cc65cd0/tweepy-4.15.0-py3-none-any.whl", hash = "sha256:64adcea317158937059e4e2897b3ceb750b0c2dd5df58938c2da8f7eb3b88e6a", size = 99379, upload-time = "2025-01-15T21:25:02.856Z" },
 ]
 
 [[package]]
