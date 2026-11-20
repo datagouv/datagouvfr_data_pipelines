@@ -65,7 +65,7 @@ ruff format .
 
 `ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans `dev-requirements.txt`).
 
-La configuration vit dans [`ruff.toml`](ruff.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
+La configuration vit dans la section `[tool.ruff]` de [`pyproject.toml`](pyproject.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
 
 Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; il installe lui-même les bonnes versions dans un environnement isolé :
 
