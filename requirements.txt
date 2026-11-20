@@ -1,11 +1,9 @@
 # pygrib==2.1.6
-aiohttp>=3.13.0
 apache-airflow-client==3.2.1
 apache-airflow-task-sdk==1.2.1
 astronomer-cosmos==1.15.0
 boto3==1.42.26
 datagouv-client==0.3.2
-# >=1.12 keeps pathspec compatible with mypy 2.x (which requires pathspec>=1.0)
 dbt-core==1.12.7
 dbt-postgres==1.10.0
 duckdb==1.4.1

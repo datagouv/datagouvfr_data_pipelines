@@ -1,15 +1,15 @@
 # Development dependencies for contributors (linting, formatting, tests).
 #
-# ruff is pinned here to the same version pinned in .pre-commit-config.yaml
-# (see the `rev:` of the astral-sh/ruff-pre-commit entry). mypy runs directly
-# from this virtualenv through the local pre-commit hook, so this pin is what
-# both the CLI and the hook use, for identical results for everyone.
+# ruff and mypy are pinned here to the same versions pinned in
+# .pre-commit-config.yaml (see the `rev:` of the astral-sh/ruff-pre-commit
+# and pre-commit/mirrors-mypy entries), so that running the tools directly or
+# through pre-commit yields identical results for everyone.
 #
 # Note: this file does NOT include the runtime dependencies that the DAGs
 # import. It only provides the development / quality tooling. See the README.
+aiohttp>=3.13.0
 mypy==2.1.0
-# geoparquet-io (runtime) requires pre-commit>=4.3.0
-pre-commit==4.3.0
+pre-commit>=4.3.0
 pytest-mock>=3.10.0
 pytest==8.3.4
 python-dateutil>=2.8.0

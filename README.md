@@ -65,7 +65,7 @@ ruff format .
 
 `ruff` est **épinglé à une version exacte** dans `.pre-commit-config.yaml` (et reflété dans `dev-requirements.txt`). `mypy` s'exécute depuis l'environnement virtuel du projet (hook `local` avec `language: system`) afin de voir les dépendances d'exécution et leurs types ; sa version est épinglée dans `dev-requirements.txt`.
 
-La configuration vit dans [`ruff.toml`](ruff.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
+La configuration vit dans la section `[tool.ruff]` de [`pyproject.toml`](pyproject.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
 
 Pour que tout le monde obtienne le même résultat, activer l'environnement virtuel puis lancer de préférence les outils via pre-commit ; `ruff` est installé dans un environnement isolé, tandis que `mypy` utilise celui du projet :
 
