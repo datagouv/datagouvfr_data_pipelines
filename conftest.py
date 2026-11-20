@@ -57,6 +57,7 @@ _stub_module(
     DEMO_DATAGOUV_SECRET_API_KEY="test-demo-key",
     S3_BUCKET_DATA_PIPELINE="test-bucket",
     S3_BUCKET_DATA_PIPELINE_OPEN="test-open-bucket",
+    S3_BUCKET_INFRA="test-infra-bucket",
     TCHAP_ROOM_MODERATION_NOUVEAUTES="test-room",
     GRIST_API_URL="http://test-grist/api/",
     SECRET_GRIST_API_KEY="test-grist-key",
