@@ -1,0 +1,80 @@
+{
+    "$schema": "https://frictionlessdata.io/schemas/table-schema.json",
+    "name": "schema-elections-nuances",
+    "title": "Schéma de la table de correspondance des nuances politiques par élection.",
+    "description": "",
+    "countryCode": "FR",
+    "homepage": "https://www.data.gouv.fr/datasets/donnees-des-elections-agregees",
+    "resources": [],
+    "sources": [
+        {
+            "title": "Spécification Tableschema",
+            "path": "https://specs.frictionlessdata.io/table-schema"
+        }
+    ],
+    "created": "2026-10-05",
+    "lastModified": "2026-10-05",
+    "version": "0.0.1",
+    "contributors": [],
+    "missingValues": [
+        ""
+    ],
+    "fields": [
+        {
+            "name": "id_election",
+            "title": "Identifiant de l'élection",
+            "description": "Identifiant de l'élection, au format année_type_tour.",
+            "example": "2026_muni_t1",
+            "type": "string"
+        },
+        {
+            "name": "type_nuance",
+            "title": "Type de nuance",
+            "description": "Type de candidature à laquelle la nuance s'applique : individuelle (candidat), liste ou binome.",
+            "example": "liste",
+            "type": "string",
+            "constraints": {
+                "enum": [
+                    "individuelle",
+                    "liste",
+                    "binome"
+                ]
+            }
+        },
+        {
+            "name": "bloc",
+            "title": "Bloc de clivage",
+            "description": "Bloc de clivage auquel la nuance est rattachée, lorsque la circulaire en définit un.",
+            "example": "GAU",
+            "type": "string"
+        },
+        {
+            "name": "nuance",
+            "title": "Code de la nuance",
+            "description": "Code de la nuance politique, comme dans la colonne nuance des résultats par candidat.",
+            "example": "LDVG",
+            "type": "string"
+        },
+        {
+            "name": "signification",
+            "title": "Signification",
+            "description": "Libellé de la nuance, tel que rédigé dans la circulaire.",
+            "example": "Divers gauche",
+            "type": "string"
+        },
+        {
+            "name": "commentaires",
+            "title": "Commentaires",
+            "description": "Précisions de la circulaire sur l'attribution de la nuance.",
+            "example": "Autres listes de sensibilité de gauche",
+            "type": "string"
+        },
+        {
+            "name": "source",
+            "title": "Source",
+            "description": "Circulaire du Ministère de l'Intérieur dont la grille est tirée.",
+            "example": "Circulaire INTP2602966C du 2 février 2026",
+            "type": "string"
+        }
+    ]
+}

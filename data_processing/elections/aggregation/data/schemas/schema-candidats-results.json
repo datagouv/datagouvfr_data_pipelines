@@ -1,0 +1,143 @@
+{
+    "$schema": "https://frictionlessdata.io/schemas/table-schema.json",
+    "name": "schema-elections-resultats-candidats",
+    "title": "Schéma des données agrégées des résultats des élections par candidat.",
+    "description": "",
+    "countryCode": "FR",
+    "homepage": "https://www.data.gouv.fr/datasets/donnees-des-elections-agregees",
+    "resources": [],
+    "sources": [
+        {
+            "title": "Spécification Tableschema",
+            "path": "https://specs.frictionlessdata.io/table-schema"
+        }
+    ],
+    "created": "2023-06-27",
+    "lastModified": "2026-10-05",
+    "version": "0.0.4",
+    "contributors": [],
+    "fields": [
+        {
+            "name": "id_election",
+            "title": "Identifiant de l'élection",
+            "description": "Identifiant de l'élection, au format année_type_tour.",
+            "example": "2022_pres_t1",
+            "type": "string"
+        },
+        {
+            "name": "id_brut_miom",
+            "title": "Identifiant MIOM du bureau de vote",
+            "description": "Identifiant unique du bureau de vote issu du Ministère de l'Intérieur.",
+            "example": "63113_0010",
+            "type": "string"
+        },
+        {
+            "name": "code_departement",
+            "title": "Code du département",
+            "description": "Code du département (sur 2 ou 3 caractères).",
+            "example": "63",
+            "type": "string"
+        },
+        {
+            "name": "code_commune",
+            "title": "Code de la commune",
+            "description": "Code INSEE de la commune (sur 5 caractères).",
+            "example": "63110",
+            "type": "string"
+        },
+        {
+            "name": "code_bv",
+            "title": "Code du bureau de vote",
+            "description": "Code du bureau de vote (sur 4 caractères).",
+            "example": "0002",
+            "type": "string"
+        },
+        {
+            "name": "no_panneau",
+            "title": "Numéro de panneau",
+            "description": "Numéro de panneau du/de la candidat.e pour cette élection.",
+            "example": 4,
+            "type": "integer"
+        },
+        {
+            "name": "voix",
+            "title": "Voix",
+            "description": "Nombre de voix pour le/la candidat.e.",
+            "example": 42,
+            "type": "integer"
+        },
+        {
+            "name": "ratio_voix_inscrits",
+            "title": "Pourcentage voix/inscrits",
+            "description": "Pourcentage voix/inscrits dans le bureau de vote pour ce/cette candidat.e à cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "name": "ratio_voix_exprimes",
+            "title": "Pourcentage voix/exprimes",
+            "description": "Pourcentage voix/exprimes dans le bureau de vote pour ce/cette candidat.e à cette élection.",
+            "example": 40.42,
+            "type": "number"
+        },
+        {
+            "title": "Nuance",
+            "name": "nuance",
+            "description": "Nuance politique du/de la candidat.e ou de la liste.",
+            "example": "DIV",
+            "type": "string"
+        },
+        {
+            "name": "sexe",
+            "title": "Sexe",
+            "description": "Sexe du/de la candidat.e.",
+            "example": "F",
+            "type": "string"
+        },
+        {
+            "name": "nom",
+            "title": "Nom",
+            "description": "Nom du/de la candidat.e.",
+            "example": "Dupont",
+            "type": "string"
+        },
+        {
+            "name": "prenom",
+            "title": "Prénom",
+            "description": "Prénom du/de la candidat.e.",
+            "example": "Marie",
+            "type": "string"
+        },
+        {
+            "name": "libelle_abrege_liste",
+            "title": "Libellé abrégé de la liste",
+            "description": "Libellé abrégé de la liste.",
+            "example": "Pierre Martin",
+            "type": "string"
+        },
+        {
+            "name": "libelle_etendu_liste",
+            "title": "Libellé étendu de la liste",
+            "description": "Libellé étendu de la liste.",
+            "example": "Pierre Martin",
+            "type": "string"
+        },
+        {
+            "name": "nom_tete_liste",
+            "title": "Nom de la tête de liste",
+            "description": "Nom de la tête de liste.",
+            "example": "Pierre Martin",
+            "type": "string"
+        },
+        {
+            "name": "binome",
+            "title": "Binôme",
+            "description": "Binôme du/de la candidat.e, ou binôme de candidat.e.s.",
+            "example": "Pierre Martin",
+            "type": "string"
+        }
+    ],
+    "missingValues": [
+        ""
+    ]
+}
