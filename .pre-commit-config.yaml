@@ -24,5 +24,8 @@ repos:
       - id: mypy
         # All mypy options live in mypy.ini (single source of truth).
         args: []
-        additional_dependencies: [tokenize-rt==3.2.0, 'types-requests',
-                                  'types-psutil', 'types-redis']
+        additional_dependencies:
+          - tokenize-rt==3.2.0
+          - types-requests
+          - types-psutil
+          - types-redis
