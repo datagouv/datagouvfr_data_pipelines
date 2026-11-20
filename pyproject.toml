@@ -5,49 +5,52 @@ description = "data.gouv.fr Data Pipelines"
 readme = "README.md"
 authors = [{ name = "Opendata Team", email = "opendatateam@data.gouv.fr" }]
 requires-python = ">=3.12"
+# Runtime dependencies of the DAGs. The list mirrors the requirements.txt of
+# the data-engineering-stack repository (the Airflow image), so some packages
+# are not imported by this repo: they are flagged below.
 dependencies = [
     "apache-airflow-client==3.2.1",
     "apache-airflow-task-sdk==1.2.1",
-    "astronomer-cosmos==1.15.0",
+    "astronomer-cosmos==1.15.0",  # not used in this repo (from data-engineering-stack)
     "boto3==1.42.26",
     "datagouv-client==0.3.2",
-    "dbt-core==1.12.7",
-    "dbt-postgres==1.10.0",
+    "dbt-core==1.12.7",  # not used in this repo (from data-engineering-stack)
+    "dbt-postgres==1.10.0",  # not used in this repo (from data-engineering-stack)
     "duckdb==1.4.1",
     "emails==0.6",
-    "faust-cchardet==2.1.19",
+    "faust-cchardet==2.1.19",  # not used in this repo (from data-engineering-stack)
     "feedgen==1.0.0",
     "frictionless==5.18.0",
     "geojson==3.2.0",
-    "geopandas==1.1.3",
+    "geopandas==1.1.3",  # not used in this repo (from data-engineering-stack)
     "geoparquet-io==0.2.0",
     "gitpython==3.1.27",
-    "ipykernel==6.29.5",
+    "ipykernel==6.29.5",  # Jupyter kernel used by papermill to run the notebooks
     "jsonschema==4.23.0",
     "langdetect==1.0.9",
-    "lxml-html-clean==0.4.1",
+    "lxml-html-clean==0.4.1",  # not used in this repo (from data-engineering-stack)
     "markdown==3.10.2",
     "mypy-boto3-s3==1.42.67",
     "nbconvert==7.16.6",
-    "openpyxl==3.1.5",
+    "openpyxl==3.1.5",  # pandas Excel engine
     "pandas==2.3.3",
     "papermill==2.6.0",
     "paramiko==3.5.1",
     "psycopg2-binary==2.9.12",
     "py7zr==0.22.0",
-    "pymupdf==1.25.3",
+    "pymupdf==1.25.3",  # not used in this repo (from data-engineering-stack)
     "python-frontmatter==1.1.0",
     "python-magic==0.4.27",
     "pyyaml==6.0.3",
     "requests==2.33.1",
-    "sentry-sdk==2.22.0",
+    "sentry-sdk==2.22.0",  # not used in this repo (from data-engineering-stack)
     "shapely==2.0.7",
-    "sqlalchemy==2.0.48",
+    "sqlalchemy==2.0.48",  # not used in this repo (from data-engineering-stack)
     "table-schema-to-markdown==0.4.13",
     "tenacity==9.0.0",
-    "tweepy==4.15.0",
+    "tweepy==4.15.0",  # not used in this repo (only in commented-out code in dgv/edito)
     "unidecode==1.3.8",
-    "xlsxwriter==3.2.2",
+    "xlsxwriter==3.2.2",  # pandas Excel engine
 ]
 
 [dependency-groups]
