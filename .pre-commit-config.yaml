@@ -14,7 +14,7 @@ repos:
     rev: 'v0.15.20'  # Ruff version
     hooks:
       - id: ruff-check
-        # Ruff configuration (rules, style) lives in ruff.toml, so that
+        # Ruff configuration (rules, style) lives in pyproject.toml, so that
         # `ruff check .` on the command line behaves exactly like this hook.
         args: [--fix]
       - id: ruff-format
@@ -24,5 +24,8 @@ repos:
       - id: mypy
         # All mypy options live in mypy.ini (single source of truth).
         args: []
-        additional_dependencies: [tokenize-rt==3.2.0, 'types-requests',
-                                  'types-psutil', 'types-redis']
+        additional_dependencies:
+          - tokenize-rt==3.2.0
+          - types-requests
+          - types-psutil
+          - types-redis

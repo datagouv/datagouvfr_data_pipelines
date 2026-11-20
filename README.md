@@ -16,66 +16,56 @@ Ces dags permettent de faire tourner des pipelines de données de différents ty
 
 ## Mise en place de l'environnement de développement
 
-Ce dépôt ne contient pas de `pyproject.toml` ni de fichier de dépendances pour les imports des DAGs (voir la section « Linting »). L'environnement de développement sert uniquement aux **outils de qualité** (lint, format, tests, pre-commit) et est isolé du reste.
+Les dépendances sont déclarées dans [`pyproject.toml`](pyproject.toml) et figées dans `uv.lock` :
+
+- `[project.dependencies]` : les dépendances d'exécution des DAGs. La liste reprend le `requirements.txt` de l'image Airflow ([`data-engineering-stack`](https://github.com/datagouv/data-engineering-stack/)) ; les paquets qui ne sont pas utilisés par ce dépôt y sont signalés en commentaire.
+- `[dependency-groups] dev` : les outils de développement (lint, format, tests, pre-commit).
 
 ### Prérequis
 
 - **Python 3.12** : c'est la version utilisée par la stack Airflow qui exécute ces DAGs (cf. `Dockerfile` de `apache/airflow`). Une version proche fonctionne en général, mais 3.12 est recommandé et celle que l'on vise.
-- L'outil [`uv`](https://docs.astral.sh/uv/) est recommandé mais **pas obligatoire** : une procédure sans `uv` est fournie ci-dessous.
+- L'outil [`uv`](https://docs.astral.sh/uv/).
 
-### Avec `uv` (recommandé, reproductible)
+### Installation
 
-Le fichier `.python-version` à la racine fixe la version de Python (3.12) ; `uv` le lit automatiquement.
+Le fichier `.python-version` à la racine fixe la version de Python (3.12) ; `uv` le lit automatiquement (et télécharge l'interpréteur si besoin).
 
-```
-uv venv
-uv pip install -r requirements.txt
-uv pip install -r dev-requirements.txt
-uv run pre-commit run --all-files
-# or
-# uv run pre-commmit install
+```shell
+uv sync
+uv run pre-commit install
 ```
 
-### Sans `uv`
+`uv sync` crée l'environnement `.venv/` et y installe exactement les versions de `uv.lock`, dépendances d'exécution et groupe `dev` compris. Les commandes se lancent ensuite avec `uv run <commande>` (ou directement après `source .venv/bin/activate`).
 
-```
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip install -r dev-requirements.txt
-pre-commit install
-```
-
-(Remplacer `python3.12` par l'interpréteur 3.12 de la machine ; `pyenv` lit aussi `.python-version`.)
+Pour ajouter ou mettre à jour une dépendance, utiliser `uv add <paquet>` (ou `uv add --dev <paquet>` pour un outil de développement) : `pyproject.toml` et `uv.lock` sont mis à jour ensemble.
 
 ### Notes importantes
 
-- **`requirements.txt` contient les dépendances d'exécution des DAGs**, et `dev-requirements.txt` les outils de développement (lint, format, tests, pre-commit).
-- **Il est possible de travailler avec des versions différentes** (pas de VM, autre version de Python, `uv` absent) : le fichier `.python-version` est une indication, pas une contrainte. Le seul point de cohérence obligatoire entre contributeurs/trices est porté par pre-commit, qui installe des versions **exactes** de `ruff` et `mypy` (voir `.pre-commit-config.yaml`).
+- Le seul point de cohérence obligatoire entre contributeurs/trices est porté par pre-commit, qui installe des versions **exactes** de `ruff` et `mypy` (voir `.pre-commit-config.yaml`).
 - L'environnement créé (`.venv/`) est ignoré par git ; ne pas le committer.
 
 ## Linting
 
 Ce dépôt est formaté avec [`ruff`](https://docs.astral.sh/ruff/) en [configuration par défaut](https://docs.astral.sh/ruff/configuration/), avant de commit :
 
-```
-ruff check --fix .
-ruff format .
+```shell
+uv run ruff check --fix .
+uv run ruff format .
 ```
 
-`ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans `dev-requirements.txt`).
+`ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans le groupe `dev` de `pyproject.toml`).
 
-La configuration vit dans [`ruff.toml`](ruff.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
+La configuration vit dans la section `[tool.ruff]` de [`pyproject.toml`](pyproject.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
 
 Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; il installe lui-même les bonnes versions dans un environnement isolé :
 
-```
-pre-commit run --all-files
+```shell
+uv run pre-commit run --all-files
 ```
 
 ou laisser pre-commit s'exécuter automatiquement au `commit` grâce au hook installé à l'étape « Mise en place ».
 
-Après avoir cloné ce dépôt, ne pas oublier pas d'installer https://pre-commit.com/ et d'exécuter `pre-commit install` pour installer les scripts de hooks git.
+Après avoir cloné ce dépôt, ne pas oublier d'exécuter `uv run pre-commit install` pour installer les scripts de hooks git.
 
 <details><summary>Exemple de sortie de pre-commit</summary>
 Lors du premier `commit` après l'installation, pre-commit devrait s'exécuter :
@@ -113,16 +103,16 @@ mypy.................................................(no files to check)Skipped
 
 ## Tests
 
-Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances nécessaires (dans l'environnement virtuel) :
+Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances (voir « Installation ») :
 
 ```shell
-uv pip install -r requirements.txt -r dev-requirements.txt
+uv sync
 ```
 
 Lancer toute la suite avec une seule commande, depuis la racine du dépôt :
 
 ```shell
-pytest -v
+uv run pytest -v
 ```
 
 `pytest.ini` déclare les dossiers de tests (`data_processing`, `dgv`, `utils`)

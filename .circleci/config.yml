@@ -1,30 +1,26 @@
 ---
 version: 2.1
 
-parameters:
-  python-version:
-    type: string
-    default: "3.12"
+executors:
+  uv:
+    docker:
+      - image: ghcr.io/astral-sh/uv:python3.12-trixie
 
 jobs:
   lint:
-    docker:
-      - image: cimg/python:<< pipeline.parameters.python-version >>
+    executor: uv
     steps:
       - checkout
       - run:
           name: Install pre-commit and run all hooks
           command: |
-            python -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip
-            # version alignée sur dev-requirements.txt
-            pip install pre-commit==4.2.0
-            pre-commit run --all-files --show-diff-on-failure
+            # Only the dev group (pre-commit, at the version of uv.lock): the
+            # hooks install their own tools in isolated environments.
+            uv sync --locked --only-group dev
+            uv run --no-sync pre-commit run --all-files --show-diff-on-failure
 
   test:
-    docker:
-      - image: cimg/python:<< pipeline.parameters.python-version >>
+    executor: uv
     # pytest.ini adds the parent directory ("..") to sys.path so tests can use
     # absolute imports (datagouvfr_data_pipelines...). The checkout must keep
     # the package directory name and live under that parent.
@@ -34,15 +30,11 @@ jobs:
       - run:
           name: Install dependencies and run all tests
           command: |
-            python -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt pytest
-            pytest -v
+            uv sync --locked
+            uv run --no-sync pytest -v
 
   dag-imports:
-    docker:
-      - image: cimg/python:<< pipeline.parameters.python-version >>
+    executor: uv
     # DAGs use absolute imports (datagouvfr_data_pipelines...), so the checkout
     # must keep the package directory name and its parent must be on PYTHONPATH,
     # like in production where the repo is mounted under the DAGs folder.
@@ -51,11 +43,8 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: |
-            python -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
+          # Runtime dependencies only, as in the Airflow image.
+          command: uv sync --locked --no-dev
       - run:
           name: Check DAG import errors
           command: |

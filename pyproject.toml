@@ -1,0 +1,94 @@
+[project]
+name = "datagouvfr-data-pipelines"
+version = "0.1.0"
+description = "data.gouv.fr Data Pipelines"
+readme = "README.md"
+authors = [{ name = "Opendata Team", email = "opendatateam@data.gouv.fr" }]
+requires-python = ">=3.12"
+# Runtime dependencies of the DAGs. The list mirrors the requirements.txt of
+# the data-engineering-stack repository (the Airflow image), so some packages
+# are not imported by this repo: they are flagged below.
+dependencies = [
+    "apache-airflow-client==3.2.1",
+    "apache-airflow-task-sdk==1.2.1",
+    "astronomer-cosmos==1.15.0",  # not used in this repo (from data-engineering-stack)
+    "boto3==1.42.26",
+    "datagouv-client==0.3.2",
+    "dbt-core==1.12.7",  # not used in this repo (from data-engineering-stack)
+    "dbt-postgres==1.10.0",  # not used in this repo (from data-engineering-stack)
+    "duckdb==1.4.1",
+    "emails==0.6",
+    "faust-cchardet==2.1.19",  # not used in this repo (from data-engineering-stack)
+    "feedgen==1.0.0",
+    "frictionless==5.18.0",
+    "geojson==3.2.0",
+    "geopandas==1.1.3",  # not used in this repo (from data-engineering-stack)
+    "geoparquet-io==0.2.0",
+    "gitpython==3.1.27",
+    "ipykernel==6.29.5",  # Jupyter kernel used by papermill to run the notebooks
+    "jsonschema==4.23.0",
+    "langdetect==1.0.9",
+    "markdown==3.10.2",
+    "mypy-boto3-s3==1.42.67",
+    "nbconvert==7.16.6",
+    "openpyxl==3.1.5",  # pandas Excel engine
+    "pandas==2.3.3",
+    "papermill==2.6.0",
+    "paramiko==3.5.1",
+    "psycopg2-binary==2.9.12",
+    "py7zr==0.22.0",
+    "python-frontmatter==1.1.0",
+    "python-magic==0.4.27",
+    "pyyaml==6.0.3",
+    "requests==2.33.1",
+    "sentry-sdk==2.22.0",  # not used in this repo (from data-engineering-stack)
+    "shapely==2.0.7",
+    "sqlalchemy==2.0.48",  # not used in this repo (from data-engineering-stack)
+    "table-schema-to-markdown==0.4.13",
+    "tenacity==9.0.0",
+    "unidecode==1.3.8",
+    "xlsxwriter==3.2.2",  # pandas Excel engine
+]
+
+[dependency-groups]
+dev = [
+    "aiohttp>=3.13.0",
+    "mypy==2.1.0",
+    "pre-commit>=4.3.0",
+    "pytest==8.3.4",
+    "pytest-mock>=3.10.0",
+    "python-dateutil>=2.8.0",
+    "requests>=2.25.0",
+    "requests-mock>=1.10.0",
+    "respx>=0.22.0",
+    "ruff==0.15.20",
+    "tokenize-rt==3.2.0",
+    "types-psutil==7.2.2.20260906",
+    "types-redis==4.6.0.20241004",
+    "types-requests==2.33.0.20260906",
+]
+
+# Ruff configuration — the single source of truth for linting rules.
+# It is read both by the pre-commit hook (`ruff-check`) and by the CLI
+# (`ruff check .`), so results are identical everywhere.
+[tool.ruff]
+# Selected rule sets:
+# - I: import sorting.
+# - D: docstring style. The rules requiring a docstring (D100-D107) are
+#   intentionally ignored: not every function must have one, but when one
+#   exists it must follow the convention configured below.
+lint.select = ["I", "D"]
+lint.ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
+# Docstrings follow the Google convention (sections Args:, Returns:, Raises:).
+# With this convention:
+# - D417 ensures that a documented function documents *all* its parameters.
+# - ruff has known blind spots, to check during review:
+#   * a numpydoc-style `Parameters` section alone is not reported (only
+#     malformed `Returns:` / `Raises:` sections are);
+#   * `ruff --fix` does not fully convert a numpydoc docstring to Google
+#     style: it adds the colons but keeps the underlines (`-------`) and the
+#     `Parameters` section. Conversion is done by hand.
+lint.pydocstyle.convention = "google"
+
+[tool.uv]
+package = false
