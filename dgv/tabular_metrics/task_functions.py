@@ -42,8 +42,8 @@ def extract_infos(file_name: str) -> tuple[str, str]:
     # to sort files properly
     # file names look like: haproxy-logs-27082025-slb-05.tar.gz
     match = re.search(
-        r"-(?P<day>\d{2})(?P<month>\d{2})(?P<year>\d{4})"
-        r"-slb-(?P<slb>\d{2})\.tar\.gz$",
+        r"-(?P<dd>\d{2})(?P<mm>\d{2})(?P<yyyy>\d{4})"
+        r"-slb-(?P<slb_id>\d{2})\.tar\.gz$",
         file_name,
     )
     if not match:
@@ -51,7 +51,7 @@ def extract_infos(file_name: str) -> tuple[str, str]:
             f"Unexpected log file name: '{file_name}'. Expected a name matching "
             r"haproxy-logs-<DDMMYYYY>-slb-<NN>.tar.gz"
         )
-    return (f"{match['year']}{match['month']}{match['day']}", match["slb"])
+    return (f"{match['yyyy']}{match['mm']}{match['dd']}", match["slb_id"])
 
 
 def process_line(line: str) -> dict:
