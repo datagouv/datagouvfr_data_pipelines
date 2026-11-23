@@ -41,8 +41,17 @@ def create_tabular_metrics_tables() -> None:
 def extract_infos(file_name: str) -> tuple[str, str]:
     # to sort files properly
     # file names look like: haproxy-logs-27082025-slb-05.tar.gz
-    _, _, date, _, slb = file_name.split("-")
-    return (date[4:] + date[2:4] + date[:2], slb[:2])
+    match = re.search(
+        r"-(?P<dd>\d{2})(?P<mm>\d{2})(?P<yyyy>\d{4})"
+        r"-slb-(?P<slb_id>\d{2})\.tar\.gz$",
+        file_name,
+    )
+    if not match:
+        raise ValueError(
+            f"Unexpected log file name: '{file_name}'. Expected a name matching "
+            r"haproxy-logs-<DDMMYYYY>-slb-<NN>.tar.gz"
+        )
+    return (f"{match['yyyy']}{match['mm']}{match['dd']}", match["slb_id"])
 
 
 def process_line(line: str) -> dict:
@@ -50,9 +59,12 @@ def process_line(line: str) -> dict:
     # logs look like this (in the best case):
     # 2025-08-01T00:01:19.614400+02:00 slb-04 haproxy[345597]: 127.0.0.1:2040 [01/Aug/2025:00:01:19.373] WILDCARD~ WWW-TABULAR-API-DATAGOUVFR/www-tabular-api2 0/0/5/235/+240 200 +4896 - - ---- 707/57/4/2/0 0/0 "GET /api/resources/b363e051-9649-4879-ae78-71ef227d0cc5/data/?page=5&page_size=20 HTTP/1.1"
     try:
-        found = re.search("\+\d+ \d+ \+\d+", line)
+        found = re.search(
+            r"\+(?P<tt>\d+) (?P<status>\d+) \+(?P<bytes>\d+)",
+            line,
+        )
         if found:
-            status = int(found.group().split(" ")[1])
+            status = int(found.group("status"))
             if not (200 <= status < 600):
                 status = None
     except Exception:
