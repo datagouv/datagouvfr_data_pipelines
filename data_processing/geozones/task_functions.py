@@ -17,6 +17,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.tchap import send_message
+from shapely.geometry import shape
 
 TMP_FOLDER = f"{AIRFLOW_DAG_TMP}geozones/"
 # same dataset id on demo (demo.data.gouv.fr) and prod (www.data.gouv.fr): only the
@@ -40,9 +41,10 @@ levels_file = File(
 )
 
 
-# Zones that INSEE does not describe, defined once here and used in two steps:
+# Zones that INSEE does not describe, defined once here and used in three steps:
 # 1. definition: each one is a record of the export (download_and_process_geozones)
 # 2. position: it is put under its parents (build_geozones_hierarchy)
+# 3. bbox: it is derived from the bboxes of its descendants (add_geozones_bboxes)
 # The countries, France included, come from another source and are all under the world.
 WORLD = "country-group:world"
 FRANCE = "country:fr"
@@ -78,6 +80,39 @@ HAND_MADE_ZONES = [
     ),
     HandMadeZone(DROMCOM, "DROM-COM", "fr:dromcom", None, (FRANCE,)),
 ]
+
+
+def add_geozones_bboxes(export: list[dict]) -> None:
+    # Zones with a geometry (active ones only): bbox is the tight envelope of all their
+    # polygons, [minx, miny, maxx, maxy] in WGS84.
+    for zone in export:
+        zone["bbox"] = list(shape(zone["geom"]).bounds) if zone.get("geom") else None
+
+    # The hand-made subsets and France have no geometry but descendants in the
+    # hierarchy (so this runs after it): their bbox is the union of the bboxes of every
+    # zone with a geometry that has them as ancestor. It contains the bbox of each of
+    # their descendants, and as no derived bbox feeds another the order doesn't matter.
+    # Deleted zones have no geometry, so they never count, and the derived ids are
+    # never shared with a deleted zone. Every other geometry-less zone (foreign
+    # countries, EU, arrondissements...) stays None.
+    derived = (METRO, DROM, COM, METRODROM, DROMCOM, FRANCE)
+    boxes = defaultdict(list)
+    for zone in export:
+        if zone["bbox"]:
+            for ancestor in zone["ancestors"]:
+                if ancestor in derived:
+                    boxes[ancestor].append(zone["bbox"])
+    by_id = {z["_id"]: z for z in export}
+    for zone_id in derived:
+        if not boxes[zone_id]:
+            raise ValueError(
+                f"No descendant with a bbox to derive the bbox of {zone_id}"
+            )
+        by_id[zone_id]["bbox"] = [
+            f(b[i] for b in boxes[zone_id]) for i, f in enumerate((min, min, max, max))
+        ]
+    # The world is the whole globe.
+    by_id[WORLD]["bbox"] = [-180, -90, 180, 90]
 
 
 def query_insee_sparql(query: str) -> bytes:
@@ -290,7 +325,7 @@ def resolve_geometry_year() -> int:
     current = datetime.now().year
     for year in range(current, current - 3, -1):
         probe = f"{GEOMETRY_ENDPOINT}/{year}/geojson/regions-1000m.geojson.gz"
-        if requests.head(probe).status_code == 200:
+        if requests.head(probe, timeout=120).status_code == 200:
             return year
     raise ValueError("No contours-administratifs millésime found in the last 3 years")
 
@@ -301,8 +336,9 @@ def fetch_geozones_geometries() -> dict:
     Each level maps INSEE codes to their GeoJSON geometry, e.g.
     {"fr:commune": {"21231": {...}}}.
 
-    Geometry is an enrichment, not critical data: a source that fails to download
-    is logged and skipped rather than aborting the whole geozones export.
+    Any source that fails to download aborts the export: the geometries and the
+    bboxes derived from them are needed to match datasets to zones, and publishing a
+    whole level without them would wipe the ones of the previous export.
     """
     year = resolve_geometry_year()
     logging.info("Fetching IGN geometries (millésime %s)", year)
@@ -310,13 +346,9 @@ def fetch_geozones_geometries() -> dict:
     for level, names in GEOMETRY_SOURCES.items():
         for name in names:
             url = f"{GEOMETRY_ENDPOINT}/{year}/geojson/{name}.geojson.gz"
-            try:
-                response = requests.get(url)
-                response.raise_for_status()
-                features = json.loads(gzip.decompress(response.content))["features"]
-            except (requests.RequestException, ValueError, KeyError) as e:
-                logging.warning("Skipping geometry source %s: %s", url, e)
-                continue
+            response = requests.get(url, timeout=120)
+            response.raise_for_status()
+            features = json.loads(gzip.decompress(response.content))["features"]
             for feature in features:
                 code = feature["properties"].get("code")
                 if code:
@@ -499,6 +531,7 @@ def download_and_process_geozones():
     # Enrich each zone with its hierarchy (direct parents + full ancestors), rebuilt
     # from INSEE subdivision relations plus the hand-made top of the tree. Only zones
     # kept in the export are referenced, so we never point to a filtered-out zone.
+    # Must run before the bboxes, which are derived from the ancestors.
     exported_ids = {geoz["_id"] for geoz in export}
     # INSEE also types the historical colonies as COM, and some deleted COM share
     # their id with an active zone (976, Mayotte): only the active ones are the COM.
@@ -517,13 +550,21 @@ def download_and_process_geozones():
 
     # Enrich each zone with its IGN administrative contour, joined on the INSEE
     # code. Zones with no published geometry (countries, municipal arrondissements)
-    # keep a null geom so every record exposes the key.
+    # keep a null geom so every record exposes the key. Deleted zones too: IGN only
+    # publishes today's contours, and a deleted zone sharing its code with an active
+    # one (976, a commune merged into a commune nouvelle) would get the current shape.
     geometries = fetch_geozones_geometries()
     for geoz in export:
-        geoz["geom"] = geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+        geoz["geom"] = (
+            None
+            if geoz["is_deleted"]
+            else geometries.get(geoz["level"], {}).get(geoz["codeINSEE"])
+        )
     logging.info(
         "Geometry attached to %s zones", sum(1 for z in export if z.get("geom"))
     )
+    add_geozones_bboxes(export)
+    logging.info("Bbox attached to %s zones", sum(1 for z in export if z.get("bbox")))
 
     # Enrich with the legal population (geo.api.gouv.fr), joined on the INSEE code.
     populations = fetch_geozones_populations()
