@@ -33,7 +33,7 @@ class GristTable:
         self.base_url = GRIST_API_URL + f"docs/{doc_id}/tables/{table_id}"
 
     def delete_rows(self, ids: list[int] | None = None) -> None:
-        """Empty some (if specified) or all rows of the table. Doesn't touch the columns"""
+        """Empty some (if specified) or all rows of the table. Doesn't touch the columns."""
         if ids is None:
             records = RequestRetry.get(
                 f"{self.base_url}/records",
@@ -47,8 +47,8 @@ class GristTable:
         handle_grist_error(r)
 
     def delete_and_recreate_columns(self, new_columns: list | dict) -> dict[str, str]:
-        """
-        Delete and recreate columns in the table
+        """Delete and recreate columns in the table.
+
         Intended to be used when the table is empty to prevent unwanted behaviour
         'new_columns' can be a list or a dict:
             - list: ids and labels are set to the same values
@@ -104,7 +104,7 @@ class GristTable:
     def recordify(
         df: pd.DataFrame, returned_columns: dict | None
     ) -> dict[str, list[dict]]:
-        """Renames columns (if ids have been changed by grist) and wraps the content as expected"""
+        """Rename columns (if ids have been changed by grist) and wraps the content as expected."""
         if returned_columns:
             df = df.rename(returned_columns, axis=1)
         records = json.loads(df.to_json(orient="records"))
@@ -124,10 +124,10 @@ class GristTable:
             return {c["fields"]["label"]: c["id"] for c in r.json()["columns"]}
 
     def _handle_and_return_columns(self, df: pd.DataFrame, append: bool | str) -> dict:
-        """
-        Handles cases where the df has more/less columns than the table:
-            - more: add missing columns (empty) for the records to be uploaded
-            - less: grist handles it (but adds default values to rows)
+        """Handle cases where the df has more/less columns than the table.
+
+        - more: add missing columns (empty) for the records to be uploaded
+        - less: grist handles it (but adds default values to rows)
         """
         returned_columns = self.get_columns_mapping(id_to_label=False)
         if append == "exact" and sorted(list(returned_columns.keys())) != sorted(
@@ -162,8 +162,8 @@ class GristTable:
         return returned_columns
 
     def from_dataframe(self, df: pd.DataFrame, append: bool | str = False) -> list:
-        """
-        Uploads a pd.DataFrame to a grist table (in chunks to avoid 413 errors)
+        """Upload a pd.DataFrame to a grist table (in chunks to avoid 413 errors).
+
         If the table(_id) already exists:
             - if append:
                 > append=='lazy': append records at the end of the table, add new columns if needed
@@ -239,8 +239,8 @@ class GristTable:
         columns_labels: bool = True,
         usecols: list[str] | None = None,
     ) -> pd.DataFrame:
-        """
-        Gets a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
+        """Get a grist table as a pd.Dataframe. You may choose if you want the columns' labels or ids.
+
         Fill in usecols with the list of the columns you want to keep (using their ids).
         """
         r = RequestRetry.get(f"{self.base_url}/records", headers=headers)

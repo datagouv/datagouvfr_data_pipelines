@@ -23,8 +23,10 @@ def _parents(codes: list[str], epci: dict[str, str]) -> dict[str, str]:
 
 
 def test_arrondissements_are_attached_to_their_metropole():
-    """Les arrondissements municipaux ne sont membres d'aucun EPCI : ils prennent
-    celui de leur ville."""
+    """Les arrondissements municipaux ne sont membres d'aucun EPCI.
+
+    Ils prennent celui de leur ville.
+    """
     parents = _parents(["75101", "69381", "13201"], {})
     assert parents == {
         "75101": METROPOLE_GRAND_PARIS,
@@ -34,8 +36,10 @@ def test_arrondissements_are_attached_to_their_metropole():
 
 
 def test_communes_outside_the_metropole_keep_their_own_epci():
-    """Affoux (Rhône) et Arles (Bouches-du-Rhône) partagent le préfixe de
-    département de Lyon et Marseille sans appartenir à leur métropole."""
+    """Affoux (Rhône) et Arles (Bouches-du-Rhône) partagent le préfixe de département.
+
+    C'est celui de Lyon et de Marseille, sans pour autant appartenir à leur métropole.
+    """
     parents = _parents(
         ["69001", "13004"],
         {"69001": CA_OUEST_RHODANIEN, "13004": CA_ARLES},

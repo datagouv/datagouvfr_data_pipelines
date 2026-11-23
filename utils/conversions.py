@@ -15,11 +15,13 @@ def csv_to_parquet(
     compression: str = "zstd",
     **kwargs,
 ) -> str:
-    """
-    if dtype is not specified, columns are required to load everything as string (for safety)
+    """If dtype is not specified, columns are required to load everything as string (for safety).
+
     for allowed types see https://duckdb.org/docs/sql/data_types/overview.html
     """
-    assert dtype is not None or columns is not None
+    if dtype is None:
+        assert columns is not None
+        dtype = {c: "VARCHAR" for c in columns}
     if output_name is None:
         output_name = csv_file_path.split("/")[-1].replace(".csv", ".parquet")
     if output_path is None:
@@ -28,7 +30,7 @@ def csv_to_parquet(
     db = duckdb.read_csv(
         csv_file_path,
         sep=sep,
-        dtype=dtype or {c: "VARCHAR" for c in columns},
+        dtype=dtype,
         **kwargs,
     )
     logging.info(f"to {output_path + output_name}")

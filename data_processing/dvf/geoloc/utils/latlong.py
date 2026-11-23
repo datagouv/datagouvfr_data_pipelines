@@ -11,11 +11,13 @@ from datagouvfr_data_pipelines.utils.s3 import S3Client
 
 
 class S3RangeFile(io.RawIOBase):
-    """Minimal seekable reader over an S3 object, so that pyarrow can read the parquet
-    footer and then stream row groups with range requests.
-    We don't use pyarrow's own S3FileSystem because its AWS SDK sends an
-    `x-amz-checksum-mode` header that OVH rejects (AWS Error 134 on GetObject),
-    so we go through the boto3 client held by S3Client."""
+    """Minimal seekable reader over an S3 object, so that pyarrow can read the parquet footer.
+
+    It then streams the row groups with range requests. We don't use pyarrow's own
+    S3FileSystem because its AWS SDK sends an `x-amz-checksum-mode` header that OVH
+    rejects (AWS Error 134 on GetObject), so we go through the boto3 client held by
+    S3Client.
+    """
 
     def __init__(self, s3_client: S3Client, bucket: str, key: str):
         self._client = s3_client.client
@@ -57,7 +59,9 @@ class S3RangeFile(io.RawIOBase):
 
 def match_year_to_snapshots(year, available_dates) -> list[str]:
     """Match year to available snapshots dates.
-    Returns a list of ISO str dates ["YYYY-MM-DD", ...]"""
+
+    Returns a list of ISO str dates ["YYYY-MM-DD", ...]
+    """
     restr_available_dates = [
         max(
             k for k in available_dates.keys() if k.startswith(f"{int(year) - 1}")
@@ -78,9 +82,9 @@ def enrich_parcelles_with_snapshot_coord(
     s3_client: S3Client,
     bucket: str,
 ) -> pd.DataFrame:
-    """Match parcelle's lat, long coordinates for a snapshot file to the DVF batch,
-    relying on parcelle ID.
-    Note: snapshot parquet files are produced by Thomas G.
+    """Match parcelle's lat, long coordinates for a snapshot file to the DVF batch.
+
+    Matching relies on the parcelle ID. Note: snapshot parquet files are produced by Thomas G.
     """
     logging.info(f"Opening {snapshot_file}...")
     parcelle_ids = pa.array(dvf_batch_df["id_parcelle"].unique(), type=pa.string())
@@ -167,6 +171,7 @@ def enrich_parcelles_with_coord(
     bucket: str,
 ):
     """Enrich DVF dataframe with parcelle's lat, long coordinates.
+
     Those parcelle coordinates can be defined at a slightly different timeframe than the mutation,
     so looping through each available snapshot of parcelle coordinates.
     """

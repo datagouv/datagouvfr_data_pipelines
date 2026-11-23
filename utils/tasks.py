@@ -7,15 +7,16 @@ FORCE_REBUILD = "force_rebuild"
 
 
 def force_rebuild_params(description: str | None = None) -> dict:
-    """
-    Ajoute le paramètre force_rebuild au DAG param.
+    """Ajoute le paramètre force_rebuild au DAG param.
+
     Ce paramètre est ensuite utilisé par force_rebuild_requested() lorsqu'on veut
     bypass des short-circuit.
     Pour ajouter d'autres paramètres à un DAG utiliser le format suivant :
     `params={...} | force_rebuild_params(),`
 
     Args:
-        description(str, None); Optionnel. Description du bouton force_rebuild sur l'UI Airflow.
+        description (str | None): Optionnel. Description du bouton force_rebuild sur l'UI Airflow.
+
     """
     return {
         FORCE_REBUILD: Param(
@@ -28,8 +29,8 @@ def force_rebuild_params(description: str | None = None) -> dict:
 
 
 def force_rebuild_requested(dag_run, context: str = "") -> bool:
-    """
-    Retourne vrai lorsqu'un DAG est lancé avec le paramètre `force_rebuild` à vrai.
+    """Retourne vrai lorsqu'un DAG est lancé avec le paramètre `force_rebuild` à vrai.
+
     Utile pour bypass des short-circuit.
     Voire les fonction `check_if_modif()`.
     """

@@ -69,8 +69,10 @@ SOURCE_DTYPES: dict[Hashable, str] = {
 
 
 def build_code_commune(source: pd.DataFrame) -> pd.Series:
-    """Returns the 5 caracters commune code:
-    department + commune, 2+3 caracters in mainland France, 3+2 overseas (97x)"""
+    """Return the 5 characters commune code.
+
+    department + commune, 2+3 characters in mainland France, 3+2 overseas (97x)
+    """
     code_dep = source["Code departement"]
     code_com = source["Code commune"]
     return pd.Series(
@@ -84,8 +86,10 @@ def build_code_commune(source: pd.DataFrame) -> pd.Series:
 
 
 def build_parcelle_id(source: pd.DataFrame, code_commune: pd.Series) -> pd.Series:
-    """Build 14 caracters parcelle ID
-    shared both by DVF df and parcelles coordinates parquet file."""
+    """Build the 14-character parcelle ID.
+
+    shared both by DVF df and parcelles coordinates parquet file.
+    """
     return (
         code_commune
         + source["Prefixe de section"].str.rjust(3, "0").fillna("000")
@@ -98,7 +102,9 @@ def build_output_columns(
     source: pd.DataFrame, map_cultures: dict[str, dict]
 ) -> dict[str, pd.Series]:
     """Build all DVF cols that are based off the source only.
-    Output one dict entry per col."""
+
+    Output one dict entry per col.
+    """
     cols: dict[str, pd.Series] = {}
 
     # Cols copied from the source, renamed only (floats already parsed by read_csv)
@@ -182,27 +188,21 @@ def enrich_year(
 
     The downloaded source file is not deleted here.
 
-    Parameters
-    ----------
-    unzipped_file_name : str
-        File name of the unzipped DVF .txt source file for a specific year, located inside tmp_folder.
-    tmp_folder : str
-        Temp folder for the DVF DAG.
-    map_cultures : dict
-        Object to get the label for a given "culture" code
-        ex: {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
-    output_scheme : dict
-        Type of each column, in the published column order
-        ex: {"id_mutation": "object", ...}
-    available_dates : dict
-        Map of the cadastre Parquet files per date
-        ex: {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
-    s3_client : S3Client
-        S3 client to read cadastre (parcelles) files
-    bucket : str
-        Name of the bucket that contains cadastre parcelles
-    """
+    Args:
+        unzipped_file_name (str): File name of the unzipped DVF .txt source
+            file for a specific year, located inside tmp_folder.
+        tmp_folder (str): Temp folder for the DVF DAG.
+        map_cultures (dict): Object to get the label for a given "culture" code
+            ex: {"cultures": {"AB": "terrains a bâtir", ...}, "cultures-speciales": {"ABREU": "Abreuvoirs",...}}
+        output_schema (dict): Type of each column, in the published column
+            order
+            ex: {"id_mutation": "object", ...}
+        available_dates (dict): Map of the cadastre Parquet files per date
+            ex: {"2020-01-01": "parcelles/cadastre-point-wgs84-2020-01-01.parquet", ...}
+        s3_client (S3Client): S3 client to read cadastre (parcelles) files
+        bucket (str): Name of the bucket that contains cadastre parcelles
 
+    """
     # Note : the whole process is RAM heavy, so trying to be efficient to fit within Airflow's capabilities
 
     dvf_version = DvfVersion.from_unzipped_file_name(unzipped_file_name)

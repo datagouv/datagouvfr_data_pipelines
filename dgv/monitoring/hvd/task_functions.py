@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from io import StringIO
 
@@ -16,6 +17,7 @@ from datagouvfr_data_pipelines.utils.grist import (
     GristTable,
     get_unique_values_from_multiple_choice_column,
 )
+from datagouvfr_data_pipelines.utils.retry import RequestRetry
 from datagouvfr_data_pipelines.utils.s3 import S3Client
 from datagouvfr_data_pipelines.utils.tchap import send_message
 from unidecode import unidecode
@@ -312,27 +314,61 @@ def get_hvd_category_from_tags(tags):
     )
 
 
-def dataservice_information(dataset_id, df_dataservices, df_resources):
+def fetch_contact_point(
+    url: str,
+    get: Callable = RequestRetry.get,
+) -> dict:
+    """Fetch the ``contact_point`` of a data.gouv record.
+
+    Returns an empty dict when the record has no contact point or answers with
+    an HTTP error. Raises ``DatagouvApiUnreachable`` when the API stays
+    unreachable after the connection retries of ``get`` and ``RuntimeError`` on
+    an unexpected payload, so a metadata build never silently mixes old and new
+    enrichment values.
     """
-    Gets:
+    try:
+        response = get(url)
+    except requests.exceptions.RequestException as exc:
+        raise DatagouvApiUnreachable(
+            f"data.gouv API unreachable to fetch contact point at {url} even "
+            f"after connection retries ({type(exc).__name__}: {exc}) — the "
+            "metadata build is aborted to avoid a mix of obsolete and fresh data"
+        ) from exc
+    if not response.ok:
+        logging.warning(
+            "No contact point for %s: data.gouv API returned HTTP %s",
+            url,
+            response.status_code,
+        )
+        return {}
+    try:
+        contact_point = response.json().get("contact_point")
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Unexpected payload from {url} (expected JSON with a "
+            "'contact_point' key) — this looks like an API contract change "
+            "rather than a transient failure"
+        ) from exc
+    return contact_point if isinstance(contact_point, dict) else {}
+
+
+def dataservice_information(dataset_id, df_dataservices, df_resources):
+    """Get the dataservice information from a dataset_id.
+
+    Returns the following fields:
         - api_title_datagouv
         - endpoint_url_datagouv
         - endpoint_description_datagouv
         - api_web_datagouv
         - contact_point_datagouv
-    from a dataset_id
     """
     dataservices = df_dataservices.loc[
         df_dataservices["datasets"].str.contains(dataset_id)
     ]
     # Skip tabular for now
     if len(dataservices.loc[dataservices["id"] != API_TABULAIRE_ID]):
-        contact_point = (
-            requests.get(
-                f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
-            )
-            .json()
-            .get("contact_point", {})
+        contact_point = fetch_contact_point(
+            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
         )
         return (
             dataservices.iloc[0]["title"],
@@ -350,10 +386,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
         url = row["url"]
         if "request=getcapabilities" in url.lower() or url.endswith(("wms", "wfs")):
             # "fake" resources that are actually dataservices
-            contact_point = (
-                requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
-                .json()
-                .get("contact_point", {})
+            contact_point = fetch_contact_point(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
             )
             return (
                 row["title"],
@@ -365,10 +399,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
     for _, row in dataset_resources.iterrows():
         url = row["url"]
         if row["format"] in ["ogc:wms", "ogc:wfs", "wms", "wfs"]:
-            contact_point = (
-                requests.get(f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/")
-                .json()
-                .get("contact_point", {})
+            contact_point = fetch_contact_point(
+                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
             )
             return (
                 row["title"],
@@ -379,12 +411,8 @@ def dataservice_information(dataset_id, df_dataservices, df_resources):
             )
     # Fallback on tabular if available
     if len(dataservices):
-        contact_point = (
-            requests.get(
-                f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
-            )
-            .json()
-            .get("contact_point", {})
+        contact_point = fetch_contact_point(
+            f"https://www.data.gouv.fr/api/1/dataservices/{dataservices.iloc[0]['id']}/"
         )
         return (
             dataservices.iloc[0]["title"],
@@ -451,28 +479,133 @@ def build_df_for_grist():
     df_datasets.to_csv(TMP_FOLDER + "fresh_hvd_metadata.csv", index=False, sep=";")
 
 
-def update_grist(**context):
-    def update_quality(dataset_id: str):
-        r = requests.get(
-            f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/",
-            headers={"X-fields": "quality"},
+class DatagouvApiUnreachable(RuntimeError):
+    """data.gouv API could not be reached even after connection retries."""
+
+
+def update_dataset_quality(
+    dataset_id: str,
+    table: GristTable,
+    get: Callable = RequestRetry.get,
+) -> bool:
+    """Fetch the data.gouv quality metrics of one dataset and store them in Grist.
+
+    Returns True when the quality was updated, False when the dataset was marked
+    unreachable. Raises ``DatagouvApiUnreachable`` when the API stays unreachable
+    even after the connection retries of ``get``, so the DAG stops instead of
+    producing a mix of obsolete and fresh metrics.
+    """
+    url = f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
+    try:
+        response = get(url, headers={"X-fields": "quality"})
+    except requests.exceptions.RequestException as exc:
+        raise DatagouvApiUnreachable(
+            f"data.gouv API unreachable for dataset {dataset_id} even after "
+            f"connection retries ({type(exc).__name__}: {exc}) — the update is "
+            "aborted to avoid a mix of obsolete and fresh quality metrics"
+        ) from exc
+    if not response.ok:
+        logging.error(
+            "HVD quality for dataset %s: data.gouv API returned HTTP %s (%s)",
+            dataset_id,
+            response.status_code,
+            url,
         )
-        if not r.ok:
-            logging.error(
-                f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/ is unreachable"
-            )
-            table.update_records(
-                conditions={"id2": dataset_id},
-                new_values={"unreachable": True},
-            )
-            return
-        dataset_quality = r.json()["quality"]
         table.update_records(
             conditions={"id2": dataset_id},
-            new_values={k: v for k, v in dataset_quality.items() if k != "score"}
-            | {"unreachable": False},
+            new_values={"unreachable": True},
         )
+        return False
+    try:
+        dataset_quality = response.json()["quality"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"HVD quality for dataset {dataset_id}: unexpected payload from "
+            f"{url} (expected JSON with a 'quality' key) — this looks like an "
+            "API contract change rather than a transient failure"
+        ) from exc
+    if not isinstance(dataset_quality, dict):
+        raise RuntimeError(
+            f"HVD quality for dataset {dataset_id}: 'quality' is not a dict in "
+            f"the payload of {url} — this looks like an API contract change "
+            "rather than a transient failure"
+        )
+    table.update_records(
+        conditions={"id2": dataset_id},
+        new_values={k: v for k, v in dataset_quality.items() if k != "score"}
+        | {"unreachable": False},
+    )
+    return True
 
+
+def update_all_qualities(
+    dataset_ids: pd.Series,
+    table: GristTable,
+    get: Callable = RequestRetry.get,
+) -> tuple[int, int]:
+    """Update the quality metrics of many datasets, aborting if the API is down.
+
+    Returns ``(updated, unreachable)`` counts. A persisted API outage raises
+    ``DatagouvApiUnreachable`` through ``update_dataset_quality`` and interrupts
+    the whole pass, so no partially refreshed set is ever published.
+    """
+    updated = 0
+    unreachable = 0
+    for dataset_id in dataset_ids:
+        if update_dataset_quality(dataset_id, table, get=get):
+            updated += 1
+        else:
+            unreachable += 1
+    logging.info(
+        "Quality metrics: updated %d datasets, marked %d unreachable",
+        updated,
+        unreachable,
+    )
+    return updated, unreachable
+
+
+def fetch_removed_dataset_info(
+    dataset_id: str,
+    get: Callable = RequestRetry.get,
+) -> tuple[str, str] | None:
+    """Fetch ``(title, organization name)`` of a dataset no longer listed as HVD.
+
+    Returns None when data.gouv answers with an HTTP error on this dataset
+    (it may have been archived or deleted). Raises ``DatagouvApiUnreachable``
+    when the API stays unreachable even after the connection retries of ``get``
+    and ``RuntimeError`` on an unexpected payload, so that neither a network
+    outage nor an API contract change silently produces partial results.
+    """
+    url = f"https://www.data.gouv.fr/api/1/datasets/{dataset_id}/"
+    try:
+        response = get(url, headers={"X-fields": "title,organization{name}"})
+    except requests.exceptions.RequestException as exc:
+        raise DatagouvApiUnreachable(
+            f"data.gouv API unreachable to inspect removed HVD dataset "
+            f"{dataset_id} even after connection retries ({type(exc).__name__}: "
+            f"{exc}) — the update is aborted to avoid a mix of obsolete and "
+            "fresh metrics"
+        ) from exc
+    if not response.ok:
+        logging.warning(
+            "HVD dataset %s not reachable on data.gouv: HTTP %s (%s)",
+            dataset_id,
+            response.status_code,
+            url,
+        )
+        return None
+    try:
+        payload = response.json()
+        return payload["title"], payload["organization"]["name"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"HVD dataset {dataset_id}: unexpected payload from {url} (expected "
+            "JSON with 'title' and 'organization.name') — this looks like an "
+            "API contract change rather than a transient failure"
+        ) from exc
+
+
+def update_grist(**context):
     old_hvd_metadata = table.to_dataframe(columns_labels=False)
     if old_hvd_metadata["id2"].nunique() != len(old_hvd_metadata):
         raise ValueError("Grist table has duplicated dataset ids")
@@ -575,21 +708,15 @@ def update_grist(**context):
     if removed_hvd:
         to_send = []
         for hvd_id in removed_hvd:
-            r = requests.get(
-                f"https://www.data.gouv.fr/api/1/datasets/{hvd_id}/",
-                headers={"X-fields": "title,organization{name}"},
-            )
-            if r.ok:
-                r = r.json()
-                to_send.append((hvd_id, r["title"], r["organization"]["name"]))
-            else:
-                logging.warning(
-                    f"Issue with https://www.data.gouv.fr/datasets/{hvd_id}/"
-                )
+            info = fetch_removed_dataset_info(hvd_id)
+            if info is None:
                 table.update_records(
                     conditions={"id2": hvd_id},
                     new_values={"unreachable": True},
                 )
+                continue
+            title, orga_name = info
+            to_send.append((hvd_id, title, orga_name))
         if to_send:
             message = (
                 "⚠️ @clarisse Les jeux de données suivants ne sont plus identifiés "
@@ -609,7 +736,7 @@ def update_grist(**context):
     # updating quality metrics
     logging.info("Updating datasets quality metrics columns")
     df = table.to_dataframe(columns_labels=False, usecols=["id2"])
-    df["id2"].apply(update_quality)
+    update_all_qualities(df["id2"], table)
     file_name = "grist_hvd.csv"
     table.to_dataframe().to_csv(TMP_FOLDER + file_name, sep=";", index=False)
     S3Client(bucket=S3_BUCKET_DATA_PIPELINE_OPEN).send_file(

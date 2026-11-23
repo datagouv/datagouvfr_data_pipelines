@@ -129,10 +129,10 @@ def query_insee_sparql(query: str) -> bytes:
 def build_geozones_hierarchy(
     map_type: dict, exported_ids: set, com_ids: set
 ) -> tuple[dict, dict]:
-    """
-    Reconstruct, for every French zone, its parents and its full set of ancestors,
-    from the INSEE "subdivisionDirecteDe" relations, and put the countries and the
-    hand-made subsets in the tree.
+    """Reconstruct, for every French zone, its parents and its full set of ancestors.
+
+    Starting from the INSEE "subdivisionDirecteDe" relations, and put the
+    countries and the hand-made subsets in the tree.
 
     Returns two dicts keyed by geozone id (e.g. "fr:commune:75056"):
       - parents: the closest parent ids that are present in the export (e.g.
@@ -331,9 +331,10 @@ def resolve_geometry_year() -> int:
 
 
 def fetch_geozones_geometries() -> dict:
-    """
-    Download IGN administrative contours and return, per level, a mapping from
-    INSEE code to its GeoJSON geometry, e.g. {"fr:commune": {"21231": {...}}}.
+    """Download IGN administrative contours and return a per-level mapping.
+
+    Each level maps INSEE codes to their GeoJSON geometry, e.g.
+    {"fr:commune": {"21231": {...}}}.
 
     Any source that fails to download aborts the export: the geometries and the
     bboxes derived from them are needed to match datasets to zones, and publishing a
@@ -360,8 +361,7 @@ POPULATION_ENDPOINT = "https://geo.api.gouv.fr"
 
 
 def fetch_geozones_populations() -> dict:
-    """
-    Return the legal population per zone as {level: {code: population}}.
+    """Return the legal population per zone as {level: {code: population}}.
 
     Source is geo.api.gouv.fr (INSEE census, recent millésime): communes and
     EPCI expose it directly, department and region populations are summed from

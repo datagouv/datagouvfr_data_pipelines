@@ -147,7 +147,7 @@ def get_schema_dict(
     schema_name: str,
     schemas_catalogue_list: list[dict],
 ) -> dict:
-    """Get the dictionnary with information on the schema (when schemas catalogue list already loaded)"""
+    """Get the dictionnary with information on the schema (when schemas catalogue list already loaded)."""
     for schema in schemas_catalogue_list:
         if schema["name"] == schema_name:
             return schema
@@ -155,10 +155,10 @@ def get_schema_dict(
 
 
 def add_most_recent_valid_version(df_ref: pd.DataFrame) -> pd.DataFrame:
-    """
-    Based on validation columns by version, adds a column to
-    the ref_table that shows the most recent version
-    of the schema for which the resource is valid
+    """Add a column to the ref_table with the most recent valid version per schema.
+
+    Based on validation columns by version; shows the most recent version
+    of the schema for which the resource is valid.
     """
     version_cols_list = [col for col in df_ref.columns if col.startswith("is_valid_v_")]
 
@@ -493,11 +493,10 @@ def get_schema_report(
     schema_name: str | None = None,
     list_schema_skip: list = [],
 ) -> tuple[dict, list]:
-    """
-    For single schema processing (e.g IRVE): specify schema_name as string
-    For general case: specify list_schema_skip as a list of schemas to ignore
-    """
+    """Specify schema_name as a string for single schema processing (e.g. IRVE).
 
+    For the general case, specify list_schema_skip as a list of schemas to ignore.
+    """
     # always specify one of these two, depending on the case
     assert schema_name or len(list_schema_skip) > 0
 
@@ -1148,8 +1147,8 @@ def update_resource_metadata(
     update_version: bool,
     should_succeed: bool,
 ) -> bool:
-    """
-    What we are doing here:
+    """List what we are doing here.
+
     - if validation_report is made from the resource's metadata (see make_validata_report
     for the logic with hydra), we don't touch anything
     - if the report is from validata:
@@ -2029,9 +2028,9 @@ def notification_synthese(
     schema_name: str = "",
     list_schema_skip: list = [],
 ) -> None:
-    """
-    For single schema processing (e.g IRVE): specify schema_name as string
-    For general case: specify list_schema_skip as a list of schemas to ignore
+    """Specify schema_name as a string for single schema processing (e.g. IRVE).
+
+    For the general case, specify list_schema_skip as a list of schemas to ignore.
     """
     assert schema_name or len(list_schema_skip) > 0
 

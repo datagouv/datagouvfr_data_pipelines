@@ -14,13 +14,15 @@ repos:
     rev: 'v0.15.20'  # Ruff version
     hooks:
       - id: ruff-check
-        args: [--fix, --extend-select, I]
+        # Ruff configuration (rules, style) lives in ruff.toml, so that
+        # `ruff check .` on the command line behaves exactly like this hook.
+        args: [--fix]
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: 'v2.1.0'
     hooks:
       - id: mypy
-        args: [--no-strict-optional, --ignore-missing-imports, --install-types,
-               --non-interactive, --explicit-package-bases]
+        # All mypy options live in mypy.ini (single source of truth).
+        args: []
         additional_dependencies: [tokenize-rt==3.2.0, 'types-requests',
                                   'types-psutil', 'types-redis']

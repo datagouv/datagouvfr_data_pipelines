@@ -10,13 +10,14 @@ from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
 def get_catalog_id_mapping(df: pd.DataFrame, column: str) -> dict[str, str]:
-    """
-    Map in a dictionary each ID from a catalog to its ID and the column (e.g. slug).
+    """Map in a dictionary each ID from a catalog to its ID and the column (e.g. slug).
+
     The dataframe in input requires an `id` column
 
     Args:
         df (pd.DataFrame): A pandas DataFrame containing the data to process.
         column (str): The column name in the DataFrame whose values will be used in combination of the id in the dictionary.
+
     """
     mapping: dict[str, str] = {}
     for _, row in df.iterrows():
@@ -30,12 +31,14 @@ def save_log_infos_to_csv(
     output_path: str,
     date: str,
 ) -> None:
-    """
-    Saves the logs info to disk, each type's list in a separate file.
+    """Save the logs info to disk, each type's list in a separate file.
 
     Args:
-        lists_per_type (Dict[str, List[Dict[str, str]]]): A dictionary where the keys are the types
+        logs_info_per_type (dict[str, list[dict[str, str]]]): A dictionary where the keys are the types
             and the values are lists of objects of that type.
+        output_path (str): Path were the CSV files should be written.
+        date (str): The date associated with the log lines, used to name the CSV files.
+
     """
     for type, list_obj in logs_info_per_type.items():
         destination_file = f"{output_path}{date}_{type}_found.csv"
@@ -45,14 +48,14 @@ def save_log_infos_to_csv(
 def parse_logs(
     logs: list[bytes], date: str, logs_config: list[DataGouvLog], output_path: str
 ) -> int:
-    """
-    Parses a list of log lines, extracts the slug, type, and segment and saves those to files.
+    """Parse a list of log lines, extracts the slug, type, and segment and saves those to files.
 
     Args:
         logs (list[bytes]): A list of log lines.
         date (str): The date associated with the log lines, formatted as a string.
         logs_config (list[DataGouvLog]): List of DataGouvLog objects.
         output_path (str): Path were the parsing output should be located.
+
     """
     lists_per_type = defaultdict(list)
     n_logs = 0
@@ -61,8 +64,9 @@ def parse_logs(
         try:
             parsed_log = b_log.decode("utf-8")
 
-            slug_line, type_detect, segment = extract_log_info(parsed_log, logs_config)
-            if slug_line:
+            result = extract_log_info(parsed_log, logs_config)
+            if result:
+                slug_line, type_detect, segment = result
                 n_logs += 1
                 lists_per_type[type_detect].append(
                     {
@@ -87,13 +91,11 @@ def parse_logs(
 
 def extract_log_info(
     log: str, logs_config: list[DataGouvLog]
-) -> tuple[str | None, str | None, str | None]:
-    """
-    Retrieve information related to the datasets, organisation or resources
-    from the anonymised HAProxy logs.
+) -> tuple[str, str, str] | None:
+    """Retrieve information related to the datasets, organisation or resources from the anonymised HAProxy logs.
 
     Args:
-        parsed_line (str): HAProxy line to parse
+        log (str): HAProxy line to parse
         logs_config (list[DataGouvLog]): list of DataGouvLog objects
 
     Returns:
@@ -108,8 +110,8 @@ def extract_log_info(
             slug_line = "ee16d126-af0f-4b3b-84d3-080ef8bc0abd"
             type = "resources"
             segment = "fr"
-    """
 
+    """
     for obj_config in logs_config:
         for segment, pattern in obj_config.log_patterns.items():
             pattern_result = re.search(pattern, log)
@@ -118,7 +120,7 @@ def extract_log_info(
                 if object_slug:
                     return object_slug, obj_config.type, segment
 
-    return (None, None, None)
+    return None
 
 
 def sum_outlinks_by_orga(
@@ -142,9 +144,7 @@ def get_matomo_outlinks(
     target: str,
     metric_date: str,
 ) -> int:
-    """
-    Fetches the count of external URL hits (outlinks) from Matomo
-    for a specific model and slug on data.gouv.fr.
+    """Fetch the count of external URL hits (outlinks) from Matomo for a specific model and slug on data.gouv.fr.
 
     Args:
         model (str): The model type (e.g., 'dataset', 'organization').
@@ -158,8 +158,8 @@ def get_matomo_outlinks(
 
     Raises:
         requests.exceptions.HTTPError: If the HTTP request to Matomo fails.
-    """
 
+    """
     matomo_url = "https://stats.data.gouv.fr/index.php"
     params: dict[str, Any] = {
         "module": "API",

@@ -1,5 +1,4 @@
-"""Unit tests for publish_yearly / publish_concat / download_published_yearly_files
-(task_functions).
+"""Unit tests for publish_yearly, publish_concat and download_published_yearly_files.
 
 The publish steps turn the built ``full-*.csv.gz`` files into resources: they parse
 each file name into a DvfVersion, pick the right title (including the semester),

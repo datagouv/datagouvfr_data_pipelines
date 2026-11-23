@@ -27,25 +27,20 @@ def get_dvf_resources(
     five full years for "april", and for "october" six files, the oldest year holding
     its last semester (``-s2``) and the newest year its first one (``-s1``).
 
-    Parameters
-    ----------
-    resources : list[Resource]
-        The resources of the DVF source dataset.
-    delivery : Delivery
-        The source data delivery (april or october).
+    Args:
+        resources (list[Resource]): The resources of the DVF source dataset.
+        delivery (Delivery): The source data delivery (april or october).
 
-    Returns
-    -------
-    list[DvfResource]
-        A list of each yearly (or half-yearly) data file with its Resource, file
-        name (e.g. "valeursfoncieres-2021-s2.txt.zip"), year and semester (if any),
-        sorted by year then semester.
+    Returns:
+        list[DvfResource]: A list of each yearly (or half-yearly) data file
+        with its Resource, file name (e.g. "valeursfoncieres-2021-s2.txt.zip"),
+        year and semester (if any), sorted by year then semester.
 
-    Raises
-    ------
-    ValueError
-        If the number or the shape of the files does not match the delivery's
-        rolling window, or if a file name does not match the expected pattern.
+    Raises:
+        ValueError: If the number or the shape of the files does not match the
+        delivery's rolling window, or if a file name does not match the
+        expected pattern.
+
     """
     main_resources = [res for res in resources if res.type == "main"]
     if len(main_resources) != delivery.count:

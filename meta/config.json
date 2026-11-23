@@ -5,7 +5,6 @@
     "data_processing_dvf_explore": true,
     "data_processing_dvf_geoloc": true,
     "data_processing_elections": true,
-    "data_processing_finess": true,
     "data_processing_geozones": true,
     "data_processing_meteo": {
         "exclude": [

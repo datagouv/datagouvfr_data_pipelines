@@ -72,14 +72,14 @@ def initialization(tmp_folder, branch, **context):
 
 
 def clean_and_create_folder(folder: str) -> None:
-    """Remove local folder if exist and (re)create it"""
+    """Remove local folder if exist and (re)create it."""
     if os.path.exists(folder):
         shutil.rmtree(folder)
     os.mkdir(folder)
 
 
 def get_consolidated_version(tag) -> tuple[str, bool]:
-    """Analyze tag from a code source release, cast it to acceptable semver version X.X.X"""
+    """Analyze tag from a code source release, cast it to acceptable semver version X.X.X."""
     valid_version = True
     # Removing "v" or "V" from tag
     version_items = str(tag).replace("v", "").replace("V", "").split(".")
@@ -99,13 +99,17 @@ def get_consolidated_version(tag) -> tuple[str, bool]:
 
 def get_schema_name(conf: dict) -> str:
     """schema_name in schema.data.gouv.fr is referenced by group and repo name in Git.
-    Ex : etalab / schema-irve-statique"""
+
+    Ex : etalab / schema-irve-statique
+    """
     return "/".join(conf["url"].split(".git")[0].split("/")[-2:])
 
 
 def manage_errors(repertoire_slug: str, version: str | None, reason: str):
-    """Create dictionnary that will populate ERRORS_REPORT object
-    version is None when the whole schema is at fault, not one of its releases"""
+    """Create a dictionnary that will populate the ERRORS_REPORT object.
+
+    version is None when the whole schema is at fault, not one of its releases
+    """
     ERRORS_REPORT.append(
         {
             "schema": repertoire_slug,
@@ -471,7 +475,7 @@ def manage_tableschema(
     repertoire_slug: str,
     schema_file: str = "schema.json",
 ) -> dict:
-    """Check validity of a schema release from tableschema type"""
+    """Check validity of a schema release from tableschema type."""
     # Verify that a file schema.json is present
     if os.path.isfile(src_folder + schema_file):
         # Validate it with frictionless package
@@ -550,7 +554,7 @@ def manage_jsonschema(
     schema_name: str,
     repertoire_slug: str,
 ):
-    """Check validity of a schema release from jsonschema type"""
+    """Check validity of a schema release from jsonschema type."""
     conf_schema = None
     # Verify that a file schemas.yml is present
     # This file will indicate title, description of jsonschema
@@ -640,7 +644,7 @@ def manage_jsonschema(
 def manage_other(
     src_folder, dest_folder, list_schemas, version, schema_name, repertoire_slug
 ):
-    """Check validity of a schema release from other type"""
+    """Check validity of a schema release from other type."""
     conf_schema = None
     # Verify that a file schema.yml is present
     # This file will indicate title, description of schema
@@ -686,7 +690,7 @@ def manage_other(
 
 
 def manage_latest_folder(schema_name: str, folders: dict) -> tuple[str, str]:
-    """Create latest folder containing all files from latest valid version of a schema"""
+    """Create latest folder containing all files from latest valid version of a schema."""
     # Get all valid version from a schema by analyzing folders
     # then sort them to get latest valid version and related folder
     subfolders = [
@@ -758,10 +762,10 @@ def generate_catalog_object(
     schema_type: str,
     schema_name: str,
     folders: dict,
-    obj_info: dict | None = None,
+    obj_info: dict,
     datapackage: dict | None = None,
 ) -> dict:
-    """Generate dictionnary containing all relevant information for catalog"""
+    """Generate dictionnary containing all relevant information for catalog."""
     # If tableschema, relevant information are directly into schema.json,
     # if not, relevant info are in yaml files with are stored in obj_info variable
     if schema_type == "tableschema":
@@ -807,7 +811,8 @@ def generate_catalog_object(
 
 
 def find_md_links(md):
-    """Returns dict of links in markdown:
+    """Return a dict of links in markdown.
+
     "regular": [foo](some.url)
     "footnotes": [foo][3]
     [3]: some.url
@@ -832,7 +837,7 @@ def find_md_links(md):
 
 
 def cleanLinksDocumentation(dest_folder):
-    """Custom cleaning for links in markdown"""
+    """Clean links in markdown."""
     # For every documentation.md file, do some custom cleaning for links
     file = codecs.open(dest_folder + "documentation.md", "r", "utf-8")
     data = file.read()
@@ -854,7 +859,7 @@ def cleanLinksDocumentation(dest_folder):
 
 
 def addFrontToMarkdown(dest_folder, f):
-    """Custom add to every markdown files"""
+    """Add custom content to every markdown file."""
     # for every markdown files
     file = codecs.open(dest_folder + f, "r", "utf-8")
     data = file.read()
@@ -869,7 +874,7 @@ def addFrontToMarkdown(dest_folder, f):
 
 
 def getListOfFiles(dirName):
-    """Get list off all files in a specific folder"""
+    """Get list off all files in a specific folder."""
     # create a list of file and sub directories
     # names in the given directory
     listOfFile = os.listdir(dirName)
@@ -887,7 +892,7 @@ def getListOfFiles(dirName):
 
 
 def get_contributors(url):
-    """Get list off all contributors of a specific git repo"""
+    """Get list off all contributors of a specific git repo."""
     parse_url = parse.urlsplit(url)
     # if github, use github api
     if "github.com" in parse_url.netloc:
@@ -1121,8 +1126,10 @@ def get_template_github_issues(suffix):
 
 def deduplicate_updates(updates: dict) -> bool:
     """Remove repeated entries per date and change type, keeping the first occurrence.
+
     Before new_version entries were made unique per schema, a schema gaining several
-    versions at once produced as many identical entries. Returns True if it removed any."""
+    versions at once produced as many identical entries. Returns True if it removed any.
+    """
     removed = 0
     for change_types in updates.values():
         for change_type, entries in change_types.items():
@@ -1143,8 +1150,10 @@ def deduplicate_updates(updates: dict) -> bool:
 # means reworking the "if changes[today] or duplicates_removed" block and the early return.
 def deduplicate_rss(rss_folder: str) -> int:
     """Remove repeated <item> elements from the RSS feeds, keeping the first occurrence.
+
     Same cause as deduplicate_updates, except the feeds are only ever appended to, so
-    they are not fixed by rewriting schema-updates.json. Returns how many were removed."""
+    they are not fixed by rewriting schema-updates.json. Returns how many were removed.
+    """
     removed = 0
     for file_name in sorted(os.listdir(rss_folder)):
         if not file_name.endswith(".xml"):
@@ -1637,7 +1646,7 @@ def publish_schema_dataset(tmp_folder, AIRFLOW_ENV, branch, suffix, **context):
 
 
 def remove_all_files_extension(folder, extension):
-    """Remove all file of a specific extension in a folder"""
+    """Remove all file of a specific extension in a folder."""
     files = []
     files = getListOfFiles(folder)
     for f in files:
