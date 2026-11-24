@@ -97,7 +97,7 @@ def get_latest_theorical_batches(model: str, pack: str, grid: str, **context):
     logging.info(f"All batches: {batches}")
     tested_batches: list = get_new_batches(
         batches,
-        PACKAGES[model][pack][grid]["check_availability_url"],
+        PACKAGES[model][pack]["grids"][grid]["check_availability_url"],
     )
     logging.info(f"Tested batches: {tested_batches}")
     context["ti"].xcom_push(key="batches", value=batches)
@@ -145,7 +145,7 @@ def construct_all_possible_files(model: str, pack: str, grid: str, **kwargs) -> 
     s3_path_to_url = {}
     s3_pnt = S3Client(**s3_client_kwargs)
     for batch in tested_batches:
-        for package in PACKAGES[model][pack][grid]["packages"]:
+        for package in PACKAGES[model][pack]["grids"][grid]["packages"]:
             for timeslot in package.time:
                 # if you want to (re)construct these URLs (for instance to add a new PNT model), you can ping (with the token) a truncated version (ending at "/packages/" for instance) and see what you get
                 url = (
@@ -285,7 +285,7 @@ def build_file_id_and_date(file_name: str) -> tuple[str, str]:
 def get_current_resources(model: str, pack: str, grid: str) -> dict:
     current_resources = {}
     for r in requests.get(
-        f"{local_client.base_url}/api/1/datasets/{PACKAGES[model][pack][grid]['dataset_id'][AIRFLOW_ENV]}/",
+        f"{local_client.base_url}/api/1/datasets/{PACKAGES[model][pack]['grids'][grid]['dataset_id'][AIRFLOW_ENV]}/",
         headers={
             "X-fields": "resources{id,url,type}",
             "X-API-KEY": (
@@ -354,12 +354,14 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             # uploading files that are not on data.gouv yet
             logging.info(f"🆕 Creating resource for {file_id}")
             local_client.resource().create_remote(
-                dataset_id=PACKAGES[model][pack][grid]["dataset_id"][AIRFLOW_ENV],
+                dataset_id=PACKAGES[model][pack]["grids"][grid]["dataset_id"][
+                    AIRFLOW_ENV
+                ],
                 payload={
                     "url": infos["url"],
                     "filesize": infos["size"],
                     "title": infos["title"],
-                    "format": PACKAGES[model][pack]["extension"],
+                    "format": PACKAGES[model][pack]["infos"]["extension"],
                     "type": "main",
                 },
             )
@@ -367,7 +369,9 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
             # updating existing resources if fresher occurrences are available
             logging.info(f"🔃 Updating resource for {file_id}")
             local_client.resource(
-                dataset_id=PACKAGES[model][pack][grid]["dataset_id"][AIRFLOW_ENV],
+                dataset_id=PACKAGES[model][pack]["grids"][grid]["dataset_id"][
+                    AIRFLOW_ENV
+                ],
                 id=current_resources[file_id]["resource_id"],
                 fetch=False,
             ).update(
@@ -375,7 +379,7 @@ def publish_on_datagouv(model: str, pack: str, grid: str, **kwargs):
                     "url": infos["url"],
                     "filesize": infos["size"],
                     "title": infos["title"],
-                    "format": PACKAGES[model][pack]["extension"],
+                    "format": PACKAGES[model][pack]["infos"]["extension"],
                     "type": "main",
                 },
             )

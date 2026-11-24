@@ -5,6 +5,7 @@ from airflow.providers.standard.operators.python import ShortCircuitOperator
 from airflow.sdk import DAG
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.config import (
     PACKAGES,
+    PackInfo,
 )
 from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps.task_functions import (
     LOG_PATH,
@@ -17,7 +18,7 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 )
 
 
-def create_dag(model: str, pack: str, grid: str, infos: dict):
+def create_dag(model: str, pack: str, grid: str, infos: PackInfo):
     _id = f"_{model}_{pack}_{grid}" if not pack.startswith("$") else f"_{model}_{grid}"
     dag = DAG(
         dag_id="data_processing_meteo_pnt" + _id,
@@ -31,7 +32,12 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
         max_active_runs=2,
     )
     with dag:
-        shared_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
+        shared_kwargs = {
+            "model": model,
+            "pack": pack,
+            "grid": grid,
+            "infos": infos,
+        }
 
         _get_latest_theorical_batches = get_latest_theorical_batches(**shared_kwargs)
         clean_directory(**shared_kwargs)
@@ -57,10 +63,7 @@ def create_dag(model: str, pack: str, grid: str, infos: dict):
 
 dags = []
 for model in PACKAGES:
-    for pack in PACKAGES[model]:
-        infos = {
-            k: PACKAGES[model][pack][k] for k in ["base_url", "product", "extension"]
-        }
-        for grid in [_ for _ in PACKAGES[model][pack] if _ not in infos]:
-            # for pack in PACKAGES[model][pack][grid] ?
+    for pack, pack_infos in PACKAGES[model].items():
+        infos = pack_infos["infos"]
+        for grid in pack_infos["grids"]:
             dags.append(create_dag(model, pack, grid, infos))

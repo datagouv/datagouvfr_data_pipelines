@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 # Nb of batch we want to retrieve (every 6 hours)
 MAX_LAST_BATCHES = 60
 METEO_API_URL = "https://public-api.meteofrance.fr/previnum/"
@@ -26,6 +28,23 @@ class Package:
             )
         if kwargs.get("additional_time"):
             self.time += kwargs["additional_time"]
+
+
+class GridInfo(TypedDict):
+    dataset_id: dict[str, str]
+    check_availability_url: str
+    packages: list[Package]
+
+
+class PackInfo(TypedDict):
+    base_url: str
+    product: str
+    extension: str
+
+
+class Pack(TypedDict):
+    grids: dict[str, GridInfo]
+    infos: PackInfo
 
 
 SP1_MFWAM = Package(
@@ -95,395 +114,471 @@ ARPEGE01_TIME = [
 ]
 ARPEGE025_TIME = ["000H024H", "025H048H", "049H072H", "073H102H"]
 
-# model => pack => grid => packages
-PACKAGES = {
+# model => pack => package infos
+PACKAGES: dict[str, dict[str, Pack]] = {
     "vague-surcote": {
         "MFWAM": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65b68c83b833790f93a4ab27",
-                    "prod": "65bd1a505a5b412989a84ca7",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65b68c83b833790f93a4ab27",
+                        "prod": "65bd1a505a5b412989a84ca7",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.025/packages/SP1",
+                    "packages": [
+                        Package(
+                            name="SP1",
+                            **{
+                                "min_hour": 1,
+                                "max_hour": 48,
+                                "nb_char": 3,
+                                "additional_time": ["051H"],
+                            },
+                        )
+                    ],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.025/packages/SP1",
-                "packages": [
-                    Package(
-                        name="SP1",
-                        **{
-                            "min_hour": 1,
-                            "max_hour": 48,
-                            "nb_char": 3,
-                            "additional_time": ["051H"],
-                        },
-                    )
-                ],
-            },
-            "0.1": {
-                "dataset_id": {
-                    "dev": "65b68c841a2bd22881b8e487",
-                    "prod": "65bd1a2957e1cc7c9625e7b5",
+                "0.1": {
+                    "dataset_id": {
+                        "dev": "65b68c841a2bd22881b8e487",
+                        "prod": "65bd1a2957e1cc7c9625e7b5",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.1/packages/SP1",
+                    "packages": [SP1_MFWAM],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.1/packages/SP1",
-                "packages": [SP1_MFWAM],
+                # "0.5": {
+                #     "dataset_id": {
+                #         "dev": "65b68c841a2bd22881b8e488",
+                #         "prod": "65bd19fe0d61026813636c33",
+                #     },
+                #     "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.5/packages/SP1",
+                #     "packages": [SP1_MFWAM],
+                # },
             },
-            # "0.5": {
-            #     "dataset_id": {
-            #         "dev": "65b68c841a2bd22881b8e488",
-            #         "prod": "65bd19fe0d61026813636c33",
-            #     },
-            #     "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids/0.5/packages/SP1",
-            #     "packages": [SP1_MFWAM],
-            # },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids",
-            "product": "productMFWAM",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/MFWAM/grids",
+                "product": "productMFWAM",
+                "extension": "grib2",
+            },
         },
         "WW3-MARP": {
-            "0.01": {
-                "dataset_id": {
-                    "dev": "65b68c840053e6459a859ccf",
-                    "prod": "65bd19a20a9351d1cbe9a090",
+            "grids": {
+                "0.01": {
+                    "dataset_id": {
+                        "dev": "65b68c840053e6459a859ccf",
+                        "prod": "65bd19a20a9351d1cbe9a090",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARP/grids/0.01/packages/SP1",
+                    "packages": [SP1_WW3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARP/grids/0.01/packages/SP1",
-                "packages": [SP1_WW3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARP/grids",
-            "product": "productWMARP",
-            "extension": "nc",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARP/grids",
+                "product": "productWMARP",
+                "extension": "nc",
+            },
         },
         "WW3-MARO": {
-            "0.01": {
-                "dataset_id": {
-                    "dev": "65b68c852bb8441329433a30",
-                    "prod": "65bd19226c4e3fcbf4948f99",
+            "grids": {
+                "0.01": {
+                    "dataset_id": {
+                        "dev": "65b68c852bb8441329433a30",
+                        "prod": "65bd19226c4e3fcbf4948f99",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARO/grids/0.01/packages/SP1",
+                    "packages": [SP1_WW3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARO/grids/0.01/packages/SP1",
-                "packages": [SP1_WW3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARO/grids",
-            "product": "productWMARO",
-            "extension": "nc",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-MARO/grids",
+                "product": "productWMARO",
+                "extension": "nc",
+            },
         },
         "WW3-WARP": {
-            "0.01": {
-                "dataset_id": {
-                    "dev": "65b68c8580a75b6c6bae3d66",
-                    "prod": "65bd197cd4222b0c96db759e",
+            "grids": {
+                "0.01": {
+                    "dataset_id": {
+                        "dev": "65b68c8580a75b6c6bae3d66",
+                        "prod": "65bd197cd4222b0c96db759e",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids/0.01/packages/SP1",
+                    "packages": [SP1_WW3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids/0.01/packages/SP1",
-                "packages": [SP1_WW3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids",
-            "product": "productWWARP",
-            "extension": "nc",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/WW3-WARP/grids",
+                "product": "productWWARP",
+                "extension": "nc",
+            },
         },
         "HYCOM2D-MARP": {
-            "0.04": {
-                "dataset_id": {
-                    "dev": "65b68c8580a75b6c6bae3d67",
-                    "prod": "65bd183c9ec6ae3f87a5334a",
+            "grids": {
+                "0.04": {
+                    "dataset_id": {
+                        "dev": "65b68c8580a75b6c6bae3d67",
+                        "prod": "65bd183c9ec6ae3f87a5334a",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARP/grids/0.04/packages/SP1",
+                    "packages": [SP1_HYCOM2D_ARP],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARP/grids/0.04/packages/SP1",
-                "packages": [SP1_HYCOM2D_ARP],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARP/grids",
-            "product": "productHMARP",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARP/grids",
+                "product": "productHMARP",
+                "extension": "grib2",
+            },
         },
         "HYCOM2D-WARP": {
-            "0.04": {
-                "dataset_id": {
-                    "dev": "65b68c850e237844c20fd501",
-                    "prod": "65bd17fe9ec6ae3f87a53349",
+            "grids": {
+                "0.04": {
+                    "dataset_id": {
+                        "dev": "65b68c850e237844c20fd501",
+                        "prod": "65bd17fe9ec6ae3f87a53349",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARP/grids/0.04/packages/SP1",
+                    "packages": [SP1_HYCOM2D_ARP],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARP/grids/0.04/packages/SP1",
-                "packages": [SP1_HYCOM2D_ARP],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARP/grids",
-            "product": "productHWARP",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARP/grids",
+                "product": "productHWARP",
+                "extension": "grib2",
+            },
         },
         "HYCOM2D-MARO": {
-            "0.04": {
-                "dataset_id": {
-                    "dev": "65b68c860e237844c20fd502",
-                    "prod": "65bd17779ec6ae3f87a53348",
+            "grids": {
+                "0.04": {
+                    "dataset_id": {
+                        "dev": "65b68c860e237844c20fd502",
+                        "prod": "65bd17779ec6ae3f87a53348",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARO/grids/0.04/packages/SP1",
+                    "packages": [SP1_HYCOM2D_ARO],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARO/grids/0.04/packages/SP1",
-                "packages": [SP1_HYCOM2D_ARO],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARO/grids",
-            "product": "productHMARO",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-MARO/grids",
+                "product": "productHMARO",
+                "extension": "grib2",
+            },
         },
         "HYCOM2D-WARO": {
-            "0.04": {
-                "dataset_id": {
-                    "dev": "65b68c8545f1789c428c8907",
-                    "prod": "65bd17b9775b5222832d67a4",
+            "grids": {
+                "0.04": {
+                    "dataset_id": {
+                        "dev": "65b68c8545f1789c428c8907",
+                        "prod": "65bd17b9775b5222832d67a4",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARO/grids/0.04/packages/SP1",
+                    "packages": [SP1_HYCOM2D_ARO],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARO/grids/0.04/packages/SP1",
-                "packages": [SP1_HYCOM2D_ARO],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARO/grids",
-            "product": "productHWARO",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetWAVESMODELS/models/HYCOM2D-WARO/grids",
+                "product": "productHWARO",
+                "extension": "grib2",
+            },
         },
     },
     "arome-om": {
         "ANTIL": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65b68c862bb8441329433a31",
-                    "prod": "65bd162b9dc0d31edfabc2b9",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65b68c862bb8441329433a31",
+                        "prod": "65bd162b9dc0d31edfabc2b9",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-ANTIL/grids/0.025/packages/IP1",
+                    "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-ANTIL/grids/0.025/packages/IP1",
-                "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-ANTIL/grids",
-            "product": "productOMAN",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-ANTIL/grids",
+                "product": "productOMAN",
+                "extension": "grib2",
+            },
         },
         "GUYANE": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65b68c860053e6459a859cd0",
-                    "prod": "65e0bd4b88e4fd88b989ba46",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65b68c860053e6459a859cd0",
+                        "prod": "65e0bd4b88e4fd88b989ba46",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-GUYANE/grids/0.025/packages/IP1",
+                    "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-GUYANE/grids/0.025/packages/IP1",
-                "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-GUYANE/grids",
-            "product": "productOMGU",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-GUYANE/grids",
+                "product": "productOMGU",
+                "extension": "grib2",
+            },
         },
         "INDIEN": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65b68c860053e6459a859cd1",
-                    "prod": "65bd1560c73941a5e0ec1891",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65b68c860053e6459a859cd1",
+                        "prod": "65bd1560c73941a5e0ec1891",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-INDIEN/grids/0.025/packages/IP1",
+                    "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-INDIEN/grids/0.025/packages/IP1",
-                "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-INDIEN/grids",
-            "product": "productOMOI",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-INDIEN/grids",
+                "product": "productOMOI",
+                "extension": "grib2",
+            },
         },
         "POLYN": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65b68c870e237844c20fd503",
-                    "prod": "65bd1509cc112e6a1458ab95",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65b68c870e237844c20fd503",
+                        "prod": "65bd1509cc112e6a1458ab95",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-POLYN/grids/0.025/packages/IP1",
+                    "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-POLYN/grids/0.025/packages/IP1",
-                "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-POLYN/grids",
-            "product": "productOMPF",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-POLYN/grids",
+                "product": "productOMPF",
+                "extension": "grib2",
+            },
         },
         "NCALED": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65b68c870e237844c20fd504",
-                    "prod": "65bd14cca6919e97e9699b09",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65b68c870e237844c20fd504",
+                        "prod": "65bd14cca6919e97e9699b09",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-NCALED/grids/0.025/packages/IP1",
+                    "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME-OM/models/AROME-OM-NCALED/grids/0.025/packages/IP1",
-                "packages": [IP1, IP2, IP3, IP4, IP5, SP1, SP2, SP3, HP1, HP2, HP3],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-NCALED/grids",
-            "product": "productOMNC",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME-OM/v1/models/AROME-OM-NCALED/grids",
+                "product": "productOMNC",
+                "extension": "grib2",
+            },
         },
     },
     "arome": {
         "$1": {
-            "0.01": {
-                "dataset_id": {
-                    "dev": "65aade5a97e39e6c4cae5252",
-                    "prod": "65bd1247a6238f16e864fa80",
+            "grids": {
+                "0.01": {
+                    "dataset_id": {
+                        "dev": "65aade5a97e39e6c4cae5252",
+                        "prod": "65bd1247a6238f16e864fa80",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids/0.01/packages/SP1",
+                    "packages": [
+                        Package(
+                            name="SP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                        ),
+                        Package(
+                            name="SP2", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                        ),
+                        Package(
+                            name="SP3", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                        ),
+                        Package(
+                            name="HP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
+                        ),
+                    ],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids/0.01/packages/SP1",
-                "packages": [
-                    Package(
-                        name="SP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
-                    ),
-                    Package(
-                        name="SP2", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
-                    ),
-                    Package(
-                        name="SP3", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
-                    ),
-                    Package(
-                        name="HP1", **{"min_hour": 0, "max_hour": 51, "nb_char": 2}
-                    ),
-                ],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids",
-            "product": "productARO",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids",
+                "product": "productARO",
+                "extension": "grib2",
+            },
         },
         "$2": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "65aadec3dc9e969fd00e71e8",
-                    "prod": "65bd12d7bfd26e26804204cb",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "65aadec3dc9e969fd00e71e8",
+                        "prod": "65bd12d7bfd26e26804204cb",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids/0.025/packages/SP1",
+                    "packages": [
+                        Package(name="IP1", **{"time": AROME_TIME}),
+                        Package(name="IP2", **{"time": AROME_TIME}),
+                        Package(name="IP3", **{"time": AROME_TIME}),
+                        Package(name="IP4", **{"time": AROME_TIME}),
+                        Package(name="IP5", **{"time": AROME_TIME}),
+                        Package(name="SP1", **{"time": AROME_TIME}),
+                        Package(name="SP2", **{"time": AROME_TIME}),
+                        Package(name="SP3", **{"time": AROME_TIME}),
+                        Package(name="HP1", **{"time": AROME_TIME}),
+                        Package(name="HP2", **{"time": AROME_TIME}),
+                        Package(name="HP3", **{"time": AROME_TIME}),
+                    ],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids/0.025/packages/SP1",
-                "packages": [
-                    Package(name="IP1", **{"time": AROME_TIME}),
-                    Package(name="IP2", **{"time": AROME_TIME}),
-                    Package(name="IP3", **{"time": AROME_TIME}),
-                    Package(name="IP4", **{"time": AROME_TIME}),
-                    Package(name="IP5", **{"time": AROME_TIME}),
-                    Package(name="SP1", **{"time": AROME_TIME}),
-                    Package(name="SP2", **{"time": AROME_TIME}),
-                    Package(name="SP3", **{"time": AROME_TIME}),
-                    Package(name="HP1", **{"time": AROME_TIME}),
-                    Package(name="HP2", **{"time": AROME_TIME}),
-                    Package(name="HP3", **{"time": AROME_TIME}),
-                ],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids",
-            "product": "productARO",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROME/models/AROME/grids",
+                "product": "productARO",
+                "extension": "grib2",
+            },
         },
     },
     "arpege": {
         "$1": {
-            "0.1": {
-                "dataset_id": {
-                    "dev": "65aaded8dc9e969fd00e71e9",
-                    "prod": "65bd13b2eb9e79ab309f6e63",
+            "grids": {
+                "0.1": {
+                    "dataset_id": {
+                        "dev": "65aaded8dc9e969fd00e71e9",
+                        "prod": "65bd13b2eb9e79ab309f6e63",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids/0.1/packages/IP1",
+                    "packages": [
+                        Package(name="IP1", **{"time": ARPEGE01_TIME}),
+                        Package(name="IP2", **{"time": ARPEGE01_TIME}),
+                        Package(name="IP3", **{"time": ARPEGE01_TIME}),
+                        Package(name="IP4", **{"time": ARPEGE01_TIME}),
+                        Package(name="SP1", **{"time": ARPEGE01_TIME}),
+                        Package(name="SP2", **{"time": ARPEGE01_TIME}),
+                        Package(name="HP1", **{"time": ARPEGE01_TIME}),
+                        Package(name="HP2", **{"time": ARPEGE01_TIME}),
+                    ],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids/0.1/packages/IP1",
-                "packages": [
-                    Package(name="IP1", **{"time": ARPEGE01_TIME}),
-                    Package(name="IP2", **{"time": ARPEGE01_TIME}),
-                    Package(name="IP3", **{"time": ARPEGE01_TIME}),
-                    Package(name="IP4", **{"time": ARPEGE01_TIME}),
-                    Package(name="SP1", **{"time": ARPEGE01_TIME}),
-                    Package(name="SP2", **{"time": ARPEGE01_TIME}),
-                    Package(name="HP1", **{"time": ARPEGE01_TIME}),
-                    Package(name="HP2", **{"time": ARPEGE01_TIME}),
-                ],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids",
-            "product": "productARP",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids",
+                "product": "productARP",
+                "extension": "grib2",
+            },
         },
         "$2": {
-            "0.25": {
-                "dataset_id": {
-                    "dev": "65aadeebdc9e969fd00e71ea",
-                    "prod": "65bd13e557b26b467363b521",
+            "grids": {
+                "0.25": {
+                    "dataset_id": {
+                        "dev": "65aadeebdc9e969fd00e71ea",
+                        "prod": "65bd13e557b26b467363b521",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids/0.25/packages/IP1",
+                    "packages": [
+                        Package(name="IP1", **{"time": ARPEGE025_TIME}),
+                        Package(name="IP2", **{"time": ARPEGE025_TIME}),
+                        Package(name="IP3", **{"time": ARPEGE025_TIME}),
+                        Package(name="IP4", **{"time": ARPEGE025_TIME}),
+                        Package(name="SP1", **{"time": ARPEGE025_TIME}),
+                        Package(name="SP2", **{"time": ARPEGE025_TIME}),
+                        Package(name="SP3", **{"time": ARPEGE025_TIME}),
+                        Package(name="HP1", **{"time": ARPEGE025_TIME}),
+                        Package(name="HP2", **{"time": ARPEGE025_TIME}),
+                    ],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids/0.25/packages/IP1",
-                "packages": [
-                    Package(name="IP1", **{"time": ARPEGE025_TIME}),
-                    Package(name="IP2", **{"time": ARPEGE025_TIME}),
-                    Package(name="IP3", **{"time": ARPEGE025_TIME}),
-                    Package(name="IP4", **{"time": ARPEGE025_TIME}),
-                    Package(name="SP1", **{"time": ARPEGE025_TIME}),
-                    Package(name="SP2", **{"time": ARPEGE025_TIME}),
-                    Package(name="SP3", **{"time": ARPEGE025_TIME}),
-                    Package(name="HP1", **{"time": ARPEGE025_TIME}),
-                    Package(name="HP2", **{"time": ARPEGE025_TIME}),
-                ],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids",
-            "product": "productARP",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetARPEGE/models/ARPEGE/grids",
+                "product": "productARP",
+                "extension": "grib2",
+            },
         },
     },
     "aromeifs": {
         "$1": {
-            "0.025": {
-                "dataset_id": {
-                    "dev": "6a3294c7190dd2ab81bef620",
-                    "prod": "6a3294c7190dd2ab81bef620",
+            "grids": {
+                "0.025": {
+                    "dataset_id": {
+                        "dev": "6a3294c7190dd2ab81bef620",
+                        "prod": "6a3294c7190dd2ab81bef620",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids/0.025/packages/SP1",
+                    "packages": [
+                        Package(name="SP1", **{"time": AROME_TIME}),
+                        Package(name="SP2", **{"time": AROME_TIME}),
+                        Package(name="SP3", **{"time": AROME_TIME}),
+                        Package(name="HP1", **{"time": AROME_TIME}),
+                        Package(name="HP2", **{"time": AROME_TIME}),
+                        Package(name="HP3", **{"time": AROME_TIME}),
+                        Package(name="IP1", **{"time": AROME_TIME}),
+                        Package(name="IP2", **{"time": AROME_TIME}),
+                        Package(name="IP3", **{"time": AROME_TIME}),
+                        Package(name="IP4", **{"time": AROME_TIME}),
+                        Package(name="IP5", **{"time": AROME_TIME}),
+                    ],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids/0.025/packages/SP1",
-                "packages": [
-                    Package(name="SP1", **{"time": AROME_TIME}),
-                    Package(name="SP2", **{"time": AROME_TIME}),
-                    Package(name="SP3", **{"time": AROME_TIME}),
-                    Package(name="HP1", **{"time": AROME_TIME}),
-                    Package(name="HP2", **{"time": AROME_TIME}),
-                    Package(name="HP3", **{"time": AROME_TIME}),
-                    Package(name="IP1", **{"time": AROME_TIME}),
-                    Package(name="IP2", **{"time": AROME_TIME}),
-                    Package(name="IP3", **{"time": AROME_TIME}),
-                    Package(name="IP4", **{"time": AROME_TIME}),
-                    Package(name="IP5", **{"time": AROME_TIME}),
-                ],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids",
-            "product": "productAROIFS",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetAROMEIFS/v1/models/AROMEIFS/grids",
+                "product": "productAROIFS",
+                "extension": "grib2",
+            },
         },
     },
     "phealth": {
         "$1": {
-            "GLOBE025": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+            "grids": {
+                "GLOBE025": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/GUYANE0025/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H102H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/GUYANE0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H102H"]})],
-            },
-            "EURW1S40": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+                "EURW1S40": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/EURW1S40/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/EURW1S40/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H051H"]})],
-            },
-            "POLYN0025": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+                "POLYN0025": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/POLYN0025/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/POLYN0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
-            },
-            "NCALED0025": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+                "NCALED0025": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/NCALED0025/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/NCALED0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
-            },
-            "GUYANE0025": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+                "GUYANE0025": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/GUYANE0025/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/GUYANE0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
-            },
-            "INDIEN0025": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+                "INDIEN0025": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/INDIEN0025/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/INDIEN0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
-            },
-            "CARAIB0025": {
-                "dataset_id": {
-                    "dev": "6a329577bebe7e84fb8fb689",
-                    "prod": "6a329577bebe7e84fb8fb689",
+                "CARAIB0025": {
+                    "dataset_id": {
+                        "dev": "6a329577bebe7e84fb8fb689",
+                        "prod": "6a329577bebe7e84fb8fb689",
+                    },
+                    "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/CARAIB0025/packages/UVQ",
+                    "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
                 },
-                "check_availability_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/CARAIB0025/packages/UVQ",
-                "packages": [Package(name="UVQ", **{"time": ["001H048H"]})],
             },
-            "base_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids",
-            "product": "productPHEALTH",
-            "extension": "grib2",
+            "infos": {
+                "base_url": f"{METEO_API_URL}DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids",
+                "product": "productPHEALTH",
+                "extension": "grib2",
+            },
         },
     },
 }
