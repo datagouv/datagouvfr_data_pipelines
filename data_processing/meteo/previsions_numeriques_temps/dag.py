@@ -32,12 +32,7 @@ def create_dag(model: str, pack: str, grid: str, infos: PackInfo):
         max_active_runs=2,
     )
     with dag:
-        shared_kwargs = {
-            "model": model,
-            "pack": pack,
-            "grid": grid,
-            "infos": infos,
-        }
+        shared_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
 
         _get_latest_theorical_batches = get_latest_theorical_batches(**shared_kwargs)
         clean_directory(**shared_kwargs)
