@@ -10,6 +10,10 @@ jobs:
   lint:
     docker:
       - image: cimg/python:<< pipeline.parameters.python-version >>
+    # mypy is invoked by name (datagouvfr_data_pipelines) from the pre-commit
+    # hook; its parent is on the search path via `mypy_path = $MYPY_CONFIG_FILE_DIR/..`.
+    # The checkout must keep the package directory name and live under that parent.
+    working_directory: ~/dags/datagouvfr_data_pipelines
     steps:
       - checkout
       - run:
