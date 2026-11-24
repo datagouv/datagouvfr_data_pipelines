@@ -22,7 +22,12 @@ repos:
     rev: 'v2.1.0'
     hooks:
       - id: mypy
-        # All mypy options live in mypy.ini (single source of truth).
-        args: []
+        # All mypy options live in mypy.ini (single source of truth). mypy is
+        # invoked on the whole package by name (`-p datagouvfr_data_pipelines`)
+        # rather than on the changed files; the package parent is put on the
+        # search path via `mypy_path = $MYPY_CONFIG_FILE_DIR/..` in mypy.ini,
+        # so paths are config-relative and mypy can run from the repo root.
+        pass_filenames: false
+        args: ['-p', 'datagouvfr_data_pipelines']
         additional_dependencies: [tokenize-rt==3.2.0, 'types-requests',
                                   'types-psutil', 'types-redis']

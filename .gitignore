@@ -7,4 +7,5 @@ schema/tmp/
 local-tmp/
 venv/
 .venv/
+.mypy_cache/
 AGENTS.md
