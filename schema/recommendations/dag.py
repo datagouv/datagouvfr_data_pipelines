@@ -48,6 +48,9 @@ with DAG(
                 ' && git commit -m "Update Recommendations '
                 f"{datetime.today().strftime('%Y-%m-%d')}"
                 '" || echo "No changes to commit"'
+                # rebase left in place on purpose: it fails with a visible conflict if
+                # site/.vuepress/public/api was modified on the remote while the run was executing
+                " && git pull --rebase origin main"
                 " && git push origin main"
             ),
         )
