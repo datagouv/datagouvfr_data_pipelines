@@ -1,4 +1,5 @@
 # pygrib==2.1.6
+aiohttp>=3.13.0
 apache-airflow-client==3.2.1
 apache-airflow-task-sdk==1.2.1
 astronomer-cosmos==1.15.0
