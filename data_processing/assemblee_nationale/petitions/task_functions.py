@@ -6,12 +6,13 @@ from datetime import datetime
 import pandas as pd
 import requests
 from airflow.sdk import task
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.bs import require_str_attr, require_tag
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -30,19 +31,6 @@ resource_id = (
     if AIRFLOW_ENV != "prod"
     else "c94c9dfe-23eb-45aa-acd1-7438c4e977db"
 )
-
-
-def _require_tag(tag: Tag | None, description: str) -> Tag:
-    if tag is None:
-        raise ValueError(f"missing {description}")
-    return tag
-
-
-def _require_str_attr(tag: Tag, name: str) -> str:
-    value = tag.get(name)
-    if not isinstance(value, str):
-        raise ValueError(f"missing {name!r} attribute on <{tag.name}>")
-    return value
 
 
 def build_status(page: BeautifulSoup) -> str:
@@ -153,16 +141,16 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
     )
     logging.info(f"{_id}: {title}")
     # all the fields have been constructed heuristically, hopefully the references won't change
-    meta = _require_tag(
+    meta = require_tag(
         page.find("meta", attrs={"property": "og:description"}),
         "og:description meta tag",
     )
-    publish_date = _require_tag(
+    publish_date = require_tag(
         page.find("div", attrs={"class": "publish-date"}), "publish-date div"
     )
     return {
         "titre": title,
-        "description": _require_str_attr(meta, "content")
+        "description": require_str_attr(meta, "content")
         .replace("\r", "")
         .replace("\n", ""),
         "date_publication": standardize_date(
