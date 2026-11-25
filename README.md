@@ -32,7 +32,6 @@ Le fichier `.python-version` à la racine fixe la version de Python (3.12) ; `uv
 
 ```shell
 uv sync
-uv run pre-commit install
 ```
 
 `uv sync` crée l'environnement `.venv/` et y installe exactement les versions de `uv.lock`, dépendances d'exécution et groupe `dev` compris. Les commandes se lancent ensuite avec `uv run <commande>` (ou directement après `source .venv/bin/activate`).
@@ -63,9 +62,36 @@ Pour que tout le monde obtienne le même résultat, lancer de préférence les o
 uv run pre-commit run --all-files
 ```
 
-ou laisser pre-commit s'exécuter automatiquement au `commit` grâce au hook installé à l'étape « Mise en place ».
+ou laisser pre-commit s'exécuter automatiquement au `commit` grâce au hook git (voir « Contribution »).
 
-Après avoir cloné ce dépôt, ne pas oublier d'exécuter `uv run pre-commit install` pour installer les scripts de hooks git.
+
+## Tests
+
+Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances (voir « Installation ») :
+
+```shell
+uv sync
+```
+
+Lancer toute la suite avec une seule commande, depuis la racine du dépôt :
+
+```shell
+uv run pytest -v
+```
+
+`pytest.ini` déclare les dossiers de tests (`data_processing`, `dgv`, `utils`)
+et le `pythonpath` nécessaire aux imports absolus. Le `conftest.py` racine
+fournit les stubs communs (Airflow, clients externes) à toutes les suites.
+
+## Contribution
+
+Avant de contribuer au dépôt et d'ouvrir une PR, il faut initialiser les hooks pre-commit :
+
+```shell
+uv run pre-commit install
+```
+
+Une fois cela fait, le formatage, le lint (tri des imports compris) et le typage sont vérifiés automatiquement avant chaque commit.
 
 <details><summary>Exemple de sortie de pre-commit</summary>
 Lors du premier `commit` après l'installation, pre-commit devrait s'exécuter :
@@ -96,23 +122,15 @@ mypy.................................................(no files to check)Skipped
 </code></pre>
 </details>
 
-## Tests
-
-Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances (voir « Installation ») :
+Si pre-commit ne peut pas être utilisé, il faut formater et linter le code avec Ruff, et vérifier le typage avec mypy. Avant de soumettre une contribution, il est obligatoire soit d'installer le hook pre-commit, soit de lancer ces commandes à la main :
 
 ```shell
-uv sync
+# Lint (tri des imports compris) et formatage
+uv run ruff check --fix && uv run ruff format
+
+# Vérification du typage (mypy)
+uv run mypy .
 ```
-
-Lancer toute la suite avec une seule commande, depuis la racine du dépôt :
-
-```shell
-uv run pytest -v
-```
-
-`pytest.ini` déclare les dossiers de tests (`data_processing`, `dgv`, `utils`)
-et le `pythonpath` nécessaire aux imports absolus. Le `conftest.py` racine
-fournit les stubs communs (Airflow, clients externes) à toutes les suites.
 
 ## CI
 
