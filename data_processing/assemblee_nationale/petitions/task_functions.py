@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 import requests
 from airflow.sdk import task
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from datagouvfr_data_pipelines.config import (
     AIRFLOW_DAG_TMP,
     AIRFLOW_ENV,
@@ -30,6 +30,19 @@ resource_id = (
     if AIRFLOW_ENV != "prod"
     else "c94c9dfe-23eb-45aa-acd1-7438c4e977db"
 )
+
+
+def _require_tag(tag: Tag | None, description: str) -> Tag:
+    if tag is None:
+        raise ValueError(f"missing {description}")
+    return tag
+
+
+def _require_str_attr(tag: Tag, name: str) -> str:
+    value = tag.get(name)
+    if not isinstance(value, str):
+        raise ValueError(f"missing {name!r} attribute on <{tag.name}>")
+    return value
 
 
 def build_status(page: BeautifulSoup) -> str:
@@ -56,7 +69,8 @@ def get_labels(page: BeautifulSoup) -> dict:
     labels = [
         el
         for el in page.find_all("a")
-        if el.get("href", "").startswith("/initiatives?filter")
+        if isinstance(href := el.get("href"), str)
+        and href.startswith("/initiatives?filter")
     ]
     commission = next(
         (lab.text for lab in labels if lab.text.startswith("Commission")), None
@@ -139,16 +153,20 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
     )
     logging.info(f"{_id}: {title}")
     # all the fields have been constructed heuristically, hopefully the references won't change
+    meta = _require_tag(
+        page.find("meta", attrs={"property": "og:description"}),
+        "og:description meta tag",
+    )
+    publish_date = _require_tag(
+        page.find("div", attrs={"class": "publish-date"}), "publish-date div"
+    )
     return {
         "titre": title,
-        "description": page.find("meta", attrs={"property": "og:description"})
-        .get("content")
+        "description": _require_str_attr(meta, "content")
         .replace("\r", "")
         .replace("\n", ""),
         "date_publication": standardize_date(
-            page.find("div", attrs={"class": "publish-date"})
-            .text.replace("\n", "")
-            .strip()
+            publish_date.text.replace("\n", "").strip()
         ),
         "nb_votes": get_votes(page),
         "statut": build_status(page),
@@ -169,10 +187,12 @@ def get_latest_petition_id(scope: str) -> int:
     if r.status_code == 200:
         soup = BeautifulSoup(r.text, "html.parser")
         card_link = soup.find("a", attrs={"class": "card__link"})
-        try:
-            return int(card_link["href"].split("-")[1])
-        except Exception:
-            pass
+        href = card_link.get("href") if card_link is not None else None
+        if isinstance(href, str):
+            try:
+                return int(href.split("-")[1])
+            except Exception:
+                pass
     raise ValueError(
         "Could not retrieve latest petition id, maybe site structure has changed"
     )
