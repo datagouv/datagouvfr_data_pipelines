@@ -7,6 +7,7 @@ authors = [{ name = "Opendata Team", email = "opendatateam@data.gouv.fr" }]
 requires-python = ">=3.12"
 # Runtime dependencies of the DAGs.
 dependencies = [
+    "apache-airflow==3.2.1",
     "apache-airflow-client==3.2.1",
     "apache-airflow-task-sdk==1.2.1",
     "astronomer-cosmos==1.15.0",  # not used by this repo

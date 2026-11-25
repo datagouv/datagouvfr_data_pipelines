@@ -1369,6 +1369,7 @@ name = "datagouvfr-data-pipelines"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "apache-airflow" },
     { name = "apache-airflow-client" },
     { name = "apache-airflow-task-sdk" },
     { name = "astronomer-cosmos" },
@@ -1430,6 +1431,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "apache-airflow", specifier = "==3.2.1" },
     { name = "apache-airflow-client", specifier = "==3.2.1" },
     { name = "apache-airflow-task-sdk", specifier = "==1.2.1" },
     { name = "astronomer-cosmos", specifier = "==1.15.0" },
