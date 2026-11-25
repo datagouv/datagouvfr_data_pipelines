@@ -5,9 +5,7 @@ description = "data.gouv.fr Data Pipelines"
 readme = "README.md"
 authors = [{ name = "Opendata Team", email = "opendatateam@data.gouv.fr" }]
 requires-python = ">=3.12"
-# Runtime dependencies of the DAGs. The list mirrors the requirements.txt of
-# the data-engineering-stack repository (the Airflow image), so some packages
-# are not imported by this repo: they are flagged below.
+# Runtime dependencies of the DAGs.
 dependencies = [
     "apache-airflow-client==3.2.1",
     "apache-airflow-task-sdk==1.2.1",
