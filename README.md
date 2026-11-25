@@ -63,11 +63,11 @@ ruff check --fix .
 ruff format .
 ```
 
-`ruff` et `mypy` sont **épinglés à des versions exactes** dans `.pre-commit-config.yaml` (et reflétées dans `dev-requirements.txt`).
+`ruff` est **épinglé à une version exacte** dans `.pre-commit-config.yaml` (et reflété dans `dev-requirements.txt`). `mypy` s'exécute depuis l'environnement virtuel du projet (hook `local` avec `language: system`) afin de voir les dépendances d'exécution et leurs types ; sa version est épinglée dans `dev-requirements.txt`.
 
 La configuration vit dans [`ruff.toml`](ruff.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
 
-Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; il installe lui-même les bonnes versions dans un environnement isolé :
+Pour que tout le monde obtienne le même résultat, activer l'environnement virtuel puis lancer de préférence les outils via pre-commit ; `ruff` est installé dans un environnement isolé, tandis que `mypy` utilise celui du projet :
 
 ```
 pre-commit run --all-files
@@ -84,15 +84,10 @@ Lors du premier `commit` après l'installation, pre-commit devrait s'exécuter :
 (.venv) ➜  datagouvfr_data_pipelines git:(add-doc-for-pre-commit) ✗ gcmsg "docs: add sentence on installing pre-commit"
 [INFO] Initializing environment for https://github.com/pre-commit/pre-commit-hooks.
 [INFO] Initializing environment for https://github.com/astral-sh/ruff-pre-commit.
-[INFO] Initializing environment for https://github.com/pre-commit/mirrors-mypy.
-[INFO] Initializing environment for https://github.com/pre-commit/mirrors-mypy:tokenize-rt==3.2.0,types-requests,types-psutil,types-redis.
 [INFO] Installing environment for https://github.com/pre-commit/pre-commit-hooks.
 [INFO] Once installed this environment will be reused.
 [INFO] This may take a few minutes...
 [INFO] Installing environment for https://github.com/astral-sh/ruff-pre-commit.
-[INFO] Once installed this environment will be reused.
-[INFO] This may take a few minutes...
-[INFO] Installing environment for https://github.com/pre-commit/mirrors-mypy.
 [INFO] Once installed this environment will be reused.
 [INFO] This may take a few minutes...
 check yaml...........................................(no files to check)Skipped

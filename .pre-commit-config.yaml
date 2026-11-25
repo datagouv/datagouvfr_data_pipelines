@@ -18,10 +18,17 @@ repos:
         # `ruff check .` on the command line behaves exactly like this hook.
         args: [--fix]
       - id: ruff-format
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v2.1.0'
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy
+        # mypy runs from the project virtualenv (`language: system`) so that it
+        # can see the runtime dependencies and their type information (Airflow,
+        # pandas, boto3, ...), instead of an isolated env without them.
+        # Activate the virtualenv before committing (see README).
+        entry: mypy
+        language: system
+        types: [python]
         # All mypy options live in mypy.ini (single source of truth). mypy is
         # invoked on the whole package by name (`-p datagouvfr_data_pipelines`)
         # rather than on the changed files; the package parent is put on the
@@ -29,5 +36,3 @@ repos:
         # so paths are config-relative and mypy can run from the repo root.
         pass_filenames: false
         args: ['-p', 'datagouvfr_data_pipelines']
-        additional_dependencies: [tokenize-rt==3.2.0, 'types-requests',
-                                  'types-psutil', 'types-redis']
