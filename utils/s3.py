@@ -13,6 +13,7 @@ from datagouvfr_data_pipelines.config import AIRFLOW_DAG_TMP, AIRFLOW_ENV
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 from mypy_boto3_s3.service_resource import S3ServiceResource
+from mypy_boto3_s3.type_defs import HeadObjectOutputTypeDef
 
 
 class S3ClientKwargs(TypedDict, total=False):
@@ -159,7 +160,7 @@ class S3Client:
     ) -> bool:
         """Compare two files on a S3 bucket, returns whether they are identical."""
 
-        def get_content_length(response: dict) -> int:
+        def get_content_length(response: HeadObjectOutputTypeDef) -> str | None:
             return (
                 response.get("ResponseMetadata", {})
                 .get("HTTPHeaders", {})
@@ -168,10 +169,10 @@ class S3Client:
 
         logging.info(f"File 1: {file_1.full_source_path}")
         logging.info(f"File 2: {file_2.full_source_path}")
-        f1: dict = self.client.head_object(
+        f1 = self.client.head_object(
             Bucket=self.bucket.name, Key=file_1.full_source_path
         )
-        f2: dict = self.client.head_object(
+        f2 = self.client.head_object(
             Bucket=self.bucket.name, Key=file_2.full_source_path
         )
         logging.info(f"ETag file 1 : {f1['ETag']}")
