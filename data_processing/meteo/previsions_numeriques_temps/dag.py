@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import TypedDict
 
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.operators.python import ShortCircuitOperator
@@ -18,6 +19,13 @@ from datagouvfr_data_pipelines.data_processing.meteo.previsions_numeriques_temps
 )
 
 
+class SharedKwargs(TypedDict):
+    model: str
+    pack: str
+    grid: str
+    infos: PackInfo
+
+
 def create_dag(model: str, pack: str, grid: str, infos: PackInfo):
     _id = f"_{model}_{pack}_{grid}" if not pack.startswith("$") else f"_{model}_{grid}"
     dag = DAG(
@@ -32,7 +40,7 @@ def create_dag(model: str, pack: str, grid: str, infos: PackInfo):
         max_active_runs=2,
     )
     with dag:
-        shared_kwargs = {"model": model, "pack": pack, "grid": grid, "infos": infos}
+        shared_kwargs = SharedKwargs(model=model, pack=pack, grid=grid, infos=infos)
 
         _get_latest_theorical_batches = get_latest_theorical_batches(**shared_kwargs)
         clean_directory(**shared_kwargs)
