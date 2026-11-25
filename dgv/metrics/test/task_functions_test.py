@@ -24,7 +24,7 @@ def test_extract_log_info():
         )
 
 
-def test_parse_logs():
+def test_parse_logs(tmp_path):
     """Test if the function output file respects the expected parsing logic."""
     import os
 
@@ -33,10 +33,7 @@ def test_parse_logs():
 
     config = MetricsConfig()
     test_path = os.path.join(os.path.dirname(__file__), "test_")
-
-    for log_config in config.logs_config:
-        if os.path.exists(test_path + f"1900-01-01_{log_config.type}_found.csv"):
-            os.remove(test_path + f"1900-01-01_{log_config.type}_found.csv")
+    output_path = f"{tmp_path}/"
 
     with open(test_path + "raw.log", "rb") as log_data:
         lines = log_data.readlines()
@@ -44,12 +41,14 @@ def test_parse_logs():
             logs=lines,
             date="1900-01-01",
             logs_config=config.logs_config,
-            output_path=test_path,
+            output_path=output_path,
         )
 
     for log_config in config.logs_config:
         with (
-            open(test_path + f"1900-01-01_{log_config.type}_found.csv", "rb") as out_f,
+            open(
+                output_path + f"1900-01-01_{log_config.type}_found.csv", "rb"
+            ) as out_f,
             open(test_path + f"{log_config.type}_found_expected.csv", "rb") as exp_f,
         ):
             output_content = out_f.read()
@@ -57,10 +56,8 @@ def test_parse_logs():
 
             assert output_content == expected_content
 
-        os.remove(test_path + f"1900-01-01_{log_config.type}_found.csv")
 
-
-def test_aggregate_metrics():
+def test_aggregate_metrics(tmp_path):
     """Test if the aggregation function works correctly."""
     import os
 
@@ -72,8 +69,7 @@ def test_aggregate_metrics():
     test_path = os.path.join(os.path.dirname(__file__), "test_")
 
     for log_config in config.logs_config:
-        if os.path.exists(test_path + f"{log_config.type}.csv"):
-            os.remove(test_path + f"{log_config.type}.csv")
+        output_file = tmp_path / f"{log_config.type}.csv"
 
         df_catalog = pd.read_csv(
             f"{test_path}{log_config.type}_catalog.csv",
@@ -92,18 +88,17 @@ def test_aggregate_metrics():
             df_catalog,
             log_config,
             config,
-            f"{test_path}{log_config.type}.csv",
+            str(output_file),
         )
 
         with (
-            open(test_path + f"{log_config.type}.csv", "rb") as out_f,
+            open(output_file, "rb") as out_f,
             open(test_path + f"{log_config.type}_expected.csv", "rb") as exp_f,
         ):
             output_content = out_f.read()
             expected_content = exp_f.read()
 
             assert output_content == expected_content
-            os.remove(test_path + f"{log_config.type}.csv")
 
 
 def test_get_catalog_id_mapping():
