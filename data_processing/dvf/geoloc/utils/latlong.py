@@ -91,7 +91,8 @@ def enrich_parcelles_with_snapshot_coord(
 
     # Open just once the file to accelerate time
     coord_pf = pq.ParquetFile(
-        S3RangeFile(s3_client, bucket, snapshot_file), pre_buffer=True
+        pa.PythonFile(S3RangeFile(s3_client, bucket, snapshot_file), mode="r"),
+        pre_buffer=True,
     )
     logging.info(
         f"> {coord_pf.metadata.num_rows:,} parcelles referenced in the current cadastre snapshot file, sliced in {coord_pf.metadata.num_row_groups} row groups"
