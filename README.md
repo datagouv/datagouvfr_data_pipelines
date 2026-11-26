@@ -1,4 +1,4 @@
-# Data Pipelines data.gouv.fr
+# Data pipelines data.gouv.fr
 
 Ce dépôt contient l'ensemble des DAGs Airflow de l'équipe data.gouv.fr. Le code source permettant de générer la stack airflow que nous utilisons est hébergé [sur ce dépôt](https://github.com/datagouv/data-engineering-stack/).
 
