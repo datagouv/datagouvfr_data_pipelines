@@ -12,6 +12,7 @@ from datagouvfr_data_pipelines.config import (
     AIRFLOW_ENV,
     S3_BUCKET_DATA_PIPELINE_OPEN,
 )
+from datagouvfr_data_pipelines.utils.bs import require_str_attr, require_tag
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -56,7 +57,8 @@ def get_labels(page: BeautifulSoup) -> dict:
     labels = [
         el
         for el in page.find_all("a")
-        if el.get("href", "").startswith("/initiatives?filter")
+        if isinstance(href := el.get("href"), str)
+        and href.startswith("/initiatives?filter")
     ]
     commission = next(
         (lab.text for lab in labels if lab.text.startswith("Commission")), None
@@ -139,16 +141,20 @@ def get_row(_id: int, session: requests.Session) -> dict | None:
     )
     logging.info(f"{_id}: {title}")
     # all the fields have been constructed heuristically, hopefully the references won't change
+    meta = require_tag(
+        page.find("meta", attrs={"property": "og:description"}),
+        "og:description meta tag",
+    )
+    publish_date = require_tag(
+        page.find("div", attrs={"class": "publish-date"}), "publish-date div"
+    )
     return {
         "titre": title,
-        "description": page.find("meta", attrs={"property": "og:description"})
-        .get("content")
+        "description": require_str_attr(meta, "content")
         .replace("\r", "")
         .replace("\n", ""),
         "date_publication": standardize_date(
-            page.find("div", attrs={"class": "publish-date"})
-            .text.replace("\n", "")
-            .strip()
+            publish_date.text.replace("\n", "").strip()
         ),
         "nb_votes": get_votes(page),
         "statut": build_status(page),
@@ -169,10 +175,12 @@ def get_latest_petition_id(scope: str) -> int:
     if r.status_code == 200:
         soup = BeautifulSoup(r.text, "html.parser")
         card_link = soup.find("a", attrs={"class": "card__link"})
-        try:
-            return int(card_link["href"].split("-")[1])
-        except Exception:
-            pass
+        href = card_link.get("href") if card_link is not None else None
+        if isinstance(href, str):
+            try:
+                return int(href.split("-")[1])
+            except Exception:
+                pass
     raise ValueError(
         "Could not retrieve latest petition id, maybe site structure has changed"
     )

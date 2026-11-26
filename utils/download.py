@@ -47,8 +47,8 @@ async def async_download_files(
     if auth_user and auth_password:
         auth = aiohttp.BasicAuth(auth_user, auth_password)
 
-    timeout = aiohttp.ClientTimeout(total=timeout)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    client_timeout = aiohttp.ClientTimeout(total=timeout)
+    async with aiohttp.ClientSession(timeout=client_timeout) as session:
         tasks = []
         for url in list_urls:
             task = download_file(

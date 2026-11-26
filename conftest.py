@@ -116,6 +116,9 @@ _stub_module(
 )
 
 # --- Heavy geoloc helpers, mocked to keep task_functions importable ---
+# cadastre_index is imported for real so its pure helpers stay testable; only the
+# IO entry point task_functions calls is mocked.
 _geoloc_utils = "datagouvfr_data_pipelines.data_processing.dvf.geoloc.utils"
-_stub_module(f"{_geoloc_utils}.cadastre_index", enrich_with_cadastre=MagicMock())
+_cadastre_index = importlib.import_module(f"{_geoloc_utils}.cadastre_index")
+setattr(_cadastre_index, "enrich_with_cadastre", MagicMock())
 _stub_module(f"{_geoloc_utils}.yearly_enrich", enrich_year=MagicMock())

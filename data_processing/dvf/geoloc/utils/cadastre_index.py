@@ -209,7 +209,11 @@ class ParcellesIndex:
             agree = len(set(communes)) == 1
             same_commune += agree
             dvf_id = None if dvf_parcelle_ids is None else dvf_parcelle_ids[row]
-            keep = np.flatnonzero(ids == dvf_id) if dvf_id is not None else []
+            keep = (
+                np.empty(0, dtype=np.intp)
+                if dvf_id is None
+                else np.flatnonzero(ids == dvf_id)
+            )
             if len(keep):
                 hit[pos] = candidates[keep[0]]
                 kept_dvf += 1

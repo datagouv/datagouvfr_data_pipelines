@@ -17,13 +17,15 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install pre-commit and run all hooks
+          name: Install dependencies and run all hooks
           command: |
             python -m venv .venv
             . .venv/bin/activate
             pip install --upgrade pip
-            # version alignée sur dev-requirements.txt
-            pip install pre-commit==4.2.0
+            # The mypy hook runs from this virtualenv (`language: system`), so
+            # the runtime dependencies must be installed for their types to be
+            # visible. dev-requirements pins the tool versions.
+            pip install -r requirements.txt -r dev-requirements.txt
             pre-commit run --all-files --show-diff-on-failure
 
   test:

@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 from datetime import date
+from typing import Literal, TypedDict
 from zipfile import ZipFile
 
 import duckdb
@@ -55,6 +56,13 @@ bucket = "dataeng-open"
 FULL_FILE = "dvf.csv.gz"
 
 
+class GeolocParams(TypedDict, total=False):
+    """DAG params defined in ``dag.py``."""
+
+    year_to_run: int | None
+    delivery: Literal["april", "october"] | None
+
+
 @simple_connection_retry
 def download_resource(res, dest_path: str) -> None:
     """Download one source file, retrying on network hiccups.
@@ -79,7 +87,7 @@ def check_if_modif():
     return True
 
 
-def _get_delivery(params: dict, run_date: date) -> Delivery:
+def _get_delivery(params: GeolocParams, run_date: date) -> Delivery:
     delivery_key = params.get("delivery")
     if delivery_key is None:
         return Delivery.from_date(run_date)
@@ -87,7 +95,9 @@ def _get_delivery(params: dict, run_date: date) -> Delivery:
         return Delivery.from_key(delivery_key)
 
 
-def _check_output_file_names(params: dict, output_file_names: list[str]) -> None:
+def _check_output_file_names(
+    params: GeolocParams, output_file_names: list[str]
+) -> None:
     """Check that all the files are present and correct with respect to the delivery."""
     run_date = date.today()
     delivery = _get_delivery(params, run_date)
@@ -99,8 +109,9 @@ def _check_output_file_names(params: dict, output_file_names: list[str]) -> None
 
 
 @task()
-def download_dvf_source_data(params: dict, **context):
+def download_dvf_source_data(params: GeolocParams | None = None, **context):
     """Download the source data (5 or 6 .txt.zip files) and return the list of paths to the unzipped .txt files."""
+    params = params or GeolocParams()
     # Each task calls date.today() independently; the risk of a mismatch between
     # tasks is limited since only the month and year are used.
     run_date = date.today()
@@ -204,7 +215,7 @@ def get_cadastre_millesime(delivery: Delivery, today: date) -> str:
 
 
 @task()
-def download_cadastre_source_data(params: dict, **context):
+def download_cadastre_source_data(params: GeolocParams | None = None, **context):
     """Prepare a local Parquet file with the "current" cadastre parcelles geometries.
 
     "current": the cadastre that corresponds the delivery (april or october) and year.
@@ -214,6 +225,8 @@ def download_cadastre_source_data(params: dict, **context):
     geom_srid, commune, parcelle_id, geometry.
     Save it to a local Parquet file.
     """
+    params = params or GeolocParams()
+
     # Technical choice notes: Measurement on samples shows it is faster to load the full file
     # then filter it locally with duckdb rather than directly filter and load with duckdb.
     # This current task takes about 15min on a PC with wifi +350Mbps for download
@@ -259,7 +272,7 @@ def download_cadastre_source_data(params: dict, **context):
 
 
 @task()
-def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
+def process_cadastre_cols(cadastre_file: str = CADASTRE_FILE):
     """Match the latitude and longitude with the current cadastre to fix the parcelle_id.
 
     If parcelle_id and (latitude, longitude) don't match the current cadastre
@@ -282,7 +295,8 @@ def process_cadastre_cols(cadastre_file=CADASTRE_FILE):
 
 
 @task()
-def publish_yearly(params: dict):
+def publish_yearly(params: GeolocParams | None = None):
+    params = params or GeolocParams()
     year_to_run = params.get("year_to_run")
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
@@ -332,7 +346,7 @@ def publish_yearly(params: dict):
 
 
 @task()
-def notification(params: dict) -> None:
+def notification(params: GeolocParams | None = None) -> None:
     send_message(
         f"DVF géolocalisé mis à jour :\n"
         f"\n- publié [sur {'demo.' if PUBLISH_ON_DEMO else ''}data.gouv.fr]"
@@ -363,11 +377,12 @@ def download_published_yearly_files(**context):
 
 
 @task()
-def build_full_file(params: dict):
+def build_full_file(params: GeolocParams | None = None):
     """Concatenate the yearly files into a single file covering the whole window.
 
     Streamed, as the window is several GB uncompressed.
     """
+    params = params or GeolocParams()
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
     )
@@ -392,12 +407,13 @@ def build_full_file(params: dict):
 
 
 @task()
-def publish_concat(params: dict):
+def publish_concat(params: GeolocParams | None = None):
     """Publish the concat file (``dvf.csv.gz``), the concatenation of all the yearly files.
 
     The years covered are derived from the yearly ``full-*.csv.gz`` files present in the
     tmp folder, downloaded by ``download_published_yearly_files``.
     """
+    params = params or GeolocParams()
     output_file_names = sorted(
         f for f in os.listdir(TMP_FOLDER) if DvfVersion.is_output_file_name(f)
     )

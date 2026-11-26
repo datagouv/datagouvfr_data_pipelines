@@ -15,6 +15,7 @@ from datagouvfr_data_pipelines.config import (
 from datagouvfr_data_pipelines.data_processing.assemblee_nationale.petitions.task_functions import (
     get_latest_petition_id,
 )
+from datagouvfr_data_pipelines.utils.bs import require_str_attr, require_tag
 from datagouvfr_data_pipelines.utils.datagouv import local_client
 from datagouvfr_data_pipelines.utils.filesystem import File
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
@@ -78,23 +79,28 @@ def get_row(_id: int, session) -> dict | None:
         .text.replace("\n", "")
         .strip()
     )
+    meta = require_tag(
+        page.find("meta", attrs={"property": "og:description"}),
+        "og:description meta tag",
+    )
+    publish_date = require_tag(
+        page.find("div", attrs={"class": "publish-date"}), "publish-date div"
+    )
+    petition_type = require_tag(
+        page.find("h2", attrs={"class": "heading-small"}), "heading-small h2"
+    )
     return {
         "titre": title,
-        "description": page.find("meta", attrs={"property": "og:description"})
-        .get("content")
+        "description": require_str_attr(meta, "content")
         .replace("\r", "")
         .replace("\n", ""),
         "date_publication": standardize_date(
-            page.find("div", attrs={"class": "publish-date"})
-            .text.replace("\n", "")
-            .strip()
+            publish_date.text.replace("\n", "").strip()
         ),
         "nb_votes": get_votes(page),
         "statut": build_status(page),
         "date_limite_vote": get_limit_date(page),
-        "type": page.find("h2", attrs={"class": "heading-small"})
-        .text.replace("\n", "")
-        .strip(),
+        "type": petition_type.text.replace("\n", "").strip(),
         "url": url,
         "identifiant": _id,
     }
