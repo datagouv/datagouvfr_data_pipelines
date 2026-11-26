@@ -172,7 +172,10 @@ def get_stats(dates: list[datetime], period: str) -> tuple[list, list, list]:
     for d in dates:
         start_date = datetime.strptime(str(d)[:10], "%Y-%m-%d")
         if period in ["month", "year"]:
-            end_date = start_date + relativedelta(**{f"{period}s": 1})
+            if period == "month":
+                end_date = start_date + relativedelta(months=1)
+            else:
+                end_date = start_date + relativedelta(years=1)
             matomodate = (
                 start_date.strftime("%Y-%m-%d") + "," + end_date.strftime("%Y-%m-%d")
             )
