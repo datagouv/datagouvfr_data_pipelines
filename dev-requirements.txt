@@ -32,3 +32,4 @@ types-Markdown==3.11.3.20261122
 types-jsonschema==4.26.0.20261006
 types-geojson==3.3.0.20261122
 types-python-dateutil==2.9.0.20261122
+botocore-stubs==1.43.126
