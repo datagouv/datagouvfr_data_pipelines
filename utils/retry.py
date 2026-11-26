@@ -34,14 +34,39 @@ simple_connection_retry = _simple_connection_retry()
 
 
 class RequestRetry:
-    pass
+    """requests methods re-implemented with a retry."""
 
-
-# re-implement requests basic methods with a retry
-for _method in ["get", "post", "put", "patch", "head", "delete", "options"]:
-
+    @classmethod
     @simple_connection_retry
-    def _m(cls, url: str, _method=_method, **kwargs):
-        return getattr(requests, _method)(url, **kwargs)
+    def get(cls, url: str, **kwargs) -> requests.Response:
+        return requests.get(url, **kwargs)
 
-    setattr(RequestRetry, _method, classmethod(_m))
+    @classmethod
+    @simple_connection_retry
+    def post(cls, url: str, **kwargs) -> requests.Response:
+        return requests.post(url, **kwargs)
+
+    @classmethod
+    @simple_connection_retry
+    def put(cls, url: str, **kwargs) -> requests.Response:
+        return requests.put(url, **kwargs)
+
+    @classmethod
+    @simple_connection_retry
+    def patch(cls, url: str, **kwargs) -> requests.Response:
+        return requests.patch(url, **kwargs)
+
+    @classmethod
+    @simple_connection_retry
+    def head(cls, url: str, **kwargs) -> requests.Response:
+        return requests.head(url, **kwargs)
+
+    @classmethod
+    @simple_connection_retry
+    def delete(cls, url: str, **kwargs) -> requests.Response:
+        return requests.delete(url, **kwargs)
+
+    @classmethod
+    @simple_connection_retry
+    def options(cls, url: str, **kwargs) -> requests.Response:
+        return requests.options(url, **kwargs)

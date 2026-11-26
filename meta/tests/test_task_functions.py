@@ -14,11 +14,11 @@ import markdown
 from datagouvfr_data_pipelines.meta import task_functions as tf
 
 
-def ok(run_id: str) -> dict:
+def ok(run_id: str) -> tf.SuccessfulRun:
     return {"success": True, "duration": 1}
 
 
-def ko(run_id: str) -> dict:
+def ko(run_id: str) -> tf.FailedRun:
     return {"success": False, "status": "failed", "failed_tasks": {}}
 
 
@@ -75,18 +75,16 @@ def test_failing_dags_same_ratio_alphabetical():
     assert ordered == ["a", "z"]
 
 
-def run(ts: str, failed_tasks: dict | None) -> dict:
+def run(ts: str, failed_tasks: dict | None) -> tf.FailedRun:
     """Return a run state shaped like the values produced by `monitor_dags`."""
     if failed_tasks is None:
         return {
             "success": False,
-            "end_date": ts,
             "status": "success",
             "failed_tasks": {},
         }
     return {
         "success": False,
-        "end_date": ts,
         "status": "failed",
         "failed_tasks": failed_tasks,
     }
@@ -101,7 +99,7 @@ def build_daily_summary_md(dags: list[tuple[str, str]]) -> tuple[str, set[str]]:
     """
     dag_a_key, dag_a_id = dags[0]
     dag_b_key, dag_b_id = dags[1]
-    runs = {
+    runs: tf.TodaysRuns = {
         dag_a_id: {
             "2024-01-01T10:00:00Z": run(
                 "2024-01-01T10:00:00Z", {"intermediate_task": "http://log/1"}
