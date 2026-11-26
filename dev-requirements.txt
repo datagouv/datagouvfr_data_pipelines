@@ -26,3 +26,4 @@ types-tqdm==4.70.0.20261122
 types-shapely==2.1.0.20261030
 types-pytz==2026.6.0.20261122
 pyarrow-stubs==20.0.0.20260819
+types-psycopg2==2.9.21.20261122
