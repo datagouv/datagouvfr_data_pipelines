@@ -30,3 +30,4 @@ types-psycopg2==2.9.21.20261122
 types-paramiko==5.1.0.20261125
 types-Markdown==3.11.3.20261122
 types-jsonschema==4.26.0.20261006
+types-geojson==3.3.0.20261122
