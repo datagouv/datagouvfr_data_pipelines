@@ -108,6 +108,9 @@ with DAG(
                     ' && git commit -m "Update Website '
                     f"{datetime.today().strftime('%Y-%m-%d')}"
                     '" || echo "No changes to commit"'
+                    # rebase left in place on purpose: it fails with a visible conflict if
+                    # site/ was modified on the remote while the run was executing
+                    f" && git pull --rebase origin {branch}"
                     f" && git push origin {branch}"
                 ),
             )
