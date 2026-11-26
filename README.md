@@ -77,6 +77,14 @@ ou laisser pre-commit s'exécuter automatiquement au `commit` grâce au hook ins
 
 Après avoir cloné ce dépôt, ne pas oublier pas d'installer https://pre-commit.com/ et d'exécuter `pre-commit install` pour installer les scripts de hooks git.
 
+Si le dépôt est **monté sur un réseau** (ex. SSHFS, NFS), mypy peut échouer aléatoirement au démarrage (sigsegv / `INTERNAL ERROR`) à cause de son cache : par défaut il est écrit dans le dépôt (`$MYPY_CONFIG_FILE_DIR/.mypy_cache`), ce qui fonctionne sur disque local mais pas sur un montage réseau. La solution est de déplacer ce cache sur le disque local via la variable d'environnement `MYPY_CACHE_DIR`, prise en charge par mypy directement et qui prend le pas sur `cache_dir` de `mypy.ini` :
+
+```
+export MYPY_CACHE_DIR=/var/tmp/mypy-cache-datagouvfr-data-pipelines
+```
+
+Ajouter simplement cette ligne à votre profil de shell (`.zshrc`, `.bashrc`, …) pour la rendre permanente.
+
 <details><summary>Exemple de sortie de pre-commit</summary>
 Lors du premier `commit` après l'installation, pre-commit devrait s'exécuter :
 
