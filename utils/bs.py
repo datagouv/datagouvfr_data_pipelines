@@ -11,7 +11,7 @@ def require_tag(tag: Tag | None, description: str) -> Tag:
 
 
 def require_str_attr(tag: Tag, name: str) -> str:
-    """Return attribute `name` as a string or raise if it is missing or a list."""
+    """Return attribute `name` as a string or raise if it is missing or not a string."""
     value = tag.get(name)
     if not isinstance(value, str):
         raise ValueError(f"missing {name!r} attribute on <{tag.name}>")
