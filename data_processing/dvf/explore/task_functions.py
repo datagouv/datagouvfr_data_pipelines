@@ -1126,7 +1126,7 @@ def create_distribution_and_stats_whole_period() -> None:
                         logging.info(f"{int(round(i / operations * 100, -1))}%")
                     if code in idx:
                         prix = restr_dvf.loc[code]
-                        if not isinstance(prix, pd.core.series.Series):
+                        if not isinstance(prix, pd.Series):
                             prix = pd.Series(prix)
                         if len(prix) >= threshold:
                             intervalles, volumes = distrib_from_prix(prix)
