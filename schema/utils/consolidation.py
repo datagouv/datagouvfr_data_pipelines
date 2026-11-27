@@ -908,7 +908,7 @@ def consolidate_data(
                         f"https://tabular-api.data.gouv.fr/api/resources/{row['resource_id']}/profile/"
                     )
                     csv_kwargs: dict[str, Any] = {"encoding": None, "sep": None}
-                    excel_kwargs = {"engine": "openpyxl"}
+                    excel_kwargs: dict[str, Any] = {"engine": "openpyxl"}
                     if inspection.ok:
                         profile = inspection.json()["profile"]
                         if profile.get("engine"):
