@@ -2082,7 +2082,7 @@ def notification_synthese(
                 df["schema_name"] = s["title"]
                 df["schema_id"] = s["name"]
                 df["validata_report"] = (
-                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
+                    "https://validata.fr/table-schema?input=url&url="
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
