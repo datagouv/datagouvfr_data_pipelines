@@ -249,7 +249,7 @@ def schema_suspicion(catalog: dict, resource: dict, orga: str):
         send_message(message, TCHAP_ROOM_DATAENG)
 
 
-def parse_schema_catalog(catalog: dict, resource: dict) -> tuple:
+def parse_schema_catalog(catalog: dict, resource: dict, publish_source: str) -> tuple:
     for schema in catalog:
         if schema["name"] == resource["schema"]["name"]:
             if schema["schema_type"] == "tableschema":
@@ -271,7 +271,7 @@ def parse_schema_catalog(catalog: dict, resource: dict) -> tuple:
                 schema_type = "other"
             return (
                 schema["title"],
-                resource["extras"].get("publish_source") == "publier.etalab.studio",
+                publish_source == "data.gouv.fr:structured",
                 schema_type,
                 validata_url,
                 is_valid,
@@ -279,34 +279,61 @@ def parse_schema_catalog(catalog: dict, resource: dict) -> tuple:
     return None, None, None, None, None
 
 
+def format_schema_resource_message(
+    schema_name: str,
+    orga: str,
+    dataset: dict,
+    schema_type: str,
+    validata_url: str | None,
+    is_valid: bool,
+    structured_publication: bool,
+) -> str:
+    message = (
+        "📣 Nouvelle ressource déclarée appartenant au schéma "
+        f"**{schema_name}** {orga}: \n\n - [Lien vers le jeu de donnée]({dataset['page']})"
+    )
+    if schema_type == "tableschema":
+        if is_valid:
+            message += f"\n - [Ressource valide]({validata_url}) 🥳"
+        else:
+            message += f"\n - [Ressource non valide]({validata_url}) 😩"
+    if structured_publication:
+        message += "\n - Made with the structured publication 😎"
+    return message
+
+
 def parse_resource_if_schema(
     catalog: dict,
     resource: dict,
-    item: dict,
+    dataset: dict,
     orga: str,
 ) -> bool:
     if resource["schema"]:
         (
             schema_name,
-            publierDetection,
+            structured_publication,
             schema_type,
             validata_url,
             is_valid,
-        ) = parse_schema_catalog(catalog, resource)
+        ) = parse_schema_catalog(
+            catalog,
+            resource,
+            dataset["extras"].get("publish_source", ""),
+        )
         if not schema_name:
             schema_name = resource["schema"]["name"]
-        message = (
-            "📣 Nouvelle ressource déclarée appartenant au schéma "
-            f"**{schema_name}** {orga}: \n\n - [Lien vers le jeu de donnée]({item['page']})"
+        send_message(
+            format_schema_resource_message(
+                schema_name,
+                orga,
+                dataset,
+                schema_type,
+                validata_url,
+                is_valid,
+                structured_publication,
+            ),
+            TCHAP_ROOM_DATAENG,
         )
-        if schema_type == "tableschema":
-            if is_valid:
-                message += f"\n - [Ressource valide]({validata_url}) 🥳"
-            else:
-                message += f"\n - [Ressource non valide]({validata_url}) 😩"
-        if publierDetection:
-            message += "\n - Made with publier.etalab.studio 😎"
-        send_message(message, TCHAP_ROOM_DATAENG)
         return True
     return False
 
@@ -328,7 +355,7 @@ def check_schema(**context):
             orga = get_organization(data)
             try:
                 for r in data["resources"]:
-                    is_schema = parse_resource_if_schema(catalog, r, item, orga)
+                    is_schema = parse_resource_if_schema(catalog, r, data, orga)
 
                 if not is_schema:
                     schema_suspicion(catalog, item, orga)

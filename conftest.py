@@ -58,6 +58,8 @@ _stub_module(
     S3_BUCKET_DATA_PIPELINE="test-bucket",
     S3_BUCKET_DATA_PIPELINE_OPEN="test-open-bucket",
     S3_BUCKET_INFRA="test-infra-bucket",
+    TCHAP_ROOM_ACTIVITES="test-room",
+    TCHAP_ROOM_DATAENG="test-room",
     TCHAP_ROOM_MODERATION_NOUVEAUTES="test-room",
     GRIST_API_URL="http://test-grist/api/",
     SECRET_GRIST_API_KEY="test-grist-key",
@@ -85,7 +87,13 @@ _stub_module(
 _stub_module(
     "datagouvfr_data_pipelines.utils.datagouv",
     DATAGOUV_MATOMO_ID="test-matomo-id",
+    SPAM_WORDS=[],
+    VALIDATA_BASE_URL="https://api.validata.etalab.studio/",
+    check_duplicated_orga=MagicMock(),
     demo_client=MagicMock(),
+    get_awaiting_spam_comments=MagicMock(),
+    get_last_items=MagicMock(),
+    get_latest_comments=MagicMock(),
     local_client=MagicMock(),
     prod_client=MagicMock(),
 )
