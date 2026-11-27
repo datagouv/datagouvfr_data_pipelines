@@ -750,9 +750,9 @@ def process_dvf_stats() -> None:
 
     # on ajoute les colonnes libelle_geo et code_parent
     with open(TMP_FOLDER + "sections.txt", "r") as f:
-        sections = [s.replace("\n", "") for s in f.readlines()]
+        section_codes = [s.replace("\n", "") for s in f.readlines()]
     sections = pd.DataFrame(
-        set(sections) | sections_from_dvf,
+        set(section_codes) | sections_from_dvf,
         columns=["code_geo"],
     )
     sections["code_geo"] = sections["code_geo"].str.slice(0, 10)
