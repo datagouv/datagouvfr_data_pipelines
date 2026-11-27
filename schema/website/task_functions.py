@@ -54,7 +54,7 @@ def initialization(tmp_folder, branch, **context):
     }
 
     LIST_SCHEMAS_YAML = (
-        "https://raw.githubusercontent.com/etalab/"
+        "https://raw.githubusercontent.com/datagouv/"
         f"schema.data.gouv.fr/{branch}/repertoires.yml"
     )
 
@@ -1542,7 +1542,7 @@ def get_issues_and_labels(suffix, **context):
         try:
             r = requests.get(
                 (
-                    "https://api.github.com/repos/etalab/schema.data.gouv.fr/"
+                    "https://api.github.com/repos/datagouv/schema.data.gouv.fr/"
                     "issues?q=is%3Aopen+is%3Aissue&labels=Sch%C3%A9ma%20en%20"
                 )
                 + lab
@@ -1562,7 +1562,7 @@ def get_issues_and_labels(suffix, **context):
     # Find number of current issue in schema.data.gouv.fr repo
     try:
         r = requests.get(
-            "https://api.github.com/repos/etalab/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue"
+            "https://api.github.com/repos/datagouv/schema.data.gouv.fr/issues?q=is%3Aopen+is%3Aissue"
         )
         mydict["nb_issues"] = len(r.json())
     except Exception:
