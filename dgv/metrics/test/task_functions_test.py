@@ -101,6 +101,27 @@ def test_aggregate_metrics(tmp_path):
             assert output_content == expected_content
 
 
+def test_require_string():
+    """Test that require_string validates values are strings."""
+    from datagouvfr_data_pipelines.dgv.metrics.task_functions import require_string
+
+    assert require_string("abc", "value") == "abc"
+    assert require_string("", "value") == ""
+
+
+def test_require_string_raises_on_non_string():
+    import pandas as pd
+    import pytest
+
+    from datagouvfr_data_pipelines.dgv.metrics.task_functions import require_string
+
+    for value in [None, 42, pd.NA, ["a", "b"]]:
+        with pytest.raises(ValueError, match="value is not a string"):
+            require_string(value, "value")
+    with pytest.raises(ValueError, match="resource id of slug 'xyz' is not a string"):
+        require_string(None, "resource id of slug 'xyz'")
+
+
 def test_get_catalog_id_mapping():
     import pandas as pd
     from datagouvfr_data_pipelines.dgv.metrics.task_functions import (

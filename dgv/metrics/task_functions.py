@@ -9,6 +9,22 @@ from datagouvfr_data_pipelines.utils.filesystem import save_list_of_dict_to_csv
 from datagouvfr_data_pipelines.utils.retry import simple_connection_retry
 
 
+def require_string(value: Any, context: str) -> str:
+    """Return ``value`` unchanged if it is a string, raise otherwise.
+
+    Args:
+        value (Any): The value to validate.
+        context (str): Description of the value used in the error message.
+
+    Raises:
+        ValueError: If ``value`` is not a string.
+
+    """
+    if not isinstance(value, str):
+        raise ValueError(f"{context} is not a string: {value!r}")
+    return value
+
+
 def get_catalog_id_mapping(df: pd.DataFrame, column: str) -> dict[str, str]:
     """Map in a dictionary each ID from a catalog to its ID and the column (e.g. slug).
 
@@ -206,7 +222,14 @@ def aggregate_metrics(
             .assign(slug=lambda df: df["url"].str.replace(static_uri, ""))
             .filter(items=["slug", "id"])
         )
-        catalog_dict.update(df_slugs.set_index("slug")["id"].to_dict())
+        catalog_dict.update(
+            {
+                require_string(slug, "slug"): require_string(
+                    resource_id, f"resource id of slug {slug!r}"
+                )
+                for slug, resource_id in df_slugs.set_index("slug")["id"].items()
+            }
+        )
 
         # 2. All the IDs that don't have any static URL
         df_ids = df_catalog.loc[lambda df: ~df["url"].str.contains(static_uri)].filter(
