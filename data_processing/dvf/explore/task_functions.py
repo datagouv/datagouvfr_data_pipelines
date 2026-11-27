@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import datetime
 from functools import reduce
+from typing import Hashable
 
 import numpy as np
 import pandas as pd
@@ -288,7 +289,7 @@ def get_epci() -> None:
 
 @task()
 def process_dpe() -> None:
-    cols_dpe = {
+    cols_dpe: dict[Hashable, type[bool] | type[str] | str] = {
         "batiment_groupe_id": str,
         # 'identifiant_dpe',
         # 'type_batiment_dpe',
@@ -326,7 +327,7 @@ def process_dpe() -> None:
         iter_dpe = pd.read_csv(
             TMP_FOLDER + "csv/batiment_groupe_dpe_representatif_logement.csv",
             dtype=cols_dpe,
-            usecols=cols_dpe.keys(),
+            usecols=list(cols_dpe.keys()),
             sep=";",
             iterator=True,
             chunksize=chunk_size,
