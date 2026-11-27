@@ -161,14 +161,15 @@ def build_geozones_hierarchy(
     (``exported_ids``) so we never reference a filtered-out zone. The top of the tree
     is not in the INSEE relations and is added by hand, and descendants inherit it:
       country-group:world > every country
-      country:fr > country-subset:fr:metro > métropolitan régions and EPCI
+      country:fr > country-subset:fr:metro > métropolitan régions
       country:fr > country-subset:fr:dromcom > country-subset:fr:drom > DROM régions
-                                                                    and EPCI
                                              > country-subset:fr:com > COM
       country:fr > country-subset:fr:metrodrom > metro and drom (a second parent)
-    "country:fr" and the world are ancestors of every French zone. Statistical zonings
-    (unité urbaine, aire d'attraction...) and suppressed (historical) zones are
-    excluded directly in the SPARQL query.
+    EPCI have no parent in the INSEE relations either: each is put under the smallest
+    zone containing all its member communes (département, else région, else metro or
+    drom). "country:fr" and the world are ancestors of every French zone. Statistical
+    zonings (unité urbaine, aire d'attraction...) and suppressed (historical) zones
+    are excluded directly in the SPARQL query.
     """
     child_types = ", ".join(
         f"igeo:{insee_type}" for insee_type in map_type if insee_type != "Etat"
@@ -257,19 +258,34 @@ def build_geozones_hierarchy(
         ancestors_cache[geoid] = result
         return result
 
-    # EPCI have no geography of their own: one is metro or DROM if its communes are
-    # (none mixes metro and overseas, and the COM have no EPCI). Needs the closure
-    # above to know which communes are where, then the cache is reset as EPCI
-    # ancestors changed.
+    # EPCI have no parent in the INSEE relations: each is put under the smallest zone
+    # containing all its member communes. That is its département when they all share
+    # one, else its région when they all share one, else metro or DROM (none mixes
+    # metro and overseas, and the COM have no EPCI). A zone covering only part of the
+    # EPCI is never a parent, so "Y in X.ancestors" still means X is inside Y. Needs
+    # the closure above to know where the communes are (some reach their département
+    # only through an arrondissement), then the cache is reset as EPCI ancestors
+    # changed.
+    epci_members_ancestors = defaultdict(list)
     for child, child_parents in list(direct_parents.items()):
         if not child.startswith("fr:commune:"):
             continue
-        commune_ancestors = ancestors_of(child, frozenset())
-        for subset in (METRO, DROM):
-            if subset in commune_ancestors:
-                for parent in child_parents:
-                    if parent.startswith("fr:epci:"):
-                        direct_parents[parent].add(subset)
+        for parent in child_parents:
+            if parent.startswith("fr:epci:"):
+                epci_members_ancestors[parent].append(ancestors_of(child, frozenset()))
+    for epci, members_ancestors in epci_members_ancestors.items():
+        for prefix in ("fr:departement:", "fr:region:", "country-subset:"):
+            shared = set.intersection(
+                *(
+                    {a for a in ancestors if a.startswith(prefix)}
+                    for ancestors in members_ancestors
+                )
+            )
+            if prefix == "country-subset:":
+                shared &= {METRO, DROM}
+            if len(shared) == 1:
+                direct_parents[epci].update(shared)
+                break
     ancestors_cache.clear()
 
     parents_cache: dict = {}
