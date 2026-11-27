@@ -2149,7 +2149,7 @@ En cas de problème persistant, vous pouvez contacter le support data.gouv [lien
 
 ### Comment produire des données conformes ?
 
-Un certain nombre d'outils existent pour accompagner les producteurs de données. Vous pouvez notamment vous connecter sur le site [https://publier.etalab.studio/select?schema={schema_name}](https://publier.etalab.studio/select?schema={schema_name}) pour pouvoir saisir vos données selon trois modes :
+Un certain nombre d'outils existent pour accompagner les producteurs de données. Vous pouvez notamment vous connecter sur le site [data.gouv.fr](https://www.data.gouv.fr/admin/datasets/structured?schema={schema_name}) pour pouvoir saisir vos données selon trois modes :
 
 - upload de fichier existant
 - saisie via formulaire
