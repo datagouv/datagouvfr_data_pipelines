@@ -14,7 +14,7 @@ repos:
     rev: 'v0.15.20'  # Ruff version
     hooks:
       - id: ruff-check
-        # Ruff configuration (rules, style) lives in ruff.toml, so that
+        # Ruff configuration (rules, style) lives in pyproject.toml, so that
         # `ruff check .` on the command line behaves exactly like this hook.
         args: [--fix]
       - id: ruff-format
@@ -25,7 +25,8 @@ repos:
         # mypy runs from the project virtualenv (`language: system`) so that it
         # can see the runtime dependencies and their type information (Airflow,
         # pandas, boto3, ...), instead of an isolated env without them.
-        # Activate the virtualenv before committing (see README).
+        # Run it through `uv run pre-commit ...` (see README) so that mypy is
+        # found in the project virtualenv.
         entry: mypy
         language: system
         types: [python]

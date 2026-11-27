@@ -1,15 +1,14 @@
 ---
 version: 2.1
 
-parameters:
-  python-version:
-    type: string
-    default: "3.12"
+executors:
+  uv:
+    docker:
+      - image: ghcr.io/astral-sh/uv:python3.12-trixie
 
 jobs:
   lint:
-    docker:
-      - image: cimg/python:<< pipeline.parameters.python-version >>
+    executor: uv
     # mypy is invoked by name (datagouvfr_data_pipelines) from the pre-commit
     # hook; its parent is on the search path via `mypy_path = $MYPY_CONFIG_FILE_DIR/..`.
     # The checkout must keep the package directory name and live under that parent.
@@ -19,18 +18,15 @@ jobs:
       - run:
           name: Install dependencies and run all hooks
           command: |
-            python -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip
-            # The mypy hook runs from this virtualenv (`language: system`), so
-            # the runtime dependencies must be installed for their types to be
-            # visible. dev-requirements pins the tool versions.
-            pip install -r requirements.txt -r dev-requirements.txt
-            pre-commit run --all-files --show-diff-on-failure
+            # Runtime dependencies + dev group (at the versions of uv.lock): the
+            # mypy hook runs from this virtualenv (`language: system`), so the
+            # runtime dependencies must be installed for their types to be
+            # visible. ruff runs in its own isolated pre-commit environment.
+            uv sync --locked
+            uv run --no-sync pre-commit run --all-files --show-diff-on-failure
 
   test:
-    docker:
-      - image: cimg/python:<< pipeline.parameters.python-version >>
+    executor: uv
     # pytest.ini adds the parent directory ("..") to sys.path so tests can use
     # absolute imports (datagouvfr_data_pipelines...). The checkout must keep
     # the package directory name and live under that parent.
@@ -40,15 +36,11 @@ jobs:
       - run:
           name: Install dependencies and run all tests
           command: |
-            python -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt pytest
-            pytest -v
+            uv sync --locked
+            uv run --no-sync pytest -v
 
   dag-imports:
-    docker:
-      - image: cimg/python:<< pipeline.parameters.python-version >>
+    executor: uv
     # DAGs use absolute imports (datagouvfr_data_pipelines...), so the checkout
     # must keep the package directory name and its parent must be on PYTHONPATH,
     # like in production where the repo is mounted under the DAGs folder.
@@ -57,11 +49,8 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: |
-            python -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
+          # Runtime dependencies only, as in the Airflow image.
+          command: uv sync --locked --no-dev
       - run:
           name: Check DAG import errors
           command: |
