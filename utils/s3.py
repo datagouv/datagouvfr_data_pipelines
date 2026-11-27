@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from io import BytesIO, StringIO
+from io import BufferedReader, BytesIO, StringIO
 from typing import Iterator, Required, TypedDict, cast
 from uuid import uuid4
 
@@ -149,7 +149,10 @@ class S3Client:
         folders: list[str] = []
         for page in pages:
             for cp in page.get("CommonPrefixes", []):
-                folders.append(cp.get("Prefix"))
+                cp_prefix = cp.get("Prefix")
+                if cp_prefix is None:
+                    raise ValueError("Missing 'Prefix' in CommonPrefixes entry.")
+                folders.append(cp_prefix)
         return folders
 
     @simple_connection_retry
@@ -441,6 +444,8 @@ class S3Client:
             logging.info(f"to {self.bucket.name}/{destination_file_path}")
             self.bucket.upload_fileobj(
                 Key=destination_file_path,
-                Fileobj=response.raw,
+                # requests' raw is a file-like urllib3.HTTPResponse, but is not
+                # typed as IO; BufferedReader exposes it as an IO[bytes].
+                Fileobj=BufferedReader(response.raw),
                 ExtraArgs=({"ACL": "public-read"} if is_public else {}),
             )

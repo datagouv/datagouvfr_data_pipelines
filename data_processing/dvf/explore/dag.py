@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.bash import BashOperator
-from airflow.sdk import DAG
-from airflow.utils.task_group import TaskGroup
+from airflow.sdk import DAG, TaskGroup
 from datagouvfr_data_pipelines.config import AIRFLOW_DAG_HOME
 from datagouvfr_data_pipelines.data_processing.dvf.explore.task_functions import (
     TMP_FOLDER,

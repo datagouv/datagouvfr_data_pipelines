@@ -407,9 +407,13 @@ def remove_old_occurrences(pack: str, grid: str):
             first_removed_sftp = first_removed_sftp or file
             last_removed_sftp = file
             try:
-                freed_sftp += sftp.get_file_stats(upload_dir + file).st_size
+                st_size = sftp.get_file_stats(upload_dir + file).st_size
             except Exception:
+                st_size = None
+            if st_size is None:
                 size_errors_sftp += 1
+            else:
+                freed_sftp += st_size
             if DRY_RUN_RETENTION:
                 continue
             try:

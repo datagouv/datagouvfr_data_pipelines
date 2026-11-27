@@ -142,6 +142,9 @@ class ParcellesIndex:
             raise ValueError(
                 f"Expected a single geom_srid for {departement}, got {srids}"
             )
+        srid = srids[0]
+        if not isinstance(srid, int):
+            raise ValueError(f"Expected an integer geom_srid, got {srid!r}")
 
         # to_numpy rather than to_pylist: the latter builds a python bytes object per
         # parcelle, which cost ~0.7 s and ~0.6 GB per departement for nothing
@@ -150,7 +153,7 @@ class ParcellesIndex:
         )
         index = cls(
             departement=departement,
-            srid=srids[0],
+            srid=srid,
             tree=shapely.STRtree(geometries),
             parcelle_ids=table.column("parcelle_id").to_numpy(zero_copy_only=False),
             communes=table.column("commune").to_numpy(zero_copy_only=False),
@@ -302,10 +305,15 @@ def list_departements(parcelles_file: str) -> list[str]:
     column = [
         metadata.schema.column(i).name for i in range(metadata.num_columns)
     ].index("departement")
-    departements = set()
+    departements: set[str] = set()
     for group in range(metadata.num_row_groups):
         statistics = metadata.row_group(group).column(column).statistics
-        departements.update([statistics.min, statistics.max])
+        if statistics is None:
+            continue
+        if statistics.min is not None:
+            departements.add(str(statistics.min))
+        if statistics.max is not None:
+            departements.add(str(statistics.max))
     return sorted(departements)
 
 

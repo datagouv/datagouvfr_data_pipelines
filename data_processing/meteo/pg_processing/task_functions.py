@@ -284,13 +284,6 @@ def process_resources(
     # going through all resources of the dataset to check which ones to update
     s3_meteo = S3Client(bucket="meteofrance")
     conn = BaseHook.get_connection(conn_name)
-    db_params = {
-        "database": conn.schema,
-        "user": conn.login,
-        "password": conn.password,
-        "host": conn.host,
-        "port": conn.port,
-    }
     for resource in resources:
         # only main resources
         if resource["type"] != "main":
@@ -321,7 +314,13 @@ def process_resources(
         regex_infos = {"name": file_path.name, "regex_infos": regex_infos}
         logging.info("Starting with " + file_path.name)
 
-        _conn = psycopg2.connect(**db_params)
+        _conn = psycopg2.connect(
+            database=conn.schema,
+            user=conn.login,
+            password=conn.password,
+            host=conn.host,
+            port=conn.port,
+        )
         _conn.autocommit = False
         _failed = False
         try:

@@ -17,7 +17,7 @@ with open(
     FRANCE_BBOXES = geojson.load(f)
 
 # Create a Polygon
-geoms = [region["geometry"] for region in FRANCE_BBOXES.get("features")]
+geoms = [region["geometry"] for region in (FRANCE_BBOXES.get("features") or [])]
 polys = [shape(geom) for geom in geoms]
 geo_api = "https://geo.api.gouv.fr/communes"
 
