@@ -2186,7 +2186,7 @@ Vous recevez ce message automatique car vous êtes admin de l'organisation {orga
 Cependant, suite à un contrôle automatique de vos données par notre robot de validation, il s'avère que ce fichier ne respecte aucune version de ce schéma.<br />
 Nous avons donc automatiquement supprimé la métadonnée de schéma associée à ce fichier.<br />
 <br />
-Vous pouvez consulter le [rapport de validation](https://validata.etalab.studio/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
+Vous pouvez consulter le [rapport de validation](https://validata.fr/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
 <br />
 Vous pourrez alors restaurer la métadonnée de schéma une fois un fichier valide publié.<br />
 <br />
@@ -2204,7 +2204,7 @@ Vous recevez ce message automatique car vous avez publié sur data.gouv.fr le je
 Cependant, suite à un contrôle automatique de vos données par notre robot de validation, il s'avère que ce fichier ne respecte aucune version de ce schéma.<br />
 Nous avons donc automatiquement supprimé la métadonnée de schéma associée à ce fichier.<br />
 <br />
-Vous pouvez consulter le [rapport de validation](https://validata.etalab.studio/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
+Vous pouvez consulter le [rapport de validation](https://validata.fr/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
 <br />
 Vous pourrez alors restaurer la métadonnée de schéma une fois un fichier valide publié.<br />
 <br />
@@ -2221,7 +2221,7 @@ Bonjour,
 Vous recevez ce message car suite à un contrôle automatique de vos données par notre robot de validation, nous constatons que le fichier {resource_title} de ce jeu de données se veut conforme au schéma {schema_name} alors qu'il ne respecte aucune version de ce schéma.
 Nous avons donc automatiquement supprimé la métadonnée de schéma associée à ce fichier.
 
-Vous pouvez consulter le [rapport de validation](https://validata.etalab.studio/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).
+Vous pouvez consulter le [rapport de validation](https://validata.fr/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).
 
 Vous pourrez alors restaurer la métadonnée de schéma une fois un fichier valide publié.
 
