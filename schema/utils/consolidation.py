@@ -2082,7 +2082,7 @@ def notification_synthese(
                 df["schema_name"] = s["title"]
                 df["schema_id"] = s["name"]
                 df["validata_report"] = (
-                    "https://preprod-validata.dataeng.etalab.studio/table-schema?input=url&url="
+                    "https://validata.fr/table-schema?input=url&url="
                     f"{df['resource_url']}&schema_url={s['schema_url']}"
                 )
                 erreurs_file_name = f"liste_erreurs-{s['name'].replace('/', '_')}.csv"
@@ -2125,7 +2125,7 @@ datasets_title_template = (
 # Template for consolidation datasets description (Markdown)
 
 datasets_description_template = """
-Ceci est un jeu de données généré automatiquement par Etalab. Il regroupe les données qui respectent le schéma {schema_name}, par version du schéma.
+Ceci est un jeu de données généré automatiquement par data.gouv.fr. Il regroupe les données qui respectent le schéma {schema_name}, par version du schéma.
 
 La fiche présentant le schéma et ses caractéristiques est disponible sur [https://schema.data.gouv.fr/{schema_name}/latest.html](https://schema.data.gouv.fr/{schema_name}/latest.html)
 
@@ -2137,19 +2137,19 @@ Vous pouvez retrouver l'ensemble des schémas au référentiel sur le site schem
 
 ### Comment sont produites ces données ?
 
-Ces données sont produites à partir des ressources publiées sur le site [data.gouv.fr](http://data.gouv.fr) par différents producteurs. Etalab détecte automatiquement les ressources qui obéissent à un schéma et concatène l'ensemble des données en un seul fichier, par version de schéma.
+Ces données sont produites à partir des ressources publiées sur le site [data.gouv.fr](http://data.gouv.fr) par différents producteurs. data.gouv.fr détecte automatiquement les ressources qui obéissent à un schéma et concatène l'ensemble des données en un seul fichier, par version de schéma.
 
 Ces fichiers consolidés permettent aux réutilisateurs de manipuler un seul fichier plutôt qu'une multitude de ressources et contribue ainsi à améliorer la qualité de l'open data.
 
 ### Comment intégrer mes données dans ces fichiers consolidés ?
 
-Si vous êtes producteurs de données et que vous ne retrouvez pas vos données dans ces fichiers consolidés, c'est probablement parce que votre ressource sur [data.gouv.fr](http://data.gouv.fr) n'est pas conforme au schéma. Vous pouvez vérifier la conformité de votre ressource via l'outil [https://publier.etalab.studio/upload?schema={schema_name}](https://publier.etalab.studio/upload?schema={schema_name})
+Si vous êtes producteurs de données et que vous ne retrouvez pas vos données dans ces fichiers consolidés, c'est probablement parce que votre ressource sur [data.gouv.fr](http://data.gouv.fr) n'est pas conforme au schéma. Vous pouvez vérifier la conformité de votre ressource via l'outil de [publication de données avec un schéma](https://www.data.gouv.fr/admin/datasets/structured?schema={schema_name})
 
 En cas de problème persistant, vous pouvez contacter le support data.gouv [lien vers [https://support.data.gouv.fr/](https://support.data.gouv.fr/)].
 
 ### Comment produire des données conformes ?
 
-Un certain nombre d'outils existent pour accompagner les producteurs de données. Vous pouvez notamment vous connecter sur le site [https://publier.etalab.studio/select?schema={schema_name}](https://publier.etalab.studio/select?schema={schema_name}) pour pouvoir saisir vos données selon trois modes :
+Un certain nombre d'outils existent pour accompagner les producteurs de données. Vous pouvez notamment vous connecter sur le site [data.gouv.fr](https://www.data.gouv.fr/admin/datasets/structured?schema={schema_name}) pour pouvoir saisir vos données selon trois modes :
 
 - upload de fichier existant
 - saisie via formulaire
@@ -2186,7 +2186,7 @@ Vous recevez ce message automatique car vous êtes admin de l'organisation {orga
 Cependant, suite à un contrôle automatique de vos données par notre robot de validation, il s'avère que ce fichier ne respecte aucune version de ce schéma.<br />
 Nous avons donc automatiquement supprimé la métadonnée de schéma associée à ce fichier.<br />
 <br />
-Vous pouvez consulter le [rapport de validation](https://validata.etalab.studio/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
+Vous pouvez consulter le [rapport de validation](https://validata.fr/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
 <br />
 Vous pourrez alors restaurer la métadonnée de schéma une fois un fichier valide publié.<br />
 <br />
@@ -2204,7 +2204,7 @@ Vous recevez ce message automatique car vous avez publié sur data.gouv.fr le je
 Cependant, suite à un contrôle automatique de vos données par notre robot de validation, il s'avère que ce fichier ne respecte aucune version de ce schéma.<br />
 Nous avons donc automatiquement supprimé la métadonnée de schéma associée à ce fichier.<br />
 <br />
-Vous pouvez consulter le [rapport de validation](https://validata.etalab.studio/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
+Vous pouvez consulter le [rapport de validation](https://validata.fr/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).<br />
 <br />
 Vous pourrez alors restaurer la métadonnée de schéma une fois un fichier valide publié.<br />
 <br />
@@ -2221,7 +2221,7 @@ Bonjour,
 Vous recevez ce message car suite à un contrôle automatique de vos données par notre robot de validation, nous constatons que le fichier {resource_title} de ce jeu de données se veut conforme au schéma {schema_name} alors qu'il ne respecte aucune version de ce schéma.
 Nous avons donc automatiquement supprimé la métadonnée de schéma associée à ce fichier.
 
-Vous pouvez consulter le [rapport de validation](https://validata.etalab.studio/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).
+Vous pouvez consulter le [rapport de validation](https://validata.fr/table-schema?input=url&schema_url={schema_url}&url={resource_url}&repair=true) pour vous aider à corriger les erreurs (ce rapport est relatif à la version la plus récente du schéma, mais votre fichier a bien été testé vis-à-vis de toutes les versions possibles du schéma).
 
 Vous pourrez alors restaurer la métadonnée de schéma une fois un fichier valide publié.
 
