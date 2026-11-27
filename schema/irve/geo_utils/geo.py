@@ -286,7 +286,7 @@ def fix_code_insee(
     df = df.progress_apply(
         lambda row: enrich_row_address(row, session),
         axis=1,
-    )
+    )  # type: ignore[operator]  # progress_apply is a tqdm.pandas() runtime patch
 
     logging.info(
         f"Coords OK. INSEE codes already correct, simply enriched: {counters['already_good']}/{total_rows}"
