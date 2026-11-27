@@ -112,7 +112,6 @@ def test_require_string():
 def test_require_string_raises_on_non_string():
     import pandas as pd
     import pytest
-
     from datagouvfr_data_pipelines.dgv.metrics.task_functions import require_string
 
     for value in [None, 42, pd.NA, ["a", "b"]]:
