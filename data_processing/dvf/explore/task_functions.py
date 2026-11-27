@@ -177,7 +177,7 @@ def populate_copro_table() -> None:
     copro = pd.read_csv(
         f"{TMP_FOLDER}copro.csv",
         dtype=str,
-        usecols=mapping.keys(),
+        usecols=list(mapping.keys()),
         na_values=["non connu", "non renseigné", "nonza"],
     )
     for col in mapping.keys():
