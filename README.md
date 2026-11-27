@@ -1,100 +1,100 @@
 # Data pipelines data.gouv.fr
 
-Ce dépôt contient l'ensemble des DAGs Airflow de l'équipe data.gouv.fr. Le code source permettant de générer la stack airflow que nous utilisons est hébergé [sur ce dépôt](https://github.com/datagouv/data-engineering-stack/).
+This repository contains all the Airflow DAGs of the data.gouv.fr team. The source code used to build the Airflow stack we run is hosted [in this repository](https://github.com/datagouv/data-engineering-stack/).
 
-Il a pour objectif d'harmoniser les pratiques de traitements de données dans l'équipe data.gouv.fr et de répertorier au sein d'un même dépôt le maximum de ces traitements.
+Its goal is to harmonise data processing practices within the data.gouv.fr team and to gather as many of these processing jobs as possible in a single repository.
 
-Ces dags permettent de faire tourner des pipelines de données de différents types (ces types se reflètent dans la structure du dépôt) :
-- **data processing** : ces pipelines récupèrent des données existantes sur data.gouv.fr (ou ailleurs) et les traitent pour qu'ils soient plus facilement utilisables (ex: géocodage Sirene qui géocode l'ensemble de la base SIRENE)
-- **dgv** : ces pipelines sont à usage interne de l'équipe data.gouv.fr. Ils permettent de monitorer l'activité de la plateforme
-- **schema** : ces pipelines sont utilisés pour maintenir le site schema.data.gouv.fr et les traitements afférents.
+These DAGs run several types of data pipelines (these types are reflected in the repository structure):
+- **data processing**: these pipelines fetch existing data from data.gouv.fr (or elsewhere) and process it so that it is easier to use (e.g. Sirene geocoding, which geocodes the whole SIRENE database)
+- **dgv**: these pipelines are for internal use by the data.gouv.fr team. They are used to monitor the platform's activity
+- **schema**: these pipelines are used to maintain the schema.data.gouv.fr website and the related processing.
 
-## Ajout d'un DAG
+## Adding a DAG
 
-- réaliser une PR sur ce dépôt en respectant la structure de celui-ci (créer un sous-dossier par traitement réalisé)
-- variabiliser les paramètres de vos DAGs dans des variables Airflow
+- open a PR on this repository following its structure (create one subfolder per processing job)
+- put your DAGs' parameters in Airflow variables
 
-## Mise en place de l'environnement de développement
+## Setting up the development environment
 
-Les dépendances sont déclarées dans [`pyproject.toml`](pyproject.toml) et figées dans `uv.lock` :
+Dependencies are declared in [`pyproject.toml`](pyproject.toml) and locked in `uv.lock`:
 
-- `[project.dependencies]` : les dépendances d'exécution des DAGs. La liste reprend le `requirements.txt` de l'image Airflow ([`data-engineering-stack`](https://github.com/datagouv/data-engineering-stack/)) ; les paquets qui ne sont pas utilisés par ce dépôt y sont signalés en commentaire.
-- `[dependency-groups] dev` : les outils de développement (lint, format, tests, pre-commit).
+- `[project.dependencies]`: the runtime dependencies of the DAGs. The list mirrors the `requirements.txt` of the Airflow image ([`data-engineering-stack`](https://github.com/datagouv/data-engineering-stack/)); packages that are not used by this repository are flagged with a comment.
+- `[dependency-groups] dev`: development tools (lint, format, tests, pre-commit).
 
-### Prérequis
+### Prerequisites
 
-- **Python 3.12** : c'est la version utilisée par la stack Airflow qui exécute ces DAGs (cf. `Dockerfile` de `apache/airflow`). Une version proche fonctionne en général, mais 3.12 est recommandé et celle que l'on vise.
-- L'outil [`uv`](https://docs.astral.sh/uv/).
+- **Python 3.12**: this is the version used by the Airflow stack that runs these DAGs (see the `apache/airflow` `Dockerfile`). A nearby version usually works, but 3.12 is recommended and is the one we target.
+- The [`uv`](https://docs.astral.sh/uv/) tool.
 
 ### Installation
 
-Le fichier `.python-version` à la racine fixe la version de Python (3.12) ; `uv` le lit automatiquement (et télécharge l'interpréteur si besoin).
+The `.python-version` file at the root pins the Python version (3.12); `uv` reads it automatically (and downloads the interpreter if needed).
 
 ```shell
 uv sync
 ```
 
-`uv sync` crée l'environnement `.venv/` et y installe exactement les versions de `uv.lock`, dépendances d'exécution et groupe `dev` compris. Les commandes se lancent ensuite avec `uv run <commande>` (ou directement après `source .venv/bin/activate`).
+`uv sync` creates the `.venv/` environment and installs exactly the versions from `uv.lock`, including runtime dependencies and the `dev` group. Commands are then run with `uv run <command>` (or directly after `source .venv/bin/activate`).
 
-Pour ajouter ou mettre à jour une dépendance, utiliser `uv add <paquet>` (ou `uv add --dev <paquet>` pour un outil de développement) : `pyproject.toml` et `uv.lock` sont mis à jour ensemble.
+To add or update a dependency, use `uv add <package>` (or `uv add --dev <package>` for a development tool): `pyproject.toml` and `uv.lock` are updated together.
 
-### Notes importantes
+### Important notes
 
-- Le seul point de cohérence obligatoire entre contributeurs/trices est porté par pre-commit, qui installe des versions **exactes** de `ruff` et `mypy` (voir `.pre-commit-config.yaml`).
-- L'environnement créé (`.venv/`) est ignoré par git ; ne pas le committer.
+- The only mandatory point of consistency between contributors is enforced by pre-commit, which installs **exact** versions of `ruff` and `mypy` (see `.pre-commit-config.yaml`).
+- The created environment (`.venv/`) is ignored by git; do not commit it.
 
 ## Linting
 
-Ce dépôt est formaté avec [`ruff`](https://docs.astral.sh/ruff/) en [configuration par défaut](https://docs.astral.sh/ruff/configuration/), avant de commit :
+This repository is formatted with [`ruff`](https://docs.astral.sh/ruff/) using the [default configuration](https://docs.astral.sh/ruff/configuration/). Before committing:
 
 ```shell
 uv run ruff check --fix .
 uv run ruff format .
 ```
 
-`ruff` est **épinglé à une version exacte** dans `.pre-commit-config.yaml` (et reflété dans le groupe `dev` de `pyproject.toml`). `mypy` s'exécute depuis l'environnement virtuel du projet (hook `local` avec `language: system`) afin de voir les dépendances d'exécution et leurs types ; sa version est épinglée dans le groupe `dev` de `pyproject.toml`.
+`ruff` is **pinned to an exact version** in `.pre-commit-config.yaml` (and mirrored in the `dev` group of `pyproject.toml`). `mypy` runs from the project's virtual environment (`local` hook with `language: system`) so that it can see the runtime dependencies and their types; its version is pinned in the `dev` group of `pyproject.toml`.
 
-La configuration vit dans la section `[tool.ruff]` de [`pyproject.toml`](pyproject.toml), et est utilisée à la fois par le hook de pre-commit et par `ruff check` en ligne de commande, pour un comportement identique partout. Les règles sélectionnées, la convention de docstrings et ses limites connues y sont commentées.
+The configuration lives in the `[tool.ruff]` section of [`pyproject.toml`](pyproject.toml) and is used both by the pre-commit hook and by `ruff check` on the command line, for identical behaviour everywhere. The selected rules, the docstring convention and its known limitations are documented there in comments.
 
-Pour que tout le monde obtienne le même résultat, lancer de préférence les outils via pre-commit ; `ruff` est installé dans un environnement isolé, tandis que `mypy` utilise l'environnement virtuel du projet (d'où `uv run`) :
+So that everyone gets the same result, preferably run the tools through pre-commit; `ruff` is installed in an isolated environment, while `mypy` uses the project's virtual environment (hence `uv run`):
 
 ```shell
 uv run pre-commit run --all-files
 ```
 
-ou laisser pre-commit s'exécuter automatiquement au `commit` grâce au hook git (voir « Contribution »).
+or let pre-commit run automatically on `commit` through the git hook (see "Contributing").
 
 
 ## Tests
 
-Pour lancer les tests, il faut d'abord s'assurer d'avoir installé les dépendances (voir « Installation ») :
+To run the tests, first make sure the dependencies are installed (see "Installation"):
 
 ```shell
 uv sync
 ```
 
-Lancer toute la suite avec une seule commande, depuis la racine du dépôt :
+Run the whole suite with a single command, from the repository root:
 
 ```shell
 uv run pytest -v
 ```
 
-`pytest.ini` déclare les dossiers de tests (`data_processing`, `dgv`, `utils`)
-et le `pythonpath` nécessaire aux imports absolus. Le `conftest.py` racine
-fournit les stubs communs (Airflow, clients externes) à toutes les suites.
+`pytest.ini` declares the test folders (`data_processing`, `dgv`, `utils`)
+and the `pythonpath` needed for absolute imports. The root `conftest.py`
+provides the shared stubs (Airflow, external clients) to all suites.
 
-## Contribution
+## Contributing
 
-Avant de contribuer au dépôt et d'ouvrir une PR, il faut initialiser les hooks pre-commit :
+Before contributing to the repository and opening a PR, you need to install the pre-commit hooks:
 
 ```shell
 uv run pre-commit install
 ```
 
-Une fois cela fait, le formatage, le lint (tri des imports compris) et le typage sont vérifiés automatiquement avant chaque commit.
+Once this is done, formatting, linting (including import sorting) and type checking are verified automatically before each commit.
 
-<details><summary>Exemple de sortie de pre-commit</summary>
-Lors du premier `commit` après l'installation, pre-commit devrait s'exécuter :
+<details><summary>Example pre-commit output</summary>
+On the first `commit` after installation, pre-commit should run:
 
 <pre><code>
 (.venv) ➜  datagouvfr_data_pipelines git:(add-doc-for-pre-commit) ✗ gcmsg "docs: add sentence on installing pre-commit"
@@ -122,18 +122,18 @@ mypy.................................................(no files to check)Skipped
 </code></pre>
 </details>
 
-Si pre-commit ne peut pas être utilisé, il faut formater et linter le code avec Ruff, et vérifier le typage avec mypy. Avant de soumettre une contribution, il est obligatoire soit d'installer le hook pre-commit, soit de lancer ces commandes à la main :
+If pre-commit cannot be used, you must format and lint the code with Ruff, and check types with mypy. Before submitting a contribution, you must either install the pre-commit hook or run these commands manually:
 
 ```shell
-# Lint (tri des imports compris) et formatage
+# Lint (including import sorting) and formatting
 uv run ruff check --fix && uv run ruff format
 
-# Vérification du typage (mypy)
+# Type checking (mypy)
 uv run mypy .
 ```
 
 ## CI
 
-La CI utilise [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), voir [.circleci/config.yml](./.circleci/config.yml). Pas de GitHub Actions. Le job `lint` rejoue les hooks pre-commit locaux, le job `test` lance toute la suite avec `pytest`, et le job `dag-imports` vérifie que les DAGs s'importent correctement.
+CI runs on [Circle CI](https://app.circleci.com/projects/github/datagouv/datagouvfr_data_pipelines), see [.circleci/config.yml](./.circleci/config.yml). There are no GitHub Actions. The `lint` job replays the local pre-commit hooks, the `test` job runs the whole suite with `pytest`, and the `dag-imports` job checks that the DAGs import correctly.
 
-Sur le dépôt GitHub, GitGuardian tourne aussi pour éviter que des tokens fuitent.
+On the GitHub repository, GitGuardian also runs to prevent token leaks.
