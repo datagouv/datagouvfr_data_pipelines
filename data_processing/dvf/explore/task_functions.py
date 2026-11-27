@@ -971,7 +971,7 @@ def create_distribution_and_stats_whole_period() -> None:
             if "full-" in f
         ]
     )
-    dvf = []
+    dvf_parts = []
     epci = pd.read_csv(
         TMP_FOLDER + "epci.csv",
         sep=",",
@@ -1039,10 +1039,10 @@ def create_distribution_and_stats_whole_period() -> None:
 
         # pas de prix ou pas de surface
         ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
-        dvf.append(ventes_nodup)
+        dvf_parts.append(ventes_nodup)
         del ventes_nodup
 
-    dvf = pd.concat(dvf, ignore_index=True)
+    dvf = pd.concat(dvf_parts, ignore_index=True)
     dvf = pd.merge(
         dvf,
         epci[["code_commune", "code_epci"]],
