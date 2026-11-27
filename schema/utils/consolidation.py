@@ -2125,7 +2125,7 @@ datasets_title_template = (
 # Template for consolidation datasets description (Markdown)
 
 datasets_description_template = """
-Ceci est un jeu de données généré automatiquement par Etalab. Il regroupe les données qui respectent le schéma {schema_name}, par version du schéma.
+Ceci est un jeu de données généré automatiquement par data.gouv.fr. Il regroupe les données qui respectent le schéma {schema_name}, par version du schéma.
 
 La fiche présentant le schéma et ses caractéristiques est disponible sur [https://schema.data.gouv.fr/{schema_name}/latest.html](https://schema.data.gouv.fr/{schema_name}/latest.html)
 
@@ -2137,7 +2137,7 @@ Vous pouvez retrouver l'ensemble des schémas au référentiel sur le site schem
 
 ### Comment sont produites ces données ?
 
-Ces données sont produites à partir des ressources publiées sur le site [data.gouv.fr](http://data.gouv.fr) par différents producteurs. Etalab détecte automatiquement les ressources qui obéissent à un schéma et concatène l'ensemble des données en un seul fichier, par version de schéma.
+Ces données sont produites à partir des ressources publiées sur le site [data.gouv.fr](http://data.gouv.fr) par différents producteurs. data.gouv.fr détecte automatiquement les ressources qui obéissent à un schéma et concatène l'ensemble des données en un seul fichier, par version de schéma.
 
 Ces fichiers consolidés permettent aux réutilisateurs de manipuler un seul fichier plutôt qu'une multitude de ressources et contribue ainsi à améliorer la qualité de l'open data.
 
