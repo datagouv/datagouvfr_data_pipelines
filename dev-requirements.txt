@@ -34,3 +34,4 @@ types-geojson==3.3.0.20261122
 types-python-dateutil==2.9.0.20261122
 botocore-stubs==1.43.126
 boto3-stubs==1.43.126
+pandas-stubs==2.3.3.260113

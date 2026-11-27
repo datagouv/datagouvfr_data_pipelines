@@ -1,6 +1,7 @@
 import pandas as pd
 from datagouvfr_data_pipelines.data_processing.dvf.explore.task_functions import (
     add_communes_plm,
+    build_types_bien,
 )
 
 
@@ -55,3 +56,49 @@ def test_communes_without_arrondissements_are_untouched():
         }
     )
     pd.testing.assert_frame_equal(add_communes_plm(mutations), mutations)
+
+
+def test_build_types_bien_one_label_per_code_type():
+    df = pd.DataFrame(
+        {
+            "code_type_local": [2, 1, 2, 1, 4],
+            "type_local": [
+                "Appartement",
+                "Maison",
+                "Appartement",
+                "Maison",
+                "Local",
+            ],
+        }
+    )
+    assert build_types_bien(df) == {
+        2: "Appartement",
+        1: "Maison",
+        4: "Local",
+    }
+
+
+def test_build_types_bien_ignores_rows_with_na_pair():
+    """Les lignes sans type_local ne doivent pas polluer le mapping."""
+    df = pd.DataFrame(
+        {
+            "code_type_local": [2, 2, None],
+            "type_local": ["Appartement", "Appartement", "Dépendance"],
+        }
+    )
+    assert build_types_bien(df) == {2: "Appartement"}
+
+
+def test_build_types_bien_first_label_wins_for_ambiguous_code():
+    """Si un même code_type_local porte plusieurs libellés, le premier gagne.
+
+    value_counts() est stable à comptage égal, donc le libellé de la première
+    occurrence dans le fichier est retenu.
+    """
+    df = pd.DataFrame(
+        {
+            "code_type_local": [3, 3],
+            "type_local": ["Dépendance", "Autre"],
+        }
+    )
+    assert build_types_bien(df) == {3: "Dépendance"}

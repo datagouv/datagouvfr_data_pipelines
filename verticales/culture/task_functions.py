@@ -57,14 +57,14 @@ def get_perimeter_orgas(**context):
 @task()
 def get_and_send_perimeter_objects(object_type: str, **context):
     orgas = context["ti"].xcom_pull(key="organizations", task_ids="get_perimeter_orgas")
-    catalog_ids = pd.read_csv(
+    df_catalog = pd.read_csv(
         f"https://www.data.gouv.fr/api/1/datasets/r/{objects[object_type]['catalog_id']}",
         usecols=["id", "organization_id"],
         sep=";",
         dtype=str,
     )
-    catalog_ids = catalog_ids.loc[
-        catalog_ids["organization_id"].isin(orgas), "id"
+    catalog_ids = df_catalog.loc[
+        df_catalog["organization_id"].isin(orgas), "id"
     ].to_list()
     # getting tags to put them back
     tags = requests.get(

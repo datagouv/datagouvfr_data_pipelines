@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from collections import defaultdict
+from typing import Hashable
 
 import geojson
 import pandas as pd
@@ -243,14 +244,16 @@ def fix_code_insee(
     )
     if all(c in sample.columns for c in process_infos_cols):
         # we read the whole file
+        # column -> dtype: coordinates are read as str, *_is_* flags as bool
+        usecols_dtype: dict[Hashable, type[bool] | type[str]] = {
+            coordinates_column: str,
+            **{c: bool if "_is_" in c else str for c in process_infos_cols},
+        }
         yesterdays_data = pd.read_csv(
             f"{local_client.base_url}/api/1/datasets/r/{latest_resource_id}",
-            dtype=(
-                {c: bool if "_is_" in c else str for c in process_infos_cols}
-                | {coordinates_column: str}
-            ),
+            dtype=usecols_dtype,
             # only loading the columns with the needed info to merge with today
-            usecols=[coordinates_column] + process_infos_cols,
+            usecols=list(usecols_dtype),
         )
         # keeping rows where the coords are present and INSEE code is verified
         # and only one occurrence of each coords pair
@@ -283,7 +286,7 @@ def fix_code_insee(
     df = df.progress_apply(
         lambda row: enrich_row_address(row, session),
         axis=1,
-    )
+    )  # type: ignore[operator]  # progress_apply is a tqdm.pandas() runtime patch
 
     logging.info(
         f"Coords OK. INSEE codes already correct, simply enriched: {counters['already_good']}/{total_rows}"

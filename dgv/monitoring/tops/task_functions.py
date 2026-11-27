@@ -165,7 +165,7 @@ def get_top(date: str, period: str, _type: str, title: str, **context):
     context["ti"].xcom_push(key=f"top_{_type}_dict", value=mydict)
 
 
-def get_stats(dates: list[datetime], period: str) -> tuple[list, list, list]:
+def get_stats(dates: pd.DatetimeIndex, period: str) -> tuple[list, list, list]:
     pageviews = []
     uniq_pageviews = []
     downloads = []

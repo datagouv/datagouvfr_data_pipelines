@@ -114,7 +114,8 @@ def build_output_columns(
     # "120.0"); astype raises if a value ever has a fractional part
     for name in ("surface_reelle_bati", "surface_terrain"):
         cols[name] = cols[name].astype("Int64")
-    cols |= {name: "" for name in EMPTY_COLUMNS}
+    for name in EMPTY_COLUMNS:
+        cols[name] = pd.Series("", index=source.index)
 
     # Computed cols
     date = source["Date mutation"]

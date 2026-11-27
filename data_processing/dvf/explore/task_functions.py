@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import datetime
 from functools import reduce
+from typing import Hashable
 
 import numpy as np
 import pandas as pd
@@ -177,7 +178,7 @@ def populate_copro_table() -> None:
     copro = pd.read_csv(
         f"{TMP_FOLDER}copro.csv",
         dtype=str,
-        usecols=mapping.keys(),
+        usecols=list(mapping.keys()),
         na_values=["non connu", "non renseigné", "nonza"],
     )
     for col in mapping.keys():
@@ -288,7 +289,7 @@ def get_epci() -> None:
 
 @task()
 def process_dpe() -> None:
-    cols_dpe = {
+    cols_dpe: dict[Hashable, type[bool] | type[str] | str] = {
         "batiment_groupe_id": str,
         # 'identifiant_dpe',
         # 'type_batiment_dpe',
@@ -326,7 +327,7 @@ def process_dpe() -> None:
         iter_dpe = pd.read_csv(
             TMP_FOLDER + "csv/batiment_groupe_dpe_representatif_logement.csv",
             dtype=cols_dpe,
-            usecols=cols_dpe.keys(),
+            usecols=list(cols_dpe.keys()),
             sep=";",
             iterator=True,
             chunksize=chunk_size,
@@ -462,6 +463,16 @@ def add_communes_plm(mutations: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([mutations, plm], ignore_index=True)
 
 
+def build_types_bien(df_: pd.DataFrame) -> dict[object, str]:
+    """Map each unique (code_type_local, type_local) pair to a {code: label} dict."""
+    return {
+        code_type_local: type_local
+        for code_type_local, type_local in df_[["code_type_local", "type_local"]]
+        .value_counts()
+        .index
+    }
+
+
 @task()
 def process_dvf_stats() -> None:
     years = sorted(
@@ -524,13 +535,7 @@ def process_dvf_stats() -> None:
         communes_from_dvf = communes_from_dvf | set(df["code_commune"].unique())
         df = df.drop("id_parcelle", axis=1)
 
-        types_bien = {
-            k: v
-            for k, v in df_[["code_type_local", "type_local"]]
-            .value_counts()
-            .to_dict()
-            .keys()
-        }
+        types_bien = build_types_bien(df_)
         del df_
 
         # types_bien = {
@@ -749,9 +754,9 @@ def process_dvf_stats() -> None:
 
     # on ajoute les colonnes libelle_geo et code_parent
     with open(TMP_FOLDER + "sections.txt", "r") as f:
-        sections = [s.replace("\n", "") for s in f.readlines()]
+        section_codes = [s.replace("\n", "") for s in f.readlines()]
     sections = pd.DataFrame(
-        set(sections) | sections_from_dvf,
+        set(section_codes) | sections_from_dvf,
         columns=["code_geo"],
     )
     sections["code_geo"] = sections["code_geo"].str.slice(0, 10)
@@ -860,16 +865,17 @@ def process_dvf_stats() -> None:
         )
         logging.info("Done with first export (API table)")
 
-        mask = export[year][
+        mask_df = export[year][
             [
                 c
                 for c in export[year].columns
                 if any([s in c for s in ["nb_", "moy_", "med_"]])
             ]
         ]
-        mask = mask.isna().all(axis=1)
+        mask = mask_df.isna().all(axis=1)
         light_export = export[year].loc[~(mask)]
         del mask
+        del mask_df
 
         light_export.to_csv(
             TMP_FOLDER + "stats_dvf.csv",
@@ -969,7 +975,7 @@ def create_distribution_and_stats_whole_period() -> None:
             if "full-" in f
         ]
     )
-    dvf = []
+    dvf_parts = []
     epci = pd.read_csv(
         TMP_FOLDER + "epci.csv",
         sep=",",
@@ -1037,10 +1043,10 @@ def create_distribution_and_stats_whole_period() -> None:
 
         # pas de prix ou pas de surface
         ventes_nodup = ventes_nodup.dropna(subset=["prix_m2"])
-        dvf.append(ventes_nodup)
+        dvf_parts.append(ventes_nodup)
         del ventes_nodup
 
-    dvf = pd.concat(dvf, ignore_index=True)
+    dvf = pd.concat(dvf_parts, ignore_index=True)
     dvf = pd.merge(
         dvf,
         epci[["code_commune", "code_epci"]],
@@ -1065,7 +1071,7 @@ def create_distribution_and_stats_whole_period() -> None:
     ]
     threshold = 100
     tranches: list[dict[str, str | list | None]] = []
-    stats_period = []
+    stats_period_parts = []
     for t in types_of_interest:
         restr_type_dvf = dvf.loc[
             dvf["code_type_local"].isin(types_of_interest[t])
@@ -1124,7 +1130,7 @@ def create_distribution_and_stats_whole_period() -> None:
                         logging.info(f"{int(round(i / operations * 100, -1))}%")
                     if code in idx:
                         prix = restr_dvf.loc[code]
-                        if not isinstance(prix, pd.core.series.Series):
+                        if not isinstance(prix, pd.Series):
                             prix = pd.Series(prix)
                         if len(prix) >= threshold:
                             intervalles, volumes = distrib_from_prix(prix)
@@ -1157,7 +1163,7 @@ def create_distribution_and_stats_whole_period() -> None:
                 logging.info("- Done with distribution")
             else:
                 logging.info("- No distribution")
-        stats_period.append(pd.concat(type_stats))
+        stats_period_parts.append(pd.concat(type_stats))
         del restr_type_dvf
         del type_stats
         gc.collect()
@@ -1170,7 +1176,8 @@ def create_distribution_and_stats_whole_period() -> None:
     )
     logging.info("Done exporting distribution")
     stats_period = reduce(
-        lambda x, y: pd.merge(x, y, on="code_geo", how="outer"), stats_period
+        lambda x, y: pd.merge(x, y, on="code_geo", how="outer"),
+        stats_period_parts,
     )
     stats_period = pd.merge(echelles, stats_period, on="code_geo", how="outer")
     logging.info("Check répartition échelles")

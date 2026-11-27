@@ -504,7 +504,7 @@ def compute_stats(resource_df: pd.DataFrame) -> tuple:
     )
     resource_df = resource_df[archived.eq("false")]
 
-    df_res = pd.DataFrame.from_dict(
+    df_res = pd.DataFrame(
         [build_resource_info_table(row) for _, row in resource_df.iterrows()]
     )
 
