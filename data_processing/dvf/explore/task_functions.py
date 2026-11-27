@@ -1067,7 +1067,7 @@ def create_distribution_and_stats_whole_period() -> None:
     ]
     threshold = 100
     tranches: list[dict[str, str | list | None]] = []
-    stats_period = []
+    stats_period_parts = []
     for t in types_of_interest:
         restr_type_dvf = dvf.loc[
             dvf["code_type_local"].isin(types_of_interest[t])
@@ -1159,7 +1159,7 @@ def create_distribution_and_stats_whole_period() -> None:
                 logging.info("- Done with distribution")
             else:
                 logging.info("- No distribution")
-        stats_period.append(pd.concat(type_stats))
+        stats_period_parts.append(pd.concat(type_stats))
         del restr_type_dvf
         del type_stats
         gc.collect()
@@ -1172,7 +1172,8 @@ def create_distribution_and_stats_whole_period() -> None:
     )
     logging.info("Done exporting distribution")
     stats_period = reduce(
-        lambda x, y: pd.merge(x, y, on="code_geo", how="outer"), stats_period
+        lambda x, y: pd.merge(x, y, on="code_geo", how="outer"),
+        stats_period_parts,
     )
     stats_period = pd.merge(echelles, stats_period, on="code_geo", how="outer")
     logging.info("Check répartition échelles")
