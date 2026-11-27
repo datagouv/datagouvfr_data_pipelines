@@ -861,16 +861,17 @@ def process_dvf_stats() -> None:
         )
         logging.info("Done with first export (API table)")
 
-        mask = export[year][
+        mask_df = export[year][
             [
                 c
                 for c in export[year].columns
                 if any([s in c for s in ["nb_", "moy_", "med_"]])
             ]
         ]
-        mask = mask.isna().all(axis=1)
+        mask = mask_df.isna().all(axis=1)
         light_export = export[year].loc[~(mask)]
         del mask
+        del mask_df
 
         light_export.to_csv(
             TMP_FOLDER + "stats_dvf.csv",
