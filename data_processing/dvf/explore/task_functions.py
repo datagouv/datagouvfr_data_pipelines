@@ -463,6 +463,16 @@ def add_communes_plm(mutations: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([mutations, plm], ignore_index=True)
 
 
+def build_types_bien(df_: pd.DataFrame) -> dict[object, str]:
+    """Map each unique (code_type_local, type_local) pair to a {code: label} dict."""
+    return {
+        code_type_local: type_local
+        for code_type_local, type_local in df_[["code_type_local", "type_local"]]
+        .value_counts()
+        .index
+    }
+
+
 @task()
 def process_dvf_stats() -> None:
     years = sorted(
@@ -525,13 +535,7 @@ def process_dvf_stats() -> None:
         communes_from_dvf = communes_from_dvf | set(df["code_commune"].unique())
         df = df.drop("id_parcelle", axis=1)
 
-        types_bien = {
-            k: v
-            for k, v in df_[["code_type_local", "type_local"]]
-            .value_counts()
-            .to_dict()
-            .keys()
-        }
+        types_bien = build_types_bien(df_)
         del df_
 
         # types_bien = {
